@@ -37,9 +37,9 @@ add = x, y ->
 assert add(10, 20) == 30
 
 # Arrays
-z = [10, 20, 30]
+z = [10, 10 + 10, 30]
 print z
-# assert z[0] == 10
+# assert z[1] == 20
 # push(z, 40)
 # assert z[3] == 40
 

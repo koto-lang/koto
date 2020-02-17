@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt, rc::Rc};
 
 use crate::parser::{AstNode, Function, Node, Op};
 
@@ -11,6 +11,32 @@ pub enum Value {
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Value::*;
+        match self {
+            Empty => write!(f, "()"),
+            Bool(s) => write!(f, "{}", s),
+            Number(n) => write!(f, "{}", n),
+            StrLiteral(s) => write!(f, "{}", s),
+            Array(a) => {
+                write!(f, "[")?;
+                for (i, value) in a.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", value)?;
+                }
+                write!(f, "]")
+            }
+            Function(function) => {
+                let raw = Rc::into_raw(function.clone());
+                write!(f, "function: {:?}", raw)
+            }
+        }
+    }
 }
 
 struct Scope {
@@ -139,19 +165,7 @@ impl Runtime {
                     }
                     "print" => {
                         for value in arg_values {
-                            match value? {
-                                Empty => print!("() "),
-                                Bool(s) => print!("{} ", s),
-                                Number(n) => print!("{} ", n),
-                                StrLiteral(s) => print!("{} ", s),
-                                Array(a) => print!("{:?} ", a),
-                                Function(_) => {
-                                    return runtime_error!(
-                                        node.position,
-                                        "print doesn't accept functions as arguments".to_string()
-                                    )
-                                }
-                            }
+                            print!("{} ", value?);
                         }
                         println!();
                         Ok(Empty)
