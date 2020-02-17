@@ -1,11 +1,11 @@
 # This is a comment
 
-print("Hello, World!")
+print "Hello, World!"
 
 ###### Basic types and logic
 a = true
 print a
-assert a
+assert a == true
 
 ###### Functions
 
@@ -18,25 +18,29 @@ say_hi()
 square = x -> x * x
 
 # # Muliple-argument functions must be called with parentheses
-# # Single-argument functions can optionally be called without parentheses
-print("The square of 7 is", square 7)
+# # Single-argument functions can be called with or without parentheses
+print("The square of 7 is", square(7))
 
 # Multiple arguments are separated by commas
 # Multiline functions are indented after the -> operator
+# Functions can be nested - TODO args should be local
 add = x, y ->
-  print("Adding", x, "and", y)
-  x + y
+  do_add = x, y ->
+    x + y
+  result = do_add(x, y)
+  print(x, "+", y, "==", result)
+  result
 
-a = 2.5
-b = add(a, 9 / 3)
-print(b, -1.0, "Third")
+assert add(10, 20) == 30
 
-# # Loops and Arrays
-# for i in 0..10
-#   print i
+# Arrays
+# z = [10, 20, 30]
+# assert z[0] == 10
 
-# b = [0, 2, 4, 6, 8]
-# for x in b
+
+# # Loops
+# evens = [0, 2, 4, 6, 8]
+# for x in evens
 #   print x
 
 # for (i, x) in enumerate b
