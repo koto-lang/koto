@@ -26,10 +26,12 @@ child_block = _{
 }
 
 expression = !{
-  assignment
+  ( assignment
   | function
   | binary_op
   | term
+  )
+  ~ COMMENT?
 }
 
 term = _{
