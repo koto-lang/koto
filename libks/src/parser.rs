@@ -1,15 +1,23 @@
 use pest::{error::Error, Parser};
+use std::rc::Rc;
 
 #[derive(Parser)]
 #[grammar = "ks.pest"]
 struct KsParser;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub struct Function {
+    pub args: Vec<String>,
+    pub body: Vec<AstNode>,
+}
+
+#[derive(Clone, Debug)]
 pub enum AstNode {
     Bool(bool),
     Number(f64),
-    Str(String),
+    Str(Rc<String>),
     Ident(String),
+    Function(Rc<Function>),
     Call {
         function: String,
         args: Vec<AstNode>,
@@ -25,7 +33,7 @@ pub enum AstNode {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Op {
     Add,
     Subtract,
@@ -63,8 +71,20 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         Rule::expression => build_ast_from_expression(pair.into_inner().next().unwrap()),
         Rule::boolean => AstNode::Bool(pair.as_str().parse().unwrap()),
         Rule::number => AstNode::Number(pair.as_str().parse().unwrap()),
-        Rule::string => AstNode::Str(pair.into_inner().next().unwrap().as_str().to_string()),
-        Rule::ident => AstNode::Ident(pair.as_str().into()),
+        Rule::string => AstNode::Str(Rc::new(
+            pair.into_inner().next().unwrap().as_str().to_string(),
+        )),
+        Rule::ident => AstNode::Ident(pair.as_str().to_string()),
+        Rule::function => {
+            let mut pair = pair.into_inner();
+            let args: Vec<String> = pair
+                .by_ref()
+                .take_while(|pair| pair.as_str() != "->")
+                .map(|pair| pair.as_str().to_string())
+                .collect();
+            let body: Vec<AstNode> = pair.map(|pair| build_ast_from_expression(pair)).collect();
+            AstNode::Function(Rc::new(Function { args, body }))
+        }
         Rule::call => {
             let mut pair = pair.into_inner();
             let function: String = pair.next().unwrap().as_str().to_string();

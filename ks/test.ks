@@ -5,30 +5,26 @@ print("Hello, World!")
 ###### Basic types and logic
 a = true
 print a
-# assert a == true
+assert a
 
-# a = false
-# assert a != true
+###### Functions
 
-# ###### Functions
-
-# # Functions are defined with the -> operator
-# say_hi ->
-#   print "Hello, World!"
-# say_hi()
+# Functions are defined with the -> operator
+say_hi = -> print "Hi!"
+say_hi()
 
 # # Arguments come before ->
 # # Implicit return of last statement in function
-# square x -> x * x
+square = x -> x * x
 # # Muliple-argument functions must be called with parentheses
 # # Single-argument functions can optionally be called without parentheses
-# print("The square of 7 is", square 7)
+print("The square of 7 is", square 7)
 
-# # Multiple arguments are separated by spaces
-# add x y -> x + y
-# a = 2.5
-# b = add(a, 9 / 3)
-# print(b, -1.0, "Third")
+# Multiple arguments are separated by commas
+add = x, y -> x + y
+a = 2.5
+b = add(a, 9 / 3)
+print(b, -1.0, "Third")
 
 # # Loops and Arrays
 # for i in 0..10

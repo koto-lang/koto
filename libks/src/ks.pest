@@ -16,6 +16,7 @@ expression = {
 
 term = _{
   "(" ~ expression ~ ")"
+  | function
   | call
   | string
   | number
@@ -61,6 +62,11 @@ char = {
   !("\"" | "\\") ~ ANY
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
+
+function = {
+  (ident ~ ("," ~ ident)*)? ~ function_op ~ expression*
+}
+function_op = { "->" }
 
 WHITESPACE = _{ " " | "\t" }
 COMMENT = _{ ("#" ~ (!"\n" ~ ANY)*) }

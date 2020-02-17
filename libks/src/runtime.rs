@@ -1,17 +1,19 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
-use crate::parser::{AstNode, Op};
+use crate::parser::{AstNode, Function, Op};
 
 #[derive(Clone, Debug)]
 pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
-    Str(String),
+    StrLiteral(Rc<String>),
+    // Str(String),
+    Function(Rc<Function>),
 }
 
 pub struct Runtime {
-    values: HashMap<String, Value>,
+    values: HashMap<String, Value>, // TODO Rc string
 }
 
 impl Runtime {
@@ -21,11 +23,16 @@ impl Runtime {
         }
     }
 
-    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<(), String> {
-        for node in ast.iter() {
-            self.evaluate(node)?;
+    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value, String> {
+        self.evaluate_block(ast)
+    }
+
+    pub fn evaluate_block(&mut self, block: &Vec<AstNode>) -> Result<Value, String> {
+        let mut result = Value::Empty;
+        for node in block.iter() {
+            result = self.evaluate(node)?;
         }
-        Ok(())
+        Ok(result)
     }
 
     pub fn evaluate(&mut self, node: &AstNode) -> Result<Value, String> {
@@ -34,27 +41,81 @@ impl Runtime {
         match node {
             AstNode::Bool(b) => Ok(Bool(*b)),
             AstNode::Number(n) => Ok(Number(*n)),
-            AstNode::Str(s) => Ok(Str(s.clone())),
+            AstNode::Str(s) => Ok(StrLiteral(s.clone())),
             AstNode::Ident(ident) => self.values.get(ident).map_or_else(
                 || Err(format!("Identifier not found: '{}'", ident)),
                 |v| Ok(v.clone()),
             ),
+            AstNode::Function(f) => Ok(Function(f.clone())),
             AstNode::Call { function, args } => {
-                let values = args.iter().map(|arg| self.evaluate(arg));
+                let f = self.values.get(function).map(|f| match f {
+                    Function(f) => Ok(f.clone()),
+                    unexpected => {
+                        return Err(format!(
+                            "Expected function for identifier {}, found {:?}",
+                            function, unexpected
+                        ));
+                    }
+                });
+                if let Some(f) = f {
+                    let f = f?;
+                    let arg_count = f.args.len();
+                    if args.len() != arg_count {
+                        return Err(format!(
+                            "Incorrect argument count while calling '{}': expected {}, found {}",
+                            function,
+                            arg_count,
+                            args.len()
+                        ));
+                    }
+
+                    for (name, arg) in f.args.iter().zip(args.iter()) {
+                        let arg_value = self.evaluate(arg)?;
+                        self.values.insert(name.clone(), arg_value);
+                    }
+
+                    return self.evaluate_block(&f.body);
+                }
+
+                let arg_values = args.iter().map(|arg| self.evaluate(arg));
+                // Builtins, TODO std lib
                 match function.as_str() {
-                    "print" => {
-                        for value in values {
+                    "assert" => {
+                        for value in arg_values {
                             match value? {
-                                Empty => print!("() "),
-                                Bool(s) => print!("{} ", s),
-                                Number(n) => print!("{} ", n),
-                                Str(s) => print!("{} ", s),
+                                Bool(b) => {
+                                    if !b {
+                                        return Err(format!("Assertion failed"));
+                                    }
+                                }
+                                _ => {
+                                    return Err(format!(
+                                        "assert only expects booleans as arguments"
+                                    ))
+                                }
                             }
                         }
                         println!();
                         Ok(Empty)
                     }
-                    _ => unimplemented!(),
+                    "print" => {
+                        for value in arg_values {
+                            match value? {
+                                Empty => print!("() "),
+                                Bool(s) => print!("{} ", s),
+                                Number(n) => print!("{} ", n),
+                                StrLiteral(s) => print!("{} ", s),
+                                Function(_) => {
+                                    return Err(
+                                        "print doesn't accept functions as arguments".to_string()
+                                    )
+                                }
+                            }
+                        }
+                        println!();
+                        Ok(Empty)
+                    }
+                    _ => Err(format!("Unexpected function name: {}", function.as_str())),
                 }
             }
             AstNode::Assign { lhs, rhs } => {
