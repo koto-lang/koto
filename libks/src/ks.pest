@@ -17,10 +17,13 @@ expression = {
 term = _{
   "(" ~ expression ~ ")"
   | call
-  | ident
   | string
   | number
+  | boolean
+  | ident
 }
+
+boolean = { "true" | "false" }
 
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
@@ -32,9 +35,13 @@ parameters = _{
 
 assignment = { ident ~ "=" ~ expression }
 
-binary_op = { term ~ op ~ expression }
-op = {
+binary_op = { term ~ (arithemetic_op | logic_op) ~ expression }
+arithemetic_op = {
   "+" | "-" | "/" | "*"
+}
+
+logic_op = {
+  "==" | "!=" | "<=" | "<" | ">=" | ">" | "and" | "or"
 }
 
 number = @{

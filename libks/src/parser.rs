@@ -1,4 +1,3 @@
-
 use pest::{error::Error, Parser};
 
 #[derive(Parser)]
@@ -7,6 +6,7 @@ struct KsParser;
 
 #[derive(Debug)]
 pub enum AstNode {
+    Bool(bool),
     Number(f64),
     Str(String),
     Ident(String),
@@ -31,6 +31,14 @@ pub enum Op {
     Subtract,
     Multiply,
     Divide,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    And,
+    Or,
 }
 
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
@@ -50,8 +58,10 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
 }
 
 fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
+    // dbg!(&pair);
     match pair.as_rule() {
         Rule::expression => build_ast_from_expression(pair.into_inner().next().unwrap()),
+        Rule::boolean => AstNode::Bool(pair.as_str().parse().unwrap()),
         Rule::number => AstNode::Number(pair.as_str().parse().unwrap()),
         Rule::string => AstNode::Str(pair.into_inner().next().unwrap().as_str().to_string()),
         Rule::ident => AstNode::Ident(pair.as_str().into()),
@@ -75,7 +85,18 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
                 "-" => Op::Subtract,
                 "*" => Op::Multiply,
                 "/" => Op::Divide,
-                _ => unreachable!(),
+                "==" => Op::Equal,
+                "!=" => Op::NotEqual,
+                "<" => Op::LessThan,
+                "<=" => Op::LessThanOrEqual,
+                ">" => Op::GreaterThan,
+                ">=" => Op::GreaterThanOrEqual,
+                "and" => Op::And,
+                "or" => Op::Or,
+                unexpected => {
+                    let error = format!("Unexpected binary operator: {}", unexpected);
+                    unreachable!(error)
+                }
             };
             let rhs = Box::new(build_ast_from_expression(pair.next().unwrap()));
             AstNode::BinaryOp { lhs, op, rhs }
@@ -83,4 +104,3 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
         unexpected => panic!("Unexpected expression: {:?}", unexpected),
     }
 }
-
