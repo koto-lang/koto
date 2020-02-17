@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parser::{AstNode, Function, Op};
+use crate::parser::{AstNode, Function, Node, Op};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -38,35 +38,48 @@ impl Runtime {
     pub fn evaluate(&mut self, node: &AstNode) -> Result<Value, String> {
         use Value::*;
 
-        match node {
-            AstNode::Bool(b) => Ok(Bool(*b)),
-            AstNode::Number(n) => Ok(Number(*n)),
-            AstNode::Str(s) => Ok(StrLiteral(s.clone())),
-            AstNode::Ident(ident) => self.values.get(ident).map_or_else(
-                || Err(format!("Identifier not found: '{}'", ident)),
+        macro_rules! runtime_error {
+            ($position:expr, $error:expr) => {
+                Err(format!(
+                    "Runtime error at line: {} column: {} - {}",
+                    $position.line, $position.column, $error
+                ))
+            };
+        };
+
+        match &node.node {
+            Node::Bool(b) => Ok(Bool(*b)),
+            Node::Number(n) => Ok(Number(*n)),
+            Node::Str(s) => Ok(StrLiteral(s.clone())),
+            Node::Ident(ident) => self.values.get(ident).map_or_else(
+                || runtime_error!(node.position, format!("Variable not found: '{}'", ident)),
                 |v| Ok(v.clone()),
             ),
-            AstNode::Function(f) => Ok(Function(f.clone())),
-            AstNode::Call { function, args } => {
+            Node::Function(f) => Ok(Function(f.clone())),
+            Node::Call { function, args } => {
                 let f = self.values.get(function).map(|f| match f {
                     Function(f) => Ok(f.clone()),
-                    unexpected => {
-                        return Err(format!(
-                            "Expected function for identifier {}, found {:?}",
+                    unexpected => runtime_error!(
+                        node.position,
+                        format!(
+                            "Expected function for value {}, found {:?}",
                             function, unexpected
-                        ));
-                    }
+                        )
+                    ),
                 });
                 if let Some(f) = f {
                     let f = f?;
                     let arg_count = f.args.len();
                     if args.len() != arg_count {
-                        return Err(format!(
-                            "Incorrect argument count while calling '{}': expected {}, found {}",
-                            function,
-                            arg_count,
-                            args.len()
-                        ));
+                        return runtime_error!(
+                            node.position,
+                            format!(
+                                "Incorrect argument count while calling '{}': expected {}, found {}",
+                                function,
+                                arg_count,
+                                args.len()
+                            )
+                        );
                     }
 
                     for (name, arg) in f.args.iter().zip(args.iter()) {
@@ -85,17 +98,20 @@ impl Runtime {
                             match value? {
                                 Bool(b) => {
                                     if !b {
-                                        return Err(format!("Assertion failed"));
+                                        return runtime_error!(
+                                            node.position,
+                                            format!("Assertion failed")
+                                        );
                                     }
                                 }
                                 _ => {
-                                    return Err(format!(
-                                        "assert only expects booleans as arguments"
-                                    ))
+                                    return runtime_error!(
+                                        node.position,
+                                        format!("assert only expects booleans as arguments")
+                                    )
                                 }
                             }
                         }
-                        println!();
                         Ok(Empty)
                     }
                     "print" => {
@@ -106,7 +122,8 @@ impl Runtime {
                                 Number(n) => print!("{} ", n),
                                 StrLiteral(s) => print!("{} ", s),
                                 Function(_) => {
-                                    return Err(
+                                    return runtime_error!(
+                                        node.position,
                                         "print doesn't accept functions as arguments".to_string()
                                     )
                                 }
@@ -115,23 +132,29 @@ impl Runtime {
                         println!();
                         Ok(Empty)
                     }
-                    _ => Err(format!("Unexpected function name: {}", function.as_str())),
+                    _ => runtime_error!(
+                        node.position,
+                        format!("Unexpected function name: {}", function.as_str())
+                    ),
                 }
             }
-            AstNode::Assign { lhs, rhs } => {
+            Node::Assign { lhs, rhs } => {
                 let value = self.evaluate(rhs)?;
                 self.values.insert(lhs.clone(), value);
                 Ok(Empty)
             }
-            AstNode::BinaryOp { lhs, op, rhs } => {
+            Node::BinaryOp { lhs, op, rhs } => {
                 let a = self.evaluate(lhs)?;
                 let b = self.evaluate(rhs)?;
                 macro_rules! binary_op_error {
                     ($op:ident, $a:ident, $b:ident) => {
-                        Err(format!(
-                            "Unable to perform operation {:?} with lhs: '{:?}' and rhs: '{:?}'",
-                            op, a, b
-                        ))
+                        runtime_error!(
+                            node.position,
+                            format!(
+                                "Unable to perform operation {:?} with lhs: '{:?}' and rhs: '{:?}'",
+                                op, a, b
+                            )
+                        )
                     };
                 };
                 match (&a, &b) {

@@ -1,4 +1,4 @@
-use pest::{error::Error, Parser};
+use pest::{error::Error, Parser, Span};
 use std::rc::Rc;
 
 #[derive(Parser)]
@@ -6,13 +6,30 @@ use std::rc::Rc;
 struct KsParser;
 
 #[derive(Clone, Debug)]
-pub struct Function {
-    pub args: Vec<String>,
-    pub body: Vec<AstNode>,
+pub struct AstNode {
+    pub position: Position,
+    pub node: Node,
+}
+
+impl AstNode {
+    pub fn new(span: Span, node: Node) -> Self {
+        let line_col = span.start_pos().line_col();
+        let position = Position {
+            line: line_col.0,
+            column: line_col.1,
+        };
+        Self { position, node }
+    }
 }
 
 #[derive(Clone, Debug)]
-pub enum AstNode {
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Clone, Debug)]
+pub enum Node {
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
@@ -34,6 +51,12 @@ pub enum AstNode {
 }
 
 #[derive(Clone, Debug)]
+pub struct Function {
+    pub args: Vec<String>,
+    pub body: Vec<AstNode>,
+}
+
+#[derive(Clone, Debug)]
 pub enum Op {
     Add,
     Subtract,
@@ -51,6 +74,7 @@ pub enum Op {
 
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
     let parsed = KsParser::parse(Rule::program, source)?;
+    // dbg!(&parsed);
 
     let mut ast = vec![];
     for pair in parsed {
@@ -67,40 +91,50 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
 
 fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
     // dbg!(&pair);
+    use Node::*;
     match pair.as_rule() {
         Rule::expression => build_ast_from_expression(pair.into_inner().next().unwrap()),
-        Rule::boolean => AstNode::Bool(pair.as_str().parse().unwrap()),
-        Rule::number => AstNode::Number(pair.as_str().parse().unwrap()),
-        Rule::string => AstNode::Str(Rc::new(
-            pair.into_inner().next().unwrap().as_str().to_string(),
-        )),
-        Rule::ident => AstNode::Ident(pair.as_str().to_string()),
+        Rule::boolean => AstNode::new(pair.as_span(), Bool(pair.as_str().parse().unwrap())),
+        Rule::number => AstNode::new(pair.as_span(), Node::Number(pair.as_str().parse().unwrap())),
+        Rule::string => AstNode::new(
+            pair.as_span(),
+            Node::Str(Rc::new(
+                pair.into_inner().next().unwrap().as_str().to_string(),
+            )),
+        ),
+        Rule::ident => AstNode::new(pair.as_span(), Node::Ident(pair.as_str().to_string())),
         Rule::function => {
-            let mut pair = pair.into_inner();
-            let args: Vec<String> = pair
+            let span = pair.as_span();
+            let mut inner = pair.into_inner();
+            // collect any arguments before the function operator
+            let args: Vec<String> = inner
                 .by_ref()
                 .take_while(|pair| pair.as_str() != "->")
                 .map(|pair| pair.as_str().to_string())
                 .collect();
-            let body: Vec<AstNode> = pair.map(|pair| build_ast_from_expression(pair)).collect();
-            AstNode::Function(Rc::new(Function { args, body }))
+            // collect function body
+            let body: Vec<AstNode> = inner.map(|pair| build_ast_from_expression(pair)).collect();
+            AstNode::new(span, Node::Function(Rc::new(self::Function { args, body })))
         }
         Rule::call => {
-            let mut pair = pair.into_inner();
-            let function: String = pair.next().unwrap().as_str().to_string();
-            let args: Vec<AstNode> = pair.map(|pair| build_ast_from_expression(pair)).collect();
-            AstNode::Call { function, args }
+            let span = pair.as_span();
+            let mut inner = pair.into_inner();
+            let function: String = inner.next().unwrap().as_str().to_string();
+            let args: Vec<AstNode> = inner.map(|pair| build_ast_from_expression(pair)).collect();
+            AstNode::new(span, Node::Call { function, args })
         }
         Rule::assignment => {
-            let mut pair = pair.into_inner();
-            let lhs = pair.next().unwrap().as_str().to_string();
-            let rhs = Box::new(build_ast_from_expression(pair.next().unwrap()));
-            AstNode::Assign { lhs, rhs }
+            let span = pair.as_span();
+            let mut inner = pair.into_inner();
+            let lhs = inner.next().unwrap().as_str().to_string();
+            let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()));
+            AstNode::new(span, Node::Assign { lhs, rhs })
         }
         Rule::binary_op => {
-            let mut pair = pair.into_inner();
-            let lhs = Box::new(build_ast_from_expression(pair.next().unwrap()));
-            let op = match pair.next().unwrap().as_str() {
+            let span = pair.as_span();
+            let mut inner = pair.into_inner();
+            let lhs = Box::new(build_ast_from_expression(inner.next().unwrap()));
+            let op = match inner.next().unwrap().as_str() {
                 "+" => Op::Add,
                 "-" => Op::Subtract,
                 "*" => Op::Multiply,
@@ -118,9 +152,9 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> AstNode {
                     unreachable!(error)
                 }
             };
-            let rhs = Box::new(build_ast_from_expression(pair.next().unwrap()));
-            AstNode::BinaryOp { lhs, op, rhs }
+            let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()));
+            AstNode::new(span, Node::BinaryOp { lhs, op, rhs })
         }
-        unexpected => panic!("Unexpected expression: {:?}", unexpected),
+        unexpected => unreachable!("Unexpected expression: {:?}", unexpected),
     }
 }

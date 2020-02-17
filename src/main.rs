@@ -19,10 +19,10 @@ fn main() {
                 let mut runtime = ks::Runtime::new();
                 match runtime.run(&ast) {
                     Ok(_) => {}
-                    Err(e) => println!("Error while running script:\n  {}", e),
+                    Err(e) => eprintln!("{}", e),
                 }
             }
-            Err(e) => println!("Error while parsing source: {}", e),
+            Err(e) => eprintln!("Error while parsing source: {}", e),
         }
     }
 }
