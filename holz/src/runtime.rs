@@ -13,7 +13,7 @@ pub enum Value {
 }
 
 struct Scope {
-    values: HashMap<String, Value>, // TODO Rc string
+    values: HashMap<Rc<String>, Value>, // TODO Rc string
 }
 
 impl Scope {
@@ -39,11 +39,7 @@ impl Runtime {
         self.evaluate_block(ast, &mut Scope::new())
     }
 
-    fn evaluate_block(
-        &mut self,
-        block: &Vec<AstNode>,
-        scope: &mut Scope,
-    ) -> Result<Value, String> {
+    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Scope) -> Result<Value, String> {
         let mut result = Value::Empty;
         for node in block.iter() {
             result = self.evaluate(node, scope)?;
@@ -74,7 +70,7 @@ impl Runtime {
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
-                let f = scope.values.get(function).map(|f| match f {
+                let maybe_function_or_error = scope.values.get(function).map(|f| match f {
                     Function(f) => Ok(f.clone()),
                     unexpected => runtime_error!(
                         node.position,
@@ -84,7 +80,7 @@ impl Runtime {
                         )
                     ),
                 });
-                if let Some(f) = f {
+                if let Some(f) = maybe_function_or_error {
                     let f = f?;
                     let arg_count = f.args.len();
                     if args.len() != arg_count {

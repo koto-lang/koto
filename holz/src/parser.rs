@@ -23,17 +23,11 @@ impl AstNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct Position {
-    pub line: usize,
-    pub column: usize,
-}
-
-#[derive(Clone, Debug)]
 pub enum Node {
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
-    Ident(String),
+    Ident(Rc<String>),
     Block(Vec<AstNode>),
     Function(Rc<Function>),
     Call {
@@ -41,7 +35,7 @@ pub enum Node {
         args: Vec<AstNode>,
     },
     Assign {
-        lhs: String,
+        lhs: Rc<String>,
         rhs: Box<AstNode>,
     },
     BinaryOp {
@@ -56,7 +50,7 @@ pub struct Block {}
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub args: Vec<String>,
+    pub args: Vec<Rc<String>>,
     pub body: Vec<AstNode>,
 }
 
@@ -74,6 +68,12 @@ pub enum Op {
     GreaterThanOrEqual,
     And,
     Or,
+}
+
+#[derive(Clone, Debug)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
 }
 
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
@@ -122,16 +122,16 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         )),
         Rule::ident => Some(AstNode::new(
             pair.as_span(),
-            Node::Ident(pair.as_str().to_string()),
+            Node::Ident(Rc::new(pair.as_str().to_string())),
         )),
         Rule::function => {
             let span = pair.as_span();
             let mut inner = pair.into_inner();
             // collect any arguments before the function operator
-            let args: Vec<String> = inner
+            let args: Vec<Rc<String>> = inner
                 .by_ref()
                 .take_while(|pair| pair.as_str() != "->")
-                .map(|pair| pair.as_str().to_string())
+                .map(|pair| Rc::new(pair.as_str().to_string()))
                 .collect();
             // collect function body
             let body: Vec<AstNode> = inner
@@ -154,7 +154,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::assignment => {
             let span = pair.as_span();
             let mut inner = pair.into_inner();
-            let lhs = inner.next().unwrap().as_str().to_string();
+            let lhs = Rc::new(inner.next().unwrap().as_str().to_string());
             let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(span, Node::Assign { lhs, rhs }))
         }
