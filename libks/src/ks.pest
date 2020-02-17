@@ -27,7 +27,11 @@ boolean = { "true" | "false" }
 
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
-call = { ident ~ parameters }
+call = {
+  (ident ~ parameters)
+  | (ident ~ expression)
+}
+
 parameters = _{
   "(" ~ ")"
   | "(" ~ expression ~ ("," ~ expression)* ~ ")"

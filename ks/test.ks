@@ -2,8 +2,9 @@
 
 print("Hello, World!")
 
-# ###### Basic types and logic
-# a = true
+###### Basic types and logic
+a = true
+print a
 # assert a == true
 
 # a = false
