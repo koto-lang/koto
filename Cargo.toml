@@ -14,3 +14,7 @@ members = [
 ks = {path = "libks"}
 pest = "2.1.2"
 pest_derive  = "2.1.0"
+
+[dependencies.clap]
+version = "2.33.0"
+# default-features = false

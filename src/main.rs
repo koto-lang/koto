@@ -1,23 +1,28 @@
+use clap::{App, Arg};
+use std::fs;
 
 fn main() {
-    let script = r#"
-        // Comment
-        print("Hello, World!!!")
-        print(42.0)
-        a = 2
-        b = a * 8 + 4
-        print(b, 43.0, "Hiii")
-    "#;
+    let matches = App::new("ks")
+        .version("1.0")
+        .arg(
+            Arg::with_name("script")
+                .help("The ks script to run")
+                .index(1),
+        )
+        .get_matches();
 
-    match ks::parse(script) {
-        Ok(ast) => {
-            println!("{:?}\n", ast);
-            let mut runtime = ks::Runtime::new();
-            match runtime.run(&ast) {
-                Ok(_) => {}
-                Err(e) => println!("Error while running script:\n  {}", e),
+    if let Some(path) = matches.value_of("script") {
+        let script = fs::read_to_string(path).expect("Unable to load path");
+        match ks::parse(&script) {
+            Ok(ast) => {
+                // println!("{:?}\n", ast);
+                let mut runtime = ks::Runtime::new();
+                match runtime.run(&ast) {
+                    Ok(_) => {}
+                    Err(e) => println!("Error while running script:\n  {}", e),
+                }
             }
+            Err(e) => println!("Error while parsing source: {}", e),
         }
-        Err(e) => println!("Error while parsing source: {}", e),
     }
 }

@@ -36,9 +36,6 @@ pub enum Op {
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
     let parsed = KsParser::parse(Rule::program, source)?;
 
-    println!("{}", source);
-    println!("{}", parsed);
-
     let mut ast = vec![];
     for pair in parsed {
         match pair.as_rule() {
