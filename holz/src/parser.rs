@@ -139,8 +139,8 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::function => {
             let span = pair.as_span();
             let mut inner = pair.into_inner();
-            // collect any arguments before the function operator
-            let args: Vec<Rc<String>> = inner
+            let mut capture = inner.next().unwrap().into_inner();
+            let args: Vec<Rc<String>> = capture
                 .by_ref()
                 .take_while(|pair| pair.as_str() != "->")
                 .map(|pair| Rc::new(pair.as_str().to_string()))

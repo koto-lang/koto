@@ -89,13 +89,12 @@ logic_op = {
 }
 
 function = {
-  ((function_args ~ function_op) | function_op)
-  ~ (expression | child_block)
+  function_args ~ (expression | child_block)
 }
-function_args = _{
-  ident ~ ("," ~ ident)*
+function_args = {
+  "|" ~ "|"
+  | "|" ~ ident ~ ("," ~ ident)* ~ "|"
 }
-function_op = { "->" }
 
 WHITESPACE = _{ " " | "\t" }
 COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }

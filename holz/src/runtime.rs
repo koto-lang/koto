@@ -121,10 +121,11 @@ impl Runtime {
                         return runtime_error!(
                             node.position,
                             format!(
-                                "Incorrect argument count while calling '{}': expected {}, found {}",
+                                "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
                                 function,
                                 arg_count,
-                                args.len()
+                                args.len(),
+                                f.args
                             )
                         );
                     }
@@ -189,7 +190,7 @@ impl Runtime {
                         runtime_error!(
                             node.position,
                             format!(
-                                "Unable to perform operation {:?} with lhs: '{:?}' and rhs: '{:?}'",
+                                "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
                                 op, a, b
                             )
                         )

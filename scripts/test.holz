@@ -9,24 +9,24 @@ assert a == true
 
 ###### Functions
 
-# Functions are defined with the -> operator
-say_hi = -> print "Hi!"
+# Functions are defined with || capture lists
+say_hi = || print "Hi!"
 say_hi()
 
 # # Arguments come before ->
 # # Implicit return of last statement in function
-square = x -> x * x
+square = |x| x * x
 
 # # Muliple-argument functions must be called with parentheses
 # # Single-argument functions can be called with or without parentheses
 print("The square of 7 is", square(7))
 
 # Multiple arguments are separated by commas
-# Multiline functions are indented after the -> operator
+# Multiline functions are indented after the capture list
 # Functions can be nested - TODO args should be local
-add = x, y ->
+add = |x, y|
   x2 = x # Nested trailing comment
-  do_add = x, y ->
+  do_add = |x, y|
     x = x + y
     x
   result = do_add(x, y)
@@ -39,6 +39,7 @@ assert add(10, 20) == 30
 # Arrays
 z = [10, 10 + 10, 30]
 print z
+
 # assert z[1] == 20
 # push(z, 40)
 # assert z[3] == 40
@@ -60,7 +61,7 @@ print z
 # z = 0..20
 # # Anonymous functions can be passed as parameters
 # # [] collects a range into an array
-# a = [filter(z, x -> x < 10)]
+# a = [filter(z, |x| x < 10)]
 # assert(length(a) == 10)
 # # ..= creates an inclusive range
 # y = [1..=5]
@@ -74,7 +75,7 @@ print z
 #   sum = sum + i
 
 # o = {
-#   bar: x -> square x
+#   bar: |x| square x
 # }
 
 # x = o.bar(9)
@@ -82,12 +83,12 @@ print z
 
 # ##### Classes
 # class O
-#   new => self.foo = 42
-#   with_foo x ->
+#   new: |self| self.foo = 42
+#   with_foo: |x|
 #     o = new O
 #     o.foo = x
 #     o
-#   print_foo => print self.foo
+#   print_foo: |self| print self.foo
 
 # o = new O
 # o.print_foo()
