@@ -1,12 +1,5 @@
 # This is a comment
 
-####
-# This is a
-# multline comment
-####
-
-### This is not a multiline comment
-
 print("Hello, World!")
 
 # ###### Basic types and logic
