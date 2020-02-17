@@ -1,22 +1,39 @@
 program = _{
   SOI
-  ~ "\n"*
-  ~ (statement ~ "\n"+)*
-  ~ statement?
+  ~ block*
+  ~ NEWLINE*
   ~ EOI
 }
 
-statement = _{ expression }
+block = @{
+  (NEWLINE | COMMENT)*
+  ~ statement
+  ~ (next_statement)*
+}
 
-expression = {
+statement = _{ expression }
+next_statement = _{ indentation ~ statement }
+
+indentation = ${ NEWLINE ~ PEEK_ALL }
+push_indentation = ${ indentation ~ PUSH(indent) }
+
+indent = _{ WHITESPACE+ }
+
+child_block = _{
+  push_indentation
+  ~ block
+  ~ DROP
+}
+
+expression = !{
   assignment
+  | function
   | binary_op
   | term
 }
 
 term = _{
   "(" ~ expression ~ ")"
-  | function
   | call
   | string
   | number
@@ -64,9 +81,13 @@ char = {
 }
 
 function = {
-  (ident ~ ("," ~ ident)*)? ~ function_op ~ expression*
+  ((function_args ~ function_op) | function_op)
+  ~ (expression | child_block)
+}
+function_args = _{
+  ident ~ ("," ~ ident)*
 }
 function_op = { "->" }
 
 WHITESPACE = _{ " " | "\t" }
-COMMENT = _{ ("#" ~ (!"\n" ~ ANY)*) }
+COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }

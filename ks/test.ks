@@ -16,12 +16,17 @@ say_hi()
 # # Arguments come before ->
 # # Implicit return of last statement in function
 square = x -> x * x
+
 # # Muliple-argument functions must be called with parentheses
 # # Single-argument functions can optionally be called without parentheses
 print("The square of 7 is", square 7)
 
 # Multiple arguments are separated by commas
-add = x, y -> x + y
+# Multiline functions are indented after the -> operator
+add = x, y ->
+  print("Adding", x, "and", y)
+  x + y
+
 a = 2.5
 b = add(a, 9 / 3)
 print(b, -1.0, "Third")
@@ -79,4 +84,3 @@ print(b, -1.0, "Third")
 
 # ##### Standard Library
 # x = math.sin 42
-

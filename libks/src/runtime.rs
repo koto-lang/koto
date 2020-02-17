@@ -55,6 +55,7 @@ impl Runtime {
                 || runtime_error!(node.position, format!("Variable not found: '{}'", ident)),
                 |v| Ok(v.clone()),
             ),
+            Node::Block(block) => self.evaluate_block(&block),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
                 let f = self.values.get(function).map(|f| match f {
