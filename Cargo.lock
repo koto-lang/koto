@@ -58,9 +58,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ks"
+version = "0.1.0"
+dependencies = [
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
 name = "ksapp"
 version = "0.1.0"
 dependencies = [
+ "ks",
  "pest",
  "pest_derive",
 ]
