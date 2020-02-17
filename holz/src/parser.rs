@@ -2,8 +2,8 @@ use pest::{error::Error, Parser, Span};
 use std::rc::Rc;
 
 #[derive(Parser)]
-#[grammar = "ks.pest"]
-struct KsParser;
+#[grammar = "holz.pest"]
+struct HolzParser;
 
 #[derive(Clone, Debug)]
 pub struct AstNode {
@@ -77,7 +77,7 @@ pub enum Op {
 }
 
 pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
-    let parsed = KsParser::parse(Rule::program, source)?;
+    let parsed = HolzParser::parse(Rule::program, source)?;
     // dbg!(&parsed);
 
     let mut ast = vec![];

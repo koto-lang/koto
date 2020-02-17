@@ -13,10 +13,10 @@ fn main() {
 
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
-        match ks::parse(&script) {
+        match holz::parse(&script) {
             Ok(ast) => {
                 // println!("{:?}\n", ast);
-                let mut runtime = ks::Runtime::new();
+                let mut runtime = holz::Runtime::new();
                 match runtime.run(&ast) {
                     Ok(_) => {}
                     Err(e) => eprintln!("{}", e),

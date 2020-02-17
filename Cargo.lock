@@ -108,7 +108,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ks"
+name = "holz"
 version = "0.1.0"
 dependencies = [
  "pest",
@@ -116,11 +116,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ksapp"
+name = "holzapp"
 version = "0.1.0"
 dependencies = [
  "clap",
- "ks",
+ "holz",
  "pest",
  "pest_derive",
 ]

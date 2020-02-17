@@ -1,5 +1,5 @@
 [package]
-name = "ksapp"
+name = "holzapp"
 
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
@@ -7,11 +7,11 @@ edition = "2018"
 
 [workspace]
 members = [
-  "libks"
+  "holz"
 ]
 
 [dependencies]
-ks = {path = "libks"}
+holz = { path = "holz" }
 pest = "2.1.2"
 pest_derive  = "2.1.0"
 
