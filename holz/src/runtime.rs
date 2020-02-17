@@ -7,6 +7,7 @@ pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
+    Array(Vec<Value>),
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
@@ -63,6 +64,13 @@ impl Runtime {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
             Node::Str(s) => Ok(StrLiteral(s.clone())),
+            Node::Array(elements) => {
+                let values: Result<Vec<_>, _> = elements
+                    .iter()
+                    .map(|node| self.evaluate(node, scope))
+                    .collect();
+                Ok(Array(values?))
+            }
             Node::Ident(ident) => scope.values.get(ident).map_or_else(
                 || runtime_error!(node.position, format!("Variable not found: '{}'", ident)),
                 |v| Ok(v.clone()),
@@ -136,6 +144,7 @@ impl Runtime {
                                 Bool(s) => print!("{} ", s),
                                 Number(n) => print!("{} ", n),
                                 StrLiteral(s) => print!("{} ", s),
+                                Array(a) => print!("{:?} ", a),
                                 Function(_) => {
                                     return runtime_error!(
                                         node.position,
@@ -155,8 +164,8 @@ impl Runtime {
             }
             Node::Assign { lhs, rhs } => {
                 let value = self.evaluate(rhs, scope)?;
-                scope.values.insert(lhs.clone(), value);
-                Ok(Empty)
+                scope.values.insert(lhs.clone(), value.clone());
+                Ok(value)
             }
             Node::BinaryOp { lhs, op, rhs } => {
                 let a = self.evaluate(lhs, scope)?;

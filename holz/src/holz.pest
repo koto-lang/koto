@@ -37,15 +37,35 @@ expression = !{
 term = _{
   "(" ~ expression ~ ")"
   | call
+  | array
   | string
   | number
   | boolean
   | ident
 }
 
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
 boolean = { "true" | "false" }
 
-ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+number = @{
+  "-"?
+  ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+  ~ ("." ~ ASCII_DIGIT*)?
+  ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+array = {
+  "[" ~ "]"
+  | "[" ~ expression ~ ("," ~ expression)* ~ "]"
+}
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+  !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
 
 call = {
   (ident ~ parameters)
@@ -66,20 +86,6 @@ arithemetic_op = {
 
 logic_op = {
   "==" | "!=" | "<=" | "<" | ">=" | ">" | "and" | "or"
-}
-
-number = @{
-  "-"?
-  ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
-  ~ ("." ~ ASCII_DIGIT*)?
-  ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
-}
-
-string = ${ "\"" ~ inner ~ "\"" }
-inner = @{ char* }
-char = {
-  !("\"" | "\\") ~ ANY
-  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
 function = {

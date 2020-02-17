@@ -27,6 +27,7 @@ pub enum Node {
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
+    Array(Vec<AstNode>),
     Ident(Rc<String>),
     Block(Vec<AstNode>),
     Function(Rc<Function>),
@@ -120,6 +121,17 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
                 pair.into_inner().next().unwrap().as_str().to_string(),
             )),
         )),
+        Rule::array => {
+            let span = pair.as_span();
+            let inner = pair.into_inner();
+            let elements: Vec<AstNode> = inner
+                .filter_map(|pair| build_ast_from_expression(pair))
+                .collect();
+            Some(AstNode::new(
+                span,
+                Node::Array(elements)),
+            )
+        }
         Rule::ident => Some(AstNode::new(
             pair.as_span(),
             Node::Ident(Rc::new(pair.as_str().to_string())),
