@@ -1,0 +1,55 @@
+program = _{
+  SOI
+  ~ "\n"*
+  ~ (statement ~ "\n"+)*
+  ~ statement?
+  ~ EOI
+}
+
+statement = _{ expression }
+
+expression = {
+  assignment
+  | binary_op
+  | term
+}
+
+term = _{
+  "(" ~ expression ~ ")"
+  | call
+  | ident
+  | string
+  | number
+}
+
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+call = { ident ~ parameters }
+parameters = _{
+  "(" ~ ")"
+  | "(" ~ expression ~ ("," ~ expression)* ~ ")"
+}
+
+assignment = { ident ~ "=" ~ expression }
+
+binary_op = { term ~ op ~ expression }
+op = {
+  "+" | "-" | "/" | "*"
+}
+
+number = @{
+  "-"?
+  ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+  ~ ("." ~ ASCII_DIGIT*)?
+  ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+  !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
+
+WHITESPACE = _{ " " | "\t" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
