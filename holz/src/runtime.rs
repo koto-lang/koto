@@ -12,30 +12,46 @@ pub enum Value {
     Function(Rc<Function>),
 }
 
-pub struct Runtime {
+struct Scope {
     values: HashMap<String, Value>, // TODO Rc string
+}
+
+impl Scope {
+    fn new() -> Self {
+        Self {
+            values: HashMap::new(),
+        }
+    }
+}
+
+pub struct Runtime {
+    _global: Scope,
 }
 
 impl Runtime {
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
+            _global: Scope::new(),
         }
     }
 
     pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value, String> {
-        self.evaluate_block(ast)
+        self.evaluate_block(ast, &mut Scope::new())
     }
 
-    pub fn evaluate_block(&mut self, block: &Vec<AstNode>) -> Result<Value, String> {
+    fn evaluate_block(
+        &mut self,
+        block: &Vec<AstNode>,
+        scope: &mut Scope,
+    ) -> Result<Value, String> {
         let mut result = Value::Empty;
         for node in block.iter() {
-            result = self.evaluate(node)?;
+            result = self.evaluate(node, scope)?;
         }
         Ok(result)
     }
 
-    pub fn evaluate(&mut self, node: &AstNode) -> Result<Value, String> {
+    fn evaluate(&mut self, node: &AstNode, scope: &mut Scope) -> Result<Value, String> {
         use Value::*;
 
         macro_rules! runtime_error {
@@ -51,14 +67,14 @@ impl Runtime {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
             Node::Str(s) => Ok(StrLiteral(s.clone())),
-            Node::Ident(ident) => self.values.get(ident).map_or_else(
+            Node::Ident(ident) => scope.values.get(ident).map_or_else(
                 || runtime_error!(node.position, format!("Variable not found: '{}'", ident)),
                 |v| Ok(v.clone()),
             ),
-            Node::Block(block) => self.evaluate_block(&block),
+            Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
-                let f = self.values.get(function).map(|f| match f {
+                let f = scope.values.get(function).map(|f| match f {
                     Function(f) => Ok(f.clone()),
                     unexpected => runtime_error!(
                         node.position,
@@ -83,15 +99,17 @@ impl Runtime {
                         );
                     }
 
+                    let mut child_scope = Scope::new();
+
                     for (name, arg) in f.args.iter().zip(args.iter()) {
-                        let arg_value = self.evaluate(arg)?;
-                        self.values.insert(name.clone(), arg_value);
+                        let arg_value = self.evaluate(arg, scope)?;
+                        child_scope.values.insert(name.clone(), arg_value);
                     }
 
-                    return self.evaluate_block(&f.body);
+                    return self.evaluate_block(&f.body, &mut child_scope);
                 }
 
-                let arg_values = args.iter().map(|arg| self.evaluate(arg));
+                let arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
                 // Builtins, TODO std lib
                 match function.as_str() {
                     "assert" => {
@@ -140,13 +158,13 @@ impl Runtime {
                 }
             }
             Node::Assign { lhs, rhs } => {
-                let value = self.evaluate(rhs)?;
-                self.values.insert(lhs.clone(), value);
+                let value = self.evaluate(rhs, scope)?;
+                scope.values.insert(lhs.clone(), value);
                 Ok(Empty)
             }
             Node::BinaryOp { lhs, op, rhs } => {
-                let a = self.evaluate(lhs)?;
-                let b = self.evaluate(rhs)?;
+                let a = self.evaluate(lhs, scope)?;
+                let b = self.evaluate(rhs, scope)?;
                 macro_rules! binary_op_error {
                     ($op:ident, $a:ident, $b:ident) => {
                         runtime_error!(

@@ -25,9 +25,12 @@ print("The square of 7 is", square(7))
 # Multiline functions are indented after the -> operator
 # Functions can be nested - TODO args should be local
 add = x, y ->
+  x2 = x # Nested trailing comment
   do_add = x, y ->
-    x + y
+    x = x + y
+    x
   result = do_add(x, y)
+  assert x == x2 # function arguments are locally scoped
   print(x, "+", y, "==", result)
   result
 
