@@ -38,6 +38,7 @@ rhs_value = _{
 
 lhs_value = _{
   "(" ~ value ~ ")"
+  | index
   | call
   | array
   | string
@@ -72,6 +73,10 @@ function_args = {
 array = {
   "[" ~ "]"
   | "[" ~ expression ~ ("," ~ expression)* ~ "]"
+}
+
+index = ${
+  id ~ "[" ~ expression ~ "]"
 }
 
 boolean = { "true" | "false" }

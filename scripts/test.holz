@@ -15,12 +15,12 @@ assert false or (false or true)
 
 ###### Functions
 
-# Functions are defined with || capture lists
+# Functions are defined with || argument lists
 say_hi = || print "Hi!"
 say_hi()
 
-# # Arguments come before ->
-# # Implicit return of last statement in function
+# Arguments belong inside the ||s
+# Implicit return of last statement in function
 square = |x| x * x
 
 # # Muliple-argument functions must be called with parentheses
@@ -40,15 +40,20 @@ add = |x, y|
   print(x, "+", y, "==", result)
   result
 
-assert add(10, 20) == 30
+assert add(1, 2) == 3
 
 # Arrays
 z = [10, 10 + 10, 30]
 print z
 
-# assert z[1] == 20
-# push(z, 40)
-# assert z[3] == 40
+assert z[1] == 20
+assert z[1 - 1] == 10
+y = push(z, 40, 50)
+assert y[3] == 40
+print y
+
+# assert length z == 3
+# assert length y == 5
 
 
 # # Loops

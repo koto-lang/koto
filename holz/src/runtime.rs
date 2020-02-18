@@ -1,13 +1,13 @@
 use std::{collections::HashMap, fmt, rc::Rc};
 
-use crate::parser::{AstNode, Function, Node, Op};
+use crate::parser::{AstNode, Function, Node, Op, Position};
 
 #[derive(Clone, Debug)]
 pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
-    Array(Vec<Value>),
+    Array(Rc<Vec<Value>>),
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
@@ -40,7 +40,7 @@ impl fmt::Display for Value {
 }
 
 struct Scope {
-    values: HashMap<Rc<String>, Value>, // TODO Rc string
+    values: HashMap<Rc<String>, Value>,
 }
 
 impl Scope {
@@ -49,6 +49,15 @@ impl Scope {
             values: HashMap::new(),
         }
     }
+}
+
+macro_rules! runtime_error {
+    ($position:expr, $error:expr) => {
+        Err(format!(
+            "Runtime error at line: {} column: {}\n - {}",
+            $position.line, $position.column, $error
+        ))
+    };
 }
 
 pub struct Runtime {
@@ -77,15 +86,6 @@ impl Runtime {
     fn evaluate(&mut self, node: &AstNode, scope: &mut Scope) -> Result<Value, String> {
         use Value::*;
 
-        macro_rules! runtime_error {
-            ($position:expr, $error:expr) => {
-                Err(format!(
-                    "Runtime error at line: {} column: {} - {}",
-                    $position.line, $position.column, $error
-                ))
-            };
-        };
-
         match &node.node {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
@@ -95,12 +95,45 @@ impl Runtime {
                     .iter()
                     .map(|node| self.evaluate(node, scope))
                     .collect();
-                Ok(Array(values?))
+                Ok(Array(Rc::new(values?)))
             }
-            Node::Id(id) => scope.values.get(id).map_or_else(
-                || runtime_error!(node.position, format!("Variable not found: '{}'", id)),
-                |v| Ok(v.clone()),
-            ),
+            Node::Index { id, expression } => {
+                let index = self.evaluate(expression, scope)?;
+                match index {
+                    Number(i) => {
+                        let i = i as usize;
+                        match &scope.values.get(id) {
+                            Some(range) => match range {
+                                Array(elements) => {
+                                    if i < elements.len() {
+                                        Ok(elements[i].clone())
+                                    } else {
+                                        runtime_error!(
+                                        node.position,
+                                        format!("Index out of bounds: '{}' has a length of {} but the index is {}",
+                                                id, elements.len(), i))
+                                    }
+                                }
+                                _ => runtime_error!(
+                                    node.position,
+                                    format!("Unable to index {}", range)
+                                ),
+                            },
+                            None => {
+                                runtime_error!(node.position, format!("Value not found: '{}'", id))
+                            }
+                        }
+                    }
+                    _ => runtime_error!(
+                        node.position,
+                        format!(
+                            "Indexing is only supported with number values (got index value of {})",
+                            index
+                        )
+                    ),
+                }
+            }
+            Node::Id(id) => self.get_value(id, scope, node.position),
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
@@ -109,7 +142,7 @@ impl Runtime {
                     unexpected => runtime_error!(
                         node.position,
                         format!(
-                            "Expected function for value {}, found {:?}",
+                            "Expected function for value {}, found {}",
                             function, unexpected
                         )
                     ),
@@ -140,7 +173,7 @@ impl Runtime {
                     return self.evaluate_block(&f.body, &mut child_scope);
                 }
 
-                let arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
+                let mut arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
                 // Builtins, TODO std lib
                 match function.as_str() {
                     "assert" => {
@@ -164,6 +197,37 @@ impl Runtime {
                         }
                         Ok(Empty)
                     }
+                    "push" => {
+                        let first_arg_value = match arg_values.next() {
+                            Some(arg) => arg,
+                            None => {
+                                return runtime_error!(
+                                    node.position,
+                                    "Missing array as first argument for push"
+                                );
+                            }
+                        };
+
+                        match first_arg_value? {
+                            Array(array) => {
+                                let mut array = array.clone();
+                                let array_data = Rc::make_mut(&mut array);
+                                for value in arg_values {
+                                    array_data.push(value?)
+                                }
+                                Ok(Array(array))
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node.position,
+                                    format!(
+                                        "push is only supported for arrays, found {}",
+                                        unexpected
+                                    )
+                                )
+                            }
+                        }
+                    }
                     "print" => {
                         for value in arg_values {
                             print!("{} ", value?);
@@ -179,7 +243,7 @@ impl Runtime {
             }
             Node::Assign { lhs, rhs } => {
                 let value = self.evaluate(rhs, scope)?;
-                scope.values.insert(lhs.clone(), value.clone());
+                self.set_value(lhs.clone(), value.clone(), scope);
                 Ok(value)
             }
             Node::BinaryOp { lhs, op, rhs } => {
@@ -221,5 +285,17 @@ impl Runtime {
                 }
             }
         }
+    }
+
+    fn get_value(
+        &self,
+        id: &Rc<String>,
+        scope: &Scope,
+        position: Position,
+    ) -> Result<Value, String> {
+        scope.values.get(id).map_or_else(
+            || runtime_error!(position, format!("Value not found: '{}'", id)),
+            |v| Ok(v.clone()),
+        )
     }
 }
