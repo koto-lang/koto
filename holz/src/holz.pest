@@ -3,32 +3,20 @@ COMMENT = _{ comment_multi | comment_single }
 comment_multi = _{ "###" ~ (!"###" ~ ANY)+ ~ "###" }
 comment_single = _{ "#" ~ (!NEWLINE ~ ANY)* }
 
-program = _{
-  SOI
-  ~ block*
-  ~ NEWLINE*
-  ~ EOI
-}
+keyword = _{ "and" | "or" | "class" }
+
+program = _{ SOI ~ block* ~ NEWLINE* ~ EOI }
 
 block = @{
   (NEWLINE | COMMENT)*
-  ~ statement
-  ~ (next_statement)*
+  ~ expression
+  ~ (next_expression)*
 }
+child_block = _{ push_indentation ~ block ~ DROP }
 
-statement = _{ expression }
-next_statement = _{ indentation ~ statement }
-
-indentation = ${ NEWLINE ~ PEEK_ALL }
 push_indentation = ${ indentation ~ PUSH(indent) }
-
+indentation = ${ NEWLINE ~ PEEK_ALL }
 indent = _{ WHITESPACE+ }
-
-child_block = _{
-  push_indentation
-  ~ block
-  ~ DROP
-}
 
 expression = !{
   ( assignment
@@ -38,6 +26,7 @@ expression = !{
   )
   ~ COMMENT?
 }
+next_expression = _{ indentation ~ expression }
 
 term = _{
   "(" ~ expression ~ ")"
@@ -49,39 +38,8 @@ term = _{
   | id
 }
 
-keyword = _{ "and" | "or" | "class" }
-
-id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
-id_start = @{ ASCII_ALPHA }
-id_end = @{ ASCII_ALPHANUMERIC | "_" }
-
-boolean = { "true" | "false" }
-
-number = @{
-  "-"?
-  ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
-  ~ ("." ~ ASCII_DIGIT*)?
-  ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
-}
-
-array = {
-  "[" ~ "]"
-  | "[" ~ expression ~ ("," ~ expression)* ~ "]"
-}
-
-string = ${ "\"" ~ inner ~ "\"" }
-inner = @{ char* }
-char = {
-  !("\"" | "\\") ~ ANY
-  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
-}
-
-call = {
-  (id ~ parameters)
-  | (id ~ expression)
-}
-
-parameters = _{
+call = { (id ~ call_args) | (id ~ expression) }
+call_args = _{
   "(" ~ ")"
   | "(" ~ expression ~ ("," ~ expression)* ~ ")"
 }
@@ -97,10 +55,33 @@ logic_op = {
   "==" | "!=" | "<=" | "<" | ">=" | ">" | "and" | "or"
 }
 
-function = {
-  function_args ~ (expression | child_block)
-}
+function = { function_args ~ (expression | child_block) }
 function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
+
+array = {
+  "[" ~ "]"
+  | "[" ~ expression ~ ("," ~ expression)* ~ "]"
+}
+
+boolean = { "true" | "false" }
+
+number = @{
+  "-"?
+  ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+  ~ ("." ~ ASCII_DIGIT*)?
+  ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+  !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
+
+id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
+id_start = @{ ASCII_ALPHA }
+id_end = @{ ASCII_ALPHANUMERIC | "_" }

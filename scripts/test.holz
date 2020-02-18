@@ -73,6 +73,19 @@ print z
 # y = [1..=5]
 # assert(length(y) == 5)
 
+# Control flow
+
+# Single line if statement
+# a = |x| x > 10
+# assert if a 42 then true else false
+#
+# Multiline if statement
+# x = if a 99
+#   "foo"
+# else
+#   "bar"
+#
+
 
 # ###### Tables
 # o = { min: 0, max: 42 }
