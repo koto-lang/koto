@@ -169,133 +169,7 @@ impl Runtime {
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
-                let maybe_function_or_error = scope.values.get(function).map(|f| match f {
-                    Function(f) => Ok(f.clone()),
-                    unexpected => runtime_error!(
-                        node.position,
-                        format!(
-                            "Expected function for value {}, found {}",
-                            function, unexpected
-                        )
-                    ),
-                });
-                if let Some(f) = maybe_function_or_error {
-                    let f = f?;
-                    let arg_count = f.args.len();
-                    if args.len() != arg_count {
-                        return runtime_error!(
-                            node.position,
-                            format!(
-                                "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
-                                function,
-                                arg_count,
-                                args.len(),
-                                f.args
-                            )
-                        );
-                    }
-
-                    let mut child_scope = Scope::new();
-
-                    for (name, arg) in f.args.iter().zip(args.iter()) {
-                        let arg_value = self.evaluate(arg, scope)?;
-                        child_scope.values.insert(name.clone(), arg_value);
-                    }
-
-                    return self.evaluate_block(&f.body, &mut child_scope);
-                }
-
-                let mut arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
-                // Builtins, TODO std lib
-                match function.as_str() {
-                    "assert" => {
-                        for value in arg_values {
-                            match value? {
-                                Bool(b) => {
-                                    if !b {
-                                        return runtime_error!(
-                                            node.position,
-                                            format!("Assertion failed")
-                                        );
-                                    }
-                                }
-                                _ => {
-                                    return runtime_error!(
-                                        node.position,
-                                        format!("assert only expects booleans as arguments")
-                                    )
-                                }
-                            }
-                        }
-                        Ok(Empty)
-                    }
-                    "push" => {
-                        let first_arg_value = match arg_values.next() {
-                            Some(arg) => arg,
-                            None => {
-                                return runtime_error!(
-                                    node.position,
-                                    "Missing array as first argument for push"
-                                );
-                            }
-                        };
-
-                        match first_arg_value? {
-                            Array(array) => {
-                                let mut array = array.clone();
-                                let array_data = Rc::make_mut(&mut array);
-                                for value in arg_values {
-                                    array_data.push(value?)
-                                }
-                                Ok(Array(array))
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node.position,
-                                    format!(
-                                        "push is only supported for arrays, found {}",
-                                        unexpected
-                                    )
-                                )
-                            }
-                        }
-                    }
-                    "length" => {
-                        let first_arg_value = match arg_values.next() {
-                            Some(arg) => arg,
-                            None => {
-                                return runtime_error!(
-                                    node.position,
-                                    "Missing array as argument for length"
-                                );
-                            }
-                        };
-                        match first_arg_value? {
-                            Array(array) => Ok(Number(array.len() as f64)),
-                            Range { min, max } => Ok(Number((max - min) as f64)),
-                            unexpected => {
-                                return runtime_error!(
-                                    node.position,
-                                    format!(
-                                        "length is only supported for arrays and ranges, found {}",
-                                        unexpected
-                                    )
-                                )
-                            }
-                        }
-                    }
-                    "print" => {
-                        for value in arg_values {
-                            print!("{} ", value?);
-                        }
-                        println!();
-                        Ok(Empty)
-                    }
-                    _ => runtime_error!(
-                        node.position,
-                        format!("Unexpected function name: {}", function.as_str())
-                    ),
-                }
+                self.call_function(function, args, scope, node.position)
             }
             Node::Assign { id, expression } => {
                 let value = self.evaluate(expression, scope)?;
@@ -353,5 +227,131 @@ impl Runtime {
             || runtime_error!(position, format!("Value not found: '{}'", id)),
             |v| Ok(v.clone()),
         )
+    }
+
+    fn call_function(
+        &mut self,
+        id: &String,
+        args: &Vec<AstNode>,
+        scope: &mut Scope,
+        position: Position,
+    ) -> Result<Value, String> {
+        use Value::*;
+
+        let maybe_function_or_error = scope.values.get(id).map(|f| match f {
+            Function(f) => Ok(f.clone()),
+            unexpected => runtime_error!(
+                position,
+                format!("Expected function for value {}, found {}", id, unexpected)
+            ),
+        });
+        if let Some(f) = maybe_function_or_error {
+            let f = f?;
+            let arg_count = f.args.len();
+            if args.len() != arg_count {
+                return runtime_error!(
+                    position,
+                    format!(
+                        "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
+                        id,
+                        arg_count,
+                        args.len(),
+                        f.args
+                    )
+                );
+            }
+
+            let mut child_scope = Scope::new();
+
+            for (name, arg) in f.args.iter().zip(args.iter()) {
+                let arg_value = self.evaluate(arg, scope)?;
+                child_scope.values.insert(name.clone(), arg_value);
+            }
+
+            return self.evaluate_block(&f.body, &mut child_scope);
+        }
+
+        // Builtins, TODO std lib
+        let mut arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
+        match id.as_str() {
+            "assert" => {
+                for value in arg_values {
+                    match value? {
+                        Bool(b) => {
+                            if !b {
+                                return runtime_error!(position, format!("Assertion failed"));
+                            }
+                        }
+                        _ => {
+                            return runtime_error!(
+                                position,
+                                format!("assert only expects booleans as arguments")
+                            )
+                        }
+                    }
+                }
+                Ok(Empty)
+            }
+            "push" => {
+                let first_arg_value = match arg_values.next() {
+                    Some(arg) => arg,
+                    None => {
+                        return runtime_error!(
+                            position,
+                            "Missing array as first argument for push"
+                        );
+                    }
+                };
+
+                match first_arg_value? {
+                    Array(array) => {
+                        let mut array = array.clone();
+                        let array_data = Rc::make_mut(&mut array);
+                        for value in arg_values {
+                            array_data.push(value?)
+                        }
+                        Ok(Array(array))
+                    }
+                    unexpected => {
+                        return runtime_error!(
+                            position,
+                            format!("push is only supported for arrays, found {}", unexpected)
+                        )
+                    }
+                }
+            }
+            "length" => {
+                let first_arg_value = match arg_values.next() {
+                    Some(arg) => arg,
+                    None => {
+                        return runtime_error!(position, "Missing array as argument for length");
+                    }
+                };
+                match first_arg_value? {
+                    Array(array) => Ok(Number(array.len() as f64)),
+                    Range { min, max } => Ok(Number((max - min) as f64)),
+                    unexpected => {
+                        return runtime_error!(
+                            position,
+                            format!(
+                                "length is only supported for arrays and ranges, found {}",
+                                unexpected
+                            )
+                        )
+                    }
+                }
+            }
+            "print" => {
+                for value in arg_values {
+                    print!("{} ", value?);
+                }
+                println!();
+                Ok(Empty)
+            }
+            _ => runtime_error!(
+                position,
+                format!("Unexpected function name: {}", id.as_str())
+            ),
+        }
     }
 }
