@@ -3,7 +3,11 @@ use std::{collections::HashMap, fmt, rc::Rc};
 use crate::parser::{AstNode, Function, Node, Op, Position};
 
 pub enum Error {
-    RuntimeError { message: String, start_pos: Position, end_pos: Position },
+    RuntimeError {
+        message: String,
+        start_pos: Position,
+        end_pos: Position,
+    },
 }
 
 pub type RuntimeResult = Result<Value, Error>;
@@ -77,21 +81,21 @@ macro_rules! runtime_error {
 }
 
 pub struct Runtime {
-    _global: Scope,
+    global: Scope,
 }
 
 impl Runtime {
     pub fn new() -> Self {
         Self {
-            _global: Scope::new(),
+            global: Scope::new(),
         }
     }
 
     pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult {
-        self.evaluate_block(ast, &mut Scope::new())
+        self.evaluate_block(ast, &mut None)
     }
 
-    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Scope) -> RuntimeResult {
+    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Option<Scope>) -> RuntimeResult {
         let mut result = Value::Empty;
         for node in block.iter() {
             result = self.evaluate(node, scope)?;
@@ -99,7 +103,7 @@ impl Runtime {
         Ok(result)
     }
 
-    fn evaluate(&mut self, node: &AstNode, scope: &mut Scope) -> RuntimeResult {
+    fn evaluate(&mut self, node: &AstNode, scope: &mut Option<Scope>) -> RuntimeResult {
         use Value::*;
 
         match &node.node {
@@ -151,13 +155,13 @@ impl Runtime {
                 }
             }
             Node::Index { id, expression } => self.array_index(id, expression, scope, node),
-            Node::Id(id) => self.get_value(id, scope, node),
+            Node::Id(id) => self.get_value_or_error(id, scope, node),
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => self.call_function(function, args, scope, node),
             Node::Assign { id, expression } => {
                 let value = self.evaluate(expression, scope)?;
-                scope.values.insert(id.clone(), value.clone());
+                self.set_value(id, &value, scope);
                 Ok(value)
             }
             Node::BinaryOp { lhs, op, rhs } => {
@@ -219,29 +223,48 @@ impl Runtime {
         }
     }
 
-    fn get_value(&self, id: &Rc<String>, scope: &Scope, node: &AstNode) -> RuntimeResult {
-        scope.values.get(id).map_or_else(
-            || runtime_error!(node, "Value not found: '{}'", id),
-            |v| Ok(v.clone()),
-        )
+    fn set_value(&mut self, id: &Rc<String>, value: &Value, scope: &mut Option<Scope>) {
+        match scope {
+            Some(scope) => scope.values.insert(id.clone(), value.clone()),
+            None => self.global.values.insert(id.clone(), value.clone()),
+        };
+    }
+
+    fn get_value(&self, id: &String, scope: &Option<Scope>) -> Option<Value> {
+        if scope.is_some() {
+            if let Some(value) = scope.as_ref().unwrap().values.get(id) {
+                return Some(value.clone());
+            }
+        }
+
+        self.global.values.get(id).map(|v| v.clone())
+    }
+
+    fn get_value_or_error(
+        &self,
+        id: &String,
+        scope: &Option<Scope>,
+        node: &AstNode,
+    ) -> RuntimeResult {
+        match self.get_value(id, scope) {
+            Some(v) => Ok(v),
+            None => runtime_error!(node, "Value '{}' not found", id),
+        }
     }
 
     fn array_index(
         &mut self,
         id: &String,
         expression: &AstNode,
-        scope: &mut Scope,
+        scope: &mut Option<Scope>,
         node: &AstNode,
     ) -> RuntimeResult {
         use Value::*;
 
         let index = self.evaluate(expression, scope)?;
-        let maybe_array = scope.values.get(id);
-        if maybe_array.is_none() {
-            return runtime_error!(node, "Value not found: '{}'", id);
-        }
+        let maybe_array = self.get_value_or_error(id, scope, node)?;
 
-        if let Some(Array(elements)) = maybe_array {
+        if let Array(elements) = maybe_array {
             match index {
                 Number(i) => {
                     let i = i as usize;
@@ -292,7 +315,7 @@ impl Runtime {
             runtime_error!(
                 node,
                 "Indexing is only supported for Arrays, found {}",
-                maybe_array.unwrap()
+                maybe_array
             )
         }
     }
@@ -301,22 +324,25 @@ impl Runtime {
         &mut self,
         id: &String,
         args: &Vec<AstNode>,
-        scope: &mut Scope,
+        scope: &mut Option<Scope>,
         node: &AstNode,
     ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_function_or_error = scope.values.get(id).map(|f| match f {
-            Function(f) => Ok(f.clone()),
-            unexpected => runtime_error!(
-                node,
-                "Expected function for value {}, found {}",
-                id,
-                unexpected
-            ),
-        });
-        if let Some(f) = maybe_function_or_error {
-            let f = f?;
+        let maybe_function = match self.get_value(id, scope) {
+            Some(Function(f)) => Some(f.clone()),
+            Some(unexpected) => {
+                return runtime_error!(
+                    node,
+                    "Expected function for value {}, found {}",
+                    id,
+                    unexpected
+                )
+            }
+            None => None,
+        };
+
+        if let Some(f) = maybe_function {
             let arg_count = f.args.len();
             if args.len() != arg_count {
                 return runtime_error!(
@@ -336,7 +362,7 @@ impl Runtime {
                 child_scope.values.insert(name.clone(), arg_value);
             }
 
-            return self.evaluate_block(&f.body, &mut child_scope);
+            return self.evaluate_block(&f.body, &mut Some(child_scope));
         }
 
         // Builtins, TODO std lib

@@ -39,8 +39,12 @@ add = |x, y|
   assert x == x2 # function arguments are locally scoped
   print(x, "+", y, "==", result)
   result
-
 assert add(1, 2) == 3
+
+# functions can call globally defined functions
+add2 = |x, y| add(x, y)
+assert add2(4, -4) == 0
+
 
 ####### Arrays
 z = [10, 10 + 10, 30]
@@ -82,7 +86,7 @@ assert length(y) == 5
 is_zero = |x| x == 0
 if is_zero 0 then print "Zer0"
 if is_zero 1 then print "Zer0" else print "Not Zer0"
-assert if is_zero 1 then true else false
+assert if is_zero 0 then true else false
 
 
 # Multiline if statement
