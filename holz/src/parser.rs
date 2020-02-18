@@ -127,10 +127,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let elements: Vec<AstNode> = inner
                 .filter_map(|pair| build_ast_from_expression(pair))
                 .collect();
-            Some(AstNode::new(
-                span,
-                Node::Array(elements)),
-            )
+            Some(AstNode::new(span, Node::Array(elements)))
         }
         Rule::id => Some(AstNode::new(
             pair.as_span(),

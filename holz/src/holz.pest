@@ -20,16 +20,24 @@ indent = _{ WHITESPACE+ }
 
 expression = !{
   ( assignment
-  | binary_op
   | function
-  | term
+  | value
   )
   ~ COMMENT?
 }
+
 next_expression = _{ indentation ~ expression }
 
-term = _{
-  "(" ~ expression ~ ")"
+value = _{
+  rhs_value | lhs_value
+}
+
+rhs_value = _{
+  binary_op
+}
+
+lhs_value = _{
+  "(" ~ value ~ ")"
   | call
   | array
   | string
@@ -46,7 +54,7 @@ call_args = _{
 
 assignment = { id ~ "=" ~ expression }
 
-binary_op = { term ~ (arithemetic_op | logic_op) ~ expression }
+binary_op = { lhs_value ~ (arithemetic_op | logic_op) ~ expression }
 arithemetic_op = {
   "+" | "-" | "/" | "*"
 }
