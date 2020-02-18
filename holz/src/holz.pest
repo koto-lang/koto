@@ -1,3 +1,8 @@
+WHITESPACE = _{ " " | "\t" }
+COMMENT = _{ comment_multi | comment_single }
+comment_multi = _{ "###" ~ (!"###" ~ ANY)+ ~ "###" }
+comment_single = _{ "#" ~ (!NEWLINE ~ ANY)* }
+
 program = _{
   SOI
   ~ block*
@@ -99,6 +104,3 @@ function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
-
-WHITESPACE = _{ " " | "\t" }
-COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }

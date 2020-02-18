@@ -1,6 +1,11 @@
 # This is a comment
 
-print "Hello, World!" # This is a trailing comment
+### Multiline comments
+start and end with 3 #s
+###
+
+print ### Multiline comments can also be used inline ### "Hello..."
+print "World!" # This is a trailing comment
 
 ###### Basic types and logic
 a = true
@@ -24,7 +29,7 @@ print("The square of 7 is", square(7))
 
 # Multiple arguments are separated by commas
 # Multiline functions are indented after the capture list
-# Functions can be nested - TODO args should be local
+# Functions can be nested
 add = |x, y|
   x2 = x # Nested trailing comment
   do_add = |x, y|
