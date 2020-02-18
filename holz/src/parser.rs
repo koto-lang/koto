@@ -68,12 +68,7 @@ pub enum Node {
         then_node: Box<AstNode>,
         else_node: Option<Box<AstNode>>,
     },
-    For {
-        arg: Rc<String>,
-        range: Box<AstNode>,
-        condition: Option<Box<AstNode>>,
-        body: Box<AstNode>,
-    },
+    For(Rc<AstFor>),
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +78,14 @@ pub struct Block {}
 pub struct Function {
     pub args: Vec<Rc<String>>,
     pub body: Vec<AstNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AstFor {
+    pub arg: Rc<String>,
+    pub range: Box<AstNode>,
+    pub condition: Option<Box<AstNode>>,
+    pub body: Box<AstNode>,
 }
 
 #[derive(Clone, Debug)]
@@ -282,12 +285,37 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(
                 span,
-                Node::For {
+                Node::For(Rc::new(AstFor {
                     arg,
                     range,
                     condition,
                     body,
-                },
+                })),
+            ))
+        }
+        Rule::for_inline => {
+            // dbg!(&pair);
+            let mut inner = pair.into_inner();
+            let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            inner.next(); // for
+            let arg = Rc::new(inner.next().unwrap().as_str().to_string());
+            inner.next(); // in
+            let range = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let condition = if inner.next().is_some() { // if
+                Some(Box::new(
+                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
+                ))
+            } else {
+                None
+            };
+            Some(AstNode::new(
+                span,
+                Node::For(Rc::new(AstFor {
+                    arg,
+                    range,
+                    condition,
+                    body,
+                })),
             ))
         }
         unexpected => unreachable!("Unexpected expression: {:?}", unexpected),

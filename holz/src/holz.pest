@@ -49,9 +49,10 @@ rhs_value = _{
 
 lhs_value = _{
   "(" ~ value ~ ")"
+  | if_inline
+  | for_inline
   | index
   | call
-  | if_inline
   | array
   | range
   | string
@@ -81,6 +82,13 @@ for_block = {
   ~ in_keyword ~ value
   ~ (if_keyword ~ value)?
   ~ child_block
+}
+
+for_inline = {
+  (call | id)
+  ~ for_keyword ~ id
+  ~ in_keyword ~ value
+  ~ (if_keyword ~ value)?
 }
 
 for_keyword = @{ "for" ~ WHITESPACE+ }

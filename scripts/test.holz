@@ -116,6 +116,7 @@ for x in 0..10
   for y in -5..5 if (x == y) and (x < 3)
     print (x, y)
 
+print("for", i) for i in 0..3
 
 # c = [square(x) for x in [1, 2, 3]]
 # print c

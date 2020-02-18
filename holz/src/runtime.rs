@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt, rc::Rc};
 
-use crate::parser::{AstNode, Function, Node, Op, Position};
+use crate::parser::{AstFor, AstNode, Function, Node, Op, Position};
 
 pub enum Error {
     RuntimeError {
@@ -22,6 +22,7 @@ pub enum Value {
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
+    For(Rc<AstFor>),
 }
 
 impl fmt::Display for Value {
@@ -47,6 +48,7 @@ impl fmt::Display for Value {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
             }
+            _ => unreachable!(),
         }
     }
 }
@@ -147,7 +149,13 @@ impl Runtime {
     fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Option<Scope>) -> RuntimeResult {
         let mut result = Value::Empty;
         for node in block.iter() {
-            result = self.evaluate(node, scope)?;
+            let output = self.evaluate(node, scope)?;
+            match output {
+                Value::For(_) => {
+                    result = self.run_for_statement(output, scope, node)?;
+                }
+                _ => result = output,
+            }
         }
         Ok(result)
     }
@@ -269,48 +277,7 @@ impl Runtime {
                     runtime_error!(node, "Expected bool in if statement, found {}", maybe_bool)
                 }
             }
-            Node::For {
-                arg,
-                range,
-                condition,
-                body,
-            } => {
-                let iter = match self.evaluate(range, scope)? {
-                    v @ Array(_) | v @ Range { .. } => ValueIterator::new(v),
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "Expected iterable range in for statement, found {}",
-                            unexpected
-                        )
-                    }
-                };
-
-                for value in iter {
-                    self.set_value(arg, &value, scope);
-
-                    if let Some(condition) = condition {
-                        match self.evaluate(condition, scope)? {
-                            Bool(b) => {
-                                if !b {
-                                    continue;
-                                }
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node,
-                                    "Expected bool in for statement condition, found {}",
-                                    unexpected
-                                )
-                            }
-                        }
-                    }
-
-                    self.evaluate(body, scope)?;
-                }
-
-                Ok(Value::Empty)
-            }
+            Node::For(f) => Ok(For(f.clone())),
         }
     }
 
@@ -342,6 +309,54 @@ impl Runtime {
             Some(v) => Ok(v),
             None => runtime_error!(node, "Value '{}' not found", id),
         }
+    }
+
+    fn run_for_statement(
+        &mut self,
+        for_statement: Value,
+        scope: &mut Option<Scope>,
+        node: &AstNode,
+    ) -> RuntimeResult {
+        use Value::*;
+        let mut result = Value::Empty;
+
+        if let Value::For(f) = for_statement {
+            let iter = match self.evaluate(&f.range, scope)? {
+                v @ Array(_) | v @ Range { .. } => ValueIterator::new(v),
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "Expected iterable range in for statement, found {}",
+                        unexpected
+                    )
+                }
+            };
+
+            for value in iter {
+                self.set_value(&f.arg, &value, scope);
+
+                if let Some(condition) = &f.condition {
+                    match self.evaluate(&condition, scope)? {
+                        Bool(b) => {
+                            if !b {
+                                continue;
+                            }
+                        }
+                        unexpected => {
+                            return runtime_error!(
+                                node,
+                                "Expected bool in for statement condition, found {}",
+                                unexpected
+                            )
+                        }
+                    }
+                }
+
+                result = self.evaluate(&f.body, scope)?;
+            }
+        }
+
+        Ok(result)
     }
 
     fn array_index(
