@@ -118,7 +118,16 @@ impl Runtime {
                         let min = min as isize;
                         let max = max as isize;
                         let max = if *inclusive { max + 1 } else { max };
-                        Ok(Range { min, max })
+                        if min <= max {
+                            Ok(Range { min, max })
+                        } else {
+                            runtime_error!(
+                                node.position,
+                                format!(
+                                    "Invalid range, min should be less than or equal to max - min: {}, max: {}",
+                                    min, max
+                                ))
+                        }
                     }
                     unexpected => runtime_error!(
                         node.position,
@@ -130,40 +139,7 @@ impl Runtime {
                 }
             }
             Node::Index { id, expression } => {
-                let index = self.evaluate(expression, scope)?;
-                match index {
-                    Number(i) => {
-                        let i = i as usize;
-                        match &scope.values.get(id) {
-                            Some(range) => match range {
-                                Array(elements) => {
-                                    if i < elements.len() {
-                                        Ok(elements[i].clone())
-                                    } else {
-                                        runtime_error!(
-                                        node.position,
-                                        format!("Index out of bounds: '{}' has a length of {} but the index is {}",
-                                                id, elements.len(), i))
-                                    }
-                                }
-                                _ => runtime_error!(
-                                    node.position,
-                                    format!("Unable to index {}", range)
-                                ),
-                            },
-                            None => {
-                                runtime_error!(node.position, format!("Value not found: '{}'", id))
-                            }
-                        }
-                    }
-                    _ => runtime_error!(
-                        node.position,
-                        format!(
-                            "Indexing is only supported with number values (got index value of {})",
-                            index
-                        )
-                    ),
-                }
+                self.array_index(id, expression, scope, node.position)
             }
             Node::Id(id) => self.get_value(id, scope, node.position),
             Node::Block(block) => self.evaluate_block(&block, scope),
@@ -227,6 +203,83 @@ impl Runtime {
             || runtime_error!(position, format!("Value not found: '{}'", id)),
             |v| Ok(v.clone()),
         )
+    }
+
+    fn array_index(
+        &mut self,
+        id: &String,
+        expression: &AstNode,
+        scope: &mut Scope,
+        position: Position,
+    ) -> Result<Value, String> {
+        use Value::*;
+
+        let index = self.evaluate(expression, scope)?;
+        let maybe_array = scope.values.get(id);
+        if maybe_array.is_none() {
+            return runtime_error!(position, format!("Value not found: '{}'", id));
+        }
+
+        if let Some(Array(elements)) = maybe_array {
+            match index {
+                Number(i) => {
+                    let i = i as usize;
+                    if i < elements.len() {
+                        Ok(elements[i].clone())
+                    } else {
+                        runtime_error!(
+                            position,
+                            format!(
+                                "Index out of bounds: '{}' has a length of {} but the index is {}",
+                                id,
+                                elements.len(),
+                                i
+                            )
+                        )
+                    }
+                }
+                Range { min, max } => {
+                    let umin = min as usize;
+                    let umax = max as usize;
+                    if min < 0 || max < 0 {
+                        runtime_error!(
+                            position,
+                            format!(
+                                "Indexing with negative indices isn't supported, min: {}, max: {}",
+                                min, max
+                            )
+                        )
+                    } else if umin >= elements.len() || umax >= elements.len() {
+                        runtime_error!(
+                            position,
+                            format!(
+                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                                id,
+                                elements.len(),
+                                min,
+                                max
+                            )
+                        )
+                    } else {
+                        Ok(Array(Rc::new(
+                            elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
+                        )))
+                    }
+                }
+                _ => runtime_error!(
+                    position,
+                    format!(
+                        "Indexing is only supported with number values or ranges, found {})",
+                        index
+                    )
+                ),
+            }
+        } else {
+            runtime_error!(
+                position,
+                format!("Indexing is only supported for Arrays, found {}", maybe_array.unwrap())
+            )
+        }
     }
 
     fn call_function(
