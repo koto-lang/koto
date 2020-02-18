@@ -53,6 +53,11 @@ pub enum Node {
         rhs: Box<AstNode>,
         op: Op,
     },
+    If {
+        condition: Box<AstNode>,
+        then_block: Vec<AstNode>,
+        else_block: Vec<AstNode>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -108,6 +113,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
     use Node::*;
     let span = pair.as_span();
     match pair.as_rule() {
+        Rule::push_indentation | Rule::indentation => None,
         Rule::block => {
             let inner = pair.into_inner();
             let block: Vec<AstNode> = inner
@@ -141,7 +147,14 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let inclusive = inner.next().unwrap().as_str() == "..=";
             let max = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
 
-            Some(AstNode::new(span, Node::Range{min, inclusive, max}))
+            Some(AstNode::new(
+                span,
+                Node::Range {
+                    min,
+                    inclusive,
+                    max,
+                },
+            ))
         }
         Rule::index => {
             let mut inner = pair.into_inner();
@@ -208,7 +221,25 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(span, Node::BinaryOp { lhs, op, rhs }))
         }
-        Rule::push_indentation | Rule::indentation => None,
+        Rule::if_statement => {
+            let mut inner = pair.into_inner();
+            let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let then_block = vec![build_ast_from_expression(inner.next().unwrap()).unwrap()];
+            let else_block = if let Some(expression) = inner.next() {
+                vec![build_ast_from_expression(expression).unwrap()]
+            } else {
+                Vec::new()
+            };
+
+            Some(AstNode::new(
+                span,
+                Node::If {
+                    condition,
+                    then_block,
+                    else_block,
+                },
+            ))
+        }
         unexpected => unreachable!("Unexpected expression: {:?}", unexpected),
     }
 }

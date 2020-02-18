@@ -3,7 +3,14 @@ COMMENT = _{ comment_multi | comment_single }
 comment_multi = _{ "###" ~ (!"###" ~ ANY)+ ~ "###" }
 comment_single = _{ "#" ~ (!NEWLINE ~ ANY)* }
 
-keyword = _{ "and" | "or" | "class" }
+keyword = _{
+  "and"
+  | "class"
+  | "else"
+  | "if"
+  | "or"
+  | "then"
+}
 
 program = _{ SOI ~ block* ~ NEWLINE* ~ EOI }
 
@@ -40,12 +47,17 @@ lhs_value = _{
   "(" ~ value ~ ")"
   | index
   | call
+  | if_statement
   | array
   | range
   | string
   | number
   | boolean
   | id
+}
+
+if_statement = {
+  "if" ~ value ~ "then" ~ value ~ ("else" ~ value)?
 }
 
 call = { (id ~ call_args) | (id ~ expression) }

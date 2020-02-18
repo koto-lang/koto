@@ -190,6 +190,27 @@ impl Runtime {
                     _ => binary_op_error!(op, a, b),
                 }
             }
+            Node::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                let maybe_bool = self.evaluate(condition, scope)?;
+                if let Bool(condition_value) = maybe_bool {
+                    if condition_value {
+                        self.evaluate_block(then_block, scope)
+                    } else if !else_block.is_empty() {
+                        self.evaluate_block(else_block, scope)
+                    } else {
+                        Ok(Value::Empty)
+                    }
+                } else {
+                    runtime_error!(
+                        node.position,
+                        format!("Expected bool in if statement, found {}", maybe_bool)
+                    )
+                }
+            }
         }
     }
 
@@ -277,7 +298,10 @@ impl Runtime {
         } else {
             runtime_error!(
                 position,
-                format!("Indexing is only supported for Arrays, found {}", maybe_array.unwrap())
+                format!(
+                    "Indexing is only supported for Arrays, found {}",
+                    maybe_array.unwrap()
+                )
             )
         }
     }

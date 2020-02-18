@@ -76,6 +76,22 @@ assert y[0] == 15
 assert length(y) == 5
 
 
+# Control flow
+
+# Single line if statement
+is_zero = |x| x == 0
+if is_zero 0 then print "Zer0"
+if is_zero 1 then print "Zer0" else print "Not Zer0"
+assert if is_zero 0 then true else false
+
+
+# Multiline if statement
+# x = if a 99
+#   "foo"
+# else
+#   "bar"
+#
+
 # TODO support from/to ranges
 
 # # Loops
@@ -87,19 +103,6 @@ assert length(y) == 5
 #   print format("{}: {}", i, x)
 
 # c = [square(x) for x in b]
-
-# Control flow
-
-# Single line if statement
-# a = |x| x > 10
-# assert if a 42 then true else false
-#
-# Multiline if statement
-# x = if a 99
-#   "foo"
-# else
-#   "bar"
-#
 
 # Anonymous functions can be passed as parameters
 # z = 0..20
