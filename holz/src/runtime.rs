@@ -51,6 +51,43 @@ impl fmt::Display for Value {
     }
 }
 
+struct ValueIterator {
+    value: Value,
+    index: isize,
+}
+
+impl ValueIterator {
+    pub fn new(value: Value) -> Self {
+        Self { value, index: 0 }
+    }
+}
+
+impl Iterator for ValueIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Value> {
+        use Value::*;
+
+        let result = match &self.value {
+            Array(a) => a.get(self.index as usize).cloned(),
+            Range { min, max } => {
+                if self.index < (max - min) {
+                    Some(Number((min + self.index) as f64))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if result.is_some() {
+            self.index += 1;
+        }
+
+        result
+    }
+}
+
 #[derive(Debug)]
 struct Scope {
     values: HashMap<Rc<String>, Value>,
@@ -231,6 +268,48 @@ impl Runtime {
                 } else {
                     runtime_error!(node, "Expected bool in if statement, found {}", maybe_bool)
                 }
+            }
+            Node::For {
+                arg,
+                range,
+                condition,
+                body,
+            } => {
+                let iter = match self.evaluate(range, scope)? {
+                    v @ Array(_) | v @ Range { .. } => ValueIterator::new(v),
+                    unexpected => {
+                        return runtime_error!(
+                            node,
+                            "Expected iterable range in for statement, found {}",
+                            unexpected
+                        )
+                    }
+                };
+
+                for value in iter {
+                    self.set_value(arg, &value, scope);
+
+                    if let Some(condition) = condition {
+                        match self.evaluate(condition, scope)? {
+                            Bool(b) => {
+                                if !b {
+                                    continue;
+                                }
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "Expected bool in for statement condition, found {}",
+                                    unexpected
+                                )
+                            }
+                        }
+                    }
+
+                    self.evaluate(body, scope)?;
+                }
+
+                Ok(Value::Empty)
             }
         }
     }

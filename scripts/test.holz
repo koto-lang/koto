@@ -13,6 +13,7 @@ print a
 assert a == true
 assert false or (false or true)
 
+
 ###### Functions
 
 # Functions are defined with || argument lists
@@ -79,6 +80,7 @@ y = x[5..10]
 assert y[0] == 15
 assert length(y) == 5
 
+# TODO support from/to ranges
 
 # Control flow
 
@@ -109,24 +111,21 @@ else
     print "Nested in else block"
 
 
+####### Loops
+for x in 0..10
+  for y in -5..5 if (x == y) and (x < 3)
+    print (x, y)
 
 
-# TODO support from/to ranges
-
-# # Loops
-# evens = [0, 2, 4, 6, 8]
-# for x in evens
-#   print x
+# c = [square(x) for x in [1, 2, 3]]
+# print c
 
 # for (i, x) in enumerate b
 #   print format("{}: {}", i, x)
 
-# c = [square(x) for x in b]
-
 # Anonymous functions can be passed as parameters
-# z = 0..20
 # filter = |xs, f| [x for x in xs if f(x)]
-# a = filter(z, |x| x < 10)
+# a = filter(0..20, |x| x < 10)
 # assert(length(a) == 10)
 
 

@@ -7,7 +7,9 @@ keyword = _{
   "and"
   | "class"
   | "else"
+  | "for"
   | "if"
+  | "in"
   | "or"
   | "then"
 }
@@ -29,6 +31,7 @@ expression = !{
   ( assignment
   | function
   | if_block
+  | for_block
   | value
   )
   ~ COMMENT?
@@ -69,17 +72,19 @@ if_inline = {
   ~ (else_keyword ~ value)?
 }
 
-if_keyword = @{
-  "if" ~ WHITESPACE+
+if_keyword = @{ "if" ~ WHITESPACE+ }
+then_keyword = @{ "then" ~ WHITESPACE+ }
+else_keyword = @{ "else" ~ WHITESPACE+ }
+
+for_block = {
+  for_keyword ~ id
+  ~ in_keyword ~ value
+  ~ (if_keyword ~ value)?
+  ~ child_block
 }
 
-then_keyword = @{
-  "then" ~ WHITESPACE+
-}
-
-else_keyword = @{
-  "else" ~ WHITESPACE+
-}
+for_keyword = @{ "for" ~ WHITESPACE+ }
+in_keyword = @{ "in" ~ WHITESPACE+ }
 
 call = { (id ~ call_args) | (id ~ expression) }
 call_args = _{

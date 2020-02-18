@@ -68,6 +68,12 @@ pub enum Node {
         then_node: Box<AstNode>,
         else_node: Option<Box<AstNode>>,
     },
+    For {
+        arg: Rc<String>,
+        range: Box<AstNode>,
+        condition: Option<Box<AstNode>>,
+        body: Box<AstNode>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -241,7 +247,9 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             inner.next(); // then, or block start
             let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             let else_node = if inner.next().is_some() {
-                Some(Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap()))
+                Some(Box::new(
+                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
+                ))
             } else {
                 None
             };
@@ -252,6 +260,33 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
                     condition,
                     then_node,
                     else_node,
+                },
+            ))
+        }
+        Rule::for_block => {
+            // dbg!(&pair);
+            let mut inner = pair.into_inner();
+            inner.next(); // for
+            let arg = Rc::new(inner.next().unwrap().as_str().to_string());
+            inner.next(); // in
+            let range = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
+                inner.next();
+                Some(Box::new(
+                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
+                ))
+            } else {
+                None
+            };
+            inner.next(); // indentation
+            let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            Some(AstNode::new(
+                span,
+                Node::For {
+                    arg,
+                    range,
+                    condition,
+                    body,
                 },
             ))
         }
