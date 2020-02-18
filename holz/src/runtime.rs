@@ -51,6 +51,7 @@ impl fmt::Display for Value {
     }
 }
 
+#[derive(Debug)]
 struct Scope {
     values: HashMap<Rc<String>, Value>,
 }
@@ -60,6 +61,17 @@ impl Scope {
         Self {
             values: HashMap::new(),
         }
+    }
+
+    #[allow(dead_code)]
+    fn print_keys(&self) {
+        println!(
+            "{:?}",
+            self.values
+                .keys()
+                .map(|key| key.as_ref().clone())
+                .collect::<Vec<_>>()
+        );
     }
 }
 
@@ -204,15 +216,15 @@ impl Runtime {
             }
             Node::If {
                 condition,
-                then_block,
-                else_block,
+                then_node,
+                else_node,
             } => {
                 let maybe_bool = self.evaluate(condition, scope)?;
                 if let Bool(condition_value) = maybe_bool {
                     if condition_value {
-                        self.evaluate_block(then_block, scope)
-                    } else if !else_block.is_empty() {
-                        self.evaluate_block(else_block, scope)
+                        self.evaluate(then_node, scope)
+                    } else if else_node.is_some() {
+                        self.evaluate(else_node.as_ref().unwrap(), scope)
                     } else {
                         Ok(Value::Empty)
                     }
@@ -232,7 +244,8 @@ impl Runtime {
 
     fn get_value(&self, id: &String, scope: &Option<Scope>) -> Option<Value> {
         if scope.is_some() {
-            if let Some(value) = scope.as_ref().unwrap().values.get(id) {
+            let scope = scope.as_ref().unwrap();
+            if let Some(value) = scope.values.get(id) {
                 return Some(value.clone());
             }
         }
@@ -322,7 +335,7 @@ impl Runtime {
 
     fn call_function(
         &mut self,
-        id: &String,
+        id: &Rc<String>,
         args: &Vec<AstNode>,
         scope: &mut Option<Scope>,
         node: &AstNode,
@@ -356,6 +369,8 @@ impl Runtime {
             }
 
             let mut child_scope = Scope::new();
+
+            child_scope.values.insert(id.clone(), Function(f.clone()));
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
                 let arg_value = self.evaluate(arg, scope)?;
@@ -438,7 +453,7 @@ impl Runtime {
                 println!();
                 Ok(Empty)
             }
-            _ => runtime_error!(node, "Unexpected function name: {}", id.as_str()),
+            _ => runtime_error!(node, "Function '{}' not found", id.as_str()),
         }
     }
 }

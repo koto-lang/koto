@@ -24,7 +24,11 @@ impl AstNode {
             line: line_col.0,
             column: line_col.1,
         };
-        Self { node, start_pos, end_pos }
+        Self {
+            node,
+            start_pos,
+            end_pos,
+        }
     }
 }
 
@@ -43,7 +47,7 @@ pub enum Node {
     Block(Vec<AstNode>),
     Function(Rc<Function>),
     Call {
-        function: String,
+        function: Rc<String>,
         args: Vec<AstNode>,
     },
     Index {
@@ -61,8 +65,8 @@ pub enum Node {
     },
     If {
         condition: Box<AstNode>,
-        then_block: Vec<AstNode>,
-        else_block: Vec<AstNode>,
+        then_node: Box<AstNode>,
+        else_node: Option<Box<AstNode>>,
     },
 }
 
@@ -120,6 +124,9 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::push_indentation | Rule::indentation => None,
+        Rule::expression | Rule::lhs_value | Rule::rhs_value => {
+            build_ast_from_expression(pair.into_inner().next().unwrap())
+        }
         Rule::block => {
             let inner = pair.into_inner();
             let block: Vec<AstNode> = inner
@@ -127,7 +134,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
                 .collect();
             Some(AstNode::new(span, Block(block)))
         }
-        Rule::expression => build_ast_from_expression(pair.into_inner().next().unwrap()),
         Rule::boolean => Some(AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
         Rule::number => Some(AstNode::new(
             span,
@@ -191,7 +197,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         }
         Rule::call => {
             let mut inner = pair.into_inner();
-            let function: String = inner.next().unwrap().as_str().to_string();
+            let function = Rc::new(inner.next().unwrap().as_str().to_string());
             let args: Vec<AstNode> = inner
                 .filter_map(|pair| build_ast_from_expression(pair))
                 .collect();
@@ -227,22 +233,25 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(span, Node::BinaryOp { lhs, op, rhs }))
         }
-        Rule::if_statement => {
+        Rule::if_inline | Rule::if_block => {
+            // dbg!(&pair);
             let mut inner = pair.into_inner();
+            inner.next(); // if
             let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
-            let then_block = vec![build_ast_from_expression(inner.next().unwrap()).unwrap()];
-            let else_block = if let Some(expression) = inner.next() {
-                vec![build_ast_from_expression(expression).unwrap()]
+            inner.next(); // then, or block start
+            let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let else_node = if inner.next().is_some() {
+                Some(Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap()))
             } else {
-                Vec::new()
+                None
             };
 
             Some(AstNode::new(
                 span,
                 Node::If {
                     condition,
-                    then_block,
-                    else_block,
+                    then_node,
+                    else_node,
                 },
             ))
         }

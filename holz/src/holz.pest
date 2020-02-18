@@ -22,12 +22,13 @@ block = @{
 child_block = _{ push_indentation ~ block ~ DROP }
 
 push_indentation = ${ indentation ~ PUSH(indent) }
-indentation = ${ NEWLINE ~ PEEK_ALL }
+indentation = ${ NEWLINE+ ~ PEEK_ALL }
 indent = _{ WHITESPACE+ }
 
 expression = !{
   ( assignment
   | function
+  | if_block
   | value
   )
   ~ COMMENT?
@@ -47,7 +48,7 @@ lhs_value = _{
   "(" ~ value ~ ")"
   | index
   | call
-  | if_statement
+  | if_inline
   | array
   | range
   | string
@@ -56,8 +57,28 @@ lhs_value = _{
   | id
 }
 
-if_statement = {
-  "if" ~ value ~ "then" ~ value ~ ("else" ~ value)?
+if_block = {
+  if_keyword ~ value
+  ~ child_block
+  ~ (NEWLINE* ~ "else" ~ child_block)?
+}
+
+if_inline = {
+  if_keyword ~ value
+  ~ then_keyword ~ value
+  ~ (else_keyword ~ value)?
+}
+
+if_keyword = @{
+  "if" ~ WHITESPACE+
+}
+
+then_keyword = @{
+  "then" ~ WHITESPACE+
+}
+
+else_keyword = @{
+  "else" ~ WHITESPACE+
 }
 
 call = { (id ~ call_args) | (id ~ expression) }

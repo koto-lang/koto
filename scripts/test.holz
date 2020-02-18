@@ -88,13 +88,28 @@ if is_zero 0 then print "Zer0"
 if is_zero 1 then print "Zer0" else print "Not Zer0"
 assert if is_zero 0 then true else false
 
+# functions in nested scope should be recursive
+if true
+  fib = |n|
+    if n < 2 then n else fib(n - 1) + fib(n - 2)
+  print("fib 5:", fib 7)
+
 
 # Multiline if statement
-# x = if a 99
-#   "foo"
-# else
-#   "bar"
-#
+x = true
+if x
+  a = 42
+  print "In then block"
+  assert a == 42
+
+if x == false
+  assert false
+else
+  if x == true
+    print "Nested in else block"
+
+
+
 
 # TODO support from/to ranges
 
