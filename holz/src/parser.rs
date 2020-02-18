@@ -267,7 +267,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             ))
         }
         Rule::for_block => {
-            // dbg!(&pair);
             let mut inner = pair.into_inner();
             inner.next(); // for
             let arg = Rc::new(inner.next().unwrap().as_str().to_string());
@@ -294,7 +293,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             ))
         }
         Rule::for_inline => {
-            // dbg!(&pair);
             let mut inner = pair.into_inner();
             let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             inner.next(); // for

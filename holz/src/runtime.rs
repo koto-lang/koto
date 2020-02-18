@@ -152,7 +152,7 @@ impl Runtime {
             let output = self.evaluate(node, scope)?;
             match output {
                 Value::For(_) => {
-                    result = self.run_for_statement(output, scope, node)?;
+                    result = self.run_for_statement(output, scope, node, &mut None)?;
                 }
                 _ => result = output,
             }
@@ -170,13 +170,17 @@ impl Runtime {
             Node::Array(elements) => {
                 let mut values = Vec::new();
                 for node in elements.iter() {
-                    match self.evaluate(node, scope)? {
+                    let value = self.evaluate(node, scope)?;
+                    match value {
                         Range { min, max } => {
                             for i in min..max {
                                 values.push(Number(i as f64))
                             }
                         }
-                        value => values.push(value),
+                        Value::For(_) => {
+                            self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
+                        }
+                        _ => values.push(value),
                     }
                 }
                 Ok(Array(Rc::new(values)))
@@ -316,6 +320,7 @@ impl Runtime {
         for_statement: Value,
         scope: &mut Option<Scope>,
         node: &AstNode,
+        collector: &mut Option<&mut Vec<Value>>,
     ) -> RuntimeResult {
         use Value::*;
         let mut result = Value::Empty;
@@ -353,6 +358,9 @@ impl Runtime {
                 }
 
                 result = self.evaluate(&f.body, scope)?;
+                if let Some(collector) = collector.as_mut() {
+                    collector.push(result.clone());
+                }
             }
         }
 

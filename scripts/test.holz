@@ -24,8 +24,8 @@ say_hi()
 # Implicit return of last statement in function
 square = |x| x * x
 
-# # Muliple-argument functions must be called with parentheses
-# # Single-argument functions can be called with or without parentheses
+# Muliple-argument functions must be called with parentheses
+# Single-argument functions can be called with or without parentheses
 print("The square of 7 is", square(7))
 
 # Multiple arguments are separated by commas
@@ -112,22 +112,25 @@ else
 
 
 ####### Loops
+
+# For statement blocks
 for x in 0..10
-  for y in -5..5 if (x == y) and (x < 3)
+  for y in -5..5 if (x == y) and (x < 3) # TODO precedence of and
     print (x, y)
 
+# Inline for statement
 print("for", i) for i in 0..3
 
-# c = [square(x) for x in [1, 2, 3]]
-# print c
+# List comprehensions
+c = [square(x) for x in [1, 2, 3]]
+print c
+
+filter = |xs, f| [x for x in xs if f(x)] # TODO generator
+a = filter(0..20, |x| x > 15)
+print a
 
 # for (i, x) in enumerate b
 #   print format("{}: {}", i, x)
-
-# Anonymous functions can be passed as parameters
-# filter = |xs, f| [x for x in xs if f(x)]
-# a = filter(0..20, |x| x < 10)
-# assert(length(a) == 10)
 
 
 # ###### Tables
