@@ -241,9 +241,9 @@ impl Runtime {
                     ),
                 }
             }
-            Node::Assign { lhs, rhs } => {
-                let value = self.evaluate(rhs, scope)?;
-                self.set_value(lhs.clone(), value.clone(), scope);
+            Node::Assign { id, expression } => {
+                let value = self.evaluate(expression, scope)?;
+                scope.values.insert(id.clone(), value.clone());
                 Ok(value)
             }
             Node::BinaryOp { lhs, op, rhs } => {

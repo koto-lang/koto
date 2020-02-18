@@ -40,8 +40,8 @@ pub enum Node {
         args: Vec<AstNode>,
     },
     Assign {
-        lhs: Rc<String>,
-        rhs: Box<AstNode>,
+        id: Rc<String>,
+        expression: Box<AstNode>,
     },
     BinaryOp {
         lhs: Box<AstNode>,
@@ -166,9 +166,9 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         }
         Rule::assignment => {
             let mut inner = pair.into_inner();
-            let lhs = Rc::new(inner.next().unwrap().as_str().to_string());
-            let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
-            Some(AstNode::new(span, Node::Assign { lhs, rhs }))
+            let id = Rc::new(inner.next().unwrap().as_str().to_string());
+            let expression = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            Some(AstNode::new(span, Node::Assign { id, expression }))
         }
         Rule::binary_op => {
             let mut inner = pair.into_inner();
