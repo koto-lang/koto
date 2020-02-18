@@ -2,6 +2,12 @@ use std::{collections::HashMap, fmt, rc::Rc};
 
 use crate::parser::{AstNode, Function, Node, Op, Position};
 
+pub enum Error {
+    RuntimeError { message: String, start_pos: Position, end_pos: Position },
+}
+
+pub type RuntimeResult = Result<Value, Error>;
+
 #[derive(Clone, Debug)]
 pub enum Value {
     Empty,
@@ -54,11 +60,19 @@ impl Scope {
 }
 
 macro_rules! runtime_error {
-    ($position:expr, $error:expr) => {
-        Err(format!(
-            "Runtime error at line: {} column: {}\n - {}",
-            $position.line, $position.column, $error
-        ))
+    ($node:expr, $error:expr) => {
+        Err(Error::RuntimeError {
+            message: String::from($error),
+            start_pos: $node.start_pos,
+            end_pos: $node.end_pos,
+        })
+    };
+    ($node:expr, $error:expr, $($y:expr),+) => {
+        Err(Error::RuntimeError {
+            message: format!($error, $($y),+),
+            start_pos: $node.start_pos,
+            end_pos: $node.end_pos,
+        })
     };
 }
 
@@ -73,11 +87,11 @@ impl Runtime {
         }
     }
 
-    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value, String> {
+    pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult {
         self.evaluate_block(ast, &mut Scope::new())
     }
 
-    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Scope) -> Result<Value, String> {
+    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Scope) -> RuntimeResult {
         let mut result = Value::Empty;
         for node in block.iter() {
             result = self.evaluate(node, scope)?;
@@ -85,7 +99,7 @@ impl Runtime {
         Ok(result)
     }
 
-    fn evaluate(&mut self, node: &AstNode, scope: &mut Scope) -> Result<Value, String> {
+    fn evaluate(&mut self, node: &AstNode, scope: &mut Scope) -> RuntimeResult {
         use Value::*;
 
         match &node.node {
@@ -122,31 +136,25 @@ impl Runtime {
                             Ok(Range { min, max })
                         } else {
                             runtime_error!(
-                                node.position,
-                                format!(
-                                    "Invalid range, min should be less than or equal to max - min: {}, max: {}",
-                                    min, max
-                                ))
+                                node,
+                                "Invalid range, min should be less than or equal to max - min: {}, max: {}",
+                                min,
+                                max)
                         }
                     }
                     unexpected => runtime_error!(
-                        node.position,
-                        format!(
-                            "Expected numbers for range bounds, found min: {}, max: {}",
-                            unexpected.0, unexpected.1
-                        )
+                        node,
+                        "Expected numbers for range bounds, found min: {}, max: {}",
+                        unexpected.0,
+                        unexpected.1
                     ),
                 }
             }
-            Node::Index { id, expression } => {
-                self.array_index(id, expression, scope, node.position)
-            }
-            Node::Id(id) => self.get_value(id, scope, node.position),
+            Node::Index { id, expression } => self.array_index(id, expression, scope, node),
+            Node::Id(id) => self.get_value(id, scope, node),
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
-            Node::Call { function, args } => {
-                self.call_function(function, args, scope, node.position)
-            }
+            Node::Call { function, args } => self.call_function(function, args, scope, node),
             Node::Assign { id, expression } => {
                 let value = self.evaluate(expression, scope)?;
                 scope.values.insert(id.clone(), value.clone());
@@ -158,11 +166,11 @@ impl Runtime {
                 macro_rules! binary_op_error {
                     ($op:ident, $a:ident, $b:ident) => {
                         runtime_error!(
-                            node.position,
-                            format!(
-                                "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
-                                op, a, b
-                            )
+                            node,
+                            "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
+                            op,
+                            a,
+                            b
                         )
                     };
                 };
@@ -205,23 +213,15 @@ impl Runtime {
                         Ok(Value::Empty)
                     }
                 } else {
-                    runtime_error!(
-                        node.position,
-                        format!("Expected bool in if statement, found {}", maybe_bool)
-                    )
+                    runtime_error!(node, "Expected bool in if statement, found {}", maybe_bool)
                 }
             }
         }
     }
 
-    fn get_value(
-        &self,
-        id: &Rc<String>,
-        scope: &Scope,
-        position: Position,
-    ) -> Result<Value, String> {
+    fn get_value(&self, id: &Rc<String>, scope: &Scope, node: &AstNode) -> RuntimeResult {
         scope.values.get(id).map_or_else(
-            || runtime_error!(position, format!("Value not found: '{}'", id)),
+            || runtime_error!(node, "Value not found: '{}'", id),
             |v| Ok(v.clone()),
         )
     }
@@ -231,14 +231,14 @@ impl Runtime {
         id: &String,
         expression: &AstNode,
         scope: &mut Scope,
-        position: Position,
-    ) -> Result<Value, String> {
+        node: &AstNode,
+    ) -> RuntimeResult {
         use Value::*;
 
         let index = self.evaluate(expression, scope)?;
         let maybe_array = scope.values.get(id);
         if maybe_array.is_none() {
-            return runtime_error!(position, format!("Value not found: '{}'", id));
+            return runtime_error!(node, "Value not found: '{}'", id);
         }
 
         if let Some(Array(elements)) = maybe_array {
@@ -249,13 +249,11 @@ impl Runtime {
                         Ok(elements[i].clone())
                     } else {
                         runtime_error!(
-                            position,
-                            format!(
-                                "Index out of bounds: '{}' has a length of {} but the index is {}",
-                                id,
-                                elements.len(),
-                                i
-                            )
+                            node,
+                            "Index out of bounds: '{}' has a length of {} but the index is {}",
+                            id,
+                            elements.len(),
+                            i
                         )
                     }
                 }
@@ -264,22 +262,19 @@ impl Runtime {
                     let umax = max as usize;
                     if min < 0 || max < 0 {
                         runtime_error!(
-                            position,
-                            format!(
-                                "Indexing with negative indices isn't supported, min: {}, max: {}",
-                                min, max
-                            )
+                            node,
+                            "Indexing with negative indices isn't supported, min: {}, max: {}",
+                            min,
+                            max
                         )
                     } else if umin >= elements.len() || umax >= elements.len() {
                         runtime_error!(
-                            position,
-                            format!(
-                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                                id,
-                                elements.len(),
-                                min,
-                                max
-                            )
+                            node,
+                            "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                            id,
+                            elements.len(),
+                            min,
+                            max
                         )
                     } else {
                         Ok(Array(Rc::new(
@@ -288,20 +283,16 @@ impl Runtime {
                     }
                 }
                 _ => runtime_error!(
-                    position,
-                    format!(
-                        "Indexing is only supported with number values or ranges, found {})",
-                        index
-                    )
+                    node,
+                    "Indexing is only supported with number values or ranges, found {})",
+                    index
                 ),
             }
         } else {
             runtime_error!(
-                position,
-                format!(
-                    "Indexing is only supported for Arrays, found {}",
-                    maybe_array.unwrap()
-                )
+                node,
+                "Indexing is only supported for Arrays, found {}",
+                maybe_array.unwrap()
             )
         }
     }
@@ -311,15 +302,17 @@ impl Runtime {
         id: &String,
         args: &Vec<AstNode>,
         scope: &mut Scope,
-        position: Position,
-    ) -> Result<Value, String> {
+        node: &AstNode,
+    ) -> RuntimeResult {
         use Value::*;
 
         let maybe_function_or_error = scope.values.get(id).map(|f| match f {
             Function(f) => Ok(f.clone()),
             unexpected => runtime_error!(
-                position,
-                format!("Expected function for value {}, found {}", id, unexpected)
+                node,
+                "Expected function for value {}, found {}",
+                id,
+                unexpected
             ),
         });
         if let Some(f) = maybe_function_or_error {
@@ -327,14 +320,12 @@ impl Runtime {
             let arg_count = f.args.len();
             if args.len() != arg_count {
                 return runtime_error!(
-                    position,
-                    format!(
-                        "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
-                        id,
-                        arg_count,
-                        args.len(),
-                        f.args
-                    )
+                    node,
+                    "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
+                    id,
+                    arg_count,
+                    args.len(),
+                    f.args
                 );
             }
 
@@ -356,13 +347,13 @@ impl Runtime {
                     match value? {
                         Bool(b) => {
                             if !b {
-                                return runtime_error!(position, format!("Assertion failed"));
+                                return runtime_error!(node, "Assertion failed");
                             }
                         }
                         _ => {
                             return runtime_error!(
-                                position,
-                                format!("assert only expects booleans as arguments")
+                                node,
+                                "assert only expects booleans as arguments"
                             )
                         }
                     }
@@ -373,10 +364,7 @@ impl Runtime {
                 let first_arg_value = match arg_values.next() {
                     Some(arg) => arg,
                     None => {
-                        return runtime_error!(
-                            position,
-                            "Missing array as first argument for push"
-                        );
+                        return runtime_error!(node, "Missing array as first argument for push");
                     }
                 };
 
@@ -391,8 +379,9 @@ impl Runtime {
                     }
                     unexpected => {
                         return runtime_error!(
-                            position,
-                            format!("push is only supported for arrays, found {}", unexpected)
+                            node,
+                            "push is only supported for arrays, found {}",
+                            unexpected
                         )
                     }
                 }
@@ -401,7 +390,7 @@ impl Runtime {
                 let first_arg_value = match arg_values.next() {
                     Some(arg) => arg,
                     None => {
-                        return runtime_error!(position, "Missing array as argument for length");
+                        return runtime_error!(node, "Missing array as argument for length");
                     }
                 };
                 match first_arg_value? {
@@ -409,11 +398,9 @@ impl Runtime {
                     Range { min, max } => Ok(Number((max - min) as f64)),
                     unexpected => {
                         return runtime_error!(
-                            position,
-                            format!(
-                                "length is only supported for arrays and ranges, found {}",
-                                unexpected
-                            )
+                            node,
+                            "length is only supported for arrays and ranges, found {}",
+                            unexpected
                         )
                     }
                 }
@@ -425,10 +412,7 @@ impl Runtime {
                 println!();
                 Ok(Empty)
             }
-            _ => runtime_error!(
-                position,
-                format!("Unexpected function name: {}", id.as_str())
-            ),
+            _ => runtime_error!(node, "Unexpected function name: {}", id.as_str()),
         }
     }
 }

@@ -82,7 +82,7 @@ assert length(y) == 5
 is_zero = |x| x == 0
 if is_zero 0 then print "Zer0"
 if is_zero 1 then print "Zer0" else print "Not Zer0"
-assert if is_zero 0 then true else false
+assert if is_zero 1 then true else false
 
 
 # Multiline if statement

@@ -5,4 +5,4 @@ mod parser;
 mod runtime;
 
 pub use parser::parse;
-pub use runtime::Runtime;
+pub use runtime::{Error, Runtime};

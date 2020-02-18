@@ -15,11 +15,27 @@ fn main() {
         let script = fs::read_to_string(path).expect("Unable to load path");
         match holz::parse(&script) {
             Ok(ast) => {
-                // println!("{:?}\n", ast);
                 let mut runtime = holz::Runtime::new();
                 match runtime.run(&ast) {
                     Ok(_) => {}
-                    Err(e) => eprintln!("{}", e),
+                    Err(e) => match e {
+                        holz::Error::RuntimeError {
+                            message,
+                            start_pos,
+                            end_pos,
+                        } => {
+                            let excerpt = script
+                                .lines()
+                                .skip(start_pos.line - 1)
+                                .take(end_pos.line - start_pos.line + 1)
+                                .map(|line| format!("  | {}", line))
+                                .collect::<String>();
+                            eprintln!(
+                                "Runtime error: {}\n  --> {}:{}\n  |\n{}\n  |",
+                                message, start_pos.line, start_pos.column, excerpt
+                            )
+                        }
+                    },
                 }
             }
             Err(e) => eprintln!("Error while parsing source: {}", e),

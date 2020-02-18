@@ -7,18 +7,24 @@ struct HolzParser;
 
 #[derive(Clone, Debug)]
 pub struct AstNode {
-    pub position: Position,
     pub node: Node,
+    pub start_pos: Position,
+    pub end_pos: Position,
 }
 
 impl AstNode {
     pub fn new(span: Span, node: Node) -> Self {
         let line_col = span.start_pos().line_col();
-        let position = Position {
+        let start_pos = Position {
             line: line_col.0,
             column: line_col.1,
         };
-        Self { position, node }
+        let line_col = span.end_pos().line_col();
+        let end_pos = Position {
+            line: line_col.0,
+            column: line_col.1,
+        };
+        Self { node, start_pos, end_pos }
     }
 }
 
