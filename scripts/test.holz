@@ -42,7 +42,7 @@ add = |x, y|
 
 assert add(1, 2) == 3
 
-# Arrays
+####### Arrays
 z = [10, 10 + 10, 30]
 print z
 
@@ -52,8 +52,8 @@ y = push(z, 40, 50)
 assert y[3] == 40
 print y
 
-# assert length z == 3
-# assert length y == 5
+assert length(z) == 3
+assert length(y) == 5
 
 
 # # Loops

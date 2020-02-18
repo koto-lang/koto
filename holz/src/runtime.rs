@@ -228,6 +228,29 @@ impl Runtime {
                             }
                         }
                     }
+                    "length" => {
+                        let first_arg_value = match arg_values.next() {
+                            Some(arg) => arg,
+                            None => {
+                                return runtime_error!(
+                                    node.position,
+                                    "Missing array as argument for length"
+                                );
+                            }
+                        };
+                        match first_arg_value? {
+                            Array(array) => Ok(Number(array.len() as f64)),
+                            unexpected => {
+                                return runtime_error!(
+                                    node.position,
+                                    format!(
+                                        "length is only supported for arrays, found {}",
+                                        unexpected
+                                    )
+                                )
+                            }
+                        }
+                    }
                     "print" => {
                         for value in arg_values {
                             print!("{} ", value?);
