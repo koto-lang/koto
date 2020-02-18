@@ -28,9 +28,10 @@ pub enum Node {
     Number(f64),
     Str(Rc<String>),
     Array(Vec<AstNode>),
-    Index {
-        id: String,
-        expression: Box<AstNode>,
+    Range {
+        min: Box<AstNode>,
+        max: Box<AstNode>,
+        inclusive: bool,
     },
     Id(Rc<String>),
     Block(Vec<AstNode>),
@@ -38,6 +39,10 @@ pub enum Node {
     Call {
         function: String,
         args: Vec<AstNode>,
+    },
+    Index {
+        id: String,
+        expression: Box<AstNode>,
     },
     Assign {
         id: Rc<String>,
@@ -128,6 +133,15 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
                 .filter_map(|pair| build_ast_from_expression(pair))
                 .collect();
             Some(AstNode::new(span, Node::Array(elements)))
+        }
+        Rule::range => {
+            let mut inner = pair.into_inner();
+
+            let min = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let inclusive = inner.next().unwrap().as_str() == "..=";
+            let max = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+
+            Some(AstNode::new(span, Node::Range{min, inclusive, max}))
         }
         Rule::index => {
             let mut inner = pair.into_inner();

@@ -56,6 +56,28 @@ assert length(z) == 3
 assert length(y) == 5
 
 
+###### Ranges
+
+# Ranges are lazily evaluated
+r = 0..5
+assert length(r) == 5
+print r
+# ..= creates an inclusive range
+y = 0..=5
+assert length(y) == 6
+print y
+# Ranges are resolved when inserted in an array
+assert length([10..20]) == 10
+assert length([r]) == 5
+# Indexing arrays with ranges produces sub-arrays
+# x = [10..=20]
+# y = x[5..10]
+# assert y[0] == 15
+# assert length(y) == 5
+
+
+# TODO support from/to ranges
+
 # # Loops
 # evens = [0, 2, 4, 6, 8]
 # for x in evens
@@ -65,18 +87,6 @@ assert length(y) == 5
 #   print format("{}: {}", i, x)
 
 # c = [square(x) for x in b]
-
-# ###### Ranges
-
-# # Ranges are lazily evaluated
-# z = 0..20
-# # Anonymous functions can be passed as parameters
-# # [] collects a range into an array
-# a = [filter(z, |x| x < 10)]
-# assert(length(a) == 10)
-# # ..= creates an inclusive range
-# y = [1..=5]
-# assert(length(y) == 5)
 
 # Control flow
 
@@ -90,6 +100,12 @@ assert length(y) == 5
 # else
 #   "bar"
 #
+
+# Anonymous functions can be passed as parameters
+# z = 0..20
+# filter = |xs, f| [x for x in xs if f(x)]
+# a = filter(z, |x| x < 10)
+# assert(length(a) == 10)
 
 
 # ###### Tables

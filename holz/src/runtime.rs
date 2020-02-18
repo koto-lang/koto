@@ -8,6 +8,7 @@ pub enum Value {
     Bool(bool),
     Number(f64),
     Array(Rc<Vec<Value>>),
+    Range { min: isize, max: isize },
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
@@ -31,6 +32,7 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             }
+            Range { min, max } => write!(f, "[{}..{}]", min, max),
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
@@ -91,11 +93,41 @@ impl Runtime {
             Node::Number(n) => Ok(Number(*n)),
             Node::Str(s) => Ok(StrLiteral(s.clone())),
             Node::Array(elements) => {
-                let values: Result<Vec<_>, _> = elements
-                    .iter()
-                    .map(|node| self.evaluate(node, scope))
-                    .collect();
-                Ok(Array(Rc::new(values?)))
+                let mut values = Vec::new();
+                for node in elements.iter() {
+                    match self.evaluate(node, scope)? {
+                        Range { min, max } => {
+                            for i in min..max {
+                                values.push(Number(i as f64))
+                            }
+                        }
+                        value => values.push(value),
+                    }
+                }
+                Ok(Array(Rc::new(values)))
+            }
+            Node::Range {
+                min,
+                inclusive,
+                max,
+            } => {
+                let min = self.evaluate(min, scope)?;
+                let max = self.evaluate(max, scope)?;
+                match (min, max) {
+                    (Number(min), Number(max)) => {
+                        let min = min as isize;
+                        let max = max as isize;
+                        let max = if *inclusive { max + 1 } else { max };
+                        Ok(Range { min, max })
+                    }
+                    unexpected => runtime_error!(
+                        node.position,
+                        format!(
+                            "Expected numbers for range bounds, found min: {}, max: {}",
+                            unexpected.0, unexpected.1
+                        )
+                    ),
+                }
             }
             Node::Index { id, expression } => {
                 let index = self.evaluate(expression, scope)?;
@@ -240,11 +272,12 @@ impl Runtime {
                         };
                         match first_arg_value? {
                             Array(array) => Ok(Number(array.len() as f64)),
+                            Range { min, max } => Ok(Number((max - min) as f64)),
                             unexpected => {
                                 return runtime_error!(
                                     node.position,
                                     format!(
-                                        "length is only supported for arrays, found {}",
+                                        "length is only supported for arrays and ranges, found {}",
                                         unexpected
                                     )
                                 )

@@ -41,6 +41,7 @@ lhs_value = _{
   | index
   | call
   | array
+  | range
   | string
   | number
   | boolean
@@ -75,6 +76,16 @@ array = {
   | "[" ~ expression ~ ("," ~ expression)* ~ "]"
 }
 
+range = ${
+  range_arg ~ range_op ~ range_arg
+}
+range_op = {
+  ("..=" | "..")
+}
+range_arg = _{
+  number | call | index | id
+}
+
 index = ${
   id ~ "[" ~ expression ~ "]"
 }
@@ -84,7 +95,7 @@ boolean = { "true" | "false" }
 number = @{
   "-"?
   ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
-  ~ ("." ~ ASCII_DIGIT*)?
+  ~ ("." ~ ASCII_DIGIT+)?
   ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
 
