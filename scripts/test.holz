@@ -6,6 +6,7 @@ print "Hello, World!" # This is a trailing comment
 a = true
 print a
 assert a == true
+assert false or (false or true)
 
 ###### Functions
 

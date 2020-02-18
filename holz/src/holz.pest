@@ -27,8 +27,8 @@ child_block = _{
 
 expression = !{
   ( assignment
-  | function
   | binary_op
+  | function
   | term
   )
   ~ COMMENT?
@@ -41,10 +41,14 @@ term = _{
   | string
   | number
   | boolean
-  | ident
+  | id
 }
 
-ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+keyword = _{ "and" | "or" | "class" }
+
+id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
+id_start = @{ ASCII_ALPHA }
+id_end = @{ ASCII_ALPHANUMERIC | "_" }
 
 boolean = { "true" | "false" }
 
@@ -68,8 +72,8 @@ char = {
 }
 
 call = {
-  (ident ~ parameters)
-  | (ident ~ expression)
+  (id ~ parameters)
+  | (id ~ expression)
 }
 
 parameters = _{
@@ -77,7 +81,7 @@ parameters = _{
   | "(" ~ expression ~ ("," ~ expression)* ~ ")"
 }
 
-assignment = { ident ~ "=" ~ expression }
+assignment = { id ~ "=" ~ expression }
 
 binary_op = { term ~ (arithemetic_op | logic_op) ~ expression }
 arithemetic_op = {
@@ -93,7 +97,7 @@ function = {
 }
 function_args = {
   "|" ~ "|"
-  | "|" ~ ident ~ ("," ~ ident)* ~ "|"
+  | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
 
 WHITESPACE = _{ " " | "\t" }

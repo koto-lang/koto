@@ -97,8 +97,8 @@ impl Runtime {
                     .collect();
                 Ok(Array(values?))
             }
-            Node::Ident(ident) => scope.values.get(ident).map_or_else(
-                || runtime_error!(node.position, format!("Variable not found: '{}'", ident)),
+            Node::Id(id) => scope.values.get(id).map_or_else(
+                || runtime_error!(node.position, format!("Variable not found: '{}'", id)),
                 |v| Ok(v.clone()),
             ),
             Node::Block(block) => self.evaluate_block(&block, scope),
