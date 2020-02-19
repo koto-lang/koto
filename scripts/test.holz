@@ -1,10 +1,15 @@
 # This is a comment
 
-### Multiline comments
+###
+Multiline comments
 start and end with 3 #s
 ###
 
-print "World!" # This is a trailing comment
+print "Hello, " # This is a trailing comment
+
+print "World!"  ### This multiline comment starts
+                    after a statement
+                ###
 
 ###### Basic types and logic
 a = true

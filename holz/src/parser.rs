@@ -132,7 +132,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
     use Node::*;
     let span = pair.as_span();
     match pair.as_rule() {
-        Rule::push_indentation | Rule::indentation => None,
         Rule::expression | Rule::next_expression | Rule::lhs_value | Rule::rhs_value => {
             build_ast_from_expression(pair.into_inner().next().unwrap())
         }

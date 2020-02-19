@@ -8,27 +8,40 @@ keyword = _{
   "and"
   | "class"
   | "else"
+  | "false"
   | "for"
   | "if"
   | "in"
   | "or"
   | "then"
+  | "true"
 }
 
-program = _{ SOI ~ block* ~ (NEWLINE | empty_line)* ~ EOI }
+program = _{
+  SOI
+  ~ block*
+  ~ empty_line*
+  ~ EOI
+}
 
 block = @{
-  (NEWLINE | empty_line)*
+  empty_line*
   ~ expression
   ~ (next_expression)*
 }
-child_block = @{ (NEWLINE | (empty_line))* ~ push_indentation ~ block ~ DROP }
-next_expression = @{ NEWLINE ~ indentation ~ expression }
+child_block = @{
+  empty_line*
+  ~ push_indentation
+  ~ block
+  ~ DROP
+}
 
-push_indentation = ${ indentation ~ PUSH(indent) }
-indentation = ${ PEEK_ALL }
+push_indentation = @{ indentation ~ PUSH(indent) }
+indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
-empty_line = @{ (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
+empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
+
+next_expression = @{ NEWLINE ~ indentation ~ expression }
 
 expression = !{
   ( assignment
@@ -40,11 +53,7 @@ expression = !{
   ~ comment?
 }
 
-
-value = _{
-  rhs_value | lhs_value
-  ~ comment?
-}
+value = _{ rhs_value | lhs_value ~ comment? }
 
 rhs_value = _{
   binary_op
@@ -128,19 +137,11 @@ array = {
   | "[" ~ expression ~ ("," ~ expression)* ~ "]"
 }
 
-range = ${
-  range_arg ~ range_op ~ range_arg
-}
-range_op = {
-  ("..=" | "..")
-}
-range_arg = _{
-  number | call | index | id
-}
+range = ${ range_arg ~ range_op ~ range_arg }
+range_op = { ("..=" | "..") }
+range_arg = _{ number | call | index | id }
 
-index = ${
-  id ~ "[" ~ expression ~ "]"
-}
+index = ${ id ~ "[" ~ expression ~ "]" }
 
 boolean = { "true" | "false" }
 
