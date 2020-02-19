@@ -17,6 +17,11 @@ print a
 assert a == true
 assert false or (false or true)
 
+# assert 4 + 3 == 7 # TODO
+# assert (1 + 2 * 3) == 7 # TODO
+assert((1 + 2 * 3) == 7)
+# assert((2 * 2 + 3) == 7) # TODO
+
 
 ###### Functions
 
