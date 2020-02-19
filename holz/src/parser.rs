@@ -133,10 +133,10 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::push_indentation | Rule::indentation => None,
-        Rule::expression | Rule::lhs_value | Rule::rhs_value => {
+        Rule::expression | Rule::next_expression | Rule::lhs_value | Rule::rhs_value => {
             build_ast_from_expression(pair.into_inner().next().unwrap())
         }
-        Rule::block => {
+        Rule::child_block | Rule::block => {
             let inner = pair.into_inner();
             let block: Vec<AstNode> = inner
                 .filter_map(|pair| build_ast_from_expression(pair))
@@ -242,14 +242,35 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(span, Node::BinaryOp { lhs, op, rhs }))
         }
-        Rule::if_inline | Rule::if_block => {
-            // dbg!(&pair);
+        Rule::if_inline => {
             let mut inner = pair.into_inner();
             inner.next(); // if
             let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
-            inner.next(); // then, or block start
+            inner.next(); // then
             let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             let else_node = if inner.next().is_some() {
+                Some(Box::new(
+                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
+                ))
+            } else {
+                None
+            };
+
+            Some(AstNode::new(
+                span,
+                Node::If {
+                    condition,
+                    then_node,
+                    else_node,
+                },
+            ))
+        }
+        Rule::if_block => {
+            let mut inner = pair.into_inner();
+            inner.next(); // if
+            let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let else_node = if inner.peek().is_some() {
                 Some(Box::new(
                     build_ast_from_expression(inner.next().unwrap()).unwrap(),
                 ))
@@ -280,7 +301,6 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             } else {
                 None
             };
-            inner.next(); // indentation
             let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
             Some(AstNode::new(
                 span,
@@ -299,7 +319,8 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             let arg = Rc::new(inner.next().unwrap().as_str().to_string());
             inner.next(); // in
             let range = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
-            let condition = if inner.next().is_some() { // if
+            let condition = if inner.next().is_some() {
+                // if
                 Some(Box::new(
                     build_ast_from_expression(inner.next().unwrap()).unwrap(),
                 ))

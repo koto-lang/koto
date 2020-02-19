@@ -1,5 +1,6 @@
 WHITESPACE = _{ " " | "\t" }
-COMMENT = _{ comment_multi | comment_single }
+
+comment = _{ comment_multi | comment_single }
 comment_multi = _{ "###" ~ (!"###" ~ ANY)+ ~ "###" }
 comment_single = _{ "#" ~ (!NEWLINE ~ ANY)* }
 
@@ -14,18 +15,20 @@ keyword = _{
   | "then"
 }
 
-program = _{ SOI ~ block* ~ NEWLINE* ~ EOI }
+program = _{ SOI ~ block* ~ (NEWLINE | empty_line)* ~ EOI }
 
 block = @{
-  (NEWLINE | COMMENT)*
+  (NEWLINE | empty_line)*
   ~ expression
   ~ (next_expression)*
 }
-child_block = _{ push_indentation ~ block ~ DROP }
+child_block = @{ (NEWLINE | (empty_line))* ~ push_indentation ~ block ~ DROP }
+next_expression = @{ NEWLINE ~ indentation ~ expression }
 
 push_indentation = ${ indentation ~ PUSH(indent) }
-indentation = ${ NEWLINE+ ~ PEEK_ALL }
+indentation = ${ PEEK_ALL }
 indent = _{ WHITESPACE+ }
+empty_line = @{ (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
 expression = !{
   ( assignment
@@ -34,13 +37,13 @@ expression = !{
   | for_block
   | value
   )
-  ~ COMMENT?
+  ~ comment?
 }
 
-next_expression = _{ indentation ~ expression }
 
 value = _{
   rhs_value | lhs_value
+  ~ comment?
 }
 
 rhs_value = _{
@@ -48,6 +51,7 @@ rhs_value = _{
 }
 
 lhs_value = _{
+  (
   "(" ~ value ~ ")"
   | if_inline
   | for_inline
@@ -59,6 +63,8 @@ lhs_value = _{
   | number
   | boolean
   | id
+  )
+  ~ comment?
 }
 
 if_block = {
