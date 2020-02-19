@@ -1,15 +1,5 @@
 # This is a comment
-
-###
-Multiline comments
-start and end with 3 #s
-###
-
-print "Hello, " # This is a trailing comment
-
-print "World!"  ### This multiline comment starts
-                    after a statement
-                ###
+print "Hello, World!" # This is a trailing comment
 
 ###### Basic types and logic
 a = true
@@ -114,13 +104,12 @@ if x
   assert a == 42
 
 if x == false
-  # This comment shoudn't break parsing
+  # This comment shouldn't break parsing
   assert false
 else
        # ...and neither should this one
   if x == true
-      ### or this one
-      ###
+      # or this one
     print "Nested in else block"
 
 

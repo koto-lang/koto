@@ -1,8 +1,6 @@
 WHITESPACE = _{ " " | "\t" }
 
-comment = _{ comment_multi | comment_single }
-comment_multi = _{ "###" ~ (!"###" ~ ANY)+ ~ "###" }
-comment_single = _{ "#" ~ (!NEWLINE ~ ANY)* }
+comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
 
 keyword = _{
   "and"
