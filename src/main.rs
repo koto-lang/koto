@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use std::fs;
+use std::{fs, io::Write};
 
 fn main() {
     let matches = App::new("ks")
@@ -39,6 +39,28 @@ fn main() {
                 }
             }
             Err(e) => eprintln!("Error while parsing source: {}", e),
+        }
+    } else {
+        let mut runtime = holz::Runtime::new();
+        let mut input = String::new();
+        loop {
+            print!("> ");
+            std::io::stdout().flush().expect("Error flushing output");
+            std::io::stdin()
+                .read_line(&mut input)
+                .expect("Error getting input");
+            match holz::parse(&input) {
+                Ok(ast) => match runtime.run(&ast) {
+                    Ok(result) => println!("{}", result),
+                    Err(holz::Error::RuntimeError { message, .. }) => {
+                        println!("Error: {}", message)
+                    }
+                },
+                Err(e) => {
+                    println!("Error parsing input: {}", e);
+                }
+            }
+            input.clear();
         }
     }
 }
