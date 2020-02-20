@@ -137,18 +137,46 @@ print a
 
 # ###### Tables
 # o = { min: 0, max: 42 }
+# print o
 # sum = 0
 # for i in o.min..o.max
 #   sum = sum + i
 
 # o = {
+#   foo: 42
 #   bar: |x| square x
 # }
 
+# assert o.foo == o["foo"]
 # x = o.bar(9)
-# o = o + { baz = 99 }
+# z = o + { baz: 99 }
+# assert z.bar(2) == 4 and z.baz == 99
+# assert table.keys z == ["foo", "bar", "baz"]
 
-# ##### Classes
+# a = { 2: 4, 3: 9 }
+# assert z.bar(2) == 4 and z.baz == 99
+
+# ##### Tables as classes
+
+# make_o = || {
+#   foo: 42
+#   print_foo: |self| print self.foo # self refers to table instance
+# }
+#
+# o = make_o()
+# o.print_foo() # implicit self
+
+# make_o2 = || {
+#   base: make_o() # base is a convention
+#   print_foo2: |self| print self.base.foo # explicit base access
+# }
+#
+# o2 = make_o2()
+# o2.print_foo2()
+
+
+
+# ###### Classes
 # class O
 #   new: |self| self.foo = 42
 #   with_foo: |x|
@@ -158,6 +186,12 @@ print a
 #   print_foo: |self| print self.foo
 
 # o = new O
+# o.print_foo()
+
+# class O2 extends O
+#   print_foo2: |self| print super.foo
+
+# o = new O2
 # o.print_foo()
 
 # ##### Standard Library
