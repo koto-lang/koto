@@ -130,12 +130,25 @@ pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
 fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNode> {
     // dbg!(&pair);
     use Node::*;
+
+    macro_rules! next_as_boxed_ast {
+        ($inner:expr) => {
+            Box::new(build_ast_from_expression($inner.next().unwrap()).unwrap())
+        };
+    }
+
+    macro_rules! next_as_rc_string {
+        ($inner:expr) => {
+            Rc::new($inner.next().unwrap().as_str().to_string())
+        };
+    }
+
     let span = pair.as_span();
     match pair.as_rule() {
         Rule::expression | Rule::next_expression | Rule::lhs_value | Rule::rhs_value => {
             build_ast_from_expression(pair.into_inner().next().unwrap())
         }
-        Rule::child_block | Rule::block => {
+        Rule::block | Rule::child_block => {
             let inner = pair.into_inner();
             let block: Vec<AstNode> = inner
                 .filter_map(|pair| build_ast_from_expression(pair))
@@ -147,12 +160,10 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
             span,
             Node::Number(pair.as_str().parse().unwrap()),
         )),
-        Rule::string => Some(AstNode::new(
-            span,
-            Node::Str(Rc::new(
-                pair.into_inner().next().unwrap().as_str().to_string(),
-            )),
-        )),
+        Rule::string => {
+            let mut inner = pair.into_inner();
+            Some(AstNode::new(span, Node::Str(next_as_rc_string!(inner))))
+        }
         Rule::array => {
             let inner = pair.into_inner();
             let elements: Vec<AstNode> = inner
@@ -163,9 +174,9 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::range => {
             let mut inner = pair.into_inner();
 
-            let min = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let min = next_as_boxed_ast!(inner);
             let inclusive = inner.next().unwrap().as_str() == "..=";
-            let max = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let max = next_as_boxed_ast!(inner);
 
             Some(AstNode::new(
                 span,
@@ -179,7 +190,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::index => {
             let mut inner = pair.into_inner();
             let id = inner.next().unwrap().as_str().to_string();
-            let expression = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let expression = next_as_boxed_ast!(inner);
             Some(AstNode::new(span, Node::Index { id, expression }))
         }
         Rule::id => Some(AstNode::new(
@@ -205,7 +216,7 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         }
         Rule::call => {
             let mut inner = pair.into_inner();
-            let function = Rc::new(inner.next().unwrap().as_str().to_string());
+            let function = next_as_rc_string!(inner);
             let args: Vec<AstNode> = inner
                 .filter_map(|pair| build_ast_from_expression(pair))
                 .collect();
@@ -213,13 +224,13 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         }
         Rule::assignment => {
             let mut inner = pair.into_inner();
-            let id = Rc::new(inner.next().unwrap().as_str().to_string());
-            let expression = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let id = next_as_rc_string!(inner);
+            let expression = next_as_boxed_ast!(inner);
             Some(AstNode::new(span, Node::Assign { id, expression }))
         }
         Rule::binary_op => {
             let mut inner = pair.into_inner();
-            let lhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let lhs = next_as_boxed_ast!(inner);
             let op = match inner.next().unwrap().as_str() {
                 "+" => Op::Add,
                 "-" => Op::Subtract,
@@ -238,19 +249,17 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
                     unreachable!(error)
                 }
             };
-            let rhs = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let rhs = next_as_boxed_ast!(inner);
             Some(AstNode::new(span, Node::BinaryOp { lhs, op, rhs }))
         }
         Rule::if_inline => {
             let mut inner = pair.into_inner();
             inner.next(); // if
-            let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let condition = next_as_boxed_ast!(inner);
             inner.next(); // then
-            let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let then_node = next_as_boxed_ast!(inner);
             let else_node = if inner.next().is_some() {
-                Some(Box::new(
-                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
-                ))
+                Some(next_as_boxed_ast!(inner))
             } else {
                 None
             };
@@ -267,12 +276,10 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::if_block => {
             let mut inner = pair.into_inner();
             inner.next(); // if
-            let condition = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
-            let then_node = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let condition = next_as_boxed_ast!(inner);
+            let then_node = next_as_boxed_ast!(inner);
             let else_node = if inner.peek().is_some() {
-                Some(Box::new(
-                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
-                ))
+                Some(next_as_boxed_ast!(inner))
             } else {
                 None
             };
@@ -289,18 +296,16 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         Rule::for_block => {
             let mut inner = pair.into_inner();
             inner.next(); // for
-            let arg = Rc::new(inner.next().unwrap().as_str().to_string());
+            let arg = next_as_rc_string!(inner);
             inner.next(); // in
-            let range = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let range = next_as_boxed_ast!(inner);
             let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
                 inner.next();
-                Some(Box::new(
-                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
-                ))
+                Some(next_as_boxed_ast!(inner))
             } else {
                 None
             };
-            let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let body = next_as_boxed_ast!(inner);
             Some(AstNode::new(
                 span,
                 Node::For(Rc::new(AstFor {
@@ -313,16 +318,14 @@ fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNod
         }
         Rule::for_inline => {
             let mut inner = pair.into_inner();
-            let body = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let body = next_as_boxed_ast!(inner);
             inner.next(); // for
-            let arg = Rc::new(inner.next().unwrap().as_str().to_string());
+            let arg = next_as_rc_string!(inner);
             inner.next(); // in
-            let range = Box::new(build_ast_from_expression(inner.next().unwrap()).unwrap());
+            let range = next_as_boxed_ast!(inner);
             let condition = if inner.next().is_some() {
                 // if
-                Some(Box::new(
-                    build_ast_from_expression(inner.next().unwrap()).unwrap(),
-                ))
+                Some(next_as_boxed_ast!(inner))
             } else {
                 None
             };
