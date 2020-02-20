@@ -1,6 +1,11 @@
 # This is a comment
 print "Hello, World!" # This is a trailing comment
 
+#-
+Multiline comments start with #- and end with -#
+#- and -# can be nested
+-#
+
 ###### Basic types and logic
 a = true
 print a

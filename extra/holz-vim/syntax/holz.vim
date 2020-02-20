@@ -9,8 +9,10 @@ syntax keyword holzBuiltins print length push
 syntax keyword holzAsserts assert
 syntax match holzCapture "\v\|"
 
-syntax match holzComment "#.*$"
+syntax match holzInlineComment "#.*$"
   \ contains=holzTodos oneline
+syntax region holzMultilineComment start="#-" end="-#"
+      \ contains=holzTodos,holzMultilineComment fold
 
 syntax keyword holzOperator and or
 syntax match holzOperator "\v\+"
@@ -31,7 +33,8 @@ syntax match holzNumber "\v<\d*\.?\d+([Ee]-?)?\d+>"
 
 
 
-highlight default link holzComment Comment
+highlight default link holzInlineComment Comment
+highlight default link holzMultilineComment Comment
 
 highlight default link holzTodos Todo
 highlight default link holzConditionals Conditional
