@@ -58,6 +58,10 @@ pub enum Node {
         id: Rc<String>,
         expression: Box<AstNode>,
     },
+    MultiAssign {
+        ids: Vec<Rc<String>>,
+        expressions: Vec<AstNode>,
+    },
     Op {
         op: AstOp,
         lhs: Box<AstNode>,
@@ -169,9 +173,7 @@ impl MyParser {
 
         let span = pair.as_span();
         match pair.as_rule() {
-            Rule::next_expression => {
-                self.build_ast(pair.into_inner().next().unwrap())
-            }
+            Rule::next_expression => self.build_ast(pair.into_inner().next().unwrap()),
             Rule::block | Rule::child_block => {
                 let inner = pair.into_inner();
                 let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
@@ -214,11 +216,11 @@ impl MyParser {
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();
                 let mut capture = inner.next().unwrap().into_inner();
-                let args: Vec<Rc<String>> = capture
+                let args = capture
                     .by_ref()
                     .take_while(|pair| pair.as_str() != "->")
                     .map(|pair| Rc::new(pair.as_str().to_string()))
-                    .collect();
+                    .collect::<Vec<_>>();
                 // collect function body
                 let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 (AstNode::new(span, Node::Function(Rc::new(self::Function { args, body }))))
@@ -226,23 +228,39 @@ impl MyParser {
             Rule::call_with_parens | Rule::call_single_arg => {
                 let mut inner = pair.into_inner();
                 let function = next_as_rc_string!(inner);
-                let args: Vec<AstNode> = if inner.peek().unwrap().as_rule() == Rule::call_args {
+                let args = if inner.peek().unwrap().as_rule() == Rule::call_args {
                     inner
                         .next()
                         .unwrap()
                         .into_inner()
                         .map(|pair| self.build_ast(pair))
-                        .collect()
+                        .collect::<Vec<_>>()
                 } else {
                     vec![self.build_ast(inner.next().unwrap())]
                 };
                 (AstNode::new(span, Node::Call { function, args }))
             }
-            Rule::assignment => {
+            Rule::single_assignment => {
                 let mut inner = pair.into_inner();
                 let id = next_as_rc_string!(inner);
                 let expression = next_as_boxed_ast!(inner);
                 (AstNode::new(span, Node::Assign { id, expression }))
+            }
+            Rule::multiple_assignment => {
+                let mut inner = pair.into_inner();
+                let ids = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| Rc::new(pair.as_str().to_string()))
+                    .collect::<Vec<_>>();
+                let expressions = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| self.build_ast(pair))
+                    .collect::<Vec<_>>();
+                (AstNode::new(span, Node::MultiAssign { ids, expressions }))
             }
             Rule::operation => {
                 // dbg!(&pair);

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt, rc::Rc};
 
-use crate::parser::{AstFor, AstNode, Function, Node, AstOp, Position};
+use crate::parser::{AstFor, AstNode, AstOp, Function, Node, Position};
 
 pub enum Error {
     RuntimeError {
@@ -224,6 +224,20 @@ impl Runtime {
                 let value = self.evaluate(expression, scope)?;
                 self.set_value(id, &value, scope);
                 Ok(value)
+            }
+            Node::MultiAssign { ids, expressions } => {
+                let mut id_iter = ids.iter();
+                let mut expressions_iter = expressions.iter();
+                while let Some(id) = id_iter.next() {
+                    match expressions_iter.next() {
+                        Some(expression) => {
+                            let value = self.evaluate(expression, scope)?;
+                            self.set_value(id, &value, scope);
+                        }
+                        None => return runtime_error!(node, "Missing value to assign to '{}'", id),
+                    }
+                }
+                Ok(Empty) // todo multiple return values
             }
             Node::Op { op, lhs, rhs } => {
                 // dbg!(lhs);

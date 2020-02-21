@@ -7,7 +7,7 @@ program = _{
 
 block = @{
   empty_line*
-  ~ expression
+  ~ assignment_or_expression
   ~ (next_expression)*
 }
 child_block = @{
@@ -22,11 +22,12 @@ indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
 empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
-next_expression = @{ NEWLINE ~ indentation ~ expression }
+next_expression = @{ NEWLINE ~ indentation ~ assignment_or_expression }
+
+assignment_or_expression = _{ (assignment | expression) ~ comment? }
 
 expression = _{
-  ( assignment
-  | function
+  ( function
   | if_statement
   | for_loop
   | operation
@@ -119,7 +120,11 @@ call_args = !{
 }
 call_single_arg = ${(id ~ WHITESPACE+ ~ operation) }
 
-assignment = !{ id ~ "=" ~ expression }
+assignment = _{ single_assignment | multiple_assignment }
+single_assignment = !{ id ~ "=" ~ expression }
+multiple_assignment = !{ ids ~ "=" ~ expressions }
+ids = { id ~ ("," ~ id)* }
+expressions = { expression ~ ("," ~ expression)* }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
