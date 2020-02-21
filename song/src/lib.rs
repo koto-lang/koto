@@ -5,4 +5,4 @@ mod parser;
 mod runtime;
 
 pub use parser::SongParser as Parser;
-pub use runtime::{Error, Runtime};
+pub use runtime::{Error, Runtime, value::Value};

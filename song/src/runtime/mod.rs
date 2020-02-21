@@ -1,6 +1,9 @@
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
-use crate::parser::{AstFor, AstNode, AstOp, Function, Node, Position};
+use crate::parser::{AstNode, AstOp, Node, Position};
+
+pub mod value;
+use value::{Value, ValueIterator, MultiRangeValueIterator};
 
 pub enum Error {
     RuntimeError {
@@ -11,115 +14,6 @@ pub enum Error {
 }
 
 pub type RuntimeResult = Result<Value, Error>;
-
-#[derive(Clone, Debug)]
-pub enum Value {
-    Empty,
-    Bool(bool),
-    Number(f64),
-    Array(Rc<Vec<Value>>),
-    Range { min: isize, max: isize },
-    StrLiteral(Rc<String>),
-    // Str(String),
-    Function(Rc<Function>),
-    For(Rc<AstFor>),
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Value::*;
-        match self {
-            Empty => write!(f, "()"),
-            Bool(s) => write!(f, "{}", s),
-            Number(n) => write!(f, "{}", n),
-            StrLiteral(s) => write!(f, "{}", s),
-            Array(a) => {
-                write!(f, "[")?;
-                for (i, value) in a.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", value)?;
-                }
-                write!(f, "]")
-            }
-            Range { min, max } => write!(f, "[{}..{}]", min, max),
-            Function(function) => {
-                let raw = Rc::into_raw(function.clone());
-                write!(f, "function: {:?}", raw)
-            }
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        use Value::*;
-
-        match (self, other) {
-            (Number(a), Number(b)) => a == b,
-            (Bool(a), Bool(b)) => a == b,
-            (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
-            _ => false,
-        }
-    }
-}
-
-impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        Self::Bool(value)
-    }
-}
-
-struct ValueIterator {
-    value: Value,
-    index: isize,
-}
-
-impl ValueIterator {
-    pub fn new(value: Value) -> Self {
-        Self { value, index: 0 }
-    }
-}
-
-impl Iterator for ValueIterator {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Value> {
-        use Value::*;
-
-        let result = match &self.value {
-            Array(a) => a.get(self.index as usize).cloned(),
-            Range { min, max } => {
-                if self.index < (max - min) {
-                    Some(Number((min + self.index) as f64))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        if result.is_some() {
-            self.index += 1;
-        }
-
-        result
-    }
-}
-
-struct MultiRangeValueIterator {
-    iters: Vec<ValueIterator>,
-}
-
-impl Iterator for MultiRangeValueIterator {
-    type Item = Vec<Value>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iters.iter_mut().map(Iterator::next).collect()
-    }
-}
 
 #[derive(Debug)]
 struct Scope {
@@ -388,9 +282,8 @@ impl Runtime {
         let mut result = Value::Empty;
 
         if let Value::For(f) = for_statement {
-            let iter = MultiRangeValueIterator {
-                iters: f
-                    .ranges
+            let iter = MultiRangeValueIterator(
+                f.ranges
                     .iter()
                     .map(|range| match self.evaluate(range, scope)? {
                         v @ Array(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
@@ -401,7 +294,7 @@ impl Runtime {
                         ),
                     })
                     .collect::<Result<Vec<_>, _>>()?,
-            };
+            );
 
             let single_range = f.ranges.len() == 1;
             for values in iter {
