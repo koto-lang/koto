@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use song::{Error, Runtime, SongParser};
+use song::{Error, Parser, Runtime};
 use std::{fs, io::Write};
 
 fn main() {
@@ -12,7 +12,7 @@ fn main() {
         )
         .get_matches();
 
-    let parser = SongParser::new();
+    let parser = Parser::new();
 
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
