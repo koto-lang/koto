@@ -53,6 +53,25 @@ impl fmt::Display for Value {
     }
 }
 
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        use Value::*;
+
+        match (self, other) {
+            (Number(a), Number(b)) => a == b,
+            (Bool(a), Bool(b)) => a == b,
+            (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
+            _ => false,
+        }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
 struct ValueIterator {
     value: Value,
     index: isize,
@@ -281,28 +300,28 @@ impl Runtime {
                         )
                     };
                 };
-                match (&a, &b) {
-                    (Number(a), Number(b)) => match op {
-                        AstOp::Add => Ok(Number(a + b)),
-                        AstOp::Subtract => Ok(Number(a - b)),
-                        AstOp::Multiply => Ok(Number(a * b)),
-                        AstOp::Divide => Ok(Number(a / b)),
-                        AstOp::Equal => Ok(Bool(a == b)),
-                        AstOp::NotEqual => Ok(Bool(a != b)),
-                        AstOp::Less => Ok(Bool(a < b)),
-                        AstOp::LessOrEqual => Ok(Bool(a <= b)),
-                        AstOp::Greater => Ok(Bool(a > b)),
-                        AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
+                match op {
+                    AstOp::Equal => Ok((a == b).into()),
+                    AstOp::NotEqual => Ok((a != b).into()),
+                    _ => match (&a, &b) {
+                        (Number(a), Number(b)) => match op {
+                            AstOp::Add => Ok(Number(a + b)),
+                            AstOp::Subtract => Ok(Number(a - b)),
+                            AstOp::Multiply => Ok(Number(a * b)),
+                            AstOp::Divide => Ok(Number(a / b)),
+                            AstOp::Less => Ok(Bool(a < b)),
+                            AstOp::LessOrEqual => Ok(Bool(a <= b)),
+                            AstOp::Greater => Ok(Bool(a > b)),
+                            AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
+                            _ => binary_op_error!(op, a, b),
+                        },
+                        (Bool(a), Bool(b)) => match op {
+                            AstOp::And => Ok(Bool(*a && *b)),
+                            AstOp::Or => Ok(Bool(*a || *b)),
+                            _ => binary_op_error!(op, a, b),
+                        },
                         _ => binary_op_error!(op, a, b),
                     },
-                    (Bool(a), Bool(b)) => match op {
-                        AstOp::Equal => Ok(Bool(a == b)),
-                        AstOp::NotEqual => Ok(Bool(a != b)),
-                        AstOp::And => Ok(Bool(*a && *b)),
-                        AstOp::Or => Ok(Bool(*a || *b)),
-                        _ => binary_op_error!(op, a, b),
-                    },
-                    _ => binary_op_error!(op, a, b),
                 }
             }
             Node::If {

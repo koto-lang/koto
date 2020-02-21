@@ -144,11 +144,11 @@ print("for", i) for i in 0..3
 
 # List comprehensions
 c = [square(x) for x in [1, 2, 3]]
-print c
+assert c == [1, 4, 9]
 
 filter = |xs, f| [x for x in xs if f(x)]
 a = filter(0..20, |x| x > 15)
-print a
+assert a == [16, 17, 18, 19]
 
 enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
 for i, x in enumerate 100..105
