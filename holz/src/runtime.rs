@@ -309,6 +309,7 @@ impl Runtime {
                             AstOp::Subtract => Ok(Number(a - b)),
                             AstOp::Multiply => Ok(Number(a * b)),
                             AstOp::Divide => Ok(Number(a / b)),
+                            AstOp::Modulo => Ok(Number(a % b)),
                             AstOp::Less => Ok(Bool(a < b)),
                             AstOp::LessOrEqual => Ok(Bool(a <= b)),
                             AstOp::Greater => Ok(Bool(a > b)),

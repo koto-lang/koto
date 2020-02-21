@@ -98,6 +98,7 @@ pub enum AstOp {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
     Equal,
     NotEqual,
     Less,
@@ -126,7 +127,9 @@ impl MyParser {
         Self {
             climber: PrecClimber::new(vec![
                 Operator::new(add, Left) | Operator::new(subtract, Left),
-                Operator::new(multiply, Left) | Operator::new(divide, Left),
+                Operator::new(multiply, Left)
+                    | Operator::new(divide, Left)
+                    | Operator::new(modulo, Left),
                 Operator::new(and, Left) | Operator::new(or, Left),
                 Operator::new(equal, Left) | Operator::new(not_equal, Left),
                 Operator::new(greater, Left)
@@ -292,6 +295,7 @@ impl MyParser {
                             Rule::subtract => make_ast_op!(Subtract),
                             Rule::multiply => make_ast_op!(Multiply),
                             Rule::divide => make_ast_op!(Divide),
+                            Rule::modulo => make_ast_op!(Modulo),
                             Rule::equal => make_ast_op!(Equal),
                             Rule::not_equal => make_ast_op!(NotEqual),
                             Rule::greater => make_ast_op!(Greater),

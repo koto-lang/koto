@@ -15,6 +15,7 @@ assert false or false or a
 assert (4 + 3) == 7
 assert (1 + 2 * 3) == 7
 assert ((2 * 2 + 3) == 7)
+assert ((2 + 5 % 3) == 4)
 
 # Multiple value assignment
 a, b = true, false

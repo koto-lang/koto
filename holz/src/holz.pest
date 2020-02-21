@@ -48,7 +48,8 @@ operation = !{
 }
 
 op = _{
-  add | subtract | multiply | divide
+  add | subtract
+  | multiply | divide | modulo
   | equal | not_equal
   | greater_or_equal | less_or_equal | greater | less
   | and | or
@@ -58,6 +59,7 @@ add = { "+" }
 subtract = { "-" }
 multiply = { "*" }
 divide = { "/" }
+modulo = { "%" }
 equal = { "==" }
 not_equal = { "!=" }
 greater = { ">" }
