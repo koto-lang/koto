@@ -66,12 +66,12 @@ term = _{(
   | if_inline
   | for_inline
   | index
-  | call
   | array
   | range
   | string
   | number
   | boolean
+  | call
   | id
   | ("(" ~ operation ~ ")")
   )
@@ -136,7 +136,7 @@ array = !{
 
 range = ${ range_arg ~ range_op ~ range_arg }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call_with_parens | index | id }
+range_arg = _{ number | call | index | id | ("(" ~ operation ~ ")") }
 
 index = ${ id ~ "[" ~ operation ~ "]" }
 

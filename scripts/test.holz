@@ -72,7 +72,6 @@ print y
 assert length(z) == 3
 assert length(y) == 5
 
-
 # ###### Ranges
 
 # Ranges are lazily evaluated
@@ -87,8 +86,9 @@ print y
 assert length([10..20]) == 10
 assert length([r]) == 5
 # Indexing arrays with ranges produces sub-arrays
-x = [10..=20]
-y = x[5..10]
+z = |n| n
+x = [(z 10)..=(z 20)]
+y = x[z(5)..(10 + 0)]
 assert y[0] == 15
 assert length(y) == 5
 
