@@ -90,6 +90,18 @@ impl Iterator for ValueIterator {
     }
 }
 
+struct MultiRangeValueIterator {
+    iters: Vec<ValueIterator>,
+}
+
+impl Iterator for MultiRangeValueIterator {
+    type Item = Vec<Value>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iters.iter_mut().map(Iterator::next).collect()
+    }
+}
+
 #[derive(Debug)]
 struct Scope {
     values: HashMap<Rc<String>, Value>,
@@ -248,13 +260,7 @@ impl Runtime {
                                 self.set_value(id_iter.next().unwrap(), &value, scope)
                             }
                         },
-                        None => {
-                            return runtime_error!(
-                                node,
-                                "Missing value to assign to '{}'",
-                                id_iter.next().unwrap()
-                            )
-                        }
+                        None => self.set_value(id_iter.next().unwrap(), &Value::Empty, scope),
                     }
                 }
                 Ok(Array(Rc::new(result)))
@@ -362,19 +368,46 @@ impl Runtime {
         let mut result = Value::Empty;
 
         if let Value::For(f) = for_statement {
-            let iter = match self.evaluate(&f.range, scope)? {
-                v @ Array(_) | v @ Range { .. } => ValueIterator::new(v),
-                unexpected => {
-                    return runtime_error!(
-                        node,
-                        "Expected iterable range in for statement, found {}",
-                        unexpected
-                    )
-                }
+            let iter = MultiRangeValueIterator {
+                iters: f
+                    .ranges
+                    .iter()
+                    .map(|range| match self.evaluate(range, scope)? {
+                        v @ Array(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
+                        unexpected => runtime_error!(
+                            node,
+                            "Expected iterable range in for statement, found {}",
+                            unexpected
+                        ),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
             };
 
-            for value in iter {
-                self.set_value(&f.arg, &value, scope);
+            let single_range = f.ranges.len() == 1;
+            for values in iter {
+                let mut arg_iter = f.args.iter().peekable();
+                for value in values.iter() {
+                    match value {
+                        Array(a) if single_range => {
+                            for array_value in a.iter() {
+                                match arg_iter.next() {
+                                    Some(arg) => self.set_value(arg, &array_value, scope),
+                                    None => break,
+                                }
+                            }
+                        }
+                        _ => self.set_value(
+                            arg_iter
+                                .next()
+                                .expect("For loops have at least one argument"),
+                            &value,
+                            scope,
+                        ),
+                    }
+                }
+                for remaining_arg in arg_iter {
+                    self.set_value(remaining_arg, &Value::Empty, scope);
+                }
 
                 if let Some(condition) = &f.condition {
                     match self.evaluate(&condition, scope)? {

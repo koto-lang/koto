@@ -146,13 +146,13 @@ print("for", i) for i in 0..3
 c = [square(x) for x in [1, 2, 3]]
 print c
 
-filter = |xs, f| [x for x in xs if f(x)] # TODO generator
+filter = |xs, f| [x for x in xs if f(x)]
 a = filter(0..20, |x| x > 15)
 print a
 
-
-# for i, x in enumerate b
-#   print format("{}: {}", i, x)
+enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
+for i, x in enumerate 100..105
+  print(i, x)
 
 
 # ###### Tables

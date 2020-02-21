@@ -62,11 +62,19 @@ less_or_equal = { "<=" }
 and = { "and" }
 or = { "or" }
 
-term = _{(
+term = _{
   function_inline
-  | if_inline
+  | flow_term
+  | value_term
+}
+
+flow_term = _{
+  if_inline
   | for_inline
-  | index
+}
+
+value_term = _{(
+  index
   | array
   | range
   | string
@@ -77,6 +85,9 @@ term = _{(
   | ("(" ~ operation ~ ")")
   )
   ~ comment?
+}
+value_terms = !{
+  value_term ~ ("," ~ value_term)*
 }
 
 if_statement = _{ if_block | if_inline }
@@ -97,15 +108,15 @@ else_keyword = @{ "else" ~ WHITESPACE+ }
 
 for_loop = _{ for_block | for_inline }
 for_block = !{
-  for_keyword ~ id
-  ~ in_keyword ~ term
+  for_keyword ~ ids
+  ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
   ~ child_block
 }
 for_inline = !{
-  (call_with_parens | id)
-  ~ for_keyword ~ id
-  ~ in_keyword ~ term
+  value_term
+  ~ for_keyword ~ ids
+  ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
 }
 

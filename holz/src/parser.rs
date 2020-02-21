@@ -86,8 +86,8 @@ pub struct Function {
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
-    pub arg: Rc<String>,
-    pub range: Box<AstNode>,
+    pub args: Vec<Rc<String>>,
+    pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
     pub body: Box<AstNode>,
 }
@@ -342,9 +342,19 @@ impl MyParser {
             Rule::for_block => {
                 let mut inner = pair.into_inner();
                 inner.next(); // for
-                let arg = next_as_rc_string!(inner);
+                let args = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| Rc::new(pair.as_str().to_string()))
+                    .collect::<Vec<_>>();
                 inner.next(); // in
-                let range = next_as_boxed_ast!(inner);
+                let ranges = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| self.build_ast(pair))
+                    .collect::<Vec<_>>();
                 let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
                     inner.next();
                     Some(next_as_boxed_ast!(inner))
@@ -355,8 +365,8 @@ impl MyParser {
                 (AstNode::new(
                     span,
                     Node::For(Rc::new(AstFor {
-                        arg,
-                        range,
+                        args,
+                        ranges,
                         condition,
                         body,
                     })),
@@ -366,9 +376,19 @@ impl MyParser {
                 let mut inner = pair.into_inner();
                 let body = next_as_boxed_ast!(inner);
                 inner.next(); // for
-                let arg = next_as_rc_string!(inner);
+                let args = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| Rc::new(pair.as_str().to_string()))
+                    .collect::<Vec<_>>();
                 inner.next(); // in
-                let range = next_as_boxed_ast!(inner);
+                let ranges = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| self.build_ast(pair))
+                    .collect::<Vec<_>>();
                 let condition = if inner.next().is_some() {
                     // if
                     Some(next_as_boxed_ast!(inner))
@@ -378,8 +398,8 @@ impl MyParser {
                 (AstNode::new(
                     span,
                     Node::For(Rc::new(AstFor {
-                        arg,
-                        range,
+                        args,
+                        ranges,
                         condition,
                         body,
                     })),
