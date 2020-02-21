@@ -179,6 +179,16 @@ impl MyParser {
                 let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 (AstNode::new(span, Block(block)))
             }
+            Rule::expressions => {
+                let inner = pair.into_inner();
+                let expressions = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
+
+                if expressions.len() == 1 {
+                    expressions.first().unwrap().clone()
+                } else {
+                    AstNode::new(span, Node::Array(expressions))
+                }
+            }
             Rule::boolean => (AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
             Rule::number => (AstNode::new(span, Node::Number(pair.as_str().parse().unwrap()))),
             Rule::string => {

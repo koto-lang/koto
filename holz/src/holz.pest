@@ -24,7 +24,11 @@ empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
 next_expression = @{ NEWLINE ~ indentation ~ assignment_or_expression }
 
-assignment_or_expression = _{ (assignment | expression) ~ comment? }
+assignment_or_expression = _{ (assignment | expressions) ~ comment? }
+
+assignment = _{ single_assignment | multiple_assignment }
+single_assignment = !{ id ~ "=" ~ expressions }
+multiple_assignment = !{ ids ~ "=" ~ expressions }
 
 expression = _{
   ( function
@@ -35,6 +39,7 @@ expression = _{
   )
   ~ comment?
 }
+expressions = !{ expression ~ ("," ~ expression)* }
 
 operation = !{
    (term ~ (op ~ term)+)
@@ -131,12 +136,6 @@ call_args = !{
 }
 call_single_arg = ${(id ~ WHITESPACE+ ~ operation) }
 
-assignment = _{ single_assignment | multiple_assignment }
-single_assignment = !{ id ~ "=" ~ expression }
-multiple_assignment = !{ ids ~ "=" ~ expressions }
-ids = { id ~ ("," ~ id)* }
-expressions = { expression ~ ("," ~ expression)* }
-
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
 function_inline = !{ function_args ~ expression }
@@ -175,6 +174,7 @@ char = {
 id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
+ids = { id ~ ("," ~ id)* }
 
 keyword = _{
   "and"
