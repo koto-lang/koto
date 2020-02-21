@@ -1,5 +1,5 @@
 [package]
-name = "holzapp"
+name = "songapp"
 
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
@@ -7,11 +7,11 @@ edition = "2018"
 
 [workspace]
 members = [
-  "holz"
+  "song"
 ]
 
 [dependencies]
-holz = { path = "holz" }
+song = { path = "song" }
 pest = "2.1.2"
 pest_derive  = "2.1.0"
 

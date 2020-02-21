@@ -108,24 +108,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "holz"
-version = "0.1.0"
-dependencies = [
- "pest",
- "pest_derive",
-]
-
-[[package]]
-name = "holzapp"
-version = "0.1.0"
-dependencies = [
- "clap",
- "holz",
- "pest",
- "pest_derive",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -214,6 +196,24 @@ dependencies = [
  "digest",
  "fake-simd",
  "opaque-debug",
+]
+
+[[package]]
+name = "song"
+version = "0.1.0"
+dependencies = [
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
+name = "songapp"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "pest",
+ "pest_derive",
+ "song",
 ]
 
 [[package]]

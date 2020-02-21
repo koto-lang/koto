@@ -1,4 +1,5 @@
 use clap::{App, Arg};
+use song::{Error, Runtime, SongParser};
 use std::{fs, io::Write};
 
 fn main() {
@@ -11,17 +12,17 @@ fn main() {
         )
         .get_matches();
 
-    let parser = holz::MyParser::new();
+    let parser = SongParser::new();
 
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
         match parser.parse(&script) {
             Ok(ast) => {
-                let mut runtime = holz::Runtime::new();
+                let mut runtime = Runtime::new();
                 match runtime.run(&ast) {
                     Ok(_) => {}
                     Err(e) => match e {
-                        holz::Error::RuntimeError {
+                        Error::RuntimeError {
                             message,
                             start_pos,
                             end_pos,
@@ -43,7 +44,7 @@ fn main() {
             Err(e) => eprintln!("Error while parsing source: {}", e),
         }
     } else {
-        let mut runtime = holz::Runtime::new();
+        let mut runtime = Runtime::new();
         let mut input = String::new();
         loop {
             print!("> ");
@@ -54,9 +55,7 @@ fn main() {
             match parser.parse(&input) {
                 Ok(ast) => match runtime.run(&ast) {
                     Ok(result) => println!("{}", result),
-                    Err(holz::Error::RuntimeError { message, .. }) => {
-                        println!("Error: {}", message)
-                    }
+                    Err(Error::RuntimeError { message, .. }) => println!("Error: {}", message),
                 },
                 Err(e) => {
                     println!("Error parsing input: {}", e);

@@ -2,8 +2,8 @@ use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::rc::Rc;
 
 #[derive(Parser)]
-#[grammar = "holz.pest"]
-struct HolzParser;
+#[grammar = "song.pest"]
+struct PestParser;
 
 #[derive(Clone, Debug)]
 pub struct AstNode {
@@ -115,11 +115,11 @@ pub struct Position {
     pub column: usize,
 }
 
-pub struct MyParser {
+pub struct SongParser {
     climber: PrecClimber<Rule>,
 }
 
-impl MyParser {
+impl SongParser {
     pub fn new() -> Self {
         use pest::prec_climber::{Assoc::*, Operator};
         use Rule::*;
@@ -141,7 +141,7 @@ impl MyParser {
     }
 
     pub fn parse(&self, source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
-        let parsed = HolzParser::parse(Rule::program, source)?;
+        let parsed = PestParser::parse(Rule::program, source)?;
         // dbg!(&parsed);
 
         let mut ast = vec![];
