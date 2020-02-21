@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt, rc::Rc};
 
-use crate::parser::{AstFor, AstNode, Function, Node, Op, Position};
+use crate::parser::{AstFor, AstNode, Function, Node, AstOp, Position};
 
 pub enum Error {
     RuntimeError {
@@ -225,7 +225,9 @@ impl Runtime {
                 self.set_value(id, &value, scope);
                 Ok(value)
             }
-            Node::BinaryOp { lhs, op, rhs } => {
+            Node::Op { op, lhs, rhs } => {
+                // dbg!(lhs);
+                // dbg!(ops);
                 let a = self.evaluate(lhs, scope)?;
                 let b = self.evaluate(rhs, scope)?;
                 macro_rules! binary_op_error {
@@ -241,23 +243,23 @@ impl Runtime {
                 };
                 match (&a, &b) {
                     (Number(a), Number(b)) => match op {
-                        Op::Add => Ok(Number(a + b)),
-                        Op::Subtract => Ok(Number(a - b)),
-                        Op::Multiply => Ok(Number(a * b)),
-                        Op::Divide => Ok(Number(a / b)),
-                        Op::Equal => Ok(Bool(a == b)),
-                        Op::NotEqual => Ok(Bool(a != b)),
-                        Op::LessThan => Ok(Bool(a < b)),
-                        Op::LessThanOrEqual => Ok(Bool(a <= b)),
-                        Op::GreaterThan => Ok(Bool(a > b)),
-                        Op::GreaterThanOrEqual => Ok(Bool(a >= b)),
+                        AstOp::Add => Ok(Number(a + b)),
+                        AstOp::Subtract => Ok(Number(a - b)),
+                        AstOp::Multiply => Ok(Number(a * b)),
+                        AstOp::Divide => Ok(Number(a / b)),
+                        AstOp::Equal => Ok(Bool(a == b)),
+                        AstOp::NotEqual => Ok(Bool(a != b)),
+                        AstOp::Less => Ok(Bool(a < b)),
+                        AstOp::LessOrEqual => Ok(Bool(a <= b)),
+                        AstOp::Greater => Ok(Bool(a > b)),
+                        AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
                         _ => binary_op_error!(op, a, b),
                     },
                     (Bool(a), Bool(b)) => match op {
-                        Op::Equal => Ok(Bool(a == b)),
-                        Op::NotEqual => Ok(Bool(a != b)),
-                        Op::And => Ok(Bool(*a && *b)),
-                        Op::Or => Ok(Bool(*a || *b)),
+                        AstOp::Equal => Ok(Bool(a == b)),
+                        AstOp::NotEqual => Ok(Bool(a != b)),
+                        AstOp::And => Ok(Bool(*a && *b)),
+                        AstOp::Or => Ok(Bool(*a || *b)),
                         _ => binary_op_error!(op, a, b),
                     },
                     _ => binary_op_error!(op, a, b),

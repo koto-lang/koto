@@ -1,4 +1,4 @@
-use pest::{error::Error, Parser, Span};
+use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::rc::Rc;
 
 #[derive(Parser)]
@@ -58,10 +58,10 @@ pub enum Node {
         id: Rc<String>,
         expression: Box<AstNode>,
     },
-    BinaryOp {
+    Op {
+        op: AstOp,
         lhs: Box<AstNode>,
         rhs: Box<AstNode>,
-        op: Op,
     },
     If {
         condition: Box<AstNode>,
@@ -89,17 +89,17 @@ pub struct AstFor {
 }
 
 #[derive(Clone, Debug)]
-pub enum Op {
+pub enum AstOp {
     Add,
     Subtract,
     Multiply,
     Divide,
     Equal,
     NotEqual,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
     And,
     Or,
 }
@@ -110,235 +110,264 @@ pub struct Position {
     pub column: usize,
 }
 
-pub fn parse(source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
-    let parsed = HolzParser::parse(Rule::program, source)?;
-    // dbg!(&parsed);
-
-    let mut ast = vec![];
-    for pair in parsed {
-        match pair.as_rule() {
-            Rule::block => {
-                ast.push(build_ast_from_expression(pair).unwrap());
-            }
-            _ => {}
-        }
-    }
-
-    Ok(ast)
+pub struct MyParser {
+    climber: PrecClimber<Rule>,
 }
 
-fn build_ast_from_expression(pair: pest::iterators::Pair<Rule>) -> Option<AstNode> {
-    // dbg!(&pair);
-    use Node::*;
+impl MyParser {
+    pub fn new() -> Self {
+        use pest::prec_climber::{Assoc::*, Operator};
+        use Rule::*;
 
-    macro_rules! next_as_boxed_ast {
-        ($inner:expr) => {
-            Box::new(build_ast_from_expression($inner.next().unwrap()).unwrap())
-        };
+        Self {
+            climber: PrecClimber::new(vec![
+                Operator::new(add, Left) | Operator::new(subtract, Left),
+                Operator::new(multiply, Left) | Operator::new(divide, Left),
+                Operator::new(and, Left) | Operator::new(or, Left),
+                Operator::new(equal, Left) | Operator::new(not_equal, Left),
+                Operator::new(greater, Left)
+                    | Operator::new(greater_or_equal, Left)
+                    | Operator::new(less, Left)
+                    | Operator::new(less_or_equal, Left),
+            ]),
+        }
     }
 
-    macro_rules! next_as_rc_string {
-        ($inner:expr) => {
-            Rc::new($inner.next().unwrap().as_str().to_string())
-        };
-    }
+    pub fn parse(&self, source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
+        let parsed = HolzParser::parse(Rule::program, source)?;
+        // dbg!(&parsed);
 
-    let span = pair.as_span();
-    match pair.as_rule() {
-        Rule::expression | Rule::next_expression | Rule::lhs_value | Rule::rhs_value => {
-            build_ast_from_expression(pair.into_inner().next().unwrap())
-        }
-        Rule::block | Rule::child_block => {
-            let inner = pair.into_inner();
-            let block: Vec<AstNode> = inner
-                .filter_map(|pair| build_ast_from_expression(pair))
-                .collect();
-            Some(AstNode::new(span, Block(block)))
-        }
-        Rule::boolean => Some(AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
-        Rule::number => Some(AstNode::new(
-            span,
-            Node::Number(pair.as_str().parse().unwrap()),
-        )),
-        Rule::string => {
-            let mut inner = pair.into_inner();
-            Some(AstNode::new(span, Node::Str(next_as_rc_string!(inner))))
-        }
-        Rule::array => {
-            let inner = pair.into_inner();
-            let elements: Vec<AstNode> = inner
-                .filter_map(|pair| build_ast_from_expression(pair))
-                .collect();
-            Some(AstNode::new(span, Node::Array(elements)))
-        }
-        Rule::range => {
-            let mut inner = pair.into_inner();
-
-            let min = next_as_boxed_ast!(inner);
-            let inclusive = inner.next().unwrap().as_str() == "..=";
-            let max = next_as_boxed_ast!(inner);
-
-            Some(AstNode::new(
-                span,
-                Node::Range {
-                    min,
-                    inclusive,
-                    max,
-                },
-            ))
-        }
-        Rule::index => {
-            let mut inner = pair.into_inner();
-            let id = inner.next().unwrap().as_str().to_string();
-            let expression = next_as_boxed_ast!(inner);
-            Some(AstNode::new(span, Node::Index { id, expression }))
-        }
-        Rule::id => Some(AstNode::new(
-            span,
-            Node::Id(Rc::new(pair.as_str().to_string())),
-        )),
-        Rule::function => {
-            let mut inner = pair.into_inner();
-            let mut capture = inner.next().unwrap().into_inner();
-            let args: Vec<Rc<String>> = capture
-                .by_ref()
-                .take_while(|pair| pair.as_str() != "->")
-                .map(|pair| Rc::new(pair.as_str().to_string()))
-                .collect();
-            // collect function body
-            let body: Vec<AstNode> = inner
-                .filter_map(|pair| build_ast_from_expression(pair))
-                .collect();
-            Some(AstNode::new(
-                span,
-                Node::Function(Rc::new(self::Function { args, body })),
-            ))
-        }
-        Rule::call => {
-            let mut inner = pair.into_inner();
-            let function = next_as_rc_string!(inner);
-            let args: Vec<AstNode> = inner
-                .filter_map(|pair| build_ast_from_expression(pair))
-                .collect();
-            Some(AstNode::new(span, Node::Call { function, args }))
-        }
-        Rule::assignment => {
-            let mut inner = pair.into_inner();
-            let id = next_as_rc_string!(inner);
-            let expression = next_as_boxed_ast!(inner);
-            Some(AstNode::new(span, Node::Assign { id, expression }))
-        }
-        Rule::binary_op => {
-            let mut inner = pair.into_inner();
-            let lhs = next_as_boxed_ast!(inner);
-            let op = match inner.next().unwrap().as_str() {
-                "+" => Op::Add,
-                "-" => Op::Subtract,
-                "*" => Op::Multiply,
-                "/" => Op::Divide,
-                "==" => Op::Equal,
-                "!=" => Op::NotEqual,
-                "<" => Op::LessThan,
-                "<=" => Op::LessThanOrEqual,
-                ">" => Op::GreaterThan,
-                ">=" => Op::GreaterThanOrEqual,
-                "and" => Op::And,
-                "or" => Op::Or,
-                unexpected => {
-                    let error = format!("Unexpected binary operator: {}", unexpected);
-                    unreachable!(error)
+        let mut ast = vec![];
+        for pair in parsed {
+            match pair.as_rule() {
+                Rule::block => {
+                    ast.push(self.build_ast(pair));
                 }
-            };
-            let rhs = next_as_boxed_ast!(inner);
-            Some(AstNode::new(span, Node::BinaryOp { lhs, op, rhs }))
+                _ => {}
+            }
         }
-        Rule::if_inline => {
-            let mut inner = pair.into_inner();
-            inner.next(); // if
-            let condition = next_as_boxed_ast!(inner);
-            inner.next(); // then
-            let then_node = next_as_boxed_ast!(inner);
-            let else_node = if inner.next().is_some() {
-                Some(next_as_boxed_ast!(inner))
-            } else {
-                None
-            };
 
-            Some(AstNode::new(
-                span,
-                Node::If {
-                    condition,
-                    then_node,
-                    else_node,
-                },
-            ))
-        }
-        Rule::if_block => {
-            let mut inner = pair.into_inner();
-            inner.next(); // if
-            let condition = next_as_boxed_ast!(inner);
-            let then_node = next_as_boxed_ast!(inner);
-            let else_node = if inner.peek().is_some() {
-                Some(next_as_boxed_ast!(inner))
-            } else {
-                None
-            };
+        Ok(ast)
+    }
 
-            Some(AstNode::new(
-                span,
-                Node::If {
-                    condition,
-                    then_node,
-                    else_node,
-                },
-            ))
-        }
-        Rule::for_block => {
-            let mut inner = pair.into_inner();
-            inner.next(); // for
-            let arg = next_as_rc_string!(inner);
-            inner.next(); // in
-            let range = next_as_boxed_ast!(inner);
-            let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
-                inner.next();
-                Some(next_as_boxed_ast!(inner))
-            } else {
-                None
+    fn build_ast(&self, pair: pest::iterators::Pair<Rule>) -> AstNode {
+        // dbg!(&pair);
+        use pest::iterators::Pair;
+        use Node::*;
+
+        macro_rules! next_as_boxed_ast {
+            ($inner:expr) => {
+                Box::new(self.build_ast($inner.next().unwrap()))
             };
-            let body = next_as_boxed_ast!(inner);
-            Some(AstNode::new(
-                span,
-                Node::For(Rc::new(AstFor {
-                    arg,
-                    range,
-                    condition,
-                    body,
-                })),
-            ))
         }
-        Rule::for_inline => {
-            let mut inner = pair.into_inner();
-            let body = next_as_boxed_ast!(inner);
-            inner.next(); // for
-            let arg = next_as_rc_string!(inner);
-            inner.next(); // in
-            let range = next_as_boxed_ast!(inner);
-            let condition = if inner.next().is_some() {
-                // if
-                Some(next_as_boxed_ast!(inner))
-            } else {
-                None
+
+        macro_rules! next_as_rc_string {
+            ($inner:expr) => {
+                Rc::new($inner.next().unwrap().as_str().to_string())
             };
-            Some(AstNode::new(
-                span,
-                Node::For(Rc::new(AstFor {
-                    arg,
-                    range,
-                    condition,
-                    body,
-                })),
-            ))
         }
-        unexpected => unreachable!("Unexpected expression: {:?}", unexpected),
+
+        let span = pair.as_span();
+        match pair.as_rule() {
+            Rule::next_expression => {
+                self.build_ast(pair.into_inner().next().unwrap())
+            }
+            Rule::block | Rule::child_block => {
+                let inner = pair.into_inner();
+                let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                (AstNode::new(span, Block(block)))
+            }
+            Rule::boolean => (AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
+            Rule::number => (AstNode::new(span, Node::Number(pair.as_str().parse().unwrap()))),
+            Rule::string => {
+                let mut inner = pair.into_inner();
+                (AstNode::new(span, Node::Str(next_as_rc_string!(inner))))
+            }
+            Rule::array => {
+                let inner = pair.into_inner();
+                let elements: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                (AstNode::new(span, Node::Array(elements)))
+            }
+            Rule::range => {
+                let mut inner = pair.into_inner();
+
+                let min = next_as_boxed_ast!(inner);
+                let inclusive = inner.next().unwrap().as_str() == "..=";
+                let max = next_as_boxed_ast!(inner);
+
+                (AstNode::new(
+                    span,
+                    Node::Range {
+                        min,
+                        inclusive,
+                        max,
+                    },
+                ))
+            }
+            Rule::index => {
+                let mut inner = pair.into_inner();
+                let id = inner.next().unwrap().as_str().to_string();
+                let expression = next_as_boxed_ast!(inner);
+                (AstNode::new(span, Node::Index { id, expression }))
+            }
+            Rule::id => (AstNode::new(span, Node::Id(Rc::new(pair.as_str().to_string())))),
+            Rule::function_block | Rule::function_inline => {
+                let mut inner = pair.into_inner();
+                let mut capture = inner.next().unwrap().into_inner();
+                let args: Vec<Rc<String>> = capture
+                    .by_ref()
+                    .take_while(|pair| pair.as_str() != "->")
+                    .map(|pair| Rc::new(pair.as_str().to_string()))
+                    .collect();
+                // collect function body
+                let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                (AstNode::new(span, Node::Function(Rc::new(self::Function { args, body }))))
+            }
+            Rule::call_with_parens | Rule::call_single_arg => {
+                let mut inner = pair.into_inner();
+                let function = next_as_rc_string!(inner);
+                let args: Vec<AstNode> = if inner.peek().unwrap().as_rule() == Rule::call_args {
+                    inner
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .map(|pair| self.build_ast(pair))
+                        .collect()
+                } else {
+                    vec![self.build_ast(inner.next().unwrap())]
+                };
+                (AstNode::new(span, Node::Call { function, args }))
+            }
+            Rule::assignment => {
+                let mut inner = pair.into_inner();
+                let id = next_as_rc_string!(inner);
+                let expression = next_as_boxed_ast!(inner);
+                (AstNode::new(span, Node::Assign { id, expression }))
+            }
+            Rule::operation => {
+                // dbg!(&pair);
+                self.climber.climb(
+                    pair.into_inner(),
+                    |pair: Pair<Rule>| self.build_ast(pair),
+                    |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
+                        let span = op.as_span();
+                        let lhs = Box::new(lhs);
+                        let rhs = Box::new(rhs);
+                        use AstOp::*;
+                        macro_rules! make_ast_op {
+                            ($op:expr) => {
+                                AstNode::new(span, Node::Op { op: $op, lhs, rhs })
+                            };
+                        };
+                        match op.as_rule() {
+                            Rule::add => make_ast_op!(Add),
+                            Rule::subtract => make_ast_op!(Subtract),
+                            Rule::multiply => make_ast_op!(Multiply),
+                            Rule::divide => make_ast_op!(Divide),
+                            Rule::equal => make_ast_op!(Equal),
+                            Rule::not_equal => make_ast_op!(NotEqual),
+                            Rule::greater => make_ast_op!(Greater),
+                            Rule::greater_or_equal => make_ast_op!(GreaterOrEqual),
+                            Rule::less => make_ast_op!(Less),
+                            Rule::less_or_equal => make_ast_op!(LessOrEqual),
+                            Rule::and => make_ast_op!(And),
+                            Rule::or => make_ast_op!(Or),
+                            unexpected => {
+                                let error = format!("Unexpected operator: {:?}", unexpected);
+                                unreachable!(error)
+                            }
+                        }
+                    },
+                )
+            }
+            Rule::if_inline => {
+                let mut inner = pair.into_inner();
+                inner.next(); // if
+                let condition = next_as_boxed_ast!(inner);
+                inner.next(); // then
+                let then_node = next_as_boxed_ast!(inner);
+                let else_node = if inner.next().is_some() {
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
+
+                (AstNode::new(
+                    span,
+                    Node::If {
+                        condition,
+                        then_node,
+                        else_node,
+                    },
+                ))
+            }
+            Rule::if_block => {
+                let mut inner = pair.into_inner();
+                inner.next(); // if
+                let condition = next_as_boxed_ast!(inner);
+                let then_node = next_as_boxed_ast!(inner);
+                let else_node = if inner.peek().is_some() {
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
+
+                (AstNode::new(
+                    span,
+                    Node::If {
+                        condition,
+                        then_node,
+                        else_node,
+                    },
+                ))
+            }
+            Rule::for_block => {
+                let mut inner = pair.into_inner();
+                inner.next(); // for
+                let arg = next_as_rc_string!(inner);
+                inner.next(); // in
+                let range = next_as_boxed_ast!(inner);
+                let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
+                    inner.next();
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
+                let body = next_as_boxed_ast!(inner);
+                (AstNode::new(
+                    span,
+                    Node::For(Rc::new(AstFor {
+                        arg,
+                        range,
+                        condition,
+                        body,
+                    })),
+                ))
+            }
+            Rule::for_inline => {
+                let mut inner = pair.into_inner();
+                let body = next_as_boxed_ast!(inner);
+                inner.next(); // for
+                let arg = next_as_rc_string!(inner);
+                inner.next(); // in
+                let range = next_as_boxed_ast!(inner);
+                let condition = if inner.next().is_some() {
+                    // if
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
+                (AstNode::new(
+                    span,
+                    Node::For(Rc::new(AstFor {
+                        arg,
+                        range,
+                        condition,
+                        body,
+                    })),
+                ))
+            }
+            unexpected => unreachable!("Unexpected expression: {:?}", unexpected),
+        }
     }
 }

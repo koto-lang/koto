@@ -10,12 +10,15 @@ Multiline comments start with #- and end with -#
 a = true
 print a
 assert a == true
-assert false or (false or true)
+assert false or false or true
 
-# assert 4 + 3 == 7 # TODO
-# assert (1 + 2 * 3) == 7 # TODO
-assert((1 + 2 * 3) == 7)
-# assert((2 * 2 + 3) == 7) # TODO
+assert (4 + 3) == 7
+assert (1 + 2 * 3) == 7
+assert ((2 * 2 + 3) == 7)
+
+# Multiple value assignment
+# a, b, c = 1, 2, 3
+# assert (a == 1) and (b == 2) and (c == 3)
 
 
 ###### Functions
@@ -30,7 +33,7 @@ square = |x| x * x
 
 # Muliple-argument functions must be called with parentheses
 # Single-argument functions can be called with or without parentheses
-print("The square of 7 is", square(7))
+print("The square of 7 is", square 7)
 
 # Multiple arguments are separated by commas
 # Multiline functions are indented after the capture list
@@ -50,6 +53,11 @@ assert add(1, 2) == 3
 add2 = |x, y| add(x, y)
 assert add2(4, -4) == 0
 
+# # functions can return multiple values
+# # f = |x| x - 1, x + 1
+# # a, b = f 0
+# # assert a == -1 and b == 1
+
 
 ####### Arrays
 z = [10, 10 + 10, 30]
@@ -65,7 +73,7 @@ assert length(z) == 3
 assert length(y) == 5
 
 
-###### Ranges
+# ###### Ranges
 
 # Ranges are lazily evaluated
 r = 0..5
@@ -122,8 +130,8 @@ else
 
 # For statement blocks
 for x in 0..10
-  for y in -5..5 if (x == y) and (x < 3) # TODO precedence of and
-    print (x, y)
+  for y in -5..5 if x == y and x < 3
+    print(x, y)
 
 # Inline for statement
 print("for", i) for i in 0..3
@@ -136,7 +144,8 @@ filter = |xs, f| [x for x in xs if f(x)] # TODO generator
 a = filter(0..20, |x| x > 15)
 print a
 
-# for (i, x) in enumerate b
+
+# for i, x in enumerate b
 #   print format("{}: {}", i, x)
 
 

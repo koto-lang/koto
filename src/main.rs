@@ -11,9 +11,11 @@ fn main() {
         )
         .get_matches();
 
+    let parser = holz::MyParser::new();
+
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
-        match holz::parse(&script) {
+        match parser.parse(&script) {
             Ok(ast) => {
                 let mut runtime = holz::Runtime::new();
                 match runtime.run(&ast) {
@@ -49,7 +51,7 @@ fn main() {
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Error getting input");
-            match holz::parse(&input) {
+            match parser.parse(&input) {
                 Ok(ast) => match runtime.run(&ast) {
                     Ok(result) => println!("{}", result),
                     Err(holz::Error::RuntimeError { message, .. }) => {

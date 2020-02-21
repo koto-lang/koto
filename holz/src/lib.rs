@@ -4,5 +4,5 @@ extern crate pest_derive;
 mod parser;
 mod runtime;
 
-pub use parser::parse;
+pub use parser::MyParser;
 pub use runtime::{Error, Runtime};

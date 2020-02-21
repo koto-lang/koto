@@ -1,22 +1,3 @@
-WHITESPACE = _{ " " | "\t" }
-
-comment = _{ multiline_comment | inline_comment }
-inline_comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
-multiline_comment = _{ "#-" ~ (!"-#" ~ multiline_comment* ~ ANY)* ~ "-#" }
-
-keyword = _{
-  "and"
-  | "class"
-  | "else"
-  | "false"
-  | "for"
-  | "if"
-  | "in"
-  | "or"
-  | "then"
-  | "true"
-}
-
 program = _{
   SOI
   ~ block*
@@ -43,25 +24,45 @@ empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
 next_expression = @{ NEWLINE ~ indentation ~ expression }
 
-expression = !{
+expression = _{
   ( assignment
   | function
-  | if_block
-  | for_block
-  | value
+  | if_statement
+  | for_loop
+  | operation
+  | call
   )
   ~ comment?
 }
 
-value = _{ rhs_value | lhs_value ~ comment? }
-
-rhs_value = _{
-  binary_op
+operation = !{
+   (term ~ (op ~ term)+)
+   | (term ~ (op ~ term)?)
+    ~ comment?
 }
 
-lhs_value = _{
-  (
-  "(" ~ value ~ ")"
+op = _{
+  add | subtract | multiply | divide
+  | equal | not_equal
+  | greater_or_equal | less_or_equal | greater | less
+  | and | or
+}
+
+add = { "+" }
+subtract = { "-" }
+multiply = { "*" }
+divide = { "/" }
+equal = { "==" }
+not_equal = { "!=" }
+greater = { ">" }
+greater_or_equal = { ">=" }
+less = { "<" }
+less_or_equal = { "<=" }
+and = { "and" }
+or = { "or" }
+
+term = _{(
+  function_inline
   | if_inline
   | for_inline
   | index
@@ -72,76 +73,72 @@ lhs_value = _{
   | number
   | boolean
   | id
+  | ("(" ~ operation ~ ")")
   )
   ~ comment?
 }
 
-if_block = {
-  if_keyword ~ value
+if_statement = _{ if_block | if_inline }
+if_block = !{
+  if_keyword ~ expression
   ~ child_block
   ~ (NEWLINE* ~ "else" ~ child_block)?
 }
-
-if_inline = {
-  if_keyword ~ value
-  ~ then_keyword ~ value
-  ~ (else_keyword ~ value)?
+if_inline = !{
+  if_keyword ~ expression
+  ~ then_keyword ~ expression
+  ~ (else_keyword ~ expression)?
 }
 
 if_keyword = @{ "if" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 else_keyword = @{ "else" ~ WHITESPACE+ }
 
-for_block = {
+for_loop = _{ for_block | for_inline }
+for_block = !{
   for_keyword ~ id
-  ~ in_keyword ~ value
-  ~ (if_keyword ~ value)?
+  ~ in_keyword ~ term
+  ~ (if_keyword ~ operation)?
   ~ child_block
 }
-
-for_inline = {
-  (call | id)
+for_inline = !{
+  (call_with_parens | id)
   ~ for_keyword ~ id
-  ~ in_keyword ~ value
-  ~ (if_keyword ~ value)?
+  ~ in_keyword ~ term
+  ~ (if_keyword ~ operation)?
 }
 
 for_keyword = @{ "for" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
 
-call = { (id ~ call_args) | (id ~ expression) }
-call_args = _{
-  "(" ~ ")"
-  | "(" ~ expression ~ ("," ~ expression)* ~ ")"
+call = _{ call_with_parens | call_single_arg }
+call_with_parens = ${(id ~ call_args)}
+call_args = !{
+  ("(" ~ ")")
+  | "(" ~ operation ~ ("," ~ operation)* ~ ")"
 }
+call_single_arg = ${(id ~ WHITESPACE+ ~ operation) }
 
-assignment = { id ~ "=" ~ expression }
+assignment = !{ id ~ "=" ~ expression }
 
-binary_op = { lhs_value ~ (arithemetic_op | logic_op) ~ expression }
-arithemetic_op = {
-  "+" | "-" | "/" | "*"
-}
-
-logic_op = {
-  "==" | "!=" | "<=" | "<" | ">=" | ">" | "and" | "or"
-}
-
-function = { function_args ~ (expression | child_block) }
+function = _{ function_block | function_inline }
+function_block = !{ function_args ~ child_block }
+function_inline = !{ function_args ~ expression }
 function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
 
-array = {
+array = !{
   "[" ~ "]"
-  | "[" ~ expression ~ ("," ~ expression)* ~ "]"
+  | "[" ~ operation ~ ("," ~ operation)* ~ "]"
 }
 
 range = ${ range_arg ~ range_op ~ range_arg }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call | index | id }
+range_arg = _{ number | call_with_parens | index | id }
 
-index = ${ id ~ "[" ~ expression ~ "]" }
+index = ${ id ~ "[" ~ operation ~ "]" }
 
 boolean = { "true" | "false" }
 
@@ -162,3 +159,20 @@ char = {
 id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
+
+keyword = _{
+  "and"
+  | "else"
+  | "false"
+  | "for"
+  | "if"
+  | "in"
+  | "or"
+  | "then"
+  | "true"
+}
+
+WHITESPACE = _{ " " | "\t" }
+comment = _{ multiline_comment | inline_comment }
+inline_comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
+multiline_comment = _{ "#-" ~ (!"-#" ~ multiline_comment* ~ ANY)* ~ "-#" }
