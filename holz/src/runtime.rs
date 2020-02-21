@@ -228,22 +228,26 @@ impl Runtime {
             Node::MultiAssign { ids, expressions } => {
                 let mut id_iter = ids.iter().peekable();
                 let mut expressions_iter = expressions.iter();
+                let mut result = vec![];
                 while id_iter.peek().is_some() {
                     match expressions_iter.next() {
-                        Some(expression) => {
-                            let result = self.evaluate(expression, scope)?;
-                            match result {
-                                Array(a) => {
-                                    for value in a.iter() {
-                                        match id_iter.next() {
-                                            Some(id) => self.set_value(id, &value, scope),
-                                            None => break,
+                        Some(expression) => match self.evaluate(expression, scope)? {
+                            Array(a) => {
+                                for value in a.iter() {
+                                    match id_iter.next() {
+                                        Some(id) => {
+                                            result.push(value.clone());
+                                            self.set_value(id, &value, scope)
                                         }
+                                        None => break,
                                     }
                                 }
-                                _ => self.set_value(id_iter.next().unwrap(), &result, scope),
                             }
-                        }
+                            value => {
+                                result.push(value.clone());
+                                self.set_value(id_iter.next().unwrap(), &value, scope)
+                            }
+                        },
                         None => {
                             return runtime_error!(
                                 node,
@@ -253,7 +257,7 @@ impl Runtime {
                         }
                     }
                 }
-                Ok(Empty) // todo multiple return values
+                Ok(Array(Rc::new(result)))
             }
             Node::Op { op, lhs, rhs } => {
                 // dbg!(lhs);
