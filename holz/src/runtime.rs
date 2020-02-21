@@ -226,15 +226,31 @@ impl Runtime {
                 Ok(value)
             }
             Node::MultiAssign { ids, expressions } => {
-                let mut id_iter = ids.iter();
+                let mut id_iter = ids.iter().peekable();
                 let mut expressions_iter = expressions.iter();
-                while let Some(id) = id_iter.next() {
+                while id_iter.peek().is_some() {
                     match expressions_iter.next() {
                         Some(expression) => {
-                            let value = self.evaluate(expression, scope)?;
-                            self.set_value(id, &value, scope);
+                            let result = self.evaluate(expression, scope)?;
+                            match result {
+                                Array(a) => {
+                                    for value in a.iter() {
+                                        match id_iter.next() {
+                                            Some(id) => self.set_value(id, &value, scope),
+                                            None => break,
+                                        }
+                                    }
+                                }
+                                _ => self.set_value(id_iter.next().unwrap(), &result, scope),
+                            }
                         }
-                        None => return runtime_error!(node, "Missing value to assign to '{}'", id),
+                        None => {
+                            return runtime_error!(
+                                node,
+                                "Missing value to assign to '{}'",
+                                id_iter.next().unwrap()
+                            )
+                        }
                     }
                 }
                 Ok(Empty) // todo multiple return values

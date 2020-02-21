@@ -74,6 +74,10 @@ print y
 assert length(z) == 3
 assert length(y) == 5
 
+# Arrays get unpacked in multiple assignments
+a, b, c = [10, 20], [30, 40]
+assert (a == 10) and (b == 20) and (c == 30)
+
 # ###### Ranges
 
 # Ranges are lazily evaluated
