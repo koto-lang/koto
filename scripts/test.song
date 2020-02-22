@@ -6,6 +6,7 @@ Multiline comments start with #- and end with -#
 #- and -# can be nested
 -#
 
+
 ###### Basic types and logic
 a = true
 print a
@@ -56,10 +57,10 @@ assert_eq(add(1, 2), 3)
 add2 = |x, y| add(x, y)
 assert_eq(add2(4, -4), 0)
 
-# # functions can return multiple values
-# # f = |x| x - 1, x + 1
-# # a, b = f 0
-# # assert a == -1 and b == 1
+# TODO functions can return multiple values
+f = |x| [x - 1, x + 1] # TODO avoid array
+a, b = f 0
+assert (a == -1) and (b == 1)
 
 
 ####### Arrays
@@ -79,7 +80,9 @@ assert_eq(length(y), 5)
 a, b, c = [10, 20], [30, 40]
 assert (a == 10) and (b == 20) and (c == 30)
 
-# ###### Ranges
+
+###### Ranges
+# TODO support from/to ranges
 
 # Ranges are lazily evaluated
 r = 0..5
@@ -102,9 +105,9 @@ assert_eq(length(y), 5)
 a = 1, 2
 assert_eq(a, [1, 2])
 
-# TODO support from/to ranges
 
-# Control flow
+###### Control flow
+# TODO else if
 
 # Single line if statement
 is_zero = |x| x == 0
@@ -112,11 +115,11 @@ if is_zero 0 then print "Zer0"
 if is_zero 1 then print "Zer0" else print "Not Zer0"
 assert if is_zero 0 then true else false
 
-# functions in nested scope should be recursive
 if true
+  # functions in nested local scope can be called recursively
   fib = |n|
     if n < 2 then n else fib(n - 1) + fib(n - 2)
-  print("fib 5:", fib 7)
+  assert_eq(fib 7, 13)
 
 
 # Multiline if statement
@@ -154,11 +157,15 @@ filter = |xs, f| [x for x in xs if f(x)]
 a = filter(0..20, |x| x > 15)
 assert_eq(a, [16, 17, 18, 19])
 
-enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
+# Iterating works over multiple ranges
+enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs] # TODO avoid subarray
+                                                        # TODO generator
 z = [[c, d] for c, d in enumerate 100..103]
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
+
 ###### Maps
+
 print { foo: "bar", baz: 99 }
 o = { min: 0, max: || 42 }
 assert_eq(42, o.max())
@@ -185,7 +192,9 @@ assert (m2.bar(2) == 4) and (m2.baz == 99)
 
 # assert map.keys z == ["foo", "bar", "baz"]
 
-# ##### Maps as classes
+
+
+###### Maps as classes
 
 # make_o = ||
 #   foo: 42
