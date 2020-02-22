@@ -34,6 +34,7 @@ expression = _{
   ( function
   | if_statement
   | for_loop
+  | map
   | operation
   | call
   )
@@ -84,7 +85,7 @@ value_term = _{(
   index
   | range
   | call
-  | map
+  | map_inline
   | array
   | string
   | number
@@ -147,9 +148,23 @@ function_args = {
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
 
-map = _{ map_inline }
 map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline))?  ~"}" }
 map_entry_inline = !{ id ~ ":" ~ operation }
+
+map = @{
+  empty_line*
+  ~ push_indentation
+  ~ map_entries
+  ~ DROP
+}
+map_entries = @{
+  empty_line*
+  ~ map_entry
+  ~ (next_map_entry)*
+}
+map_entry = _{ map_entry_block | map_entry_inline }
+map_entry_block = !{ id ~ ":" ~ map }
+next_map_entry = @{ NEWLINE ~ indentation ~ map_entry }
 
 lookup = ${ id ~ "." ~ id }
 

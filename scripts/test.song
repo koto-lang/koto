@@ -158,7 +158,7 @@ enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
 z = [[c, d] for c, d in enumerate 100..103]
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
-# ###### Maps
+###### Maps
 print { foo: "bar", baz: 99 }
 o = { min: 0, max: || 42 }
 assert_eq(42, o.max())
@@ -170,12 +170,16 @@ for i in o.min..o.max()
   sum = sum + i
 assert_eq(sum, 861)
 
-# o =
-#   foo: 42
-#   bar: |x| square x
-#
+map =
+  foo: 42
+  bar: |x| square x
+  baz:
+    foo: 99
 
-# assert o.foo == o["foo"]
+assert_eq(map.foo, 42)
+assert_eq(map.bar(9), 81)
+assert_eq(map.baz.foo, 99)
+
 # x = o.bar(9)
 # z = o + { baz: 99 }
 # assert z.bar(2) == 4 and z.baz == 99

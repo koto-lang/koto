@@ -252,7 +252,7 @@ impl SongParser {
                     },
                 ))
             }
-            Rule::map_inline => {
+            Rule::map | Rule::map_inline => {
                 let entries = pair
                     .into_inner()
                     .map(|pair| {
