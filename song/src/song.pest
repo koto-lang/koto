@@ -148,7 +148,7 @@ function_args = {
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
 
-map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline))?  ~"}" }
+map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline)*)?  ~"}" }
 map_entry_inline = !{ id ~ ":" ~ operation }
 
 map = @{

@@ -247,6 +247,16 @@ impl<'a> Runtime<'a> {
                             AstOp::Or => Ok(Bool(*a || *b)),
                             _ => binary_op_error!(op, a, b),
                         },
+                        (Map(a), Map(b)) => match op {
+                            AstOp::Add => {
+                                let mut result = HashMap::clone(a);
+                                for (k, v) in b.iter() {
+                                    result.insert(k.clone(), v.clone());
+                                }
+                                Ok(Map(Rc::new(result)))
+                            }
+                            _ => binary_op_error!(op, a, b),
+                        },
                         _ => binary_op_error!(op, a, b),
                     },
                 }
@@ -502,7 +512,9 @@ impl<'a> Runtime<'a> {
 
             let mut child_scope = Scope::new();
 
-            child_scope.values.insert(id.0.first().unwrap().clone(), Function(f.clone()));
+            child_scope
+                .values
+                .insert(id.0.first().unwrap().clone(), Function(f.clone()));
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
                 let arg_value = self.evaluate(arg, scope)?;
@@ -512,7 +524,8 @@ impl<'a> Runtime<'a> {
             return self.evaluate_block(&f.body, &mut Some(child_scope));
         }
 
-        if id.0.len() == 1 { // TODO builtins should just be in scope
+        if id.0.len() == 1 {
+            // TODO builtins should just be in scope
             let name = id.0.first().unwrap().as_str();
             if self.builtins.contains_key(name) {
                 let arg_values = args

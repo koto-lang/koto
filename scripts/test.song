@@ -170,31 +170,27 @@ for i in o.min..o.max()
   sum = sum + i
 assert_eq(sum, 861)
 
-map =
+m =
   foo: 42
   bar: |x| square x
   baz:
     foo: 99
 
-assert_eq(map.foo, 42)
-assert_eq(map.bar(9), 81)
-assert_eq(map.baz.foo, 99)
+assert_eq(m.foo, 42)
+assert_eq(m.bar(9), 81)
+assert_eq(m.baz.foo, 99)
 
-# x = o.bar(9)
-# z = o + { baz: 99 }
-# assert z.bar(2) == 4 and z.baz == 99
-# assert table.keys z == ["foo", "bar", "baz"]
+m2 = m + { baz: 99 }
+assert (m2.bar(2) == 4) and (m2.baz == 99)
 
-# a = { 2: 4, 3: 9 }
-# assert z.bar(2) == 4 and z.baz == 99
-
+# assert map.keys z == ["foo", "bar", "baz"]
 
 # ##### Maps as classes
 
 # make_o = ||
 #   foo: 42
 #   print_foo: |self| print self.foo # self refers to table instance
-#
+
 # o = make_o()
 # o.print_foo() # implicit self
 
