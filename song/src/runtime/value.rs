@@ -1,5 +1,5 @@
-use crate::parser::{AstFor, Function};
-use std::{fmt, rc::Rc};
+use crate::parser::{AstFor, Function, Id};
+use std::{collections::HashMap, fmt, rc::Rc};
 
 
 
@@ -16,6 +16,7 @@ pub enum Value {
     Number(f64),
     Array(Rc<Vec<Value>>),
     Range { min: isize, max: isize },
+    Map(Rc<HashMap<Id, Value>>),
     StrLiteral(Rc<String>),
     // Str(String),
     Function(Rc<Function>),
@@ -41,6 +42,21 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             }
+            Map(t) => {
+                write!(f, "{{")?;
+                let mut first = true;
+                for (key, value) in t.iter() {
+                    if first {
+                        write!(f, " ")?;
+                    }
+                    else {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", key, value)?;
+                    first = false;
+                }
+                write!(f, " }}")
+            }
             Range { min, max } => write!(f, "[{}..{}]", min, max),
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
@@ -63,6 +79,7 @@ impl PartialEq for Value {
             (Number(a), Number(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
+            (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
             _ => false,
         }
     }

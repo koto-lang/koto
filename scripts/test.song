@@ -158,17 +158,20 @@ enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
 z = [[c, d] for c, d in enumerate 100..103]
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
-# ###### Tables
-# o = { min: 0, max: 42 }
-# print o
+# ###### Maps
+o = { min: 0, max: 42 }
+print o
+o2 = o
+assert_eq(o, o2)
+
 # sum = 0
 # for i in o.min..o.max
 #   sum = sum + i
 
-# o = {
+# o =
 #   foo: 42
 #   bar: |x| square x
-# }
+#
 
 # assert o.foo == o["foo"]
 # x = o.bar(9)
@@ -179,20 +182,19 @@ assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 # a = { 2: 4, 3: 9 }
 # assert z.bar(2) == 4 and z.baz == 99
 
-# ##### Tables as classes
 
-# make_o = || {
+# ##### Maps as classes
+
+# make_o = ||
 #   foo: 42
 #   print_foo: |self| print self.foo # self refers to table instance
-# }
 #
 # o = make_o()
 # o.print_foo() # implicit self
 
-# make_o2 = || {
+# make_o2 = ||
 #   base: make_o() # base is a convention
 #   print_foo2: |self| print self.base.foo # explicit base access
-# }
 #
 # o2 = make_o2()
 # o2.print_foo2()

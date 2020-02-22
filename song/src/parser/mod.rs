@@ -32,8 +32,11 @@ impl AstNode {
     }
 }
 
+pub type Id = Rc<String>;
+
 #[derive(Clone, Debug)]
 pub enum Node {
+    Id(Id),
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
@@ -43,11 +46,11 @@ pub enum Node {
         max: Box<AstNode>,
         inclusive: bool,
     },
-    Id(Rc<String>),
+    Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Function(Rc<Function>),
     Call {
-        function: Rc<String>,
+        function: Id,
         args: Vec<AstNode>,
     },
     Index {
@@ -55,11 +58,11 @@ pub enum Node {
         expression: Box<AstNode>,
     },
     Assign {
-        id: Rc<String>,
+        id: Id,
         expression: Box<AstNode>,
     },
     MultiAssign {
-        ids: Vec<Rc<String>>,
+        ids: Vec<Id>,
         expressions: Vec<AstNode>,
     },
     Op {
@@ -80,13 +83,13 @@ pub struct Block {}
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub args: Vec<Rc<String>>,
+    pub args: Vec<Id>,
     pub body: Vec<AstNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
-    pub args: Vec<Rc<String>>,
+    pub args: Vec<Id>,
     pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
     pub body: Box<AstNode>,
@@ -218,6 +221,18 @@ impl SongParser {
                         max,
                     },
                 ))
+            }
+            Rule::map_inline => {
+                let entries = pair
+                    .into_inner()
+                    .map(|pair| {
+                        let mut inner = pair.into_inner();
+                        let id = next_as_rc_string!(inner);
+                        let value = self.build_ast(inner.next().unwrap());
+                        (id, value)
+                    })
+                    .collect::<Vec<_>>();
+                (AstNode::new(span, Node::Map(entries)))
             }
             Rule::index => {
                 let mut inner = pair.into_inner();

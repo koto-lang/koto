@@ -82,6 +82,7 @@ flow_term = _{
 
 value_term = _{(
   index
+  | map
   | array
   | range
   | string
@@ -145,6 +146,10 @@ function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"
 }
+
+map = _{ map_inline }
+map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline))?  ~"}" }
+map_entry_inline = !{ id ~ ":" ~ operation }
 
 array = !{
   "[" ~ "]"

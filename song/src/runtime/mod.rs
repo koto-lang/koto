@@ -154,6 +154,21 @@ impl<'a> Runtime<'a> {
                     ),
                 }
             }
+            Node::Map(entries) => {
+                let mut map = HashMap::new();
+                for (id, node) in entries.iter() {
+                    let value = self.evaluate(node, scope)?;
+                    match value {
+                        Value::For(_) => {
+                            let mut values = Vec::new();
+                            self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
+                            map.insert(id.clone(), Array(Rc::new(values)));
+                        }
+                        _ => {map.insert(id.clone(), value);}
+                    }
+                }
+                Ok(Map(Rc::new(map)))
+            }
             Node::Index { id, expression } => self.array_index(id, expression, scope, node),
             Node::Id(id) => self.get_value_or_error(id, scope, node),
             Node::Block(block) => self.evaluate_block(&block, scope),
