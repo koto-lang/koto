@@ -80,6 +80,7 @@ impl PartialEq for Value {
             (Bool(a), Bool(b)) => a == b,
             (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
             (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
+            (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }

@@ -98,7 +98,7 @@ pub fn register(runtime: &mut Runtime) {
 
     runtime.register_fn("print", |args| {
         for value in args.iter() {
-            print!("{} ", value);
+            print!("{}", value);
         }
         println!();
         Ok(Empty)

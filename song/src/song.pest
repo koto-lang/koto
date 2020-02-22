@@ -82,13 +82,13 @@ flow_term = _{
 
 value_term = _{(
   index
+  | range
+  | call
   | map
   | array
-  | range
   | string
   | number
   | boolean
-  | call
   | id
   | ("(" ~ operation ~ ")")
   )
@@ -132,7 +132,7 @@ for_keyword = @{ "for" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
 
 call = _{ call_with_parens | call_single_arg }
-call_with_parens = ${(id ~ call_args)}
+call_with_parens = ${((lookup | id) ~ call_args)}
 call_args = !{
   ("(" ~ ")")
   | "(" ~ operation ~ ("," ~ operation)* ~ ")"
@@ -151,6 +151,8 @@ map = _{ map_inline }
 map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline))?  ~"}" }
 map_entry_inline = !{ id ~ ":" ~ operation }
 
+lookup = ${ id ~ "." ~ id }
+
 array = !{
   "[" ~ "]"
   | "[" ~ operation ~ ("," ~ operation)* ~ "]"
@@ -158,7 +160,7 @@ array = !{
 
 range = ${ range_arg ~ range_op ~ range_arg }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call | index | id | ("(" ~ operation ~ ")") }
+range_arg = _{ number | call | index | lookup | id | ("(" ~ operation ~ ")") }
 
 index = ${ id ~ "[" ~ operation ~ "]" }
 
@@ -178,7 +180,8 @@ char = {
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
-id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
+id = ${ single_id ~ ("." ~ single_id)* }
+single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
 ids = { id ~ ("," ~ id)* }

@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parser::{AstNode, AstOp, Node, Position};
+use crate::parser::{AstNode, AstOp, Id, LookupId, Node, Position};
 
 pub mod value;
 use value::{MultiRangeValueIterator, Value, ValueIterator};
@@ -44,21 +44,22 @@ impl Scope {
     }
 }
 
-#[macro_export]
+macro_rules! make_runtime_error {
+    ($node:expr, $message:expr) => {
+        Error::RuntimeError {
+            message: $message,
+            start_pos: $node.start_pos,
+            end_pos: $node.end_pos,
+        }
+    };
+}
+
 macro_rules! runtime_error {
     ($node:expr, $error:expr) => {
-        Err(Error::RuntimeError {
-            message: String::from($error),
-            start_pos: $node.start_pos,
-            end_pos: $node.end_pos,
-        })
+        Err(make_runtime_error!($node, String::from($error)))
     };
     ($node:expr, $error:expr, $($y:expr),+) => {
-        Err(Error::RuntimeError {
-            message: format!($error, $($y),+),
-            start_pos: $node.start_pos,
-            end_pos: $node.end_pos,
-        })
+        Err(make_runtime_error!($node, format!($error, $($y),+)))
     };
 }
 
@@ -164,7 +165,9 @@ impl<'a> Runtime<'a> {
                             self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
                             map.insert(id.clone(), Array(Rc::new(values)));
                         }
-                        _ => {map.insert(id.clone(), value);}
+                        _ => {
+                            map.insert(id.clone(), value);
+                        }
                     }
                 }
                 Ok(Map(Rc::new(map)))
@@ -270,27 +273,43 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn set_value(&mut self, id: &Rc<String>, value: &Value, scope: &mut Option<Scope>) {
+    fn set_value(&mut self, id: &Id, value: &Value, scope: &mut Option<Scope>) {
         match scope {
             Some(scope) => scope.values.insert(id.clone(), value.clone()),
             None => self.global.values.insert(id.clone(), value.clone()),
         };
     }
 
-    fn get_value(&self, id: &String, scope: &Option<Scope>) -> Option<Value> {
+    fn get_value(&self, lookup_id: &LookupId, scope: &Option<Scope>) -> Option<Value> {
+        macro_rules! get_from_scope {
+            ($scope:expr) => {
+                lookup_id.0.iter().fold(None, |result, id| {
+                    match result {
+                        None => $scope.values.get(id),
+                        Some(map) => {
+                            match map {
+                                Value::Map(data) => data.get(id),
+                                _unexpected => None, // TODO error
+                            }
+                        }
+                    }
+                })
+            };
+        }
+
         if scope.is_some() {
             let scope = scope.as_ref().unwrap();
-            if let Some(value) = scope.values.get(id) {
+            if let Some(value) = get_from_scope!(scope) {
                 return Some(value.clone());
             }
         }
 
-        self.global.values.get(id).map(|v| v.clone())
+        get_from_scope!(self.global).map(|v| v.clone())
     }
 
     fn get_value_or_error(
         &self,
-        id: &String,
+        id: &LookupId,
         scope: &Option<Scope>,
         node: &AstNode,
     ) -> RuntimeResult {
@@ -333,7 +352,7 @@ impl<'a> Runtime<'a> {
                         Array(a) if single_range => {
                             for array_value in a.iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, &array_value, scope),
+                                    Some(arg) => self.set_value(arg, &array_value, scope), // TODO
                                     None => break,
                                 }
                             }
@@ -380,7 +399,7 @@ impl<'a> Runtime<'a> {
 
     fn array_index(
         &mut self,
-        id: &String,
+        id: &LookupId,
         expression: &AstNode,
         scope: &mut Option<Scope>,
         node: &AstNode,
@@ -448,7 +467,7 @@ impl<'a> Runtime<'a> {
 
     fn call_function(
         &mut self,
-        id: &Rc<String>,
+        id: &LookupId,
         args: &Vec<AstNode>,
         scope: &mut Option<Scope>,
         node: &AstNode,
@@ -483,7 +502,7 @@ impl<'a> Runtime<'a> {
 
             let mut child_scope = Scope::new();
 
-            child_scope.values.insert(id.clone(), Function(f.clone()));
+            child_scope.values.insert(id.0.first().unwrap().clone(), Function(f.clone()));
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
                 let arg_value = self.evaluate(arg, scope)?;
@@ -493,17 +512,20 @@ impl<'a> Runtime<'a> {
             return self.evaluate_block(&f.body, &mut Some(child_scope));
         }
 
-        if self.builtins.contains_key(id.as_str()) {
-            let arg_values = args
-                .iter()
-                .map(|arg| self.evaluate(arg, scope))
-                .collect::<Result<Vec<_>, _>>()?;
-            return match (self.builtins.get_mut(id.as_str()).unwrap())(&arg_values) {
-                Ok(v) => Ok(v),
-                Err(e) => runtime_error!(node, e),
-            };
+        if id.0.len() == 1 { // TODO builtins should just be in scope
+            let name = id.0.first().unwrap().as_str();
+            if self.builtins.contains_key(name) {
+                let arg_values = args
+                    .iter()
+                    .map(|arg| self.evaluate(arg, scope))
+                    .collect::<Result<Vec<_>, _>>()?;
+                return match (self.builtins.get_mut(name).unwrap())(&arg_values) {
+                    Ok(v) => Ok(v),
+                    Err(e) => runtime_error!(node, e),
+                };
+            }
         }
 
-        runtime_error!(node, "Function '{}' not found", id.as_str())
+        runtime_error!(node, "Function '{}' not found", id)
     }
 }

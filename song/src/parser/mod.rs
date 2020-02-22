@@ -1,5 +1,5 @@
 use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
-use std::rc::Rc;
+use std::{fmt, rc::Rc};
 
 #[derive(Parser)]
 #[grammar = "song.pest"]
@@ -35,8 +35,25 @@ impl AstNode {
 pub type Id = Rc<String>;
 
 #[derive(Clone, Debug)]
+pub struct LookupId(pub Vec<Id>);
+
+impl fmt::Display for LookupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut first = true;
+        for id in self.0.iter() {
+            if !first {
+                write!(f, ".")?;
+            }
+            write!(f, "{}", id)?;
+            first = false;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Node {
-    Id(Id),
+    Id(LookupId),
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
@@ -50,11 +67,11 @@ pub enum Node {
     Block(Vec<AstNode>),
     Function(Rc<Function>),
     Call {
-        function: Id,
+        function: LookupId,
         args: Vec<AstNode>,
     },
     Index {
-        id: String,
+        id: LookupId,
         expression: Box<AstNode>,
     },
     Assign {
@@ -177,6 +194,19 @@ impl SongParser {
             };
         }
 
+        macro_rules! next_as_lookup_id {
+            ($inner:expr) => {
+                LookupId(
+                    $inner
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .map(|pair| Rc::new(pair.as_str().to_string()))
+                        .collect::<Vec<_>>(),
+                )
+            };
+        }
+
         let span = pair.as_span();
         match pair.as_rule() {
             Rule::next_expression => self.build_ast(pair.into_inner().next().unwrap()),
@@ -236,17 +266,23 @@ impl SongParser {
             }
             Rule::index => {
                 let mut inner = pair.into_inner();
-                let id = inner.next().unwrap().as_str().to_string();
+                let id = next_as_lookup_id!(inner);
                 let expression = next_as_boxed_ast!(inner);
                 (AstNode::new(span, Node::Index { id, expression }))
             }
-            Rule::id => (AstNode::new(span, Node::Id(Rc::new(pair.as_str().to_string())))),
+            Rule::id => {
+                let id = LookupId(
+                    pair.into_inner()
+                        .map(|pair| Rc::new(pair.as_str().to_string()))
+                        .collect::<Vec<_>>(),
+                );
+                AstNode::new(span, Node::Id(id))
+            }
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();
                 let mut capture = inner.next().unwrap().into_inner();
                 let args = capture
                     .by_ref()
-                    .take_while(|pair| pair.as_str() != "->")
                     .map(|pair| Rc::new(pair.as_str().to_string()))
                     .collect::<Vec<_>>();
                 // collect function body
@@ -255,7 +291,7 @@ impl SongParser {
             }
             Rule::call_with_parens | Rule::call_single_arg => {
                 let mut inner = pair.into_inner();
-                let function = next_as_rc_string!(inner);
+                let function = next_as_lookup_id!(inner);
                 let args = if inner.peek().unwrap().as_rule() == Rule::call_args {
                     inner
                         .next()
@@ -270,7 +306,7 @@ impl SongParser {
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
-                let id = next_as_rc_string!(inner);
+                let id = next_as_rc_string!(inner.next().unwrap().into_inner());
                 let expression = next_as_boxed_ast!(inner);
                 (AstNode::new(span, Node::Assign { id, expression }))
             }
@@ -280,7 +316,7 @@ impl SongParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| Rc::new(pair.as_str().to_string()))
+                    .map(|pair| next_as_rc_string!(pair.into_inner()))
                     .collect::<Vec<_>>();
                 let expressions = inner
                     .next()

@@ -36,7 +36,7 @@ square = |x| x * x
 
 # Muliple-argument functions must be called with parentheses
 # Single-argument functions can be called with or without parentheses
-print("The square of 7 is", square 7)
+print("The square of 7 is ", square 7)
 
 # Multiple arguments are separated by commas
 # Multiline functions are indented after the capture list
@@ -48,7 +48,7 @@ add = |x, y|
     x
   result = do_add(x, y)
   assert x == x2 # function arguments are locally scoped
-  print(x, "+", y, "==", result)
+  print(x, " + ", y, " == ", result)
   result
 assert_eq(add(1, 2), 3)
 
@@ -141,10 +141,10 @@ else
 # For statement blocks
 for x in 0..10
   for y in -5..5 if x == y and x < 3
-    print(x, y)
+    print(x, " ", y)
 
 # Inline for statement
-print("for", i) for i in 0..3
+print("for ", i) for i in 0..3
 
 # List comprehensions
 c = [square(x) for x in [1, 2, 3]]
@@ -159,14 +159,16 @@ z = [[c, d] for c, d in enumerate 100..103]
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
 # ###### Maps
-o = { min: 0, max: 42 }
-print o
+print { foo: "bar", baz: 99 }
+o = { min: 0, max: || 42 }
+assert_eq(42, o.max())
 o2 = o
 assert_eq(o, o2)
 
-# sum = 0
-# for i in o.min..o.max
-#   sum = sum + i
+sum = 0
+for i in o.min..o.max()
+  sum = sum + i
+assert_eq(sum, 861)
 
 # o =
 #   foo: 42
