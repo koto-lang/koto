@@ -1,9 +1,13 @@
+#![macro_use]
+
 use std::{collections::HashMap, rc::Rc};
 
 use crate::parser::{AstNode, AstOp, Node, Position};
 
 pub mod value;
-use value::{Value, ValueIterator, MultiRangeValueIterator};
+use value::{MultiRangeValueIterator, Value, ValueIterator};
+
+mod builtins;
 
 pub enum Error {
     RuntimeError {
@@ -14,9 +18,10 @@ pub enum Error {
 }
 
 pub type RuntimeResult = Result<Value, Error>;
+pub type BuiltinResult = Result<Value, String>;
 
 #[derive(Debug)]
-struct Scope {
+pub struct Scope {
     values: HashMap<Rc<String>, Value>,
 }
 
@@ -39,6 +44,7 @@ impl Scope {
     }
 }
 
+#[macro_export]
 macro_rules! runtime_error {
     ($node:expr, $error:expr) => {
         Err(Error::RuntimeError {
@@ -56,15 +62,23 @@ macro_rules! runtime_error {
     };
 }
 
-pub struct Runtime {
+pub struct Runtime<'a> {
     global: Scope,
+    builtins: HashMap<String, Box<dyn FnMut(&Vec<Value>) -> BuiltinResult + 'a>>,
 }
 
-impl Runtime {
+impl<'a> Runtime<'a> {
     pub fn new() -> Self {
-        Self {
+        let mut result = Self {
             global: Scope::new(),
-        }
+            builtins: HashMap::new(),
+        };
+        builtins::register(&mut result);
+        result
+    }
+
+    pub fn register_fn(&mut self, name: &str, f: impl FnMut(&Vec<Value>) -> BuiltinResult + 'a) {
+        self.builtins.insert(name.to_string(), Box::new(f));
     }
 
     pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult {
@@ -464,80 +478,17 @@ impl Runtime {
             return self.evaluate_block(&f.body, &mut Some(child_scope));
         }
 
-        // Builtins, TODO std lib
-        let mut arg_values = args.iter().map(|arg| self.evaluate(arg, scope));
-        match id.as_str() {
-            "assert" => {
-                for value in arg_values {
-                    match value? {
-                        Bool(b) => {
-                            if !b {
-                                return runtime_error!(node, "Assertion failed");
-                            }
-                        }
-                        _ => {
-                            return runtime_error!(
-                                node,
-                                "assert only expects booleans as arguments"
-                            )
-                        }
-                    }
-                }
-                Ok(Empty)
-            }
-            "push" => {
-                let first_arg_value = match arg_values.next() {
-                    Some(arg) => arg,
-                    None => {
-                        return runtime_error!(node, "Missing array as first argument for push");
-                    }
-                };
-
-                match first_arg_value? {
-                    Array(array) => {
-                        let mut array = array.clone();
-                        let array_data = Rc::make_mut(&mut array);
-                        for value in arg_values {
-                            array_data.push(value?)
-                        }
-                        Ok(Array(array))
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "push is only supported for arrays, found {}",
-                            unexpected
-                        )
-                    }
-                }
-            }
-            "length" => {
-                let first_arg_value = match arg_values.next() {
-                    Some(arg) => arg,
-                    None => {
-                        return runtime_error!(node, "Missing array as argument for length");
-                    }
-                };
-                match first_arg_value? {
-                    Array(array) => Ok(Number(array.len() as f64)),
-                    Range { min, max } => Ok(Number((max - min) as f64)),
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "length is only supported for arrays and ranges, found {}",
-                            unexpected
-                        )
-                    }
-                }
-            }
-            "print" => {
-                for value in arg_values {
-                    print!("{} ", value?);
-                }
-                println!();
-                Ok(Empty)
-            }
-            _ => runtime_error!(node, "Function '{}' not found", id.as_str()),
+        if self.builtins.contains_key(id.as_str()) {
+            let arg_values = args
+                .iter()
+                .map(|arg| self.evaluate(arg, scope))
+                .collect::<Result<Vec<_>, _>>()?;
+            return match (self.builtins.get_mut(id.as_str()).unwrap())(&arg_values) {
+                Ok(v) => Ok(v),
+                Err(e) => runtime_error!(node, e),
+            };
         }
+
+        runtime_error!(node, "Function '{}' not found", id.as_str())
     }
 }

@@ -13,38 +13,35 @@ fn main() {
         .get_matches();
 
     let parser = Parser::new();
+    let mut runtime = Runtime::new();
 
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
         match parser.parse(&script) {
-            Ok(ast) => {
-                let mut runtime = Runtime::new();
-                match runtime.run(&ast) {
-                    Ok(_) => {}
-                    Err(e) => match e {
-                        Error::RuntimeError {
-                            message,
-                            start_pos,
-                            end_pos,
-                        } => {
-                            let excerpt = script
-                                .lines()
-                                .skip(start_pos.line - 1)
-                                .take(end_pos.line - start_pos.line + 1)
-                                .map(|line| format!("  | {}", line))
-                                .collect::<String>();
-                            eprintln!(
-                                "Runtime error: {}\n  --> {}:{}\n  |\n{}\n  |",
-                                message, start_pos.line, start_pos.column, excerpt
-                            )
-                        }
-                    },
-                }
-            }
+            Ok(ast) => match runtime.run(&ast) {
+                Ok(_) => {}
+                Err(e) => match e {
+                    Error::RuntimeError {
+                        message,
+                        start_pos,
+                        end_pos,
+                    } => {
+                        let excerpt = script
+                            .lines()
+                            .skip(start_pos.line - 1)
+                            .take(end_pos.line - start_pos.line + 1)
+                            .map(|line| format!("  | {}", line))
+                            .collect::<String>();
+                        eprintln!(
+                            "Runtime error: {}\n  --> {}:{}\n  |\n{}\n  |",
+                            message, start_pos.line, start_pos.column, excerpt
+                        )
+                    }
+                },
+            },
             Err(e) => eprintln!("Error while parsing source: {}", e),
         }
     } else {
-        let mut runtime = Runtime::new();
         let mut input = String::new();
         loop {
             print!("> ");

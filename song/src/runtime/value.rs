@@ -1,6 +1,13 @@
+use crate::parser::{AstFor, Function};
 use std::{fmt, rc::Rc};
 
-use crate::parser::{AstFor, Function};
+
+
+// impl fmt::Debug for BuiltinFunction {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "Builtin function")
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -13,6 +20,7 @@ pub enum Value {
     // Str(String),
     Function(Rc<Function>),
     For(Rc<AstFor>),
+    // BuiltinFunction(Box<dyn BuiltinFunction>),
 }
 
 impl fmt::Display for Value {
@@ -38,6 +46,10 @@ impl fmt::Display for Value {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
             }
+            // BuiltinFunction(function) => {
+            //     let raw = Rc::into_raw(function.clone());
+            //     write!(f, "builtin function: {:?}", raw)
+            // }
             _ => unreachable!(),
         }
     }
