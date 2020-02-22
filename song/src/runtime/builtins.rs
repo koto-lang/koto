@@ -18,6 +18,38 @@ pub fn register(runtime: &mut Runtime) {
         Ok(Empty)
     });
 
+    runtime.register_fn("assert_eq", |args| {
+        if args.len() != 2 {
+            Err(format!(
+                "assert_eq expects two arguments, found {}",
+                args.len()
+            ))
+        } else if args[0] == args[1] {
+            Ok(Empty)
+        } else {
+            Err(format!(
+                "Assertion failed, '{}' is not equal to '{}'",
+                args[0], args[1]
+            ))
+        }
+    });
+
+    runtime.register_fn("assert_ne", |args| {
+        if args.len() != 2 {
+            Err(format!(
+                "assert_ne expects two arguments, found {}",
+                args.len()
+            ))
+        } else if args[0] != args[1] {
+            Ok(Empty)
+        } else {
+            Err(format!(
+                "Assertion failed, '{}' should not be equal to '{}'",
+                args[0], args[1]
+            ))
+        }
+    });
+
     runtime.register_fn("push", |args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {

@@ -9,17 +9,17 @@ Multiline comments start with #- and end with -#
 ###### Basic types and logic
 a = true
 print a
-assert a == true
+assert_eq(a, true)
 assert false or false or a
 
 assert (4 + 3) == 7
-assert (1 + 2 * 3) == 7
-assert ((2 * 2 + 3) == 7)
-assert ((2 + 5 % 3) == 4)
+assert_eq(1 + 2 * 3, 7)
+assert_eq(2 * 2 + 3, 7)
+assert_eq(2 + 5 % 3, 4)
 
 # Multiple value assignment
 a, b = true, false
-assert a != b
+assert_ne(a, b)
 a, b, c = 1, 2, 3
 assert (a == 1) and (b == 2) and (c == 3)
 
@@ -50,11 +50,11 @@ add = |x, y|
   assert x == x2 # function arguments are locally scoped
   print(x, "+", y, "==", result)
   result
-assert add(1, 2) == 3
+assert_eq(add(1, 2), 3)
 
 # functions can call globally defined functions
 add2 = |x, y| add(x, y)
-assert add2(4, -4) == 0
+assert_eq(add2(4, -4), 0)
 
 # # functions can return multiple values
 # # f = |x| x - 1, x + 1
@@ -66,16 +66,16 @@ assert add2(4, -4) == 0
 z = [10, 10 + 10, 30]
 print z
 
-assert z[1] == 20
-assert z[1 - 1] == 10
+assert_eq(z[1], 20)
+assert_eq(z[1 - 1], 10)
 y = push(z, 40, 50)
-assert y[3] == 40
+assert_eq(y[3], 40)
 print y
 
-assert length(z) == 3
-assert length(y) == 5
+assert_eq(length(z), 3)
+assert_eq(length(y), 5)
 
-# Arrays get unpacked in multiple assignments
+# Arrays get unpacked in multiple assignments - TODO unpacking only for 1 arg
 a, b, c = [10, 20], [30, 40]
 assert (a == 10) and (b == 20) and (c == 30)
 
@@ -83,24 +83,24 @@ assert (a == 10) and (b == 20) and (c == 30)
 
 # Ranges are lazily evaluated
 r = 0..5
-assert length(r) == 5
+assert_eq(length(r), 5)
 print r
 # ..= creates an inclusive range
 y = 0..=5
-assert length(y) == 6
+assert_eq(length(y), 6)
 print y
 # Ranges are resolved when inserted in an array
-assert length([10..20]) == 10
-assert length([r]) == 5
+assert_eq(length([10..20]), 10)
+assert_eq(length([r]), 5)
 # Indexing arrays with ranges produces sub-arrays
 z = |n| n
 x = [(z 10)..=(z 20)]
 y = x[z(5)..(10 + 0)]
-assert y[0] == 15
-assert length(y) == 5
+assert_eq(y[0], 15)
+assert_eq(length(y), 5)
 # Multiple expressions assigned to single value get stored in array
 a = 1, 2
-assert a == [1, 2]
+assert_eq(a, [1, 2])
 
 # TODO support from/to ranges
 
@@ -148,15 +148,15 @@ print("for", i) for i in 0..3
 
 # List comprehensions
 c = [square(x) for x in [1, 2, 3]]
-assert c == [1, 4, 9]
+assert_eq(c, [1, 4, 9])
 
 filter = |xs, f| [x for x in xs if f(x)]
 a = filter(0..20, |x| x > 15)
-assert a == [16, 17, 18, 19]
+assert_eq(a, [16, 17, 18, 19])
 
 enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs]
 z = [[c, d] for c, d in enumerate 100..103]
-assert z == [[0, 100], [1, 101], [2, 102]]
+assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
 # ###### Tables
 # o = { min: 0, max: 42 }
