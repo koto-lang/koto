@@ -73,8 +73,14 @@ y = push(z, 40, 50)
 assert_eq(y[3], 40)
 print y
 
-assert_eq(length(z), 3)
-assert_eq(length(y), 5)
+assert_eq(z, z)
+assert_ne(z, [])
+
+assert_eq(z + z, [10, 20, 30, 10, 20, 30])
+
+
+assert_eq(length z, 3)
+assert_eq(length y, 5)
 
 # Arrays get unpacked in multiple assignments - TODO unpacking only for 1 arg
 a, b, c = [10, 20], [30, 40]

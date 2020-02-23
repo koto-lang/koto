@@ -247,12 +247,18 @@ impl<'a> Runtime<'a> {
                             AstOp::Or => Ok(Bool(*a || *b)),
                             _ => binary_op_error!(op, a, b),
                         },
+                        (Array(a), Array(b)) => match op {
+                            AstOp::Add => {
+                                let mut result = Vec::clone(a);
+                                result.extend(Vec::clone(b).into_iter());
+                                Ok(Array(Rc::new(result)))
+                            }
+                            _ => binary_op_error!(op, a, b),
+                        },
                         (Map(a), Map(b)) => match op {
                             AstOp::Add => {
                                 let mut result = HashMap::clone(a);
-                                for (k, v) in b.iter() {
-                                    result.insert(k.clone(), v.clone());
-                                }
+                                result.extend(HashMap::clone(b).into_iter());
                                 Ok(Map(Rc::new(result)))
                             }
                             _ => binary_op_error!(op, a, b),
