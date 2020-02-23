@@ -1,6 +1,5 @@
 use crate::parser::{AstFor, Function, Id};
-use std::{collections::HashMap, fmt, rc::Rc};
-
+use std::{cmp::Ordering, collections::HashMap, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -10,8 +9,7 @@ pub enum Value {
     Array(Rc<Vec<Value>>),
     Range { min: isize, max: isize },
     Map(Rc<HashMap<Id, Value>>),
-    StrLiteral(Rc<String>),
-    // Str(String),
+    Str(Rc<String>),
     Function(Rc<Function>),
     For(Rc<AstFor>),
 }
@@ -23,7 +21,7 @@ impl fmt::Display for Value {
             Empty => write!(f, "()"),
             Bool(s) => write!(f, "{}", s),
             Number(n) => write!(f, "{}", n),
-            StrLiteral(s) => write!(f, "{}", s),
+            Str(s) => write!(f, "{}", s),
             Array(a) => {
                 write!(f, "[")?;
                 for (i, value) in a.iter().enumerate() {
@@ -40,8 +38,7 @@ impl fmt::Display for Value {
                 for (key, value) in t.iter() {
                     if first {
                         write!(f, " ")?;
-                    }
-                    else {
+                    } else {
                         write!(f, ", ")?;
                     }
                     write!(f, "{}: {}", key, value)?;
@@ -70,10 +67,41 @@ impl PartialEq for Value {
         match (self, other) {
             (Number(a), Number(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
             (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             _ => false,
+        }
+    }
+}
+impl Eq for Value {}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        use Value::*;
+
+        match (self, other) {
+            (Number(a), Number(b)) => a.partial_cmp(b),
+            (Str(a), Str(b)) => a.partial_cmp(b),
+            (a, b) => panic!(format!("partial_cmp unsupported for {} and {}", a, b)),
+        }
+    }
+}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use Value::*;
+
+        match (self, other) {
+            (Number(a), Number(b)) => match (a.is_nan(), b.is_nan()) {
+                (true, true) => Ordering::Equal,
+                (false, true) => Ordering::Less,
+                (true, false) => Ordering::Greater,
+                (false, false) => a.partial_cmp(b).unwrap(),
+            },
+            (Str(a), Str(b)) => a.cmp(b),
+            (a, b) => panic!(format!("cmp unsupported for {} and {}", a, b)),
         }
     }
 }

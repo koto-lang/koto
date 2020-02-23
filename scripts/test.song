@@ -196,12 +196,20 @@ assert_eq(m.baz.foo, 99)
 m2 = m + { baz: 99 }
 assert (m2.bar(2) == 4) and (m2.baz == 99)
 
-# assert map.keys z == ["foo", "bar", "baz"]
 
 
-# ##### Standard Library
-x = math.sin 1
-print x
+###### Standard Library
+
+print("sin(1) is ", math.sin 1)
+
+assert array.is_sortable [42, 10, 9]
+assert_eq(array.is_sortable ["42", 10, 9], false) # TODO not
+assert array.is_sortable ["42", "10", "9"]
+assert_eq(array.sort [42, 10, 9], [9, 10, 42])
+
+assert_eq(array.sort map.keys m, ["bar", "baz", "foo"])
+
+
 
 
 ###### Maps as classes

@@ -58,6 +58,83 @@ pub fn register(runtime: &mut Runtime) {
         math_fn_1!(tanh);
     }
 
+    {
+        let array = builtins.add_map("array");
+
+        array.add_fn("is_sortable", |args| {
+            if args.len() == 1 {
+                match args.first().unwrap() {
+                    Array(a) => Ok(Bool(array_is_sortable(&a))),
+                    unexpected => {
+                        return Err(format!(
+                            "array.sort only accepts an array as its argument, found {}",
+                            unexpected
+                        ))
+                    }
+                }
+            } else {
+                Err(format!(
+                    "map.keys expects one argument, found {}",
+                    args.len()
+                ))
+            }
+        });
+
+        array.add_fn("sort", |args| {
+            if args.len() == 1 {
+                match args.first().unwrap() {
+                    Array(a) => {
+                        if array_is_sortable(a.as_ref()) {
+                            let mut a = Vec::clone(a);
+                            a.sort();
+                            Ok(Array(Rc::new(a)))
+                        } else {
+                            Err(format!(
+                                "array.sort can only sort arrays of numbers or strings",
+                            ))
+                        }
+                    }
+                    unexpected => Err(format!(
+                        "array.sort only accepts an array as its argument, found {}",
+                        unexpected
+                    )),
+                }
+            } else {
+                Err(format!(
+                    "array.sort expects one argument, found {}",
+                    args.len()
+                ))
+            }
+        });
+    }
+
+    {
+        let map = builtins.add_map("map");
+        map.add_fn("keys", |args| {
+            if args.len() == 1 {
+                match args.first().unwrap() {
+                    Map(m) => Ok(Array(Rc::new(
+                        m.as_ref()
+                            .keys()
+                            .map(|k| Str(k.clone()))
+                            .collect::<Vec<_>>(),
+                    ))),
+                    unexpected => {
+                        return Err(format!(
+                            "map.keys only accepts maps as arguments, found {}",
+                            unexpected
+                        ))
+                    }
+                }
+            } else {
+                Err(format!(
+                    "map.keys expects one argument, found {}",
+                    args.len()
+                ))
+            }
+        })
+    }
+
     builtins.add_fn("assert", |args| {
         for value in args.iter() {
             match value {
@@ -157,4 +234,22 @@ pub fn register(runtime: &mut Runtime) {
         println!();
         Ok(Empty)
     });
+}
+
+fn array_is_sortable(array: &Vec<Value>) -> bool {
+    use Value::*;
+
+    if array.len() == 0 {
+        true
+    } else {
+        match array.first().unwrap() {
+            value @ Number(_) | value @ Str(_) => {
+                let value_type = std::mem::discriminant(value);
+                array
+                    .iter()
+                    .all(|x| std::mem::discriminant(x) == value_type)
+            }
+            _ => false,
+        }
+    }
 }

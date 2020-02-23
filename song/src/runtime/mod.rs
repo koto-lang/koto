@@ -165,7 +165,7 @@ impl<'a> Runtime<'a> {
         match &node.node {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
-            Node::Str(s) => Ok(StrLiteral(s.clone())),
+            Node::Str(s) => Ok(Str(s.clone())),
             Node::Array(elements) => {
                 let mut values = Vec::new();
                 for node in elements.iter() {
