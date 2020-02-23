@@ -1,10 +1,38 @@
-use super::{Runtime, Value};
+use super::{value, Runtime, Value};
 use std::rc::Rc;
 
 pub fn register(runtime: &mut Runtime) {
     use Value::*;
 
     let builtins = runtime.builtins_mut();
+
+    macro_rules! single_arg_fn {
+        ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
+            $map_name.add_fn($fn_name, |args| {
+                if args.len() == 1 {
+                    match args.first().unwrap() {
+                        $type($match_name) => $body
+                        unexpected => {
+                            return Err(format!(
+                                "{}.{} only accepts a {} as its argument, found {}",
+                                stringify!($map_name),
+                                $fn_name,
+                                stringify!($type),
+                                value::type_as_string(unexpected)
+                            ))
+                        }
+                    }
+                } else {
+                    Err(format!(
+                        "{}.{} expects one argument, found {}",
+                        stringify!($map_name),
+                        $fn_name,
+                        args.len()
+                    ))
+                }
+            });
+        }
+    }
 
     {
         let math = builtins.add_map("math");
@@ -14,24 +42,7 @@ pub fn register(runtime: &mut Runtime) {
                 math_fn_1!(stringify!($fn), $fn)
             };
             ($name:expr, $fn:ident) => {
-                math.add_fn($name, |args| {
-                    if args.len() == 1 {
-                        match args.first().unwrap() {
-                            Number(n) => Ok(Number(n.$fn())),
-                            unexpected => {
-                                return Err(format!(
-                                    "math.$fn only accepts a number as its argument, found {}",
-                                    unexpected
-                                ))
-                            }
-                        }
-                    } else {
-                        Err(format!(
-                            "math.$fn expects one argument, found {}",
-                            args.len()
-                        ))
-                    }
-                });
+                single_arg_fn!(math, $name, Number, n, { Ok(Number(n.$fn())) });
             };
         }
 
@@ -66,7 +77,7 @@ pub fn register(runtime: &mut Runtime) {
             let first_arg_value = match arg_iter.next() {
                 Some(arg) => arg,
                 None => {
-                    return Err("Missing list as first argument for push".to_string());
+                    return Err("Missing list as first argument for list.add".to_string());
                 }
             };
 
@@ -82,54 +93,24 @@ pub fn register(runtime: &mut Runtime) {
                 unexpected => {
                     return Err(format!(
                         "list.add is only supported for lists, found {}",
-                        unexpected
+                        value::type_as_string(unexpected)
                     ))
                 }
             }
         });
 
-        list.add_fn("is_sortable", |args| {
-            if args.len() == 1 {
-                match args.first().unwrap() {
-                    List(l) => Ok(Bool(list_is_sortable(&l))),
-                    unexpected => {
-                        return Err(format!(
-                            "list.sort only accepts a list as its argument, found {}",
-                            unexpected
-                        ))
-                    }
-                }
-            } else {
-                Err(format!(
-                    "map.keys expects one argument, found {}",
-                    args.len()
-                ))
-            }
+        single_arg_fn!(list, "is_sortable", List, l, {
+            Ok(Bool(list_is_sortable(&l)))
         });
 
-        list.add_fn("sort", |args| {
-            if args.len() == 1 {
-                match args.first().unwrap() {
-                    List(a) => {
-                        if list_is_sortable(a.as_ref()) {
-                            let mut a = Vec::clone(a);
-                            a.sort();
-                            Ok(List(Rc::new(a)))
-                        } else {
-                            Err(format!(
-                                "list.sort can only sort lists of numbers or strings",
-                            ))
-                        }
-                    }
-                    unexpected => Err(format!(
-                        "list.sort only accepts a list as its argument, found {}",
-                        unexpected
-                    )),
-                }
+        single_arg_fn!(list, "sort", List, l, {
+            if list_is_sortable(l.as_ref()) {
+                let mut result = Vec::clone(l);
+                result.sort();
+                Ok(List(Rc::new(result)))
             } else {
                 Err(format!(
-                    "list.sort expects one argument, found {}",
-                    args.len()
+                    "list.sort can only sort lists of numbers or strings",
                 ))
             }
         });
@@ -137,29 +118,15 @@ pub fn register(runtime: &mut Runtime) {
 
     {
         let map = builtins.add_map("map");
-        map.add_fn("keys", |args| {
-            if args.len() == 1 {
-                match args.first().unwrap() {
-                    Map(m) => Ok(List(Rc::new(
-                        m.as_ref()
-                            .keys()
-                            .map(|k| Str(k.clone()))
-                            .collect::<Vec<_>>(),
-                    ))),
-                    unexpected => {
-                        return Err(format!(
-                            "map.keys only accepts maps as arguments, found {}",
-                            unexpected
-                        ))
-                    }
-                }
-            } else {
-                Err(format!(
-                    "map.keys expects one argument, found {}",
-                    args.len()
-                ))
-            }
-        })
+
+        single_arg_fn!(map, "keys", Map, m, {
+            Ok(List(Rc::new(
+                m.as_ref()
+                    .keys()
+                    .map(|k| Str(k.clone()))
+                    .collect::<Vec<_>>(),
+            )))
+        });
     }
 
     builtins.add_fn("assert", |args| {

@@ -158,3 +158,18 @@ impl Iterator for MultiRangeValueIterator {
         self.0.iter_mut().map(Iterator::next).collect()
     }
 }
+
+pub fn type_as_string(value: &Value) -> &str {
+    use Value::*;
+    match value {
+        Empty => "Empty",
+        Bool(_) => "Bool",
+        Number(_) => "Number",
+        List(_) => "List",
+        Range { .. } => "Range",
+        Map(_) => "Map",
+        Str(_) => "String",
+        Function(_) => "Function",
+        For(_) => "For",
+    }
+}
