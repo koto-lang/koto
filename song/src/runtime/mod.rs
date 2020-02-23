@@ -1,6 +1,6 @@
 #![macro_use]
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt, rc::Rc};
 
 use crate::parser::{AstNode, AstOp, Id, LookupId, Node, Position};
 
@@ -63,27 +63,86 @@ macro_rules! runtime_error {
     };
 }
 
+pub type BuiltinFunction<'a> = Box<dyn FnMut(&Vec<Value>) -> BuiltinResult + 'a>;
+
+pub enum BuiltinValue<'a> {
+    Function(BuiltinFunction<'a>),
+    Map(BuiltinMap<'a>),
+}
+
+impl<'a> fmt::Display for BuiltinValue<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use BuiltinValue::*;
+        match self {
+            Function(_) => write!(f, "Builtin Function"),
+            Map(_) => write!(f, "Builtin Map"),
+        }
+    }
+}
+
+pub struct BuiltinMap<'a>(HashMap<String, BuiltinValue<'a>>);
+
+impl<'a> BuiltinMap<'a> {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn add_map(&mut self, name: &str) -> &mut BuiltinMap<'a> {
+        self.0
+            .insert(name.to_string(), BuiltinValue::Map(BuiltinMap::new()));
+
+        if let BuiltinValue::Map(map) = self.0.get_mut(name).unwrap() {
+            return map;
+        }
+
+        unreachable!();
+    }
+
+    pub fn add_fn(&mut self, name: &str, f: impl FnMut(&Vec<Value>) -> BuiltinResult + 'a) {
+        self.0
+            .insert(name.to_string(), BuiltinValue::Function(Box::new(f)));
+    }
+
+    pub fn get_mut(&mut self, lookup_id: &[Id]) -> Option<&mut BuiltinValue<'a>> {
+        use BuiltinValue::*;
+
+        match self.0.get_mut(lookup_id.first().unwrap().as_ref()) {
+            Some(value) => {
+                if lookup_id.len() == 1 {
+                    Some(value)
+                } else {
+                    match value {
+                        Map(map) => map.get_mut(&lookup_id[1..]),
+                        Function(_) => None,
+                    }
+                }
+            }
+            None => None,
+        }
+    }
+}
+
 pub struct Runtime<'a> {
     global: Scope,
-    builtins: HashMap<String, Box<dyn FnMut(&Vec<Value>) -> BuiltinResult + 'a>>,
+    builtins: BuiltinMap<'a>,
 }
 
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         let mut result = Self {
             global: Scope::new(),
-            builtins: HashMap::new(),
+            builtins: BuiltinMap::new(),
         };
         builtins::register(&mut result);
         result
     }
 
-    pub fn register_fn(&mut self, name: &str, f: impl FnMut(&Vec<Value>) -> BuiltinResult + 'a) {
-        self.builtins.insert(name.to_string(), Box::new(f));
-    }
-
     pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult {
         self.evaluate_block(ast, &mut None)
+    }
+
+    pub fn builtins_mut(&mut self) -> &mut BuiltinMap<'a> {
+        return &mut self.builtins;
     }
 
     fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Option<Scope>) -> RuntimeResult {
@@ -530,19 +589,20 @@ impl<'a> Runtime<'a> {
             return self.evaluate_block(&f.body, &mut Some(child_scope));
         }
 
-        if id.0.len() == 1 {
-            // TODO builtins should just be in scope
-            let name = id.0.first().unwrap().as_str();
-            if self.builtins.contains_key(name) {
-                let arg_values = args
-                    .iter()
-                    .map(|arg| self.evaluate(arg, scope))
-                    .collect::<Result<Vec<_>, _>>()?;
-                return match (self.builtins.get_mut(name).unwrap())(&arg_values) {
+        let arg_values = args
+            .iter()
+            .map(|arg| self.evaluate(arg, scope))
+            .collect::<Result<Vec<_>, _>>()?;
+        if let Some(value) = self.builtins.get_mut(&id.0) {
+            return match value {
+                BuiltinValue::Function(f) => match f(&arg_values) {
                     Ok(v) => Ok(v),
                     Err(e) => runtime_error!(node, e),
-                };
-            }
+                },
+                unexpected => {
+                    runtime_error!(node, "Expected function for '{}', found {}", id, unexpected)
+                }
+            };
         }
 
         runtime_error!(node, "Function '{}' not found", id)

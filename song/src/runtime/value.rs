@@ -2,13 +2,6 @@ use crate::parser::{AstFor, Function, Id};
 use std::{collections::HashMap, fmt, rc::Rc};
 
 
-
-// impl fmt::Debug for BuiltinFunction {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "Builtin function")
-//     }
-// }
-
 #[derive(Clone, Debug)]
 pub enum Value {
     Empty,
@@ -21,7 +14,6 @@ pub enum Value {
     // Str(String),
     Function(Rc<Function>),
     For(Rc<AstFor>),
-    // BuiltinFunction(Box<dyn BuiltinFunction>),
 }
 
 impl fmt::Display for Value {

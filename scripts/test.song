@@ -199,6 +199,10 @@ assert (m2.bar(2) == 4) and (m2.baz == 99)
 # assert map.keys z == ["foo", "bar", "baz"]
 
 
+# ##### Standard Library
+x = math.sin 1
+print x
+
 
 ###### Maps as classes
 
@@ -236,5 +240,3 @@ assert (m2.bar(2) == 4) and (m2.baz == 99)
 # o = new O2
 # o.print_foo()
 
-# ##### Standard Library
-# x = math.sin 42
