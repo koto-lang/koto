@@ -166,7 +166,7 @@ impl<'a> Runtime<'a> {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
             Node::Str(s) => Ok(Str(s.clone())),
-            Node::Array(elements) => {
+            Node::List(elements) => {
                 let mut values = Vec::new();
                 for node in elements.iter() {
                     let value = self.evaluate(node, scope)?;
@@ -182,7 +182,7 @@ impl<'a> Runtime<'a> {
                         _ => values.push(value),
                     }
                 }
-                Ok(Array(Rc::new(values)))
+                Ok(List(Rc::new(values)))
             }
             Node::Range {
                 min,
@@ -222,7 +222,7 @@ impl<'a> Runtime<'a> {
                         Value::For(_) => {
                             let mut values = Vec::new();
                             self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
-                            map.insert(id.clone(), Array(Rc::new(values)));
+                            map.insert(id.clone(), List(Rc::new(values)));
                         }
                         _ => {
                             map.insert(id.clone(), value);
@@ -231,7 +231,7 @@ impl<'a> Runtime<'a> {
                 }
                 Ok(Map(Rc::new(map)))
             }
-            Node::Index { id, expression } => self.array_index(id, expression, scope, node),
+            Node::Index { id, expression } => self.list_index(id, expression, scope, node),
             Node::Id(id) => self.get_value_or_error(id, scope, node),
             Node::Block(block) => self.evaluate_block(&block, scope),
             Node::Function(f) => Ok(Function(f.clone())),
@@ -248,7 +248,7 @@ impl<'a> Runtime<'a> {
                 while id_iter.peek().is_some() {
                     match expressions_iter.next() {
                         Some(expression) => match self.evaluate(expression, scope)? {
-                            Array(a) => {
+                            List(a) => {
                                 for value in a.iter() {
                                     match id_iter.next() {
                                         Some(id) => {
@@ -267,7 +267,7 @@ impl<'a> Runtime<'a> {
                         None => self.set_value(id_iter.next().unwrap(), &Value::Empty, scope),
                     }
                 }
-                Ok(Array(Rc::new(result)))
+                Ok(List(Rc::new(result)))
             }
             Node::Op { op, lhs, rhs } => {
                 // dbg!(lhs);
@@ -306,11 +306,11 @@ impl<'a> Runtime<'a> {
                             AstOp::Or => Ok(Bool(*a || *b)),
                             _ => binary_op_error!(op, a, b),
                         },
-                        (Array(a), Array(b)) => match op {
+                        (List(a), List(b)) => match op {
                             AstOp::Add => {
                                 let mut result = Vec::clone(a);
                                 result.extend(Vec::clone(b).into_iter());
-                                Ok(Array(Rc::new(result)))
+                                Ok(List(Rc::new(result)))
                             }
                             _ => binary_op_error!(op, a, b),
                         },
@@ -409,7 +409,7 @@ impl<'a> Runtime<'a> {
                 f.ranges
                     .iter()
                     .map(|range| match self.evaluate(range, scope)? {
-                        v @ Array(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
+                        v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                         unexpected => runtime_error!(
                             node,
                             "Expected iterable range in for statement, found {}",
@@ -424,10 +424,10 @@ impl<'a> Runtime<'a> {
                 let mut arg_iter = f.args.iter().peekable();
                 for value in values.iter() {
                     match value {
-                        Array(a) if single_range => {
-                            for array_value in a.iter() {
+                        List(a) if single_range => {
+                            for list_value in a.iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, &array_value, scope), // TODO
+                                    Some(arg) => self.set_value(arg, &list_value, scope), // TODO
                                     None => break,
                                 }
                             }
@@ -472,7 +472,7 @@ impl<'a> Runtime<'a> {
         Ok(result)
     }
 
-    fn array_index(
+    fn list_index(
         &mut self,
         id: &LookupId,
         expression: &AstNode,
@@ -482,9 +482,9 @@ impl<'a> Runtime<'a> {
         use Value::*;
 
         let index = self.evaluate(expression, scope)?;
-        let maybe_array = self.get_value_or_error(id, scope, node)?;
+        let maybe_list = self.get_value_or_error(id, scope, node)?;
 
-        if let Array(elements) = maybe_array {
+        if let List(elements) = maybe_list {
             match index {
                 Number(i) => {
                     let i = i as usize;
@@ -520,7 +520,7 @@ impl<'a> Runtime<'a> {
                             max
                         )
                     } else {
-                        Ok(Array(Rc::new(
+                        Ok(List(Rc::new(
                             elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
                         )))
                     }
@@ -534,8 +534,8 @@ impl<'a> Runtime<'a> {
         } else {
             runtime_error!(
                 node,
-                "Indexing is only supported for Arrays, found {}",
-                maybe_array
+                "Indexing is only supported for Lists, found {}",
+                maybe_list
             )
         }
     }

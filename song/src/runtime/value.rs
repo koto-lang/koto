@@ -6,7 +6,7 @@ pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
-    Array(Rc<Vec<Value>>),
+    List(Rc<Vec<Value>>),
     Range { min: isize, max: isize },
     Map(Rc<HashMap<Id, Value>>),
     Str(Rc<String>),
@@ -22,7 +22,7 @@ impl fmt::Display for Value {
             Bool(s) => write!(f, "{}", s),
             Number(n) => write!(f, "{}", n),
             Str(s) => write!(f, "{}", s),
-            Array(a) => {
+            List(a) => {
                 write!(f, "[")?;
                 for (i, value) in a.iter().enumerate() {
                     if i > 0 {
@@ -68,7 +68,7 @@ impl PartialEq for Value {
             (Number(a), Number(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
-            (Array(a), Array(b)) => a.as_ref() == b.as_ref(),
+            (List(a), List(b)) => a.as_ref() == b.as_ref(),
             (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             _ => false,
@@ -130,7 +130,7 @@ impl Iterator for ValueIterator {
         use Value::*;
 
         let result = match &self.value {
-            Array(a) => a.get(self.index as usize).cloned(),
+            List(a) => a.get(self.index as usize).cloned(),
             Range { min, max } => {
                 if self.index < (max - min) {
                     Some(Number((min + self.index) as f64))

@@ -58,12 +58,12 @@ add2 = |x, y| add(x, y)
 assert_eq(add2(4, -4), 0)
 
 # TODO functions can return multiple values
-f = |x| [x - 1, x + 1] # TODO avoid array
+f = |x| [x - 1, x + 1] # TODO avoid list
 a, b = f 0
 assert (a == -1) and (b == 1)
 
 
-####### Arrays
+####### Lists
 z = [10, 10 + 10, 30]
 print z
 
@@ -82,7 +82,7 @@ assert_eq(z + z, [10, 20, 30, 10, 20, 30])
 assert_eq(length z, 3)
 assert_eq(length y, 5)
 
-# Arrays get unpacked in multiple assignments - TODO unpacking only for 1 arg
+# Lists get unpacked in multiple assignments - TODO unpacking only for 1 arg
 a, b, c = [10, 20], [30, 40]
 assert (a == 10) and (b == 20) and (c == 30)
 
@@ -98,16 +98,16 @@ print r
 y = 0..=5
 assert_eq(length(y), 6)
 print y
-# Ranges are resolved when inserted in an array
+# Ranges are resolved when inserted in a list
 assert_eq(length([10..20]), 10)
 assert_eq(length([r]), 5)
-# Indexing arrays with ranges produces sub-arrays
+# Indexing lists with ranges produces sub-lists
 z = |n| n
 x = [(z 10)..=(z 20)]
 y = x[z(5)..(10 + 0)]
 assert_eq(y[0], 15)
 assert_eq(length(y), 5)
-# Multiple expressions assigned to single value get stored in array
+# Multiple expressions assigned to single value get stored in a list
 a = 1, 2
 assert_eq(a, [1, 2])
 
@@ -120,7 +120,6 @@ is_zero = |x| x == 0
 if is_zero 0 then print "Zer0"
 if is_zero 1 then print "Zer0" else print "Not Zer0"
 assert if is_zero 0 then true else false
-
 if true
   # functions in nested local scope can be called recursively
   fib = |n|
@@ -164,7 +163,7 @@ a = filter(0..20, |x| x > 15)
 assert_eq(a, [16, 17, 18, 19])
 
 # Iterating works over multiple ranges
-enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs] # TODO avoid subarray
+enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs] # TODO avoid sublist
                                                         # TODO generator
 z = [[c, d] for c, d in enumerate 100..103]
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
@@ -202,12 +201,12 @@ assert (m2.bar(2) == 4) and (m2.baz == 99)
 
 print("sin(1) is ", math.sin 1)
 
-assert array.is_sortable [42, 10, 9]
-assert_eq(array.is_sortable ["42", 10, 9], false) # TODO not
-assert array.is_sortable ["42", "10", "9"]
-assert_eq(array.sort [42, 10, 9], [9, 10, 42])
+assert list.is_sortable [42, 10, 9]
+assert_eq(list.is_sortable ["42", 10, 9], false) # TODO not
+assert list.is_sortable ["42", "10", "9"]
+assert_eq(list.sort [42, 10, 9], [9, 10, 42])
 
-assert_eq(array.sort map.keys m, ["bar", "baz", "foo"])
+assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
 
 
 

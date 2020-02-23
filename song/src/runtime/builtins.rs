@@ -59,15 +59,15 @@ pub fn register(runtime: &mut Runtime) {
     }
 
     {
-        let array = builtins.add_map("array");
+        let list = builtins.add_map("list");
 
-        array.add_fn("is_sortable", |args| {
+        list.add_fn("is_sortable", |args| {
             if args.len() == 1 {
                 match args.first().unwrap() {
-                    Array(a) => Ok(Bool(array_is_sortable(&a))),
+                    List(l) => Ok(Bool(list_is_sortable(&l))),
                     unexpected => {
                         return Err(format!(
-                            "array.sort only accepts an array as its argument, found {}",
+                            "list.sort only accepts a list as its argument, found {}",
                             unexpected
                         ))
                     }
@@ -80,28 +80,28 @@ pub fn register(runtime: &mut Runtime) {
             }
         });
 
-        array.add_fn("sort", |args| {
+        list.add_fn("sort", |args| {
             if args.len() == 1 {
                 match args.first().unwrap() {
-                    Array(a) => {
-                        if array_is_sortable(a.as_ref()) {
+                    List(a) => {
+                        if list_is_sortable(a.as_ref()) {
                             let mut a = Vec::clone(a);
                             a.sort();
-                            Ok(Array(Rc::new(a)))
+                            Ok(List(Rc::new(a)))
                         } else {
                             Err(format!(
-                                "array.sort can only sort arrays of numbers or strings",
+                                "list.sort can only sort lists of numbers or strings",
                             ))
                         }
                     }
                     unexpected => Err(format!(
-                        "array.sort only accepts an array as its argument, found {}",
+                        "list.sort only accepts a list as its argument, found {}",
                         unexpected
                     )),
                 }
             } else {
                 Err(format!(
-                    "array.sort expects one argument, found {}",
+                    "list.sort expects one argument, found {}",
                     args.len()
                 ))
             }
@@ -113,7 +113,7 @@ pub fn register(runtime: &mut Runtime) {
         map.add_fn("keys", |args| {
             if args.len() == 1 {
                 match args.first().unwrap() {
-                    Map(m) => Ok(Array(Rc::new(
+                    Map(m) => Ok(List(Rc::new(
                         m.as_ref()
                             .keys()
                             .map(|k| Str(k.clone()))
@@ -186,22 +186,22 @@ pub fn register(runtime: &mut Runtime) {
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing array as first argument for push".to_string());
+                return Err("Missing list as first argument for push".to_string());
             }
         };
 
         match first_arg_value {
-            Array(array) => {
-                let mut array = array.clone();
-                let array_data = Rc::make_mut(&mut array);
+            List(list) => {
+                let mut list = list.clone();
+                let list_data = Rc::make_mut(&mut list);
                 for value in arg_iter {
-                    array_data.push(value.clone())
+                    list_data.push(value.clone())
                 }
-                Ok(Array(array))
+                Ok(List(list))
             }
             unexpected => {
                 return Err(format!(
-                    "push is only supported for arrays, found {}",
+                    "push is only supported for lists, found {}",
                     unexpected
                 ))
             }
@@ -213,15 +213,15 @@ pub fn register(runtime: &mut Runtime) {
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing array as first argument for length".to_string());
+                return Err("Missing list as first argument for length".to_string());
             }
         };
 
         match first_arg_value {
-            Array(array) => Ok(Number(array.len() as f64)),
+            List(list) => Ok(Number(list.len() as f64)),
             Range { min, max } => Ok(Number((max - min) as f64)),
             unexpected => Err(format!(
-                "length is only supported for arrays and ranges, found {}",
+                "length is only supported for lists and ranges, found {}",
                 unexpected
             )),
         }
@@ -236,18 +236,16 @@ pub fn register(runtime: &mut Runtime) {
     });
 }
 
-fn array_is_sortable(array: &Vec<Value>) -> bool {
+fn list_is_sortable(list: &Vec<Value>) -> bool {
     use Value::*;
 
-    if array.len() == 0 {
+    if list.len() == 0 {
         true
     } else {
-        match array.first().unwrap() {
+        match list.first().unwrap() {
             value @ Number(_) | value @ Str(_) => {
                 let value_type = std::mem::discriminant(value);
-                array
-                    .iter()
-                    .all(|x| std::mem::discriminant(x) == value_type)
+                list.iter().all(|x| std::mem::discriminant(x) == value_type)
             }
             _ => false,
         }

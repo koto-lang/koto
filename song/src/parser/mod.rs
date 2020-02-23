@@ -57,7 +57,7 @@ pub enum Node {
     Bool(bool),
     Number(f64),
     Str(Rc<String>),
-    Array(Vec<AstNode>),
+    List(Vec<AstNode>),
     Range {
         min: Box<AstNode>,
         max: Box<AstNode>,
@@ -222,7 +222,7 @@ impl SongParser {
                 if expressions.len() == 1 {
                     expressions.first().unwrap().clone()
                 } else {
-                    AstNode::new(span, Node::Array(expressions))
+                    AstNode::new(span, Node::List(expressions))
                 }
             }
             Rule::boolean => (AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
@@ -231,10 +231,10 @@ impl SongParser {
                 let mut inner = pair.into_inner();
                 (AstNode::new(span, Node::Str(next_as_rc_string!(inner))))
             }
-            Rule::array => {
+            Rule::list => {
                 let inner = pair.into_inner();
                 let elements: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
-                (AstNode::new(span, Node::Array(elements)))
+                (AstNode::new(span, Node::List(elements)))
             }
             Rule::range => {
                 let mut inner = pair.into_inner();

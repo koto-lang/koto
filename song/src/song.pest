@@ -86,7 +86,7 @@ value_term = _{(
   | range
   | call
   | map_inline
-  | array
+  | list
   | string
   | number
   | boolean
@@ -168,7 +168,7 @@ next_map_entry = @{ NEWLINE ~ indentation ~ map_entry }
 
 lookup = ${ id ~ "." ~ id }
 
-array = !{
+list = !{
   "[" ~ "]"
   | "[" ~ operation ~ ("," ~ operation)* ~ "]"
 }
