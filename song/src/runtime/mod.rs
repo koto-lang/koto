@@ -1,7 +1,6 @@
 #![macro_use]
 
 use std::{collections::HashMap, fmt, rc::Rc};
-
 use crate::parser::{AstNode, AstOp, Id, LookupId, Node, Position};
 
 pub mod value;
@@ -357,19 +356,23 @@ impl<'a> Runtime<'a> {
 
     fn get_value(&self, lookup_id: &LookupId, scope: &Option<Scope>) -> Option<Value> {
         macro_rules! get_from_scope {
-            ($scope:expr) => {
-                lookup_id.0.iter().fold(None, |result, id| {
-                    match result {
-                        None => $scope.values.get(id),
-                        Some(map) => {
-                            match map {
+            ($scope:expr) => {{
+                let first = $scope.values.get(lookup_id.0.first().unwrap());
+                if lookup_id.0.len() == 1 {
+                    first
+                } else if first.is_some() {
+                    lookup_id.0[1..]
+                        .iter()
+                        .try_fold(first.unwrap(), |result, id| {
+                            match result {
                                 Value::Map(data) => data.get(id),
-                                _unexpected => None, // TODO error
+                                _unexpected => None, // TODO error, previous item wasn't a map
                             }
-                        }
-                    }
-                })
-            };
+                        })
+                } else {
+                    None
+                }
+            }};
         }
 
         if scope.is_some() {

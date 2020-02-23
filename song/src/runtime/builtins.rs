@@ -61,6 +61,33 @@ pub fn register(runtime: &mut Runtime) {
     {
         let list = builtins.add_map("list");
 
+        list.add_fn("add", |args| {
+            let mut arg_iter = args.iter();
+            let first_arg_value = match arg_iter.next() {
+                Some(arg) => arg,
+                None => {
+                    return Err("Missing list as first argument for push".to_string());
+                }
+            };
+
+            match first_arg_value {
+                List(list) => {
+                    let mut list = list.clone();
+                    let list_data = Rc::make_mut(&mut list);
+                    for value in arg_iter {
+                        list_data.push(value.clone())
+                    }
+                    Ok(List(list))
+                }
+                unexpected => {
+                    return Err(format!(
+                        "list.add is only supported for lists, found {}",
+                        unexpected
+                    ))
+                }
+            }
+        });
+
         list.add_fn("is_sortable", |args| {
             if args.len() == 1 {
                 match args.first().unwrap() {
@@ -178,33 +205,6 @@ pub fn register(runtime: &mut Runtime) {
                 "Assertion failed, '{}' should not be equal to '{}'",
                 args[0], args[1]
             ))
-        }
-    });
-
-    builtins.add_fn("push", |args| {
-        let mut arg_iter = args.iter();
-        let first_arg_value = match arg_iter.next() {
-            Some(arg) => arg,
-            None => {
-                return Err("Missing list as first argument for push".to_string());
-            }
-        };
-
-        match first_arg_value {
-            List(list) => {
-                let mut list = list.clone();
-                let list_data = Rc::make_mut(&mut list);
-                for value in arg_iter {
-                    list_data.push(value.clone())
-                }
-                Ok(List(list))
-            }
-            unexpected => {
-                return Err(format!(
-                    "push is only supported for lists, found {}",
-                    unexpected
-                ))
-            }
         }
     });
 
