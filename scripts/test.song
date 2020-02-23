@@ -58,7 +58,7 @@ add2 = |x, y| add(x, y)
 assert_eq(add2(4, -4), 0)
 
 # TODO functions can return multiple values
-f = |x| [x - 1, x + 1] # TODO avoid list
+f = |x| x - 1, x + 1
 a, b = f 0
 assert (a == -1) and (b == 1)
 
@@ -118,8 +118,10 @@ assert_eq(a, [1, 2])
 # Single line if statement
 is_zero = |x| x == 0
 if is_zero 0 then print "Zer0"
-if is_zero 1 then print "Zer0" else print "Not Zer0"
 assert if is_zero 0 then true else false
+a, b = if true then 10, 20 else 30, 40
+assert_eq(b, 20)
+
 if true
   # functions in nested local scope can be called recursively
   fib = |n|
@@ -154,18 +156,30 @@ for x in 0..10
 # Inline for statement
 print("for ", i) for i in 0..3
 
-# List comprehensions
-c = [square(x) for x in [1, 2, 3]]
+# List comprehensions - for loop assignment captures values in a list
+c = square(x) for x in [1, 2, 3]
 assert_eq(c, [1, 4, 9])
 
-filter = |xs, f| [x for x in xs if f(x)]
+filter = |xs, f| x for x in xs if f(x)
 a = filter(0..20, |x| x > 15)
 assert_eq(a, [16, 17, 18, 19])
 
+# comprehensions work with for blocks
+z = for x in 1..=3
+  for y in x..(x + 3)
+    y
+assert_eq(z, [[1, 2, 3], [2, 3, 4], [3, 4, 5]])
+
+# statements with empty return value don't produce values
+z = for x in 1..2
+  for y in x..(x + 3)
+    assert y >= x
+assert_eq(z, []) # TODO should be ()
+
 # Iterating works over multiple ranges
-enumerate = |xs| [[i, x] for i, x in 0..length(xs), xs] # TODO avoid sublist
-                                                        # TODO generator
-z = [[c, d] for c, d in enumerate 100..103]
+enumerate = |xs| i, x for i, x in 0..length(xs), xs
+
+z = [c, d] for c, d in enumerate 100..103
 assert_eq(z, [[0, 100], [1, 101], [2, 102]])
 
 

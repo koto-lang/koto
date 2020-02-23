@@ -65,6 +65,7 @@ pub enum Node {
     },
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
+    Expressions(Vec<AstNode>),
     Function(Rc<Function>),
     Call {
         function: LookupId,
@@ -215,7 +216,7 @@ impl SongParser {
                 let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 (AstNode::new(span, Block(block)))
             }
-            Rule::expressions => {
+            Rule::expressions | Rule::value_terms => {
                 let inner = pair.into_inner();
                 let expressions = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
 

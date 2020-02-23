@@ -1,13 +1,14 @@
 #![macro_use]
 
-use std::{collections::HashMap, fmt, rc::Rc};
 use crate::parser::{AstNode, AstOp, Id, LookupId, Node, Position};
+use std::{collections::HashMap, fmt, rc::Rc};
 
 pub mod value;
 use value::{MultiRangeValueIterator, Value, ValueIterator};
 
 mod builtins;
 
+#[derive(Debug)]
 pub enum Error {
     RuntimeError {
         message: String,
@@ -146,16 +147,57 @@ impl<'a> Runtime<'a> {
 
     fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Option<Scope>) -> RuntimeResult {
         let mut result = Value::Empty;
-        for node in block.iter() {
+        for (i, node) in block.iter().enumerate() {
             let output = self.evaluate(node, scope)?;
             match output {
                 Value::For(_) => {
-                    result = self.run_for_statement(output, scope, node, &mut None)?;
+                    if i < block.len() - 1 {
+                        self.run_for_loop(output, scope, node, &mut None)?;
+                    } else {
+                        let mut loop_output = Vec::new(); // TODO use return stack
+                        self.run_for_loop(output, scope, node, &mut Some(&mut loop_output))?;
+                        if !loop_output.is_empty() {
+                            result = Value::List(Rc::new(loop_output))
+                        }
+                    }
                 }
                 _ => result = output,
             }
         }
         Ok(result)
+    }
+
+    fn evaluate_expressions(
+        &mut self,
+        expressions: &Vec<AstNode>,
+        scope: &mut Option<Scope>,
+    ) -> RuntimeResult {
+        let result = expressions
+            .iter()
+            .map(|expression| self.evaluate_and_capture(expression, scope))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Value::List(Rc::new(result)))
+    }
+
+    fn evaluate_and_capture(&mut self, node: &AstNode, scope: &mut Option<Scope>) -> RuntimeResult {
+        use Value::*;
+        match self.evaluate(node, scope)? {
+            for_loop @ For(_) => {
+                let mut loop_output = Vec::new();
+                self.run_for_loop(for_loop, scope, node, &mut Some(&mut loop_output))?;
+                Ok(List(Rc::new(loop_output)))
+            }
+            // Range { min, max } => {
+            //     let mut range_output = Vec::new();
+            //     for i in min..max {
+            //         range_output.push(Number(i as f64))
+            //     }
+            //     Ok(List(Rc::new(range_output)))
+            // }
+            // Empty => {}
+            result => Ok(result),
+        }
     }
 
     fn evaluate(&mut self, node: &AstNode, scope: &mut Option<Scope>) -> RuntimeResult {
@@ -166,7 +208,7 @@ impl<'a> Runtime<'a> {
             Node::Number(n) => Ok(Number(*n)),
             Node::Str(s) => Ok(Str(s.clone())),
             Node::List(elements) => {
-                let mut values = Vec::new();
+                let mut values = Vec::new(); // TODO use return stack
                 for node in elements.iter() {
                     let value = self.evaluate(node, scope)?;
                     match value {
@@ -176,7 +218,7 @@ impl<'a> Runtime<'a> {
                             }
                         }
                         Value::For(_) => {
-                            self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
+                            self.run_for_loop(value, scope, node, &mut Some(&mut values))?;
                         }
                         _ => values.push(value),
                     }
@@ -216,27 +258,22 @@ impl<'a> Runtime<'a> {
             Node::Map(entries) => {
                 let mut map = HashMap::new();
                 for (id, node) in entries.iter() {
-                    let value = self.evaluate(node, scope)?;
-                    match value {
-                        Value::For(_) => {
-                            let mut values = Vec::new();
-                            self.run_for_statement(value, scope, node, &mut Some(&mut values))?;
-                            map.insert(id.clone(), List(Rc::new(values)));
-                        }
-                        _ => {
-                            map.insert(id.clone(), value);
-                        }
-                    }
+                    map.insert(id.clone(), self.evaluate_and_capture(node, scope)?);
                 }
                 Ok(Map(Rc::new(map)))
             }
             Node::Index { id, expression } => self.list_index(id, expression, scope, node),
             Node::Id(id) => self.get_value_or_error(id, scope, node),
             Node::Block(block) => self.evaluate_block(&block, scope),
+            Node::Expressions(expressions) => self.evaluate_expressions(&expressions, scope),
             Node::Function(f) => Ok(Function(f.clone())),
-            Node::Call { function, args } => self.call_function(function, args, scope, node),
+            Node::Call { function, args } => {
+                let result = self.call_function(function, args, scope, node);
+                // println!("Called {}, returning {:?}", function, result);
+                result
+            }
             Node::Assign { id, expression } => {
-                let value = self.evaluate(expression, scope)?;
+                let value = self.evaluate_and_capture(expression, scope)?;
                 self.set_value(id, &value, scope);
                 Ok(value)
             }
@@ -397,7 +434,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn run_for_statement(
+    fn run_for_loop(
         &mut self,
         for_statement: Value,
         scope: &mut Option<Scope>,
@@ -466,8 +503,13 @@ impl<'a> Runtime<'a> {
                 }
 
                 result = self.evaluate(&f.body, scope)?;
-                if let Some(collector) = collector.as_mut() {
-                    collector.push(result.clone());
+                match result {
+                    Empty => {}
+                    _ => {
+                        if let Some(collector) = collector.as_mut() {
+                            collector.push(result.clone());
+                        }
+                    }
                 }
             }
         }
@@ -585,7 +627,7 @@ impl<'a> Runtime<'a> {
                 .insert(id.0.first().unwrap().clone(), Function(f.clone()));
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
-                let arg_value = self.evaluate(arg, scope)?;
+                let arg_value = self.evaluate_and_capture(arg, scope)?;
                 child_scope.values.insert(name.clone(), arg_value);
             }
 
@@ -594,7 +636,7 @@ impl<'a> Runtime<'a> {
 
         let arg_values = args
             .iter()
-            .map(|arg| self.evaluate(arg, scope))
+            .map(|arg| self.evaluate_and_capture(arg, scope))
             .collect::<Result<Vec<_>, _>>()?;
         if let Some(value) = self.builtins.get_mut(&id.0) {
             return match value {

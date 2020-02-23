@@ -107,8 +107,8 @@ if_block = !{
 }
 if_inline = !{
   if_keyword ~ expression
-  ~ then_keyword ~ expression
-  ~ (else_keyword ~ expression)?
+  ~ then_keyword ~ expressions
+  ~ (else_keyword ~ expressions)?
 }
 
 if_keyword = @{ "if" ~ WHITESPACE+ }
@@ -123,7 +123,7 @@ for_block = !{
   ~ child_block
 }
 for_inline = !{
-  value_term
+  value_terms
   ~ for_keyword ~ ids
   ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
@@ -142,7 +142,7 @@ call_single_arg = ${(id ~ WHITESPACE+ ~ operation) }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
-function_inline = !{ function_args ~ expression }
+function_inline = !{ function_args ~ expressions }
 function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"

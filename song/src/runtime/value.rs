@@ -51,11 +51,7 @@ impl fmt::Display for Value {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
             }
-            // BuiltinFunction(function) => {
-            //     let raw = Rc::into_raw(function.clone());
-            //     write!(f, "builtin function: {:?}", raw)
-            // }
-            _ => unreachable!(),
+            For(_) => write!(f, "For loop"),
         }
     }
 }
