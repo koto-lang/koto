@@ -6,7 +6,7 @@ syntax keyword songTodos contained TODO FIXME NOTE
 syntax keyword songConditionals if then else
 syntax keyword songRepeating for in
 syntax keyword songBuiltins print length push
-syntax keyword songAsserts assert
+syntax keyword songAsserts assert assert_eq assert_ne
 syntax match songCapture "\v\|"
 
 syntax match songInlineComment "#.*$"
