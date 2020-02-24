@@ -1,13 +1,13 @@
 use clap::{App, Arg};
-use song::{Error, Parser, Runtime};
+use koto::{Error, Parser, Runtime};
 use std::{fs, io::Write};
 
 fn main() {
-    let matches = App::new("ks")
+    let matches = App::new("koto")
         .version("1.0")
         .arg(
             Arg::with_name("script")
-                .help("The ks script to run")
+                .help("The koto script to run")
                 .index(1),
         )
         .get_matches();

@@ -2,7 +2,7 @@ use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::{fmt, rc::Rc};
 
 #[derive(Parser)]
-#[grammar = "song.pest"]
+#[grammar = "koto.pest"]
 struct PestParser;
 
 #[derive(Clone, Debug)]
@@ -138,11 +138,11 @@ pub struct Position {
     pub column: usize,
 }
 
-pub struct SongParser {
+pub struct KotoParser {
     climber: PrecClimber<Rule>,
 }
 
-impl SongParser {
+impl KotoParser {
     pub fn new() -> Self {
         use pest::prec_climber::{Assoc::*, Operator};
         use Rule::*;

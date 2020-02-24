@@ -1,5 +1,5 @@
 [package]
-name = "songapp"
+name = "kotoapp"
 
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
@@ -7,11 +7,11 @@ edition = "2018"
 
 [workspace]
 members = [
-  "song"
+  "koto"
 ]
 
 [dependencies]
-song = { path = "song" }
+koto = { path = "koto" }
 pest = "2.1.2"
 pest_derive  = "2.1.0"
 
