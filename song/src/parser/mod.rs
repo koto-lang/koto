@@ -91,6 +91,8 @@ pub enum Node {
     If {
         condition: Box<AstNode>,
         then_node: Box<AstNode>,
+        else_if_condition: Option<Box<AstNode>>,
+        else_if_node: Option<Box<AstNode>>,
         else_node: Option<Box<AstNode>>,
     },
     For(Rc<AstFor>),
@@ -382,6 +384,8 @@ impl SongParser {
                         condition,
                         then_node,
                         else_node,
+                        else_if_condition: None,
+                        else_if_node: None,
                     },
                 ))
             }
@@ -390,7 +394,21 @@ impl SongParser {
                 inner.next(); // if
                 let condition = next_as_boxed_ast!(inner);
                 let then_node = next_as_boxed_ast!(inner);
+
+                let (else_if_condition, else_if_node) = if inner.peek().is_some()
+                    && inner.peek().unwrap().as_rule() == Rule::else_if_block
+                {
+                    let mut inner = inner.next().unwrap().into_inner();
+                    inner.next(); // else if
+                    let condition = next_as_boxed_ast!(inner);
+                    let node = next_as_boxed_ast!(inner);
+                    (Some(condition), Some(node))
+                } else {
+                    (None, None)
+                };
+
                 let else_node = if inner.peek().is_some() {
+                    let mut inner = inner.next().unwrap().into_inner();
                     Some(next_as_boxed_ast!(inner))
                 } else {
                     None
@@ -401,6 +419,8 @@ impl SongParser {
                     Node::If {
                         condition,
                         then_node,
+                        else_if_condition,
+                        else_if_node,
                         else_node,
                     },
                 ))

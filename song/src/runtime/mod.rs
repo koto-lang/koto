@@ -365,13 +365,33 @@ impl<'a> Runtime<'a> {
             Node::If {
                 condition,
                 then_node,
+                else_if_condition,
+                else_if_node,
                 else_node,
             } => {
                 let maybe_bool = self.evaluate(condition, scope)?;
                 if let Bool(condition_value) = maybe_bool {
                     if condition_value {
-                        self.evaluate(then_node, scope)
-                    } else if else_node.is_some() {
+                        return self.evaluate(then_node, scope);
+                    }
+
+                    if else_if_condition.is_some() {
+                        let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap(), scope)?;
+                        if let Bool(condition_value) = maybe_bool {
+                            if condition_value {
+                                return self.evaluate(else_if_node.as_ref().unwrap(), scope);
+                            }
+                        } else {
+                            return runtime_error!(
+                                node,
+                                "Expected bool in else if statement, found {}",
+                                maybe_bool
+                            )
+                        }
+
+                    }
+
+                    if else_node.is_some() {
                         self.evaluate(else_node.as_ref().unwrap(), scope)
                     } else {
                         Ok(Value::Empty)
