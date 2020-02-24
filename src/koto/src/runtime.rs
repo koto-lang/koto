@@ -1,10 +1,13 @@
 #![macro_use]
 
-use koto_parser::{AstNode, AstOp, Id, LookupId, Node, Position};
+use koto_parser::{AstNode, AstOp, Node, Position};
 use std::{collections::HashMap, fmt, rc::Rc};
 
-use crate::value::{MultiRangeValueIterator, Value, ValueIterator};
-
+use crate::{
+    callstack::CallStack,
+    value::{MultiRangeValueIterator, Value, ValueIterator},
+    Id, LookupId,
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -123,6 +126,7 @@ impl<'a> BuiltinMap<'a> {
 pub struct Runtime<'a> {
     global: Scope,
     builtins: BuiltinMap<'a>,
+    callstack: CallStack,
 }
 
 impl<'a> Runtime<'a> {
@@ -130,30 +134,31 @@ impl<'a> Runtime<'a> {
         let mut result = Self {
             global: Scope::new(),
             builtins: BuiltinMap::new(),
+            callstack: CallStack::new(),
         };
         crate::builtins::register(&mut result);
         result
     }
 
     pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult {
-        self.evaluate_block(ast, &mut None)
+        self.evaluate_block(ast)
     }
 
     pub fn builtins_mut(&mut self) -> &mut BuiltinMap<'a> {
         return &mut self.builtins;
     }
 
-    fn evaluate_block(&mut self, block: &Vec<AstNode>, scope: &mut Option<Scope>) -> RuntimeResult {
+    fn evaluate_block(&mut self, block: &Vec<AstNode>) -> RuntimeResult {
         let mut result = Value::Empty;
         for (i, node) in block.iter().enumerate() {
-            let output = self.evaluate(node, scope)?;
+            let output = self.evaluate(node)?;
             match output {
                 Value::For(_) => {
                     if i < block.len() - 1 {
-                        self.run_for_loop(output, scope, node, &mut None)?;
+                        self.run_for_loop(output, node, &mut None)?;
                     } else {
                         let mut loop_output = Vec::new(); // TODO use return stack
-                        self.run_for_loop(output, scope, node, &mut Some(&mut loop_output))?;
+                        self.run_for_loop(output, node, &mut Some(&mut loop_output))?;
                         if !loop_output.is_empty() {
                             result = Value::List(Rc::new(loop_output))
                         }
@@ -165,25 +170,21 @@ impl<'a> Runtime<'a> {
         Ok(result)
     }
 
-    fn evaluate_expressions(
-        &mut self,
-        expressions: &Vec<AstNode>,
-        scope: &mut Option<Scope>,
-    ) -> RuntimeResult {
+    fn evaluate_expressions(&mut self, expressions: &Vec<AstNode>) -> RuntimeResult {
         let result = expressions
             .iter()
-            .map(|expression| self.evaluate_and_capture(expression, scope))
+            .map(|expression| self.evaluate_and_capture(expression))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Value::List(Rc::new(result)))
     }
 
-    fn evaluate_and_capture(&mut self, node: &AstNode, scope: &mut Option<Scope>) -> RuntimeResult {
+    fn evaluate_and_capture(&mut self, node: &AstNode) -> RuntimeResult {
         use Value::*;
-        match self.evaluate(node, scope)? {
+        match self.evaluate(node)? {
             for_loop @ For(_) => {
                 let mut loop_output = Vec::new();
-                self.run_for_loop(for_loop, scope, node, &mut Some(&mut loop_output))?;
+                self.run_for_loop(for_loop, node, &mut Some(&mut loop_output))?;
                 Ok(List(Rc::new(loop_output)))
             }
             // Range { min, max } => {
@@ -198,7 +199,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn evaluate(&mut self, node: &AstNode, scope: &mut Option<Scope>) -> RuntimeResult {
+    fn evaluate(&mut self, node: &AstNode) -> RuntimeResult {
         use Value::*;
 
         match &node.node {
@@ -208,7 +209,7 @@ impl<'a> Runtime<'a> {
             Node::List(elements) => {
                 let mut values = Vec::new(); // TODO use return stack
                 for node in elements.iter() {
-                    let value = self.evaluate(node, scope)?;
+                    let value = self.evaluate(node)?;
                     match value {
                         Range { min, max } => {
                             for i in min..max {
@@ -216,7 +217,7 @@ impl<'a> Runtime<'a> {
                             }
                         }
                         Value::For(_) => {
-                            self.run_for_loop(value, scope, node, &mut Some(&mut values))?;
+                            self.run_for_loop(value, node, &mut Some(&mut values))?;
                         }
                         _ => values.push(value),
                     }
@@ -228,8 +229,8 @@ impl<'a> Runtime<'a> {
                 inclusive,
                 max,
             } => {
-                let min = self.evaluate(min, scope)?;
-                let max = self.evaluate(max, scope)?;
+                let min = self.evaluate(min)?;
+                let max = self.evaluate(max)?;
                 match (min, max) {
                     (Number(min), Number(max)) => {
                         let min = min as isize;
@@ -256,23 +257,23 @@ impl<'a> Runtime<'a> {
             Node::Map(entries) => {
                 let mut map = HashMap::new();
                 for (id, node) in entries.iter() {
-                    map.insert(id.clone(), self.evaluate_and_capture(node, scope)?);
+                    map.insert(id.clone(), self.evaluate_and_capture(node)?);
                 }
                 Ok(Map(Rc::new(map)))
             }
-            Node::Index { id, expression } => self.list_index(id, expression, scope, node),
-            Node::Id(id) => self.get_value_or_error(id, scope, node),
-            Node::Block(block) => self.evaluate_block(&block, scope),
-            Node::Expressions(expressions) => self.evaluate_expressions(&expressions, scope),
+            Node::Index { id, expression } => self.list_index(id, expression, node),
+            Node::Id(id) => self.get_value_or_error(id, node),
+            Node::Block(block) => self.evaluate_block(&block),
+            Node::Expressions(expressions) => self.evaluate_expressions(&expressions),
             Node::Function(f) => Ok(Function(f.clone())),
             Node::Call { function, args } => {
-                let result = self.call_function(function, args, scope, node);
+                let result = self.call_function(function, args, node);
                 // println!("Called {}, returning {:?}", function, result);
                 result
             }
             Node::Assign { id, expression } => {
-                let value = self.evaluate_and_capture(expression, scope)?;
-                self.set_value(id, &value, scope);
+                let value = self.evaluate_and_capture(expression)?;
+                self.set_value(id, &value);
                 Ok(value)
             }
             Node::MultiAssign { ids, expressions } => {
@@ -281,13 +282,13 @@ impl<'a> Runtime<'a> {
                 let mut result = vec![];
                 while id_iter.peek().is_some() {
                     match expressions_iter.next() {
-                        Some(expression) => match self.evaluate(expression, scope)? {
+                        Some(expression) => match self.evaluate(expression)? {
                             List(a) => {
                                 for value in a.iter() {
                                     match id_iter.next() {
                                         Some(id) => {
                                             result.push(value.clone());
-                                            self.set_value(id, &value, scope)
+                                            self.set_value(id, &value)
                                         }
                                         None => break,
                                     }
@@ -295,10 +296,10 @@ impl<'a> Runtime<'a> {
                             }
                             value => {
                                 result.push(value.clone());
-                                self.set_value(id_iter.next().unwrap(), &value, scope)
+                                self.set_value(id_iter.next().unwrap(), &value)
                             }
                         },
-                        None => self.set_value(id_iter.next().unwrap(), &Value::Empty, scope),
+                        None => self.set_value(id_iter.next().unwrap(), &Value::Empty),
                     }
                 }
                 Ok(List(Rc::new(result)))
@@ -306,8 +307,8 @@ impl<'a> Runtime<'a> {
             Node::Op { op, lhs, rhs } => {
                 // dbg!(lhs);
                 // dbg!(ops);
-                let a = self.evaluate(lhs, scope)?;
-                let b = self.evaluate(rhs, scope)?;
+                let a = self.evaluate(lhs)?;
+                let b = self.evaluate(rhs)?;
                 macro_rules! binary_op_error {
                     ($op:ident, $a:ident, $b:ident) => {
                         runtime_error!(
@@ -367,30 +368,29 @@ impl<'a> Runtime<'a> {
                 else_if_node,
                 else_node,
             } => {
-                let maybe_bool = self.evaluate(condition, scope)?;
+                let maybe_bool = self.evaluate(condition)?;
                 if let Bool(condition_value) = maybe_bool {
                     if condition_value {
-                        return self.evaluate(then_node, scope);
+                        return self.evaluate(then_node);
                     }
 
                     if else_if_condition.is_some() {
-                        let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap(), scope)?;
+                        let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap())?;
                         if let Bool(condition_value) = maybe_bool {
                             if condition_value {
-                                return self.evaluate(else_if_node.as_ref().unwrap(), scope);
+                                return self.evaluate(else_if_node.as_ref().unwrap());
                             }
                         } else {
                             return runtime_error!(
                                 node,
                                 "Expected bool in else if statement, found {}",
                                 maybe_bool
-                            )
+                            );
                         }
-
                     }
 
                     if else_node.is_some() {
-                        self.evaluate(else_node.as_ref().unwrap(), scope)
+                        self.evaluate(else_node.as_ref().unwrap())
                     } else {
                         Ok(Value::Empty)
                     }
@@ -402,23 +402,27 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn set_value(&mut self, id: &Id, value: &Value, scope: &mut Option<Scope>) {
-        match scope {
-            Some(scope) => scope.values.insert(id.clone(), value.clone()),
-            None => self.global.values.insert(id.clone(), value.clone()),
-        };
+    fn set_value(&mut self, id: &Id, value: &Value) {
+        if self.callstack.frame() > 0 {
+            if let Some(exists) = self.callstack.get_mut(id.as_ref()) {
+                *exists = value.clone();
+            } else {
+                self.callstack.extend(id.clone(), value.clone());
+            }
+        } else {
+            self.global.values.insert(id.clone(), value.clone());
+        }
     }
 
-    fn get_value(&self, lookup_id: &LookupId, scope: &Option<Scope>) -> Option<Value> {
-        macro_rules! get_from_scope {
-            ($scope:expr) => {{
-                let first = $scope.values.get(lookup_id.0.first().unwrap());
+    fn get_value(&self, lookup_id: &LookupId) -> Option<Value> {
+        macro_rules! value_or_map_lookup {
+            ($value:expr) => {{
                 if lookup_id.0.len() == 1 {
-                    first
-                } else if first.is_some() {
+                    $value
+                } else if $value.is_some() {
                     lookup_id.0[1..]
                         .iter()
-                        .try_fold(first.unwrap(), |result, id| {
+                        .try_fold($value.unwrap(), |result, id| {
                             match result {
                                 Value::Map(data) => data.get(id),
                                 _unexpected => None, // TODO error, previous item wasn't a map
@@ -430,23 +434,19 @@ impl<'a> Runtime<'a> {
             }};
         }
 
-        if scope.is_some() {
-            let scope = scope.as_ref().unwrap();
-            if let Some(value) = get_from_scope!(scope) {
+        if self.callstack.frame() > 0 {
+            let value = self.callstack.get(lookup_id.0.first().unwrap());
+            if let Some(value) = value_or_map_lookup!(value) {
                 return Some(value.clone());
             }
         }
 
-        get_from_scope!(self.global).map(|v| v.clone())
+        let global_value = self.global.values.get(lookup_id.0.first().unwrap());
+        value_or_map_lookup!(global_value).map(|v| v.clone())
     }
 
-    fn get_value_or_error(
-        &self,
-        id: &LookupId,
-        scope: &Option<Scope>,
-        node: &AstNode,
-    ) -> RuntimeResult {
-        match self.get_value(id, scope) {
+    fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> RuntimeResult {
+        match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "Value '{}' not found", id),
         }
@@ -455,7 +455,6 @@ impl<'a> Runtime<'a> {
     fn run_for_loop(
         &mut self,
         for_statement: Value,
-        scope: &mut Option<Scope>,
         node: &AstNode,
         collector: &mut Option<&mut Vec<Value>>,
     ) -> RuntimeResult {
@@ -466,7 +465,7 @@ impl<'a> Runtime<'a> {
             let iter = MultiRangeValueIterator(
                 f.ranges
                     .iter()
-                    .map(|range| match self.evaluate(range, scope)? {
+                    .map(|range| match self.evaluate(range)? {
                         v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                         unexpected => runtime_error!(
                             node,
@@ -485,7 +484,7 @@ impl<'a> Runtime<'a> {
                         List(a) if single_range => {
                             for list_value in a.iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, &list_value, scope), // TODO
+                                    Some(arg) => self.set_value(arg, &list_value), // TODO
                                     None => break,
                                 }
                             }
@@ -495,16 +494,15 @@ impl<'a> Runtime<'a> {
                                 .next()
                                 .expect("For loops have at least one argument"),
                             &value,
-                            scope,
                         ),
                     }
                 }
                 for remaining_arg in arg_iter {
-                    self.set_value(remaining_arg, &Value::Empty, scope);
+                    self.set_value(remaining_arg, &Value::Empty);
                 }
 
                 if let Some(condition) = &f.condition {
-                    match self.evaluate(&condition, scope)? {
+                    match self.evaluate(&condition)? {
                         Bool(b) => {
                             if !b {
                                 continue;
@@ -520,7 +518,7 @@ impl<'a> Runtime<'a> {
                     }
                 }
 
-                result = self.evaluate(&f.body, scope)?;
+                result = self.evaluate(&f.body)?;
                 match result {
                     Empty => {}
                     _ => {
@@ -535,17 +533,11 @@ impl<'a> Runtime<'a> {
         Ok(result)
     }
 
-    fn list_index(
-        &mut self,
-        id: &LookupId,
-        expression: &AstNode,
-        scope: &mut Option<Scope>,
-        node: &AstNode,
-    ) -> RuntimeResult {
+    fn list_index(&mut self, id: &LookupId, expression: &AstNode, node: &AstNode) -> RuntimeResult {
         use Value::*;
 
-        let index = self.evaluate(expression, scope)?;
-        let maybe_list = self.get_value_or_error(id, scope, node)?;
+        let index = self.evaluate(expression)?;
+        let maybe_list = self.get_value_or_error(id, node)?;
 
         if let List(elements) = maybe_list {
             match index {
@@ -607,12 +599,11 @@ impl<'a> Runtime<'a> {
         &mut self,
         id: &LookupId,
         args: &Vec<AstNode>,
-        scope: &mut Option<Scope>,
         node: &AstNode,
     ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_function = match self.get_value(id, scope) {
+        let maybe_function = match self.get_value(id) {
             Some(Function(f)) => Some(f.clone()),
             Some(unexpected) => {
                 return runtime_error!(
@@ -638,23 +629,30 @@ impl<'a> Runtime<'a> {
                 );
             }
 
-            let mut child_scope = Scope::new();
-
-            child_scope
-                .values
-                .insert(id.0.first().unwrap().clone(), Function(f.clone()));
+            // allow the function that's being called to call itself
+            self.callstack
+                .push(id.0.first().unwrap().clone(), Function(f.clone()));
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
-                let arg_value = self.evaluate_and_capture(arg, scope)?;
-                child_scope.values.insert(name.clone(), arg_value);
+                match self.evaluate_and_capture(arg) {
+                    Ok(value) => self.callstack.push(name.clone(), value),
+                    Err(e) => {
+                        self.callstack.cancel();
+                        return Err(e);
+                    }
+                };
             }
 
-            return self.evaluate_block(&f.body, &mut Some(child_scope));
+            self.callstack.commit();
+            let result = self.evaluate_block(&f.body);
+            self.callstack.pop_frame();
+
+            return result;
         }
 
         let arg_values = args
             .iter()
-            .map(|arg| self.evaluate_and_capture(arg, scope))
+            .map(|arg| self.evaluate_and_capture(arg))
             .collect::<Result<Vec<_>, _>>()?;
         if let Some(value) = self.builtins.get_mut(&id.0) {
             return match value {
