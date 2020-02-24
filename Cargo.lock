@@ -123,11 +123,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "koto_parser"
+name = "koto_grammar"
 version = "0.1.0"
 dependencies = [
  "pest",
  "pest_derive",
+]
+
+[[package]]
+name = "koto_parser"
+version = "0.1.0"
+dependencies = [
+ "koto_grammar",
+ "pest",
 ]
 
 [[package]]

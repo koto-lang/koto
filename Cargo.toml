@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "src/cli",
+  "src/grammar",
   "src/koto",
   "src/parser",
 ]

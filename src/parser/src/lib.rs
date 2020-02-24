@@ -1,12 +1,7 @@
-#[macro_use]
-extern crate pest_derive;
-
 use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::{fmt, rc::Rc};
 
-#[derive(Parser)]
-#[grammar = "koto.pest"]
-struct PestParser;
+use koto_grammar::Rule;
 
 #[derive(Clone, Debug)]
 pub struct AstNode {
@@ -167,8 +162,7 @@ impl KotoParser {
     }
 
     pub fn parse(&self, source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
-        let parsed = PestParser::parse(Rule::program, source)?;
-        // dbg!(&parsed);
+        let parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
         let mut ast = vec![];
         for pair in parsed {
