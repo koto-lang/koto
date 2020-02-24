@@ -7,13 +7,12 @@ program = _{
 
 block = @{
   empty_line*
-  ~ assignment_or_expression
-  ~ (next_expression)*
+  ~ assignment_or_expression ~ (next_expression)*
 }
 child_block = @{
   empty_line*
   ~ push_indentation
-  ~ block
+  ~ (map_value | block)
   ~ DROP
 }
 
@@ -34,7 +33,6 @@ expression = _{
   ( function
   | if_statement
   | for_loop
-  | map
   | operation
   | call
   )
@@ -71,7 +69,8 @@ and = { "and" }
 or = { "or" }
 
 term = _{
-  function_inline
+  map
+  | function_inline
   | flow_term
   | value_term
 }
@@ -160,6 +159,7 @@ map = @{
   ~ map_entries
   ~ DROP
 }
+map_value = !{ map_entries }
 map_entries = @{
   empty_line*
   ~ map_entry

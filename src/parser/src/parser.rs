@@ -252,9 +252,15 @@ impl KotoParser {
                     },
                 ))
             }
-            Rule::map | Rule::map_inline => {
-                let entries = pair
-                    .into_inner()
+            Rule::map | Rule::map_value | Rule::map_inline => {
+                dbg!(&pair);
+                let inner = if pair.as_rule() == Rule::map_value {
+                    pair.into_inner().next().unwrap().into_inner()
+                     // pair.into_inner()
+                } else {
+                    pair.into_inner()
+                };
+                let entries = inner
                     .map(|pair| {
                         let mut inner = pair.into_inner();
                         let id = next_as_rc_string!(inner);
@@ -488,7 +494,7 @@ impl KotoParser {
                     })),
                 ))
             }
-            unexpected => unreachable!("Unexpected expression: {:?}", unexpected),
+            unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
     }
 }

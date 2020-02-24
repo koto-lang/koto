@@ -22,3 +22,21 @@ m2 = m + { baz: 99 }
 assert (m2.bar(2) == 4) and (m2.baz == 99)
 
 assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
+
+
+###### Maps as classes
+
+make_o = ||
+  foo: 42
+  assert_foo: |self| assert_eq(self.foo, 42) # self refers to table instance
+
+o = make_o()
+o.assert_foo() # implicit self
+
+make_o2 = ||
+  make_o() +
+    foo_2: 57
+    assert_foo: |self| assert_eq(self.foo + self.foo_2, 99)
+
+o2 = make_o2()
+o2.assert_foo()

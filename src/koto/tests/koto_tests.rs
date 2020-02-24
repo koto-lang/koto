@@ -33,7 +33,7 @@ fn run_script(script_path: &str) {
                 },
             }
         }
-        Err(_) => assert!(false),
+        Err(e) => assert!(false, format!("Parsing error:\n{}", e)),
     }
 }
 

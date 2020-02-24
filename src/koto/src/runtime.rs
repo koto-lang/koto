@@ -618,12 +618,19 @@ impl<'a> Runtime<'a> {
 
         if let Some(f) = maybe_function {
             let arg_count = f.args.len();
-            if args.len() != arg_count {
+            let expected_args =
+                if id.0.len() > 1 && arg_count > 0 && f.args.first().unwrap().as_ref() == "self" {
+                    arg_count - 1
+                } else {
+                    arg_count
+                };
+
+            if args.len() != expected_args {
                 return runtime_error!(
                     node,
                     "Incorrect argument count while calling '{}': expected {}, found {} - {:?}",
                     id,
-                    arg_count,
+                    expected_args,
                     args.len(),
                     f.args
                 );
@@ -632,6 +639,20 @@ impl<'a> Runtime<'a> {
             // allow the function that's being called to call itself
             self.callstack
                 .push(id.0.first().unwrap().clone(), Function(f.clone()));
+
+            // implicit self for map functions
+            if id.0.len() > 1 {
+                match f.args.first() {
+                    Some(self_arg) if self_arg.as_ref() == "self" => {
+                        // TODO id slices
+                        let mut map_id = id.0.clone();
+                        map_id.pop();
+                        let map = self.get_value(&LookupId(map_id)).unwrap();
+                        self.callstack.push(self_arg.clone(), map);
+                    }
+                    _ => {}
+                }
+            }
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
                 match self.evaluate_and_capture(arg) {
