@@ -1,0 +1,2 @@
+assert_eq("hello", "hello")
+assert_ne("hello", "world")

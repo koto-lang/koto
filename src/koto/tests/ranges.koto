@@ -1,0 +1,14 @@
+r = 0..5
+assert_eq(length(r), 5)
+# ..= creates an inclusive range
+y = 0..=5
+assert_eq(length(y), 6)
+# Ranges are resolved when inserted in a list
+assert_eq(length([10..20]), 10)
+assert_eq(length([r]), 5)
+# Indexing lists with ranges produces sub-lists
+z = |n| n
+x = [(z 10)..=(z 20)]
+y = x[z(5)..(10 + 0)]
+assert_eq(y[0], 15)
+assert_eq(length(y), 5)

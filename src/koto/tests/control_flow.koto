@@ -1,0 +1,37 @@
+# Single line if statement
+is_zero = |x| x == 0
+if is_zero 0 then assert true
+assert if is_zero 0 then true else false
+a, b = if true then 10, 20 else 30, 40
+assert_eq(b, 20)
+
+
+# Multiline if statement
+x = true
+if x
+  a = 42
+  assert a == 42
+
+if x == false
+  # This comment shouldn't break parsing
+  assert false
+else if false
+  assert false
+else
+       # ...and neither should this one
+  if x == true
+    assert true
+      # or this one
+
+if true
+  # functions in nested local scope can be called recursively
+  fib = |n|
+    if n <= 0
+      0
+    else if n == 1
+      1
+    else
+      fib(n - 1) + fib(n - 2)
+  assert_eq(fib 7, 13)
+
+

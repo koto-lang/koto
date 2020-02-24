@@ -1,0 +1,9 @@
+# This is a comment
+assert true # This is a trailing comment
+
+#-
+Multiline comments start with #- and end with -#
+#- and -# can be nested
+-#
+
+assert true
