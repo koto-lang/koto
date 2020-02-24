@@ -1,4 +1,4 @@
-use crate::parser::{AstFor, Function, Id};
+use koto_parser::{AstFor, Function, Id};
 use std::{cmp::Ordering, collections::HashMap, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]

@@ -1,12 +1,10 @@
 #![macro_use]
 
-use crate::parser::{AstNode, AstOp, Id, LookupId, Node, Position};
+use koto_parser::{AstNode, AstOp, Id, LookupId, Node, Position};
 use std::{collections::HashMap, fmt, rc::Rc};
 
-pub mod value;
-use value::{MultiRangeValueIterator, Value, ValueIterator};
+use crate::value::{MultiRangeValueIterator, Value, ValueIterator};
 
-mod builtins;
 
 #[derive(Debug)]
 pub enum Error {
@@ -133,7 +131,7 @@ impl<'a> Runtime<'a> {
             global: Scope::new(),
             builtins: BuiltinMap::new(),
         };
-        builtins::register(&mut result);
+        crate::builtins::register(&mut result);
         result
     }
 

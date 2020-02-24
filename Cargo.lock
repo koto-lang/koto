@@ -111,16 +111,21 @@ dependencies = [
 name = "koto"
 version = "0.1.0"
 dependencies = [
- "pest",
- "pest_derive",
+ "koto_parser",
 ]
 
 [[package]]
-name = "kotoapp"
+name = "koto_cli"
 version = "0.1.0"
 dependencies = [
  "clap",
  "koto",
+]
+
+[[package]]
+name = "koto_parser"
+version = "0.1.0"
+dependencies = [
  "pest",
  "pest_derive",
 ]

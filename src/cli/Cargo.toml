@@ -1,0 +1,16 @@
+[package]
+name = "koto_cli"
+
+version = "0.1.0"
+authors = ["irh <ian.r.hobson@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "koto"
+path = "src/main.rs"
+
+[dependencies]
+koto = { path = "../koto" }
+
+[dependencies.clap]
+version = "2.33.0"

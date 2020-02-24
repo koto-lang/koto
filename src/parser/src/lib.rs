@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate pest_derive;
+
 use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::{fmt, rc::Rc};
 
