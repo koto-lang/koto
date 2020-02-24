@@ -82,9 +82,13 @@ assert_eq(z + z, [10, 20, 30, 10, 20, 30])
 assert_eq(length z, 3)
 assert_eq(length y, 5)
 
-# Lists get unpacked in multiple assignments - TODO unpacking only for 1 arg
-a, b, c = [10, 20], [30, 40]
+# Lists get unpacked in multiple assignments
+a, b, c = [10, 20, 30, 40]
 assert (a == 10) and (b == 20) and (c == 30)
+
+# TODO unpacking should only for 1 arg
+# a, b, c = [10, 20], [30, 40]
+# assert (a == [10, 20]) and (b == [30, 40]) and (c == ())
 
 
 ###### Ranges
@@ -235,17 +239,18 @@ assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
 
 # make_o = ||
 #   foo: 42
-#   print_foo: |self| print self.foo # self refers to table instance
+#   assert_foo: |self| assert_eq(self.foo, 42) # self refers to table instance
 
 # o = make_o()
-# o.print_foo() # implicit self
+# o.assert_foo() # implicit self
 
 # make_o2 = ||
-#   base: make_o() # base is a convention
-#   print_foo2: |self| print self.base.foo # explicit base access
+#   make_o() +
+#     foo_2: 57
+#     assert_foo: |self| assert_eq(self.foo + self.foo_2, 99)
 #
 # o2 = make_o2()
-# o2.print_foo2()
+# o2.assert_foo()
 
 
 
@@ -266,4 +271,5 @@ assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
 
 # o = new O2
 # o.print_foo()
+
 
