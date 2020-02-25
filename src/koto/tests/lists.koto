@@ -14,7 +14,7 @@ assert_eq(length y, 5)
 assert_eq(length z, 3)
 
 a, b, c = [10, 20, 30, 40]
-assert (a == 10) and (b == 20) and (c == 30)
+assert a == 10 and b == 20 and c == 30
 
 # TODO unpacking should only for 1 arg
 # a, b, c = [10, 20], [30, 40]

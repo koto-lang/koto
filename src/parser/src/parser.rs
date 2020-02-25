@@ -147,16 +147,16 @@ impl KotoParser {
 
         Self {
             climber: PrecClimber::new(vec![
-                Operator::new(add, Left) | Operator::new(subtract, Left),
-                Operator::new(multiply, Left)
-                    | Operator::new(divide, Left)
-                    | Operator::new(modulo, Left),
                 Operator::new(and, Left) | Operator::new(or, Left),
                 Operator::new(equal, Left) | Operator::new(not_equal, Left),
                 Operator::new(greater, Left)
                     | Operator::new(greater_or_equal, Left)
                     | Operator::new(less, Left)
                     | Operator::new(less_or_equal, Left),
+                Operator::new(add, Left) | Operator::new(subtract, Left),
+                Operator::new(multiply, Left)
+                    | Operator::new(divide, Left)
+                    | Operator::new(modulo, Left),
             ]),
         }
     }

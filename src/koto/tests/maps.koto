@@ -19,7 +19,7 @@ assert_eq(m.bar(9), 81)
 assert_eq(m.baz.foo, 99)
 
 m2 = m + { baz: 99 }
-assert (m2.bar(2) == 4) and (m2.baz == 99)
+assert m2.bar(2) == 4 and m2.baz == 99
 
 assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
 
