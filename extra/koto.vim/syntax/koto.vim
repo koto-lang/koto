@@ -3,9 +3,10 @@ if exists("b:current_syntax")
 endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
+syntax keyword kotoKeywords global
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating for in
-syntax keyword kotoBuiltins print length push
+syntax keyword kotoBuiltins length list map math print push string
 syntax keyword kotoAsserts assert assert_eq assert_ne
 syntax match kotoCapture "\v\|"
 
@@ -37,6 +38,7 @@ highlight default link kotoInlineComment Comment
 highlight default link kotoMultilineComment Comment
 
 highlight default link kotoTodos Todo
+highlight default link kotoKeywords Operator
 highlight default link kotoConditionals Conditional
 highlight default link kotoRepeating Repeat
 highlight default link kotoBuiltins Function

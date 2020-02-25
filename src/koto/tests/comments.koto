@@ -6,4 +6,8 @@ Multiline comments start with #- and end with -#
 #- and -# can be nested
 -#
 
+#-
+assert false
+-#
+
 assert true

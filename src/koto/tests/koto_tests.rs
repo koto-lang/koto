@@ -47,6 +47,7 @@ macro_rules! koto_test {
 }
 
 koto_test!(arithmetic);
+koto_test!(assignment);
 koto_test!(comments);
 koto_test!(control_flow);
 koto_test!(functions);

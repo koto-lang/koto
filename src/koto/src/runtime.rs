@@ -271,12 +271,12 @@ impl<'a> Runtime<'a> {
                 // println!("Called {}, returning {:?}", function, result);
                 result
             }
-            Node::Assign { id, expression } => {
+            Node::Assign { id, expression, global } => {
                 let value = self.evaluate_and_capture(expression)?;
-                self.set_value(id, &value);
+                self.set_value(id, &value, *global);
                 Ok(value)
             }
-            Node::MultiAssign { ids, expressions } => {
+            Node::MultiAssign { ids, expressions, global } => {
                 let mut id_iter = ids.iter().peekable();
                 let mut expressions_iter = expressions.iter();
                 let mut result = vec![];
@@ -288,7 +288,7 @@ impl<'a> Runtime<'a> {
                                     match id_iter.next() {
                                         Some(id) => {
                                             result.push(value.clone());
-                                            self.set_value(id, &value)
+                                            self.set_value(id, &value, *global)
                                         }
                                         None => break,
                                     }
@@ -296,10 +296,10 @@ impl<'a> Runtime<'a> {
                             }
                             value => {
                                 result.push(value.clone());
-                                self.set_value(id_iter.next().unwrap(), &value)
+                                self.set_value(id_iter.next().unwrap(), &value, *global)
                             }
                         },
-                        None => self.set_value(id_iter.next().unwrap(), &Value::Empty),
+                        None => self.set_value(id_iter.next().unwrap(), &Value::Empty, *global),
                     }
                 }
                 Ok(List(Rc::new(result)))
@@ -402,15 +402,16 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn set_value(&mut self, id: &Id, value: &Value) {
-        if self.callstack.frame() > 0 {
+    fn set_value(&mut self, id: &Id, value: &Value, global: bool) {
+        if self.callstack.frame() == 0 || global {
+            self.global.values.insert(id.clone(), value.clone());
+        }
+        else {
             if let Some(exists) = self.callstack.get_mut(id.as_ref()) {
                 *exists = value.clone();
             } else {
                 self.callstack.extend(id.clone(), value.clone());
             }
-        } else {
-            self.global.values.insert(id.clone(), value.clone());
         }
     }
 
@@ -484,7 +485,7 @@ impl<'a> Runtime<'a> {
                         List(a) if single_range => {
                             for list_value in a.iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, &list_value), // TODO
+                                    Some(arg) => self.set_value(arg, &list_value, false), // TODO
                                     None => break,
                                 }
                             }
@@ -494,11 +495,12 @@ impl<'a> Runtime<'a> {
                                 .next()
                                 .expect("For loops have at least one argument"),
                             &value,
+                            false,
                         ),
                     }
                 }
                 for remaining_arg in arg_iter {
-                    self.set_value(remaining_arg, &Value::Empty);
+                    self.set_value(remaining_arg, &Value::Empty, false);
                 }
 
                 if let Some(condition) = &f.condition {

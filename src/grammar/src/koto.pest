@@ -26,8 +26,9 @@ next_expression = @{ NEWLINE ~ indentation ~ assignment_or_expression }
 assignment_or_expression = _{ (assignment | expressions) ~ comment? }
 
 assignment = _{ single_assignment | multiple_assignment }
-single_assignment = !{ id ~ "=" ~ expressions }
-multiple_assignment = !{ ids ~ "=" ~ expressions }
+single_assignment = !{ global_keyword? ~ id ~ "=" ~ expressions }
+multiple_assignment = !{ global_keyword? ~ ids ~ "=" ~ expressions }
+global_keyword = @{ "global" ~ WHITESPACE+ }
 
 expression = _{
   ( function
@@ -209,6 +210,7 @@ keyword = _{
   | "else"
   | "false"
   | "for"
+  | "global"
   | "if"
   | "in"
   | "or"

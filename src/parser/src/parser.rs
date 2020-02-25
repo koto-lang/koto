@@ -76,10 +76,12 @@ pub enum Node {
     Assign {
         id: Id,
         expression: Box<AstNode>,
+        global: bool,
     },
     MultiAssign {
         ids: Vec<Id>,
         expressions: Vec<AstNode>,
+        global: bool,
     },
     Op {
         op: AstOp,
@@ -312,12 +314,20 @@ impl KotoParser {
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
+                let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
+                if global {
+                    inner.next();
+                }
                 let id = next_as_rc_string!(inner.next().unwrap().into_inner());
                 let expression = next_as_boxed_ast!(inner);
-                (AstNode::new(span, Node::Assign { id, expression }))
+                (AstNode::new(span, Node::Assign { id, expression, global }))
             }
             Rule::multiple_assignment => {
                 let mut inner = pair.into_inner();
+                let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
+                if global {
+                    inner.next();
+                }
                 let ids = inner
                     .next()
                     .unwrap()
@@ -330,7 +340,7 @@ impl KotoParser {
                     .into_inner()
                     .map(|pair| self.build_ast(pair))
                     .collect::<Vec<_>>();
-                (AstNode::new(span, Node::MultiAssign { ids, expressions }))
+                (AstNode::new(span, Node::MultiAssign { ids, expressions, global }))
             }
             Rule::operation => {
                 // dbg!(&pair);
