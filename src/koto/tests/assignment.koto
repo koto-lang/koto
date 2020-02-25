@@ -1,0 +1,20 @@
+a, b, c, d, e = 1, 2, 3, 4, 5, 6, 7, 8
+assert_eq c, 3
+assert_eq e, 5
+
+f = ||
+  global x = 42
+f()
+assert_eq x, 42
+
+f2 = ||
+  global x = x * 2
+f2()
+assert_eq x, 84
+
+f3 = ||
+  x = x + 15 # assigning x in local scope
+  assert_eq x, 99
+f3()
+assert_eq x, 84
+
