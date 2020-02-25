@@ -258,7 +258,7 @@ impl KotoParser {
                 dbg!(&pair);
                 let inner = if pair.as_rule() == Rule::map_value {
                     pair.into_inner().next().unwrap().into_inner()
-                     // pair.into_inner()
+                // pair.into_inner()
                 } else {
                     pair.into_inner()
                 };
@@ -297,18 +297,17 @@ impl KotoParser {
                 let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 (AstNode::new(span, Node::Function(Rc::new(self::Function { args, body }))))
             }
-            Rule::call_with_parens | Rule::call_single_arg => {
+            Rule::call_with_parens | Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
                 let function = next_as_lookup_id!(inner);
-                let args = if inner.peek().unwrap().as_rule() == Rule::call_args {
-                    inner
+                let args = match inner.peek().unwrap().as_rule() {
+                    Rule::call_args | Rule::operations => inner
                         .next()
                         .unwrap()
                         .into_inner()
                         .map(|pair| self.build_ast(pair))
-                        .collect::<Vec<_>>()
-                } else {
-                    vec![self.build_ast(inner.next().unwrap())]
+                        .collect::<Vec<_>>(),
+                    _ => vec![self.build_ast(inner.next().unwrap())],
                 };
                 (AstNode::new(span, Node::Call { function, args }))
             }
@@ -320,7 +319,14 @@ impl KotoParser {
                 }
                 let id = next_as_rc_string!(inner.next().unwrap().into_inner());
                 let expression = next_as_boxed_ast!(inner);
-                (AstNode::new(span, Node::Assign { id, expression, global }))
+                (AstNode::new(
+                    span,
+                    Node::Assign {
+                        id,
+                        expression,
+                        global,
+                    },
+                ))
             }
             Rule::multiple_assignment => {
                 let mut inner = pair.into_inner();
@@ -340,7 +346,14 @@ impl KotoParser {
                     .into_inner()
                     .map(|pair| self.build_ast(pair))
                     .collect::<Vec<_>>();
-                (AstNode::new(span, Node::MultiAssign { ids, expressions, global }))
+                (AstNode::new(
+                    span,
+                    Node::MultiAssign {
+                        ids,
+                        expressions,
+                        global,
+                    },
+                ))
             }
             Rule::operation => {
                 // dbg!(&pair);

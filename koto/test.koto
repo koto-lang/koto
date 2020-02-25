@@ -237,39 +237,23 @@ assert_eq(list.sort map.keys m, ["bar", "baz", "foo"])
 
 ###### Maps as classes
 
-# make_o = ||
-#   foo: 42
-#   assert_foo: |self| assert_eq(self.foo, 42) # self refers to table instance
+make_o = ||
+  foo: 42
+  assert_foo: |self| assert_eq(self.foo, 42) # self refers to table instance
 
-# o = make_o()
-# o.assert_foo() # implicit self
+o = make_o()
+o.assert_foo() # implicit self
 
-# make_o2 = ||
-#   make_o() +
-#     foo_2: 57
-#     assert_foo: |self| assert_eq(self.foo + self.foo_2, 99)
-#
-# o2 = make_o2()
-# o2.assert_foo()
+make_o2 = ||
+  make_o() +
+    foo_2: 57
+    assert_foo: |self| assert_eq(self.foo + self.foo_2, 99)
 
-
-
-# ###### Classes
-# class O
-#   new: |self| self.foo = 42
-#   with_foo: |x|
-#     o = new O
-#     o.foo = x
-#     o
-#   print_foo: |self| print self.foo
-
-# o = new O
-# o.print_foo()
-
-# class O2 extends O
-#   print_foo2: |self| print super.foo
-
-# o = new O2
-# o.print_foo()
+o2 = make_o2()
+o2.assert_foo()
 
 
+###### Vec4 type
+
+# v = vec4 0.3, 0.5, 0.8, 1.0
+# assert_eq (vec4 1.0), (vec4 1.0, 0.0, 0.0, 0.0)

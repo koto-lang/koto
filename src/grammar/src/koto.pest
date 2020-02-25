@@ -46,6 +46,7 @@ operation = !{
    | (term ~ (op ~ term)?)
     ~ comment?
 }
+operations = !{ operation ~ ("," ~ operation)* }
 
 op = _{
   add | subtract
@@ -135,13 +136,13 @@ for_inline = !{
 for_keyword = @{ "for" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
 
-call = _{ call_with_parens | call_single_arg }
+call = _{ call_with_parens | call_no_parens }
 call_with_parens = ${((lookup | id) ~ call_args)}
 call_args = !{
   ("(" ~ ")")
   | "(" ~ operation ~ ("," ~ operation)* ~ ")"
 }
-call_single_arg = ${(id ~ WHITESPACE+ ~ operation) }
+call_no_parens = ${(id ~ WHITESPACE+ ~ operations) }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }

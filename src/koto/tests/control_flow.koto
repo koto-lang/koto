@@ -3,7 +3,7 @@ is_zero = |x| x == 0
 if is_zero 0 then assert true
 assert if is_zero 0 then true else false
 a, b = if true then 10, 20 else 30, 40
-assert_eq(b, 20)
+assert_eq b, 20
 
 
 # Multiline if statement
@@ -31,7 +31,7 @@ if true
     else if n == 1
       1
     else
-      fib(n - 1) + fib(n - 2)
-  assert_eq(fib 7, 13)
+      (fib n - 1) + (fib n - 2)
+  assert_eq 13, fib 7
 
 

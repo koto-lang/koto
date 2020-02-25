@@ -1,14 +1,14 @@
 r = 0..5
-assert_eq(length r, 5)
+assert_eq 5, length r
 # ..= creates an inclusive range
 y = 0..=5
-assert_eq(length y, 6)
+assert_eq 6, length y
 # Ranges are resolved when inserted in a list
-assert_eq(length [10..20], 10)
-assert_eq(length [r], 5)
+assert_eq 10, length [10..20]
+assert_eq 5, length [r]
 # Indexing lists with ranges produces sub-lists
 z = |n| n
 x = [(z 10)..=(z 20)]
 y = x[z(5)..(10 + 0)]
-assert_eq(y[0], 15)
-assert_eq(length y, 5)
+assert_eq 15, y[0]
+assert_eq 5, length y

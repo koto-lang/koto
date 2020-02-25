@@ -1,20 +1,20 @@
 square = |x| x * x
-assert_eq(square 7, 49)
-assert_eq(square -10, 100)
+assert_eq 49, square 7
+assert_eq 100, square -10
 
 add = |x, y|
   x2 = x
   do_add = |x, y|
     x = x + y # Nested trailing comment
     x
-  result = do_add(x, y)
+  result = do_add x, y
   assert x == x2 # function arguments are locally scoped TODO this breaks parsing on previous line
   result
-assert_eq(add(1, 2), 3)
+assert_eq 3, add 1, 2
 
 # functions can call globally defined functions
-add2 = |x, y| add(x, y)
-assert_eq(add2(4, -4), 0)
+add2 = |x, y| add x, y
+assert_eq 0, add2 4, -4
 
 # functions can return multiple values
 f = |x| x - 1, x + 1

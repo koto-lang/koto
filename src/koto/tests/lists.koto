@@ -1,17 +1,17 @@
 z = [10, 10 + 10, 30]
-assert_eq(z[0], 10)
-assert_eq(z[0 + 1], 20)
+assert_eq z[0], 10
+assert_eq z[0 + 1], 20
 
-assert_eq(z, z)
-assert_ne(z, [])
+assert_eq z, z
+assert_ne z, []
 
-assert_eq(z + z, [10, 20, 30, 10, 20, 30])
+assert_eq z + z, [10, 20, 30, 10, 20, 30]
 
 y = list.add(z, 40, 50)
-assert_eq(y[3], 40)
+assert_eq y[3], 40
 
-assert_eq(length y, 5)
-assert_eq(length z, 3)
+assert_eq 5, length y
+assert_eq 3, length z
 
 a, b, c = [10, 20, 30, 40]
 assert a == 10 and b == 20 and c == 30
@@ -21,8 +21,8 @@ assert a == 10 and b == 20 and c == 30
 # assert (a == [10, 20]) and (b == [30, 40]) and (c == ())
 
 assert list.is_sortable [42, 10, 9]
-assert_eq(list.is_sortable ["42", 10, 9], false) # TODO not
+assert_eq false, list.is_sortable ["42", 10, 9] # TODO not
 assert list.is_sortable ["42", "10", "9"]
-assert_eq(list.sort [42, 10, 9], [9, 10, 42])
+assert_eq [9, 10, 42], list.sort [42, 10, 9]
 
 
