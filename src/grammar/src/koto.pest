@@ -36,7 +36,8 @@ multiple_assignment = !{ global_keyword? ~ ids ~ "=" ~ expressions }
 global_keyword = @{ "global" ~ WHITESPACE+ }
 
 expression = _{
-  ( function
+  ( child_block
+  | function
   | if_statement
   | for_loop
   | operation

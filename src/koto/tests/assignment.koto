@@ -16,5 +16,15 @@ f3 = ||
   x = x + 15 # assigning x in local scope
   assert_eq x, 99
 f3()
-assert_eq x, 84
+assert_eq x, 84 # global x remains the same
 
+# Assignments can be broken up with indentation
+f4 = |n| n
+a, b, c =
+  1
+  f4 2
+  f4 3
+# TODO revisit after introducing return stack
+# assert_eq a, 1
+# assert_eq b, 2
+# assert_eq c, 3
