@@ -44,7 +44,7 @@ expression = _{
   )
   ~ comment?
 }
-expressions = !{ expression ~ ("," ~ expression)* }
+expressions = !{ expression ~ ("," ~ expression?)* }
 
 operation = !{
    (term ~ (op ~ term)+)

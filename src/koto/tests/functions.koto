@@ -21,3 +21,6 @@ assert_eq 0, add2 4, -4
 f = |x| x - 1, x + 1
 a, b = f 0
 assert a == -1 and b == 1
+
+# trailing commas are ignored
+assert_eq true, true,
