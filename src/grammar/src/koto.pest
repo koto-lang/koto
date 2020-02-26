@@ -47,12 +47,16 @@ expression = _{
 }
 expressions = !{ expression ~ ("," ~ expression?)* }
 
-operation = !{
-   (term ~ (op ~ term)+)
-   | (term ~ (op ~ term)?)
-    ~ comment?
+operation = ${
+   (term ~ operation_link+)
+   | (term ~ operation_link?)
+    ~ (WHITESPACE* ~ comment)?
 }
 operations = !{ operation ~ ("," ~ operation)* }
+operation_link = _{
+  (NEWLINE* ~ WHITESPACE+ | empty_line* ~ WHITESPACE+)*
+  ~ op ~ WHITESPACE* ~ term
+}
 
 op = _{
   add | subtract

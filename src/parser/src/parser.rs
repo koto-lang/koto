@@ -1,6 +1,6 @@
-use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
+use crate::{prec_climber::PrecClimber, vec4};
+use pest::{error::Error, Parser, Span};
 use std::{fmt, rc::Rc};
-use crate::vec4;
 
 use koto_grammar::Rule;
 
@@ -146,22 +146,25 @@ pub struct KotoParser {
 
 impl KotoParser {
     pub fn new() -> Self {
-        use pest::prec_climber::{Assoc::*, Operator};
+        use crate::prec_climber::{Assoc::*, Operator};
         use Rule::*;
 
         Self {
-            climber: PrecClimber::new(vec![
-                Operator::new(and, Left) | Operator::new(or, Left),
-                Operator::new(equal, Left) | Operator::new(not_equal, Left),
-                Operator::new(greater, Left)
-                    | Operator::new(greater_or_equal, Left)
-                    | Operator::new(less, Left)
-                    | Operator::new(less_or_equal, Left),
-                Operator::new(add, Left) | Operator::new(subtract, Left),
-                Operator::new(multiply, Left)
-                    | Operator::new(divide, Left)
-                    | Operator::new(modulo, Left),
-            ]),
+            climber: PrecClimber::new(
+                vec![
+                    Operator::new(and, Left) | Operator::new(or, Left),
+                    Operator::new(equal, Left) | Operator::new(not_equal, Left),
+                    Operator::new(greater, Left)
+                        | Operator::new(greater_or_equal, Left)
+                        | Operator::new(less, Left)
+                        | Operator::new(less_or_equal, Left),
+                    Operator::new(add, Left) | Operator::new(subtract, Left),
+                    Operator::new(multiply, Left)
+                        | Operator::new(divide, Left)
+                        | Operator::new(modulo, Left),
+                ],
+                vec![empty_line],
+            ),
         }
     }
 
