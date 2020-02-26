@@ -21,7 +21,12 @@ indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
 empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
-next_expression = @{ NEWLINE ~ indentation ~ assignment_or_expression }
+next_expression = @{
+  NEWLINE
+  ~ empty_line*
+  ~ indentation
+  ~ assignment_or_expression
+}
 
 assignment_or_expression = _{ (assignment | expressions) ~ comment? }
 
@@ -169,7 +174,7 @@ map_entries = @{
 }
 map_entry = _{ map_entry_block | map_entry_inline }
 map_entry_block = !{ id ~ ":" ~ map }
-next_map_entry = @{ NEWLINE ~ indentation ~ map_entry }
+next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 
 lookup = ${ id ~ "." ~ id }
 

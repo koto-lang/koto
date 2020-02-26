@@ -11,6 +11,7 @@ assert_eq sum, 861
 m =
   foo: 42
   bar: |x| x * x
+  # This comment doesn't interrupt map declaration
   baz:
     foo: 99
 

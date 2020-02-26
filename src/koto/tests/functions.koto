@@ -8,7 +8,8 @@ add = |x, y|
     x = x + y # Nested trailing comment
     x
   result = do_add x, y
-  assert x == x2 # function arguments are locally scoped TODO this breaks parsing on previous line
+  # function arguments are locally scoped
+  assert x == x2
   result
 assert_eq 3, add 1, 2
 

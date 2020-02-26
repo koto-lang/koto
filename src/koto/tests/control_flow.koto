@@ -22,6 +22,7 @@ else
   if x == true
     assert true
       # or this one
+    assert true
 
 if true
   # functions in nested local scope can be called recursively

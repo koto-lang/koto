@@ -3,7 +3,10 @@ count = 0
 for x in 0..10
   for y in -5..5 if x == y and x < 3
     assert_eq(x, y)
+
+    # loop bodies share scope of statment
     count = count + 1
+
 assert_eq count, 3
 
 # Inline for statement
