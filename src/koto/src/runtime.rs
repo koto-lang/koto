@@ -81,18 +81,17 @@ impl<'a> fmt::Display for BuiltinValue<'a> {
     }
 }
 
-pub struct BuiltinMap<'a>(HashMap<String, BuiltinValue<'a>>);
+pub struct BuiltinMap<'a>(Vec<(String, BuiltinValue<'a>)>);
 
 impl<'a> BuiltinMap<'a> {
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(Vec::new())
     }
 
     pub fn add_map(&mut self, name: &str) -> &mut BuiltinMap<'a> {
-        self.0
-            .insert(name.to_string(), BuiltinValue::Map(BuiltinMap::new()));
+        self.insert(name, BuiltinValue::Map(BuiltinMap::new()));
 
-        if let BuiltinValue::Map(map) = self.0.get_mut(name).unwrap() {
+        if let BuiltinValue::Map(map) = self.get_entry_mut(name).unwrap() {
             return map;
         }
 
@@ -100,14 +99,13 @@ impl<'a> BuiltinMap<'a> {
     }
 
     pub fn add_fn(&mut self, name: &str, f: impl FnMut(&Vec<Value>) -> BuiltinResult + 'a) {
-        self.0
-            .insert(name.to_string(), BuiltinValue::Function(Box::new(f)));
+        self.insert(name, BuiltinValue::Function(Box::new(f)));
     }
 
     pub fn get_mut(&mut self, lookup_id: &[Id]) -> Option<&mut BuiltinValue<'a>> {
         use BuiltinValue::*;
 
-        match self.0.get_mut(lookup_id.first().unwrap().as_ref()) {
+        match self.get_entry_mut(lookup_id.first().unwrap().as_ref()) {
             Some(value) => {
                 if lookup_id.len() == 1 {
                     Some(value)
@@ -120,6 +118,23 @@ impl<'a> BuiltinMap<'a> {
             }
             None => None,
         }
+    }
+
+    fn insert(&mut self, name: &str, value: BuiltinValue<'a>) {
+        if let Some(existing) = self.get_entry_mut(name) {
+            *existing = value;
+        } else {
+            self.0.push((name.to_string(), value));
+        }
+    }
+
+    fn get_entry_mut(&mut self, name: &str) -> Option<&mut BuiltinValue<'a>> {
+        for (entry_name, value) in self.0.iter_mut() {
+            if entry_name == name {
+                return Some(value);
+            }
+        }
+        None
     }
 }
 
@@ -205,6 +220,7 @@ impl<'a> Runtime<'a> {
         match &node.node {
             Node::Bool(b) => Ok(Bool(*b)),
             Node::Number(n) => Ok(Number(*n)),
+            Node::Vec4(v) => Ok(Vec4(*v)),
             Node::Str(s) => Ok(Str(s.clone())),
             Node::List(elements) => {
                 let mut values = Vec::new(); // TODO use return stack
@@ -271,12 +287,20 @@ impl<'a> Runtime<'a> {
                 // println!("Called {}, returning {:?}", function, result);
                 result
             }
-            Node::Assign { id, expression, global } => {
+            Node::Assign {
+                id,
+                expression,
+                global,
+            } => {
                 let value = self.evaluate_and_capture(expression)?;
                 self.set_value(id, &value, *global);
                 Ok(value)
             }
-            Node::MultiAssign { ids, expressions, global } => {
+            Node::MultiAssign {
+                ids,
+                expressions,
+                global,
+            } => {
                 let mut id_iter = ids.iter().peekable();
                 let mut expressions_iter = expressions.iter();
                 let mut result = vec![];
@@ -334,6 +358,30 @@ impl<'a> Runtime<'a> {
                             AstOp::LessOrEqual => Ok(Bool(a <= b)),
                             AstOp::Greater => Ok(Bool(a > b)),
                             AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
+                            _ => binary_op_error!(op, a, b),
+                        },
+                        (Vec4(a), Vec4(b)) => match op {
+                            AstOp::Add => Ok(Vec4(*a + *b)),
+                            AstOp::Subtract => Ok(Vec4(*a - *b)),
+                            AstOp::Multiply => Ok(Vec4(*a * *b)),
+                            AstOp::Divide => Ok(Vec4(*a / *b)),
+                            AstOp::Modulo => Ok(Vec4(*a % *b)),
+                            _ => binary_op_error!(op, a, b),
+                        },
+                        (Number(a), Vec4(b)) => match op {
+                            AstOp::Add => Ok(Vec4(*a + *b)),
+                            AstOp::Subtract => Ok(Vec4(*a - *b)),
+                            AstOp::Multiply => Ok(Vec4(*a * *b)),
+                            AstOp::Divide => Ok(Vec4(*a / *b)),
+                            AstOp::Modulo => Ok(Vec4(*a % *b)),
+                            _ => binary_op_error!(op, a, b),
+                        },
+                        (Vec4(a), Number(b)) => match op {
+                            AstOp::Add => Ok(Vec4(*a + *b)),
+                            AstOp::Subtract => Ok(Vec4(*a - *b)),
+                            AstOp::Multiply => Ok(Vec4(*a * *b)),
+                            AstOp::Divide => Ok(Vec4(*a / *b)),
+                            AstOp::Modulo => Ok(Vec4(*a % *b)),
                             _ => binary_op_error!(op, a, b),
                         },
                         (Bool(a), Bool(b)) => match op {
@@ -405,8 +453,7 @@ impl<'a> Runtime<'a> {
     fn set_value(&mut self, id: &Id, value: &Value, global: bool) {
         if self.callstack.frame() == 0 || global {
             self.global.values.insert(id.clone(), value.clone());
-        }
-        else {
+        } else {
             if let Some(exists) = self.callstack.get_mut(id.as_ref()) {
                 *exists = value.clone();
             } else {

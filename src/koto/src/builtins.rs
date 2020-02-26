@@ -1,4 +1,5 @@
-use super::{value, Runtime, Value};
+use crate::{value, Runtime, Value};
+use koto_parser::vec4;
 use std::rc::Rc;
 
 pub fn register(runtime: &mut Runtime) {
@@ -200,6 +201,64 @@ pub fn register(runtime: &mut Runtime) {
         }
         println!();
         Ok(Empty)
+    });
+
+    builtins.add_fn("vec4", |args| {
+        fn assign_value(result: &mut [f32; 4], i: &mut usize, value: &Value) -> Result<(), String> {
+            match value {
+                Number(n) => {
+                    result[*i] = *n as f32;
+                    *i += 1;
+                }
+                Vec4(v) => {
+                    result[*i] = v.0;
+                    *i += 1;
+                    if *i < 4 {
+                        result[*i] = v.1;
+                        *i += 1;
+                        if *i < 4 {
+                            result[*i] = v.2;
+                            *i += 1;
+                            if *i < 4 {
+                                result[*i] = v.3;
+                                *i += 1;
+                            }
+                        }
+                    }
+                }
+                List(l) => {
+                    for value in l.iter() {
+                        if *i < 4 {
+                            assign_value(result, i, value)?;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                unexpected => {
+                    return Err(format!(
+                        "vec4 only accepts Numbers, Vec4s and Lists as arguments, found {}",
+                        unexpected
+                    ))
+                }
+            }
+            Ok(())
+        }
+        let mut result = [0.0f32; 4];
+        let mut i = 0;
+        for value in args.iter() {
+            assign_value(&mut result, &mut i, value)?;
+            if i == 4 {
+                break;
+            }
+        }
+        if i == 1 {
+            let arg = result[0];
+            for v in &mut result[1..4] {
+                *v = arg;
+            }
+        }
+        Ok(Vec4(vec4::Vec4(result[0], result[1], result[2], result[3])))
     });
 }
 

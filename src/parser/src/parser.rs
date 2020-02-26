@@ -1,5 +1,6 @@
 use pest::{error::Error, prec_climber::PrecClimber, Parser, Span};
 use std::{fmt, rc::Rc};
+use crate::vec4;
 
 use koto_grammar::Rule;
 
@@ -54,6 +55,7 @@ pub enum Node {
     Id(LookupId),
     Bool(bool),
     Number(f64),
+    Vec4(vec4::Vec4),
     Str(Rc<String>),
     List(Vec<AstNode>),
     Range {
@@ -255,7 +257,7 @@ impl KotoParser {
                 ))
             }
             Rule::map | Rule::map_value | Rule::map_inline => {
-                dbg!(&pair);
+                // dbg!(&pair);
                 let inner = if pair.as_rule() == Rule::map_value {
                     pair.into_inner().next().unwrap().into_inner()
                 // pair.into_inner()

@@ -1,4 +1,4 @@
-use koto_parser::{AstFor, Function, Id};
+use koto_parser::{AstFor, Function, Id, vec4};
 use std::{cmp::Ordering, collections::HashMap, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -6,6 +6,7 @@ pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
+    Vec4(vec4::Vec4),
     List(Rc<Vec<Value>>),
     Range { min: isize, max: isize },
     Map(Rc<HashMap<Id, Value>>),
@@ -21,6 +22,7 @@ impl fmt::Display for Value {
             Empty => write!(f, "()"),
             Bool(s) => write!(f, "{}", s),
             Number(n) => write!(f, "{}", n),
+            Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
             Str(s) => write!(f, "{}", s),
             List(a) => {
                 write!(f, "[")?;
@@ -62,6 +64,7 @@ impl PartialEq for Value {
 
         match (self, other) {
             (Number(a), Number(b)) => a == b,
+            (Vec4(a), Vec4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a.as_ref() == b.as_ref(),
@@ -79,6 +82,7 @@ impl PartialOrd for Value {
 
         match (self, other) {
             (Number(a), Number(b)) => a.partial_cmp(b),
+            (Vec4(a), Vec4(b)) => a.partial_cmp(b),
             (Str(a), Str(b)) => a.partial_cmp(b),
             (a, b) => panic!(format!("partial_cmp unsupported for {} and {}", a, b)),
         }
@@ -161,6 +165,7 @@ pub fn type_as_string(value: &Value) -> &str {
         Empty => "Empty",
         Bool(_) => "Bool",
         Number(_) => "Number",
+        Vec4(_) => "Vec4",
         List(_) => "List",
         Range { .. } => "Range",
         Map(_) => "Map",

@@ -46,6 +46,7 @@ macro_rules! koto_test {
     };
 }
 
+koto_test!(vec4);
 koto_test!(arithmetic);
 koto_test!(assignment);
 koto_test!(comments);
