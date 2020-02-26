@@ -9,6 +9,10 @@ edition = "2018"
 name = "koto"
 path = "src/main.rs"
 
+[features]
+default = []
+trace = ["koto/trace"]
+
 [dependencies]
 koto = { path = "../koto" }
 

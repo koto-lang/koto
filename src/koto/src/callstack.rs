@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 use crate::{Id, Value};
 
 pub struct CallStack {

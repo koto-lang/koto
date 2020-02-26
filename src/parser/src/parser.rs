@@ -100,6 +100,57 @@ pub enum Node {
     For(Rc<AstFor>),
 }
 
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Node::*;
+        match self {
+            Id(lookup) => write!(f, "Id: {}", lookup),
+
+            Bool(b) => write!(f, "Bool: {}", b),
+            Number(n) => write!(f, "Number: {}", n),
+            Vec4(v) => write!(f, "Vec4: {:?}", v),
+            Str(s) => write!(f, "Str: {}", s),
+            List(l) => write!(
+                f,
+                "List with {} {}",
+                l.len(),
+                if l.len() == 1 { "entry" } else { "entries" }
+            ),
+            Range { inclusive, .. } => {
+                write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
+            }
+            Map(m) => write!(
+                f,
+                "Map with {} {}",
+                m.len(),
+                if m.len() == 1 { "entry" } else { "entries" }
+            ),
+            Block(b) => write!(
+                f,
+                "Block with {} expression{}",
+                b.len(),
+                if b.len() == 1 { "" } else { "s" }
+            ),
+            Expressions(e) => write!(
+                f,
+                "Expressions with {} expression{}",
+                e.len(),
+                if e.len() == 1 { "" } else { "s" }
+            ),
+            Function(_) => write!(f, "Function"),
+            Call { function, .. } => write!(f, "Call: {}", function),
+            Index { id, .. } => write!(f, "Index: {}", id),
+            Assign { id, global, .. } => write!(f, "Assign: id: {} - global: {}", id, global),
+            MultiAssign { ids, global, .. } => {
+                write!(f, "MultiAssign: ids: {:?} - global: {}", ids, global)
+            }
+            Op { op, .. } => write!(f, "Op: {:?}", op),
+            If { .. } => write!(f, "If"),
+            For(_) => write!(f, "For"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Block {}
 
