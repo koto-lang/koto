@@ -1,7 +1,8 @@
 #![macro_use]
 
+use hashbrown::HashMap;
 use koto_parser::{AstNode, AstOp, Node, Position};
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{fmt, rc::Rc};
 
 use crate::{
     call_stack::CallStack,
@@ -30,7 +31,7 @@ pub struct Scope {
 impl Scope {
     fn new() -> Self {
         Self {
-            values: HashMap::new(),
+            values: HashMap::with_capacity(32),
         }
     }
 

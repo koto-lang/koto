@@ -1,5 +1,6 @@
+use hashbrown::HashMap;
 use koto_parser::{AstFor, Function, Id, vec4};
-use std::{cmp::Ordering, collections::HashMap, fmt, rc::Rc};
+use std::{cmp::Ordering, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value {
