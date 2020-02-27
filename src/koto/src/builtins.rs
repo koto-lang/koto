@@ -1,12 +1,8 @@
-use crate::{value, Runtime, Value};
+use crate::{value, Runtime, Value, ValueMap};
 use koto_parser::vec4;
 use std::rc::Rc;
 
-pub fn register(runtime: &mut Runtime) {
-    use Value::*;
-
-    let builtins = runtime.builtins_mut();
-
+pub fn register<'a>(runtime: &mut Runtime<'a>) {
     macro_rules! single_arg_fn {
         ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
             $map_name.add_fn($fn_name, |args| {
@@ -35,8 +31,12 @@ pub fn register(runtime: &mut Runtime) {
         }
     }
 
+    use Value::*;
+
+    let global = runtime.global_mut();
+
     {
-        let math = builtins.add_map("math");
+        let mut math = ValueMap::new();
 
         macro_rules! math_fn_1 {
             ($fn:ident) => {
@@ -68,10 +68,12 @@ pub fn register(runtime: &mut Runtime) {
         math_fn_1!(sqrt);
         math_fn_1!(tan);
         math_fn_1!(tanh);
+
+        global.add_map("math", math);
     }
 
     {
-        let list = builtins.add_map("list");
+        let mut list = ValueMap::new();
 
         list.add_fn("add", |args| {
             let mut arg_iter = args.iter();
@@ -115,22 +117,27 @@ pub fn register(runtime: &mut Runtime) {
                 ))
             }
         });
+
+        global.add_map("list", list);
     }
 
     {
-        let map = builtins.add_map("map");
+        let mut map = ValueMap::new();
 
         single_arg_fn!(map, "keys", Map, m, {
             Ok(List(Rc::new(
                 m.as_ref()
+                    .0
                     .keys()
                     .map(|k| Str(k.clone()))
                     .collect::<Vec<_>>(),
             )))
         });
+
+        global.add_map("map", map);
     }
 
-    builtins.add_fn("assert", |args| {
+    global.add_fn("assert", |args| {
         for value in args.iter() {
             match value {
                 Bool(b) => {
@@ -144,7 +151,7 @@ pub fn register(runtime: &mut Runtime) {
         Ok(Empty)
     });
 
-    builtins.add_fn("assert_eq", |args| {
+    global.add_fn("assert_eq", |args| {
         if args.len() != 2 {
             Err(format!(
                 "assert_eq expects two arguments, found {}",
@@ -160,7 +167,7 @@ pub fn register(runtime: &mut Runtime) {
         }
     });
 
-    builtins.add_fn("assert_ne", |args| {
+    global.add_fn("assert_ne", |args| {
         if args.len() != 2 {
             Err(format!(
                 "assert_ne expects two arguments, found {}",
@@ -176,7 +183,7 @@ pub fn register(runtime: &mut Runtime) {
         }
     });
 
-    builtins.add_fn("length", |args| {
+    global.add_fn("length", |args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
@@ -196,25 +203,19 @@ pub fn register(runtime: &mut Runtime) {
         }
     });
 
-    builtins.add_fn("print", |args| {
-        for value in args.iter() {
-            print!("{}", value);
-        }
-        println!();
-        Ok(Empty)
-    });
+    global.add_fn("vec4", |args| {
+        use vec4::Vec4 as V4;
 
-    builtins.add_fn("vec4", |args| {
         let result = match args {
-            [] => vec4::Vec4(0.0, 0.0, 0.0, 0.0),
+            [] => V4::default(),
             [arg] => match arg {
                 Number(n) => {
                     let n = *n as f32;
-                    vec4::Vec4(n, n, n, n)
+                    V4(n, n, n, n)
                 }
                 Vec4(v) => *v,
                 List(list) => {
-                    let mut v = vec4::Vec4::default();
+                    let mut v = V4::default();
                     for (i, value) in list.iter().take(4).enumerate() {
                         match value {
                             Number(n) => v[i] = *n as f32,
@@ -236,7 +237,7 @@ pub fn register(runtime: &mut Runtime) {
                 }
             },
             _ => {
-                let mut v = vec4::Vec4::default();
+                let mut v = V4::default();
                 for (i, arg) in args.iter().take(4).enumerate() {
                     match arg {
                         Number(n) => v[i] = *n as f32,
@@ -254,6 +255,14 @@ pub fn register(runtime: &mut Runtime) {
         };
 
         Ok(Vec4(result))
+    });
+
+    global.add_fn("print", |args| {
+        for value in args.iter() {
+            print!("{}", value);
+        }
+        println!();
+        Ok(Empty)
     });
 }
 

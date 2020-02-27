@@ -2,12 +2,13 @@
 
 use hashbrown::HashMap;
 use koto_parser::{AstNode, AstOp, Node, Position};
-use std::{fmt, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     call_stack::CallStack,
     return_stack::ReturnStack,
     value::{MultiRangeValueIterator, Value, ValueIterator},
+    value_map::ValueMap,
     Id, LookupId,
 };
 
@@ -21,30 +22,11 @@ pub enum Error {
 }
 
 pub type RuntimeResult = Result<(), Error>;
-pub type BuiltinResult = Result<Value, String>;
 
-#[derive(Debug)]
-pub struct Scope {
-    values: HashMap<Rc<String>, Value>,
-}
-
-impl Scope {
-    fn new() -> Self {
-        Self {
-            values: HashMap::with_capacity(32),
-        }
-    }
-
-    #[allow(dead_code)]
-    fn print_keys(&self) {
-        println!(
-            "{:?}",
-            self.values
-                .keys()
-                .map(|key| key.as_ref().clone())
-                .collect::<Vec<_>>()
-        );
-    }
+pub struct Runtime<'a> {
+    global: ValueMap<'a>,
+    call_stack: CallStack<'a>,
+    return_stack: ReturnStack<'a>,
 }
 
 macro_rules! make_runtime_error {
@@ -66,87 +48,6 @@ macro_rules! runtime_error {
     };
 }
 
-pub type BuiltinFunction<'a> = Box<dyn FnMut(&[Value]) -> BuiltinResult + 'a>;
-
-pub enum BuiltinValue<'a> {
-    Function(BuiltinFunction<'a>),
-    Map(BuiltinMap<'a>),
-}
-
-impl<'a> fmt::Display for BuiltinValue<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use BuiltinValue::*;
-        match self {
-            Function(_) => write!(f, "Builtin Function"),
-            Map(_) => write!(f, "Builtin Map"),
-        }
-    }
-}
-
-pub struct BuiltinMap<'a>(Vec<(String, BuiltinValue<'a>)>);
-
-impl<'a> BuiltinMap<'a> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn add_map(&mut self, name: &str) -> &mut BuiltinMap<'a> {
-        self.insert(name, BuiltinValue::Map(BuiltinMap::new()));
-
-        if let BuiltinValue::Map(map) = self.get_entry_mut(name).unwrap() {
-            return map;
-        }
-
-        unreachable!();
-    }
-
-    pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value]) -> BuiltinResult + 'a) {
-        self.insert(name, BuiltinValue::Function(Box::new(f)));
-    }
-
-    pub fn get_mut(&mut self, lookup_id: &[Id]) -> Option<&mut BuiltinValue<'a>> {
-        use BuiltinValue::*;
-
-        match self.get_entry_mut(lookup_id.first().unwrap().as_ref()) {
-            Some(value) => {
-                if lookup_id.len() == 1 {
-                    Some(value)
-                } else {
-                    match value {
-                        Map(map) => map.get_mut(&lookup_id[1..]),
-                        Function(_) => None,
-                    }
-                }
-            }
-            None => None,
-        }
-    }
-
-    fn insert(&mut self, name: &str, value: BuiltinValue<'a>) {
-        if let Some(existing) = self.get_entry_mut(name) {
-            *existing = value;
-        } else {
-            self.0.push((name.to_string(), value));
-        }
-    }
-
-    fn get_entry_mut(&mut self, name: &str) -> Option<&mut BuiltinValue<'a>> {
-        for (entry_name, value) in self.0.iter_mut() {
-            if entry_name == name {
-                return Some(value);
-            }
-        }
-        None
-    }
-}
-
-pub struct Runtime<'a> {
-    global: Scope,
-    builtins: BuiltinMap<'a>,
-    call_stack: CallStack,
-    return_stack: ReturnStack,
-}
-
 #[cfg(feature = "trace")]
 macro_rules! runtime_trace  {
     ($self:expr, $message:expr) => {
@@ -166,8 +67,7 @@ macro_rules! runtime_trace {
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         let mut result = Self {
-            global: Scope::new(),
-            builtins: BuiltinMap::new(),
+            global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             return_stack: ReturnStack::new(),
         };
@@ -175,12 +75,12 @@ impl<'a> Runtime<'a> {
         result
     }
 
-    pub fn builtins_mut(&mut self) -> &mut BuiltinMap<'a> {
-        return &mut self.builtins;
+    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+        return &mut self.global;
     }
 
     /// Run a script and capture the final value
-    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value, Error> {
+    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value<'a>, Error> {
         runtime_trace!(self, "run");
         self.return_stack.start_frame();
 
@@ -425,7 +325,7 @@ impl<'a> Runtime<'a> {
                     map.insert(id.clone(), self.return_stack.value().clone());
                     self.return_stack.pop_frame();
                 }
-                self.return_stack.push(Map(Rc::new(map)));
+                self.return_stack.push(Map(Rc::new(ValueMap(map))));
             }
             Node::Index { id, expression } => {
                 self.list_index(id, expression, node)?;
@@ -481,7 +381,12 @@ impl<'a> Runtime<'a> {
                         }
                         _ => {
                             let first_id = ids.first().unwrap();
-                            runtime_trace!(self, "Assigning to {}: {} (single expression)", first_id, value);
+                            runtime_trace!(
+                                self,
+                                "Assigning to {}: {} (single expression)",
+                                first_id,
+                                value
+                            );
                             self.set_value(first_id, &value, *global);
 
                             for id in ids[1..].iter() {
@@ -597,9 +502,9 @@ impl<'a> Runtime<'a> {
                         },
                         (Map(a), Map(b)) => match op {
                             AstOp::Add => {
-                                let mut result = HashMap::clone(a);
-                                result.extend(HashMap::clone(b).into_iter());
-                                Ok(Map(Rc::new(result)))
+                                let mut result = a.0.clone();
+                                result.extend(b.0.clone().into_iter());
+                                Ok(Map(Rc::new(ValueMap(result))))
                             }
                             _ => binary_op_error!(op, a, b),
                         },
@@ -667,9 +572,9 @@ impl<'a> Runtime<'a> {
         Ok(())
     }
 
-    fn set_value(&mut self, id: &Id, value: &Value, global: bool) {
+    fn set_value(&mut self, id: &Id, value: &Value<'a>, global: bool) {
         if self.call_stack.frame() == 0 || global {
-            self.global.values.insert(id.clone(), value.clone());
+            self.global.0.insert(id.clone(), value.clone());
         } else {
             if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
                 *exists = value.clone();
@@ -679,7 +584,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value(&self, lookup_id: &LookupId) -> Option<Value> {
+    fn get_value(&self, lookup_id: &LookupId) -> Option<Value<'a>> {
         macro_rules! value_or_map_lookup {
             ($value:expr) => {{
                 if lookup_id.0.len() == 1 {
@@ -689,7 +594,7 @@ impl<'a> Runtime<'a> {
                         .iter()
                         .try_fold($value.unwrap(), |result, id| {
                             match result {
-                                Value::Map(data) => data.get(id),
+                                Value::Map(data) => data.0.get(id),
                                 _unexpected => None, // TODO error, previous item wasn't a map
                             }
                         })
@@ -706,18 +611,18 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        let global_value = self.global.values.get(lookup_id.0.first().unwrap());
+        let global_value = self.global.0.get(lookup_id.0.first().unwrap());
         value_or_map_lookup!(global_value).map(|v| v.clone())
     }
 
-    fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> Result<Value, Error> {
+    fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> Result<Value<'a>, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "Value '{}' not found", id),
         }
     }
 
-    fn run_for_loop(&mut self, for_statement: &Value, node: &AstNode) -> RuntimeResult {
+    fn run_for_loop(&mut self, for_statement: &Value<'a>, node: &AstNode) -> RuntimeResult {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
@@ -879,6 +784,19 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "call_function - {}", id);
 
         let maybe_function = match self.get_value(id) {
+            Some(ExternalFunction(f)) => {
+                self.evaluate_expressions(args)?;
+                let mut closure = f.0.borrow_mut();
+                let builtin_result = (&mut *closure)(&self.return_stack.values());
+                self.return_stack.pop_frame();
+                return match builtin_result {
+                    Ok(v) => {
+                        self.return_stack.push(v);
+                        Ok(())
+                    }
+                    Err(e) => runtime_error!(node, e),
+                };
+            }
             Some(Function(f)) => Some(f.clone()),
             Some(unexpected) => {
                 return runtime_error!(
@@ -949,30 +867,6 @@ impl<'a> Runtime<'a> {
 
             return result;
         }
-
-        self.evaluate_expressions(args)?;
-
-        if let Some(value) = self.builtins.get_mut(&id.0) {
-            return match value {
-                BuiltinValue::Function(f) => {
-                    let builtin_result = f(&self.return_stack.values());
-                    self.return_stack.pop_frame();
-                    match builtin_result {
-                        Ok(v) => {
-                            self.return_stack.push(v);
-                            Ok(())
-                        }
-                        Err(e) => runtime_error!(node, e),
-                    }
-                }
-                unexpected => {
-                    self.return_stack.pop_frame();
-                    runtime_error!(node, "Expected function for '{}', found {}", id, unexpected)
-                }
-            };
-        }
-
-        self.return_stack.pop_frame();
 
         runtime_error!(node, "Function '{}' not found", id)
     }

@@ -1,14 +1,13 @@
 use crate::Value;
-
 use vec1::Vec1;
 
 #[derive(Debug)]
-pub struct ReturnStack {
-    values: Vec<Value>,
+pub struct ReturnStack<'a> {
+    values: Vec<Value<'a>>,
     frame_size: Vec1<usize>,
 }
 
-impl ReturnStack {
+impl<'a> ReturnStack<'a>{
     pub fn new() -> Self {
         let initial_capacity = 32;
         Self {
@@ -22,7 +21,7 @@ impl ReturnStack {
         self.frame_size.len()
     }
 
-    pub fn push(&mut self, value: Value) {
+    pub fn push(&mut self, value: Value<'a>) {
         self.values.push(value);
         *self.frame_size.last_mut() += 1;
     }
@@ -45,12 +44,12 @@ impl ReturnStack {
         }
     }
 
-    pub fn value(&self) -> &Value {
+    pub fn value(&self) -> &Value<'a> {
         let values_start = self.values.len() - self.value_count();
         &self.values[values_start]
     }
 
-    pub fn values(&self) -> &[Value] {
+    pub fn values(&self) -> &[Value<'a>] {
         let values_start = self.values.len() - self.value_count();
         &self.values[values_start..]
     }

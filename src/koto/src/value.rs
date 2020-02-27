@@ -1,22 +1,23 @@
-use hashbrown::HashMap;
-use koto_parser::{vec4, AstFor, Function, Id};
-use std::{cmp::Ordering, fmt, rc::Rc};
+use crate::value_map::ValueMap;
+use koto_parser::{vec4, AstFor, Function};
+use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
-pub enum Value {
+pub enum Value<'a> {
     Empty,
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
-    List(Rc<Vec<Value>>),
+    List(Rc<Vec<Value<'a>>>),
     Range { min: isize, max: isize },
-    Map(Rc<HashMap<Id, Value>>),
+    Map(Rc<ValueMap<'a>>),
     Str(Rc<String>),
     Function(Rc<Function>),
+    ExternalFunction(ExternalFunction<'a>),
     For(Rc<AstFor>),
 }
 
-impl fmt::Display for Value {
+impl<'a> fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
@@ -35,10 +36,10 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             }
-            Map(t) => {
+            Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, value) in t.iter() {
+                for (key, value) in m.0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {
@@ -54,12 +55,16 @@ impl fmt::Display for Value {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
             }
+            ExternalFunction(function) => {
+                let raw = Rc::into_raw(function.0.clone());
+                write!(f, "builtin function: {:?}", raw)
+            }
             For(_) => write!(f, "For loop"),
         }
     }
 }
 
-impl PartialEq for Value {
+impl<'a> PartialEq for Value<'a> {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;
 
@@ -75,9 +80,9 @@ impl PartialEq for Value {
         }
     }
 }
-impl Eq for Value {}
+impl<'a> Eq for Value<'a> {}
 
-impl PartialOrd for Value {
+impl<'a> PartialOrd for Value<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         use Value::*;
 
@@ -90,7 +95,7 @@ impl PartialOrd for Value {
     }
 }
 
-impl Ord for Value {
+impl<'a> Ord for Value<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
         use Value::*;
 
@@ -107,27 +112,43 @@ impl Ord for Value {
     }
 }
 
-impl From<bool> for Value {
+impl<'a> From<bool> for Value<'a> {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
-pub(super) struct ValueIterator {
-    value: Value,
+pub type BuiltinResult<'a> = Result<Value<'a>, String>;
+pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
+
+impl<'a> Clone for ExternalFunction<'a> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<'a> fmt::Debug for ExternalFunction<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let raw = Rc::into_raw(self.0.clone());
+        write!(f, "builtin function: {:?}", raw)
+    }
+}
+
+pub(super) struct ValueIterator<'a> {
+    value: Value<'a>,
     index: isize,
 }
 
-impl ValueIterator {
-    pub fn new(value: Value) -> Self {
+impl<'a> ValueIterator<'a> {
+    pub fn new(value: Value<'a>) -> Self {
         Self { value, index: 0 }
     }
 }
 
-impl Iterator for ValueIterator {
-    type Item = Value;
+impl<'a> Iterator for ValueIterator<'a> {
+    type Item = Value<'a>;
 
-    fn next(&mut self) -> Option<Value> {
+    fn next(&mut self) -> Option<Value<'a>> {
         use Value::*;
 
         let result = match &self.value {
@@ -150,17 +171,17 @@ impl Iterator for ValueIterator {
     }
 }
 
-pub(super) struct MultiRangeValueIterator(pub Vec<ValueIterator>);
+pub(super) struct MultiRangeValueIterator<'a>(pub Vec<ValueIterator<'a>>);
 
-impl Iterator for MultiRangeValueIterator {
-    type Item = Vec<Value>;
+impl<'a> Iterator for MultiRangeValueIterator<'a> {
+    type Item = Vec<Value<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.iter_mut().map(Iterator::next).collect()
     }
 }
 
-pub fn type_as_string(value: &Value) -> &str {
+pub fn type_as_string(value: &Value) -> &'static str {
     use Value::*;
     match value {
         Empty => "Empty",
@@ -172,6 +193,7 @@ pub fn type_as_string(value: &Value) -> &str {
         Map(_) => "Map",
         Str(_) => "String",
         Function(_) => "Function",
+        ExternalFunction(_) => "ExternalFunction",
         For(_) => "For",
     }
 }

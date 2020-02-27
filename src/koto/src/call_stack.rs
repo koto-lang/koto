@@ -1,12 +1,12 @@
 use crate::{Id, Value};
 
-pub struct CallStack {
-    values: Vec<(Id, Value)>,
+pub struct CallStack<'a> {
+    values: Vec<(Id, Value<'a>)>,
     frame_size: Vec<usize>,
     frame_value_count: usize,
 }
 
-impl CallStack {
+impl<'a> CallStack<'a> {
     pub fn new() -> Self {
         let initial_capacity = 32;
         Self {
@@ -20,12 +20,12 @@ impl CallStack {
         self.frame_size.len()
     }
 
-    pub fn push(&mut self, id: Id, value: Value) {
+    pub fn push(&mut self, id: Id, value: Value<'a>) {
         self.values.push((id, value));
         self.frame_value_count += 1;
     }
 
-    pub fn extend(&mut self, id: Id, value: Value) {
+    pub fn extend(&mut self, id: Id, value: Value<'a>) {
         assert_eq!(
             self.frame_value_count, 0,
             "Extend called before commit or cancel"
@@ -57,7 +57,7 @@ impl CallStack {
         }
     }
 
-    pub fn frame_values(&self) -> Option<&[(Id, Value)]> {
+    pub fn frame_values(&self) -> Option<&[(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
                 let values_start = self.values.len() - size;
@@ -67,7 +67,7 @@ impl CallStack {
         }
     }
 
-    fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value)]> {
+    fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
                 let values_start = self.values.len() - size;
@@ -77,7 +77,7 @@ impl CallStack {
         }
     }
 
-    pub fn get(&self, id: &str) -> Option<&Value> {
+    pub fn get(&self, id: &str) -> Option<&Value<'a>> {
         match self.frame_values() {
             Some(values) => values.iter().find_map(|(value_id, value)| {
                 if value_id.as_ref() == id {
@@ -90,7 +90,7 @@ impl CallStack {
         }
     }
 
-    pub fn get_mut(&mut self, id: &str) -> Option<&mut Value> {
+    pub fn get_mut(&mut self, id: &str) -> Option<&mut Value<'a>> {
         match self.frame_values_mut() {
             Some(values) => values.iter_mut().find_map(|(value_id, value)| {
                 if value_id.as_ref() == id {
