@@ -1,7 +1,33 @@
 use std::ops;
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct Vec4 ( pub f32, pub f32, pub f32, pub f32);
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
+
+impl ops::Index<usize> for Vec4 {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            3 => &self.3,
+            _ => panic!("Invalid index for Vec4"),
+        }
+    }
+}
+
+impl ops::IndexMut<usize> for Vec4 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            3 => &mut self.3,
+            _ => panic!("Invalid index for Vec4"),
+        }
+    }
+}
 
 macro_rules! vec4_op {
     ($trait:ident, $fn:ident, $op:tt) => {
@@ -69,7 +95,6 @@ macro_rules! vec4_op {
                 )
             }
         }
-
     };
 }
 

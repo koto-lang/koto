@@ -204,61 +204,55 @@ pub fn register(runtime: &mut Runtime) {
     });
 
     builtins.add_fn("vec4", |args| {
-        fn assign_value(result: &mut [f32; 4], i: &mut usize, value: &Value) -> Result<(), String> {
-            match value {
+        let result = match args {
+            [] => vec4::Vec4(0.0, 0.0, 0.0, 0.0),
+            [arg] => match arg {
                 Number(n) => {
-                    result[*i] = *n as f32;
-                    *i += 1;
+                    let n = *n as f32;
+                    vec4::Vec4(n, n, n, n)
                 }
-                Vec4(v) => {
-                    result[*i] = v.0;
-                    *i += 1;
-                    if *i < 4 {
-                        result[*i] = v.1;
-                        *i += 1;
-                        if *i < 4 {
-                            result[*i] = v.2;
-                            *i += 1;
-                            if *i < 4 {
-                                result[*i] = v.3;
-                                *i += 1;
+                Vec4(v) => *v,
+                List(list) => {
+                    let mut v = vec4::Vec4::default();
+                    for (i, value) in list.iter().take(4).enumerate() {
+                        match value {
+                            Number(n) => v[i] = *n as f32,
+                            unexpected => {
+                                return Err(format!(
+                                    "vec4 only accepts Numbers as arguments, - found {}",
+                                    unexpected
+                                ))
                             }
                         }
                     }
-                }
-                List(l) => {
-                    for value in l.iter() {
-                        if *i < 4 {
-                            assign_value(result, i, value)?;
-                        } else {
-                            break;
-                        }
-                    }
+                    v
                 }
                 unexpected => {
                     return Err(format!(
-                        "vec4 only accepts Numbers, Vec4s and Lists as arguments, found {}",
+                        "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
                         unexpected
                     ))
                 }
+            },
+            _ => {
+                let mut v = vec4::Vec4::default();
+                for (i, arg) in args.iter().take(4).enumerate() {
+                    match arg {
+                        Number(n) => v[i] = *n as f32,
+                        unexpected => {
+                            return Err(format!(
+                                "vec4 only accepts Numbers as arguments, \
+                                     or Vec4 or List as first argument - found {}",
+                                unexpected
+                            ));
+                        }
+                    }
+                }
+                v
             }
-            Ok(())
-        }
-        let mut result = [0.0f32; 4];
-        let mut i = 0;
-        for value in args.iter() {
-            assign_value(&mut result, &mut i, value)?;
-            if i == 4 {
-                break;
-            }
-        }
-        if i == 1 {
-            let arg = result[0];
-            for v in &mut result[1..4] {
-                *v = arg;
-            }
-        }
-        Ok(Vec4(vec4::Vec4(result[0], result[1], result[2], result[3])))
+        };
+
+        Ok(Vec4(result))
     });
 }
 

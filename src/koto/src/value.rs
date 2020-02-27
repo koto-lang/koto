@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use koto_parser::{AstFor, Function, Id, vec4};
+use koto_parser::{vec4, AstFor, Function, Id};
 use std::{cmp::Ordering, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
