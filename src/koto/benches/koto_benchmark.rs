@@ -37,6 +37,12 @@ pub fn koto_benchmark(c: &mut Criterion) {
             runner.run();
         })
     });
+    c.bench_function("vec4", |b| {
+        let mut runner = BenchmarkRunner::new("vec4.koto");
+        b.iter(|| {
+            runner.run();
+        })
+    });
 }
 
 criterion_group!(benches, koto_benchmark);
