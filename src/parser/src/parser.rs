@@ -31,6 +31,8 @@ impl AstNode {
     }
 }
 
+pub type Ast = Vec<AstNode>;
+
 pub type Id = Rc<String>;
 
 #[derive(Clone, Debug)]
@@ -219,7 +221,7 @@ impl KotoParser {
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<Vec<AstNode>, Error<Rule>> {
+    pub fn parse(&self, source: &str) -> Result<Ast, Error<Rule>> {
         let parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
         let mut ast = vec![];
