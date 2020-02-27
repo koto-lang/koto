@@ -186,6 +186,7 @@ pub fn register(runtime: &mut Runtime) {
         };
 
         match first_arg_value {
+            Empty => Ok(Number(0.0)),
             List(list) => Ok(Number(list.len() as f64)),
             Range { min, max } => Ok(Number((max - min) as f64)),
             unexpected => Err(format!(

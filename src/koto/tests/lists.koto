@@ -16,9 +16,10 @@ assert_eq 3, length z
 a, b, c = [10, 20, 30, 40]
 assert a == 10 and b == 20 and c == 30
 
-# TODO unpacking should only for 1 arg
-# a, b, c = [10, 20], [30, 40]
-# assert (a == [10, 20]) and (b == [30, 40]) and (c == ())
+a, b, c = [10, 20], [30, 40]
+assert_eq a, [10, 20]
+assert_eq b, [30, 40]
+assert_eq (length c), 0
 
 assert list.is_sortable [42, 10, 9]
 assert_eq false, list.is_sortable ["42", 10, 9] # TODO not
