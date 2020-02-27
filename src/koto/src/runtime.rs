@@ -475,13 +475,17 @@ impl<'a> Runtime<'a> {
                             let mut result_iter = l.iter();
                             for id in ids.iter() {
                                 let value = result_iter.next().unwrap_or(&Empty);
+                                runtime_trace!(self, "Assigning to {}: {}", id, value);
                                 self.set_value(id, &value, *global);
                             }
                         }
                         _ => {
-                            self.set_value(ids.first().unwrap(), &value, *global);
+                            let first_id = ids.first().unwrap();
+                            runtime_trace!(self, "Assigning to {}: {} (single expression)", first_id, value);
+                            self.set_value(first_id, &value, *global);
 
                             for id in ids[1..].iter() {
+                                runtime_trace!(self, "Assigning to {}: ()");
                                 self.set_value(id, &Empty, *global);
                             }
                         }
@@ -497,9 +501,12 @@ impl<'a> Runtime<'a> {
                     match results.as_slice() {
                         [] => unreachable!(),
                         [single_value] => {
-                            self.set_value(ids.first().unwrap(), &single_value, *global);
+                            let first_id = ids.first().unwrap();
+                            runtime_trace!(self, "Assigning to {}: {}", first_id, single_value);
+                            self.set_value(first_id, &single_value, *global);
                             // set remaining ids to empty
                             for id in ids[1..].iter() {
+                                runtime_trace!(self, "Assigning to {}: ()");
                                 self.set_value(id, &Empty, *global);
                             }
                         }
@@ -507,6 +514,7 @@ impl<'a> Runtime<'a> {
                             let mut result_iter = results.iter();
                             for id in ids.iter() {
                                 let value = result_iter.next().unwrap_or(&Empty);
+                                runtime_trace!(self, "Assigning to {}: {}", id, value);
                                 self.set_value(id, &value, *global);
                             }
                         }

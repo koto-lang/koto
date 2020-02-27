@@ -7,7 +7,7 @@ program = _{
 
 block = @{
   empty_line*
-  ~ assignment_or_expression ~ (next_expression)*
+  ~ assignment_or_expression ~ (next_assignment_or_expression)*
 }
 child_block = @{
   empty_line*
@@ -16,28 +16,48 @@ child_block = @{
   ~ DROP
 }
 
+expression_block = @{
+  empty_line*
+  ~ push_indentation
+  ~ expression
+  ~ (WHITESPACE* ~ ",")?
+  ~ next_expression*
+  ~ DROP
+}
+next_expression = @{
+  NEWLINE
+  ~ empty_line*
+  ~ indentation
+  ~ expression
+  ~ (WHITESPACE* ~ ",")?
+}
+
 push_indentation = @{ indentation ~ PUSH(indent) }
 indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
 empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
-next_expression = @{
+assignment_or_expression = _{ (assignment | expressions) ~ comment? }
+next_assignment_or_expression = @{
   NEWLINE
   ~ empty_line*
   ~ indentation
   ~ assignment_or_expression
 }
 
-assignment_or_expression = _{ (assignment | expressions) ~ comment? }
-
 assignment = _{ single_assignment | multiple_assignment }
-single_assignment = !{ global_keyword? ~ id ~ "=" ~ expressions }
-multiple_assignment = !{ global_keyword? ~ ids ~ "=" ~ expressions }
-global_keyword = @{ "global" ~ WHITESPACE+ }
+single_assignment = !{
+  global_keyword?
+  ~ id ~ "="
+  ~ (expressions | expression_block)
+}
+multiple_assignment = !{
+  global_keyword?
+  ~ ids ~ "="
+  ~ (expressions | expression_block) }
 
 expression = _{
-  ( child_block
-  | function
+  ( function
   | if_statement
   | for_loop
   | operation
@@ -124,11 +144,6 @@ if_inline = !{
   ~ (else_keyword ~ expressions)?
 }
 
-if_keyword = @{ "if" ~ WHITESPACE+ }
-then_keyword = @{ "then" ~ WHITESPACE+ }
-else_if_keyword = @{ "else if" ~ WHITESPACE+ }
-else_keyword = @{ "else" ~ WHITESPACE+ }
-
 for_loop = _{ for_block | for_inline }
 for_block = !{
   for_keyword ~ ids
@@ -142,9 +157,6 @@ for_inline = !{
   ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
 }
-
-for_keyword = @{ "for" ~ WHITESPACE+ }
-in_keyword = @{ "in" ~ WHITESPACE+ }
 
 call = _{ call_with_parens | call_no_parens }
 call_with_parens = ${((lookup | id) ~ call_args)}
@@ -228,6 +240,15 @@ keyword = _{
   | "then"
   | "true"
 }
+
+else_if_keyword = @{ "else if" ~ WHITESPACE+ }
+else_keyword = @{ "else" ~ WHITESPACE+ }
+for_keyword = @{ "for" ~ WHITESPACE+ }
+global_keyword = @{ "global" ~ WHITESPACE+ }
+if_keyword = @{ "if" ~ WHITESPACE+ }
+in_keyword = @{ "in" ~ WHITESPACE+ }
+then_keyword = @{ "then" ~ WHITESPACE+ }
+
 
 WHITESPACE = _{ " " | "\t" }
 comment = _{ multiline_comment | inline_comment }
