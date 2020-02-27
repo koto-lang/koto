@@ -352,6 +352,7 @@ dependencies = [
  "criterion",
  "hashbrown",
  "koto_parser",
+ "vec1",
 ]
 
 [[package]]
@@ -755,6 +756,12 @@ name = "unicode-xid"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
+
+[[package]]
+name = "vec1"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ad2a3844cc028661fe02ab1fa64c117ce726ed268d0b93a56d8c2d5a96f961"
 
 [[package]]
 name = "vec_map"

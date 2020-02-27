@@ -1,9 +1,11 @@
 use crate::Value;
 
+use vec1::Vec1;
+
 #[derive(Debug)]
 pub struct ReturnStack {
     values: Vec<Value>,
-    frame_size: Vec<usize>,
+    frame_size: Vec1<usize>,
 }
 
 impl ReturnStack {
@@ -11,7 +13,7 @@ impl ReturnStack {
         let initial_capacity = 32;
         Self {
             values: Vec::with_capacity(initial_capacity),
-            frame_size: Vec::with_capacity(initial_capacity),
+            frame_size: Vec1::with_capacity(initial_capacity, 0),
         }
     }
 
@@ -22,7 +24,7 @@ impl ReturnStack {
 
     pub fn push(&mut self, value: Value) {
         self.values.push(value);
-        *self.frame_size.last_mut().unwrap() += 1;
+        *self.frame_size.last_mut() += 1;
     }
 
     pub fn start_frame(&mut self) {
@@ -30,7 +32,7 @@ impl ReturnStack {
     }
 
     pub fn pop_frame(&mut self) {
-        if let Some(value_count) = self.frame_size.pop() {
+        if let Ok(value_count) = self.frame_size.try_pop() {
             for _ in 0..value_count {
                 self.values.pop();
             }
@@ -38,11 +40,9 @@ impl ReturnStack {
     }
 
     pub fn pop_frame_and_keep_results(&mut self) {
-        // println!("pop_frame_and_keep_results");
-        if let Some(value_count) = self.frame_size.pop() {
-            *self.frame_size.last_mut().unwrap() += value_count;
+        if let Ok(value_count) = self.frame_size.try_pop() {
+            *self.frame_size.last_mut() += value_count;
         }
-        //assert!(!self.frame_size.is_empty());
     }
 
     pub fn value(&self) -> &Value {
@@ -56,9 +56,6 @@ impl ReturnStack {
     }
 
     pub fn value_count(&self) -> usize {
-        match self.frame_size.last() {
-            Some(size) => *size,
-            None => unreachable!(),
-        }
+        *self.frame_size.last()
     }
 }
