@@ -277,6 +277,8 @@ impl<'a> Runtime<'a> {
     ///
     /// A single For loop or Range in first position will be expanded
     fn evaluate_and_expand(&mut self, expression: &AstNode) -> RuntimeResult {
+        use Value::*;
+
         runtime_trace!(self, "evaluate_and_expand - {}", expression.node);
 
         self.return_stack.start_frame();
@@ -284,36 +286,41 @@ impl<'a> Runtime<'a> {
         self.evaluate(expression)?;
 
         if self.return_stack.values().len() == 1 {
-            let value = self.return_stack.value().clone();
-            self.return_stack.pop_frame();
+            let expand_value = match self.return_stack.value() {
+                For(_) | Range { .. } => true,
+                _ => false,
+            };
 
-            use Value::*;
-            match value {
-                For(_) => {
-                    self.run_for_loop(&value, expression)?;
-                    let loop_value_count = self.return_stack.value_count();
-                    match loop_value_count {
-                        0 => {
-                            self.return_stack.pop_frame();
-                            self.return_stack.push(Empty);
-                        }
-                        1 => {
-                            self.return_stack.pop_frame_and_keep_results();
-                        }
-                        _ => {
-                            self.return_stack.pop_frame_and_keep_results();
+            if expand_value {
+                let value = self.return_stack.value().clone();
+                self.return_stack.pop_frame();
+
+                match value {
+                    For(_) => {
+                        self.run_for_loop(&value, expression)?;
+                        let loop_value_count = self.return_stack.value_count();
+                        match loop_value_count {
+                            0 => {
+                                self.return_stack.pop_frame();
+                                self.return_stack.push(Empty);
+                            }
+                            1 => {
+                                self.return_stack.pop_frame_and_keep_results();
+                            }
+                            _ => {
+                                self.return_stack.pop_frame_and_keep_results();
+                            }
                         }
                     }
-                }
-                Range { min, max } => {
-                    for i in min..max {
-                        self.return_stack.push(Number(i as f64))
+                    Range { min, max } => {
+                        for i in min..max {
+                            self.return_stack.push(Number(i as f64))
+                        }
                     }
+                    _ => unreachable!(),
                 }
-                Empty => {}
-                _ => {
-                    self.return_stack.push(value.clone());
-                }
+            } else {
+                self.return_stack.pop_frame_and_keep_results();
             }
         } else {
             self.return_stack.pop_frame_and_keep_results();
