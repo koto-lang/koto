@@ -65,7 +65,7 @@ macro_rules! runtime_error {
     };
 }
 
-pub type BuiltinFunction<'a> = Box<dyn FnMut(&Vec<Value>) -> BuiltinResult + 'a>;
+pub type BuiltinFunction<'a> = Box<dyn FnMut(&[Value]) -> BuiltinResult + 'a>;
 
 pub enum BuiltinValue<'a> {
     Function(BuiltinFunction<'a>),
@@ -99,7 +99,7 @@ impl<'a> BuiltinMap<'a> {
         unreachable!();
     }
 
-    pub fn add_fn(&mut self, name: &str, f: impl FnMut(&Vec<Value>) -> BuiltinResult + 'a) {
+    pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value]) -> BuiltinResult + 'a) {
         self.insert(name, BuiltinValue::Function(Box::new(f)));
     }
 
@@ -197,7 +197,7 @@ impl<'a> Runtime<'a> {
 
     /// Evaluate a series of expressions and keep the final result on the return stack
     fn evaluate_block(&mut self, block: &Vec<AstNode>) -> RuntimeResult {
-        runtime_trace!(self, "evaluate_block");
+        runtime_trace!(self, "evaluate_block - {}", block.len());
 
         self.return_stack.start_frame();
 
@@ -216,7 +216,7 @@ impl<'a> Runtime<'a> {
 
     /// Evaluate a series of expressions and add their results to the return stack
     fn evaluate_expressions(&mut self, expressions: &Vec<AstNode>) -> RuntimeResult {
-        runtime_trace!(self, "evaluate_expressions");
+        runtime_trace!(self, "evaluate_expressions - {}", expressions.len());
 
         self.return_stack.start_frame();
 
@@ -596,7 +596,9 @@ impl<'a> Runtime<'a> {
 
                 if let Bool(condition_value) = maybe_bool {
                     if condition_value {
-                        return self.evaluate(then_node);
+                        self.evaluate(then_node)?;
+                        self.return_stack.pop_frame_and_keep_results();
+                        return Ok(());
                     }
 
                     if else_if_condition.is_some() {
@@ -606,7 +608,9 @@ impl<'a> Runtime<'a> {
 
                         if let Bool(condition_value) = maybe_bool {
                             if condition_value {
-                                return self.evaluate(else_if_node.as_ref().unwrap());
+                                self.evaluate(else_if_node.as_ref().unwrap())?;
+                                self.return_stack.pop_frame_and_keep_results();
+                                return Ok(());
                             }
                         } else {
                             return runtime_error!(
@@ -618,7 +622,8 @@ impl<'a> Runtime<'a> {
                     }
 
                     if else_node.is_some() {
-                        return self.evaluate(else_node.as_ref().unwrap());
+                        self.evaluate(else_node.as_ref().unwrap())?;
+                        self.return_stack.pop_frame_and_keep_results();
                     }
                 } else {
                     return runtime_error!(
@@ -845,6 +850,8 @@ impl<'a> Runtime<'a> {
     ) -> RuntimeResult {
         use Value::*;
 
+        runtime_trace!(self, "call_function - {}", id);
+
         let maybe_function = match self.get_value(id) {
             Some(Function(f)) => Some(f.clone()),
             Some(unexpected) => {
@@ -900,6 +907,7 @@ impl<'a> Runtime<'a> {
                 let expression_result = self.evaluate_and_capture(arg);
                 let arg_value = self.return_stack.value().clone();
                 self.return_stack.pop_frame();
+
                 self.call_stack.push(name.clone(), arg_value);
 
                 if expression_result.is_err() {
@@ -916,37 +924,35 @@ impl<'a> Runtime<'a> {
             return result;
         }
 
-        let arg_values = args
-            .iter()
-            .map(|arg| {
-                let result = match self.evaluate_and_capture(arg) {
-                    Ok(_) => Ok(self.return_stack.value().clone()),
-                    Err(e) => Err(e),
-                };
-                self.return_stack.pop_frame();
-                result
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        self.evaluate_expressions(args)?;
+
         if let Some(value) = self.builtins.get_mut(&id.0) {
             return match value {
-                BuiltinValue::Function(f) => match f(&arg_values) {
-                    Ok(v) => {
-                        self.return_stack.push(v);
-                        Ok(())
+                BuiltinValue::Function(f) => {
+                    let builtin_result = f(&self.return_stack.values());
+                    self.return_stack.pop_frame();
+                    match builtin_result {
+                        Ok(v) => {
+                            self.return_stack.push(v);
+                            Ok(())
+                        }
+                        Err(e) => runtime_error!(node, e),
                     }
-                    Err(e) => runtime_error!(node, e),
-                },
+                }
                 unexpected => {
+                    self.return_stack.pop_frame();
                     runtime_error!(node, "Expected function for '{}', found {}", id, unexpected)
                 }
             };
         }
+
+        self.return_stack.pop_frame();
 
         runtime_error!(node, "Function '{}' not found", id)
     }
 
     #[allow(dead_code)]
     fn runtime_indent(&self) -> String {
-        "  ".repeat(self.return_stack.frame_count())
+        " ".repeat(self.return_stack.frame_count())
     }
 }

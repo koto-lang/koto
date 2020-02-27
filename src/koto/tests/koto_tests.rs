@@ -56,4 +56,4 @@ koto_test!(loops);
 koto_test!(maps);
 koto_test!(ranges);
 koto_test!(strings);
-// koto_test!(vec4);
+koto_test!(vec4);
