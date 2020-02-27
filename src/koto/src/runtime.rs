@@ -4,7 +4,7 @@ use koto_parser::{AstNode, AstOp, Node, Position};
 use std::{collections::HashMap, fmt, rc::Rc};
 
 use crate::{
-    callstack::CallStack,
+    call_stack::CallStack,
     return_stack::ReturnStack,
     value::{MultiRangeValueIterator, Value, ValueIterator},
     Id, LookupId,
