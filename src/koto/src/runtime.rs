@@ -222,8 +222,13 @@ impl<'a> Runtime<'a> {
         self.return_stack.start_frame();
 
         for expression in expressions.iter() {
-            self.evaluate_and_capture(expression)?;
-            self.return_stack.pop_frame_and_keep_results();
+            if koto_parser::is_single_value_node(&expression.node) {
+                self.evaluate(expression)?;
+                self.return_stack.pop_frame_and_keep_results();
+            } else {
+                self.evaluate_and_capture(expression)?;
+                self.return_stack.pop_frame_and_keep_results();
+            }
         }
 
         Ok(())
@@ -239,34 +244,39 @@ impl<'a> Runtime<'a> {
 
         self.return_stack.start_frame();
 
-        self.evaluate_and_expand(expression)?;
+        if koto_parser::is_single_value_node(&expression.node) {
+            self.evaluate(expression)?;
+            self.return_stack.pop_frame_and_keep_results();
+        } else {
+            self.evaluate_and_expand(expression)?;
 
-        match self.return_stack.value_count() {
-            0 => {
-                self.return_stack.pop_frame();
-                self.return_stack.push(Empty);
-            }
-            1 => {
-                self.return_stack.pop_frame_and_keep_results();
-            }
-            _ => {
-                // TODO check values in return stack for unexpanded for loops + ranges
-                let list = self
-                    .return_stack
-                    .values()
-                    .iter()
-                    .cloned()
-                    .map(|value| match value {
-                        For(_) | Range { .. } => runtime_error!(
-                            expression,
-                            "Invalid value found in list capture: '{}'",
-                            value
-                        ),
-                        _ => Ok(value),
-                    })
-                    .collect::<Result<Vec<_>, Error>>()?;
-                self.return_stack.pop_frame();
-                self.return_stack.push(List(Rc::new(list)));
+            match self.return_stack.value_count() {
+                0 => {
+                    self.return_stack.pop_frame();
+                    self.return_stack.push(Empty);
+                }
+                1 => {
+                    self.return_stack.pop_frame_and_keep_results();
+                }
+                _ => {
+                    // TODO check values in return stack for unexpanded for loops + ranges
+                    let list = self
+                        .return_stack
+                        .values()
+                        .iter()
+                        .cloned()
+                        .map(|value| match value {
+                            For(_) | Range { .. } => runtime_error!(
+                                expression,
+                                "Invalid value found in list capture: '{}'",
+                                value
+                            ),
+                            _ => Ok(value),
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+                    self.return_stack.pop_frame();
+                    self.return_stack.push(List(Rc::new(list)));
+                }
             }
         }
 

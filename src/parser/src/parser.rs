@@ -102,6 +102,14 @@ pub enum Node {
     For(Rc<AstFor>),
 }
 
+pub fn is_single_value_node(node: &Node) -> bool {
+    use Node::*;
+    match node {
+        Id(_) | Bool(_) | Number(_) | Vec4(_) | Str(_) => true,
+        _ => false,
+    }
+}
+
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;
