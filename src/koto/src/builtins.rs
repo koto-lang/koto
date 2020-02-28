@@ -126,7 +126,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         single_arg_fn!(map, "keys", Map, m, {
             Ok(List(Rc::new(
-                m.as_ref()
+                m.borrow()
                     .0
                     .keys()
                     .map(|k| Str(k.clone()))

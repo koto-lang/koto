@@ -47,14 +47,14 @@ next_assignment_or_expression = @{
 
 assignment = _{ single_assignment | multiple_assignment }
 single_assignment = !{
-  global_keyword?
-  ~ id ~ "="
-  ~ (expressions | expression_block)
+  global_keyword?  ~ assignment_target
+  ~ "=" ~ (expressions | expression_block)
 }
 multiple_assignment = !{
-  global_keyword?
-  ~ ids ~ "="
-  ~ (expressions | expression_block) }
+  global_keyword?  ~ assignment_targets
+  ~ "=" ~ (expressions | expression_block) }
+assignment_target = _{ index | id }
+assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 expression = _{
   ( function

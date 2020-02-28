@@ -1,51 +1,19 @@
-#![macro_use]
-
 use hashbrown::HashMap;
-use koto_parser::{AstNode, AstOp, Node, Position};
-use std::rc::Rc;
-
+use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node};
+use std::{cell::RefCell, rc::Rc};
 use crate::{
+    runtime_error,
     call_stack::CallStack,
     return_stack::ReturnStack,
     value::{MultiRangeValueIterator, Value, ValueIterator},
     value_map::ValueMap,
-    Id, LookupId,
+    Error, Id, LookupId, RuntimeResult,
 };
-
-#[derive(Debug)]
-pub enum Error {
-    RuntimeError {
-        message: String,
-        start_pos: Position,
-        end_pos: Position,
-    },
-}
-
-pub type RuntimeResult = Result<(), Error>;
 
 pub struct Runtime<'a> {
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     return_stack: ReturnStack<'a>,
-}
-
-macro_rules! make_runtime_error {
-    ($node:expr, $message:expr) => {
-        Error::RuntimeError {
-            message: $message,
-            start_pos: $node.start_pos,
-            end_pos: $node.end_pos,
-        }
-    };
-}
-
-macro_rules! runtime_error {
-    ($node:expr, $error:expr) => {
-        Err(make_runtime_error!($node, String::from($error)))
-    };
-    ($node:expr, $error:expr, $($y:expr),+) => {
-        Err(make_runtime_error!($node, format!($error, $($y),+)))
-    };
 }
 
 #[cfg(feature = "trace")]
@@ -330,10 +298,11 @@ impl<'a> Runtime<'a> {
                     map.insert(id.clone(), self.return_stack.value().clone());
                     self.return_stack.pop_frame();
                 }
-                self.return_stack.push(Map(Rc::new(ValueMap(map))));
+                self.return_stack
+                    .push(Map(Rc::new(RefCell::new(ValueMap(map)))));
             }
-            Node::Index { id, expression } => {
-                self.list_index(id, expression, node)?;
+            Node::Index(index) => {
+                self.list_index(&index.id, &index.expression, node)?;
             }
             Node::Id(id) => {
                 self.return_stack.push(self.get_value_or_error(id, node)?);
@@ -351,7 +320,7 @@ impl<'a> Runtime<'a> {
                 return self.call_function(function, args, node);
             }
             Node::Assign {
-                id,
+                target,
                 expression,
                 global,
             } => {
@@ -360,16 +329,35 @@ impl<'a> Runtime<'a> {
                 let value = self.return_stack.value().clone();
                 self.return_stack.pop_frame();
 
-                runtime_trace!(self, "Assigning to {}: {}", id, value);
+                match target {
+                    AssignTarget::Id(id) => {
+                        self.set_value(id, value.clone(), *global);
+                    }
+                    AssignTarget::Index(AstIndex { id, expression }) => {
+                        self.set_list_value(id, expression, value.clone(), node)?;
+                    }
+                }
 
-                self.set_value(id, &value, *global);
                 self.return_stack.push(value);
             }
             Node::MultiAssign {
-                ids,
+                targets,
                 expressions,
                 global,
             } => {
+                macro_rules! set_value {
+                    ($target:expr, $value:expr) => {
+                        match $target {
+                            AssignTarget::Id(id) => {
+                                self.set_value(&id, $value, *global);
+                            }
+                            AssignTarget::Index(AstIndex { id, expression }) => {
+                                self.set_list_value(&id, &expression, $value, node)?;
+                            }
+                        }
+                    };
+                };
+
                 if expressions.len() == 1 {
                     self.evaluate_and_capture(expressions.first().unwrap())?;
                     let value = self.return_stack.value().clone();
@@ -378,25 +366,23 @@ impl<'a> Runtime<'a> {
                     match value {
                         List(l) => {
                             let mut result_iter = l.iter();
-                            for id in ids.iter() {
+                            for target in targets.iter() {
                                 let value = result_iter.next().unwrap_or(&Empty);
-                                runtime_trace!(self, "Assigning to {}: {}", id, value);
-                                self.set_value(id, &value, *global);
+                                set_value!(target, value.clone());
                             }
                         }
                         _ => {
-                            let first_id = ids.first().unwrap();
+                            let first_id = targets.first().unwrap();
                             runtime_trace!(
                                 self,
                                 "Assigning to {}: {} (single expression)",
                                 first_id,
                                 value
                             );
-                            self.set_value(first_id, &value, *global);
+                            set_value!(first_id, value);
 
-                            for id in ids[1..].iter() {
-                                runtime_trace!(self, "Assigning to {}: ()");
-                                self.set_value(id, &Empty, *global);
+                            for id in targets[1..].iter() {
+                                set_value!(id, Empty);
                             }
                         }
                     }
@@ -411,21 +397,21 @@ impl<'a> Runtime<'a> {
                     match results.as_slice() {
                         [] => unreachable!(),
                         [single_value] => {
-                            let first_id = ids.first().unwrap();
+                            let first_id = targets.first().unwrap();
                             runtime_trace!(self, "Assigning to {}: {}", first_id, single_value);
-                            self.set_value(first_id, &single_value, *global);
-                            // set remaining ids to empty
-                            for id in ids[1..].iter() {
+                            set_value!(first_id, single_value.clone());
+                            // set remaining targets to empty
+                            for id in targets[1..].iter() {
                                 runtime_trace!(self, "Assigning to {}: ()");
-                                self.set_value(id, &Empty, *global);
+                                set_value!(id, Empty);
                             }
                         }
                         _ => {
                             let mut result_iter = results.iter();
-                            for id in ids.iter() {
-                                let value = result_iter.next().unwrap_or(&Empty);
+                            for id in targets.iter() {
+                                let value = result_iter.next().unwrap_or(&Empty).clone();
                                 runtime_trace!(self, "Assigning to {}: {}", id, value);
-                                self.set_value(id, &value, *global);
+                                set_value!(id, value);
                             }
                         }
                     }
@@ -507,9 +493,9 @@ impl<'a> Runtime<'a> {
                         },
                         (Map(a), Map(b)) => match op {
                             AstOp::Add => {
-                                let mut result = a.0.clone();
-                                result.extend(b.0.clone().into_iter());
-                                Ok(Map(Rc::new(ValueMap(result))))
+                                let mut result = a.borrow().0.clone();
+                                result.extend(b.borrow().0.clone().into_iter());
+                                Ok(Map(Rc::new(RefCell::new(ValueMap(result)))))
                             }
                             _ => binary_op_error!(op, a, b),
                         },
@@ -577,14 +563,16 @@ impl<'a> Runtime<'a> {
         Ok(())
     }
 
-    fn set_value(&mut self, id: &Id, value: &Value<'a>, global: bool) {
+    fn set_value(&mut self, id: &Id, value: Value<'a>, global: bool) {
+        runtime_trace!(self, "set_value - {}: {}", id, value);
+
         if self.call_stack.frame() == 0 || global {
-            self.global.0.insert(id.clone(), value.clone());
+            self.global.0.insert(id.clone(), value);
         } else {
             if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
                 *exists = value.clone();
             } else {
-                self.call_stack.extend(id.clone(), value.clone());
+                self.call_stack.extend(id.clone(), value);
             }
         }
     }
@@ -595,29 +583,79 @@ impl<'a> Runtime<'a> {
                 if lookup_id.0.len() == 1 {
                     $value
                 } else if $value.is_some() {
-                    lookup_id.0[1..]
-                        .iter()
-                        .try_fold($value.unwrap(), |result, id| {
-                            match result {
-                                Value::Map(data) => data.0.get(id),
-                                _unexpected => None, // TODO error, previous item wasn't a map
-                            }
-                        })
+                    let mut result = $value;
+                    for id in lookup_id.0[1..].iter() {
+                        // TODO simplify via ValueMap
+                        if result.is_none() {
+                            break;
+                        }
+                        result = match result {
+                            Some(Value::Map(data)) => data.borrow().0.get(id).map(|v| v.clone()),
+                            _unexpected => None, // TODO error, previous item wasn't a map
+                        };
+                    }
+                    result
                 } else {
                     None
                 }
             }};
         }
 
+        let first_id = lookup_id.0.first().unwrap();
         if self.call_stack.frame() > 0 {
-            let value = self.call_stack.get(lookup_id.0.first().unwrap());
+            let value = self.call_stack.get(first_id).map(|v| v.clone());
             if let Some(value) = value_or_map_lookup!(value) {
-                return Some(value.clone());
+                return Some(value);
             }
         }
 
-        let global_value = self.global.0.get(lookup_id.0.first().unwrap());
-        value_or_map_lookup!(global_value).map(|v| v.clone())
+        let global_value = self.global.0.get(first_id).map(|v| v.clone());
+        value_or_map_lookup!(global_value)
+    }
+
+    fn visit_value_mut<'b : 'a>(
+        &mut self,
+        lookup_id: &LookupId,
+        node: &AstNode,
+        mut visitor: impl FnMut(&LookupId, &AstNode, &mut Value<'a>) -> RuntimeResult + Clone + 'b,
+    ) -> RuntimeResult {
+        macro_rules! value_or_map_lookup {
+            ($value:expr) => {{
+                match $value {
+                    Some(value) => {
+                        if lookup_id.0.len() == 1 {
+                            return visitor(lookup_id, node, value);
+                        } else if let Value::Map(map) = value {
+                            let (found, error) =
+                                map.borrow_mut()
+                                    .visit_mut(lookup_id, 1, node, visitor.clone());
+                            if found && error.is_err() {
+                                return error;
+                            }
+                            false
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                }
+            }};
+        }
+
+        let first_id = lookup_id.0.first().unwrap();
+
+        if self.call_stack.frame() > 0 {
+            let value = self.call_stack.get_mut(first_id);
+            if value_or_map_lookup!(value) {
+                return Ok(());
+            }
+        }
+
+        let global_value = self.global.0.get_mut(first_id);
+        if !value_or_map_lookup!(global_value) {
+            return runtime_error!(node, "Value '{}' not found", lookup_id);
+        }
+        Ok(())
     }
 
     fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> Result<Value<'a>, Error> {
@@ -662,7 +700,7 @@ impl<'a> Runtime<'a> {
                         List(a) if single_range => {
                             for list_value in a.iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, &list_value, false), // TODO
+                                    Some(arg) => self.set_value(arg, list_value.clone(), false), // TODO
                                     None => break,
                                 }
                             }
@@ -671,13 +709,13 @@ impl<'a> Runtime<'a> {
                             arg_iter
                                 .next()
                                 .expect("For loops have at least one argument"),
-                            &value,
+                            value.clone(),
                             false,
                         ),
                     }
                 }
                 for remaining_arg in arg_iter {
-                    self.set_value(remaining_arg, &Value::Empty, false);
+                    self.set_value(remaining_arg, Value::Empty, false);
                 }
 
                 if let Some(condition) = &f.condition {
@@ -706,6 +744,79 @@ impl<'a> Runtime<'a> {
         }
 
         Ok(())
+    }
+
+    fn set_list_value(
+        &mut self,
+        id: &LookupId,
+        expression: &AstNode,
+        value: Value<'a>,
+        node: &AstNode,
+    ) -> RuntimeResult {
+        use Value::*;
+
+        self.evaluate(expression)?;
+        let index = self.return_stack.value().clone();
+        self.return_stack.pop_frame();
+
+        self.visit_value_mut(id, node, move |id, node, maybe_list: &mut Value<'a>| {
+            if let List(data) = maybe_list {
+                match index {
+                    Number(i) => {
+                        let i = i as usize;
+                        if i < data.len() {
+                            Rc::make_mut(data)[i] = value.clone();
+                            Ok(())
+                        } else {
+                            runtime_error!(
+                                node,
+                                "Index out of bounds: '{}' has a length of {} but the index is {}",
+                                id,
+                                data.len(),
+                                i
+                            )
+                        }
+                    }
+                    Range { min, max } => {
+                        let umin = min as usize;
+                        let umax = max as usize;
+                        if min < 0 || max < 0 {
+                            runtime_error!(
+                                node,
+                                "Indexing with negative indices isn't supported, min: {}, max: {}",
+                                min,
+                                max
+                            )
+                        } else if umin >= data.len() || umax > data.len() {
+                            runtime_error!(
+                                node,
+                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                                id,
+                                data.len(),
+                                min,
+                                max
+                            )
+                        } else {
+                            for element in &mut Rc::make_mut(data)[umin..umax] {
+                                *element = value.clone();
+                            }
+                            Ok(())
+                        }
+                    }
+                    _ => runtime_error!(
+                        node,
+                        "Indexing is only supported with number values or ranges, found {})",
+                        index
+                    ),
+                }
+            } else {
+                runtime_error!(
+                    node,
+                    "Indexing is only supported for Lists, found {}",
+                    maybe_list
+                )
+            }
+        })
     }
 
     fn list_index(&mut self, id: &LookupId, expression: &AstNode, node: &AstNode) -> RuntimeResult {

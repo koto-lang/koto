@@ -10,7 +10,7 @@ pub enum Value<'a> {
     Vec4(vec4::Vec4),
     List(Rc<Vec<Value<'a>>>),
     Range { min: isize, max: isize },
-    Map(Rc<ValueMap<'a>>),
+    Map(Rc<RefCell<ValueMap<'a>>>),
     Str(Rc<String>),
     Function(Rc<Function>),
     ExternalFunction(ExternalFunction<'a>),
@@ -39,7 +39,7 @@ impl<'a> fmt::Display for Value<'a> {
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, value) in m.0.iter() {
+                for (key, value) in m.borrow().0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {

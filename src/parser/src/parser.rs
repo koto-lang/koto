@@ -73,17 +73,14 @@ pub enum Node {
         function: LookupId,
         args: Vec<AstNode>,
     },
-    Index {
-        id: LookupId,
-        expression: Box<AstNode>,
-    },
+    Index(AstIndex),
     Assign {
-        id: Id,
+        target: AssignTarget,
         expression: Box<AstNode>,
         global: bool,
     },
     MultiAssign {
-        ids: Vec<Id>,
+        targets: Vec<AssignTarget>,
         expressions: Vec<AstNode>,
         global: bool,
     },
@@ -149,11 +146,15 @@ impl fmt::Display for Node {
             ),
             Function(_) => write!(f, "Function"),
             Call { function, .. } => write!(f, "Call: {}", function),
-            Index { id, .. } => write!(f, "Index: {}", id),
-            Assign { id, global, .. } => write!(f, "Assign: id: {} - global: {}", id, global),
-            MultiAssign { ids, global, .. } => {
-                write!(f, "MultiAssign: ids: {:?} - global: {}", ids, global)
+            Index(index) => write!(f, "Index: {}", index.id),
+            Assign { target, global, .. } => {
+                write!(f, "Assign: target: {} - global: {}", target, global)
             }
+            MultiAssign { targets, global, .. } => write!(
+                f,
+                "MultiAssign: targets: {:?} - global: {}",
+                targets, global
+            ),
             Op { op, .. } => write!(f, "Op: {:?}", op),
             If { .. } => write!(f, "If"),
             For(_) => write!(f, "For"),
@@ -193,6 +194,28 @@ pub enum AstOp {
     GreaterOrEqual,
     And,
     Or,
+}
+
+#[derive(Clone, Debug)]
+pub struct AstIndex {
+    pub id: LookupId,
+    pub expression: Box<AstNode>,
+}
+
+#[derive(Clone, Debug)]
+pub enum AssignTarget {
+    Id(Id),
+    Index(AstIndex),
+}
+
+impl fmt::Display for AssignTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use AssignTarget::*;
+        match self {
+            Id(id) => write!(f, "{}", id),
+            Index(index) => write!(f, "{}", index.id),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -342,7 +365,7 @@ impl KotoParser {
                 let mut inner = pair.into_inner();
                 let id = next_as_lookup_id!(inner);
                 let expression = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::Index { id, expression })
+                AstNode::new(span, Node::Index(AstIndex { id, expression }))
             }
             Rule::id => {
                 let id = LookupId(
@@ -383,12 +406,23 @@ impl KotoParser {
                 if global {
                     inner.next();
                 }
-                let id = next_as_rc_string!(inner.next().unwrap().into_inner());
+                let target = match inner.peek().unwrap().as_rule() {
+                    Rule::id => {
+                        AssignTarget::Id(next_as_rc_string!(inner.next().unwrap().into_inner()))
+                    }
+                    Rule::index => {
+                        let mut inner = inner.next().unwrap().into_inner();
+                        let id = next_as_lookup_id!(inner);
+                        let expression = next_as_boxed_ast!(inner);
+                        AssignTarget::Index(AstIndex { id, expression })
+                    }
+                    _ => unreachable!(),
+                };
                 let expression = next_as_boxed_ast!(inner);
                 AstNode::new(
                     span,
                     Node::Assign {
-                        id,
+                        target,
                         expression,
                         global,
                     },
@@ -400,11 +434,20 @@ impl KotoParser {
                 if global {
                     inner.next();
                 }
-                let ids = inner
+                let targets = inner
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| next_as_rc_string!(pair.into_inner()))
+                    .map(|pair| match pair.as_rule() {
+                        Rule::id => AssignTarget::Id(next_as_rc_string!(pair.into_inner())),
+                        Rule::index => {
+                            let mut inner = pair.into_inner();
+                            let id = next_as_lookup_id!(inner);
+                            let expression = next_as_boxed_ast!(inner);
+                            AssignTarget::Index(AstIndex { id, expression })
+                        }
+                        _ => unreachable!(),
+                    })
                     .collect::<Vec<_>>();
                 let expressions = inner
                     .next()
@@ -415,7 +458,7 @@ impl KotoParser {
                 AstNode::new(
                     span,
                     Node::MultiAssign {
-                        ids,
+                        targets,
                         expressions,
                         global,
                     },
