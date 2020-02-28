@@ -203,6 +203,28 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         }
     });
 
+    global.add_fn("number", |args| {
+        let mut arg_iter = args.iter();
+        let first_arg_value = match arg_iter.next() {
+            Some(arg) => arg,
+            None => {
+                return Err("Missing list as first argument for length".to_string());
+            }
+        };
+
+        match first_arg_value {
+            Number(_) => Ok(first_arg_value.clone()),
+            Str(s) => match s.parse::<f64>() {
+                Ok(n) => Ok(Number(n)),
+                Err(_) => Err(format!("Failed to convert '{}' into a Number", s)),
+            },
+            unexpected => Err(format!(
+                "number is only supported for numbers and strings, found {}",
+                unexpected
+            )),
+        }
+    });
+
     global.add_fn("vec4", |args| {
         use vec4::Vec4 as V4;
 
