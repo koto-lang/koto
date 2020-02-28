@@ -31,7 +31,7 @@ impl<'a> BenchmarkRunner<'a> {
 }
 
 pub fn koto_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 10", |b| {
+    c.bench_function("fib10", |b| {
         let mut runner = BenchmarkRunner::new("fib10.koto");
         b.iter(|| {
             runner.run();
@@ -39,6 +39,13 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("vec4", |b| {
         let mut runner = BenchmarkRunner::new("vec4.koto");
+        b.iter(|| {
+            runner.run();
+        })
+    });
+    c.bench_function("spectral_norm", |b| {
+        let mut runner = BenchmarkRunner::new("spectral_norm.koto");
+        runner.runtime.set_args(&["4", "quiet"]);
         b.iter(|| {
             runner.run();
         })

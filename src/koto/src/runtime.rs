@@ -854,15 +854,16 @@ impl<'a> Runtime<'a> {
 
             for (name, arg) in f.args.iter().zip(args.iter()) {
                 let expression_result = self.evaluate_and_capture(arg);
-                let arg_value = self.return_stack.value().clone();
-                self.return_stack.pop_frame();
-
-                self.call_stack.push(name.clone(), arg_value);
 
                 if expression_result.is_err() {
+                    self.return_stack.pop_frame();
                     self.call_stack.cancel();
                     return expression_result;
                 }
+
+                let arg_value = self.return_stack.value().clone();
+                self.return_stack.pop_frame();
+                self.call_stack.push(name.clone(), arg_value);
             }
 
             self.call_stack.commit();

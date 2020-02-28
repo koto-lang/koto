@@ -1,0 +1,43 @@
+#-
+An implementation of the Benchmark Game's spectral norm program
+https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/spectralnorm.html#spectralnorm
+-#
+
+A = |i, j|
+  ij = i + j - 1
+  1.0 / (ij * (ij - 1) * 0.5 + i)
+
+Av = |x, n|
+  for i in 1..=n
+    a = 0
+    for j in 0..n
+      a = a + x[j] * A(i, j + 1)
+    a
+
+Atv = |x, n|
+  for i in 1..=n
+    a = 0
+    for j in 0..n
+      a = a + x[j] * A(j + 1, i)
+    a
+
+AtAv = |x, n|
+  av = Av x, n
+  Atv av, n
+
+N = number args[0]
+u = 1 for i in 0..N
+v = []
+
+for i in 0..10
+  v = AtAv u, N
+  u = AtAv v, N
+
+vBv = 0
+vv = 0
+for ui, vi in u, v
+  vBv = vBv + ui * vi
+  vv = vv + vi * vi
+
+result = math.sqrt vBv / vv
+# print result
