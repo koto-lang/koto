@@ -25,6 +25,10 @@ impl<'a> ValueMap<'a> {
         );
     }
 
+    pub fn add_list(&mut self, name: &str, list: Vec<Value<'a>>) {
+        self.add_value(name, Value::List(Rc::new(list)));
+    }
+
     pub fn add_map(&mut self, name: &str, map: ValueMap<'a>) {
         self.add_value(name, Value::Map(Rc::new(map)));
     }

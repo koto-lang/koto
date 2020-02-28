@@ -75,8 +75,13 @@ impl<'a> Runtime<'a> {
         result
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
-        return &mut self.global;
+    pub fn set_args(&mut self, args: &[&str]) {
+        self.global.add_list(
+            "args",
+            args.iter()
+                .map(|arg| Value::Str(Rc::new(arg.to_string())))
+                .collect::<Vec<_>>(),
+        );
     }
 
     /// Run a script and capture the final value
@@ -869,6 +874,10 @@ impl<'a> Runtime<'a> {
         }
 
         runtime_error!(node, "Function '{}' not found", id)
+    }
+
+    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+        return &mut self.global;
     }
 
     #[allow(dead_code)]

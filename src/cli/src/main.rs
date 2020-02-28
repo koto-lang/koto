@@ -10,10 +10,23 @@ fn main() {
                 .help("The koto script to run")
                 .index(1),
         )
+        .arg(
+            Arg::with_name("args")
+                .help("Arguments to pass into koto")
+                .multiple(true)
+                .last(true),
+        )
         .get_matches();
 
     let parser = Parser::new();
     let mut runtime = Runtime::new();
+
+    if let Some(script_args) = matches
+        .values_of("args")
+        .map(|args| args.collect::<Vec<_>>())
+    {
+        runtime.set_args(&script_args);
+    }
 
     if let Some(path) = matches.value_of("script") {
         let script = fs::read_to_string(path).expect("Unable to load path");
