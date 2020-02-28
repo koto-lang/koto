@@ -1,0 +1,41 @@
+# Assignments are borrowing immutable references
+a = [1, 2, 3]
+b = a
+assert_eq a, b
+
+# # Modifying a list makes a clone
+# a[1] = 42
+# assert_ne a, b
+
+# # ref assignment turns the source and targets into references to each other
+# c = ref a
+# assert_eq a, c
+# # regular assignment from a ref will clone the data - TODO maybe not? deref?
+# d = c
+# # the ref keyword is also needed to make a new reference to the shared data
+# e = ref c
+
+# # modifying a, c, or e will be reflected in the other
+# a[0] = 99
+# assert_eq a, c
+# c[2] = -1
+# assert_eq a, c
+# assert_eq c, e
+# assert_eq e, [99, 42, -1]
+
+# # reassigning a ref doesn't affect other refs
+# a = "hi"
+# assert_eq c, [99, 42, -1]
+
+# # d hasn't been modified since its assignment
+# assert_eq d, [1, 42, 3]
+# # b remains untouched
+# assert_eq b, [1, 2, 3]
+
+# # ref keyword on function argument requires a ref as input
+# a = []
+# fill_n = |ref data, n, x|
+#   data = x for i in 0..n
+
+# fill_n ref a, 3, 7
+# assert_eq a, [7, 7, 7]
