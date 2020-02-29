@@ -320,18 +320,14 @@ impl<'a> Runtime<'a> {
             Node::Call { function, args } => {
                 return self.call_function(function, args, node);
             }
-            Node::Assign {
-                target,
-                expression,
-                global,
-            } => {
+            Node::Assign { target, expression } => {
                 self.evaluate_and_capture(expression)?;
 
                 let value = self.return_stack.value().clone();
                 self.return_stack.pop_frame();
 
                 match target {
-                    AssignTarget::Id(id) => {
+                    AssignTarget::Id { id, global } => {
                         self.set_value(id, value.clone(), *global);
                     }
                     AssignTarget::Index(AstIndex { id, expression }) => {
@@ -347,12 +343,11 @@ impl<'a> Runtime<'a> {
             Node::MultiAssign {
                 targets,
                 expressions,
-                global,
             } => {
                 macro_rules! set_value {
                     ($target:expr, $value:expr) => {
                         match $target {
-                            AssignTarget::Id(id) => {
+                            AssignTarget::Id { id, global } => {
                                 self.set_value(&id, $value, *global);
                             }
                             AssignTarget::Index(AstIndex { id, expression }) => {

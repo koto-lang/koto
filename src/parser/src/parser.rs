@@ -100,12 +100,10 @@ pub enum Node {
     Assign {
         target: AssignTarget,
         expression: Box<AstNode>,
-        global: bool,
     },
     MultiAssign {
         targets: Vec<AssignTarget>,
         expressions: Vec<AstNode>,
-        global: bool,
     },
     Op {
         op: AstOp,
@@ -170,16 +168,8 @@ impl fmt::Display for Node {
             Function(_) => write!(f, "Function"),
             Call { function, .. } => write!(f, "Call: {}", function),
             Index(index) => write!(f, "Index: {}", index.id),
-            Assign { target, global, .. } => {
-                write!(f, "Assign: target: {} - global: {}", target, global)
-            }
-            MultiAssign {
-                targets, global, ..
-            } => write!(
-                f,
-                "MultiAssign: targets: {:?} - global: {}",
-                targets, global
-            ),
+            Assign { target, .. } => write!(f, "Assign: target: {}", target),
+            MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
             Op { op, .. } => write!(f, "Op: {:?}", op),
             If { .. } => write!(f, "If"),
             For(_) => write!(f, "For"),
@@ -229,7 +219,7 @@ pub struct AstIndex {
 
 #[derive(Clone, Debug)]
 pub enum AssignTarget {
-    Id(Id),
+    Id { id: Id, global: bool },
     Index(AstIndex),
     Lookup(LookupId),
 }
@@ -238,7 +228,7 @@ impl fmt::Display for AssignTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use AssignTarget::*;
         match self {
-            Id(id) => write!(f, "{}", id),
+            Id { id, global } => write!(f, "{}{}", id, if *global { " - global" } else { "" }),
             Index(index) => write!(f, "{}", index.id),
             Lookup(lookup) => write!(f, "{}", lookup),
         }
@@ -429,13 +419,17 @@ impl KotoParser {
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
-                let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
-                if global {
-                    inner.next();
-                }
                 let target = match inner.peek().unwrap().as_rule() {
-                    Rule::id => {
-                        AssignTarget::Id(next_as_rc_string!(inner.next().unwrap().into_inner()))
+                    Rule::assignment_id => {
+                        let mut inner = inner.next().unwrap().into_inner();
+                        let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
+                        if global {
+                            inner.next();
+                        }
+                        AssignTarget::Id {
+                            id: next_as_rc_string!(inner.next().unwrap().into_inner()),
+                            global,
+                        }
                     }
                     Rule::index => {
                         let mut inner = inner.next().unwrap().into_inner();
@@ -447,27 +441,28 @@ impl KotoParser {
                     _ => unreachable!(),
                 };
                 let expression = next_as_boxed_ast!(inner);
-                AstNode::new(
-                    span,
-                    Node::Assign {
-                        target,
-                        expression,
-                        global,
-                    },
-                )
+                AstNode::new(span, Node::Assign { target, expression })
             }
             Rule::multiple_assignment => {
                 let mut inner = pair.into_inner();
-                let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
-                if global {
-                    inner.next();
-                }
                 let targets = inner
                     .next()
                     .unwrap()
                     .into_inner()
                     .map(|pair| match pair.as_rule() {
-                        Rule::id => AssignTarget::Id(next_as_rc_string!(pair.into_inner())),
+                        Rule::assignment_id => {
+                            let mut inner = pair.into_inner();
+
+                            let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
+                            if global {
+                                inner.next();
+                            }
+
+                            AssignTarget::Id {
+                                id: next_as_rc_string!(inner),
+                                global,
+                            }
+                        }
                         Rule::index => {
                             let mut inner = pair.into_inner();
                             let id = next_as_lookup_id!(inner);
@@ -489,7 +484,6 @@ impl KotoParser {
                     Node::MultiAssign {
                         targets,
                         expressions,
-                        global,
                     },
                 )
             }
