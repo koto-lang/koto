@@ -3,20 +3,20 @@ a = [1, 2, 3]
 b = a
 assert_eq a, b
 
-# # Modifying a list makes a clone
-# a[1] = 42
-# assert_ne a, b
+# Modifying a list makes a clone
+a[1] = 42
+assert_ne a, b
 
-# # ref assignment turns the source and targets into references to each other
-# c = ref a
-# assert_eq a, c
-# # regular assignment from a ref will clone the data - TODO maybe not? deref?
-# d = c
-# # the ref keyword is also needed to make a new reference to the shared data
-# e = ref c
+# ref assignment turns the source and targets into references to each other
+c = ref a
+assert_eq a, c
+# regular assignment from a ref will clone the data - TODO maybe not? deref?
+d = c
+# the ref keyword is also needed to make a new reference to the shared data
+e = ref c
 
-# # modifying a, c, or e will be reflected in the other
-# a[0] = 99
+# modifying a, c, or e will be reflected in the other
+a[0] = 99
 # assert_eq a, c
 # c[2] = -1
 # assert_eq a, c

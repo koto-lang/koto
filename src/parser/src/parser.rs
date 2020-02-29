@@ -78,6 +78,7 @@ impl<'a> fmt::Display for LookupIdSlice<'a> {
 #[derive(Clone, Debug)]
 pub enum Node {
     Id(LookupId),
+    Ref(LookupId),
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
@@ -133,7 +134,7 @@ impl fmt::Display for Node {
         use Node::*;
         match self {
             Id(lookup) => write!(f, "Id: {}", lookup),
-
+            Ref(lookup) => write!(f, "Ref: {}", lookup),
             Bool(b) => write!(f, "Bool: {}", b),
             Number(n) => write!(f, "Number: {}", n),
             Vec4(v) => write!(f, "Vec4: {:?}", v),
@@ -391,6 +392,16 @@ impl KotoParser {
                         .collect::<Vec<_>>(),
                 );
                 AstNode::new(span, Node::Id(id))
+            }
+            Rule::ref_id => {
+                let mut inner = pair.into_inner();
+                inner.next(); // ref
+                let id = LookupId(
+                    inner
+                        .map(|pair| Rc::new(pair.as_str().to_string()))
+                        .collect::<Vec<_>>(),
+                );
+                AstNode::new(span, Node::Ref(id))
             }
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();

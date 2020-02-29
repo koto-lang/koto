@@ -55,7 +55,6 @@ multiple_assignment = !{
   ~ "=" ~ (expressions | expression_block) }
 assignment_target = _{ index | lookup | assignment_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
-assignment_id = !{ global_keyword? ~ id }
 
 expression = _{
   ( function
@@ -122,6 +121,7 @@ value_term = _{(
   | string
   | number
   | boolean
+  | ref_id
   | id
   | ("(" ~ operation ~ ")")
   )
@@ -221,6 +221,8 @@ char = {
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
+assignment_id = !{ global_keyword? ~ id }
+ref_id = !{ ref_keyword ~ id }
 lookup = ${ single_id ~ ("." ~ single_id)+ }
 id = ${ single_id ~ ("." ~ single_id)* }
 single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
@@ -237,6 +239,7 @@ keyword = _{
   | "if"
   | "in"
   | "or"
+  | "ref"
   | "then"
   | "true"
 }
@@ -247,6 +250,7 @@ for_keyword = @{ "for" ~ WHITESPACE+ }
 global_keyword = @{ "global" ~ WHITESPACE+ }
 if_keyword = @{ "if" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
+ref_keyword = @{ "ref" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 
 

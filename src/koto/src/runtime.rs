@@ -308,6 +308,10 @@ impl<'a> Runtime<'a> {
                 self.value_stack
                     .push(self.get_value_or_error(&id.as_slice(), node)?);
             }
+            Node::Ref(id) => {
+                self.value_stack
+                    .push(self.get_value_or_error(&id.as_slice(), node)?);
+            }
             Node::Block(block) => {
                 self.evaluate_block(&block)?;
                 self.value_stack.pop_frame_and_keep_results();
