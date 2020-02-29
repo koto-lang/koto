@@ -159,7 +159,7 @@ for_inline = !{
 }
 
 call = _{ call_with_parens | call_no_parens }
-call_with_parens = ${((lookup | id) ~ call_args)}
+call_with_parens = ${ id ~ call_args }
 call_args = !{
   ("(" ~ ")")
   | "(" ~ operation ~ ("," ~ operation)* ~ ")"
@@ -193,8 +193,6 @@ map_entry = _{ map_entry_block | map_entry_inline }
 map_entry_block = !{ id ~ ":" ~ map }
 next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 
-lookup = ${ id ~ "." ~ id }
-
 list = !{
   "[" ~ "]"
   | "[" ~ operation ~ ("," ~ operation)* ~ "]"
@@ -202,7 +200,7 @@ list = !{
 
 range = ${ range_arg ~ range_op ~ range_arg }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call | index | lookup | id | ("(" ~ operation ~ ")") }
+range_arg = _{ number | call | index | id | ("(" ~ operation ~ ")") }
 
 index = ${ id ~ "[" ~ operation ~ "]" }
 
