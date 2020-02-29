@@ -1,0 +1,2 @@
+enumerate = |xs| i, x for i, x in 0..length(xs), xs
+[c, d] for c, d in enumerate 100..200

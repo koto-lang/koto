@@ -682,74 +682,152 @@ impl<'a> Runtime<'a> {
         self.return_stack.start_frame();
 
         if let For(f) = for_statement {
-            let iter = MultiRangeValueIterator(
-                f.ranges
-                    .iter()
-                    .map(|range| {
-                        self.evaluate(range)?;
-                        let range = self.return_stack.value().clone();
-                        self.return_stack.pop_frame();
+            if f.ranges.len() == 1 {
+                self.evaluate(f.ranges.first().unwrap())?;
+                let range = self.return_stack.value().clone();
+                self.return_stack.pop_frame();
 
-                        match range {
-                            v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
-                            unexpected => runtime_error!(
-                                node,
-                                "Expected iterable range in for statement, found {}",
-                                unexpected
-                            ),
-                        }
-                    })
-                    .collect::<Result<Vec<_>, _>>()?,
-            );
+                let value_iter = match range {
+                    v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
+                    unexpected => runtime_error!(
+                        node,
+                        "Expected iterable range in for statement, found {}",
+                        unexpected
+                    ),
+                }?;
 
-            let single_range = f.ranges.len() == 1;
-            for values in iter {
-                let mut arg_iter = f.args.iter().peekable();
-                for value in values.iter() {
-                    match value {
-                        List(a) if single_range => {
-                            for list_value in a.iter() {
-                                match arg_iter.next() {
-                                    Some(arg) => self.set_value(arg, list_value.clone(), false), // TODO
-                                    None => break,
+                let single_arg = f.args.len() == 1;
+                let first_arg = f.args.first().unwrap();
+
+                for value in value_iter {
+                    if single_arg {
+                        self.set_value(first_arg, value.clone(), false);
+                    } else {
+                        let mut arg_iter = f.args.iter().peekable();
+                        match value {
+                            List(a) => {
+                                for list_value in a.iter() {
+                                    match arg_iter.next() {
+                                        Some(arg) => self.set_value(arg, list_value.clone(), false),
+                                        None => break,
+                                    }
                                 }
                             }
+                            _ => self.set_value(
+                                arg_iter
+                                    .next()
+                                    .expect("For loops have at least one argument"),
+                                value.clone(),
+                                false,
+                            ),
                         }
-                        _ => self.set_value(
-                            arg_iter
-                                .next()
-                                .expect("For loops have at least one argument"),
-                            value.clone(),
-                            false,
-                        ),
+                        for remaining_arg in arg_iter {
+                            self.set_value(remaining_arg, Value::Empty, false);
+                        }
                     }
-                }
-                for remaining_arg in arg_iter {
-                    self.set_value(remaining_arg, Value::Empty, false);
-                }
 
-                if let Some(condition) = &f.condition {
-                    self.evaluate(&condition)?;
-                    let value = self.return_stack.value().clone();
-                    self.return_stack.pop_frame();
+                    if let Some(condition) = &f.condition {
+                        self.evaluate(&condition)?;
+                        let value = self.return_stack.value().clone();
+                        self.return_stack.pop_frame();
 
-                    match value {
-                        Bool(b) => {
-                            if !b {
-                                continue;
+                        match value {
+                            Bool(b) => {
+                                if !b {
+                                    continue;
+                                }
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "Expected bool in for statement condition, found {}",
+                                    unexpected
+                                )
                             }
                         }
-                        unexpected => {
-                            return runtime_error!(
-                                node,
-                                "Expected bool in for statement condition, found {}",
-                                unexpected
-                            )
+                    }
+                    self.evaluate_and_capture(&f.body)?;
+                    self.return_stack.pop_frame_and_keep_results();
+                }
+            } else {
+                let mut ranges_iter = MultiRangeValueIterator(
+                    f.ranges
+                        .iter()
+                        .map(|range| {
+                            self.evaluate(range)?;
+                            let range = self.return_stack.value().clone();
+                            self.return_stack.pop_frame();
+
+                            match range {
+                                v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
+                                unexpected => runtime_error!(
+                                    node,
+                                    "Expected iterable range in for statement, found {}",
+                                    unexpected
+                                ),
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
+
+                let single_arg = f.args.len() == 1;
+                let first_arg = f.args.first().unwrap();
+
+                while ranges_iter.push_next_values_to_return_stack(&mut self.return_stack) {
+                    if single_arg {
+                        if self.return_stack.value_count() == 1 {
+                            let value = self.return_stack.value().clone();
+                            self.set_value(first_arg, value, false);
+                            self.return_stack.pop_frame();
+                        } else {
+                            let values = self
+                                .return_stack
+                                .values()
+                                .iter()
+                                .cloned()
+                                .collect::<Vec<_>>();
+                            self.set_value(first_arg, Value::List(Rc::new(values)), false);
+                        }
+                    } else {
+                        let mut arg_iter = f.args.iter().peekable();
+                        for i in 0..self.return_stack.value_count() {
+                            match arg_iter.next() {
+                                Some(arg) => {
+                                    let value = self.return_stack.values()[i].clone();
+                                    self.set_value(arg, value.clone(), false);
+                                }
+                                None => break,
+                            }
+                        }
+                        for remaining_arg in arg_iter {
+                            self.set_value(remaining_arg, Value::Empty, false);
+                        }
+                        self.return_stack.pop_frame();
+                    }
+
+                    if let Some(condition) = &f.condition {
+                        self.evaluate(&condition)?;
+                        let value = self.return_stack.value().clone();
+                        self.return_stack.pop_frame();
+
+                        match value {
+                            Bool(b) => {
+                                if !b {
+                                    continue;
+                                }
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "Expected bool in for statement condition, found {}",
+                                    unexpected
+                                )
+                            }
                         }
                     }
+                    self.evaluate_and_capture(&f.body)?;
+                    self.return_stack.pop_frame_and_keep_results();
                 }
-                self.evaluate_and_capture(&f.body)?;
-                self.return_stack.pop_frame_and_keep_results();
             }
         }
 

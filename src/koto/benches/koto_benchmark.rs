@@ -43,6 +43,12 @@ pub fn koto_benchmark(c: &mut Criterion) {
             runner.run();
         })
     });
+    c.bench_function("enumerate", |b| {
+        let mut runner = BenchmarkRunner::new("enumerate.koto");
+        b.iter(|| {
+            runner.run();
+        })
+    });
     c.bench_function("spectral_norm", |b| {
         let mut runner = BenchmarkRunner::new("spectral_norm.koto");
         runner.runtime.set_args(&["4", "quiet"]);
