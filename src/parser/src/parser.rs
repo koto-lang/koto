@@ -78,7 +78,7 @@ impl<'a> fmt::Display for LookupIdSlice<'a> {
 #[derive(Clone, Debug)]
 pub enum Node {
     Id(LookupId),
-    Ref(LookupId),
+    RefId(LookupId),
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
@@ -92,6 +92,7 @@ pub enum Node {
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
+    RefExpression(Box<AstNode>),
     Function(Rc<Function>),
     Call {
         function: LookupId,
@@ -134,7 +135,7 @@ impl fmt::Display for Node {
         use Node::*;
         match self {
             Id(lookup) => write!(f, "Id: {}", lookup),
-            Ref(lookup) => write!(f, "Ref: {}", lookup),
+            RefId(lookup) => write!(f, "Ref: {}", lookup),
             Bool(b) => write!(f, "Bool: {}", b),
             Number(n) => write!(f, "Number: {}", n),
             Vec4(v) => write!(f, "Vec4: {:?}", v),
@@ -166,6 +167,7 @@ impl fmt::Display for Node {
                 e.len(),
                 if e.len() == 1 { "" } else { "s" }
             ),
+            RefExpression(_) => write!(f, "Ref Expression"),
             Function(_) => write!(f, "Function"),
             Call { function, .. } => write!(f, "Call: {}", function),
             Index(index) => write!(f, "Index: {}", index.id),
@@ -416,7 +418,13 @@ impl KotoParser {
                         .map(|pair| Rc::new(pair.as_str().to_string()))
                         .collect::<Vec<_>>(),
                 );
-                AstNode::new(span, Node::Ref(id))
+                AstNode::new(span, Node::RefId(id))
+            }
+            Rule::ref_expression => {
+                let mut inner = pair.into_inner();
+                inner.next(); // ref
+                let expression = next_as_boxed_ast!(inner);
+                AstNode::new(span, Node::RefExpression(expression))
             }
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();

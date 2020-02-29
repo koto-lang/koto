@@ -57,7 +57,8 @@ assignment_target = _{ index | lookup | assignment_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 expression = _{
-  ( function
+  ( ref_expression
+  | function
   | if_statement
   | for_loop
   | operation
@@ -66,6 +67,7 @@ expression = _{
   ~ comment?
 }
 expressions = !{ expression ~ ("," ~ expression?)* }
+ref_expression = !{ !ref_id ~ ref_keyword ~ expression }
 
 operation = ${
    (term ~ operation_link+)
@@ -121,6 +123,7 @@ value_term = _{(
   | string
   | number
   | boolean
+  | ref_expression
   | ref_id
   | id
   | ("(" ~ operation ~ ")")

@@ -308,7 +308,7 @@ impl<'a> Runtime<'a> {
                 self.value_stack
                     .push(self.get_value_or_error(&id.as_slice(), node)?.0);
             }
-            Node::Ref(id) => {
+            Node::RefId(id) => {
                 self.make_reference(id, node)?;
             }
             Node::Block(block) => {
@@ -318,6 +318,15 @@ impl<'a> Runtime<'a> {
             Node::Expressions(expressions) => {
                 self.evaluate_expressions(&expressions)?;
                 self.value_stack.pop_frame_and_keep_results();
+            }
+            Node::RefExpression(expression) => {
+                self.evaluate_and_capture(expression)?;
+                let value = self.value_stack.value().clone();
+                self.value_stack.pop_frame();
+                match value {
+                    Ref(_) => self.value_stack.push(value),
+                    _ => self.value_stack.push(Ref(Rc::new(RefCell::new(value)))),
+                };
             }
             Node::Function(f) => self.value_stack.push(Function(f.clone())),
             Node::Call { function, args } => {
@@ -569,8 +578,8 @@ impl<'a> Runtime<'a> {
     }
 
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
-        use Value::Ref;
         use std::ops::Deref;
+        use Value::Ref;
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
@@ -590,7 +599,16 @@ impl<'a> Runtime<'a> {
             }
         } else {
             if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
-                *exists = value.clone();
+                match exists {
+                    Ref(ref_value)
+                        if values_have_matching_type(ref_value.borrow().deref(), &value) =>
+                    {
+                        *ref_value.borrow_mut() = value.clone();
+                    }
+                    _ => {
+                        *exists = value.clone();
+                    }
+                }
             } else {
                 self.call_stack.extend(id.clone(), value);
             }
