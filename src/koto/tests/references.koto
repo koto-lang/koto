@@ -15,7 +15,7 @@ d = c
 # using the ref keyword with a reference will bind to the underlying data
 e = ref c
 
-# modifying a, c, or e will be reflected in the other
+# modifying a, c, or e will be reflected in the other references
 a[0] = 99
 assert_eq a, c
 c[2] = -1
@@ -24,15 +24,20 @@ assert_eq c, d
 assert_eq d, e
 assert_eq e, [99, 42, -1]
 
-# reassigning a ref doesn't affect other refs
+# reassigning a ref with a new type doesn't affect other refs
 a = "hi"
 assert_eq a, "hi"
 assert_eq c, [99, 42, -1]
 
+# reassigning a ref with the same type will be reflected in the other references
+c = [-1, -2, -3]
+assert_eq c, e
+assert_eq e, [-1, -2, -3]
+
 # b remains untouched
 assert_eq b, [1, 2, 3]
 
-# # ref keyword on function argument requires a ref as input
+# # ref keyword on function argument isn't mandatory but errors if arg isn't a reference
 # a = []
 # fill_n = |ref data, n, x|
 #   data = x for i in 0..n

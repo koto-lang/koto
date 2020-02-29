@@ -1,7 +1,7 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{MultiRangeValueIterator, Value, ValueIterator},
+    value::{values_have_matching_type, MultiRangeValueIterator, Value, ValueIterator},
     value_map::ValueMap,
     value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
@@ -569,10 +569,25 @@ impl<'a> Runtime<'a> {
     }
 
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
+        use Value::Ref;
+        use std::ops::Deref;
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
-            self.global.0.insert(id.clone(), value);
+            if let Some(exists) = self.global.0.get_mut(id.as_ref()) {
+                match exists {
+                    Ref(ref_value)
+                        if values_have_matching_type(ref_value.borrow().deref(), &value) =>
+                    {
+                        *ref_value.borrow_mut() = value.clone();
+                    }
+                    _ => {
+                        self.global.0.insert(id.clone(), value);
+                    }
+                }
+            } else {
+                self.global.0.insert(id.clone(), value);
+            }
         } else {
             if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
                 *exists = value.clone();

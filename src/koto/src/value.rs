@@ -126,11 +126,16 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
-pub fn clone_deref<'a>(value: &Value<'a>) -> Value<'a> {
-    match value {
-        Value::Ref(r) => r.borrow().clone(),
-        _ => value.clone(),
-    }
+pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
+    use Value::Ref;
+    use std::mem::discriminant;
+
+     match (a, b) {
+         (Ref(a), Ref(b)) => values_have_matching_type(a.borrow().deref(), b.borrow().deref()),
+         (Ref(a), _) => values_have_matching_type(a.borrow().deref(), b),
+         (_, Ref(b)) => values_have_matching_type(a, b.borrow().deref()),
+         (_, _) =>  discriminant(a) == discriminant(b),
+     }
 }
 
 pub type BuiltinResult<'a> = Result<Value<'a>, String>;
