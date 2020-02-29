@@ -1,10 +1,10 @@
 use crate::{
     runtime_error,
     value::{BuiltinResult, ExternalFunction},
-    Error, RuntimeResult, Value,
+    Error, LookupIdSlice, RuntimeResult, Value,
 };
 use hashbrown::HashMap;
-use koto_parser::{AstNode, Id, LookupId};
+use koto_parser::{AstNode, Id};
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug, Clone)]
@@ -61,10 +61,10 @@ impl<'a> ValueMap<'a> {
 
     pub fn visit_mut(
         &mut self,
-        id: &LookupId,
+        id: &LookupIdSlice,
         id_index: usize,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupId, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
+        mut visitor: impl FnMut(&LookupIdSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
     ) -> (bool, RuntimeResult) {
         let entry_id = &id.0[id_index];
         if id_index == id.0.len() - 1 {

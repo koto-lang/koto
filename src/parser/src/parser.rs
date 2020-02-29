@@ -38,7 +38,30 @@ pub type Id = Rc<String>;
 #[derive(Clone, Debug)]
 pub struct LookupId(pub Vec<Id>);
 
+impl LookupId {
+    pub fn as_slice(&self) -> LookupIdSlice {
+        LookupIdSlice(self.0.as_slice())
+    }
+
+    pub fn map_slice(&self) -> LookupIdSlice {
+        LookupIdSlice(&self.0[..self.0.len() - 1])
+    }
+
+    pub fn value_slice(&self) -> LookupIdSlice {
+        LookupIdSlice(&self.0[self.0.len() - 1..])
+    }
+}
+
 impl fmt::Display for LookupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        LookupIdSlice(&self.0).fmt(f)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct LookupIdSlice<'a>(pub &'a [Id]);
+
+impl<'a> fmt::Display for LookupIdSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut first = true;
         for id in self.0.iter() {

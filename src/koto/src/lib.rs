@@ -5,10 +5,7 @@ mod runtime;
 mod value;
 mod value_map;
 
-pub use koto_parser::Ast;
-pub use koto_parser::Id;
-pub use koto_parser::KotoParser as Parser;
-pub use koto_parser::LookupId;
+pub use koto_parser::{Ast, Id, KotoParser as Parser, LookupId, LookupIdSlice};
 
 pub use runtime::Runtime;
 pub use value::Value;
@@ -27,20 +24,18 @@ pub type RuntimeResult = Result<(), Error>;
 
 #[macro_export]
 macro_rules! make_runtime_error {
-    ($node:expr, $message:expr) => {
+    ($node:expr, $message:expr) => {{
+        let error = Error::RuntimeError {
+            message: $message,
+            start_pos: $node.start_pos,
+            end_pos: $node.end_pos,
+        };
+        #[cfg(panic_on_runtime_error)]
         {
-            let error = Error::RuntimeError {
-                message: $message,
-                start_pos: $node.start_pos,
-                end_pos: $node.end_pos,
-            };
-            #[cfg(panic_on_runtime_error)]
-            {
-                panic!();
-            }
-            error
+            panic!();
         }
-    };
+        error
+    }};
 }
 
 #[macro_export]

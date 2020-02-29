@@ -4,7 +4,7 @@ use crate::{
     runtime_error,
     value::{MultiRangeValueIterator, Value, ValueIterator},
     value_map::ValueMap,
-    Error, Id, LookupId, RuntimeResult,
+    Error, Id, LookupId, LookupIdSlice, RuntimeResult,
 };
 use hashbrown::HashMap;
 use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node};
@@ -305,7 +305,8 @@ impl<'a> Runtime<'a> {
                 self.list_index(&index.id, &index.expression, node)?;
             }
             Node::Id(id) => {
-                self.return_stack.push(self.get_value_or_error(id, node)?);
+                self.return_stack
+                    .push(self.get_value_or_error(&id.as_slice(), node)?);
             }
             Node::Block(block) => {
                 self.evaluate_block(&block)?;
@@ -583,7 +584,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value(&self, lookup_id: &LookupId) -> Option<Value<'a>> {
+    fn get_value(&self, lookup_id: &LookupIdSlice) -> Option<Value<'a>> {
         macro_rules! value_or_map_lookup {
             ($value:expr) => {{
                 if lookup_id.0.len() == 1 {
@@ -621,9 +622,9 @@ impl<'a> Runtime<'a> {
 
     fn visit_value_mut<'b: 'a>(
         &mut self,
-        lookup_id: &LookupId,
+        lookup_id: &LookupIdSlice,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupId, &AstNode, &mut Value<'a>) -> RuntimeResult + Clone + 'b,
+        mut visitor: impl FnMut(&LookupIdSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + Clone + 'b,
     ) -> RuntimeResult {
         macro_rules! value_or_map_lookup {
             ($value:expr) => {{
@@ -667,7 +668,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn get_value_or_error(&self, id: &LookupIdSlice, node: &AstNode) -> Result<Value<'a>, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -756,25 +757,18 @@ impl<'a> Runtime<'a> {
     }
 
     fn set_map_value(&mut self, id: &LookupId, value: Value<'a>, node: &AstNode) -> RuntimeResult {
-        // println!("Setting map value: {}", id);
-        assert!(id.0.len() > 1); // TODO assert in LookupId
-        let map_id = LookupId(id.0[..(id.0.len() - 1)].to_vec()); // TODO pass slice to visit_value_mut
-        let value_id = id.0.last().unwrap().clone(); // TODO avoid clone
+        let value_id = id.0.last().unwrap().clone();
 
-        self.visit_value_mut(
-            &map_id,
-            node,
-            move |map_id, node, maybe_map: &mut Value<'a>| {
-                if let Value::Map(map) = maybe_map {
-                    Rc::make_mut(map)
-                        .borrow_mut()
-                        .add_value(&value_id, value.clone());
-                    Ok(())
-                } else {
-                    runtime_error!(node, "Expected Map for '{}', found {}", map_id, maybe_map)
-                }
-            },
-        )
+        self.visit_value_mut(&id.map_slice(), node, move |map_id, node, maybe_map| {
+            if let Value::Map(map) = maybe_map {
+                Rc::make_mut(map)
+                    .borrow_mut()
+                    .add_value(&value_id, value.clone());
+                Ok(())
+            } else {
+                runtime_error!(node, "Expected Map for '{}', found {}", map_id, maybe_map)
+            }
+        })
     }
 
     fn set_list_value(
@@ -790,7 +784,7 @@ impl<'a> Runtime<'a> {
         let index = self.return_stack.value().clone();
         self.return_stack.pop_frame();
 
-        self.visit_value_mut(id, node, move |id, node, maybe_list: &mut Value<'a>| {
+        self.visit_value_mut(&id.as_slice(), node, move |id, node, maybe_list| {
             if let List(data) = maybe_list {
                 match index {
                     Number(i) => {
@@ -857,7 +851,7 @@ impl<'a> Runtime<'a> {
         let index = self.return_stack.value().clone();
         self.return_stack.pop_frame();
 
-        let maybe_list = self.get_value_or_error(id, node)?;
+        let maybe_list = self.get_value_or_error(&id.as_slice(), node)?;
 
         if let List(elements) = maybe_list {
             match index {
@@ -930,7 +924,7 @@ impl<'a> Runtime<'a> {
 
         runtime_trace!(self, "call_function - {}", id);
 
-        let maybe_function = match self.get_value(id) {
+        let maybe_function = match self.get_value(&id.as_slice()) {
             Some(ExternalFunction(f)) => {
                 self.evaluate_expressions(args)?;
                 let mut closure = f.0.borrow_mut();
@@ -984,10 +978,7 @@ impl<'a> Runtime<'a> {
             if id.0.len() > 1 {
                 match f.args.first() {
                     Some(self_arg) if self_arg.as_ref() == "self" => {
-                        // TODO id slices
-                        let mut map_id = id.0.clone();
-                        map_id.pop();
-                        let map = self.get_value(&LookupId(map_id)).unwrap();
+                        let map = self.get_value(&id.map_slice()).unwrap();
                         self.call_stack.push(self_arg.clone(), map);
                     }
                     _ => {}
