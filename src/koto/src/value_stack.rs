@@ -2,12 +2,12 @@ use crate::Value;
 use vec1::Vec1;
 
 #[derive(Debug)]
-pub struct ReturnStack<'a> {
+pub struct ValueStack<'a> {
     values: Vec<Value<'a>>,
     frame_size: Vec1<usize>,
 }
 
-impl<'a> ReturnStack<'a>{
+impl<'a> ValueStack<'a>{
     pub fn new() -> Self {
         let initial_capacity = 32;
         Self {

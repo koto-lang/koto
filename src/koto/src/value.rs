@@ -1,4 +1,4 @@
-use crate::{value_map::ValueMap, return_stack::ReturnStack};
+use crate::{value_map::ValueMap, value_stack::ValueStack};
 use koto_parser::{vec4, AstFor, Function};
 use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
 
@@ -174,14 +174,14 @@ impl<'a> Iterator for ValueIterator<'a> {
 pub(super) struct MultiRangeValueIterator<'a>(pub Vec<ValueIterator<'a>>);
 
 impl<'a> MultiRangeValueIterator<'a> {
-    pub fn push_next_values_to_return_stack(&mut self, return_stack: &mut ReturnStack<'a>) -> bool {
-        return_stack.start_frame();
+    pub fn push_next_values_to_stack(&mut self, value_stack: &mut ValueStack<'a>) -> bool {
+        value_stack.start_frame();
 
         for iter in self.0.iter_mut() {
             match iter.next() {
-                Some(value) => return_stack.push(value.clone()),
+                Some(value) => value_stack.push(value.clone()),
                 None => {
-                    return_stack.pop_frame();
+                    value_stack.pop_frame();
                     return false;
                 }
             }
