@@ -1,11 +1,15 @@
 use koto::{Error, Parser, Runtime};
-use std::{env::current_dir, fs::read_to_string};
+use std::{fs::read_to_string, path::PathBuf};
 
 fn run_script(script_path: &str) {
-    let mut path = current_dir().unwrap().canonicalize().unwrap();
+    let mut path = PathBuf::new();
+    path.push(env!("CARGO_MANIFEST_DIR"));
     path.push("tests");
     path.push(script_path);
-    let script = read_to_string(path).expect("Unable to load path");
+    if !path.exists() {
+        panic!(format!("Path doesn't exist: {:?}", path));
+    }
+    let script = read_to_string(&path).expect(&format!("Unable to load path '{:?}'", &path));
 
     match Parser::new().parse(&script) {
         Ok(ast) => {

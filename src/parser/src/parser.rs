@@ -150,7 +150,9 @@ impl fmt::Display for Node {
             Assign { target, global, .. } => {
                 write!(f, "Assign: target: {} - global: {}", target, global)
             }
-            MultiAssign { targets, global, .. } => write!(
+            MultiAssign {
+                targets, global, ..
+            } => write!(
                 f,
                 "MultiAssign: targets: {:?} - global: {}",
                 targets, global
@@ -206,6 +208,7 @@ pub struct AstIndex {
 pub enum AssignTarget {
     Id(Id),
     Index(AstIndex),
+    Lookup(LookupId),
 }
 
 impl fmt::Display for AssignTarget {
@@ -214,6 +217,7 @@ impl fmt::Display for AssignTarget {
         match self {
             Id(id) => write!(f, "{}", id),
             Index(index) => write!(f, "{}", index.id),
+            Lookup(lookup) => write!(f, "{}", lookup),
         }
     }
 }
@@ -416,6 +420,7 @@ impl KotoParser {
                         let expression = next_as_boxed_ast!(inner);
                         AssignTarget::Index(AstIndex { id, expression })
                     }
+                    Rule::lookup => AssignTarget::Lookup(next_as_lookup_id!(inner)),
                     _ => unreachable!(),
                 };
                 let expression = next_as_boxed_ast!(inner);
@@ -446,6 +451,7 @@ impl KotoParser {
                             let expression = next_as_boxed_ast!(inner);
                             AssignTarget::Index(AstIndex { id, expression })
                         }
+                        Rule::lookup => AssignTarget::Lookup(next_as_lookup_id!(inner)),
                         _ => unreachable!(),
                     })
                     .collect::<Vec<_>>();

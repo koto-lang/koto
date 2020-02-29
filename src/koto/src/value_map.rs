@@ -35,7 +35,11 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_value(&mut self, name: &str, value: Value<'a>) {
-        self.0.insert(Rc::new(name.to_string()), value);
+        self.insert(Rc::new(name.to_string()), value);
+    }
+
+    pub fn insert(&mut self, name: Id, value: Value<'a>) {
+        self.0.insert(name, value);
     }
 
     pub fn visit(&self, id: &[Id], visitor: impl Fn(&Value<'a>) + 'a) -> bool {
@@ -62,22 +66,22 @@ impl<'a> ValueMap<'a> {
         node: &AstNode,
         mut visitor: impl FnMut(&LookupId, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
     ) -> (bool, RuntimeResult) {
-        let id_first = id.0.first().unwrap().as_ref();
-        if id.0.len() == 1 {
-            match self.0.get_mut(id_first) {
+        let entry_id = &id.0[id_index];
+        if id_index == id.0.len() - 1 {
+            match self.0.get_mut(entry_id) {
                 Some(mut value) => (true, visitor(id, node, &mut value)),
-                _ => (false, runtime_error!(node, "Value not found: {}", id_first)),
+                _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
             }
         } else {
-            match self.0.get(id_first) {
+            match self.0.get(entry_id) {
                 Some(Value::Map(map)) => {
                     map.borrow_mut().visit_mut(id, id_index + 1, node, visitor)
                 }
                 Some(unexpected) => (
                     false,
-                    runtime_error!(node, "Expected map for {}, found {}", id_first, unexpected),
+                    runtime_error!(node, "Expected map for {}, found {}", entry_id, unexpected),
                 ),
-                _ => (false, runtime_error!(node, "Value not found: {}", id_first)),
+                _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
             }
         }
     }

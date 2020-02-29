@@ -53,7 +53,7 @@ single_assignment = !{
 multiple_assignment = !{
   global_keyword?  ~ assignment_targets
   ~ "=" ~ (expressions | expression_block) }
-assignment_target = _{ index | id }
+assignment_target = _{ index | lookup | id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 expression = _{
@@ -220,6 +220,7 @@ char = {
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
+lookup = ${ single_id ~ ("." ~ single_id)+ }
 id = ${ single_id ~ ("." ~ single_id)* }
 single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }

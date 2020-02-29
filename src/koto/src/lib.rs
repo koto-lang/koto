@@ -28,10 +28,17 @@ pub type RuntimeResult = Result<(), Error>;
 #[macro_export]
 macro_rules! make_runtime_error {
     ($node:expr, $message:expr) => {
-        Error::RuntimeError {
-            message: $message,
-            start_pos: $node.start_pos,
-            end_pos: $node.end_pos,
+        {
+            let error = Error::RuntimeError {
+                message: $message,
+                start_pos: $node.start_pos,
+                end_pos: $node.end_pos,
+            };
+            #[cfg(panic_on_runtime_error)]
+            {
+                panic!();
+            }
+            error
         }
     };
 }

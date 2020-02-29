@@ -1,14 +1,14 @@
-use hashbrown::HashMap;
-use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node};
-use std::{cell::RefCell, rc::Rc};
 use crate::{
-    runtime_error,
     call_stack::CallStack,
     return_stack::ReturnStack,
+    runtime_error,
     value::{MultiRangeValueIterator, Value, ValueIterator},
     value_map::ValueMap,
     Error, Id, LookupId, RuntimeResult,
 };
+use hashbrown::HashMap;
+use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct Runtime<'a> {
     global: ValueMap<'a>,
@@ -336,6 +336,9 @@ impl<'a> Runtime<'a> {
                     AssignTarget::Index(AstIndex { id, expression }) => {
                         self.set_list_value(id, expression, value.clone(), node)?;
                     }
+                    AssignTarget::Lookup(lookup) => {
+                        self.set_map_value(lookup, value.clone(), node)?;
+                    }
                 }
 
                 self.return_stack.push(value);
@@ -353,6 +356,9 @@ impl<'a> Runtime<'a> {
                             }
                             AssignTarget::Index(AstIndex { id, expression }) => {
                                 self.set_list_value(&id, &expression, $value, node)?;
+                            }
+                            AssignTarget::Lookup(lookup) => {
+                                self.set_map_value(lookup, $value.clone(), node)?;
                             }
                         }
                     };
@@ -613,7 +619,7 @@ impl<'a> Runtime<'a> {
         value_or_map_lookup!(global_value)
     }
 
-    fn visit_value_mut<'b : 'a>(
+    fn visit_value_mut<'b: 'a>(
         &mut self,
         lookup_id: &LookupId,
         node: &AstNode,
@@ -629,15 +635,12 @@ impl<'a> Runtime<'a> {
                             let (found, error) =
                                 map.borrow_mut()
                                     .visit_mut(lookup_id, 1, node, visitor.clone());
-                            if found && error.is_err() {
-                                return error;
-                            }
-                            false
+                            (found, Some(error))
                         } else {
-                            false
+                            (false, None)
                         }
                     }
-                    _ => false,
+                    _ => (false, None),
                 }
             }};
         }
@@ -646,22 +649,28 @@ impl<'a> Runtime<'a> {
 
         if self.call_stack.frame() > 0 {
             let value = self.call_stack.get_mut(first_id);
-            if value_or_map_lookup!(value) {
-                return Ok(());
+            match value_or_map_lookup!(value) {
+                (false, _) => {}
+                (true, Some(result)) => {
+                    return result;
+                }
+                _ => unreachable!(),
             }
         }
 
         let global_value = self.global.0.get_mut(first_id);
-        if !value_or_map_lookup!(global_value) {
-            return runtime_error!(node, "Value '{}' not found", lookup_id);
+        match value_or_map_lookup!(global_value) {
+            (false, None) => runtime_error!(node, "'{}' not found", lookup_id),
+            (false, Some(result)) => result,
+            (true, Some(result)) => result,
+            _ => unreachable!(),
         }
-        Ok(())
     }
 
     fn get_value_or_error(&self, id: &LookupId, node: &AstNode) -> Result<Value<'a>, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
-            None => runtime_error!(node, "Value '{}' not found", id),
+            None => runtime_error!(node, "'{}' not found", id),
         }
     }
 
@@ -744,6 +753,28 @@ impl<'a> Runtime<'a> {
         }
 
         Ok(())
+    }
+
+    fn set_map_value(&mut self, id: &LookupId, value: Value<'a>, node: &AstNode) -> RuntimeResult {
+        // println!("Setting map value: {}", id);
+        assert!(id.0.len() > 1); // TODO assert in LookupId
+        let map_id = LookupId(id.0[..(id.0.len() - 1)].to_vec()); // TODO pass slice to visit_value_mut
+        let value_id = id.0.last().unwrap().clone(); // TODO avoid clone
+
+        self.visit_value_mut(
+            &map_id,
+            node,
+            move |map_id, node, maybe_map: &mut Value<'a>| {
+                if let Value::Map(map) = maybe_map {
+                    Rc::make_mut(map)
+                        .borrow_mut()
+                        .add_value(&value_id, value.clone());
+                    Ok(())
+                } else {
+                    runtime_error!(node, "Expected Map for '{}', found {}", map_id, maybe_map)
+                }
+            },
+        )
     }
 
     fn set_list_value(
