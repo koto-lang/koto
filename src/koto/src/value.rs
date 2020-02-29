@@ -1,6 +1,6 @@
 use crate::{value_map::ValueMap, value_stack::ValueStack};
 use koto_parser::{vec4, AstFor, Function};
-use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, ops::Deref, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -12,6 +12,7 @@ pub enum Value<'a> {
     Range { min: isize, max: isize },
     Map(Rc<RefCell<ValueMap<'a>>>),
     Str(Rc<String>),
+    Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
     ExternalFunction(ExternalFunction<'a>),
     For(Rc<AstFor>),
@@ -51,6 +52,10 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, " }}")
             }
             Range { min, max } => write!(f, "[{}..{}]", min, max),
+            Ref(r) => {
+                let value = r.borrow();
+                write!(f, "Reference to {}{}", type_as_string(&value), value)
+            }
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "function: {:?}", raw)
@@ -75,6 +80,9 @@ impl<'a> PartialEq for Value<'a> {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a.as_ref() == b.as_ref(),
             (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
+            (Ref(a), Ref(b)) => a.as_ref() == b.as_ref(),
+            (Ref(a), _) => a.borrow().deref() == other,
+            (_, Ref(b)) => self == b.borrow().deref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
@@ -115,6 +123,13 @@ impl<'a> Ord for Value<'a> {
 impl<'a> From<bool> for Value<'a> {
     fn from(value: bool) -> Self {
         Self::Bool(value)
+    }
+}
+
+pub fn clone_deref<'a>(value: &Value<'a>) -> Value<'a> {
+    match value {
+        Value::Ref(r) => r.borrow().clone(),
+        _ => value.clone(),
     }
 }
 
@@ -202,6 +217,7 @@ pub fn type_as_string(value: &Value) -> &'static str {
         Range { .. } => "Range",
         Map(_) => "Map",
         Str(_) => "String",
+        Ref(_) => "Ref",
         Function(_) => "Function",
         ExternalFunction(_) => "ExternalFunction",
         For(_) => "For",

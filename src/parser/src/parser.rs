@@ -218,9 +218,15 @@ pub struct AstIndex {
     pub expression: Box<AstNode>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Scope {
+    Global,
+    Local,
+}
+
 #[derive(Clone, Debug)]
 pub enum AssignTarget {
-    Id { id: Id, global: bool },
+    Id { id: Id, scope: Scope },
     Index(AstIndex),
     Lookup(LookupId),
 }
@@ -229,7 +235,16 @@ impl fmt::Display for AssignTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use AssignTarget::*;
         match self {
-            Id { id, global } => write!(f, "{}{}", id, if *global { " - global" } else { "" }),
+            Id { id, scope } => write!(
+                f,
+                "{}{}",
+                id,
+                if *scope == Scope::Global {
+                    " - global"
+                } else {
+                    ""
+                }
+            ),
             Index(index) => write!(f, "{}", index.id),
             Lookup(lookup) => write!(f, "{}", lookup),
         }
@@ -433,13 +448,17 @@ impl KotoParser {
                 let target = match inner.peek().unwrap().as_rule() {
                     Rule::assignment_id => {
                         let mut inner = inner.next().unwrap().into_inner();
-                        let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
-                        if global {
+
+                        let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
                             inner.next();
-                        }
+                            Scope::Global
+                        } else {
+                            Scope::Local
+                        };
+
                         AssignTarget::Id {
                             id: next_as_rc_string!(inner.next().unwrap().into_inner()),
-                            global,
+                            scope,
                         }
                     }
                     Rule::index => {
@@ -464,14 +483,16 @@ impl KotoParser {
                         Rule::assignment_id => {
                             let mut inner = pair.into_inner();
 
-                            let global = inner.peek().unwrap().as_rule() == Rule::global_keyword;
-                            if global {
+                            let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
                                 inner.next();
-                            }
+                                Scope::Global
+                            } else {
+                                Scope::Local
+                            };
 
                             AssignTarget::Id {
                                 id: next_as_rc_string!(inner),
-                                global,
+                                scope,
                             }
                         }
                         Rule::index => {
