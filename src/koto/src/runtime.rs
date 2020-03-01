@@ -9,7 +9,6 @@ use crate::{
     value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
 };
-use hashbrown::HashMap;
 use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
 use std::{cell::RefCell, rc::Rc};
 
@@ -294,14 +293,14 @@ impl<'a> Runtime<'a> {
                 }
             }
             Node::Map(entries) => {
-                let mut map = HashMap::new();
+                let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
                     self.evaluate_and_capture(node)?;
                     map.insert(id.clone(), self.value_stack.value().clone());
                     self.value_stack.pop_frame();
                 }
                 self.value_stack
-                    .push(Map(Rc::new(RefCell::new(ValueMap(map)))));
+                    .push(Map(Rc::new(RefCell::new(map))));
             }
             Node::Index(index) => {
                 self.list_index(&index.id, &index.expression, node)?;

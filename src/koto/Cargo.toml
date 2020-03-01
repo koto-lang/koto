@@ -11,7 +11,7 @@ panic_on_runtime_error = []
 
 [dependencies]
 koto_parser = { path = "../parser" }
-hashbrown = "0.7.0"
+rustc-hash = "1.1.0"
 vec1 = "1.4.0"
 
 [dev-dependencies]
