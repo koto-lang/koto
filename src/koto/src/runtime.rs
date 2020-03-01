@@ -1,10 +1,8 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{
-        deref_value, type_as_string, values_have_matching_type, MultiRangeValueIterator, Value,
-        ValueIterator,
-    },
+    value::{deref_value, type_as_string, values_have_matching_type, Value},
+    value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_map::ValueMap,
     value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
@@ -299,8 +297,7 @@ impl<'a> Runtime<'a> {
                     map.insert(id.clone(), self.value_stack.value().clone());
                     self.value_stack.pop_frame();
                 }
-                self.value_stack
-                    .push(Map(Rc::new(RefCell::new(map))));
+                self.value_stack.push(Map(Rc::new(RefCell::new(map))));
             }
             Node::Index(index) => {
                 self.list_index(&index.id, &index.expression, node)?;

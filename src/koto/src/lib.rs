@@ -3,6 +3,7 @@ mod call_stack;
 mod value_stack;
 mod runtime;
 mod value;
+mod value_iterator;
 mod value_map;
 
 pub use koto_parser::{Ast, Id, KotoParser as Parser, LookupId, LookupIdSlice};
