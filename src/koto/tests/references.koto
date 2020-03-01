@@ -39,15 +39,15 @@ assert_ne a, b
 c = ref a
 assert_eq a, c
 
-# modifications to a or c will be reflected in each other
+# Modifications to a or c will be reflected in each other
 a[0] = 99
 assert_eq a, c
 c[2] = -1
 assert_eq a, c
 
-# assigning a ref to a new value creates a new reference to the data
+# Assigning a ref to a new value creates a new reference to the data
 d = c
-# using the ref keyword with a reference will bind to the underlying data
+# Using the ref keyword with a reference will bind to the underlying data
 e = ref c
 
 assert_eq c, d
@@ -55,12 +55,12 @@ assert_eq c[0], 99 # Indexing a reference to a list works as expected
 assert_eq d, e
 assert_eq e, [99, 42, -1]
 
-# reassigning a ref with a new type doesn't affect other refs
+# Reassigning a ref with a new type doesn't affect other refs
 a = "hi"
 assert_eq a, "hi"
 assert_eq c, [99, 42, -1]
 
-# reassigning a ref with the same type will be reflected in the other references
+# Reassigning a ref with the same type will be reflected in the other references
 c = [-1, -2, -3]
 assert_eq c, e
 assert_eq e, [-1, -2, -3]
@@ -68,8 +68,13 @@ assert_eq e, [-1, -2, -3]
 # b remains untouched
 assert_eq b, [1, 2, 3]
 
+# References can be used as function arguments
 a = []
 fill_n = |data, n, x|
   data = x for i in 0..n
 fill_n ref a, 3, 7
 assert_eq a, [7, 7, 7]
+
+# Referenced lists can be used as for loop ranges
+b = x for x in a
+assert_eq b, [7, 7, 7]

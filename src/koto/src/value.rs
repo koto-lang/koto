@@ -138,6 +138,15 @@ pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
     }
 }
 
+pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
+    use Value::Ref;
+
+    match value {
+        Ref(r) => r.borrow().clone(),
+        _ => value.clone(),
+    }
+}
+
 pub type BuiltinResult<'a> = Result<Value<'a>, String>;
 pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
 

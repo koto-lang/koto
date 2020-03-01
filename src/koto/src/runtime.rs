@@ -2,7 +2,8 @@ use crate::{
     call_stack::CallStack,
     runtime_error,
     value::{
-        type_as_string, values_have_matching_type, MultiRangeValueIterator, Value, ValueIterator,
+        deref_value, type_as_string, values_have_matching_type, MultiRangeValueIterator, Value,
+        ValueIterator,
     },
     value_map::ValueMap,
     value_stack::ValueStack,
@@ -10,7 +11,7 @@ use crate::{
 };
 use hashbrown::HashMap;
 use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
-use std::{cell::RefCell, ops::Deref, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct Runtime<'a> {
     global: ValueMap<'a>,
@@ -588,14 +589,14 @@ impl<'a> Runtime<'a> {
                 Some(exists) => match (&exists, &value) {
                     (Ref(ref_a), Ref(ref_b)) => {
                         if ref_a != ref_b {
-                            self.global.0.insert(id.clone(), value);
+                            *exists = value;
                         }
                     }
                     (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
-                        *ref_a.borrow_mut() = value.clone();
+                        *ref_a.borrow_mut() = value;
                     }
                     _ => {
-                        self.global.0.insert(id.clone(), value);
+                        *exists = value;
                     }
                 },
                 None => {
@@ -607,14 +608,14 @@ impl<'a> Runtime<'a> {
                 Some(exists) => match (&exists, &value) {
                     (Ref(ref_a), Ref(ref_b)) => {
                         if ref_a != ref_b {
-                            self.call_stack.extend(id.clone(), value);
+                            *exists = value;
                         }
                     }
                     (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
-                        *ref_a.borrow_mut() = value.clone();
+                        *ref_a.borrow_mut() = value;
                     }
                     _ => {
-                        *exists = value.clone();
+                        *exists = value;
                     }
                 },
                 None => {
@@ -731,7 +732,7 @@ impl<'a> Runtime<'a> {
                 let range = self.value_stack.value().clone();
                 self.value_stack.pop_frame();
 
-                let value_iter = match range {
+                let value_iter = match deref_value(&range) {
                     v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                     unexpected => runtime_error!(
                         node,
@@ -804,7 +805,7 @@ impl<'a> Runtime<'a> {
                             let range = self.value_stack.value().clone();
                             self.value_stack.pop_frame();
 
-                            match range {
+                            match deref_value(&range) {
                                 v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                                 unexpected => runtime_error!(
                                     node,
@@ -990,79 +991,65 @@ impl<'a> Runtime<'a> {
 
         let (maybe_list, _scope) = self.get_value_or_error(&id.as_slice(), node)?;
 
-        macro_rules! get_index {
-            ($elements:expr) => {
-                match index {
-                    Number(i) => {
-                        let i = i as usize;
-                        if i < $elements.len() {
-                            self.value_stack.push($elements[i].clone());
-                        } else {
-                            return runtime_error!(
-                                node,
-                                "Index out of bounds: '{}' has a length of {} but the index is {}",
-                                id,
-                                $elements.len(),
-                                i
-                            );
-                        }
-                    }
-                    Range { min, max } => {
-                        let umin = min as usize;
-                        let umax = max as usize;
-                        if min < 0 || max < 0 {
-                            return runtime_error!(
-                                node,
-                                "Indexing with negative indices isn't supported, min: {}, max: {}",
-                                min,
-                                max
-                            );
-                        } else if umin >= $elements.len() || umax >= $elements.len() {
-                            return runtime_error!(
-                                node,
-                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                                id,
-                                $elements.len(),
-                                min,
-                                max
-                            );
-                        } else {
-                            // TODO Avoid allocating new vec, introduce 'slice' value type
-                            self.value_stack.push(List(Rc::new(
-                                $elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
-                            )));
-                        }
-                    }
-                    _ => {
+        if let List(elements) = deref_value(&maybe_list) {
+            match index {
+                Number(i) => {
+                    let i = i as usize;
+                    if i < elements.len() {
+                        self.value_stack.push(elements[i].clone());
+                    } else {
                         return runtime_error!(
                             node,
-                            "Indexing is only supported with number values or ranges, found {})",
-                            type_as_string(&index)
-                        )
+                            "Index out of bounds: '{}' has a length of {} but the index is {}",
+                            id,
+                            elements.len(),
+                            i
+                        );
                     }
                 }
-            };
-        }
-
-        match &maybe_list {
-            List(ref elements) => Ok(get_index!(elements)),
-            Ref(r) => {
-                if let List(elements) = r.borrow().deref() {
-                    Ok(get_index!(elements))
-                } else {
-                    runtime_error!(
+                Range { min, max } => {
+                    let umin = min as usize;
+                    let umax = max as usize;
+                    if min < 0 || max < 0 {
+                        return runtime_error!(
+                            node,
+                            "Indexing with negative indices isn't supported, min: {}, max: {}",
+                            min,
+                            max
+                        );
+                    } else if umin >= elements.len() || umax >= elements.len() {
+                        return runtime_error!(
+                            node,
+                            "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                            id,
+                            elements.len(),
+                            min,
+                            max
+                        );
+                    } else {
+                        // TODO Avoid allocating new vec, introduce 'slice' value type
+                        self.value_stack.push(List(Rc::new(
+                            elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
+                        )));
+                    }
+                }
+                _ => {
+                    return runtime_error!(
                         node,
-                        "Indexing is only supported for Lists, found {}",
-                        type_as_string(&maybe_list)
+                        "Indexing is only supported with number values or ranges, found {})",
+                        type_as_string(&index)
                     )
                 }
             }
-            _ => runtime_error!(
+        } else {
+            return runtime_error!(
                 node,
                 "Indexing is only supported for Lists, found {}",
                 type_as_string(&maybe_list)
-            ),
+            );
         }
+
+        Ok(())
     }
 
     fn call_function(
