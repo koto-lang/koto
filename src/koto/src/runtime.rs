@@ -578,39 +578,47 @@ impl<'a> Runtime<'a> {
     }
 
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
-        use std::ops::Deref;
         use Value::Ref;
+
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
-            if let Some(exists) = self.global.0.get_mut(id.as_ref()) {
-                match exists {
-                    Ref(ref_value)
-                        if values_have_matching_type(ref_value.borrow().deref(), &value) =>
-                    {
-                        *ref_value.borrow_mut() = value.clone();
+            match self.global.0.get_mut(id.as_ref()) {
+                Some(exists) => match (&exists, &value) {
+                    (Ref(ref_a), Ref(ref_b)) => {
+                        if ref_a != ref_b {
+                            self.global.0.insert(id.clone(), value);
+                        }
+                    }
+                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                        *ref_a.borrow_mut() = value.clone();
                     }
                     _ => {
                         self.global.0.insert(id.clone(), value);
                     }
+                },
+                None => {
+                    self.global.0.insert(id.clone(), value);
                 }
-            } else {
-                self.global.0.insert(id.clone(), value);
             }
         } else {
-            if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
-                match exists {
-                    Ref(ref_value)
-                        if values_have_matching_type(ref_value.borrow().deref(), &value) =>
-                    {
-                        *ref_value.borrow_mut() = value.clone();
+            match self.call_stack.get_mut(id.as_ref()) {
+                Some(exists) => match (&exists, &value) {
+                    (Ref(ref_a), Ref(ref_b)) => {
+                        if ref_a != ref_b {
+                            self.call_stack.extend(id.clone(), value);
+                        }
+                    }
+                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                        *ref_a.borrow_mut() = value.clone();
                     }
                     _ => {
                         *exists = value.clone();
                     }
+                },
+                None => {
+                    self.call_stack.extend(id.clone(), value);
                 }
-            } else {
-                self.call_stack.extend(id.clone(), value);
             }
         }
     }

@@ -11,11 +11,22 @@ b = 99
 assert_eq a, 99
 
 # ref can be used to turn a value into a reference
-# t = "hi"
-# t = ref t
-# u = t
-# u = "bye"
-# assert_eq t, "bye"
+t = "hi"
+t = ref t
+u = t
+u = "bye"
+assert_eq t, "bye"
+
+# Assigning a reference to another doesn't modify existing references - TODO copy builtin
+x = ref 1
+y = x
+x = ref 2
+assert_eq x, 2
+assert_eq y, 1
+
+# Assigning a reference to itself is a no-op
+x = x
+assert_eq x, 2
 
 # Modifying a list makes a COW clone by default
 a = [1, 2, 3]

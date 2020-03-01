@@ -1,6 +1,6 @@
 use crate::{value_map::ValueMap, value_stack::ValueStack};
 use koto_parser::{vec4, AstFor, Function};
-use std::{cell::RefCell, cmp::Ordering, ops::Deref, fmt, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -127,15 +127,15 @@ impl<'a> From<bool> for Value<'a> {
 }
 
 pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
-    use Value::Ref;
     use std::mem::discriminant;
+    use Value::Ref;
 
-     match (a, b) {
-         (Ref(a), Ref(b)) => values_have_matching_type(a.borrow().deref(), b.borrow().deref()),
-         (Ref(a), _) => values_have_matching_type(a.borrow().deref(), b),
-         (_, Ref(b)) => values_have_matching_type(a, b.borrow().deref()),
-         (_, _) =>  discriminant(a) == discriminant(b),
-     }
+    match (a, b) {
+        (Ref(a), Ref(b)) => discriminant(a.borrow().deref()) == discriminant(b.borrow().deref()),
+        (Ref(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
+        (_, Ref(b)) => discriminant(a) == discriminant(b.borrow().deref()),
+        (_, _) => discriminant(a) == discriminant(b),
+    }
 }
 
 pub type BuiltinResult<'a> = Result<Value<'a>, String>;
