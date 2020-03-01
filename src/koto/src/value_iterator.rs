@@ -37,13 +37,21 @@ impl<'a> Iterator for ValueIterator<'a> {
     }
 }
 
-pub(super) struct MultiRangeValueIterator<'a>(pub Vec<ValueIterator<'a>>);
+pub(super) struct MultiRangeValueIterator<'a> {
+    pub iterators: Vec<ValueIterator<'a>>,
+}
 
 impl<'a> MultiRangeValueIterator<'a> {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            iterators: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn push_next_values_to_stack(&mut self, value_stack: &mut ValueStack<'a>) -> bool {
         value_stack.start_frame();
 
-        for iter in self.0.iter_mut() {
+        for iter in self.iterators.iter_mut() {
             match iter.next() {
                 Some(value) => value_stack.push(value.clone()),
                 None => {

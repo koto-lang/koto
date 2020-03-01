@@ -14,6 +14,7 @@ pub struct Runtime<'a> {
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     value_stack: ValueStack<'a>,
+    multi_range_iterator: MultiRangeValueIterator<'a>,
 }
 
 #[cfg(feature = "trace")]
@@ -38,6 +39,7 @@ impl<'a> Runtime<'a> {
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             value_stack: ValueStack::new(),
+            multi_range_iterator: MultiRangeValueIterator::with_capacity(4),
         };
         crate::builtins::register(&mut result);
         result
@@ -793,30 +795,34 @@ impl<'a> Runtime<'a> {
                     self.value_stack.pop_frame_and_keep_results();
                 }
             } else {
-                let mut ranges_iter = MultiRangeValueIterator(
-                    f.ranges
-                        .iter()
-                        .map(|range| {
-                            self.evaluate(range)?;
-                            let range = self.value_stack.value().clone();
-                            self.value_stack.pop_frame();
+                self.multi_range_iterator.iterators.clear();
+                for range in f.ranges.iter() {
+                    self.evaluate(range)?;
+                    let range = self.value_stack.value().clone();
+                    self.value_stack.pop_frame();
 
-                            match deref_value(&range) {
-                                v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
-                                unexpected => runtime_error!(
-                                    node,
-                                    "Expected iterable range in for statement, found {}",
-                                    type_as_string(&unexpected)
-                                ),
-                            }
-                        })
-                        .collect::<Result<Vec<_>, _>>()?,
-                );
+                    match deref_value(&range) {
+                        v @ List(_) | v @ Range { .. } => self
+                            .multi_range_iterator
+                            .iterators
+                            .push(ValueIterator::new(v)),
+                        unexpected => {
+                            return runtime_error!(
+                                node,
+                                "Expected iterable range in for statement, found {}",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                    }
+                }
 
                 let single_arg = f.args.len() == 1;
                 let first_arg = f.args.first().unwrap();
 
-                while ranges_iter.push_next_values_to_stack(&mut self.value_stack) {
+                while self
+                    .multi_range_iterator
+                    .push_next_values_to_stack(&mut self.value_stack)
+                {
                     if single_arg {
                         if self.value_stack.value_count() == 1 {
                             let value = self.value_stack.value().clone();
