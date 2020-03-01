@@ -1,40 +1,45 @@
 #-
 An implementation of the Benchmark Game's spectral norm program
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/spectralnorm.html#spectralnorm
+
+Adapted from the Lua implementation by Mike Pall
+https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
 A = |i, j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)
 
-Av = |x, n|
-  for i in 1..=n
+Av = |x, y, n|
+  for i in 0..n
+    i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A(i, j + 1)
-    a
+      a = a + x[j] * A(i1, j + 1)
+    y[i] = a
 
-Atv = |x, n|
-  for i in 1..=n
+Atv = |x, y, n|
+  for i in 0..n
+    i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A(j + 1, i)
-    a
+      a = a + x[j] * A(j + 1, i1)
+    y[i] = a
 
-AtAv = |x, n|
-  av = Av x, n
-  Atv av, n
+AtAv = |x, y, t, n|
+  Av x, t, n
+  Atv t, y, n
 
 N = number args[0]
-u = 1 for i in 0..N
-v = []
+u = ref [1 for i in 0..N] # TODO ref list.repeat 1, N
+v = ref [0 for i in 0..N]
+t = ref [0 for i in 0..N]
 
 for i in 0..10
-  v = AtAv u, N
-  u = AtAv v, N
+  AtAv u, v, t, N
+  AtAv v, u, t, N
 
-vBv = 0
-vv = 0
+vBv, vv = 0, 0
 for ui, vi in u, v
   vBv = vBv + ui * vi
   vv = vv + vi * vi
