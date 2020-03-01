@@ -1,6 +1,9 @@
 use clap::{App, Arg};
 use koto::{Error, Parser, Runtime};
-use std::{fs, io::Write};
+use std::fs;
+
+mod repl;
+use repl::Repl;
 
 fn main() {
     let matches = App::new("koto")
@@ -18,17 +21,17 @@ fn main() {
         )
         .get_matches();
 
-    let parser = Parser::new();
-    let mut runtime = Runtime::new();
-
-    if let Some(script_args) = matches
-        .values_of("args")
-        .map(|args| args.collect::<Vec<_>>())
-    {
-        runtime.set_args(&script_args);
-    }
-
     if let Some(path) = matches.value_of("script") {
+        let parser = Parser::new();
+        let mut runtime = Runtime::new();
+
+        if let Some(script_args) = matches
+            .values_of("args")
+            .map(|args| args.collect::<Vec<_>>())
+        {
+            runtime.set_args(&script_args);
+        }
+
         let script = fs::read_to_string(path).expect("Unable to load path");
         match parser.parse(&script) {
             Ok(ast) => match runtime.run(&ast) {
@@ -55,23 +58,7 @@ fn main() {
             Err(e) => eprintln!("Error while parsing source: {}", e),
         }
     } else {
-        let mut input = String::new();
-        loop {
-            print!("> ");
-            std::io::stdout().flush().expect("Error flushing output");
-            std::io::stdin()
-                .read_line(&mut input)
-                .expect("Error getting input");
-            match parser.parse(&input) {
-                Ok(ast) => match runtime.run(&ast) {
-                    Ok(result) => println!("{}", result),
-                    Err(Error::RuntimeError { message, .. }) => println!("Error: {}", message),
-                },
-                Err(e) => {
-                    println!("Error parsing input: {}", e);
-                }
-            }
-            input.clear();
-        }
+        let mut repl = Repl::new();
+        repl.run();
     }
 }
