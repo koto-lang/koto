@@ -3,7 +3,7 @@ if exists("b:current_syntax")
 endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
-syntax keyword kotoKeywords global
+syntax keyword kotoKeywords global ref
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating for in
 syntax keyword kotoBuiltins length list map math print push string

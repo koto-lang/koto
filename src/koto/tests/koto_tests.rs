@@ -59,6 +59,7 @@ koto_test!(lists);
 koto_test!(loops);
 koto_test!(maps);
 koto_test!(ranges);
+koto_test!(references);
 koto_test!(strings);
 koto_test!(vec4_new);
 koto_test!(vec4_ops);

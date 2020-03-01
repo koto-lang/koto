@@ -3,20 +3,22 @@ use crate::{
     value::{BuiltinResult, ExternalFunction},
     Error, LookupIdSlice, RuntimeResult, Value,
 };
-use hashbrown::HashMap;
+use rustc_hash::FxHashMap;
 use koto_parser::{AstNode, Id};
 use std::{cell::RefCell, rc::Rc};
 
+pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
+
 #[derive(Debug, Clone)]
-pub struct ValueMap<'a>(pub HashMap<Id, Value<'a>>);
+pub struct ValueMap<'a>(pub ValueHashMap<'a>);
 
 impl<'a> ValueMap<'a> {
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(ValueHashMap::default())
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(HashMap::with_capacity(capacity))
+        Self(ValueHashMap::with_capacity_and_hasher(capacity, Default::default()))
     }
 
     pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a) {

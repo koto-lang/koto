@@ -1,13 +1,15 @@
 use crate::{
     call_stack::CallStack,
-    value_stack::ValueStack,
     runtime_error,
-    value::{MultiRangeValueIterator, Value, ValueIterator},
+    value::{
+        deref_value, type_as_string, values_have_matching_type, MultiRangeValueIterator, Value,
+        ValueIterator,
+    },
     value_map::ValueMap,
+    value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
 };
-use hashbrown::HashMap;
-use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node};
+use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Runtime<'a> {
@@ -132,7 +134,6 @@ impl<'a> Runtime<'a> {
                     self.value_stack.pop_frame_and_keep_results();
                 }
                 _ => {
-                    // TODO check values in value stack for unexpanded for loops + ranges
                     let list = self
                         .value_stack
                         .values()
@@ -285,28 +286,31 @@ impl<'a> Runtime<'a> {
                         return runtime_error!(
                             node,
                             "Expected numbers for range bounds, found min: {}, max: {}",
-                            unexpected.0,
-                            unexpected.1
+                            type_as_string(&unexpected.0),
+                            type_as_string(&unexpected.1)
                         )
                     }
                 }
             }
             Node::Map(entries) => {
-                let mut map = HashMap::new();
+                let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
                     self.evaluate_and_capture(node)?;
                     map.insert(id.clone(), self.value_stack.value().clone());
                     self.value_stack.pop_frame();
                 }
                 self.value_stack
-                    .push(Map(Rc::new(RefCell::new(ValueMap(map)))));
+                    .push(Map(Rc::new(RefCell::new(map))));
             }
             Node::Index(index) => {
                 self.list_index(&index.id, &index.expression, node)?;
             }
             Node::Id(id) => {
                 self.value_stack
-                    .push(self.get_value_or_error(&id.as_slice(), node)?);
+                    .push(self.get_value_or_error(&id.as_slice(), node)?.0);
+            }
+            Node::RefId(id) => {
+                self.make_reference(id, node)?;
             }
             Node::Block(block) => {
                 self.evaluate_block(&block)?;
@@ -315,6 +319,15 @@ impl<'a> Runtime<'a> {
             Node::Expressions(expressions) => {
                 self.evaluate_expressions(&expressions)?;
                 self.value_stack.pop_frame_and_keep_results();
+            }
+            Node::RefExpression(expression) => {
+                self.evaluate_and_capture(expression)?;
+                let value = self.value_stack.value().clone();
+                self.value_stack.pop_frame();
+                match value {
+                    Ref(_) => self.value_stack.push(value),
+                    _ => self.value_stack.push(Ref(Rc::new(RefCell::new(value)))),
+                };
             }
             Node::Function(f) => self.value_stack.push(Function(f.clone())),
             Node::Call { function, args } => {
@@ -327,8 +340,8 @@ impl<'a> Runtime<'a> {
                 self.value_stack.pop_frame();
 
                 match target {
-                    AssignTarget::Id { id, global } => {
-                        self.set_value(id, value.clone(), *global);
+                    AssignTarget::Id { id, scope } => {
+                        self.set_value(id, value.clone(), *scope);
                     }
                     AssignTarget::Index(AstIndex { id, expression }) => {
                         self.set_list_value(id, expression, value.clone(), node)?;
@@ -347,8 +360,8 @@ impl<'a> Runtime<'a> {
                 macro_rules! set_value {
                     ($target:expr, $value:expr) => {
                         match $target {
-                            AssignTarget::Id { id, global } => {
-                                self.set_value(&id, $value, *global);
+                            AssignTarget::Id { id, scope } => {
+                                self.set_value(&id, $value, *scope);
                             }
                             AssignTarget::Index(AstIndex { id, expression }) => {
                                 self.set_list_value(&id, &expression, $value, node)?;
@@ -540,7 +553,7 @@ impl<'a> Runtime<'a> {
                             return runtime_error!(
                                 node,
                                 "Expected bool in else if statement, found {}",
-                                maybe_bool
+                                type_as_string(&maybe_bool)
                             );
                         }
                     }
@@ -553,7 +566,7 @@ impl<'a> Runtime<'a> {
                     return runtime_error!(
                         node,
                         "Expected bool in if statement, found {}",
-                        maybe_bool
+                        type_as_string(&maybe_bool)
                     );
                 }
             }
@@ -565,54 +578,50 @@ impl<'a> Runtime<'a> {
         Ok(())
     }
 
-    fn set_value(&mut self, id: &Id, value: Value<'a>, global: bool) {
-        runtime_trace!(self, "set_value - {}: {}", id, value);
+    fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
+        use Value::Ref;
 
-        if self.call_stack.frame() == 0 || global {
-            self.global.0.insert(id.clone(), value);
-        } else {
-            if let Some(exists) = self.call_stack.get_mut(id.as_ref()) {
-                *exists = value.clone();
-            } else {
-                self.call_stack.extend(id.clone(), value);
-            }
-        }
-    }
+        runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
-    fn get_value(&self, lookup_id: &LookupIdSlice) -> Option<Value<'a>> {
-        macro_rules! value_or_map_lookup {
-            ($value:expr) => {{
-                if lookup_id.0.len() == 1 {
-                    $value
-                } else if $value.is_some() {
-                    let mut result = $value;
-                    for id in lookup_id.0[1..].iter() {
-                        // TODO simplify via ValueMap
-                        if result.is_none() {
-                            break;
+        if self.call_stack.frame() == 0 || scope == Scope::Global {
+            match self.global.0.get_mut(id.as_ref()) {
+                Some(exists) => match (&exists, &value) {
+                    (Ref(ref_a), Ref(ref_b)) => {
+                        if ref_a != ref_b {
+                            *exists = value;
                         }
-                        result = match result {
-                            Some(Value::Map(data)) => data.borrow().0.get(id).map(|v| v.clone()),
-                            _unexpected => None, // TODO error, previous item wasn't a map
-                        };
                     }
-                    result
-                } else {
-                    None
+                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                        *ref_a.borrow_mut() = value;
+                    }
+                    _ => {
+                        *exists = value;
+                    }
+                },
+                None => {
+                    self.global.0.insert(id.clone(), value);
                 }
-            }};
-        }
-
-        let first_id = lookup_id.0.first().unwrap();
-        if self.call_stack.frame() > 0 {
-            let value = self.call_stack.get(first_id).map(|v| v.clone());
-            if let Some(value) = value_or_map_lookup!(value) {
-                return Some(value);
+            }
+        } else {
+            match self.call_stack.get_mut(id.as_ref()) {
+                Some(exists) => match (&exists, &value) {
+                    (Ref(ref_a), Ref(ref_b)) => {
+                        if ref_a != ref_b {
+                            *exists = value;
+                        }
+                    }
+                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                        *ref_a.borrow_mut() = value;
+                    }
+                    _ => {
+                        *exists = value;
+                    }
+                },
+                None => {
+                    self.call_stack.extend(id.clone(), value);
+                }
             }
         }
-
-        let global_value = self.global.0.get(first_id).map(|v| v.clone());
-        value_or_map_lookup!(global_value)
     }
 
     fn visit_value_mut<'b: 'a>(
@@ -663,7 +672,47 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value_or_error(&self, id: &LookupIdSlice, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn get_value(&self, lookup_id: &LookupIdSlice) -> Option<(Value<'a>, Scope)> {
+        macro_rules! value_or_map_lookup {
+            ($value:expr) => {{
+                if lookup_id.0.len() == 1 {
+                    $value
+                } else if $value.is_some() {
+                    let mut result = $value;
+                    for id in lookup_id.0[1..].iter() {
+                        // TODO simplify via ValueMap
+                        if result.is_none() {
+                            break;
+                        }
+                        result = match result {
+                            Some(Value::Map(data)) => data.borrow().0.get(id).map(|v| v.clone()),
+                            _unexpected => None, // TODO error, previous item wasn't a map
+                        };
+                    }
+                    result
+                } else {
+                    None
+                }
+            }};
+        }
+
+        let first_id = lookup_id.0.first().unwrap();
+        if self.call_stack.frame() > 0 {
+            let value = self.call_stack.get(first_id).map(|v| v.clone());
+            if let Some(value) = value_or_map_lookup!(value) {
+                return Some((value, Scope::Local));
+            }
+        }
+
+        let global_value = self.global.0.get(first_id).map(|v| v.clone());
+        value_or_map_lookup!(global_value).map(|v| (v, Scope::Global))
+    }
+
+    fn get_value_or_error(
+        &self,
+        id: &LookupIdSlice,
+        node: &AstNode,
+    ) -> Result<(Value<'a>, Scope), Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -682,12 +731,12 @@ impl<'a> Runtime<'a> {
                 let range = self.value_stack.value().clone();
                 self.value_stack.pop_frame();
 
-                let value_iter = match range {
+                let value_iter = match deref_value(&range) {
                     v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                     unexpected => runtime_error!(
                         node,
                         "Expected iterable range in for statement, found {}",
-                        unexpected
+                        type_as_string(&unexpected)
                     ),
                 }?;
 
@@ -696,14 +745,16 @@ impl<'a> Runtime<'a> {
 
                 for value in value_iter {
                     if single_arg {
-                        self.set_value(first_arg, value.clone(), false);
+                        self.set_value(first_arg, value.clone(), Scope::Local);
                     } else {
                         let mut arg_iter = f.args.iter().peekable();
                         match value {
                             List(a) => {
                                 for list_value in a.iter() {
                                     match arg_iter.next() {
-                                        Some(arg) => self.set_value(arg, list_value.clone(), false),
+                                        Some(arg) => {
+                                            self.set_value(arg, list_value.clone(), Scope::Local)
+                                        }
                                         None => break,
                                     }
                                 }
@@ -713,11 +764,11 @@ impl<'a> Runtime<'a> {
                                     .next()
                                     .expect("For loops have at least one argument"),
                                 value.clone(),
-                                false,
+                                Scope::Local,
                             ),
                         }
                         for remaining_arg in arg_iter {
-                            self.set_value(remaining_arg, Value::Empty, false);
+                            self.set_value(remaining_arg, Value::Empty, Scope::Local);
                         }
                     }
 
@@ -736,7 +787,7 @@ impl<'a> Runtime<'a> {
                                 return runtime_error!(
                                     node,
                                     "Expected bool in for statement condition, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 )
                             }
                         }
@@ -753,12 +804,12 @@ impl<'a> Runtime<'a> {
                             let range = self.value_stack.value().clone();
                             self.value_stack.pop_frame();
 
-                            match range {
+                            match deref_value(&range) {
                                 v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
                                 unexpected => runtime_error!(
                                     node,
                                     "Expected iterable range in for statement, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 ),
                             }
                         })
@@ -772,7 +823,7 @@ impl<'a> Runtime<'a> {
                     if single_arg {
                         if self.value_stack.value_count() == 1 {
                             let value = self.value_stack.value().clone();
-                            self.set_value(first_arg, value, false);
+                            self.set_value(first_arg, value, Scope::Local);
                             self.value_stack.pop_frame();
                         } else {
                             let values = self
@@ -781,7 +832,7 @@ impl<'a> Runtime<'a> {
                                 .iter()
                                 .cloned()
                                 .collect::<Vec<_>>();
-                            self.set_value(first_arg, Value::List(Rc::new(values)), false);
+                            self.set_value(first_arg, Value::List(Rc::new(values)), Scope::Local);
                         }
                     } else {
                         let mut arg_iter = f.args.iter().peekable();
@@ -789,13 +840,13 @@ impl<'a> Runtime<'a> {
                             match arg_iter.next() {
                                 Some(arg) => {
                                     let value = self.value_stack.values()[i].clone();
-                                    self.set_value(arg, value.clone(), false);
+                                    self.set_value(arg, value.clone(), Scope::Local);
                                 }
                                 None => break,
                             }
                         }
                         for remaining_arg in arg_iter {
-                            self.set_value(remaining_arg, Value::Empty, false);
+                            self.set_value(remaining_arg, Value::Empty, Scope::Local);
                         }
                         self.value_stack.pop_frame();
                     }
@@ -815,7 +866,7 @@ impl<'a> Runtime<'a> {
                                 return runtime_error!(
                                     node,
                                     "Expected bool in for statement condition, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 )
                             }
                         }
@@ -839,7 +890,12 @@ impl<'a> Runtime<'a> {
                     .add_value(&value_id, value.clone());
                 Ok(())
             } else {
-                runtime_error!(node, "Expected Map for '{}', found {}", map_id, maybe_map)
+                runtime_error!(
+                    node,
+                    "Expected Map for '{}', found {}",
+                    map_id,
+                    type_as_string(&maybe_map)
+                )
             }
         })
     }
@@ -858,61 +914,69 @@ impl<'a> Runtime<'a> {
         self.value_stack.pop_frame();
 
         self.visit_value_mut(&id.as_slice(), node, move |id, node, maybe_list| {
-            if let List(data) = maybe_list {
-                match index {
-                    Number(i) => {
-                        let i = i as usize;
-                        if i < data.len() {
-                            Rc::make_mut(data)[i] = value.clone();
-                            Ok(())
-                        } else {
-                            runtime_error!(
-                                node,
-                                "Index out of bounds: '{}' has a length of {} but the index is {}",
-                                id,
-                                data.len(),
-                                i
-                            )
-                        }
+            let assign_to_index = |data: &mut Vec<Value<'a>>| match index {
+                Number(i) => {
+                    let i = i as usize;
+                    if i < data.len() {
+                        data[i] = value.clone();
+                        Ok(())
+                    } else {
+                        runtime_error!(
+                            node,
+                            "Index out of bounds: '{}' has a length of {} but the index is {}",
+                            id,
+                            data.len(),
+                            i
+                        )
                     }
-                    Range { min, max } => {
-                        let umin = min as usize;
-                        let umax = max as usize;
-                        if min < 0 || max < 0 {
-                            runtime_error!(
-                                node,
-                                "Indexing with negative indices isn't supported, min: {}, max: {}",
-                                min,
-                                max
-                            )
-                        } else if umin >= data.len() || umax > data.len() {
-                            runtime_error!(
-                                node,
-                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                                id,
-                                data.len(),
-                                min,
-                                max
-                            )
-                        } else {
-                            for element in &mut Rc::make_mut(data)[umin..umax] {
-                                *element = value.clone();
-                            }
-                            Ok(())
+                }
+                Range { min, max } => {
+                    let umin = min as usize;
+                    let umax = max as usize;
+                    if min < 0 || max < 0 {
+                        runtime_error!(
+                            node,
+                            "Indexing with negative indices isn't supported, min: {}, max: {}",
+                            min,
+                            max
+                        )
+                    } else if umin >= data.len() || umax > data.len() {
+                        runtime_error!(
+                            node,
+                            "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                            id,
+                            data.len(),
+                            min,
+                            max
+                        )
+                    } else {
+                        for element in &mut data[umin..umax] {
+                            *element = value.clone();
                         }
+                        Ok(())
                     }
+                }
+                _ => runtime_error!(
+                    node,
+                    "Indexing is only supported with number values or ranges, found {})",
+                    type_as_string(&index)
+                ),
+            };
+
+            match maybe_list {
+                List(data) => assign_to_index(&mut Rc::make_mut(data)),
+                Ref(r) => match *r.borrow_mut() {
+                    List(ref mut data) => assign_to_index(&mut Rc::make_mut(data)),
                     _ => runtime_error!(
                         node,
-                        "Indexing is only supported with number values or ranges, found {})",
-                        index
+                        "Indexing is only supported for Lists" // TODO, improve error
                     ),
-                }
-            } else {
-                runtime_error!(
+                },
+                _ => runtime_error!(
                     node,
                     "Indexing is only supported for Lists, found {}",
-                    maybe_list
-                )
+                    type_as_string(&maybe_list)
+                ),
             }
         })
     }
@@ -924,9 +988,9 @@ impl<'a> Runtime<'a> {
         let index = self.value_stack.value().clone();
         self.value_stack.pop_frame();
 
-        let maybe_list = self.get_value_or_error(&id.as_slice(), node)?;
+        let (maybe_list, _scope) = self.get_value_or_error(&id.as_slice(), node)?;
 
-        if let List(elements) = maybe_list {
+        if let List(elements) = deref_value(&maybe_list) {
             match index {
                 Number(i) => {
                     let i = i as usize;
@@ -972,7 +1036,7 @@ impl<'a> Runtime<'a> {
                     return runtime_error!(
                         node,
                         "Indexing is only supported with number values or ranges, found {})",
-                        index
+                        type_as_string(&index)
                     )
                 }
             }
@@ -980,7 +1044,7 @@ impl<'a> Runtime<'a> {
             return runtime_error!(
                 node,
                 "Indexing is only supported for Lists, found {}",
-                maybe_list
+                type_as_string(&maybe_list)
             );
         }
 
@@ -998,7 +1062,7 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "call_function - {}", id);
 
         let maybe_function = match self.get_value(&id.as_slice()) {
-            Some(ExternalFunction(f)) => {
+            Some((ExternalFunction(f), _)) => {
                 self.evaluate_expressions(args)?;
                 let mut closure = f.0.borrow_mut();
                 let builtin_result = (&mut *closure)(&self.value_stack.values());
@@ -1011,13 +1075,13 @@ impl<'a> Runtime<'a> {
                     Err(e) => runtime_error!(node, e),
                 };
             }
-            Some(Function(f)) => Some(f.clone()),
-            Some(unexpected) => {
+            Some((Function(f), _)) => Some(f.clone()),
+            Some((unexpected, _)) => {
                 return runtime_error!(
                     node,
                     "Expected function for value {}, found {}",
                     id,
-                    unexpected
+                    type_as_string(&unexpected)
                 )
             }
             None => None,
@@ -1051,7 +1115,7 @@ impl<'a> Runtime<'a> {
             if id.0.len() > 1 {
                 match f.args.first() {
                     Some(self_arg) if self_arg.as_ref() == "self" => {
-                        let map = self.get_value(&id.map_slice()).unwrap();
+                        let (map, _scope) = self.get_value(&id.map_slice()).unwrap();
                         self.call_stack.push(self_arg.clone(), map);
                     }
                     _ => {}
@@ -1081,6 +1145,24 @@ impl<'a> Runtime<'a> {
         }
 
         runtime_error!(node, "Function '{}' not found", id)
+    }
+
+    fn make_reference(&mut self, id: &LookupId, node: &AstNode) -> RuntimeResult {
+        if id.0.len() == 1 {
+            let (value, scope) = self.get_value_or_error(&id.as_slice(), node)?;
+            let value_ref = match value {
+                Value::Ref(_) => {
+                    self.value_stack.push(value.clone());
+                    return Ok(());
+                }
+                _ => Value::Ref(Rc::new(RefCell::new(value.clone()))),
+            };
+            self.set_value(&id.0[0], value_ref.clone(), scope);
+            self.value_stack.push(value_ref);
+            Ok(())
+        } else {
+            unimplemented!();
+        }
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
