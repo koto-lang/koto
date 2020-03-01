@@ -8,7 +8,7 @@ use crate::{
 };
 use hashbrown::HashMap;
 use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 pub struct Runtime<'a> {
     global: ValueMap<'a>,
@@ -984,65 +984,79 @@ impl<'a> Runtime<'a> {
 
         let (maybe_list, _scope) = self.get_value_or_error(&id.as_slice(), node)?;
 
-        if let List(elements) = maybe_list {
-            match index {
-                Number(i) => {
-                    let i = i as usize;
-                    if i < elements.len() {
-                        self.value_stack.push(elements[i].clone());
-                    } else {
+        macro_rules! get_index {
+            ($elements:expr) => {
+                match index {
+                    Number(i) => {
+                        let i = i as usize;
+                        if i < $elements.len() {
+                            self.value_stack.push($elements[i].clone());
+                        } else {
+                            return runtime_error!(
+                                node,
+                                "Index out of bounds: '{}' has a length of {} but the index is {}",
+                                id,
+                                $elements.len(),
+                                i
+                            );
+                        }
+                    }
+                    Range { min, max } => {
+                        let umin = min as usize;
+                        let umax = max as usize;
+                        if min < 0 || max < 0 {
+                            return runtime_error!(
+                                node,
+                                "Indexing with negative indices isn't supported, min: {}, max: {}",
+                                min,
+                                max
+                            );
+                        } else if umin >= $elements.len() || umax >= $elements.len() {
+                            return runtime_error!(
+                                node,
+                                "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
+                                id,
+                                $elements.len(),
+                                min,
+                                max
+                            );
+                        } else {
+                            // TODO Avoid allocating new vec, introduce 'slice' value type
+                            self.value_stack.push(List(Rc::new(
+                                $elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
+                            )));
+                        }
+                    }
+                    _ => {
                         return runtime_error!(
                             node,
-                            "Index out of bounds: '{}' has a length of {} but the index is {}",
-                            id,
-                            elements.len(),
-                            i
-                        );
+                            "Indexing is only supported with number values or ranges, found {})",
+                            index
+                        )
                     }
                 }
-                Range { min, max } => {
-                    let umin = min as usize;
-                    let umax = max as usize;
-                    if min < 0 || max < 0 {
-                        return runtime_error!(
-                            node,
-                            "Indexing with negative indices isn't supported, min: {}, max: {}",
-                            min,
-                            max
-                        );
-                    } else if umin >= elements.len() || umax >= elements.len() {
-                        return runtime_error!(
-                            node,
-                            "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                            id,
-                            elements.len(),
-                            min,
-                            max
-                        );
-                    } else {
-                        // TODO Avoid allocating new vec, introduce 'slice' value type
-                        self.value_stack.push(List(Rc::new(
-                            elements[umin..umax].iter().cloned().collect::<Vec<_>>(),
-                        )));
-                    }
-                }
-                _ => {
-                    return runtime_error!(
+            };
+        }
+
+        match &maybe_list {
+            List(ref elements) => Ok(get_index!(elements)),
+            Ref(r) => {
+                if let List(elements) = r.borrow().deref() {
+                    Ok(get_index!(elements))
+                } else {
+                    runtime_error!(
                         node,
-                        "Indexing is only supported with number values or ranges, found {})",
-                        index
+                        "Indexing is only supported for Lists, found {}",
+                        maybe_list
                     )
                 }
             }
-        } else {
-            return runtime_error!(
+            _ => runtime_error!(
                 node,
                 "Indexing is only supported for Lists, found {}",
                 maybe_list
-            );
+            ),
         }
-
-        Ok(())
     }
 
     fn call_function(
