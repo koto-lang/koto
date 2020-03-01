@@ -243,13 +243,20 @@ impl<'a> Runtime<'a> {
                         _ => self.value_stack.push(List(Rc::new(vec![value]))),
                     }
                 } else {
-                    // TODO check values in value stack for unexpanded for loops + ranges
                     let list = self
                         .value_stack
                         .values()
                         .iter()
                         .cloned()
-                        .collect::<Vec<_>>();
+                        .map(|value| match value {
+                            For(_) | Range { .. } => runtime_error!(
+                                node,
+                                "Invalid value found in list capture: '{}'",
+                                value
+                            ),
+                            _ => Ok(value),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
                     self.value_stack.pop_frame();
                     self.value_stack.push(Value::List(Rc::new(list)));
                 }
