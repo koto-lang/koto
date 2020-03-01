@@ -43,10 +43,10 @@ fn main() {
                             .lines()
                             .skip(start_pos.line - 1)
                             .take(end_pos.line - start_pos.line + 1)
-                            .map(|line| format!("  | {}", line))
+                            .map(|line| format!("  | {}\n", line))
                             .collect::<String>();
                         eprintln!(
-                            "Runtime error: {}\n  --> {}:{}\n  |\n{}\n  |",
+                            "Runtime error: {}\n  --> {}:{}\n  |\n{}  |",
                             message, start_pos.line, start_pos.column, excerpt
                         )
                     }

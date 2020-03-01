@@ -222,7 +222,7 @@ pub fn type_as_string(value: &Value) -> &'static str {
         Range { .. } => "Range",
         Map(_) => "Map",
         Str(_) => "String",
-        Ref(_) => "Ref",
+        Ref(_) => "Reference",
         Function(_) => "Function",
         ExternalFunction(_) => "ExternalFunction",
         For(_) => "For",

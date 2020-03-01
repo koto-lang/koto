@@ -1,7 +1,9 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{values_have_matching_type, MultiRangeValueIterator, Value, ValueIterator},
+    value::{
+        type_as_string, values_have_matching_type, MultiRangeValueIterator, Value, ValueIterator,
+    },
     value_map::ValueMap,
     value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
@@ -132,7 +134,6 @@ impl<'a> Runtime<'a> {
                     self.value_stack.pop_frame_and_keep_results();
                 }
                 _ => {
-                    // TODO check values in value stack for unexpanded for loops + ranges
                     let list = self
                         .value_stack
                         .values()
@@ -285,8 +286,8 @@ impl<'a> Runtime<'a> {
                         return runtime_error!(
                             node,
                             "Expected numbers for range bounds, found min: {}, max: {}",
-                            unexpected.0,
-                            unexpected.1
+                            type_as_string(&unexpected.0),
+                            type_as_string(&unexpected.1)
                         )
                     }
                 }
@@ -552,7 +553,7 @@ impl<'a> Runtime<'a> {
                             return runtime_error!(
                                 node,
                                 "Expected bool in else if statement, found {}",
-                                maybe_bool
+                                type_as_string(&maybe_bool)
                             );
                         }
                     }
@@ -565,7 +566,7 @@ impl<'a> Runtime<'a> {
                     return runtime_error!(
                         node,
                         "Expected bool in if statement, found {}",
-                        maybe_bool
+                        type_as_string(&maybe_bool)
                     );
                 }
             }
@@ -735,7 +736,7 @@ impl<'a> Runtime<'a> {
                     unexpected => runtime_error!(
                         node,
                         "Expected iterable range in for statement, found {}",
-                        unexpected
+                        type_as_string(&unexpected)
                     ),
                 }?;
 
@@ -786,7 +787,7 @@ impl<'a> Runtime<'a> {
                                 return runtime_error!(
                                     node,
                                     "Expected bool in for statement condition, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 )
                             }
                         }
@@ -808,7 +809,7 @@ impl<'a> Runtime<'a> {
                                 unexpected => runtime_error!(
                                     node,
                                     "Expected iterable range in for statement, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 ),
                             }
                         })
@@ -865,7 +866,7 @@ impl<'a> Runtime<'a> {
                                 return runtime_error!(
                                     node,
                                     "Expected bool in for statement condition, found {}",
-                                    unexpected
+                                    type_as_string(&unexpected)
                                 )
                             }
                         }
@@ -889,7 +890,12 @@ impl<'a> Runtime<'a> {
                     .add_value(&value_id, value.clone());
                 Ok(())
             } else {
-                runtime_error!(node, "Expected Map for '{}', found {}", map_id, maybe_map)
+                runtime_error!(
+                    node,
+                    "Expected Map for '{}', found {}",
+                    map_id,
+                    type_as_string(&maybe_map)
+                )
             }
         })
     }
@@ -953,7 +959,7 @@ impl<'a> Runtime<'a> {
                 _ => runtime_error!(
                     node,
                     "Indexing is only supported with number values or ranges, found {})",
-                    index
+                    type_as_string(&index)
                 ),
             };
 
@@ -969,7 +975,7 @@ impl<'a> Runtime<'a> {
                 _ => runtime_error!(
                     node,
                     "Indexing is only supported for Lists, found {}",
-                    maybe_list
+                    type_as_string(&maybe_list)
                 ),
             }
         })
@@ -1031,7 +1037,7 @@ impl<'a> Runtime<'a> {
                         return runtime_error!(
                             node,
                             "Indexing is only supported with number values or ranges, found {})",
-                            index
+                            type_as_string(&index)
                         )
                     }
                 }
@@ -1047,14 +1053,14 @@ impl<'a> Runtime<'a> {
                     runtime_error!(
                         node,
                         "Indexing is only supported for Lists, found {}",
-                        maybe_list
+                        type_as_string(&maybe_list)
                     )
                 }
             }
             _ => runtime_error!(
                 node,
                 "Indexing is only supported for Lists, found {}",
-                maybe_list
+                type_as_string(&maybe_list)
             ),
         }
     }
@@ -1089,7 +1095,7 @@ impl<'a> Runtime<'a> {
                     node,
                     "Expected function for value {}, found {}",
                     id,
-                    unexpected
+                    type_as_string(&unexpected)
                 )
             }
             None => None,
