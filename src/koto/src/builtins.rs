@@ -118,6 +118,40 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             }
         });
 
+        list.add_fn("fill", |args| {
+            if args.len() != 2 {
+                return Err(format!(
+                    "list.fill expects two arguments, found {}",
+                    args.len()
+                ));
+            }
+
+            match &args[0] {
+                Ref(r) => {
+                    match &mut *r.borrow_mut() {
+                        List(l) => {
+                            let value = args[1].clone();
+                            for v in Rc::make_mut(l).iter_mut() {
+                                *v = value.clone();
+                            }
+                        }
+                        unexpected => {
+                            return Err(format!(
+                                "list.fill expects a reference to a\
+                                 list as its first argument, found {}",
+                                value::type_as_string(&unexpected)
+                            ))
+                        }
+                    }
+                    Ok(Value::Empty)
+                }
+                unexpected => Err(format!(
+                    "list.fill expects a reference to a list as its first argument, found {}",
+                    value::type_as_string(unexpected)
+                )),
+            }
+        });
+
         global.add_map("list", list);
     }
 

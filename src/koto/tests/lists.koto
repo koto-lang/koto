@@ -37,3 +37,6 @@ assert_eq false, list.is_sortable ["42", 10, 9] # TODO not
 assert list.is_sortable ["42", "10", "9"]
 assert_eq [9, 10, 42], list.sort [42, 10, 9]
 
+a = [1, 2, 3]
+list.fill ref a, 42
+assert_eq a, [42, 42, 42]
