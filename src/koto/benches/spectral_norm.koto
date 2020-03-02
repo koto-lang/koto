@@ -31,11 +31,11 @@ AtAv = |x, y, t, n|
   Atv t, y, n
 
 N = number env.args[1]
-u = ref [1 for i in 0..N] # TODO ref list.repeat 1, N
-v = ref [0 for i in 0..N]
-t = ref [0 for i in 0..N]
+u = ref [1 for _ in 0..N] # TODO ref list.repeat 1, N
+v = ref [0 for _ in 0..N]
+t = ref [0 for _ in 0..N]
 
-for i in 0..10
+for _ in 0..10
   AtAv u, v, t, N
   AtAv v, u, t, N
 

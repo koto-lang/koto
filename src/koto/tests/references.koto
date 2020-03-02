@@ -71,7 +71,7 @@ assert_eq b, [1, 2, 3]
 # References can be used as function arguments
 a = []
 fill_n = |data, n, x|
-  data = x for i in 0..n
+  data = x for _ in 0..n
 fill_n ref a, 3, 7
 assert_eq a, [7, 7, 7]
 

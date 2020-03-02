@@ -151,17 +151,20 @@ if_inline = !{
 
 for_loop = _{ for_block | for_inline }
 for_block = !{
-  for_keyword ~ ids
+  for_keyword ~ for_ids
   ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
   ~ child_block
 }
 for_inline = !{
   value_terms
-  ~ for_keyword ~ ids
+  ~ for_keyword ~ for_ids
   ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
 }
+for_id = !{ single_id | placeholder }
+for_ids = { for_id ~ ("," ~ for_id)* }
+placeholder = { "_" }
 
 call = _{ call_with_parens | call_no_parens }
 call_with_parens = ${ id ~ call_args }

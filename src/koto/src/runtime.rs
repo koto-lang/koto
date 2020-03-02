@@ -7,7 +7,7 @@ use crate::{
     value_stack::ValueStack,
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
 };
-use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
+use koto_parser::{AssignTarget, AstFor, AstIndex, AstNode, AstOp, Node, Scope};
 use std::{cell::RefCell, path::Path, rc::Rc};
 
 #[derive(Default)]
@@ -215,8 +215,8 @@ impl<'a> Runtime<'a> {
                 self.value_stack.pop_frame();
 
                 match value {
-                    For(_) => {
-                        self.run_for_loop(&value, expression)?;
+                    For(for_loop) => {
+                        self.run_for_loop(&for_loop, expression)?;
                         let loop_value_count = self.value_stack.value_count();
                         match loop_value_count {
                             0 => {
@@ -782,165 +782,165 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn run_for_loop(&mut self, for_statement: &Value<'a>, node: &AstNode) -> RuntimeResult {
+    fn run_for_loop(&mut self, for_loop: &Rc<AstFor>, node: &AstNode) -> RuntimeResult {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
         self.value_stack.start_frame();
 
-        if let For(f) = for_statement {
-            if f.ranges.len() == 1 {
-                self.evaluate(f.ranges.first().unwrap())?;
-                let range = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+        let f = &for_loop;
 
-                let value_iter = match deref_value(&range) {
-                    v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
-                    unexpected => runtime_error!(
-                        node,
-                        "Expected iterable range in for statement, found {}",
-                        type_as_string(&unexpected)
-                    ),
-                }?;
+        if f.ranges.len() == 1 {
+            self.evaluate(f.ranges.first().unwrap())?;
+            let range = self.value_stack.value().clone();
+            self.value_stack.pop_frame();
 
-                let single_arg = f.args.len() == 1;
-                let first_arg = f.args.first().unwrap();
+            let value_iter = match deref_value(&range) {
+                v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
+                unexpected => runtime_error!(
+                    node,
+                    "Expected iterable range in for statement, found {}",
+                    type_as_string(&unexpected)
+                ),
+            }?;
 
-                for value in value_iter {
-                    if single_arg {
-                        self.set_value(first_arg, value.clone(), Scope::Local);
-                    } else {
-                        let mut arg_iter = f.args.iter().peekable();
-                        match value {
-                            List(a) => {
-                                for list_value in a.iter() {
-                                    match arg_iter.next() {
-                                        Some(arg) => {
-                                            self.set_value(arg, list_value.clone(), Scope::Local)
-                                        }
-                                        None => break,
+            let single_arg = f.args.len() == 1;
+            let first_arg = f.args.first().unwrap();
+
+            for value in value_iter {
+                if single_arg {
+                    self.set_value(first_arg, value.clone(), Scope::Local);
+                } else {
+                    let mut arg_iter = f.args.iter().peekable();
+                    match value {
+                        List(a) => {
+                            for list_value in a.iter() {
+                                match arg_iter.next() {
+                                    Some(arg) => {
+                                        self.set_value(arg, list_value.clone(), Scope::Local)
                                     }
+                                    None => break,
                                 }
                             }
-                            _ => self.set_value(
-                                arg_iter
-                                    .next()
-                                    .expect("For loops have at least one argument"),
-                                value.clone(),
-                                Scope::Local,
-                            ),
                         }
-                        for remaining_arg in arg_iter {
-                            self.set_value(remaining_arg, Value::Empty, Scope::Local);
-                        }
+                        _ => self.set_value(
+                            arg_iter
+                                .next()
+                                .expect("For loops have at least one argument"),
+                            value.clone(),
+                            Scope::Local,
+                        ),
                     }
-
-                    if let Some(condition) = &f.condition {
-                        self.evaluate(&condition)?;
-                        let value = self.value_stack.value().clone();
-                        self.value_stack.pop_frame();
-
-                        match value {
-                            Bool(b) => {
-                                if !b {
-                                    continue;
-                                }
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node,
-                                    "Expected bool in for statement condition, found {}",
-                                    type_as_string(&unexpected)
-                                )
-                            }
-                        }
+                    for remaining_arg in arg_iter {
+                        self.set_value(remaining_arg, Value::Empty, Scope::Local);
                     }
-                    self.evaluate_and_capture(&f.body)?;
-                    self.value_stack.pop_frame_and_keep_results();
                 }
-            } else {
-                self.multi_range_iterator.iterators.clear();
-                for range in f.ranges.iter() {
-                    self.evaluate(range)?;
-                    let range = self.value_stack.value().clone();
+
+                if let Some(condition) = &f.condition {
+                    self.evaluate(&condition)?;
+                    let value = self.value_stack.value().clone();
                     self.value_stack.pop_frame();
 
-                    match deref_value(&range) {
-                        v @ List(_) | v @ Range { .. } => self
-                            .multi_range_iterator
-                            .iterators
-                            .push(ValueIterator::new(v)),
+                    match value {
+                        Bool(b) => {
+                            if !b {
+                                continue;
+                            }
+                        }
                         unexpected => {
                             return runtime_error!(
                                 node,
-                                "Expected iterable range in for statement, found {}",
+                                "Expected bool in for statement condition, found {}",
                                 type_as_string(&unexpected)
                             )
                         }
                     }
                 }
+                self.evaluate_and_capture(&f.body)?;
+                self.value_stack.pop_frame_and_keep_results();
+            }
+        } else {
+            self.multi_range_iterator.iterators.clear();
+            for range in f.ranges.iter() {
+                self.evaluate(range)?;
+                let range = self.value_stack.value().clone();
+                self.value_stack.pop_frame();
 
-                let single_arg = f.args.len() == 1;
-                let first_arg = f.args.first().unwrap();
-
-                while self
-                    .multi_range_iterator
-                    .push_next_values_to_stack(&mut self.value_stack)
-                {
-                    if single_arg {
-                        if self.value_stack.value_count() == 1 {
-                            let value = self.value_stack.value().clone();
-                            self.set_value(first_arg, value, Scope::Local);
-                            self.value_stack.pop_frame();
-                        } else {
-                            let values = self
-                                .value_stack
-                                .values()
-                                .iter()
-                                .cloned()
-                                .collect::<Vec<_>>();
-                            self.set_value(first_arg, Value::List(Rc::new(values)), Scope::Local);
-                        }
-                    } else {
-                        let mut arg_iter = f.args.iter().peekable();
-                        for i in 0..self.value_stack.value_count() {
-                            match arg_iter.next() {
-                                Some(arg) => {
-                                    let value = self.value_stack.values()[i].clone();
-                                    self.set_value(arg, value.clone(), Scope::Local);
-                                }
-                                None => break,
-                            }
-                        }
-                        for remaining_arg in arg_iter {
-                            self.set_value(remaining_arg, Value::Empty, Scope::Local);
-                        }
-                        self.value_stack.pop_frame();
+                match deref_value(&range) {
+                    v @ List(_) | v @ Range { .. } => self
+                        .multi_range_iterator
+                        .iterators
+                        .push(ValueIterator::new(v)),
+                    unexpected => {
+                        return runtime_error!(
+                            node,
+                            "Expected iterable range in for statement, found {}",
+                            type_as_string(&unexpected)
+                        )
                     }
-
-                    if let Some(condition) = &f.condition {
-                        self.evaluate(&condition)?;
-                        let value = self.value_stack.value().clone();
-                        self.value_stack.pop_frame();
-
-                        match value {
-                            Bool(b) => {
-                                if !b {
-                                    continue;
-                                }
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node,
-                                    "Expected bool in for statement condition, found {}",
-                                    type_as_string(&unexpected)
-                                )
-                            }
-                        }
-                    }
-                    self.evaluate_and_capture(&f.body)?;
-                    self.value_stack.pop_frame_and_keep_results();
                 }
+            }
+
+            let single_arg = f.args.len() == 1;
+            let first_arg = f.args.first().unwrap();
+
+            while self
+                .multi_range_iterator
+                .push_next_values_to_stack(&mut self.value_stack)
+            {
+                if single_arg {
+                    if self.value_stack.value_count() == 1 {
+                        let value = self.value_stack.value().clone();
+                        self.set_value(first_arg, value, Scope::Local);
+                        self.value_stack.pop_frame();
+                    } else {
+                        let values = self
+                            .value_stack
+                            .values()
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        self.set_value(first_arg, Value::List(Rc::new(values)), Scope::Local);
+                    }
+                } else {
+                    let mut arg_iter = f.args.iter().peekable();
+                    for i in 0..self.value_stack.value_count() {
+                        match arg_iter.next() {
+                            Some(arg) => {
+                                let value = self.value_stack.values()[i].clone();
+                                self.set_value(arg, value.clone(), Scope::Local);
+                            }
+                            None => break,
+                        }
+                    }
+                    for remaining_arg in arg_iter {
+                        self.set_value(remaining_arg, Value::Empty, Scope::Local);
+                    }
+                    self.value_stack.pop_frame();
+                }
+
+                if let Some(condition) = &f.condition {
+                    self.evaluate(&condition)?;
+                    let value = self.value_stack.value().clone();
+                    self.value_stack.pop_frame();
+
+                    match value {
+                        Bool(b) => {
+                            if !b {
+                                continue;
+                            }
+                        }
+                        unexpected => {
+                            return runtime_error!(
+                                node,
+                                "Expected bool in for statement condition, found {}",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                    }
+                }
+                self.evaluate_and_capture(&f.body)?;
+                self.value_stack.pop_frame_and_keep_results();
             }
         }
 
