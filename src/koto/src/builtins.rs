@@ -1,6 +1,6 @@
 use crate::{value, Runtime, Value, ValueMap};
 use koto_parser::vec4;
-use std::{path::Path, rc::Rc};
+use std::{fs, path::Path, rc::Rc};
 
 pub fn register<'a>(runtime: &mut Runtime<'a>) {
     macro_rules! single_arg_fn {
@@ -140,8 +140,17 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
     {
         let mut io = ValueMap::new();
 
-        single_arg_fn!(io, "exists", Str, s, {
-            Ok(Bool(Path::new(s.as_ref()).exists()))
+        single_arg_fn!(io, "exists", Str, path, {
+            Ok(Bool(Path::new(path.as_ref()).exists()))
+        });
+
+        single_arg_fn!(io, "read_string", Str, path, {
+            {
+                match fs::read_to_string(Path::new(path.as_ref())) {
+                    Ok(result) => Ok(Str(Rc::new(result))),
+                    Err(e) => Err(format!("Unable to read file {}: {}", path, e)),
+                }
+            }
         });
 
         global.add_map("io", io);
