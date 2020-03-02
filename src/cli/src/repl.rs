@@ -52,6 +52,7 @@ impl<'a> Repl<'a> {
                             None => self.input_history.len() - 1,
                         };
                         self.input = self.input_history[new_position].clone();
+                        self.cursor = None;
                         self.history_position = Some(new_position);
                     }
                 }
@@ -71,7 +72,30 @@ impl<'a> Repl<'a> {
                     } else {
                         self.input.clear();
                     }
+                    self.cursor = None;
                 }
+                Key::Left => match self.cursor {
+                    Some(position) => {
+                        if position > 0 {
+                            self.cursor = Some(position - 1);
+                        }
+                    }
+                    None => {
+                        if !self.input.is_empty() {
+                            self.cursor = Some(self.input.len() - 1);
+                        }
+                    }
+                },
+                Key::Right => match self.cursor {
+                    Some(position) => {
+                        if position < self.input.len() - 1 {
+                            self.cursor = Some(position + 1);
+                        } else {
+                            self.cursor = None;
+                        }
+                    }
+                    None => {}
+                },
                 Key::Backspace => {
                     let cursor = self.cursor;
                     match cursor {
@@ -92,6 +116,7 @@ impl<'a> Repl<'a> {
                 Key::Char(c) => match c {
                     '\n' => {
                         write!(stdout, "\r\n").unwrap();
+                        stdout.suspend_raw_mode().unwrap();
                         match self.parser.parse(&self.input) {
                             Ok(ast) => match self.runtime.run(&ast) {
                                 Ok(result) => println!("{}", result),
@@ -101,12 +126,14 @@ impl<'a> Repl<'a> {
                             },
                             Err(e) => self.print_error(&mut stdout, &e),
                         }
+                        stdout.activate_raw_mode().unwrap();
                         if self.input_history.is_empty()
                             || self.input_history.last().unwrap() != &self.input
                         {
                             self.input_history.push(self.input.clone());
                         }
                         self.history_position = None;
+                        self.cursor = None;
                         self.input.clear();
                     }
                     _ => {
@@ -121,9 +148,18 @@ impl<'a> Repl<'a> {
                     }
                 },
                 Key::Ctrl(c) => match c {
-                    'c' => self.input.clear(),
+                    'c' => {
+                        if self.input.is_empty() {
+                            write!(stdout, "^C\r\n").unwrap();
+                        } else {
+                            self.input.clear();
+                            self.cursor = None;
+                        }
+                    }
                     'd' => {
                         if self.input.is_empty() {
+                            write!(stdout, "^D\r\n").unwrap();
+                            stdout.flush().unwrap();
                             std::process::exit(0)
                         }
                     }
@@ -142,6 +178,14 @@ impl<'a> Repl<'a> {
                 self.input
             )
             .unwrap();
+
+            if let Some(position) = self.cursor {
+                if position < self.input.len() {
+                    let x_offset = (self.input.len() - position) as u16;
+                    let (cursor_x, cursor_y) = stdout.cursor_pos().unwrap();
+                    write!(stdout, "{}", cursor::Goto(cursor_x - x_offset, cursor_y),).unwrap();
+                }
+            }
 
             stdout.flush().unwrap();
         }
@@ -181,6 +225,6 @@ impl<'a> Repl<'a> {
         stdout.suspend_raw_mode().unwrap();
         println!("{}", error);
         stdout.activate_raw_mode().unwrap();
-        write!(stdout, "{}\r\n", style::Reset).unwrap();
+        write!(stdout, "{}", style::Reset).unwrap();
     }
 }
