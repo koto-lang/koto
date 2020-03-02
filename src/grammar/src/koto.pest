@@ -117,6 +117,7 @@ flow_term = _{
 value_term = _{(
   index
   | range
+  | negate
   | call
   | map_inline
   | list
@@ -209,6 +210,7 @@ range_arg = _{ number | call | index | id | ("(" ~ operation ~ ")") }
 index = ${ id ~ "[" ~ operation ~ "]" }
 
 boolean = { "true" | "false" }
+negate = { not_keyword ~ operation }
 
 number = @{
   "-"?
@@ -241,6 +243,7 @@ keyword = _{
   | "global"
   | "if"
   | "in"
+  | "not"
   | "or"
   | "ref"
   | "then"
@@ -253,6 +256,7 @@ for_keyword = @{ "for" ~ WHITESPACE+ }
 global_keyword = @{ "global" ~ WHITESPACE+ }
 if_keyword = @{ "if" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
+not_keyword = @{ "not" ~ WHITESPACE+ }
 ref_keyword = @{ "ref" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 

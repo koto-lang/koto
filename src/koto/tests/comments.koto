@@ -10,4 +10,4 @@ Multiline comments start with #- and end with -#
 assert false
 -#
 
-assert true
+assert not false

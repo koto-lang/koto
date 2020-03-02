@@ -33,7 +33,7 @@ assert_eq a, [42, 0, 0]
 assert_eq b, [0, 1, 2]
 
 assert list.is_sortable [42, 10, 9]
-assert_eq false, list.is_sortable ["42", 10, 9] # TODO not
+assert not list.is_sortable ["42", 10, 9]
 assert list.is_sortable ["42", "10", "9"]
 assert_eq [9, 10, 42], list.sort [42, 10, 9]
 

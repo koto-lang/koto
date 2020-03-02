@@ -93,6 +93,7 @@ pub enum Node {
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
     RefExpression(Box<AstNode>),
+    Negate(Box<AstNode>),
     Function(Rc<Function>),
     Call {
         function: LookupId,
@@ -168,6 +169,7 @@ impl fmt::Display for Node {
                 if e.len() == 1 { "" } else { "s" }
             ),
             RefExpression(_) => write!(f, "Ref Expression"),
+            Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             Call { function, .. } => write!(f, "Call: {}", function),
             Index(index) => write!(f, "Index: {}", index.id),
@@ -425,6 +427,12 @@ impl KotoParser {
                 inner.next(); // ref
                 let expression = next_as_boxed_ast!(inner);
                 AstNode::new(span, Node::RefExpression(expression))
+            }
+            Rule::negate => {
+                let mut inner = pair.into_inner();
+                inner.next(); // not
+                let expression = next_as_boxed_ast!(inner);
+                AstNode::new(span, Node::Negate(expression))
             }
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();

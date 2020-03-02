@@ -370,6 +370,21 @@ impl<'a> Runtime<'a> {
                     _ => self.value_stack.push(Ref(Rc::new(RefCell::new(value)))),
                 };
             }
+            Node::Negate(expression) => {
+                self.evaluate_and_capture(expression)?;
+                let value = self.value_stack.value().clone();
+                self.value_stack.pop_frame();
+                match value {
+                    Bool(b) => self.value_stack.push(Bool(!b)),
+                    unexpected => {
+                        return runtime_error!(
+                            node,
+                            "Expected Bool for not operator, found {}",
+                            unexpected
+                        );
+                    }
+                };
+            }
             Node::Function(f) => self.value_stack.push(Function(f.clone())),
             Node::Call { function, args } => {
                 return self.call_function(function, args, node);
