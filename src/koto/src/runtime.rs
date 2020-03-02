@@ -555,6 +555,13 @@ impl<'a> Runtime<'a> {
                             }
                             _ => binary_op_error!(op, a, b),
                         },
+                        (Str(a), Str(b)) => match op {
+                            AstOp::Add => {
+                                let result = String::clone(a) + b.as_ref();
+                                Ok(Str(Rc::new(result)))
+                            }
+                            _ => binary_op_error!(op, a, b),
+                        },
                         _ => binary_op_error!(op, a, b),
                     },
                 }?;

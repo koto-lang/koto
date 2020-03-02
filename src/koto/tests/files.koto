@@ -1,4 +1,4 @@
-# path = env.script_dir + "data/test.txt"
+path = env.script_dir + "data/test.txt"
 # assert io.exists path
 # contents = io.read_string path
 # assert_eq contents "aaa\nbbb\nccc"
