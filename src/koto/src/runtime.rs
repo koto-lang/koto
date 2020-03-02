@@ -1131,7 +1131,7 @@ impl<'a> Runtime<'a> {
             Some((unexpected, _)) => {
                 return runtime_error!(
                     node,
-                    "Expected function for value {}, found {}",
+                    "Expected '{}' to be a Function, found {}",
                     id,
                     type_as_string(&unexpected)
                 )

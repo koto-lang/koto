@@ -2,6 +2,6 @@ path = env.script_dir + "/data/test.txt"
 print path
 assert io.exists path
 contents = io.read_string path
-# assert_eq (string.escape contents), "aaa\nbbb\nccc\n"
+assert_eq (string.escape contents), "aaa\nbbb\nccc\n"
 # lines = string.lines contents
 # assert_eq lines ["aaa", "bbb", "ccc"]

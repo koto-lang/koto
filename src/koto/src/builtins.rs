@@ -138,6 +138,16 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
     }
 
     {
+        let mut string = ValueMap::new();
+
+        single_arg_fn!(string, "escape", Str, s, {
+            Ok(Str(Rc::new(s.escape_default().to_string())))
+        });
+
+        global.add_map("string", string);
+    }
+
+    {
         let mut io = ValueMap::new();
 
         single_arg_fn!(io, "exists", Str, path, {
