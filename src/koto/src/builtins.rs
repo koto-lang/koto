@@ -144,6 +144,14 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             Ok(Str(Rc::new(s.escape_default().to_string())))
         });
 
+        single_arg_fn!(string, "lines", Str, s, {
+            Ok(List(Rc::new(
+                s.lines()
+                    .map(|line| Str(Rc::new(line.to_string())))
+                    .collect::<Vec<_>>(),
+            )))
+        });
+
         global.add_map("string", string);
     }
 
