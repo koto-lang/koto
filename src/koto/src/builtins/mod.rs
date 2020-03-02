@@ -176,12 +176,12 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         }
     });
 
-    global.add_fn("length", |args| {
+    global.add_fn("size", |args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing list as first argument for length".to_string());
+                return Err("Missing list as first argument for size".to_string());
             }
         };
 
@@ -190,7 +190,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             List(list) => Ok(Number(list.len() as f64)),
             Range { min, max } => Ok(Number((max - min) as f64)),
             unexpected => Err(format!(
-                "length is only supported for lists and ranges, found {}",
+                "size is only supported for lists and ranges, found {}",
                 unexpected
             )),
         }
@@ -201,7 +201,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing list as first argument for length".to_string());
+                return Err("Missing list as first argument for size".to_string());
             }
         };
 

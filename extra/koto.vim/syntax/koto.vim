@@ -6,7 +6,7 @@ syntax keyword kotoTodos contained TODO FIXME NOTE
 syntax keyword kotoKeywords global ref
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating for in
-syntax keyword kotoBuiltins length list map math print push string
+syntax keyword kotoBuiltins list map math print push size string
 syntax keyword kotoAsserts assert assert_eq assert_ne
 syntax match kotoCapture "\v\|"
 
