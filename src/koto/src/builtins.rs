@@ -1,6 +1,6 @@
 use crate::{value, Runtime, Value, ValueMap};
 use koto_parser::vec4;
-use std::rc::Rc;
+use std::{path::Path, rc::Rc};
 
 pub fn register<'a>(runtime: &mut Runtime<'a>) {
     macro_rules! single_arg_fn {
@@ -135,6 +135,16 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         global.add_map("map", map);
+    }
+
+    {
+        let mut io = ValueMap::new();
+
+        single_arg_fn!(io, "exists", Str, s, {
+            Ok(Bool(Path::new(s.as_ref()).exists()))
+        });
+
+        global.add_map("io", io);
     }
 
     global.add_fn("assert", |args| {

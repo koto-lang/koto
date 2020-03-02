@@ -14,7 +14,7 @@ fn run_script(script_path: &str) {
     match Parser::new().parse(&script) {
         Ok(ast) => {
             let mut runtime = Runtime::new();
-            runtime.environment_mut().script_path = Some(script_path.to_string());
+            runtime.environment_mut().script_path = Some(path.to_str().unwrap().to_string());
             runtime.setup_environment();
             match runtime.run(&ast) {
                 Ok(_) => {}
