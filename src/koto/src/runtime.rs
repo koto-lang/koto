@@ -8,9 +8,16 @@ use crate::{
     Error, Id, LookupId, LookupIdSlice, RuntimeResult,
 };
 use koto_parser::{AssignTarget, AstIndex, AstNode, AstOp, Node, Scope};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, path::Path, rc::Rc};
+
+#[derive(Default)]
+pub struct Environment {
+    pub script_path: Option<String>,
+    pub args: Vec<String>,
+}
 
 pub struct Runtime<'a> {
+    environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     value_stack: ValueStack<'a>,
@@ -36,6 +43,7 @@ macro_rules! runtime_trace {
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         let mut result = Self {
+            environment: Default::default(),
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             value_stack: ValueStack::new(),
@@ -45,18 +53,45 @@ impl<'a> Runtime<'a> {
         result
     }
 
-    pub fn set_args(&mut self, args: &[&str]) {
-        self.global.add_list(
-            "args",
-            args.iter()
-                .map(|arg| Value::Str(Rc::new(arg.to_string())))
-                .collect::<Vec<_>>(),
-        );
+    pub fn environment_mut(&mut self) -> &mut Environment {
+        &mut self.environment
+    }
+
+    pub fn setup_environment(&mut self) {
+        use Value::{Empty, Str};
+
+        let (script_dir, script_path) = match &self.environment.script_path {
+            Some(path) => (
+                Path::new(&path)
+                    .parent()
+                    .map(|p| {
+                        Str(Rc::new(
+                            p.to_str().expect("invalid script path").to_string(),
+                        ))
+                    })
+                    .or(Some(Empty))
+                    .unwrap(),
+                Str(Rc::new(path.to_string())),
+            ),
+            None => (Empty, Empty),
+        };
+        let mut args = vec![script_path];
+        for arg in self.environment.args.iter() {
+            args.push(Str(Rc::new(arg.to_string())));
+        }
+
+        let mut env = ValueMap::new();
+
+        env.add_value("script_dir", script_dir);
+        env.add_list("args", args);
+
+        self.global.add_map("env", env);
     }
 
     /// Run a script and capture the final value
     pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value<'a>, Error> {
         runtime_trace!(self, "run");
+
         self.value_stack.start_frame();
 
         self.evaluate_block(ast)?;

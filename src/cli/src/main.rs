@@ -27,10 +27,12 @@ fn main() {
 
         if let Some(script_args) = matches
             .values_of("args")
-            .map(|args| args.collect::<Vec<_>>())
+            .map(|args| args.map(|s| s.to_string()).collect::<Vec<_>>())
         {
-            runtime.set_args(&script_args);
+            runtime.environment_mut().args = script_args;
         }
+
+        runtime.setup_environment();
 
         let script = fs::read_to_string(path).expect("Unable to load path");
         match parser.parse(&script) {

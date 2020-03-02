@@ -51,7 +51,8 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("spectral_norm", |b| {
         let mut runner = BenchmarkRunner::new("spectral_norm.koto");
-        runner.runtime.set_args(&["4", "quiet"]);
+        runner.runtime.environment_mut().args = vec!["4".to_string()];
+        runner.runtime.setup_environment();
         b.iter(|| {
             runner.run();
         })

@@ -14,6 +14,8 @@ fn run_script(script_path: &str) {
     match Parser::new().parse(&script) {
         Ok(ast) => {
             let mut runtime = Runtime::new();
+            runtime.environment_mut().script_path = Some(script_path.to_string());
+            runtime.setup_environment();
             match runtime.run(&ast) {
                 Ok(_) => {}
                 Err(e) => match e {
@@ -54,6 +56,7 @@ koto_test!(arithmetic);
 koto_test!(assignment);
 koto_test!(comments);
 koto_test!(control_flow);
+koto_test!(files);
 koto_test!(functions);
 koto_test!(lists);
 koto_test!(loops);
