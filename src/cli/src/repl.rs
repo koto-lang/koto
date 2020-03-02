@@ -101,7 +101,11 @@ impl<'a> Repl<'a> {
                             },
                             Err(e) => self.print_error(&mut stdout, &e),
                         }
-                        self.input_history.push(self.input.clone());
+                        if self.input_history.is_empty()
+                            || self.input_history.last().unwrap() != &self.input
+                        {
+                            self.input_history.push(self.input.clone());
+                        }
                         self.history_position = None;
                         self.input.clear();
                     }
