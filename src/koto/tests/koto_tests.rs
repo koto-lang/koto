@@ -61,6 +61,7 @@ koto_test!(functions);
 koto_test!(lists);
 koto_test!(loops);
 koto_test!(maps);
+koto_test!(maps_and_lists);
 koto_test!(ranges);
 koto_test!(references);
 koto_test!(strings);

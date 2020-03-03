@@ -105,18 +105,3 @@ deep.a.b.c.d.e.f = 99
 assert_eq deep.a.b.c.d.e.f, 99
 
 
-###### Lists in maps
-x =
-  foo: [10, 11, 12]
-  bar:
-    baz: [-1, -2, -3]
-
-assert_eq x.foo[2], 12
-x.foo[2] = 42
-assert_eq x.foo[2], 42
-assert_eq x.bar.baz[1], -2
-x.bar.baz[1] = 99
-assert_eq x.bar.baz[1], 99
-
-# Nested mutation doesn't affect parent nodes
-assert_eq x.foo[2], 42
