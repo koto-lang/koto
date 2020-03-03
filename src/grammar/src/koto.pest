@@ -176,7 +176,7 @@ call_no_parens = ${(id ~ WHITESPACE+ ~ operations) }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
-function_inline = !{ function_args ~ expressions }
+function_inline = !{ function_args ~ assignment_or_expression }
 function_args = {
   "|" ~ "|"
   | "|" ~ id ~ ("," ~ id)* ~ "|"

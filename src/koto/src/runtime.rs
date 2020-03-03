@@ -351,7 +351,8 @@ impl<'a> Runtime<'a> {
                     .push(self.get_value_or_error(&id.as_slice(), node)?.0);
             }
             Node::RefId(id) => {
-                self.make_reference(id, node)?;
+                let value_ref = self.make_reference(&id.as_slice(), node)?;
+                self.value_stack.push(value_ref);
             }
             Node::Block(block) => {
                 self.evaluate_block(&block)?;
@@ -747,7 +748,7 @@ impl<'a> Runtime<'a> {
                         if result.is_none() {
                             break;
                         }
-                        result = match result {
+                        result = match result.map(|v| deref_value(&v)) {
                             Some(Value::Map(data)) => data.borrow().0.get(id).map(|v| v.clone()),
                             _unexpected => None, // TODO error, previous item wasn't a map
                         };
@@ -951,18 +952,34 @@ impl<'a> Runtime<'a> {
         let value_id = id.0.last().unwrap().clone();
 
         self.visit_value_mut(&id.map_slice(), node, move |map_id, node, maybe_map| {
-            if let Value::Map(map) = maybe_map {
-                Rc::make_mut(map)
-                    .borrow_mut()
-                    .add_value(&value_id, value.clone());
-                Ok(())
-            } else {
-                runtime_error!(
+            use Value::{Map, Ref};
+            match maybe_map {
+                Map(map) => {
+                    Rc::make_mut(map)
+                        .borrow_mut()
+                        .add_value(&value_id, value.clone());
+                    Ok(())
+                }
+                Ref(r) => match &mut *r.borrow_mut() {
+                    Map(map) => {
+                        Rc::make_mut(map)
+                            .borrow_mut()
+                            .add_value(&value_id, value.clone());
+                        Ok(())
+                    }
+                    unexpected => runtime_error!(
+                        node,
+                        "Expected Map for '{}', found {}",
+                        map_id,
+                        type_as_string(&unexpected)
+                    ),
+                },
+                _ => runtime_error!(
                     node,
                     "Expected Map for '{}', found {}",
                     map_id,
                     type_as_string(&maybe_map)
-                )
+                ),
             }
         })
     }
@@ -1174,22 +1191,30 @@ impl<'a> Runtime<'a> {
                 );
             }
 
-            // allow the function that's being called to call itself
-            self.call_stack
-                .push(id.0.first().unwrap().clone(), Function(f.clone()));
-
+            let mut implicit_self = false;
             // implicit self for map functions
             if id.0.len() > 1 {
                 match f.args.first() {
                     Some(self_arg) if self_arg.as_ref() == "self" => {
+                        self.make_reference(&id.map_slice(), node)?;
                         let (map, _scope) = self.get_value(&id.map_slice()).unwrap();
                         self.call_stack.push(self_arg.clone(), map);
+                        implicit_self = true;
                     }
                     _ => {}
                 }
+            } else {
+                // allow standalone functions to be able to call themselves
+                self.call_stack
+                    .push(id.0.first().unwrap().clone(), Function(f.clone()));
             }
 
-            for (name, arg) in f.args.iter().zip(args.iter()) {
+            for (name, arg) in f
+                .args
+                .iter()
+                .skip(if implicit_self { 1 } else { 0 })
+                .zip(args.iter())
+            {
                 let expression_result = self.evaluate_and_capture(arg);
 
                 if expression_result.is_err() {
@@ -1214,19 +1239,17 @@ impl<'a> Runtime<'a> {
         runtime_error!(node, "Function '{}' not found", id)
     }
 
-    fn make_reference(&mut self, id: &LookupId, node: &AstNode) -> RuntimeResult {
+    fn make_reference(&mut self, id: &LookupIdSlice, node: &AstNode) -> Result<Value<'a>, Error> {
         if id.0.len() == 1 {
-            let (value, scope) = self.get_value_or_error(&id.as_slice(), node)?;
+            let (value, scope) = self.get_value_or_error(&id, node)?;
             let value_ref = match value {
                 Value::Ref(_) => {
-                    self.value_stack.push(value.clone());
-                    return Ok(());
+                    return Ok(value);
                 }
                 _ => Value::Ref(Rc::new(RefCell::new(value.clone()))),
             };
             self.set_value(&id.0[0], value_ref.clone(), scope);
-            self.value_stack.push(value_ref);
-            Ok(())
+            Ok(value_ref)
         } else {
             unimplemented!();
         }

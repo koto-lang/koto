@@ -31,18 +31,23 @@ assert_eq (list.sort map.keys m), ["bar", "baz", "foo"]
 
 make_o = ||
   foo: 42
-  assert_foo: |self| assert_eq self.foo, 42 # self refers to table instance
+  get_foo: |self| 42 # self refers to table instance
 
 o = make_o()
-o.assert_foo() # implicit self
+assert_eq 42, o.get_foo() # implicit self
 
 make_o2 = ||
   make_o() +
     foo_2: 57
-    assert_foo: |self| assert_eq self.foo + self.foo_2, 99
+    set_foo_2: |self, x| self.foo_2 = x
+    get_foo_2: |self| self.foo_2
+    sum_foo: |self| self.foo + self.foo_2
 
 o2 = make_o2()
-o2.assert_foo()
+assert_eq o2.foo, 42
+assert_eq o2.get_foo_2(), 57
+o2.set_foo_2(58)
+assert_eq o2.sum_foo(), 100
 
 
 ###### Maps captured from for loops and control flow
