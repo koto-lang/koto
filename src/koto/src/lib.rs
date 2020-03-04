@@ -1,6 +1,5 @@
 mod builtins;
 mod call_stack;
-mod value_stack;
 mod runtime;
 mod value;
 mod value_iterator;
@@ -23,7 +22,7 @@ pub enum Error {
     },
 }
 
-pub type RuntimeResult = Result<(), Error>;
+pub type RuntimeResult<'a> = Result<Value<'a>, Error>;
 
 #[macro_export]
 macro_rules! make_runtime_error {

@@ -1,4 +1,4 @@
-use crate::{value_stack::ValueStack, Value};
+use crate::Value;
 
 pub(super) struct ValueIterator<'a> {
     value: Value<'a>,
@@ -48,14 +48,13 @@ impl<'a> MultiRangeValueIterator<'a> {
         }
     }
 
-    pub fn push_next_values_to_stack(&mut self, value_stack: &mut ValueStack<'a>) -> bool {
-        value_stack.start_frame();
+    pub fn get_next_values(&mut self, output: &mut Vec<Value<'a>>) -> bool {
+        output.clear();
 
         for iter in self.iterators.iter_mut() {
             match iter.next() {
-                Some(value) => value_stack.push(value.clone()),
+                Some(value) => output.push(value.clone()),
                 None => {
-                    value_stack.pop_frame();
                     return false;
                 }
             }

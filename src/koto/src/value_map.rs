@@ -1,7 +1,7 @@
 use crate::{
     runtime_error,
     value::{BuiltinResult, ExternalFunction},
-    Error, LookupSlice, RuntimeResult, Value, ValueList,
+    Error, LookupSlice, Value, ValueList,
 };
 use koto_parser::{AstNode, Id, LookupNode};
 use rustc_hash::FxHashMap;
@@ -64,13 +64,13 @@ impl<'a> ValueMap<'a> {
         }
     }
 
-    pub fn visit_mut(
+    pub fn visit_mut<'b: 'a>(
         &mut self,
         id: &LookupSlice,
         id_index: usize,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
-    ) -> (bool, RuntimeResult) {
+        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> Result<(), Error> + 'b,
+    ) -> (bool, Result<(), Error>) {
         let entry_id = match &id.0[id_index] {
             LookupNode::Id(id) => id,
             LookupNode::Index(index) => &index

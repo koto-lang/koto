@@ -3,11 +3,15 @@ use crate::{
     runtime_error,
     value::{deref_value, make_reference, type_as_string, values_have_matching_type, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
-    value_stack::ValueStack,
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{AssignTarget, AstFor, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope};
 use std::{cell::RefCell, path::Path, rc::Rc};
+
+enum ValueOrValues<'a> {
+    Value(Value<'a>),
+    Values(Vec<Value<'a>>),
+}
 
 #[derive(Default)]
 pub struct Environment {
@@ -19,7 +23,6 @@ pub struct Runtime<'a> {
     environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
-    value_stack: ValueStack<'a>,
     multi_range_iterator: MultiRangeValueIterator<'a>,
 }
 
@@ -45,7 +48,6 @@ impl<'a> Runtime<'a> {
             environment: Default::default(),
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
-            value_stack: ValueStack::new(),
             multi_range_iterator: MultiRangeValueIterator::with_capacity(4),
         };
         crate::builtins::register(&mut result);
@@ -88,89 +90,66 @@ impl<'a> Runtime<'a> {
     }
 
     /// Run a script and capture the final value
-    pub fn run(&mut self, ast: &Vec<AstNode>) -> Result<Value<'a>, Error> {
+    pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult<'a> {
         runtime_trace!(self, "run");
 
-        self.value_stack.start_frame();
-
-        self.evaluate_block(ast)?;
-
-        match self.value_stack.values() {
-            [] => Ok(Value::Empty),
-            [single_value] => Ok(single_value.clone()),
-            values @ _ => {
-                let list = Value::List(Rc::new(ValueList::with_data(values.to_owned())));
-                Ok(list)
-            }
-        }
+        self.evaluate_block(ast)
     }
 
-    /// Evaluate a series of expressions and keep the final result on the value stack
-    fn evaluate_block(&mut self, block: &Vec<AstNode>) -> RuntimeResult {
+    /// Evaluate a series of expressions and return the final result
+    fn evaluate_block(&mut self, block: &Vec<AstNode>) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate_block - {}", block.len());
-
-        self.value_stack.start_frame();
 
         for (i, expression) in block.iter().enumerate() {
             if i < block.len() - 1 {
-                self.evaluate_and_expand(expression)?;
-                self.value_stack.pop_frame();
+                self.evaluate_and_expand(expression, false)?;
             } else {
-                self.evaluate_and_capture(expression)?;
-                self.value_stack.pop_frame_and_keep_results();
+                return self.evaluate_and_capture(expression);
             }
         }
 
-        Ok(())
+        unreachable!();
     }
 
-    /// Evaluate a series of expressions and add their results to the value stack
-    fn evaluate_expressions(&mut self, expressions: &Vec<AstNode>) -> RuntimeResult {
+    /// Evaluate a series of expressions and capture their results in a list
+    fn evaluate_expressions(
+        &mut self,
+        expressions: &Vec<AstNode>,
+    ) -> Result<ValueOrValues<'a>, Error> {
         runtime_trace!(self, "evaluate_expressions - {}", expressions.len());
 
-        self.value_stack.start_frame();
+        if expressions.len() == 1 {
+            return Ok(ValueOrValues::Value(
+                self.evaluate_and_capture(&expressions[0])?,
+            ));
+        } else {
+            let mut results = Vec::new();
 
-        for expression in expressions.iter() {
-            if koto_parser::is_single_value_node(&expression.node) {
-                self.evaluate(expression)?;
-                self.value_stack.pop_frame_and_keep_results();
-            } else {
-                self.evaluate_and_capture(expression)?;
-                self.value_stack.pop_frame_and_keep_results();
+            for expression in expressions.iter() {
+                if koto_parser::is_single_value_node(&expression.node) {
+                    results.push(self.evaluate(expression)?);
+                } else {
+                    results.push(self.evaluate_and_capture(expression)?);
+                }
             }
-        }
 
-        Ok(())
+            Ok(ValueOrValues::Values(results))
+        }
     }
 
     /// Evaluate an expression and capture multiple return values in a List
-    ///
-    /// Single return values get left on the stack without allocation
-    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult {
+    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult<'a> {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_capture - {}", expression.node);
 
-        self.value_stack.start_frame();
-
         if koto_parser::is_single_value_node(&expression.node) {
-            self.evaluate(expression)?;
-            self.value_stack.pop_frame_and_keep_results();
+            self.evaluate(expression)
         } else {
-            self.evaluate_and_expand(expression)?;
-
-            match self.value_stack.value_count() {
-                0 => {
-                    self.value_stack.pop_frame();
-                    self.value_stack.push(Empty);
-                }
-                1 => {
-                    self.value_stack.pop_frame_and_keep_results();
-                }
-                _ => {
-                    let list = self
-                        .value_stack
-                        .values()
+            match self.evaluate_and_expand(expression, true)? {
+                ValueOrValues::Value(value) => Ok(value),
+                ValueOrValues::Values(values) => {
+                    let list = values
                         .iter()
                         .cloned()
                         .map(|value| match value {
@@ -182,135 +161,75 @@ impl<'a> Runtime<'a> {
                             _ => Ok(value),
                         })
                         .collect::<Result<Vec<_>, Error>>()?;
-                    self.value_stack.pop_frame();
-                    self.value_stack
-                        .push(List(Rc::new(ValueList::with_data(list))));
+                    Ok(List(Rc::new(ValueList::with_data(list))))
                 }
             }
         }
-
-        Ok(())
     }
 
     /// Evaluates a single expression, and expands single return values
     ///
     /// A single For loop or Range in first position will be expanded
-    fn evaluate_and_expand(&mut self, expression: &AstNode) -> RuntimeResult {
+    fn evaluate_and_expand(
+        &mut self,
+        expression: &AstNode,
+        capture: bool,
+    ) -> Result<ValueOrValues<'a>, Error> {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_expand - {}", expression.node);
 
-        self.value_stack.start_frame();
+        let value = self.evaluate(expression)?;
 
-        self.evaluate(expression)?;
+        let expand_value = match value {
+            For(_) | Range { .. } => true,
+            _ => false,
+        };
 
-        if self.value_stack.values().len() == 1 {
-            let expand_value = match self.value_stack.value() {
-                For(_) | Range { .. } => true,
-                _ => false,
-            };
-
-            if expand_value {
-                let value = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
-
-                match value {
-                    For(for_loop) => {
-                        self.run_for_loop(&for_loop, expression)?;
-                        let loop_value_count = self.value_stack.value_count();
-                        match loop_value_count {
-                            0 => {
-                                self.value_stack.pop_frame();
-                                self.value_stack.push(Empty);
-                            }
-                            1 => {
-                                self.value_stack.pop_frame_and_keep_results();
-                            }
-                            _ => {
-                                self.value_stack.pop_frame_and_keep_results();
-                            }
-                        }
+        let result = if expand_value {
+            match value {
+                For(for_loop) => self.run_for_loop(&for_loop, expression, capture)?,
+                Range { min, max } => {
+                    if capture {
+                        let expanded = (min..max).map(|n| Number(n as f64)).collect::<Vec<_>>();
+                        List(Rc::new(ValueList::with_data(expanded)))
+                    } else {
+                        Empty
                     }
-                    Range { min, max } => {
-                        for i in min..max {
-                            self.value_stack.push(Number(i as f64))
-                        }
-                    }
-                    _ => unreachable!(),
                 }
-            } else {
-                self.value_stack.pop_frame_and_keep_results();
+                _ => unreachable!(),
             }
         } else {
-            self.value_stack.pop_frame_and_keep_results();
-        }
+            value
+        };
 
-        Ok(())
+        Ok(ValueOrValues::Value(result))
     }
 
-    fn evaluate(&mut self, node: &AstNode) -> RuntimeResult {
+    fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate - {}", node.node);
-
-        self.value_stack.start_frame();
 
         use Value::*;
 
-        match &node.node {
-            Node::Bool(b) => {
-                self.value_stack.push(Bool(*b));
-            }
-            Node::Number(n) => {
-                self.value_stack.push(Number(*n));
-            }
-            Node::Vec4(v) => {
-                self.value_stack.push(Vec4(*v));
-            }
-            Node::Str(s) => {
-                self.value_stack.push(Str(s.clone()));
-            }
-            Node::List(elements) => {
-                self.evaluate_expressions(elements)?;
-                if self.value_stack.values().len() == 1 {
-                    let value = self.value_stack.value().clone();
-                    self.value_stack.pop_frame();
-                    match value {
-                        List(_) => self.value_stack.push(value),
-                        _ => self
-                            .value_stack
-                            .push(List(Rc::new(ValueList::with_data(vec![value])))),
-                    }
-                } else {
-                    let list = self
-                        .value_stack
-                        .values()
-                        .iter()
-                        .cloned()
-                        .map(|value| match value {
-                            For(_) | Range { .. } => runtime_error!(
-                                node,
-                                "Invalid value found in list capture: '{}'",
-                                value
-                            ),
-                            _ => Ok(value),
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    self.value_stack.pop_frame();
-                    self.value_stack
-                        .push(Value::List(Rc::new(ValueList::with_data(list))));
-                }
-            }
+        let result = match &node.node {
+            Node::Bool(b) => Bool(*b),
+            Node::Number(n) => Number(*n),
+            Node::Vec4(v) => Vec4(*v),
+            Node::Str(s) => Str(s.clone()),
+            Node::List(elements) => match self.evaluate_expressions(elements)? {
+                ValueOrValues::Value(value) => match value {
+                    List(_) => value,
+                    _ => List(Rc::new(ValueList::with_data(vec![value]))),
+                },
+                ValueOrValues::Values(values) => Value::List(Rc::new(ValueList::with_data(values))),
+            },
             Node::Range {
                 min,
                 inclusive,
                 max,
             } => {
-                self.evaluate(min)?;
-                let min = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
-
-                self.evaluate(max)?;
-                let max = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+                let min = self.evaluate(min)?;
+                let max = self.evaluate(max)?;
 
                 match (min, max) {
                     (Number(min), Number(max)) => {
@@ -318,7 +237,7 @@ impl<'a> Runtime<'a> {
                         let max = max as isize;
                         let max = if *inclusive { max + 1 } else { max };
                         if min <= max {
-                            self.value_stack.push(Range { min, max });
+                            Range { min, max }
                         } else {
                             return runtime_error!(
                                 node,
@@ -340,52 +259,41 @@ impl<'a> Runtime<'a> {
             Node::Map(entries) => {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
-                    self.evaluate_and_capture(node)?;
-                    map.insert(id.clone(), self.value_stack.value().clone());
-                    self.value_stack.pop_frame();
+                    let value = self.evaluate_and_capture(node)?;
+                    map.insert(id.clone(), value);
                 }
-                self.value_stack.push(Map(Rc::new(map)));
+                Map(Rc::new(map))
             }
             Node::Lookup(lookup) => {
-                let value = self.lookup_value_or_error(&lookup.as_slice(), node)?.0;
-                self.value_stack.push(value);
+                let (value, _scope) = self.lookup_value_or_error(&lookup.as_slice(), node)?;
+                value
             }
             Node::Id(id) => {
-                self.value_stack.push(self.get_value_or_error(&id, node)?.0);
+                let (value, _scope) = self.get_value_or_error(&id, node)?;
+                value
             }
             Node::Ref(lookup_or_id) => match lookup_or_id {
-                LookupOrId::Id(id) => {
-                    let value_ref = self.make_reference_from_id(&id, node)?;
-                    self.value_stack.push(value_ref);
-                }
+                LookupOrId::Id(id) => self.make_reference_from_id(&id, node)?,
                 LookupOrId::Lookup(lookup) => {
-                    let value_ref = self.make_reference_from_lookup(&lookup.as_slice(), node)?;
-                    self.value_stack.push(value_ref);
+                    self.make_reference_from_lookup(&lookup.as_slice(), node)?
                 }
             },
-            Node::Block(block) => {
-                self.evaluate_block(&block)?;
-                self.value_stack.pop_frame_and_keep_results();
-            }
-            Node::Expressions(expressions) => {
-                self.evaluate_expressions(&expressions)?;
-                self.value_stack.pop_frame_and_keep_results();
-            }
+            Node::Block(block) => self.evaluate_block(&block)?,
+            Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
+                ValueOrValues::Value(value) => value,
+                ValueOrValues::Values(values) => Value::List(Rc::new(ValueList::with_data(values))),
+            },
             Node::RefExpression(expression) => {
-                self.evaluate_and_capture(expression)?;
-                let value = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+                let value = self.evaluate_and_capture(expression)?;
                 match value {
-                    Ref(_) => self.value_stack.push(value),
-                    _ => self.value_stack.push(Ref(Rc::new(RefCell::new(value)))),
-                };
+                    Ref(_) => value,
+                    _ => Ref(Rc::new(RefCell::new(value))),
+                }
             }
             Node::Negate(expression) => {
-                self.evaluate_and_capture(expression)?;
-                let value = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+                let value = self.evaluate_and_capture(expression)?;
                 match value {
-                    Bool(b) => self.value_stack.push(Bool(!b)),
+                    Bool(b) => Bool(!b),
                     unexpected => {
                         return runtime_error!(
                             node,
@@ -393,38 +301,33 @@ impl<'a> Runtime<'a> {
                             unexpected
                         );
                     }
-                };
+                }
             }
-            Node::Function(f) => self.value_stack.push(Function(f.clone())),
-            Node::Call { function, args } => {
-                return self.call_function(function, args, node);
-            }
+            Node::Function(f) => Function(f.clone()),
+            Node::Call { function, args } => self.call_function(function, args, node)?,
             Node::Assign { target, expression } => {
-                self.evaluate_and_capture(expression)?;
-
-                let value = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
-
-                self.value_stack.push(value.clone());
+                let value = self.evaluate_and_capture(expression)?;
 
                 match target {
                     AssignTarget::Id { id, scope } => {
-                        self.set_value(id, value, *scope);
+                        self.set_value(id, value.clone(), *scope);
                     }
                     AssignTarget::Lookup(lookup) => match lookup.value_node() {
                         LookupNode::Id(_) => {
-                            self.set_map_value(&lookup.as_slice(), value, node)?;
+                            self.set_map_value(&lookup.as_slice(), value.clone(), node)?;
                         }
                         LookupNode::Index(index) => {
                             self.set_list_value(
                                 &lookup.as_slice(),
                                 &index.expression,
-                                value,
+                                value.clone(),
                                 node,
                             )?;
                         }
                     },
                 }
+
+                value
             }
             Node::MultiAssign {
                 targets,
@@ -454,11 +357,9 @@ impl<'a> Runtime<'a> {
                 };
 
                 if expressions.len() == 1 {
-                    self.evaluate_and_capture(expressions.first().unwrap())?;
-                    let value = self.value_stack.value().clone();
-                    self.value_stack.pop_frame_and_keep_results();
+                    let value = self.evaluate_and_capture(&expressions[0])?;
 
-                    match value {
+                    match &value {
                         List(l) => {
                             let mut result_iter = l.data().iter();
                             for target in targets.iter() {
@@ -474,20 +375,22 @@ impl<'a> Runtime<'a> {
                                 first_id,
                                 value
                             );
-                            set_value!(first_id, value);
+                            set_value!(first_id, value.clone());
 
                             for id in targets[1..].iter() {
                                 set_value!(id, Empty);
                             }
                         }
                     }
-                } else {
-                    for expression in expressions.iter() {
-                        self.evaluate_and_capture(expression)?;
-                        self.value_stack.pop_frame_and_keep_results();
-                    }
 
-                    let results = self.value_stack.values().to_owned();
+                    value
+                } else {
+                    let mut results = Vec::new();
+
+                    for expression in expressions.iter() {
+                        let value = self.evaluate_and_capture(expression)?;
+                        results.push(value);
+                    }
 
                     match results.as_slice() {
                         [] => unreachable!(),
@@ -510,16 +413,15 @@ impl<'a> Runtime<'a> {
                             }
                         }
                     }
+
+                    // TODO This capture only needs to take place when its the final statement in a
+                    //      block, e.g. last statement in a function
+                    List(Rc::new(ValueList::with_data(results)))
                 }
             }
             Node::Op { op, lhs, rhs } => {
-                self.evaluate(lhs)?;
-                let a = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
-
-                self.evaluate(rhs)?;
-                let b = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+                let a = self.evaluate_and_capture(lhs)?;
+                let b = self.evaluate_and_capture(rhs)?;
 
                 runtime_trace!(self, "{:?} - a: {} b: {}", op, &a, &b);
 
@@ -535,7 +437,7 @@ impl<'a> Runtime<'a> {
                     };
                 };
 
-                let result = match op {
+                match op {
                     AstOp::Equal => Ok((a == b).into()),
                     AstOp::NotEqual => Ok((a != b).into()),
                     _ => match (&a, &b) {
@@ -605,9 +507,7 @@ impl<'a> Runtime<'a> {
                         },
                         _ => binary_op_error!(op, a, b),
                     },
-                }?;
-
-                self.value_stack.push(result);
+                }?
             }
             Node::If {
                 condition,
@@ -616,27 +516,17 @@ impl<'a> Runtime<'a> {
                 else_if_node,
                 else_node,
             } => {
-                self.evaluate(condition)?;
-                let maybe_bool = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
-
+                let maybe_bool = self.evaluate(condition)?;
                 if let Bool(condition_value) = maybe_bool {
                     if condition_value {
-                        self.evaluate(then_node)?;
-                        self.value_stack.pop_frame_and_keep_results();
-                        return Ok(());
+                        return self.evaluate(then_node);
                     }
 
                     if else_if_condition.is_some() {
-                        self.evaluate(&else_if_condition.as_ref().unwrap())?;
-                        let maybe_bool = self.value_stack.value().clone();
-                        self.value_stack.pop_frame();
-
+                        let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap())?;
                         if let Bool(condition_value) = maybe_bool {
                             if condition_value {
-                                self.evaluate(else_if_node.as_ref().unwrap())?;
-                                self.value_stack.pop_frame_and_keep_results();
-                                return Ok(());
+                                return self.evaluate(else_if_node.as_ref().unwrap());
                             }
                         } else {
                             return runtime_error!(
@@ -648,9 +538,10 @@ impl<'a> Runtime<'a> {
                     }
 
                     if else_node.is_some() {
-                        self.evaluate(else_node.as_ref().unwrap())?;
-                        self.value_stack.pop_frame_and_keep_results();
+                        return self.evaluate(else_node.as_ref().unwrap());
                     }
+
+                    Empty
                 } else {
                     return runtime_error!(
                         node,
@@ -659,12 +550,10 @@ impl<'a> Runtime<'a> {
                     );
                 }
             }
-            Node::For(f) => {
-                self.value_stack.push(For(f.clone()));
-            }
-        }
+            Node::For(f) => For(f.clone()),
+        };
 
-        Ok(())
+        Ok(result)
     }
 
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
@@ -717,11 +606,13 @@ impl<'a> Runtime<'a> {
         &mut self,
         lookup_id: &LookupSlice,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + Clone + 'b,
-    ) -> RuntimeResult {
+        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> Result<(), Error>
+            + Clone
+            + 'b,
+    ) -> Result<(), Error> {
         runtime_trace!(self, "visit_value_mut - {}", lookup_id);
 
-        macro_rules! do_lookup {
+        macro_rules! do_visit {
             ($value:expr) => {{
                 match $value {
                     Some(value) => {
@@ -758,7 +649,7 @@ impl<'a> Runtime<'a> {
 
         if self.call_stack.frame() > 0 {
             let value = self.call_stack.get_mut(&first_id);
-            match do_lookup!(value) {
+            match do_visit!(value) {
                 (false, _) => {}
                 (true, Some(result)) => {
                     return result;
@@ -768,7 +659,7 @@ impl<'a> Runtime<'a> {
         }
 
         let global_value = self.global.0.get_mut(first_id);
-        match do_lookup!(global_value) {
+        match do_visit!(global_value) {
             (false, None) => runtime_error!(node, "'{}' not found", lookup_id),
             (false, Some(result)) => result,
             (true, Some(result)) => result,
@@ -809,12 +700,12 @@ impl<'a> Runtime<'a> {
                             match &lookup.0[0] {
                                 LookupNode::Id(_) => Some(value),
                                 LookupNode::Index(index) => match deref_value(&value) {
-                                    Value::List(data) => {
-                                        self.list_index(&data, &lookup, &index.expression, node)?;
-                                        let value = self.value_stack.value().clone();
-                                        self.value_stack.pop_frame();
-                                        Some(value)
-                                    }
+                                    Value::List(data) => Some(self.list_index(
+                                        &data,
+                                        &lookup,
+                                        &index.expression,
+                                        node,
+                                    )?),
                                     unexpected => {
                                         return runtime_error!(
                                             node,
@@ -829,12 +720,12 @@ impl<'a> Runtime<'a> {
                             let mut result = if let LookupNode::Index(index) = &lookup.0[0] {
                                 // at this point we have the list, but we need the deindexed value
                                 match deref_value(&value) {
-                                    Value::List(data) => {
-                                        self.list_index(&data, &lookup, &index.expression, node)?;
-                                        let value = self.value_stack.value().clone();
-                                        self.value_stack.pop_frame();
-                                        Some(value)
-                                    }
+                                    Value::List(data) => Some(self.list_index(
+                                        &data,
+                                        &lookup,
+                                        &index.expression,
+                                        node,
+                                    )?),
                                     unexpected => {
                                         return runtime_error!(
                                             node,
@@ -863,15 +754,12 @@ impl<'a> Runtime<'a> {
                                                     .clone(),
                                             ) {
                                                 Some(Value::List(data)) => {
-                                                    self.list_index(
+                                                    result = Some(self.list_index(
                                                         &data,
                                                         &lookup.slice(0, i + 1),
                                                         &index.expression,
                                                         node,
-                                                    )?;
-                                                    let value = self.value_stack.value().clone();
-                                                    self.value_stack.pop_frame();
-                                                    result = Some(value);
+                                                    )?);
                                                 }
                                                 Some(unexpected) => {
                                                     return runtime_error!(
@@ -894,15 +782,12 @@ impl<'a> Runtime<'a> {
                                             );
                                         }
                                         LookupNode::Index(index) => {
-                                            self.list_index(
+                                            result = Some(self.list_index(
                                                 &data,
                                                 &lookup.slice(0, i + 1),
                                                 &index.expression,
                                                 node,
-                                            )?;
-                                            let value = self.value_stack.value().clone();
-                                            self.value_stack.pop_frame();
-                                            result = Some(value);
+                                            )?);
                                         }
                                     },
                                     _ => break,
@@ -948,18 +833,21 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn run_for_loop(&mut self, for_loop: &Rc<AstFor>, node: &AstNode) -> RuntimeResult {
+    fn run_for_loop(
+        &mut self,
+        for_loop: &Rc<AstFor>,
+        node: &AstNode,
+        capture: bool,
+    ) -> RuntimeResult<'a> {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
-        self.value_stack.start_frame();
-
         let f = &for_loop;
 
+        let mut captured = Vec::new();
+
         if f.ranges.len() == 1 {
-            self.evaluate(f.ranges.first().unwrap())?;
-            let range = self.value_stack.value().clone();
-            self.value_stack.pop_frame();
+            let range = self.evaluate(f.ranges.first().unwrap())?;
 
             let value_iter = match deref_value(&range) {
                 v @ List(_) | v @ Range { .. } => Ok(ValueIterator::new(v)),
@@ -1003,11 +891,9 @@ impl<'a> Runtime<'a> {
                 }
 
                 if let Some(condition) = &f.condition {
-                    self.evaluate(&condition)?;
-                    let value = self.value_stack.value().clone();
-                    self.value_stack.pop_frame();
+                    let condition_result = self.evaluate(&condition)?;
 
-                    match value {
+                    match condition_result {
                         Bool(b) => {
                             if !b {
                                 continue;
@@ -1022,15 +908,16 @@ impl<'a> Runtime<'a> {
                         }
                     }
                 }
-                self.evaluate_and_capture(&f.body)?;
-                self.value_stack.pop_frame_and_keep_results();
+
+                let result = self.evaluate_and_capture(&f.body)?;
+                if capture {
+                    captured.push(result);
+                }
             }
         } else {
             self.multi_range_iterator.iterators.clear();
             for range in f.ranges.iter() {
-                self.evaluate(range)?;
-                let range = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
+                let range = self.evaluate(range)?;
 
                 match deref_value(&range) {
                     v @ List(_) | v @ Range { .. } => self
@@ -1050,35 +937,25 @@ impl<'a> Runtime<'a> {
             let single_arg = f.args.len() == 1;
             let first_arg = f.args.first().unwrap();
 
-            while self
-                .multi_range_iterator
-                .push_next_values_to_stack(&mut self.value_stack)
-            {
+            let mut values = Vec::new();
+
+            while self.multi_range_iterator.get_next_values(&mut values) {
                 if single_arg {
-                    if self.value_stack.value_count() == 1 {
-                        let value = self.value_stack.value().clone();
-                        self.set_value(first_arg, value, Scope::Local);
-                        self.value_stack.pop_frame();
+                    if values.len() == 1 {
+                        self.set_value(first_arg, values[0].clone(), Scope::Local);
                     } else {
-                        let values = self
-                            .value_stack
-                            .values()
-                            .iter()
-                            .cloned()
-                            .collect::<Vec<_>>();
                         self.set_value(
                             first_arg,
-                            Value::List(Rc::new(ValueList::with_data(values))),
+                            Value::List(Rc::new(ValueList::with_data(values.clone()))),
                             Scope::Local,
                         );
                     }
                 } else {
                     let mut arg_iter = f.args.iter().peekable();
-                    for i in 0..self.value_stack.value_count() {
+                    for i in 0..values.len() {
                         match arg_iter.next() {
                             Some(arg) => {
-                                let value = self.value_stack.values()[i].clone();
-                                self.set_value(arg, value.clone(), Scope::Local);
+                                self.set_value(arg, values[i].clone(), Scope::Local);
                             }
                             None => break,
                         }
@@ -1086,15 +963,10 @@ impl<'a> Runtime<'a> {
                     for remaining_arg in arg_iter {
                         self.set_value(remaining_arg, Value::Empty, Scope::Local);
                     }
-                    self.value_stack.pop_frame();
                 }
 
                 if let Some(condition) = &f.condition {
-                    self.evaluate(&condition)?;
-                    let value = self.value_stack.value().clone();
-                    self.value_stack.pop_frame();
-
-                    match value {
+                    match self.evaluate(&condition)? {
                         Bool(b) => {
                             if !b {
                                 continue;
@@ -1109,12 +981,18 @@ impl<'a> Runtime<'a> {
                         }
                     }
                 }
-                self.evaluate_and_capture(&f.body)?;
-                self.value_stack.pop_frame_and_keep_results();
+                let result = self.evaluate_and_capture(&f.body)?;
+                if capture {
+                    captured.push(result);
+                }
             }
         }
 
-        Ok(())
+        Ok(if captured.is_empty() {
+            Empty
+        } else {
+            List(Rc::new(ValueList::with_data(captured)))
+        })
     }
 
     fn set_map_value(
@@ -1122,7 +1000,7 @@ impl<'a> Runtime<'a> {
         lookup: &LookupSlice,
         value: Value<'a>,
         node: &AstNode,
-    ) -> RuntimeResult {
+    ) -> RuntimeResult<'a> {
         runtime_trace!(self, "set_map_value - {}: {}", lookup, &value);
 
         let value_id = match lookup.0.last().unwrap().clone() {
@@ -1161,7 +1039,9 @@ impl<'a> Runtime<'a> {
                     ),
                 }
             },
-        )
+        )?;
+
+        Ok(Value::Empty)
     }
 
     fn set_list_value(
@@ -1170,14 +1050,12 @@ impl<'a> Runtime<'a> {
         expression: &AstNode,
         value: Value<'a>,
         node: &AstNode,
-    ) -> RuntimeResult {
+    ) -> RuntimeResult<'a> {
         use Value::*;
 
         runtime_trace!(self, "set_list_value - {}: {}", id, &value);
 
-        self.evaluate(expression)?;
-        let index = self.value_stack.value().clone();
-        self.value_stack.pop_frame();
+        let index = self.evaluate(expression)?;
 
         self.visit_value_mut(id, node, move |id, node, maybe_list| {
             let assign_to_index = |list: &mut ValueList<'a>| match index {
@@ -1185,7 +1063,7 @@ impl<'a> Runtime<'a> {
                     let i = i as usize;
                     if i < list.data().len() {
                         list.data_mut()[i] = value.clone();
-                        Ok(())
+                        Ok(Empty)
                     } else {
                         runtime_error!(
                             node,
@@ -1219,7 +1097,7 @@ impl<'a> Runtime<'a> {
                         for element in &mut list.data_mut()[umin..umax] {
                             *element = value.clone();
                         }
-                        Ok(())
+                        Ok(Empty)
                     }
                 }
                 _ => runtime_error!(
@@ -1230,21 +1108,32 @@ impl<'a> Runtime<'a> {
             };
 
             match maybe_list {
-                List(data) => assign_to_index(&mut Rc::make_mut(data)),
+                List(data) => {
+                    assign_to_index(&mut Rc::make_mut(data))?;
+                }
                 Ref(r) => match *r.borrow_mut() {
-                    List(ref mut data) => assign_to_index(&mut Rc::make_mut(data)),
-                    _ => runtime_error!(
-                        node,
-                        "Indexing is only supported for Lists" // TODO, improve error
-                    ),
+                    List(ref mut data) => {
+                        assign_to_index(&mut Rc::make_mut(data))?;
+                    }
+                    _ => {
+                        return runtime_error!(
+                            node,
+                            "Indexing is only supported for Lists" // TODO, improve error
+                        );
+                    }
                 },
-                _ => runtime_error!(
-                    node,
-                    "Indexing is only supported for Lists, found {}",
-                    type_as_string(&maybe_list)
-                ),
-            }
-        })
+                _ => {
+                    return runtime_error!(
+                        node,
+                        "Indexing is only supported for Lists, found {}",
+                        type_as_string(&maybe_list)
+                    )
+                }
+            };
+            Ok(())
+        })?;
+
+        Ok(Empty)
     }
 
     fn list_index(
@@ -1253,20 +1142,16 @@ impl<'a> Runtime<'a> {
         list_id: &LookupSlice,
         expression: &AstNode,
         node: &AstNode,
-    ) -> RuntimeResult {
+    ) -> RuntimeResult<'a> {
         use Value::*;
 
-        self.evaluate(expression)?;
-        let index = self.value_stack.value().clone();
-        self.value_stack.pop_frame();
+        let index = self.evaluate(expression)?;
 
-        self.value_stack.start_frame();
-
-        match index {
+        let result = match index {
             Number(i) => {
                 let i = i as usize;
                 if i < list.data().len() {
-                    self.value_stack.push(list.data()[i].clone());
+                    list.data()[i].clone()
                 } else {
                     return runtime_error!(
                         node,
@@ -1298,9 +1183,9 @@ impl<'a> Runtime<'a> {
                     );
                 } else {
                     // TODO Avoid allocating new vec, introduce 'slice' value type
-                    self.value_stack.push(List(Rc::new(ValueList::with_data(
+                    List(Rc::new(ValueList::with_data(
                         list.data()[umin..umax].iter().cloned().collect::<Vec<_>>(),
-                    ))));
+                    )))
                 }
             }
             _ => {
@@ -1310,9 +1195,9 @@ impl<'a> Runtime<'a> {
                     type_as_string(&index)
                 )
             }
-        }
+        };
 
-        Ok(())
+        Ok(result)
     }
 
     fn call_function(
@@ -1320,7 +1205,7 @@ impl<'a> Runtime<'a> {
         lookup_or_id: &LookupOrId,
         args: &Vec<AstNode>,
         node: &AstNode,
-    ) -> RuntimeResult {
+    ) -> RuntimeResult<'a> {
         use Value::*;
 
         runtime_trace!(self, "call_function - {}", lookup_or_id);
@@ -1332,16 +1217,15 @@ impl<'a> Runtime<'a> {
 
         let maybe_function = match maybe_function {
             Some((ExternalFunction(f), _)) => {
-                self.evaluate_expressions(args)?;
+                let args_for_builtin = self.evaluate_expressions(args)?; // TODO optimize
                 let mut closure = f.0.borrow_mut();
-                let builtin_result = (&mut *closure)(&self.value_stack.values());
-                self.value_stack.pop_frame();
+                let builtin_result = match args_for_builtin {
+                    ValueOrValues::Value(value) => (&mut *closure)(&[value]),
+                    ValueOrValues::Values(values) => (&mut *closure)(&values),
+                };
                 return match builtin_result {
-                    Ok(v) => {
-                        self.value_stack.push(v);
-                        Ok(())
-                    }
-                    Err(e) => runtime_error!(node, e),
+                    Ok(value) => Ok(value),
+                    Err(e) => return runtime_error!(node, e),
                 };
             }
             Some((Function(f), _)) => Some(f.clone()),
@@ -1403,31 +1287,27 @@ impl<'a> Runtime<'a> {
                 .skip(if implicit_self { 1 } else { 0 })
                 .zip(args.iter())
             {
-                let expression_result = self.evaluate_and_capture(arg);
+                let arg_value = match self.evaluate_and_capture(arg) {
+                    Ok(value) => value,
+                    e @ Err(_) => {
+                        self.call_stack.cancel();
+                        return e;
+                    }
+                };
 
-                if expression_result.is_err() {
-                    self.value_stack.pop_frame();
-                    self.call_stack.cancel();
-                    return expression_result;
-                }
-
-                let arg_value = self.value_stack.value().clone();
-                self.value_stack.pop_frame();
                 self.call_stack.push(name.clone(), arg_value);
             }
 
             self.call_stack.commit();
             let result = self.evaluate_block(&f.body);
-            self.value_stack.pop_frame_and_keep_results();
             self.call_stack.pop_frame();
-
             return result;
         }
 
         runtime_error!(node, "Function '{}' not found", lookup_or_id)
     }
 
-    fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> RuntimeResult<'a> {
         let (value, scope) = self.get_value_or_error(&id, node)?;
         let (value_ref, made_ref) = make_reference(value);
         if made_ref {
@@ -1440,7 +1320,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         lookup: &LookupSlice,
         node: &AstNode,
-    ) -> Result<Value<'a>, Error> {
+    ) -> RuntimeResult<'a> {
         match lookup.0.last().unwrap() {
             LookupNode::Id(id) => {
                 if lookup.0.len() == 1 {
@@ -1475,6 +1355,7 @@ impl<'a> Runtime<'a> {
 
     #[allow(dead_code)]
     fn runtime_indent(&self) -> String {
-        " ".repeat(self.value_stack.frame_count())
+        // TODO maintain indent count when trace is enabled
+        "  ".to_string()
     }
 }
