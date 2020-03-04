@@ -1,321 +1,8 @@
-use crate::{prec_climber::PrecClimber, vec4};
-use pest::{error::Error, Parser, Span};
-use std::{fmt, rc::Rc};
+use crate::{lookup::*, node::*, prec_climber::PrecClimber, Ast, AstNode, LookupNode};
+use pest::{error::Error, Parser};
+use std::rc::Rc;
 
 use koto_grammar::Rule;
-
-#[derive(Clone, Debug)]
-pub struct AstNode {
-    pub node: Node,
-    pub start_pos: Position,
-    pub end_pos: Position,
-}
-
-impl AstNode {
-    pub fn new(span: Span, node: Node) -> Self {
-        let line_col = span.start_pos().line_col();
-        let start_pos = Position {
-            line: line_col.0,
-            column: line_col.1,
-        };
-        let line_col = span.end_pos().line_col();
-        let end_pos = Position {
-            line: line_col.0,
-            column: line_col.1,
-        };
-        Self {
-            node,
-            start_pos,
-            end_pos,
-        }
-    }
-}
-
-pub type Ast = Vec<AstNode>;
-
-pub type Id = Rc<String>;
-
-#[derive(Clone, Debug)]
-pub enum LookupOrId {
-    Id(Id),
-    Lookup(Lookup),
-}
-
-impl fmt::Display for LookupOrId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LookupOrId::Id(id) => write!(f, "Id: {}", id),
-            LookupOrId::Lookup(lookup) => lookup.fmt(f),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Lookup(pub Vec<LookupNode>);
-
-#[derive(Clone, Debug)]
-pub enum LookupNode {
-    Id(Id),
-    Index(AstIndex),
-}
-
-impl Lookup {
-    pub fn as_slice(&self) -> LookupSlice {
-        LookupSlice(self.0.as_slice())
-    }
-
-    pub fn parent_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[..self.0.len() - 1])
-    }
-
-    pub fn value_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[self.0.len() - 1..])
-    }
-
-    pub fn value_node(&self) -> &LookupNode {
-        &self.0[self.0.len() - 1]
-    }
-}
-
-impl fmt::Display for Lookup {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        LookupSlice(&self.0).fmt(f)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct LookupSlice<'a>(pub &'a [LookupNode]);
-
-impl<'a> LookupSlice<'a> {
-    pub fn parent_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[..self.0.len() - 1])
-    }
-
-    pub fn value_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[self.0.len() - 1..])
-    }
-
-    pub fn value_node(&self) -> &LookupNode {
-        &self.0[self.0.len() - 1]
-    }
-
-    pub fn slice(&self, start: usize, end: usize) -> LookupSlice {
-        LookupSlice(&self.0[start..end])
-    }
-}
-
-impl<'a> fmt::Display for LookupSlice<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut first = true;
-        for node in self.0.iter() {
-            match &node {
-                LookupNode::Id(id) => {
-                    if !first {
-                        write!(f, ".")?;
-                    }
-                    write!(f, "{}", id)?
-                }
-                LookupNode::Index(index) => {
-                    if !first && index.id.is_some() {
-                        write!(f, ".")?;
-                    }
-
-                    write!(
-                        f,
-                        "{}[]",
-                        index.id.as_ref().map_or("".to_string(), |s| s.to_string())
-                    )?
-                }
-            }
-            first = false;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Node {
-    Id(Id),
-    Lookup(Lookup),
-    Ref(LookupOrId),
-    Bool(bool),
-    Number(f64),
-    Vec4(vec4::Vec4),
-    Str(Rc<String>),
-    List(Vec<AstNode>),
-    Range {
-        min: Box<AstNode>,
-        max: Box<AstNode>,
-        inclusive: bool,
-    },
-    Map(Vec<(Id, AstNode)>),
-    Block(Vec<AstNode>),
-    Expressions(Vec<AstNode>),
-    RefExpression(Box<AstNode>),
-    Negate(Box<AstNode>),
-    Function(Rc<Function>),
-    Call {
-        function: LookupOrId,
-        args: Vec<AstNode>,
-    },
-    Assign {
-        target: AssignTarget,
-        expression: Box<AstNode>,
-    },
-    MultiAssign {
-        targets: Vec<AssignTarget>,
-        expressions: Vec<AstNode>,
-    },
-    Op {
-        op: AstOp,
-        lhs: Box<AstNode>,
-        rhs: Box<AstNode>,
-    },
-    If {
-        condition: Box<AstNode>,
-        then_node: Box<AstNode>,
-        else_if_condition: Option<Box<AstNode>>,
-        else_if_node: Option<Box<AstNode>>,
-        else_node: Option<Box<AstNode>>,
-    },
-    For(Rc<AstFor>),
-}
-
-pub fn is_single_value_node(node: &Node) -> bool {
-    use Node::*;
-    match node {
-        Id(_) | Bool(_) | Number(_) | Vec4(_) | Str(_) => true,
-        _ => false,
-    }
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Node::*;
-        match self {
-            Id(id) => write!(f, "Id: {}", id),
-            Ref(lookup) => write!(f, "Ref: {}", lookup),
-            Bool(b) => write!(f, "Bool: {}", b),
-            Number(n) => write!(f, "Number: {}", n),
-            Vec4(v) => write!(f, "Vec4: {:?}", v),
-            Str(s) => write!(f, "Str: {}", s),
-            List(l) => write!(
-                f,
-                "List with {} {}",
-                l.len(),
-                if l.len() == 1 { "entry" } else { "entries" }
-            ),
-            Range { inclusive, .. } => {
-                write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
-            }
-            Map(m) => write!(
-                f,
-                "Map with {} {}",
-                m.len(),
-                if m.len() == 1 { "entry" } else { "entries" }
-            ),
-            Block(b) => write!(
-                f,
-                "Block with {} expression{}",
-                b.len(),
-                if b.len() == 1 { "" } else { "s" }
-            ),
-            Expressions(e) => write!(
-                f,
-                "Expressions with {} expression{}",
-                e.len(),
-                if e.len() == 1 { "" } else { "s" }
-            ),
-            RefExpression(_) => write!(f, "Ref Expression"),
-            Negate(_) => write!(f, "Negate"),
-            Function(_) => write!(f, "Function"),
-            Call { function, .. } => write!(f, "Call: {}", function),
-            Lookup(lookup) => write!(f, "Lookup: {}", lookup),
-            Assign { target, .. } => write!(f, "Assign: target: {}", target),
-            MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
-            Op { op, .. } => write!(f, "Op: {:?}", op),
-            If { .. } => write!(f, "If"),
-            For(_) => write!(f, "For"),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Block {}
-
-#[derive(Clone, Debug)]
-pub struct Function {
-    pub args: Vec<Id>,
-    pub body: Vec<AstNode>,
-}
-
-#[derive(Clone, Debug)]
-pub struct AstFor {
-    pub args: Vec<Id>,
-    pub ranges: Vec<AstNode>,
-    pub condition: Option<Box<AstNode>>,
-    pub body: Box<AstNode>,
-}
-
-#[derive(Clone, Debug)]
-pub enum AstOp {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Equal,
-    NotEqual,
-    Less,
-    LessOrEqual,
-    Greater,
-    GreaterOrEqual,
-    And,
-    Or,
-}
-
-#[derive(Clone, Debug)]
-pub struct AstIndex {
-    pub id: Option<Id>,
-    pub expression: Box<AstNode>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Scope {
-    Global,
-    Local,
-}
-
-#[derive(Clone, Debug)]
-pub enum AssignTarget {
-    Id { id: Id, scope: Scope },
-    Lookup(Lookup),
-}
-
-impl fmt::Display for AssignTarget {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use AssignTarget::*;
-        match self {
-            Id { id, scope } => write!(
-                f,
-                "{}{}",
-                id,
-                if *scope == Scope::Global {
-                    " - global"
-                } else {
-                    ""
-                }
-            ),
-            Lookup(lookup) => write!(f, "{}", lookup),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Position {
-    pub line: usize,
-    pub column: usize,
-}
 
 pub struct KotoParser {
     climber: PrecClimber<Rule>,
@@ -389,7 +76,7 @@ impl KotoParser {
                         let mut inner = $lookup_pair.into_inner();
                         let id = next_as_rc_string!(inner);
                         let expression = next_as_boxed_ast!(inner);
-                        LookupNode::Index(AstIndex {
+                        LookupNode::Index(Index {
                             id: Some(id),
                             expression,
                         })
@@ -407,7 +94,7 @@ impl KotoParser {
                                     let mut inner = pair.into_inner();
                                     let id = next_as_rc_string!(inner);
                                     let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(AstIndex {
+                                    LookupNode::Index(Index {
                                         id: Some(id),
                                         expression,
                                     })
@@ -416,7 +103,7 @@ impl KotoParser {
                                     let mut inner = pair.into_inner();
                                     let id = next_as_rc_string!(inner.next().unwrap().into_inner());
                                     let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(AstIndex {
+                                    LookupNode::Index(Index {
                                         id: Some(id),
                                         expression,
                                     })
@@ -424,7 +111,7 @@ impl KotoParser {
                                 Rule::index_nested => {
                                     let mut inner = pair.into_inner();
                                     let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(AstIndex {
+                                    LookupNode::Index(Index {
                                         id: None,
                                         expression,
                                     })
