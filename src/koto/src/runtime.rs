@@ -413,7 +413,12 @@ impl<'a> Runtime<'a> {
                             self.set_map_value(lookup, value, node)?;
                         }
                         LookupNode::Index(index) => {
-                            self.set_list_value(lookup, &index.expression, value, node)?;
+                            self.set_list_value(
+                                &lookup.as_slice(),
+                                &index.expression,
+                                value,
+                                node,
+                            )?;
                         }
                     },
                 }
@@ -433,7 +438,12 @@ impl<'a> Runtime<'a> {
                                     self.set_map_value(lookup, $value, node)?;
                                 }
                                 LookupNode::Index(index) => {
-                                    self.set_list_value(lookup, &index.expression, $value, node)?;
+                                    self.set_list_value(
+                                        &lookup.as_slice(),
+                                        &index.expression,
+                                        $value,
+                                        node,
+                                    )?;
                                 }
                             },
                         }
@@ -1081,7 +1091,12 @@ impl<'a> Runtime<'a> {
         Ok(())
     }
 
-    fn set_map_value(&mut self, lookup: &Lookup, value: Value<'a>, node: &AstNode) -> RuntimeResult {
+    fn set_map_value(
+        &mut self,
+        lookup: &Lookup,
+        value: Value<'a>,
+        node: &AstNode,
+    ) -> RuntimeResult {
         runtime_trace!(self, "set_map_value - {}: {}", lookup, &value);
 
         let value_id = match lookup.0.last().unwrap().clone() {
@@ -1089,43 +1104,47 @@ impl<'a> Runtime<'a> {
             LookupNode::Index(_) => unreachable!(),
         };
 
-        self.visit_value_mut(&lookup.map_slice(), node, move |map_lookup, node, maybe_map| {
-            use Value::{Map, Ref};
+        self.visit_value_mut(
+            &lookup.map_slice(),
+            node,
+            move |map_lookup, node, maybe_map| {
+                use Value::{Map, Ref};
 
-            match maybe_map {
-                Map(map) => {
-                    Rc::make_mut(map)
-                        .borrow_mut()
-                        .add_value(&value_id, value.clone());
-                    Ok(())
-                }
-                Ref(r) => match &mut *r.borrow_mut() {
+                match maybe_map {
                     Map(map) => {
                         Rc::make_mut(map)
                             .borrow_mut()
                             .add_value(&value_id, value.clone());
                         Ok(())
                     }
-                    unexpected => runtime_error!(
+                    Ref(r) => match &mut *r.borrow_mut() {
+                        Map(map) => {
+                            Rc::make_mut(map)
+                                .borrow_mut()
+                                .add_value(&value_id, value.clone());
+                            Ok(())
+                        }
+                        unexpected => runtime_error!(
+                            node,
+                            "Expected Map for '{}', found {}",
+                            map_lookup,
+                            type_as_string(&unexpected)
+                        ),
+                    },
+                    _ => runtime_error!(
                         node,
                         "Expected Map for '{}', found {}",
                         map_lookup,
-                        type_as_string(&unexpected)
+                        type_as_string(&maybe_map)
                     ),
-                },
-                _ => runtime_error!(
-                    node,
-                    "Expected Map for '{}', found {}",
-                    map_lookup,
-                    type_as_string(&maybe_map)
-                ),
-            }
-        })
+                }
+            },
+        )
     }
 
     fn set_list_value(
         &mut self,
-        id: &Lookup,
+        id: &LookupSlice,
         expression: &AstNode,
         value: Value<'a>,
         node: &AstNode,
@@ -1138,7 +1157,7 @@ impl<'a> Runtime<'a> {
         let index = self.value_stack.value().clone();
         self.value_stack.pop_frame();
 
-        self.visit_value_mut(&id.as_slice(), node, move |id, node, maybe_list| {
+        self.visit_value_mut(id, node, move |id, node, maybe_list| {
             let assign_to_index = |data: &mut Vec<Value<'a>>| match index {
                 Number(i) => {
                     let i = i as usize;
@@ -1411,7 +1430,22 @@ impl<'a> Runtime<'a> {
                 LookupNode::Id(id) => {
                     return self.make_reference(id, node);
                 }
-                LookupNode::Index(_index) => unimplemented!(),
+                LookupNode::Index(index) => {
+                    let value = self.lookup_value_or_error(lookup, node)?.0;
+
+                    let value_ref = match value {
+                        Value::Ref(_) => {
+                            return Ok(value);
+                        }
+                        _ => {
+                            let cloned = Rc::new(RefCell::new(value.clone()));
+                            Value::Ref(cloned)
+                        }
+                    };
+
+                    self.set_list_value(&lookup, &index.expression, value_ref.clone(), node)?;
+                    Ok(value_ref)
+                }
             }
         } else {
             unimplemented!();
