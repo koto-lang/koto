@@ -23,7 +23,6 @@ pub struct Runtime<'a> {
     environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
-    multi_range_iterator: MultiRangeValueIterator<'a>,
 }
 
 #[cfg(feature = "trace")]
@@ -48,7 +47,6 @@ impl<'a> Runtime<'a> {
             environment: Default::default(),
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
-            multi_range_iterator: MultiRangeValueIterator::with_capacity(4),
         };
         crate::builtins::register(&mut result);
         result
@@ -915,15 +913,14 @@ impl<'a> Runtime<'a> {
                 }
             }
         } else {
-            self.multi_range_iterator.iterators.clear();
+            let mut multi_range_iterator = MultiRangeValueIterator::with_capacity(f.ranges.len());
             for range in f.ranges.iter() {
                 let range = self.evaluate(range)?;
 
                 match deref_value(&range) {
-                    v @ List(_) | v @ Range { .. } => self
-                        .multi_range_iterator
-                        .iterators
-                        .push(ValueIterator::new(v)),
+                    v @ List(_) | v @ Range { .. } => {
+                        multi_range_iterator.iterators.push(ValueIterator::new(v))
+                    }
                     unexpected => {
                         return runtime_error!(
                             node,
@@ -939,7 +936,7 @@ impl<'a> Runtime<'a> {
 
             let mut values = Vec::new();
 
-            while self.multi_range_iterator.get_next_values(&mut values) {
+            while multi_range_iterator.get_next_values(&mut values) {
                 if single_arg {
                     if values.len() == 1 {
                         self.set_value(first_arg, values[0].clone(), Scope::Local);
