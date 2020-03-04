@@ -3,9 +3,8 @@ use crate::{
     runtime_error,
     value::{deref_value, make_reference, type_as_string, values_have_matching_type, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
-    value_map::ValueMap,
     value_stack::ValueStack,
-    Error, Id, LookupSlice, RuntimeResult,
+    Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{AssignTarget, AstFor, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope};
 use std::{cell::RefCell, path::Path, rc::Rc};
@@ -83,7 +82,7 @@ impl<'a> Runtime<'a> {
         let mut env = ValueMap::new();
 
         env.add_value("script_dir", script_dir);
-        env.add_list("args", args);
+        env.add_list("args", ValueList::with_data(args));
 
         self.global.add_map("env", env);
     }
@@ -100,7 +99,7 @@ impl<'a> Runtime<'a> {
             [] => Ok(Value::Empty),
             [single_value] => Ok(single_value.clone()),
             values @ _ => {
-                let list = Value::List(Rc::new(values.to_owned()));
+                let list = Value::List(Rc::new(ValueList::with_data(values.to_owned())));
                 Ok(list)
             }
         }
@@ -184,7 +183,8 @@ impl<'a> Runtime<'a> {
                         })
                         .collect::<Result<Vec<_>, Error>>()?;
                     self.value_stack.pop_frame();
-                    self.value_stack.push(List(Rc::new(list)));
+                    self.value_stack
+                        .push(List(Rc::new(ValueList::with_data(list))));
                 }
             }
         }
@@ -275,7 +275,9 @@ impl<'a> Runtime<'a> {
                     self.value_stack.pop_frame();
                     match value {
                         List(_) => self.value_stack.push(value),
-                        _ => self.value_stack.push(List(Rc::new(vec![value]))),
+                        _ => self
+                            .value_stack
+                            .push(List(Rc::new(ValueList::with_data(vec![value])))),
                     }
                 } else {
                     let list = self
@@ -293,7 +295,8 @@ impl<'a> Runtime<'a> {
                         })
                         .collect::<Result<Vec<_>, _>>()?;
                     self.value_stack.pop_frame();
-                    self.value_stack.push(Value::List(Rc::new(list)));
+                    self.value_stack
+                        .push(Value::List(Rc::new(ValueList::with_data(list))));
                 }
             }
             Node::Range {
@@ -457,7 +460,7 @@ impl<'a> Runtime<'a> {
 
                     match value {
                         List(l) => {
-                            let mut result_iter = l.iter();
+                            let mut result_iter = l.data().iter();
                             for target in targets.iter() {
                                 let value = result_iter.next().unwrap_or(&Empty);
                                 set_value!(target, value.clone());
@@ -579,9 +582,9 @@ impl<'a> Runtime<'a> {
                         },
                         (List(a), List(b)) => match op {
                             AstOp::Add => {
-                                let mut result = Vec::clone(a);
-                                result.extend(Vec::clone(b).into_iter());
-                                Ok(List(Rc::new(result)))
+                                let mut result = Vec::clone(a.data());
+                                result.extend(Vec::clone(b.data()).into_iter());
+                                Ok(List(Rc::new(ValueList::with_data(result))))
                             }
                             _ => binary_op_error!(op, a, b),
                         },
@@ -724,13 +727,20 @@ impl<'a> Runtime<'a> {
                     Some(value) => {
                         if lookup_id.0.len() == 1 {
                             return visitor(lookup_id, node, value);
-                        } else if let Value::Map(map) = value {
-                            let (found, error) =
-                                map.borrow_mut()
-                                    .visit_mut(lookup_id, 1, node, visitor.clone());
-                            (found, Some(error))
                         } else {
-                            (false, None)
+                            match value {
+                                Value::Map(map) => {
+                                    let (found, error) = map.borrow_mut().visit_mut(
+                                        lookup_id,
+                                        1,
+                                        node,
+                                        visitor.clone(),
+                                    );
+                                    (found, Some(error))
+                                }
+                                // Value::List(list) => {}
+                                _ => (false, None),
+                            }
                         }
                     }
                     _ => (false, None),
@@ -970,7 +980,7 @@ impl<'a> Runtime<'a> {
                     let mut arg_iter = f.args.iter().peekable();
                     match value {
                         List(a) => {
-                            for list_value in a.iter() {
+                            for list_value in a.data().iter() {
                                 match arg_iter.next() {
                                     Some(arg) => {
                                         self.set_value(arg, list_value.clone(), Scope::Local)
@@ -1056,7 +1066,11 @@ impl<'a> Runtime<'a> {
                             .iter()
                             .cloned()
                             .collect::<Vec<_>>();
-                        self.set_value(first_arg, Value::List(Rc::new(values)), Scope::Local);
+                        self.set_value(
+                            first_arg,
+                            Value::List(Rc::new(ValueList::with_data(values))),
+                            Scope::Local,
+                        );
                     }
                 } else {
                     let mut arg_iter = f.args.iter().peekable();
@@ -1170,18 +1184,18 @@ impl<'a> Runtime<'a> {
         self.value_stack.pop_frame();
 
         self.visit_value_mut(id, node, move |id, node, maybe_list| {
-            let assign_to_index = |data: &mut Vec<Value<'a>>| match index {
+            let assign_to_index = |list: &mut ValueList<'a>| match index {
                 Number(i) => {
                     let i = i as usize;
-                    if i < data.len() {
-                        data[i] = value.clone();
+                    if i < list.data().len() {
+                        list.data_mut()[i] = value.clone();
                         Ok(())
                     } else {
                         runtime_error!(
                             node,
                             "Index out of bounds: '{}' has a length of {} but the index is {}",
                             id,
-                            data.len(),
+                            list.data().len(),
                             i
                         )
                     }
@@ -1196,17 +1210,17 @@ impl<'a> Runtime<'a> {
                             min,
                             max
                         )
-                    } else if umin >= data.len() || umax > data.len() {
+                    } else if umin >= list.data().len() || umax > list.data().len() {
                         runtime_error!(
                             node,
                             "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
                             id,
-                            data.len(),
+                            list.data().len(),
                             min,
                             max
                         )
                     } else {
-                        for element in &mut data[umin..umax] {
+                        for element in &mut list.data_mut()[umin..umax] {
                             *element = value.clone();
                         }
                         Ok(())
@@ -1239,7 +1253,7 @@ impl<'a> Runtime<'a> {
 
     fn list_index(
         &mut self,
-        list_data: &Vec<Value<'a>>,
+        list: &ValueList<'a>,
         list_id: &LookupSlice,
         expression: &AstNode,
         node: &AstNode,
@@ -1255,14 +1269,14 @@ impl<'a> Runtime<'a> {
         match index {
             Number(i) => {
                 let i = i as usize;
-                if i < list_data.len() {
-                    self.value_stack.push(list_data[i].clone());
+                if i < list.data().len() {
+                    self.value_stack.push(list.data()[i].clone());
                 } else {
                     return runtime_error!(
                         node,
                         "Index out of bounds: '{}' has a length of {} but the index is {}",
                         list_id,
-                        list_data.len(),
+                        list.data().len(),
                         i
                     );
                 }
@@ -1277,20 +1291,20 @@ impl<'a> Runtime<'a> {
                         min,
                         max
                     );
-                } else if umin >= list_data.len() || umax >= list_data.len() {
+                } else if umin >= list.data().len() || umax >= list.data().len() {
                     return runtime_error!(
                         node,
                         "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
                         list_id,
-                        list_data.len(),
+                        list.data().len(),
                         min,
                         max
                     );
                 } else {
                     // TODO Avoid allocating new vec, introduce 'slice' value type
-                    self.value_stack.push(List(Rc::new(
-                        list_data[umin..umax].iter().cloned().collect::<Vec<_>>(),
-                    )));
+                    self.value_stack.push(List(Rc::new(ValueList::with_data(
+                        list.data()[umin..umax].iter().cloned().collect::<Vec<_>>(),
+                    ))));
                 }
             }
             _ => {

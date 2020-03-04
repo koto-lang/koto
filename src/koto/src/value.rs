@@ -1,4 +1,4 @@
-use crate::value_map::ValueMap;
+use crate::{value_list::ValueList, value_map::ValueMap};
 use koto_parser::{vec4, AstFor, Function};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
@@ -8,9 +8,9 @@ pub enum Value<'a> {
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
-    List(Rc<Vec<Value<'a>>>),
+    List(Rc<ValueList<'a>>),
     Range { min: isize, max: isize },
-    Map(Rc<RefCell<ValueMap<'a>>>),
+    Map(Rc<RefCell<ValueMap<'a>>>), //TODO can we remove RefCell here?
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
@@ -27,16 +27,7 @@ impl<'a> fmt::Display for Value<'a> {
             Number(n) => write!(f, "{}", n),
             Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
             Str(s) => write!(f, "{}", s),
-            List(a) => {
-                write!(f, "[")?;
-                for (i, value) in a.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", value)?;
-                }
-                write!(f, "]")
-            }
+            List(l) => write!(f, "{}", l),
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;

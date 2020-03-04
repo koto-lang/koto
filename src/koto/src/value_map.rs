@@ -1,7 +1,7 @@
 use crate::{
     runtime_error,
     value::{BuiltinResult, ExternalFunction},
-    Error, LookupSlice, RuntimeResult, Value,
+    Error, LookupSlice, RuntimeResult, Value, ValueList,
 };
 use koto_parser::{AstNode, Id, LookupNode};
 use rustc_hash::FxHashMap;
@@ -31,7 +31,7 @@ impl<'a> ValueMap<'a> {
         );
     }
 
-    pub fn add_list(&mut self, name: &str, list: Vec<Value<'a>>) {
+    pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {
         self.add_value(name, Value::List(Rc::new(list)));
     }
 
@@ -76,7 +76,7 @@ impl<'a> ValueMap<'a> {
             LookupNode::Index(index) => &index
                 .id
                 .as_ref()
-                .expect("Expected a list id for first lookup"),
+                .expect("Expected a list id for nested lookup"),
         };
 
         if id_index == id.0.len() - 1 {

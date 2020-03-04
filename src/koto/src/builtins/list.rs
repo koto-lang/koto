@@ -1,4 +1,4 @@
-use crate::{value, Value, ValueMap};
+use crate::{value, Value, ValueList, ValueMap};
 use std::rc::Rc;
 
 use crate::single_arg_fn;
@@ -20,7 +20,7 @@ pub fn register<'a>(global: &mut ValueMap) {
         match first_arg_value {
             List(list) => {
                 let mut list = list.clone();
-                let list_data = Rc::make_mut(&mut list);
+                let list_data = Rc::make_mut(&mut list).data_mut();
                 for value in arg_iter {
                     list_data.push(value.clone())
                 }
@@ -41,9 +41,9 @@ pub fn register<'a>(global: &mut ValueMap) {
 
     single_arg_fn!(list, "sort", List, l, {
         if list_is_sortable(l.as_ref()) {
-            let mut result = Vec::clone(l);
+            let mut result = Vec::clone(l.data());
             result.sort();
-            Ok(List(Rc::new(result)))
+            Ok(List(Rc::new(ValueList::with_data(result))))
         } else {
             Err(format!(
                 "list.sort can only sort lists of numbers or strings",
@@ -64,7 +64,7 @@ pub fn register<'a>(global: &mut ValueMap) {
                 match &mut *r.borrow_mut() {
                     List(l) => {
                         let value = args[1].clone();
-                        for v in Rc::make_mut(l).iter_mut() {
+                        for v in Rc::make_mut(l).data_mut().iter_mut() {
                             *v = value.clone();
                         }
                     }
@@ -88,16 +88,18 @@ pub fn register<'a>(global: &mut ValueMap) {
     global.add_map("list", list);
 }
 
-fn list_is_sortable(list: &Vec<Value>) -> bool {
+fn list_is_sortable(list: &ValueList) -> bool {
     use Value::*;
 
-    if list.len() == 0 {
+    let data = list.data();
+
+    if data.len() == 0 {
         true
     } else {
-        match list.first().unwrap() {
+        match data.first().unwrap() {
             value @ Number(_) | value @ Str(_) => {
                 let value_type = std::mem::discriminant(value);
-                list.iter().all(|x| std::mem::discriminant(x) == value_type)
+                data.iter().all(|x| std::mem::discriminant(x) == value_type)
             }
             _ => false,
         }

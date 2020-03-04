@@ -108,19 +108,26 @@ impl<'a> fmt::Display for LookupSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut first = true;
         for node in self.0.iter() {
-            if !first {
-                write!(f, ".")?;
-            } else {
-                first = false;
-            }
             match &node {
-                LookupNode::Id(id) => write!(f, "{}", id)?,
-                LookupNode::Index(index) => write!(
-                    f,
-                    "{}[]",
-                    index.id.as_ref().map_or("".to_string(), |s| s.to_string())
-                )?,
+                LookupNode::Id(id) => {
+                    if !first {
+                        write!(f, ".")?;
+                    }
+                    write!(f, "{}", id)?
+                }
+                LookupNode::Index(index) => {
+                    if !first && index.id.is_some() {
+                        write!(f, ".")?;
+                    }
+
+                    write!(
+                        f,
+                        "{}[]",
+                        index.id.as_ref().map_or("".to_string(), |s| s.to_string())
+                    )?
+                }
             }
+            first = false;
         }
         Ok(())
     }
