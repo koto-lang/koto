@@ -40,3 +40,10 @@ assert_eq [9, 10, 42], list.sort [42, 10, 9]
 a = [1, 2, 3]
 list.fill ref a, 42
 assert_eq a, [42, 42, 42]
+
+###### Multidimensional lists
+b = [42, 42]
+a = [b, b, b]
+assert_eq a[0][0], 42
+# a[1][2] = -1
+# assert_eq a[1][2], -1

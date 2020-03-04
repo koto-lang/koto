@@ -113,9 +113,13 @@ impl<'a> fmt::Display for LookupSlice<'a> {
             } else {
                 first = false;
             }
-            match node {
+            match &node {
                 LookupNode::Id(id) => write!(f, "{}", id)?,
-                LookupNode::Index(index) => write!(f, "{}[]", index.id)?,
+                LookupNode::Index(index) => write!(
+                    f,
+                    "{}[]",
+                    index.id.as_ref().map_or("".to_string(), |s| s.to_string())
+                )?,
             }
         }
         Ok(())
@@ -265,7 +269,7 @@ pub enum AstOp {
 
 #[derive(Clone, Debug)]
 pub struct AstIndex {
-    pub id: Id,
+    pub id: Option<Id>,
     pub expression: Box<AstNode>,
 }
 
@@ -372,37 +376,63 @@ impl KotoParser {
         }
 
         macro_rules! pair_as_lookup {
-            ($pair:expr) => {{
-                match $pair.as_rule() {
-                    Rule::index => Lookup(vec![{
-                        let mut inner = $pair.into_inner();
+            ($lookup_pair:expr) => {{
+                match $lookup_pair.as_rule() {
+                    Rule::index_start => Lookup(vec![{
+                        let mut inner = $lookup_pair.into_inner();
                         let id = next_as_rc_string!(inner);
                         let expression = next_as_boxed_ast!(inner);
-                        LookupNode::Index(AstIndex { id, expression })
+                        LookupNode::Index(AstIndex {
+                            id: Some(id),
+                            expression,
+                        })
                     }]),
-                    Rule::lookup => {
-                        Lookup(
-                            $pair
-                                .into_inner()
-                                .map(|pair| {
-                                    match pair.as_rule() {
-                                        Rule::id => LookupNode::Id(pair_as_id!(pair)),
-                                        Rule::index => {
-                                            let mut inner = pair.into_inner();
-                                            let id = next_as_rc_string!(inner);
-                                            let expression = next_as_boxed_ast!(inner);
-                                            LookupNode::Index(AstIndex { id, expression })
-                                        }
-                                        unexpected => panic!(
-                                            "Unexpected rule while making lookup node: {:?}",
-                                            unexpected
-                                        ),
-                                    }
-                                })
-                                .collect::<Vec<_>>(),
-                        )
-                    }
-                    unexpected => panic!("Unexpected rule while making lookup: {:?} - {:#?}", unexpected, $pair),
+                    Rule::lookup => Lookup(
+                        $lookup_pair
+                            .into_inner()
+                            .map(|pair| match pair.as_rule() {
+                                Rule::id => LookupNode::Id(pair_as_id!(pair)),
+                                Rule::lookup_map => {
+                                    let mut inner = pair.into_inner();
+                                    LookupNode::Id(next_as_rc_string!(inner))
+                                }
+                                Rule::index_start => {
+                                    let mut inner = pair.into_inner();
+                                    let id = next_as_rc_string!(inner);
+                                    let expression = next_as_boxed_ast!(inner);
+                                    LookupNode::Index(AstIndex {
+                                        id: Some(id),
+                                        expression,
+                                    })
+                                }
+                                Rule::index_map => {
+                                    let mut inner = pair.into_inner();
+                                    let id = next_as_rc_string!(inner.next().unwrap().into_inner());
+                                    let expression = next_as_boxed_ast!(inner);
+                                    LookupNode::Index(AstIndex {
+                                        id: Some(id),
+                                        expression,
+                                    })
+                                }
+                                Rule::index_nested => {
+                                    let mut inner = pair.into_inner();
+                                    let expression = next_as_boxed_ast!(inner);
+                                    LookupNode::Index(AstIndex {
+                                        id: None,
+                                        expression,
+                                    })
+                                }
+                                unexpected => panic!(
+                                    "Unexpected rule while making lookup node: {:?}",
+                                    unexpected
+                                ),
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                    unexpected => panic!(
+                        "Unexpected rule while making lookup: {:?} - {:#?}",
+                        unexpected, $lookup_pair
+                    ),
                 }
             }};
         }
@@ -419,9 +449,7 @@ impl KotoParser {
                 let next = $inner.next().unwrap();
                 match next.as_rule() {
                     Rule::id => LookupOrId::Id(pair_as_id!(next)),
-                    Rule::lookup => {
-                        LookupOrId::Lookup(pair_as_lookup!(next))
-                    }
+                    Rule::lookup => LookupOrId::Lookup(pair_as_lookup!(next)),
                     _ => unreachable!(),
                 }
             }};

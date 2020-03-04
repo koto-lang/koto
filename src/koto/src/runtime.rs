@@ -740,7 +740,10 @@ impl<'a> Runtime<'a> {
 
         let first_id = match &lookup_id.0.first().unwrap() {
             LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index.id,
+            LookupNode::Index(index) => &index
+                .id
+                .as_ref()
+                .expect("Expected non-nested list id for first lookup"),
         };
 
         if self.call_stack.frame() > 0 {
@@ -842,7 +845,13 @@ impl<'a> Runtime<'a> {
                                             result = data.borrow().0.get(id).map(|v| v.clone());
                                         }
                                         LookupNode::Index(index) => {
-                                            match data.borrow().0.get(&index.id) {
+                                            match data.borrow().0.get(
+                                                &index
+                                                    .id
+                                                    .as_ref()
+                                                    .expect("Expected a list id for map lookup")
+                                                    .clone(),
+                                            ) {
                                                 Some(Value::List(data)) => {
                                                     self.list_index(
                                                         &data,
@@ -899,7 +908,10 @@ impl<'a> Runtime<'a> {
 
         let first_id = match &lookup.0[0] {
             LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index.id,
+            LookupNode::Index(index) => &index
+                .id
+                .as_ref()
+                .expect("Expected non-nested list id for first lookup"),
         };
         if self.call_stack.frame() > 0 {
             let value = self.call_stack.get(first_id).map(|v| v.clone());

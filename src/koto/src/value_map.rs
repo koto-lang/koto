@@ -3,8 +3,8 @@ use crate::{
     value::{BuiltinResult, ExternalFunction},
     Error, LookupSlice, RuntimeResult, Value,
 };
-use rustc_hash::FxHashMap;
 use koto_parser::{AstNode, Id, LookupNode};
+use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
@@ -18,7 +18,10 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(ValueHashMap::with_capacity_and_hasher(capacity, Default::default()))
+        Self(ValueHashMap::with_capacity_and_hasher(
+            capacity,
+            Default::default(),
+        ))
     }
 
     pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a) {
@@ -70,7 +73,10 @@ impl<'a> ValueMap<'a> {
     ) -> (bool, RuntimeResult) {
         let entry_id = match &id.0[id_index] {
             LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index.id,
+            LookupNode::Index(index) => &index
+                .id
+                .as_ref()
+                .expect("Expected a list id for first lookup"),
         };
 
         if id_index == id.0.len() - 1 {
