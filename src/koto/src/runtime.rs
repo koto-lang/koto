@@ -1108,14 +1108,15 @@ impl<'a> Runtime<'a> {
                 List(data) => {
                     assign_to_index(&mut Rc::make_mut(data))?;
                 }
-                Ref(r) => match *r.borrow_mut() {
-                    List(ref mut data) => {
+                Ref(r) => match &mut *r.borrow_mut() {
+                    List(data) => {
                         assign_to_index(&mut Rc::make_mut(data))?;
                     }
-                    _ => {
+                    unexpected => {
                         return runtime_error!(
                             node,
-                            "Indexing is only supported for Lists" // TODO, improve error
+                            "Indexing is only supported for Lists, found {}",
+                            type_as_string(&unexpected)
                         );
                     }
                 },
