@@ -147,6 +147,16 @@ pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
     }
 }
 
+pub fn make_reference<'a>(value: Value<'a>) -> (Value<'a>, bool) {
+    match value {
+        Value::Ref(_) => (value, false),
+        _ => {
+            let cloned = Rc::new(RefCell::new(value.clone()));
+            (Value::Ref(cloned), true)
+        }
+    }
+}
+
 pub type BuiltinResult<'a> = Result<Value<'a>, String>;
 pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
 

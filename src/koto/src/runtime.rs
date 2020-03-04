@@ -1,11 +1,11 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{deref_value, type_as_string, values_have_matching_type, Value},
+    value::{deref_value, make_reference, type_as_string, values_have_matching_type, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_map::ValueMap,
     value_stack::ValueStack,
-    Error, Id, Lookup, LookupSlice, RuntimeResult,
+    Error, Id, LookupSlice, RuntimeResult,
 };
 use koto_parser::{AssignTarget, AstFor, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope};
 use std::{cell::RefCell, path::Path, rc::Rc};
@@ -352,7 +352,7 @@ impl<'a> Runtime<'a> {
             }
             Node::Ref(lookup_or_id) => match lookup_or_id {
                 LookupOrId::Id(id) => {
-                    let value_ref = self.make_reference(&id, node)?;
+                    let value_ref = self.make_reference_from_id(&id, node)?;
                     self.value_stack.push(value_ref);
                 }
                 LookupOrId::Lookup(lookup) => {
@@ -410,7 +410,7 @@ impl<'a> Runtime<'a> {
                     }
                     AssignTarget::Lookup(lookup) => match lookup.value_node() {
                         LookupNode::Id(_) => {
-                            self.set_map_value(lookup, value, node)?;
+                            self.set_map_value(&lookup.as_slice(), value, node)?;
                         }
                         LookupNode::Index(index) => {
                             self.set_list_value(
@@ -435,7 +435,7 @@ impl<'a> Runtime<'a> {
                             }
                             AssignTarget::Lookup(lookup) => match lookup.value_node() {
                                 LookupNode::Id(_) => {
-                                    self.set_map_value(lookup, $value, node)?;
+                                    self.set_map_value(&lookup.as_slice(), $value, node)?;
                                 }
                                 LookupNode::Index(index) => {
                                     self.set_list_value(
@@ -1093,7 +1093,7 @@ impl<'a> Runtime<'a> {
 
     fn set_map_value(
         &mut self,
-        lookup: &Lookup,
+        lookup: &LookupSlice,
         value: Value<'a>,
         node: &AstNode,
     ) -> RuntimeResult {
@@ -1105,7 +1105,7 @@ impl<'a> Runtime<'a> {
         };
 
         self.visit_value_mut(
-            &lookup.map_slice(),
+            &lookup.parent_slice(),
             node,
             move |map_lookup, node, maybe_map| {
                 use Value::{Map, Ref};
@@ -1346,7 +1346,7 @@ impl<'a> Runtime<'a> {
                     // implicit self for map functions
                     match f.args.first() {
                         Some(self_arg) if self_arg.as_ref() == "self" => {
-                            let map_id = lookup.map_slice();
+                            let map_id = lookup.parent_slice();
                             self.make_reference_from_lookup(&map_id, node)?;
                             let (map, _scope) = self.lookup_value(&map_id, node)?.unwrap();
                             self.call_stack.push(self_arg.clone(), map);
@@ -1405,18 +1405,12 @@ impl<'a> Runtime<'a> {
         runtime_error!(node, "Function '{}' not found", lookup_or_id)
     }
 
-    fn make_reference(&mut self, id: &Id, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> Result<Value<'a>, Error> {
         let (value, scope) = self.get_value_or_error(&id, node)?;
-        let value_ref = match value {
-            Value::Ref(_) => {
-                return Ok(value);
-            }
-            _ => {
-                let cloned = Rc::new(RefCell::new(value.clone()));
-                Value::Ref(cloned)
-            }
-        };
-        self.set_value(id, value_ref.clone(), scope);
+        let (value_ref, made_ref) = make_reference(value);
+        if made_ref {
+            self.set_value(id, value_ref.clone(), scope);
+        }
         Ok(value_ref)
     }
 
@@ -1425,30 +1419,31 @@ impl<'a> Runtime<'a> {
         lookup: &LookupSlice,
         node: &AstNode,
     ) -> Result<Value<'a>, Error> {
-        if lookup.0.len() == 1 {
-            match &lookup.0[0] {
-                LookupNode::Id(id) => {
-                    return self.make_reference(id, node);
-                }
-                LookupNode::Index(index) => {
-                    let value = self.lookup_value_or_error(lookup, node)?.0;
+        match lookup.0.last().unwrap() {
+            LookupNode::Id(id) => {
+                if lookup.0.len() == 1 {
+                    return self.make_reference_from_id(id, node);
+                } else {
+                    let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
 
-                    let value_ref = match value {
-                        Value::Ref(_) => {
-                            return Ok(value);
-                        }
-                        _ => {
-                            let cloned = Rc::new(RefCell::new(value.clone()));
-                            Value::Ref(cloned)
-                        }
-                    };
+                    let (value_ref, made_ref) = make_reference(value);
+                    if made_ref {
+                        self.set_map_value(&lookup, value_ref.clone(), node)?;
+                    }
 
-                    self.set_list_value(&lookup, &index.expression, value_ref.clone(), node)?;
                     Ok(value_ref)
                 }
             }
-        } else {
-            unimplemented!();
+            LookupNode::Index(index) => {
+                let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
+
+                let (value_ref, made_ref) = make_reference(value);
+                if made_ref {
+                    self.set_list_value(&lookup, &index.expression, value_ref.clone(), node)?;
+                }
+
+                Ok(value_ref)
+            }
         }
     }
 

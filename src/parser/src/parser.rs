@@ -64,7 +64,7 @@ impl Lookup {
         LookupSlice(self.0.as_slice())
     }
 
-    pub fn map_slice(&self) -> LookupSlice {
+    pub fn parent_slice(&self) -> LookupSlice {
         LookupSlice(&self.0[..self.0.len() - 1])
     }
 
@@ -87,7 +87,7 @@ impl fmt::Display for Lookup {
 pub struct LookupSlice<'a>(pub &'a [LookupNode]);
 
 impl<'a> LookupSlice<'a> {
-    pub fn map_slice(&self) -> LookupSlice {
+    pub fn parent_slice(&self) -> LookupSlice {
         LookupSlice(&self.0[..self.0.len() - 1])
     }
 
