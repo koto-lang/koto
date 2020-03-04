@@ -1,10 +1,10 @@
 use crate::{
     runtime_error,
     value::{BuiltinResult, ExternalFunction},
-    Error, LookupIdSlice, RuntimeResult, Value,
+    Error, LookupSlice, RuntimeResult, Value,
 };
 use rustc_hash::FxHashMap;
-use koto_parser::{AstNode, Id};
+use koto_parser::{AstNode, Id, LookupNode};
 use std::{cell::RefCell, rc::Rc};
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
@@ -63,12 +63,16 @@ impl<'a> ValueMap<'a> {
 
     pub fn visit_mut(
         &mut self,
-        id: &LookupIdSlice,
+        id: &LookupSlice,
         id_index: usize,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupIdSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
+        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
     ) -> (bool, RuntimeResult) {
-        let entry_id = &id.0[id_index];
+        let entry_id = match &id.0[id_index] {
+            LookupNode::Id(id) => id,
+            LookupNode::Index(index) => &index.id,
+        };
+
         if id_index == id.0.len() - 1 {
             match self.0.get_mut(entry_id) {
                 Some(mut value) => (true, visitor(id, node, &mut value)),

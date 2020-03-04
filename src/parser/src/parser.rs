@@ -36,40 +36,87 @@ pub type Ast = Vec<AstNode>;
 pub type Id = Rc<String>;
 
 #[derive(Clone, Debug)]
-pub struct LookupId(pub Vec<Id>);
+pub enum LookupOrId {
+    Id(Id),
+    Lookup(Lookup),
+}
 
-impl LookupId {
-    pub fn as_slice(&self) -> LookupIdSlice {
-        LookupIdSlice(self.0.as_slice())
-    }
-
-    pub fn map_slice(&self) -> LookupIdSlice {
-        LookupIdSlice(&self.0[..self.0.len() - 1])
-    }
-
-    pub fn value_slice(&self) -> LookupIdSlice {
-        LookupIdSlice(&self.0[self.0.len() - 1..])
+impl fmt::Display for LookupOrId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LookupOrId::Id(id) => write!(f, "Id: {}", id),
+            LookupOrId::Lookup(lookup) => lookup.fmt(f),
+        }
     }
 }
 
-impl fmt::Display for LookupId {
+#[derive(Clone, Debug)]
+pub struct Lookup(pub Vec<LookupNode>);
+
+#[derive(Clone, Debug)]
+pub enum LookupNode {
+    Id(Id),
+    Index(AstIndex),
+}
+
+impl Lookup {
+    pub fn as_slice(&self) -> LookupSlice {
+        LookupSlice(self.0.as_slice())
+    }
+
+    pub fn map_slice(&self) -> LookupSlice {
+        LookupSlice(&self.0[..self.0.len() - 1])
+    }
+
+    pub fn value_slice(&self) -> LookupSlice {
+        LookupSlice(&self.0[self.0.len() - 1..])
+    }
+
+    pub fn value_node(&self) -> &LookupNode {
+        &self.0[self.0.len() - 1]
+    }
+}
+
+impl fmt::Display for Lookup {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        LookupIdSlice(&self.0).fmt(f)
+        LookupSlice(&self.0).fmt(f)
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct LookupIdSlice<'a>(pub &'a [Id]);
+pub struct LookupSlice<'a>(pub &'a [LookupNode]);
 
-impl<'a> fmt::Display for LookupIdSlice<'a> {
+impl<'a> LookupSlice<'a> {
+    pub fn map_slice(&self) -> LookupSlice {
+        LookupSlice(&self.0[..self.0.len() - 1])
+    }
+
+    pub fn value_slice(&self) -> LookupSlice {
+        LookupSlice(&self.0[self.0.len() - 1..])
+    }
+
+    pub fn value_node(&self) -> &LookupNode {
+        &self.0[self.0.len() - 1]
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> LookupSlice {
+        LookupSlice(&self.0[start..end])
+    }
+}
+
+impl<'a> fmt::Display for LookupSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut first = true;
-        for id in self.0.iter() {
+        for node in self.0.iter() {
             if !first {
                 write!(f, ".")?;
+            } else {
+                first = false;
             }
-            write!(f, "{}", id)?;
-            first = false;
+            match node {
+                LookupNode::Id(id) => write!(f, "{}", id)?,
+                LookupNode::Index(index) => write!(f, "{}[]", index.id)?,
+            }
         }
         Ok(())
     }
@@ -77,8 +124,9 @@ impl<'a> fmt::Display for LookupIdSlice<'a> {
 
 #[derive(Clone, Debug)]
 pub enum Node {
-    Id(LookupId),
-    RefId(LookupId),
+    Id(Id),
+    Lookup(Lookup),
+    Ref(LookupOrId),
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
@@ -96,10 +144,9 @@ pub enum Node {
     Negate(Box<AstNode>),
     Function(Rc<Function>),
     Call {
-        function: LookupId,
+        function: LookupOrId,
         args: Vec<AstNode>,
     },
-    Index(AstIndex),
     Assign {
         target: AssignTarget,
         expression: Box<AstNode>,
@@ -135,8 +182,8 @@ impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;
         match self {
-            Id(lookup) => write!(f, "Id: {}", lookup),
-            RefId(lookup) => write!(f, "Ref: {}", lookup),
+            Id(id) => write!(f, "Id: {}", id),
+            Ref(lookup) => write!(f, "Ref: {}", lookup),
             Bool(b) => write!(f, "Bool: {}", b),
             Number(n) => write!(f, "Number: {}", n),
             Vec4(v) => write!(f, "Vec4: {:?}", v),
@@ -172,7 +219,7 @@ impl fmt::Display for Node {
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             Call { function, .. } => write!(f, "Call: {}", function),
-            Index(index) => write!(f, "Index: {}", index.id),
+            Lookup(lookup) => write!(f, "Lookup: {}", lookup),
             Assign { target, .. } => write!(f, "Assign: target: {}", target),
             MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
             Op { op, .. } => write!(f, "Op: {:?}", op),
@@ -218,7 +265,7 @@ pub enum AstOp {
 
 #[derive(Clone, Debug)]
 pub struct AstIndex {
-    pub id: LookupId,
+    pub id: Id,
     pub expression: Box<AstNode>,
 }
 
@@ -231,8 +278,7 @@ pub enum Scope {
 #[derive(Clone, Debug)]
 pub enum AssignTarget {
     Id { id: Id, scope: Scope },
-    Index(AstIndex),
-    Lookup(LookupId),
+    Lookup(Lookup),
 }
 
 impl fmt::Display for AssignTarget {
@@ -249,7 +295,6 @@ impl fmt::Display for AssignTarget {
                     ""
                 }
             ),
-            Index(index) => write!(f, "{}", index.id),
             Lookup(lookup) => write!(f, "{}", lookup),
         }
     }
@@ -306,9 +351,7 @@ impl KotoParser {
     }
 
     fn build_ast(&self, pair: pest::iterators::Pair<Rule>) -> AstNode {
-        // dbg!(&pair);
         use pest::iterators::Pair;
-        use Node::*;
 
         macro_rules! next_as_boxed_ast {
             ($inner:expr) => {
@@ -322,17 +365,66 @@ impl KotoParser {
             };
         }
 
-        macro_rules! next_as_lookup_id {
-            ($inner:expr) => {
-                LookupId(
-                    $inner
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .map(|pair| Rc::new(pair.as_str().to_string()))
-                        .collect::<Vec<_>>(),
-                )
+        macro_rules! pair_as_id {
+            ($pair:expr) => {
+                Rc::new($pair.as_str().to_string())
             };
+        }
+
+        macro_rules! pair_as_lookup {
+            ($pair:expr) => {{
+                match $pair.as_rule() {
+                    Rule::index => Lookup(vec![{
+                        let mut inner = $pair.into_inner();
+                        let id = next_as_rc_string!(inner);
+                        let expression = next_as_boxed_ast!(inner);
+                        LookupNode::Index(AstIndex { id, expression })
+                    }]),
+                    Rule::lookup => {
+                        Lookup(
+                            $pair
+                                .into_inner()
+                                .map(|pair| {
+                                    match pair.as_rule() {
+                                        Rule::id => LookupNode::Id(pair_as_id!(pair)),
+                                        Rule::index => {
+                                            let mut inner = pair.into_inner();
+                                            let id = next_as_rc_string!(inner);
+                                            let expression = next_as_boxed_ast!(inner);
+                                            LookupNode::Index(AstIndex { id, expression })
+                                        }
+                                        unexpected => panic!(
+                                            "Unexpected rule while making lookup node: {:?}",
+                                            unexpected
+                                        ),
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                    }
+                    unexpected => panic!("Unexpected rule while making lookup: {:?} - {:#?}", unexpected, $pair),
+                }
+            }};
+        }
+
+        macro_rules! next_as_lookup {
+            ($inner:expr) => {{
+                let next = $inner.next().unwrap();
+                pair_as_lookup!(next)
+            }};
+        }
+
+        macro_rules! next_as_lookup_or_id {
+            ($inner:expr) => {{
+                let next = $inner.next().unwrap();
+                match next.as_rule() {
+                    Rule::id => LookupOrId::Id(pair_as_id!(next)),
+                    Rule::lookup => {
+                        LookupOrId::Lookup(pair_as_lookup!(next))
+                    }
+                    _ => unreachable!(),
+                }
+            }};
         }
 
         let span = pair.as_span();
@@ -341,7 +433,7 @@ impl KotoParser {
             Rule::block | Rule::child_block => {
                 let inner = pair.into_inner();
                 let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
-                AstNode::new(span, Block(block))
+                AstNode::new(span, Node::Block(block))
             }
             Rule::expressions | Rule::value_terms => {
                 let inner = pair.into_inner();
@@ -353,7 +445,7 @@ impl KotoParser {
                     AstNode::new(span, Node::List(expressions))
                 }
             }
-            Rule::boolean => (AstNode::new(span, Bool(pair.as_str().parse().unwrap()))),
+            Rule::boolean => (AstNode::new(span, Node::Bool(pair.as_str().parse().unwrap()))),
             Rule::number => (AstNode::new(span, Node::Number(pair.as_str().parse().unwrap()))),
             Rule::string => {
                 let mut inner = pair.into_inner();
@@ -381,10 +473,8 @@ impl KotoParser {
                 )
             }
             Rule::map | Rule::map_value | Rule::map_inline => {
-                // dbg!(&pair);
                 let inner = if pair.as_rule() == Rule::map_value {
                     pair.into_inner().next().unwrap().into_inner()
-                // pair.into_inner()
                 } else {
                     pair.into_inner()
                 };
@@ -398,29 +488,19 @@ impl KotoParser {
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Map(entries))
             }
-            Rule::index => {
-                let mut inner = pair.into_inner();
-                let id = next_as_lookup_id!(inner);
-                let expression = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::Index(AstIndex { id, expression }))
+            Rule::lookup => {
+                let lookup = pair_as_lookup!(pair);
+                AstNode::new(span, Node::Lookup(lookup))
             }
             Rule::id => {
-                let id = LookupId(
-                    pair.into_inner()
-                        .map(|pair| Rc::new(pair.as_str().to_string()))
-                        .collect::<Vec<_>>(),
-                );
+                let id = Rc::new(pair.as_str().to_string());
                 AstNode::new(span, Node::Id(id))
             }
             Rule::ref_id => {
                 let mut inner = pair.into_inner();
                 inner.next(); // ref
-                let id = LookupId(
-                    inner
-                        .map(|pair| Rc::new(pair.as_str().to_string()))
-                        .collect::<Vec<_>>(),
-                );
-                AstNode::new(span, Node::RefId(id))
+                let lookup_or_id = next_as_lookup_or_id!(inner);
+                AstNode::new(span, Node::Ref(lookup_or_id))
             }
             Rule::ref_expression => {
                 let mut inner = pair.into_inner();
@@ -447,7 +527,7 @@ impl KotoParser {
             }
             Rule::call_with_parens | Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
-                let function = next_as_lookup_id!(inner);
+                let function = next_as_lookup_or_id!(inner);
                 let args = match inner.peek().unwrap().as_rule() {
                     Rule::call_args | Rule::operations => inner
                         .next()
@@ -473,17 +553,11 @@ impl KotoParser {
                         };
 
                         AssignTarget::Id {
-                            id: next_as_rc_string!(inner.next().unwrap().into_inner()),
+                            id: next_as_rc_string!(inner),
                             scope,
                         }
                     }
-                    Rule::index => {
-                        let mut inner = inner.next().unwrap().into_inner();
-                        let id = next_as_lookup_id!(inner);
-                        let expression = next_as_boxed_ast!(inner);
-                        AssignTarget::Index(AstIndex { id, expression })
-                    }
-                    Rule::lookup => AssignTarget::Lookup(next_as_lookup_id!(inner)),
+                    Rule::lookup => AssignTarget::Lookup(next_as_lookup!(inner)),
                     _ => unreachable!(),
                 };
                 let expression = next_as_boxed_ast!(inner);
@@ -511,13 +585,7 @@ impl KotoParser {
                                 scope,
                             }
                         }
-                        Rule::index => {
-                            let mut inner = pair.into_inner();
-                            let id = next_as_lookup_id!(inner);
-                            let expression = next_as_boxed_ast!(inner);
-                            AssignTarget::Index(AstIndex { id, expression })
-                        }
-                        Rule::lookup => AssignTarget::Lookup(next_as_lookup_id!(inner)),
+                        Rule::lookup => AssignTarget::Lookup(pair_as_lookup!(pair)),
                         _ => unreachable!(),
                     })
                     .collect::<Vec<_>>();
@@ -535,43 +603,40 @@ impl KotoParser {
                     },
                 )
             }
-            Rule::operation => {
-                // dbg!(&pair);
-                self.climber.climb(
-                    pair.into_inner(),
-                    |pair: Pair<Rule>| self.build_ast(pair),
-                    |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
-                        let span = op.as_span();
-                        let lhs = Box::new(lhs);
-                        let rhs = Box::new(rhs);
-                        use AstOp::*;
-                        macro_rules! make_ast_op {
-                            ($op:expr) => {
-                                AstNode::new(span, Node::Op { op: $op, lhs, rhs })
-                            };
+            Rule::operation => self.climber.climb(
+                pair.into_inner(),
+                |pair: Pair<Rule>| self.build_ast(pair),
+                |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
+                    let span = op.as_span();
+                    let lhs = Box::new(lhs);
+                    let rhs = Box::new(rhs);
+                    use AstOp::*;
+                    macro_rules! make_ast_op {
+                        ($op:expr) => {
+                            AstNode::new(span, Node::Op { op: $op, lhs, rhs })
                         };
-                        match op.as_rule() {
-                            Rule::add => make_ast_op!(Add),
-                            Rule::subtract => make_ast_op!(Subtract),
-                            Rule::multiply => make_ast_op!(Multiply),
-                            Rule::divide => make_ast_op!(Divide),
-                            Rule::modulo => make_ast_op!(Modulo),
-                            Rule::equal => make_ast_op!(Equal),
-                            Rule::not_equal => make_ast_op!(NotEqual),
-                            Rule::greater => make_ast_op!(Greater),
-                            Rule::greater_or_equal => make_ast_op!(GreaterOrEqual),
-                            Rule::less => make_ast_op!(Less),
-                            Rule::less_or_equal => make_ast_op!(LessOrEqual),
-                            Rule::and => make_ast_op!(And),
-                            Rule::or => make_ast_op!(Or),
-                            unexpected => {
-                                let error = format!("Unexpected operator: {:?}", unexpected);
-                                unreachable!(error)
-                            }
+                    };
+                    match op.as_rule() {
+                        Rule::add => make_ast_op!(Add),
+                        Rule::subtract => make_ast_op!(Subtract),
+                        Rule::multiply => make_ast_op!(Multiply),
+                        Rule::divide => make_ast_op!(Divide),
+                        Rule::modulo => make_ast_op!(Modulo),
+                        Rule::equal => make_ast_op!(Equal),
+                        Rule::not_equal => make_ast_op!(NotEqual),
+                        Rule::greater => make_ast_op!(Greater),
+                        Rule::greater_or_equal => make_ast_op!(GreaterOrEqual),
+                        Rule::less => make_ast_op!(Less),
+                        Rule::less_or_equal => make_ast_op!(LessOrEqual),
+                        Rule::and => make_ast_op!(And),
+                        Rule::or => make_ast_op!(Or),
+                        unexpected => {
+                            let error = format!("Unexpected operator: {:?}", unexpected);
+                            unreachable!(error)
                         }
-                    },
-                )
-            }
+                    }
+                },
+            ),
             Rule::if_inline => {
                 let mut inner = pair.into_inner();
                 inner.next(); // if

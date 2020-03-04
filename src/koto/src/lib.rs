@@ -6,7 +6,7 @@ mod value;
 mod value_iterator;
 mod value_map;
 
-pub use koto_parser::{Ast, Id, KotoParser as Parser, LookupId, LookupIdSlice};
+pub use koto_parser::{Ast, Id, KotoParser as Parser, Lookup, LookupSlice};
 
 pub use runtime::Runtime;
 pub use value::Value;

@@ -53,7 +53,7 @@ single_assignment = !{
 multiple_assignment = !{
   assignment_targets
   ~ "=" ~ (expressions | expression_block) }
-assignment_target = _{ index | lookup | assignment_id }
+assignment_target = _{ lookup | assignment_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 expression = _{
@@ -115,10 +115,9 @@ flow_term = _{
 }
 
 value_term = _{(
-  index
-  | range
-  | negate
+  range
   | call
+  | negate
   | map_inline
   | list
   | string
@@ -126,6 +125,7 @@ value_term = _{(
   | boolean
   | ref_expression
   | ref_id
+  | lookup
   | id
   | ("(" ~ operation ~ ")")
   )
@@ -162,17 +162,17 @@ for_inline = !{
   ~ in_keyword ~ value_terms
   ~ (if_keyword ~ operation)?
 }
-for_id = !{ single_id | placeholder }
+for_id = !{ id | placeholder }
 for_ids = { for_id ~ ("," ~ for_id)* }
 placeholder = { "_" }
 
 call = _{ call_with_parens | call_no_parens }
-call_with_parens = ${ id ~ call_args }
+call_with_parens = ${ lookup_or_id ~ call_args }
 call_args = !{
   ("(" ~ ")")
   | "(" ~ operation ~ ("," ~ operation)* ~ ")"
 }
-call_no_parens = ${(id ~ WHITESPACE+ ~ operations) }
+call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
@@ -208,9 +208,8 @@ list = !{
 
 range = ${ range_arg ~ range_op ~ range_arg }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call | index | id | ("(" ~ operation ~ ")") }
+range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
 
-index = ${ id ~ "[" ~ operation ~ "]" }
 
 boolean = { "true" | "false" }
 negate = { not_keyword ~ operation }
@@ -230,13 +229,17 @@ char = {
 }
 
 assignment_id = !{ global_keyword? ~ id }
-ref_id = !{ ref_keyword ~ id }
-lookup = ${ single_id ~ ("." ~ single_id)+ }
-id = ${ single_id ~ ("." ~ single_id)* }
+ref_id = !{ ref_keyword ~ lookup_or_id }
+lookup_or_id = _{ lookup | id }
+id = @{ single_id }
 single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
 ids = { id ~ ("," ~ id)* }
+
+lookup = ${ (lookup_node ~ ("." ~ lookup_node)+) | index }
+lookup_node = _{ index | id }
+index = ${ id ~ "[" ~ operation ~ "]" }
 
 keyword = _{
   "and"
