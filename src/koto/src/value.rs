@@ -10,7 +10,7 @@ pub enum Value<'a> {
     Vec4(vec4::Vec4),
     List(Rc<ValueList<'a>>),
     Range { min: isize, max: isize },
-    Map(Rc<RefCell<ValueMap<'a>>>), //TODO can we remove RefCell here?
+    Map(Rc<ValueMap<'a>>),
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
@@ -31,7 +31,7 @@ impl<'a> fmt::Display for Value<'a> {
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, value) in m.borrow().0.iter() {
+                for (key, value) in m.0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {

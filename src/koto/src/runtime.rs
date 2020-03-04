@@ -344,7 +344,7 @@ impl<'a> Runtime<'a> {
                     map.insert(id.clone(), self.value_stack.value().clone());
                     self.value_stack.pop_frame();
                 }
-                self.value_stack.push(Map(Rc::new(RefCell::new(map))));
+                self.value_stack.push(Map(Rc::new(map)));
             }
             Node::Lookup(lookup) => {
                 let value = self.lookup_value_or_error(&lookup.as_slice(), node)?.0;
@@ -590,9 +590,9 @@ impl<'a> Runtime<'a> {
                         },
                         (Map(a), Map(b)) => match op {
                             AstOp::Add => {
-                                let mut result = a.borrow().0.clone();
-                                result.extend(b.borrow().0.clone().into_iter());
-                                Ok(Map(Rc::new(RefCell::new(ValueMap(result)))))
+                                let mut result = a.0.clone();
+                                result.extend(b.0.clone().into_iter());
+                                Ok(Map(Rc::new(ValueMap(result))))
                             }
                             _ => binary_op_error!(op, a, b),
                         },
@@ -730,7 +730,7 @@ impl<'a> Runtime<'a> {
                         } else {
                             match value {
                                 Value::Map(map) => {
-                                    let (found, error) = map.borrow_mut().visit_mut(
+                                    let (found, error) = Rc::make_mut(map).visit_mut(
                                         lookup_id,
                                         1,
                                         node,
@@ -852,10 +852,10 @@ impl<'a> Runtime<'a> {
                                 match result.clone().map(|v| deref_value(&v)) {
                                     Some(Value::Map(data)) => match lookup_node {
                                         LookupNode::Id(id) => {
-                                            result = data.borrow().0.get(id).map(|v| v.clone());
+                                            result = data.0.get(id).map(|v| v.clone());
                                         }
                                         LookupNode::Index(index) => {
-                                            match data.borrow().0.get(
+                                            match data.0.get(
                                                 &index
                                                     .id
                                                     .as_ref()
@@ -1138,16 +1138,12 @@ impl<'a> Runtime<'a> {
 
                 match maybe_map {
                     Map(map) => {
-                        Rc::make_mut(map)
-                            .borrow_mut()
-                            .add_value(&value_id, value.clone());
+                        Rc::make_mut(map).add_value(&value_id, value.clone());
                         Ok(())
                     }
                     Ref(r) => match &mut *r.borrow_mut() {
                         Map(map) => {
-                            Rc::make_mut(map)
-                                .borrow_mut()
-                                .add_value(&value_id, value.clone());
+                            Rc::make_mut(map).add_value(&value_id, value.clone());
                             Ok(())
                         }
                         unexpected => runtime_error!(

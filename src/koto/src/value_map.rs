@@ -36,7 +36,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_map(&mut self, name: &str, map: ValueMap<'a>) {
-        self.add_value(name, Value::Map(Rc::new(RefCell::new(map))));
+        self.add_value(name, Value::Map(Rc::new(map)));
     }
 
     pub fn add_value(&mut self, name: &str, value: Value<'a>) {
@@ -55,7 +55,7 @@ impl<'a> ValueMap<'a> {
                     true
                 } else {
                     match value {
-                        Value::Map(map) => map.borrow().visit(&id[1..], visitor),
+                        Value::Map(map) => map.visit(&id[1..], visitor),
                         _ => false,
                     }
                 }
@@ -85,9 +85,9 @@ impl<'a> ValueMap<'a> {
                 _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
             }
         } else {
-            match self.0.get(entry_id) {
+            match self.0.get_mut(entry_id) {
                 Some(Value::Map(map)) => {
-                    map.borrow_mut().visit_mut(id, id_index + 1, node, visitor)
+                    Rc::make_mut(map).visit_mut(id, id_index + 1, node, visitor)
                 }
                 Some(unexpected) => (
                     false,
