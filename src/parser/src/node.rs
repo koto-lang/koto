@@ -41,13 +41,7 @@ pub enum Node {
         lhs: Box<AstNode>,
         rhs: Box<AstNode>,
     },
-    If {
-        condition: Box<AstNode>,
-        then_node: Box<AstNode>,
-        else_if_condition: Option<Box<AstNode>>,
-        else_if_node: Option<Box<AstNode>>,
-        else_node: Option<Box<AstNode>>,
-    },
+    If(AstIf),
     For(Rc<AstFor>),
 }
 
@@ -96,7 +90,7 @@ impl fmt::Display for Node {
             Assign { target, .. } => write!(f, "Assign: target: {}", target),
             MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
             Op { op, .. } => write!(f, "Op: {:?}", op),
-            If { .. } => write!(f, "If"),
+            If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
         }
     }
@@ -140,6 +134,14 @@ pub struct AstFor {
     pub body: Box<AstNode>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AstIf {
+    pub condition: Box<AstNode>,
+    pub then_node: Box<AstNode>,
+    pub else_if_condition: Option<Box<AstNode>>,
+    pub else_if_node: Option<Box<AstNode>>,
+    pub else_node: Option<Box<AstNode>>,
+}
 #[derive(Clone, Debug)]
 pub enum AstOp {
     Add,

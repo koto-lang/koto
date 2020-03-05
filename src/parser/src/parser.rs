@@ -370,13 +370,13 @@ impl KotoParser {
 
                 AstNode::new(
                     span,
-                    Node::If {
+                    Node::If(AstIf {
                         condition,
                         then_node,
                         else_node,
                         else_if_condition: None,
                         else_if_node: None,
-                    },
+                    }),
                 )
             }
             Rule::if_block => {
@@ -406,13 +406,13 @@ impl KotoParser {
 
                 AstNode::new(
                     span,
-                    Node::If {
+                    Node::If(AstIf {
                         condition,
                         then_node,
                         else_if_condition,
                         else_if_node,
                         else_node,
-                    },
+                    }),
                 )
             }
             Rule::for_block => {

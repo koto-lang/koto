@@ -5,7 +5,9 @@ use crate::{
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
-use koto_parser::{AssignTarget, AstFor, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope};
+use koto_parser::{
+    AssignTarget, AstFor, AstIf, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope,
+};
 use std::{cell::RefCell, path::Path, rc::Rc};
 
 enum ValueOrValues<'a> {
@@ -66,8 +68,7 @@ impl<'a> Runtime<'a> {
                     .parent()
                     .map(|p| {
                         Str(Rc::new(
-                            p.to_str().expect("
-                                              invalid script path").to_string(),
+                            p.to_str().expect("invalid script path").to_string(),
                         ))
                     })
                     .or(Some(Empty))
@@ -87,6 +88,16 @@ impl<'a> Runtime<'a> {
         env.add_list("args", ValueList::with_data(args));
 
         self.global.add_map("env", env);
+    }
+
+    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+        &mut self.global
+    }
+
+    #[allow(dead_code)]
+    fn runtime_indent(&self) -> String {
+        // TODO maintain indent count when trace is enabled
+        "  ".to_string()
     }
 
     /// Run a script and capture the final value
@@ -225,37 +236,9 @@ impl<'a> Runtime<'a> {
             },
             Node::Range {
                 min,
-                inclusive,
                 max,
-            } => {
-                let min = self.evaluate(min)?;
-                let max = self.evaluate(max)?;
-
-                match (min, max) {
-                    (Number(min), Number(max)) => {
-                        let min = min as isize;
-                        let max = max as isize;
-                        let max = if *inclusive { max + 1 } else { max };
-                        if min <= max {
-                            Range { min, max }
-                        } else {
-                            return runtime_error!(
-                                node,
-                                "Invalid range, min should be less than or equal to max - min: {}, max: {}",
-                                min,
-                                max);
-                        }
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "Expected numbers for range bounds, found min: {}, max: {}",
-                            type_as_string(&unexpected.0),
-                            type_as_string(&unexpected.1)
-                        )
-                    }
-                }
-            }
+                inclusive,
+            } => self.make_range(min, max, *inclusive, node)?,
             Node::Map(entries) => {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
@@ -305,251 +288,13 @@ impl<'a> Runtime<'a> {
             }
             Node::Function(f) => Function(f.clone()),
             Node::Call { function, args } => self.call_function(function, args, node)?,
-            Node::Assign { target, expression } => {
-                let value = self.evaluate_and_capture(expression)?;
-
-                match target {
-                    AssignTarget::Id { id, scope } => {
-                        self.set_value(id, value.clone(), *scope);
-                    }
-                    AssignTarget::Lookup(lookup) => match lookup.value_node() {
-                        LookupNode::Id(_) => {
-                            self.set_map_value(&lookup.as_slice(), value.clone(), node)?;
-                        }
-                        LookupNode::Index(index) => {
-                            self.set_list_value(
-                                &lookup.as_slice(),
-                                &index.expression,
-                                value.clone(),
-                                node,
-                            )?;
-                        }
-                    },
-                }
-
-                value
-            }
+            Node::Assign { target, expression } => self.assign_value(target, expression, node)?,
             Node::MultiAssign {
                 targets,
                 expressions,
-            } => {
-                macro_rules! set_value {
-                    ($target:expr, $value:expr) => {
-                        match $target {
-                            AssignTarget::Id { id, scope } => {
-                                self.set_value(&id, $value, *scope);
-                            }
-                            AssignTarget::Lookup(lookup) => match lookup.value_node() {
-                                LookupNode::Id(_) => {
-                                    self.set_map_value(&lookup.as_slice(), $value, node)?;
-                                }
-                                LookupNode::Index(index) => {
-                                    self.set_list_value(
-                                        &lookup.as_slice(),
-                                        &index.expression,
-                                        $value,
-                                        node,
-                                    )?;
-                                }
-                            },
-                        }
-                    };
-                };
-
-                if expressions.len() == 1 {
-                    let value = self.evaluate_and_capture(&expressions[0])?;
-
-                    match &value {
-                        List(l) => {
-                            let mut result_iter = l.data().iter();
-                            for target in targets.iter() {
-                                let value = result_iter.next().unwrap_or(&Empty);
-                                set_value!(target, value.clone());
-                            }
-                        }
-                        _ => {
-                            let first_id = targets.first().unwrap();
-                            runtime_trace!(
-                                self,
-                                "Assigning to {}: {} (single expression)",
-                                first_id,
-                                value
-                            );
-                            set_value!(first_id, value.clone());
-
-                            for id in targets[1..].iter() {
-                                set_value!(id, Empty);
-                            }
-                        }
-                    }
-
-                    value
-                } else {
-                    let mut results = Vec::new();
-
-                    for expression in expressions.iter() {
-                        let value = self.evaluate_and_capture(expression)?;
-                        results.push(value);
-                    }
-
-                    match results.as_slice() {
-                        [] => unreachable!(),
-                        [single_value] => {
-                            let first_id = targets.first().unwrap();
-                            runtime_trace!(self, "Assigning to {}: {}", first_id, single_value);
-                            set_value!(first_id, single_value.clone());
-                            // set remaining targets to empty
-                            for id in targets[1..].iter() {
-                                runtime_trace!(self, "Assigning to {}: ()");
-                                set_value!(id, Empty);
-                            }
-                        }
-                        _ => {
-                            let mut result_iter = results.iter();
-                            for id in targets.iter() {
-                                let value = result_iter.next().unwrap_or(&Empty).clone();
-                                runtime_trace!(self, "Assigning to {}: {}", id, value);
-                                set_value!(id, value);
-                            }
-                        }
-                    }
-
-                    // TODO This capture only needs to take place when its the final statement in a
-                    //      block, e.g. last statement in a function
-                    List(Rc::new(ValueList::with_data(results)))
-                }
-            }
-            Node::Op { op, lhs, rhs } => {
-                let a = self.evaluate_and_capture(lhs)?;
-                let b = self.evaluate_and_capture(rhs)?;
-
-                runtime_trace!(self, "{:?} - a: {} b: {}", op, &a, &b);
-
-                macro_rules! binary_op_error {
-                    ($op:ident, $a:ident, $b:ident) => {
-                        runtime_error!(
-                            node,
-                            "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
-                            op,
-                            a,
-                            b
-                        )
-                    };
-                };
-
-                match op {
-                    AstOp::Equal => Ok((a == b).into()),
-                    AstOp::NotEqual => Ok((a != b).into()),
-                    _ => match (&a, &b) {
-                        (Number(a), Number(b)) => match op {
-                            AstOp::Add => Ok(Number(a + b)),
-                            AstOp::Subtract => Ok(Number(a - b)),
-                            AstOp::Multiply => Ok(Number(a * b)),
-                            AstOp::Divide => Ok(Number(a / b)),
-                            AstOp::Modulo => Ok(Number(a % b)),
-                            AstOp::Less => Ok(Bool(a < b)),
-                            AstOp::LessOrEqual => Ok(Bool(a <= b)),
-                            AstOp::Greater => Ok(Bool(a > b)),
-                            AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Vec4(a), Vec4(b)) => match op {
-                            AstOp::Add => Ok(Vec4(*a + *b)),
-                            AstOp::Subtract => Ok(Vec4(*a - *b)),
-                            AstOp::Multiply => Ok(Vec4(*a * *b)),
-                            AstOp::Divide => Ok(Vec4(*a / *b)),
-                            AstOp::Modulo => Ok(Vec4(*a % *b)),
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Number(a), Vec4(b)) => match op {
-                            AstOp::Add => Ok(Vec4(*a + *b)),
-                            AstOp::Subtract => Ok(Vec4(*a - *b)),
-                            AstOp::Multiply => Ok(Vec4(*a * *b)),
-                            AstOp::Divide => Ok(Vec4(*a / *b)),
-                            AstOp::Modulo => Ok(Vec4(*a % *b)),
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Vec4(a), Number(b)) => match op {
-                            AstOp::Add => Ok(Vec4(*a + *b)),
-                            AstOp::Subtract => Ok(Vec4(*a - *b)),
-                            AstOp::Multiply => Ok(Vec4(*a * *b)),
-                            AstOp::Divide => Ok(Vec4(*a / *b)),
-                            AstOp::Modulo => Ok(Vec4(*a % *b)),
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Bool(a), Bool(b)) => match op {
-                            AstOp::And => Ok(Bool(*a && *b)),
-                            AstOp::Or => Ok(Bool(*a || *b)),
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (List(a), List(b)) => match op {
-                            AstOp::Add => {
-                                let mut result = Vec::clone(a.data());
-                                result.extend(Vec::clone(b.data()).into_iter());
-                                Ok(List(Rc::new(ValueList::with_data(result))))
-                            }
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Map(a), Map(b)) => match op {
-                            AstOp::Add => {
-                                let mut result = a.0.clone();
-                                result.extend(b.0.clone().into_iter());
-                                Ok(Map(Rc::new(ValueMap(result))))
-                            }
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        (Str(a), Str(b)) => match op {
-                            AstOp::Add => {
-                                let result = String::clone(a) + b.as_ref();
-                                Ok(Str(Rc::new(result)))
-                            }
-                            _ => binary_op_error!(op, a, b),
-                        },
-                        _ => binary_op_error!(op, a, b),
-                    },
-                }?
-            }
-            Node::If {
-                condition,
-                then_node,
-                else_if_condition,
-                else_if_node,
-                else_node,
-            } => {
-                let maybe_bool = self.evaluate(condition)?;
-                if let Bool(condition_value) = maybe_bool {
-                    if condition_value {
-                        return self.evaluate(then_node);
-                    }
-
-                    if else_if_condition.is_some() {
-                        let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap())?;
-                        if let Bool(condition_value) = maybe_bool {
-                            if condition_value {
-                                return self.evaluate(else_if_node.as_ref().unwrap());
-                            }
-                        } else {
-                            return runtime_error!(
-                                node,
-                                "Expected bool in else if statement, found {}",
-                                type_as_string(&maybe_bool)
-                            );
-                        }
-                    }
-
-                    if else_node.is_some() {
-                        return self.evaluate(else_node.as_ref().unwrap());
-                    }
-
-                    Empty
-                } else {
-                    return runtime_error!(
-                        node,
-                        "Expected bool in if statement, found {}",
-                        type_as_string(&maybe_bool)
-                    );
-                }
-            }
+            } => self.assign_values(targets, expressions, node)?,
+            Node::Op { op, lhs, rhs } => self.binary_op(op, lhs, rhs, node)?,
+            Node::If(if_statement) => self.do_if_statement(if_statement, node)?,
             Node::For(f) => For(f.clone()),
         };
 
@@ -1349,13 +1094,312 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
-        &mut self.global
+    fn assign_value(
+        &mut self,
+        target: &AssignTarget,
+        expression: &AstNode,
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        let value = self.evaluate_and_capture(expression)?;
+
+        match target {
+            AssignTarget::Id { id, scope } => {
+                self.set_value(id, value.clone(), *scope);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.value_node() {
+                LookupNode::Id(_) => {
+                    self.set_map_value(&lookup.as_slice(), value.clone(), node)?;
+                }
+                LookupNode::Index(index) => {
+                    self.set_list_value(
+                        &lookup.as_slice(),
+                        &index.expression,
+                        value.clone(),
+                        node,
+                    )?;
+                }
+            },
+        }
+
+        Ok(value)
     }
 
-    #[allow(dead_code)]
-    fn runtime_indent(&self) -> String {
-        // TODO maintain indent count when trace is enabled
-        "  ".to_string()
+    fn assign_values(
+        &mut self,
+        targets: &[AssignTarget],
+        expressions: &[AstNode],
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        use Value::{Empty, List};
+
+        macro_rules! set_value {
+            ($target:expr, $value:expr) => {
+                match $target {
+                    AssignTarget::Id { id, scope } => {
+                        self.set_value(&id, $value, *scope);
+                    }
+                    AssignTarget::Lookup(lookup) => match lookup.value_node() {
+                        LookupNode::Id(_) => {
+                            self.set_map_value(&lookup.as_slice(), $value, node)?;
+                        }
+                        LookupNode::Index(index) => {
+                            self.set_list_value(
+                                &lookup.as_slice(),
+                                &index.expression,
+                                $value,
+                                node,
+                            )?;
+                        }
+                    },
+                }
+            };
+        };
+
+        if expressions.len() == 1 {
+            let value = self.evaluate_and_capture(&expressions[0])?;
+
+            match &value {
+                List(l) => {
+                    let mut result_iter = l.data().iter();
+                    for target in targets.iter() {
+                        let value = result_iter.next().unwrap_or(&Empty);
+                        set_value!(target, value.clone());
+                    }
+                }
+                _ => {
+                    let first_id = targets.first().unwrap();
+                    runtime_trace!(
+                        self,
+                        "Assigning to {}: {} (single expression)",
+                        first_id,
+                        value
+                    );
+                    set_value!(first_id, value.clone());
+
+                    for id in targets[1..].iter() {
+                        set_value!(id, Empty);
+                    }
+                }
+            }
+
+            Ok(value)
+        } else {
+            let mut results = Vec::new();
+
+            for expression in expressions.iter() {
+                let value = self.evaluate_and_capture(expression)?;
+                results.push(value);
+            }
+
+            match results.as_slice() {
+                [] => unreachable!(),
+                [single_value] => {
+                    let first_id = targets.first().unwrap();
+                    runtime_trace!(self, "Assigning to {}: {}", first_id, single_value);
+                    set_value!(first_id, single_value.clone());
+                    // set remaining targets to empty
+                    for id in targets[1..].iter() {
+                        runtime_trace!(self, "Assigning to {}: ()");
+                        set_value!(id, Empty);
+                    }
+                }
+                _ => {
+                    let mut result_iter = results.iter();
+                    for id in targets.iter() {
+                        let value = result_iter.next().unwrap_or(&Empty).clone();
+                        runtime_trace!(self, "Assigning to {}: {}", id, value);
+                        set_value!(id, value);
+                    }
+                }
+            }
+
+            // TODO This capture only needs to take place when its the final statement in a
+            //      block, e.g. last statement in a function
+            Ok(List(Rc::new(ValueList::with_data(results))))
+        }
+    }
+
+    fn make_range(
+        &mut self,
+        min: &AstNode,
+        max: &AstNode,
+        inclusive: bool,
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        use Value::{Number, Range};
+
+        let min = self.evaluate(min)?;
+        let max = self.evaluate(max)?;
+
+        match (min, max) {
+            (Number(min), Number(max)) => {
+                let min = min as isize;
+                let max = max as isize;
+                let max = if inclusive { max + 1 } else { max };
+                if min <= max {
+                    Ok(Range { min, max })
+                } else {
+                    return runtime_error!(
+                        node,
+                        "Invalid range, min should be less than or equal to max - min: {}, max: {}",
+                        min,
+                        max
+                    );
+                }
+            }
+            unexpected => {
+                return runtime_error!(
+                    node,
+                    "Expected numbers for range bounds, found min: {}, max: {}",
+                    type_as_string(&unexpected.0),
+                    type_as_string(&unexpected.1)
+                )
+            }
+        }
+    }
+
+    fn binary_op(
+        &mut self,
+        op: &AstOp,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        use Value::*;
+
+        let a = self.evaluate_and_capture(lhs)?;
+        let b = self.evaluate_and_capture(rhs)?;
+
+        runtime_trace!(self, "{:?} - a: {} b: {}", op, &a, &b);
+
+        macro_rules! binary_op_error {
+            ($op:ident, $a:ident, $b:ident) => {
+                runtime_error!(
+                    node,
+                    "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
+                    op,
+                    a,
+                    b
+                )
+            };
+        };
+
+        match op {
+            AstOp::Equal => Ok((a == b).into()),
+            AstOp::NotEqual => Ok((a != b).into()),
+            _ => match (&a, &b) {
+                (Number(a), Number(b)) => match op {
+                    AstOp::Add => Ok(Number(a + b)),
+                    AstOp::Subtract => Ok(Number(a - b)),
+                    AstOp::Multiply => Ok(Number(a * b)),
+                    AstOp::Divide => Ok(Number(a / b)),
+                    AstOp::Modulo => Ok(Number(a % b)),
+                    AstOp::Less => Ok(Bool(a < b)),
+                    AstOp::LessOrEqual => Ok(Bool(a <= b)),
+                    AstOp::Greater => Ok(Bool(a > b)),
+                    AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Vec4(a), Vec4(b)) => match op {
+                    AstOp::Add => Ok(Vec4(*a + *b)),
+                    AstOp::Subtract => Ok(Vec4(*a - *b)),
+                    AstOp::Multiply => Ok(Vec4(*a * *b)),
+                    AstOp::Divide => Ok(Vec4(*a / *b)),
+                    AstOp::Modulo => Ok(Vec4(*a % *b)),
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Number(a), Vec4(b)) => match op {
+                    AstOp::Add => Ok(Vec4(*a + *b)),
+                    AstOp::Subtract => Ok(Vec4(*a - *b)),
+                    AstOp::Multiply => Ok(Vec4(*a * *b)),
+                    AstOp::Divide => Ok(Vec4(*a / *b)),
+                    AstOp::Modulo => Ok(Vec4(*a % *b)),
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Vec4(a), Number(b)) => match op {
+                    AstOp::Add => Ok(Vec4(*a + *b)),
+                    AstOp::Subtract => Ok(Vec4(*a - *b)),
+                    AstOp::Multiply => Ok(Vec4(*a * *b)),
+                    AstOp::Divide => Ok(Vec4(*a / *b)),
+                    AstOp::Modulo => Ok(Vec4(*a % *b)),
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Bool(a), Bool(b)) => match op {
+                    AstOp::And => Ok(Bool(*a && *b)),
+                    AstOp::Or => Ok(Bool(*a || *b)),
+                    _ => binary_op_error!(op, a, b),
+                },
+                (List(a), List(b)) => match op {
+                    AstOp::Add => {
+                        let mut result = Vec::clone(a.data());
+                        result.extend(Vec::clone(b.data()).into_iter());
+                        Ok(List(Rc::new(ValueList::with_data(result))))
+                    }
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Map(a), Map(b)) => match op {
+                    AstOp::Add => {
+                        let mut result = a.0.clone();
+                        result.extend(b.0.clone().into_iter());
+                        Ok(Map(Rc::new(ValueMap(result))))
+                    }
+                    _ => binary_op_error!(op, a, b),
+                },
+                (Str(a), Str(b)) => match op {
+                    AstOp::Add => {
+                        let result = String::clone(a) + b.as_ref();
+                        Ok(Str(Rc::new(result)))
+                    }
+                    _ => binary_op_error!(op, a, b),
+                },
+                _ => binary_op_error!(op, a, b),
+            },
+        }
+    }
+
+    fn do_if_statement(&mut self, if_statement: &AstIf, node: &AstNode) -> RuntimeResult<'a> {
+        use Value::{Bool, Empty};
+
+        let AstIf {
+            condition,
+            then_node,
+            else_if_condition,
+            else_if_node,
+            else_node,
+        } = if_statement;
+
+        let maybe_bool = self.evaluate(condition)?;
+        if let Bool(condition_value) = maybe_bool {
+            if condition_value {
+                return self.evaluate(then_node);
+            }
+
+            if else_if_condition.is_some() {
+                let maybe_bool = self.evaluate(&else_if_condition.as_ref().unwrap())?;
+                if let Bool(condition_value) = maybe_bool {
+                    if condition_value {
+                        return self.evaluate(else_if_node.as_ref().unwrap());
+                    }
+                } else {
+                    return runtime_error!(
+                        node,
+                        "Expected bool in else if statement, found {}",
+                        type_as_string(&maybe_bool)
+                    );
+                }
+            }
+
+            if else_node.is_some() {
+                return self.evaluate(else_node.as_ref().unwrap());
+            }
+
+            Ok(Empty)
+        } else {
+            return runtime_error!(
+                node,
+                "Expected bool in if statement, found {}",
+                type_as_string(&maybe_bool)
+            );
+        }
     }
 }
