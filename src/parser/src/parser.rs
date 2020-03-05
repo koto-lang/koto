@@ -37,11 +37,8 @@ impl KotoParser {
 
         let mut ast = vec![];
         for pair in parsed {
-            match pair.as_rule() {
-                Rule::block => {
-                    ast.push(self.build_ast(pair));
-                }
-                _ => {}
+            if pair.as_rule() == Rule::block {
+                ast.push(self.build_ast(pair));
             }
         }
 
@@ -486,5 +483,11 @@ impl KotoParser {
             }
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
+    }
+}
+
+impl Default for KotoParser {
+    fn default() -> Self {
+        Self::new()
     }
 }

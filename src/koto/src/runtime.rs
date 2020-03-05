@@ -19,6 +19,7 @@ pub struct Environment {
     pub args: Vec<String>,
 }
 
+#[derive(Default)]
 pub struct Runtime<'a> {
     environment: Environment,
     global: ValueMap<'a>,
@@ -65,7 +66,8 @@ impl<'a> Runtime<'a> {
                     .parent()
                     .map(|p| {
                         Str(Rc::new(
-                            p.to_str().expect("invalid script path").to_string(),
+                            p.to_str().expect("
+                                              invalid script path").to_string(),
                         ))
                     })
                     .or(Some(Empty))
@@ -88,14 +90,14 @@ impl<'a> Runtime<'a> {
     }
 
     /// Run a script and capture the final value
-    pub fn run(&mut self, ast: &Vec<AstNode>) -> RuntimeResult<'a> {
+    pub fn run(&mut self, ast: &[AstNode]) -> RuntimeResult<'a> {
         runtime_trace!(self, "run");
 
         self.evaluate_block(ast)
     }
 
     /// Evaluate a series of expressions and return the final result
-    fn evaluate_block(&mut self, block: &Vec<AstNode>) -> RuntimeResult<'a> {
+    fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
         for (i, expression) in block.iter().enumerate() {
@@ -112,14 +114,14 @@ impl<'a> Runtime<'a> {
     /// Evaluate a series of expressions and capture their results in a list
     fn evaluate_expressions(
         &mut self,
-        expressions: &Vec<AstNode>,
+        expressions: &[AstNode],
     ) -> Result<ValueOrValues<'a>, Error> {
         runtime_trace!(self, "evaluate_expressions - {}", expressions.len());
 
         if expressions.len() == 1 {
-            return Ok(ValueOrValues::Value(
+            Ok(ValueOrValues::Value(
                 self.evaluate_and_capture(&expressions[0])?,
-            ));
+            ))
         } else {
             let mut results = Vec::new();
 
@@ -807,13 +809,13 @@ impl<'a> Runtime<'a> {
                 .expect("Expected non-nested list id for first lookup"),
         };
         if self.call_stack.frame() > 0 {
-            let value = self.call_stack.get(first_id).map(|v| v.clone());
+            let value = self.call_stack.get(first_id).cloned();
             if let Some(value) = do_lookup!(value) {
                 return Ok(Some((value, Scope::Local)));
             }
         }
 
-        let global_value = self.global.0.get(first_id).map(|v| v.clone());
+        let global_value = self.global.0.get(first_id).cloned();
         match do_lookup!(global_value) {
             Some(value) => Ok(Some((value, Scope::Global))),
             None => Ok(None),
@@ -949,10 +951,10 @@ impl<'a> Runtime<'a> {
                     }
                 } else {
                     let mut arg_iter = f.args.iter().peekable();
-                    for i in 0..values.len() {
+                    for value in values.iter() {
                         match arg_iter.next() {
                             Some(arg) => {
-                                self.set_value(arg, values[i].clone(), Scope::Local);
+                                self.set_value(arg, value.clone(), Scope::Local);
                             }
                             None => break,
                         }
@@ -1182,7 +1184,7 @@ impl<'a> Runtime<'a> {
                 } else {
                     // TODO Avoid allocating new vec, introduce 'slice' value type
                     List(Rc::new(ValueList::with_data(
-                        list.data()[umin..umax].iter().cloned().collect::<Vec<_>>(),
+                        list.data()[umin..umax].to_vec(),
                     )))
                 }
             }
@@ -1201,7 +1203,7 @@ impl<'a> Runtime<'a> {
     fn call_function(
         &mut self,
         lookup_or_id: &LookupOrId,
-        args: &Vec<AstNode>,
+        args: &[AstNode],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
         use Value::*;
@@ -1226,7 +1228,7 @@ impl<'a> Runtime<'a> {
                     Err(e) => return runtime_error!(node, e),
                 };
             }
-            Some((Function(f), _)) => Some(f.clone()),
+            Some((Function(f), _)) => Some(f),
             Some((unexpected, _)) => {
                 return runtime_error!(
                     node,
@@ -1322,7 +1324,7 @@ impl<'a> Runtime<'a> {
         match lookup.0.last().unwrap() {
             LookupNode::Id(id) => {
                 if lookup.0.len() == 1 {
-                    return self.make_reference_from_id(id, node);
+                    self.make_reference_from_id(id, node)
                 } else {
                     let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
 
@@ -1348,7 +1350,7 @@ impl<'a> Runtime<'a> {
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
-        return &mut self.global;
+        &mut self.global
     }
 
     #[allow(dead_code)]

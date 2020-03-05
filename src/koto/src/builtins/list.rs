@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::single_arg_fn;
 
-pub fn register<'a>(global: &mut ValueMap) {
+pub fn register(global: &mut ValueMap) {
     use Value::*;
 
     let mut list = ValueMap::new();
@@ -26,12 +26,10 @@ pub fn register<'a>(global: &mut ValueMap) {
                 }
                 Ok(List(list))
             }
-            unexpected => {
-                return Err(format!(
-                    "list.add is only supported for lists, found {}",
-                    value::type_as_string(unexpected)
-                ))
-            }
+            unexpected => Err(format!(
+                "list.add is only supported for lists, found {}",
+                value::type_as_string(unexpected)
+            )),
         }
     });
 
@@ -45,9 +43,7 @@ pub fn register<'a>(global: &mut ValueMap) {
             result.sort();
             Ok(List(Rc::new(ValueList::with_data(result))))
         } else {
-            Err(format!(
-                "list.sort can only sort lists of numbers or strings",
-            ))
+            Err("list.sort can only sort lists of numbers or strings".to_string())
         }
     });
 
@@ -93,7 +89,7 @@ fn list_is_sortable(list: &ValueList) -> bool {
 
     let data = list.data();
 
-    if data.len() == 0 {
+    if data.is_empty() {
         true
     } else {
         match data.first().unwrap() {

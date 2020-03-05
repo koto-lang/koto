@@ -1,7 +1,7 @@
 use crate::Value;
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ValueList<'a>(Vec<Value<'a>>);
 
 impl<'a> ValueList<'a> {

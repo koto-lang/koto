@@ -138,7 +138,7 @@ pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
     }
 }
 
-pub fn make_reference<'a>(value: Value<'a>) -> (Value<'a>, bool) {
+pub fn make_reference(value: Value) -> (Value, bool) {
     match value {
         Value::Ref(_) => (value, false),
         _ => {

@@ -9,7 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ValueMap<'a>(pub ValueHashMap<'a>);
 
 impl<'a> ValueMap<'a> {
