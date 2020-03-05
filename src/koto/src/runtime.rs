@@ -432,137 +432,140 @@ impl<'a> Runtime<'a> {
         }
     }
 
+    fn do_lookup(
+        &mut self,
+        lookup: &LookupSlice,
+        root: Value<'a>,
+        node: &AstNode,
+    ) -> Result<Option<Value<'a>>, Error> {
+        if lookup.0.len() == 1 {
+            match &lookup.0[0] {
+                LookupNode::Id(_) => Ok(Some(root)),
+                LookupNode::Index(index) => match deref_value(&root) {
+                    Value::List(data) => Ok(Some(self.list_index(
+                        &data,
+                        &lookup,
+                        &index.expression,
+                        node,
+                    )?)),
+                    unexpected => {
+                        return runtime_error!(
+                            node,
+                            "Expected list for '{}', found {}",
+                            lookup,
+                            type_as_string(&unexpected)
+                        );
+                    }
+                },
+            }
+        } else {
+            let mut result = if let LookupNode::Index(index) = &lookup.0[0] {
+                // at this point we have the list, but we need the deindexed value
+                match deref_value(&root) {
+                    Value::List(data) => {
+                        Some(self.list_index(&data, &lookup, &index.expression, node)?)
+                    }
+                    unexpected => {
+                        return runtime_error!(
+                            node,
+                            "Expected list for '{}', found {}",
+                            lookup,
+                            type_as_string(&unexpected)
+                        );
+                    }
+                }
+            } else {
+                Some(root)
+            };
+
+            for (i, lookup_node) in lookup.0[1..].iter().enumerate() {
+                match result.clone().map(|v| deref_value(&v)) {
+                    Some(Value::Map(data)) => match lookup_node {
+                        LookupNode::Id(id) => {
+                            result = data.0.get(id).map(|v| v.clone());
+                        }
+                        LookupNode::Index(index) => {
+                            match data.0.get(
+                                &index
+                                    .id
+                                    .as_ref()
+                                    .expect("Expected a list id for map lookup")
+                                    .clone(),
+                            ) {
+                                Some(Value::List(data)) => {
+                                    result = Some(self.list_index(
+                                        &data,
+                                        &lookup.slice(0, i + 1),
+                                        &index.expression,
+                                        node,
+                                    )?);
+                                }
+                                Some(unexpected) => {
+                                    return runtime_error!(
+                                        node,
+                                        "Expected list for '{}', found {}",
+                                        lookup,
+                                        type_as_string(&unexpected)
+                                    );
+                                }
+                                None => break,
+                            }
+                        }
+                    },
+                    Some(Value::List(data)) => match lookup_node {
+                        LookupNode::Id(id) => {
+                            return runtime_error!(
+                                node,
+                                "Found a list instead of a Map for {}",
+                                id
+                            );
+                        }
+                        LookupNode::Index(index) => {
+                            result = Some(self.list_index(
+                                &data,
+                                &lookup.slice(0, i + 1),
+                                &index.expression,
+                                node,
+                            )?);
+                        }
+                    },
+                    _ => break,
+                }
+            }
+
+            Ok(result)
+        }
+    }
+
     fn lookup_value(
         &mut self,
         lookup: &LookupSlice,
         node: &AstNode,
     ) -> Result<Option<(Value<'a>, Scope)>, Error> {
-        macro_rules! do_lookup {
-            ($value:expr) => {{
-                match $value {
-                    Some(value) => {
-                        if lookup.0.len() == 1 {
-                            match &lookup.0[0] {
-                                LookupNode::Id(_) => Some(value),
-                                LookupNode::Index(index) => match deref_value(&value) {
-                                    Value::List(data) => Some(self.list_index(
-                                        &data,
-                                        &lookup,
-                                        &index.expression,
-                                        node,
-                                    )?),
-                                    unexpected => {
-                                        return runtime_error!(
-                                            node,
-                                            "Expected list for '{}', found {}",
-                                            lookup,
-                                            type_as_string(&unexpected)
-                                        );
-                                    }
-                                },
-                            }
-                        } else {
-                            let mut result = if let LookupNode::Index(index) = &lookup.0[0] {
-                                // at this point we have the list, but we need the deindexed value
-                                match deref_value(&value) {
-                                    Value::List(data) => Some(self.list_index(
-                                        &data,
-                                        &lookup,
-                                        &index.expression,
-                                        node,
-                                    )?),
-                                    unexpected => {
-                                        return runtime_error!(
-                                            node,
-                                            "Expected list for '{}', found {}",
-                                            lookup,
-                                            type_as_string(&unexpected)
-                                        );
-                                    }
-                                }
-                            } else {
-                                Some(value)
-                            };
-
-                            for (i, lookup_node) in lookup.0[1..].iter().enumerate() {
-                                match result.clone().map(|v| deref_value(&v)) {
-                                    Some(Value::Map(data)) => match lookup_node {
-                                        LookupNode::Id(id) => {
-                                            result = data.0.get(id).map(|v| v.clone());
-                                        }
-                                        LookupNode::Index(index) => {
-                                            match data.0.get(
-                                                &index
-                                                    .id
-                                                    .as_ref()
-                                                    .expect("Expected a list id for map lookup")
-                                                    .clone(),
-                                            ) {
-                                                Some(Value::List(data)) => {
-                                                    result = Some(self.list_index(
-                                                        &data,
-                                                        &lookup.slice(0, i + 1),
-                                                        &index.expression,
-                                                        node,
-                                                    )?);
-                                                }
-                                                Some(unexpected) => {
-                                                    return runtime_error!(
-                                                        node,
-                                                        "Expected list for '{}', found {}",
-                                                        lookup,
-                                                        type_as_string(&unexpected)
-                                                    );
-                                                }
-                                                None => break,
-                                            }
-                                        }
-                                    },
-                                    Some(Value::List(data)) => match lookup_node {
-                                        LookupNode::Id(id) => {
-                                            return runtime_error!(
-                                                node,
-                                                "Found a list instead of a Map for {}",
-                                                id
-                                            );
-                                        }
-                                        LookupNode::Index(index) => {
-                                            result = Some(self.list_index(
-                                                &data,
-                                                &lookup.slice(0, i + 1),
-                                                &index.expression,
-                                                node,
-                                            )?);
-                                        }
-                                    },
-                                    _ => break,
-                                }
-                            }
-                            result
-                        }
-                    }
-                    None => None,
-                }
-            }};
-        }
-
-        let first_id = match &lookup.0[0] {
+        let root_id = match &lookup.0[0] {
             LookupNode::Id(id) => id,
             LookupNode::Index(index) => &index
                 .id
                 .as_ref()
                 .expect("Expected non-nested list id for first lookup"),
         };
+
         if self.call_stack.frame() > 0 {
-            let value = self.call_stack.get(first_id).cloned();
-            if let Some(value) = do_lookup!(value) {
-                return Ok(Some((value, Scope::Local)));
+            match self.call_stack.get(root_id).cloned() {
+                Some(value) => {
+                    if let Some(found) = self.do_lookup(lookup, value, node)? {
+                        return Ok(Some((found, Scope::Local)));
+                    }
+                }
+                None => {}
             }
         }
 
-        let global_value = self.global.0.get(first_id).cloned();
-        match do_lookup!(global_value) {
-            Some(value) => Ok(Some((value, Scope::Global))),
+        match self.global.0.get(root_id).cloned() {
+            Some(value) => match self.do_lookup(lookup, value, node)? {
+                Some(value) => Ok(Some((value, Scope::Global))),
+                None => Ok(None),
+            },
             None => Ok(None),
         }
     }
