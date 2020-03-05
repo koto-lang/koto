@@ -1,4 +1,4 @@
-use crate::{value, Runtime, Value, ValueMap};
+use crate::{value, Runtime, Value, ValueList, ValueMap};
 use koto_parser::vec4;
 use std::{fs, path::Path, rc::Rc};
 
@@ -81,13 +81,9 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let mut map = ValueMap::new();
 
         single_arg_fn!(map, "keys", Map, m, {
-            Ok(List(Rc::new(
-                m.borrow()
-                    .0
-                    .keys()
-                    .map(|k| Str(k.clone()))
-                    .collect::<Vec<_>>(),
-            )))
+            Ok(List(Rc::new(ValueList::with_data(
+                m.0.keys().map(|k| Str(k.clone())).collect::<Vec<_>>(),
+            ))))
         });
 
         global.add_map("map", map);
@@ -101,11 +97,11 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         single_arg_fn!(string, "lines", Str, s, {
-            Ok(List(Rc::new(
+            Ok(List(Rc::new(ValueList::with_data(
                 s.lines()
                     .map(|line| Str(Rc::new(line.to_string())))
                     .collect::<Vec<_>>(),
-            )))
+            ))))
         });
 
         global.add_map("string", string);
@@ -187,7 +183,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         match first_arg_value {
             Empty => Ok(Number(0.0)),
-            List(list) => Ok(Number(list.len() as f64)),
+            List(list) => Ok(Number(list.data().len() as f64)),
             Range { min, max } => Ok(Number((max - min) as f64)),
             unexpected => Err(format!(
                 "size is only supported for lists and ranges, found {}",
@@ -231,7 +227,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                 Vec4(v) => *v,
                 List(list) => {
                     let mut v = V4::default();
-                    for (i, value) in list.iter().take(4).enumerate() {
+                    for (i, value) in list.data().iter().take(4).enumerate() {
                         match value {
                             Number(n) => v[i] = *n as f32,
                             unexpected => {

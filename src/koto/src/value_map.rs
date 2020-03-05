@@ -1,15 +1,15 @@
 use crate::{
     runtime_error,
     value::{BuiltinResult, ExternalFunction},
-    Error, LookupIdSlice, RuntimeResult, Value,
+    Error, LookupSlice, Value, ValueList,
 };
+use koto_parser::{AstNode, Id, LookupNode};
 use rustc_hash::FxHashMap;
-use koto_parser::{AstNode, Id};
 use std::{cell::RefCell, rc::Rc};
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ValueMap<'a>(pub ValueHashMap<'a>);
 
 impl<'a> ValueMap<'a> {
@@ -18,7 +18,10 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(ValueHashMap::with_capacity_and_hasher(capacity, Default::default()))
+        Self(ValueHashMap::with_capacity_and_hasher(
+            capacity,
+            Default::default(),
+        ))
     }
 
     pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a) {
@@ -28,12 +31,12 @@ impl<'a> ValueMap<'a> {
         );
     }
 
-    pub fn add_list(&mut self, name: &str, list: Vec<Value<'a>>) {
+    pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {
         self.add_value(name, Value::List(Rc::new(list)));
     }
 
     pub fn add_map(&mut self, name: &str, map: ValueMap<'a>) {
-        self.add_value(name, Value::Map(Rc::new(RefCell::new(map))));
+        self.add_value(name, Value::Map(Rc::new(map)));
     }
 
     pub fn add_value(&mut self, name: &str, value: Value<'a>) {
@@ -52,7 +55,7 @@ impl<'a> ValueMap<'a> {
                     true
                 } else {
                     match value {
-                        Value::Map(map) => map.borrow().visit(&id[1..], visitor),
+                        Value::Map(map) => map.visit(&id[1..], visitor),
                         _ => false,
                     }
                 }
@@ -61,23 +64,30 @@ impl<'a> ValueMap<'a> {
         }
     }
 
-    pub fn visit_mut(
+    pub fn visit_mut<'b: 'a>(
         &mut self,
-        id: &LookupIdSlice,
+        id: &LookupSlice,
         id_index: usize,
         node: &AstNode,
-        mut visitor: impl FnMut(&LookupIdSlice, &AstNode, &mut Value<'a>) -> RuntimeResult + 'a,
-    ) -> (bool, RuntimeResult) {
-        let entry_id = &id.0[id_index];
+        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> Result<(), Error> + 'b,
+    ) -> (bool, Result<(), Error>) {
+        let entry_id = match &id.0[id_index] {
+            LookupNode::Id(id) => id,
+            LookupNode::Index(index) => &index
+                .id
+                .as_ref()
+                .expect("Expected a list id for nested lookup"),
+        };
+
         if id_index == id.0.len() - 1 {
             match self.0.get_mut(entry_id) {
                 Some(mut value) => (true, visitor(id, node, &mut value)),
                 _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
             }
         } else {
-            match self.0.get(entry_id) {
+            match self.0.get_mut(entry_id) {
                 Some(Value::Map(map)) => {
-                    map.borrow_mut().visit_mut(id, id_index + 1, node, visitor)
+                    Rc::make_mut(map).visit_mut(id, id_index + 1, node, visitor)
                 }
                 Some(unexpected) => (
                     false,

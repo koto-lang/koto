@@ -78,3 +78,9 @@ assert_eq a, [7, 7, 7]
 # Referenced lists can be used as for loop ranges
 b = x for x in a
 assert_eq b, [7, 7, 7]
+
+# Maps can be references too
+m = {foo: 42}
+n = ref m
+n.foo = 99
+assert_eq m.foo, 99

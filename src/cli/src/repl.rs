@@ -86,16 +86,15 @@ impl<'a> Repl<'a> {
                         }
                     }
                 },
-                Key::Right => match self.cursor {
-                    Some(position) => {
+                Key::Right => {
+                    if let Some(position) = self.cursor {
                         if position < self.input.len() - 1 {
                             self.cursor = Some(position + 1);
                         } else {
                             self.cursor = None;
                         }
                     }
-                    None => {}
-                },
+                }
                 Key::Backspace => {
                     let cursor = self.cursor;
                     match cursor {

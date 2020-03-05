@@ -1,5 +1,6 @@
 use crate::{Id, Value};
 
+#[derive(Default)]
 pub struct CallStack<'a> {
     values: Vec<(Id, Value<'a>)>,
     frame_size: Vec<usize>,

@@ -1,15 +1,16 @@
 mod builtins;
 mod call_stack;
-mod value_stack;
 mod runtime;
 mod value;
 mod value_iterator;
+mod value_list;
 mod value_map;
 
-pub use koto_parser::{Ast, Id, KotoParser as Parser, LookupId, LookupIdSlice};
+pub use koto_parser::{Ast, Id, KotoParser as Parser, Lookup, LookupSlice};
 
 pub use runtime::Runtime;
 pub use value::Value;
+pub use value_list::ValueList;
 pub use value_map::ValueMap;
 
 #[derive(Debug)]
@@ -21,7 +22,7 @@ pub enum Error {
     },
 }
 
-pub type RuntimeResult = Result<(), Error>;
+pub type RuntimeResult<'a> = Result<Value<'a>, Error>;
 
 #[macro_export]
 macro_rules! make_runtime_error {
