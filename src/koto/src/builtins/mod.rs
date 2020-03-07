@@ -1,4 +1,4 @@
-use crate::{value, Runtime, Value, ValueList, ValueMap};
+use crate::{value, value::type_as_string, Runtime, Value, ValueList, ValueMap};
 use koto_parser::vec4;
 use std::{fs, path::Path, rc::Rc};
 
@@ -73,6 +73,8 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         math_fn_1!(sqrt);
         math_fn_1!(tan);
         math_fn_1!(tanh);
+
+        math.add_value("pi", Number(std::f64::consts::PI));
 
         global.add_map("math", math);
     }
@@ -169,6 +171,34 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                 "Assertion failed, '{}' should not be equal to '{}'",
                 args[0], args[1]
             ))
+        }
+    });
+
+    global.add_fn("assert_near", |args| {
+        if args.len() != 3 {
+            Err(format!(
+                "assert_eq expects three arguments, found {}",
+                args.len()
+            ))
+        } else {
+            match (&args[0], &args[1], &args[2]) {
+                (Number(a), Number(b), Number(allowed_diff)) => {
+                    if (a - b).abs() <= *allowed_diff {
+                        Ok(Empty)
+                    } else {
+                        Err(format!(
+                            "Assertion failed, '{}' and '{}' are not within {} of each other",
+                            a, b, allowed_diff
+                        ))
+                    }
+                }
+                (a, b, c) => Err(format!(
+                    "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
+                    type_as_string(&a),
+                    type_as_string(&b),
+                    type_as_string(&c)
+                )),
+            }
         }
     });
 

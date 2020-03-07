@@ -96,8 +96,7 @@ impl<'a> Runtime<'a> {
 
     #[allow(dead_code)]
     fn runtime_indent(&self) -> String {
-        // TODO maintain indent count when trace is enabled
-        "  ".to_string()
+        "  ".repeat(self.call_stack.frame())
     }
 
     /// Run a script and capture the final value
