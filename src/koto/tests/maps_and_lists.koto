@@ -20,14 +20,21 @@ make_foo = |x|
   foo: x
   set_foo: |self, x| self.foo = x
 
+# Getting a value
 foos = [(make_foo 42), (make_foo 99)]
 assert_eq foos[0].foo, 42
 assert_eq foos[1].foo, 99
 
+# Setting a value directly
+foos[0].foo = -1
+assert_eq foos[0].foo, -1
+
+# Calling a function
 foos[0].set_foo(-42)
 foos[1].set_foo(-123)
 assert_eq foos[0].foo, -42
 assert_eq foos[1].foo, -123
+
 
 
 #### A deeper example

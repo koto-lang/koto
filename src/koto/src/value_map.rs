@@ -1,6 +1,6 @@
 use crate::{
     runtime_error,
-    value::{BuiltinResult, ExternalFunction},
+    value::{type_as_string, BuiltinResult, EvaluatedLookupNode, ExternalFunction},
     Error, LookupSlice, Value, ValueList,
 };
 use koto_parser::{AstNode, Id, LookupNode};
@@ -73,10 +73,7 @@ impl<'a> ValueMap<'a> {
     ) -> (bool, Result<(), Error>) {
         let entry_id = match &id.0[id_index] {
             LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index
-                .id
-                .as_ref()
-                .expect("Expected a list id for nested lookup"),
+            _ => unreachable!(),
         };
 
         if id_index == id.0.len() - 1 {
@@ -89,6 +86,10 @@ impl<'a> ValueMap<'a> {
                 Some(Value::Map(map)) => {
                     Rc::make_mut(map).visit_mut(id, id_index + 1, node, visitor)
                 }
+                list @ Some(Value::List(_)) => {
+                    // todo
+                    (true, visitor(id, node, &mut list.unwrap()))
+                }
                 Some(unexpected) => (
                     false,
                     runtime_error!(node, "Expected map for {}, found {}", entry_id, unexpected),
@@ -96,6 +97,90 @@ impl<'a> ValueMap<'a> {
                 _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
             }
         }
+    }
+
+    pub fn set_value_from_lookup(
+        &mut self,
+        lookup: &LookupSlice,
+        evaluated_lookup: &[EvaluatedLookupNode],
+        lookup_index: usize,
+        value: &Value<'a>,
+        node: &AstNode,
+    ) -> Result<(), Error> {
+        use Value::{List, Map, Ref};
+
+        match &evaluated_lookup[lookup_index] {
+            EvaluatedLookupNode::Id(id) => {
+                if lookup_index == evaluated_lookup.len() - 1 {
+                    self.0.insert(id.clone(), value.clone());
+                } else {
+                    match self.0.get_mut(id) {
+                        Some(Map(entry)) => {
+                            return Rc::make_mut(entry).set_value_from_lookup(
+                                lookup,
+                                evaluated_lookup,
+                                lookup_index + 1,
+                                value,
+                                node,
+                            );
+                        }
+                        Some(List(entry)) => {
+                            return Rc::make_mut(entry).set_value_from_lookup(
+                                lookup,
+                                evaluated_lookup,
+                                lookup_index + 1,
+                                value,
+                                node,
+                            );
+                        }
+                        Some(Ref(ref_value)) => match &mut *ref_value.borrow_mut() {
+                            Map(entry) => {
+                                return Rc::make_mut(entry).set_value_from_lookup(
+                                    lookup,
+                                    evaluated_lookup,
+                                    lookup_index + 1,
+                                    value,
+                                    node,
+                                );
+                            }
+                            List(entry) => {
+                                return Rc::make_mut(entry).set_value_from_lookup(
+                                    lookup,
+                                    evaluated_lookup,
+                                    lookup_index + 1,
+                                    value,
+                                    node,
+                                );
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "Expected List or Map in '{}', found {}",
+                                    lookup,
+                                    type_as_string(unexpected)
+                                );
+                            }
+                        },
+                        Some(unexpected) => {
+                            return runtime_error!(
+                                node,
+                                "Expected List or Map in '{}', found {}",
+                                lookup,
+                                type_as_string(unexpected)
+                            );
+                        }
+                        None => {
+                            return runtime_error!(node, "'{}' not found in '{}'", id, lookup);
+                        }
+                    }
+                }
+            }
+            EvaluatedLookupNode::Index(_) => {
+                return runtime_error!(node, "Attempting to index a map in '{}'", lookup);
+            }
+        }
+
+        Ok(())
     }
 }
 

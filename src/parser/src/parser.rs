@@ -68,63 +68,26 @@ impl KotoParser {
 
         macro_rules! pair_as_lookup {
             ($lookup_pair:expr) => {{
-                match $lookup_pair.as_rule() {
-                    Rule::index_start => Lookup(vec![{
-                        let mut inner = $lookup_pair.into_inner();
-                        let id = next_as_rc_string!(inner);
-                        let expression = next_as_boxed_ast!(inner);
-                        LookupNode::Index(Index {
-                            id: Some(id),
-                            expression,
+                Lookup(
+                    $lookup_pair
+                        .into_inner()
+                        .map(|pair| match pair.as_rule() {
+                            Rule::id => LookupNode::Id(pair_as_id!(pair)),
+                            Rule::map_access => {
+                                let mut inner = pair.into_inner();
+                                LookupNode::Id(next_as_rc_string!(inner))
+                            }
+                            Rule::index => {
+                                let mut inner = pair.into_inner();
+                                let expression = next_as_boxed_ast!(inner);
+                                LookupNode::Index(Index(expression))
+                            }
+                            unexpected => {
+                                panic!("Unexpected rule while making lookup node: {:?}", unexpected)
+                            }
                         })
-                    }]),
-                    Rule::lookup => Lookup(
-                        $lookup_pair
-                            .into_inner()
-                            .map(|pair| match pair.as_rule() {
-                                Rule::id => LookupNode::Id(pair_as_id!(pair)),
-                                Rule::lookup_map => {
-                                    let mut inner = pair.into_inner();
-                                    LookupNode::Id(next_as_rc_string!(inner))
-                                }
-                                Rule::index_start => {
-                                    let mut inner = pair.into_inner();
-                                    let id = next_as_rc_string!(inner);
-                                    let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(Index {
-                                        id: Some(id),
-                                        expression,
-                                    })
-                                }
-                                Rule::index_map => {
-                                    let mut inner = pair.into_inner();
-                                    let id = next_as_rc_string!(inner.next().unwrap().into_inner());
-                                    let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(Index {
-                                        id: Some(id),
-                                        expression,
-                                    })
-                                }
-                                Rule::index_nested => {
-                                    let mut inner = pair.into_inner();
-                                    let expression = next_as_boxed_ast!(inner);
-                                    LookupNode::Index(Index {
-                                        id: None,
-                                        expression,
-                                    })
-                                }
-                                unexpected => panic!(
-                                    "Unexpected rule while making lookup node: {:?}",
-                                    unexpected
-                                ),
-                            })
-                            .collect::<Vec<_>>(),
-                    ),
-                    unexpected => panic!(
-                        "Unexpected rule while making lookup: {:?} - {:#?}",
-                        unexpected, $lookup_pair
-                    ),
-                }
+                        .collect::<Vec<_>>(),
+                )
             }};
         }
 

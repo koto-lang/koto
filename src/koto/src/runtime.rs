@@ -1,7 +1,10 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{deref_value, make_reference, type_as_string, values_have_matching_type, Value},
+    value::{
+        deref_value, make_reference, type_as_string, values_have_matching_type,
+        EvaluatedLookupNode, EvaluatedIndex, Value,
+    },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
@@ -346,71 +349,6 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn visit_value_mut<'b: 'a>(
-        &mut self,
-        lookup_id: &LookupSlice,
-        node: &AstNode,
-        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> Result<(), Error>
-            + Clone
-            + 'b,
-    ) -> Result<(), Error> {
-        runtime_trace!(self, "visit_value_mut - {}", lookup_id);
-
-        macro_rules! do_visit {
-            ($value:expr) => {{
-                match $value {
-                    Some(value) => {
-                        if lookup_id.0.len() == 1 {
-                            return visitor(lookup_id, node, value);
-                        } else {
-                            match value {
-                                Value::Map(map) => {
-                                    let (found, error) = Rc::make_mut(map).visit_mut(
-                                        lookup_id,
-                                        1,
-                                        node,
-                                        visitor.clone(),
-                                    );
-                                    (found, Some(error))
-                                }
-                                // Value::List(list) => {}
-                                _ => (false, None),
-                            }
-                        }
-                    }
-                    _ => (false, None),
-                }
-            }};
-        }
-
-        let first_id = match &lookup_id.0.first().unwrap() {
-            LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index
-                .id
-                .as_ref()
-                .expect("Expected non-nested list id for first lookup"),
-        };
-
-        if self.call_stack.frame() > 0 {
-            let value = self.call_stack.get_mut(&first_id);
-            match do_visit!(value) {
-                (false, _) => {}
-                (true, Some(result)) => {
-                    return result;
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        let global_value = self.global.0.get_mut(first_id);
-        match do_visit!(global_value) {
-            (false, None) => runtime_error!(node, "'{}' not found", lookup_id),
-            (false, Some(result)) => result,
-            (true, Some(result)) => result,
-            _ => unreachable!(),
-        }
-    }
-
     fn get_value(&self, id: &Id) -> Option<(Value<'a>, Scope)> {
         if self.call_stack.frame() > 0 {
             if let Some(value) = self.call_stack.get(id) {
@@ -431,109 +369,194 @@ impl<'a> Runtime<'a> {
         }
     }
 
+    fn set_value_from_lookup(
+        &mut self,
+        lookup: &LookupSlice,
+        value: &Value<'a>,
+        node: &AstNode,
+    ) -> Result<(), Error> {
+        use Value::{List, Map, Ref};
+
+        let root_id = match &lookup.0[0] {
+            LookupNode::Id(id) => id,
+            _ => unreachable!(),
+        };
+
+        let evaluated_lookup = lookup.0[1..]
+            .iter()
+            .map(|lookup_node| match lookup_node {
+                LookupNode::Id(id) => Ok(EvaluatedLookupNode::Id(id.clone())),
+                LookupNode::Index(index) => {
+                    let index = match self.evaluate(&index.0)? {
+                        Value::Number(i) => EvaluatedIndex::Index(i as usize),
+                        Value::Range{min, max} => EvaluatedIndex::Range{min, max},
+                        unexpected => {
+                            return runtime_error!(
+                            node,
+                            "Expected Number or Range while setting list value in '{}', found {}",
+                            lookup,
+                            type_as_string(&unexpected)
+                        );
+                        }
+                    };
+
+                    Ok(EvaluatedLookupNode::Index(index))
+                }
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        macro_rules! set_value_from_lookup_helper {
+            ($root_node:expr) => {
+                match $root_node {
+                    Map(entry) => Rc::make_mut(entry).set_value_from_lookup(
+                        lookup,
+                        &evaluated_lookup,
+                        0,
+                        value,
+                        node,
+                    ),
+                    List(entry) => Rc::make_mut(entry).set_value_from_lookup(
+                        lookup,
+                        &evaluated_lookup,
+                        0,
+                        value,
+                        node,
+                    ),
+                    Ref(ref_value) => match &mut *ref_value.borrow_mut() {
+                        Map(entry) => Rc::make_mut(entry).set_value_from_lookup(
+                            lookup,
+                            &evaluated_lookup,
+                            0,
+                            value,
+                            node,
+                        ),
+                        List(entry) => Rc::make_mut(entry).set_value_from_lookup(
+                            lookup,
+                            &evaluated_lookup,
+                            0,
+                            value,
+                            node,
+                        ),
+                        unexpected => runtime_error!(
+                            node,
+                            "Expected List or Map in '{}', found {}",
+                            lookup,
+                            type_as_string(unexpected)
+                        ),
+                    },
+                    unexpected => runtime_error!(
+                        node,
+                        "Expected List or Map in '{}', found {}",
+                        lookup,
+                        type_as_string(unexpected)
+                    ),
+                }
+            };
+        }
+
+        if self.call_stack.frame() > 0 {
+            if let Some(root) = self.call_stack.get_mut(root_id) {
+                return set_value_from_lookup_helper!(root);
+            }
+        }
+
+        if let Some(root) = self.global.0.get_mut(root_id) {
+            return set_value_from_lookup_helper!(root);
+        }
+
+        runtime_error!(node, "'{}' not found", root_id.to_string())
+    }
+
     fn do_lookup(
         &mut self,
         lookup: &LookupSlice,
         root: Value<'a>,
         node: &AstNode,
     ) -> Result<Option<Value<'a>>, Error> {
-        if lookup.0.len() == 1 {
-            match &lookup.0[0] {
-                LookupNode::Id(_) => Ok(Some(root)),
-                LookupNode::Index(index) => match deref_value(&root) {
-                    Value::List(data) => Ok(Some(self.list_index(
-                        &data,
-                        &lookup,
-                        &index.expression,
-                        node,
-                    )?)),
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "Expected list for '{}', found {}",
-                            lookup,
-                            type_as_string(&unexpected)
-                        );
+        use Value::{List, Map, Number, Range};
+
+        let mut result = Some(root);
+
+        for (lookup_index, lookup_node) in lookup.0[1..].iter().enumerate() {
+            match result.clone().map(|v| deref_value(&v)) {
+                Some(Map(data)) => match lookup_node {
+                    LookupNode::Id(id) => {
+                        result = data.0.get(id).map(|v| v.clone());
+                    }
+                    LookupNode::Index(_) => {
+                        return runtime_error!(node, "Attempting to index a Map in '{}'", lookup);
                     }
                 },
-            }
-        } else {
-            let mut result = if let LookupNode::Index(index) = &lookup.0[0] {
-                // at this point we have the list, but we need the deindexed value
-                match deref_value(&root) {
-                    Value::List(data) => {
-                        Some(self.list_index(&data, &lookup, &index.expression, node)?)
-                    }
-                    unexpected => {
+                Some(List(list)) => match lookup_node {
+                    LookupNode::Id(_) => {
                         return runtime_error!(
                             node,
-                            "Expected list for '{}', found {}",
-                            lookup,
-                            type_as_string(&unexpected)
+                            "Attempting to access a List like a map in '{}'",
+                            lookup
                         );
                     }
-                }
-            } else {
-                Some(root)
-            };
-
-            for (i, lookup_node) in lookup.0[1..].iter().enumerate() {
-                match result.clone().map(|v| deref_value(&v)) {
-                    Some(Value::Map(data)) => match lookup_node {
-                        LookupNode::Id(id) => {
-                            result = data.0.get(id).map(|v| v.clone());
-                        }
-                        LookupNode::Index(index) => {
-                            match data.0.get(
-                                &index
-                                    .id
-                                    .as_ref()
-                                    .expect("Expected a list id for map lookup")
-                                    .clone(),
-                            ) {
-                                Some(Value::List(data)) => {
-                                    result = Some(self.list_index(
-                                        &data,
-                                        &lookup.slice(0, i + 1),
-                                        &index.expression,
-                                        node,
-                                    )?);
-                                }
-                                Some(unexpected) => {
+                    LookupNode::Index(index) => {
+                        result = match self.evaluate(&index.0)? {
+                            Number(i) => {
+                                let i = i as usize;
+                                if i < list.data().len() {
+                                    Some(list.data()[i].clone())
+                                } else {
                                     return runtime_error!(
                                         node,
-                                        "Expected list for '{}', found {}",
+                                        "Index out of bounds in '{}', List has a length of {} but the index is {}",
                                         lookup,
-                                        type_as_string(&unexpected)
+                                        list.data().len(),
+                                        i
                                     );
                                 }
-                                None => break,
                             }
-                        }
-                    },
-                    Some(Value::List(data)) => match lookup_node {
-                        LookupNode::Id(id) => {
-                            return runtime_error!(
-                                node,
-                                "Found a list instead of a Map for {}",
-                                id
-                            );
-                        }
-                        LookupNode::Index(index) => {
-                            result = Some(self.list_index(
-                                &data,
-                                &lookup.slice(0, i + 1),
-                                &index.expression,
-                                node,
-                            )?);
-                        }
-                    },
-                    _ => break,
-                }
+                            Range { min, max } => {
+                                let umin = min as usize;
+                                let umax = max as usize;
+                                if (lookup_index + 1) < (lookup.0.len() - 1) {
+                                    return runtime_error!(
+                                        node,
+                                        "Indexing with a range is only supported at the end of a lookup chain (in '{}')",
+                                        lookup);
+                                } else if min < 0 || max < 0 {
+                                    return runtime_error!(
+                                        node,
+                                        "Indexing with negative indices isn't supported, min: {}, max: {}",
+                                        min,
+                                        max
+                                    );
+                                } else if umin > list.data().len() || umax > list.data().len() {
+                                    return runtime_error!(
+                                        node,
+                                        "Index out of bounds in '{}', List has a length of {} - min: {}, max: {}",
+                                        lookup,
+                                        list.data().len(),
+                                        min,
+                                        max
+                                    );
+                                } else {
+                                    // TODO Avoid allocating new vec, introduce 'slice' value type
+                                    Some(List(Rc::new(ValueList::with_data(
+                                        list.data()[umin..umax].to_vec(),
+                                    ))))
+                                }
+                            }
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "Indexing is only supported with number values or ranges, found {})",
+                                    type_as_string(&unexpected)
+                                )
+                            }
+                        };
+                    }
+                },
+                _ => break,
             }
-
-            Ok(result)
         }
+
+        Ok(result)
     }
 
     fn lookup_value(
@@ -543,10 +566,7 @@ impl<'a> Runtime<'a> {
     ) -> Result<Option<(Value<'a>, Scope)>, Error> {
         let root_id = match &lookup.0[0] {
             LookupNode::Id(id) => id,
-            LookupNode::Index(index) => &index
-                .id
-                .as_ref()
-                .expect("Expected non-nested list id for first lookup"),
+            _ => unreachable!(),
         };
 
         if self.call_stack.frame() > 0 {
@@ -741,212 +761,6 @@ impl<'a> Runtime<'a> {
         })
     }
 
-    fn set_map_value(
-        &mut self,
-        lookup: &LookupSlice,
-        value: Value<'a>,
-        node: &AstNode,
-    ) -> RuntimeResult<'a> {
-        runtime_trace!(self, "set_map_value - {}: {}", lookup, &value);
-
-        let value_id = match lookup.0.last().unwrap().clone() {
-            LookupNode::Id(id) => id,
-            LookupNode::Index(_) => unreachable!(),
-        };
-
-        self.visit_value_mut(
-            &lookup.parent_slice(),
-            node,
-            move |map_lookup, node, maybe_map| {
-                use Value::{Map, Ref};
-
-                match maybe_map {
-                    Map(map) => {
-                        Rc::make_mut(map).add_value(&value_id, value.clone());
-                        Ok(())
-                    }
-                    Ref(r) => match &mut *r.borrow_mut() {
-                        Map(map) => {
-                            Rc::make_mut(map).add_value(&value_id, value.clone());
-                            Ok(())
-                        }
-                        unexpected => runtime_error!(
-                            node,
-                            "Expected Map for '{}', found {}",
-                            map_lookup,
-                            type_as_string(&unexpected)
-                        ),
-                    },
-                    _ => runtime_error!(
-                        node,
-                        "Expected Map for '{}', found {}",
-                        map_lookup,
-                        type_as_string(&maybe_map)
-                    ),
-                }
-            },
-        )?;
-
-        Ok(Value::Empty)
-    }
-
-    fn set_list_value(
-        &mut self,
-        id: &LookupSlice,
-        expression: &AstNode,
-        value: Value<'a>,
-        node: &AstNode,
-    ) -> RuntimeResult<'a> {
-        use Value::*;
-
-        runtime_trace!(self, "set_list_value - {}: {}", id, &value);
-
-        let index = self.evaluate(expression)?;
-
-        self.visit_value_mut(id, node, move |id, node, maybe_list| {
-            let assign_to_index = |list: &mut ValueList<'a>| match index {
-                Number(i) => {
-                    let i = i as usize;
-                    if i < list.data().len() {
-                        list.data_mut()[i] = value.clone();
-                        Ok(Empty)
-                    } else {
-                        runtime_error!(
-                            node,
-                            "Index out of bounds: '{}' has a length of {} but the index is {}",
-                            id,
-                            list.data().len(),
-                            i
-                        )
-                    }
-                }
-                Range { min, max } => {
-                    let umin = min as usize;
-                    let umax = max as usize;
-                    if min < 0 || max < 0 {
-                        runtime_error!(
-                            node,
-                            "Indexing with negative indices isn't supported, min: {}, max: {}",
-                            min,
-                            max
-                        )
-                    } else if umin >= list.data().len() || umax > list.data().len() {
-                        runtime_error!(
-                            node,
-                            "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                            id,
-                            list.data().len(),
-                            min,
-                            max
-                        )
-                    } else {
-                        for element in &mut list.data_mut()[umin..umax] {
-                            *element = value.clone();
-                        }
-                        Ok(Empty)
-                    }
-                }
-                _ => runtime_error!(
-                    node,
-                    "Indexing is only supported with number values or ranges, found {})",
-                    type_as_string(&index)
-                ),
-            };
-
-            match maybe_list {
-                List(data) => {
-                    assign_to_index(&mut Rc::make_mut(data))?;
-                }
-                Ref(r) => match &mut *r.borrow_mut() {
-                    List(data) => {
-                        assign_to_index(&mut Rc::make_mut(data))?;
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            node,
-                            "Indexing is only supported for Lists, found {}",
-                            type_as_string(&unexpected)
-                        );
-                    }
-                },
-                _ => {
-                    return runtime_error!(
-                        node,
-                        "Indexing is only supported for Lists, found {}",
-                        type_as_string(&maybe_list)
-                    )
-                }
-            };
-            Ok(())
-        })?;
-
-        Ok(Empty)
-    }
-
-    fn list_index(
-        &mut self,
-        list: &ValueList<'a>,
-        list_id: &LookupSlice,
-        expression: &AstNode,
-        node: &AstNode,
-    ) -> RuntimeResult<'a> {
-        use Value::*;
-
-        let index = self.evaluate(expression)?;
-
-        let result = match index {
-            Number(i) => {
-                let i = i as usize;
-                if i < list.data().len() {
-                    list.data()[i].clone()
-                } else {
-                    return runtime_error!(
-                        node,
-                        "Index out of bounds: '{}' has a length of {} but the index is {}",
-                        list_id,
-                        list.data().len(),
-                        i
-                    );
-                }
-            }
-            Range { min, max } => {
-                let umin = min as usize;
-                let umax = max as usize;
-                if min < 0 || max < 0 {
-                    return runtime_error!(
-                        node,
-                        "Indexing with negative indices isn't supported, min: {}, max: {}",
-                        min,
-                        max
-                    );
-                } else if umin >= list.data().len() || umax >= list.data().len() {
-                    return runtime_error!(
-                        node,
-                        "Index out of bounds: '{}' has a length of {} - min: {}, max: {}",
-                        list_id,
-                        list.data().len(),
-                        min,
-                        max
-                    );
-                } else {
-                    // TODO Avoid allocating new vec, introduce 'slice' value type
-                    List(Rc::new(ValueList::with_data(
-                        list.data()[umin..umax].to_vec(),
-                    )))
-                }
-            }
-            _ => {
-                return runtime_error!(
-                    node,
-                    "Indexing is only supported with number values or ranges, found {})",
-                    type_as_string(&index)
-                )
-            }
-        };
-
-        Ok(result)
-    }
-
     fn call_function(
         &mut self,
         lookup_or_id: &LookupOrId,
@@ -1077,18 +891,18 @@ impl<'a> Runtime<'a> {
 
                     let (value_ref, made_ref) = make_reference(value);
                     if made_ref {
-                        self.set_map_value(&lookup, value_ref.clone(), node)?;
+                        self.set_value_from_lookup(&lookup, &value_ref, node)?;
                     }
 
                     Ok(value_ref)
                 }
             }
-            LookupNode::Index(index) => {
+            LookupNode::Index(_) => {
                 let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
 
                 let (value_ref, made_ref) = make_reference(value);
                 if made_ref {
-                    self.set_list_value(&lookup, &index.expression, value_ref.clone(), node)?;
+                    self.set_value_from_lookup(&lookup, &value_ref, node)?;
                 }
 
                 Ok(value_ref)
@@ -1108,19 +922,9 @@ impl<'a> Runtime<'a> {
             AssignTarget::Id { id, scope } => {
                 self.set_value(id, value.clone(), *scope);
             }
-            AssignTarget::Lookup(lookup) => match lookup.value_node() {
-                LookupNode::Id(_) => {
-                    self.set_map_value(&lookup.as_slice(), value.clone(), node)?;
-                }
-                LookupNode::Index(index) => {
-                    self.set_list_value(
-                        &lookup.as_slice(),
-                        &index.expression,
-                        value.clone(),
-                        node,
-                    )?;
-                }
-            },
+            AssignTarget::Lookup(lookup) => {
+                self.set_value_from_lookup(&lookup.as_slice(), &value, node)?;
+            }
         }
 
         Ok(value)
@@ -1140,19 +944,9 @@ impl<'a> Runtime<'a> {
                     AssignTarget::Id { id, scope } => {
                         self.set_value(&id, $value, *scope);
                     }
-                    AssignTarget::Lookup(lookup) => match lookup.value_node() {
-                        LookupNode::Id(_) => {
-                            self.set_map_value(&lookup.as_slice(), $value, node)?;
-                        }
-                        LookupNode::Index(index) => {
-                            self.set_list_value(
-                                &lookup.as_slice(),
-                                &index.expression,
-                                $value,
-                                node,
-                            )?;
-                        }
-                    },
+                    AssignTarget::Lookup(lookup) => {
+                        self.set_value_from_lookup(&lookup.as_slice(), &$value, node)?;
+                    }
                 }
             };
         };

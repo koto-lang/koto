@@ -237,13 +237,10 @@ id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
 ids = { id ~ ("," ~ id)* }
 
-lookup = ${ (lookup_start ~ lookup_continue+) | index_start }
-lookup_start = _{ index_start | id }
-lookup_continue = _{ index_map | index_nested | lookup_map }
-index_start = ${ id ~ "[" ~ operation ~ "]" }
-index_map = ${ lookup_map ~ "[" ~ operation ~ "]" }
-index_nested = ${ "[" ~ operation ~ "]" }
-lookup_map = ${ ("." ~ id) }
+lookup = ${ (id ~ lookup_node+) }
+lookup_node = _{ index | map_access }
+index = ${ "[" ~ operation ~ "]" }
+map_access = ${ ("." ~ id) }
 
 keyword = _{
   "and"
