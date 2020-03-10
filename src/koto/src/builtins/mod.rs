@@ -1,8 +1,9 @@
-use crate::{value, Runtime, Value, ValueList, ValueMap};
+use crate::{value, value::type_as_string, Runtime, Value, ValueList, ValueMap};
 use koto_parser::vec4;
 use std::{fs, path::Path, rc::Rc};
 
 mod list;
+mod math;
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -39,43 +40,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
     let global = runtime.global_mut();
 
     list::register(global);
-
-    {
-        let mut math = ValueMap::new();
-
-        macro_rules! math_fn_1 {
-            ($fn:ident) => {
-                math_fn_1!(stringify!($fn), $fn)
-            };
-            ($name:expr, $fn:ident) => {
-                single_arg_fn!(math, $name, Number, n, { Ok(Number(n.$fn())) });
-            };
-        }
-
-        math_fn_1!(abs);
-        math_fn_1!(acos);
-        math_fn_1!(asin);
-        math_fn_1!(atan);
-        math_fn_1!(ceil);
-        math_fn_1!(cos);
-        math_fn_1!(cosh);
-        math_fn_1!("degrees", to_degrees);
-        math_fn_1!(exp);
-        math_fn_1!(exp2);
-        math_fn_1!(floor);
-        math_fn_1!(log10);
-        math_fn_1!(log2);
-        math_fn_1!(ln);
-        math_fn_1!("radians", to_radians);
-        math_fn_1!(recip);
-        math_fn_1!(sin);
-        math_fn_1!(sinh);
-        math_fn_1!(sqrt);
-        math_fn_1!(tan);
-        math_fn_1!(tanh);
-
-        global.add_map("math", math);
-    }
+    math::register(global);
 
     {
         let mut map = ValueMap::new();
@@ -169,6 +134,34 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                 "Assertion failed, '{}' should not be equal to '{}'",
                 args[0], args[1]
             ))
+        }
+    });
+
+    global.add_fn("assert_near", |args| {
+        if args.len() != 3 {
+            Err(format!(
+                "assert_eq expects three arguments, found {}",
+                args.len()
+            ))
+        } else {
+            match (&args[0], &args[1], &args[2]) {
+                (Number(a), Number(b), Number(allowed_diff)) => {
+                    if (a - b).abs() <= *allowed_diff {
+                        Ok(Empty)
+                    } else {
+                        Err(format!(
+                            "Assertion failed, '{}' and '{}' are not within {} of each other",
+                            a, b, allowed_diff
+                        ))
+                    }
+                }
+                (a, b, c) => Err(format!(
+                    "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
+                    type_as_string(&a),
+                    type_as_string(&b),
+                    type_as_string(&c)
+                )),
+            }
         }
     });
 

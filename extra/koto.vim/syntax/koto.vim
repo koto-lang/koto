@@ -7,7 +7,7 @@ syntax keyword kotoKeywords global not ref vec4
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating for in
 syntax keyword kotoBuiltins env io list map math number print push size string
-syntax keyword kotoAsserts assert assert_eq assert_ne
+syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 
 syntax match kotoInlineComment "#.*$"

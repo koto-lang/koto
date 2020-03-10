@@ -1,11 +1,8 @@
-use crate::{Id, AstNode};
+use crate::{AstNode, Id, Node};
 use std::fmt;
 
 #[derive(Clone, Debug)]
-pub struct Index {
-    pub id: Option<Id>,
-    pub expression: Box<AstNode>,
-}
+pub struct Index (pub Box<AstNode>);
 
 #[derive(Clone, Debug)]
 pub struct Lookup(pub Vec<LookupNode>);
@@ -73,15 +70,11 @@ impl<'a> fmt::Display for LookupSlice<'a> {
                     write!(f, "{}", id)?
                 }
                 LookupNode::Index(index) => {
-                    if !first && index.id.is_some() {
-                        write!(f, ".")?;
-                    }
-
-                    write!(
-                        f,
-                        "{}[]",
-                        index.id.as_ref().map_or("".to_string(), |s| s.to_string())
-                    )?
+                    let expression = match index.0.node {
+                        Node::Number(n) => n.to_string(),
+                        _ => "...".to_string(),
+                    };
+                    write!(f, "[{}]", expression)?
                 }
             }
             first = false;
@@ -89,4 +82,3 @@ impl<'a> fmt::Display for LookupSlice<'a> {
         Ok(())
     }
 }
-

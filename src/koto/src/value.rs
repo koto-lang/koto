@@ -1,5 +1,5 @@
 use crate::{value_list::ValueList, value_map::ValueMap};
-use koto_parser::{vec4, AstFor, Function};
+use koto_parser::{vec4, AstFor, Function, Id};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -180,4 +180,16 @@ pub fn type_as_string(value: &Value) -> &'static str {
         ExternalFunction(_) => "ExternalFunction",
         For(_) => "For",
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum EvaluatedLookupNode {
+    Id(Id),
+    Index(EvaluatedIndex),
+}
+
+#[derive(Clone, Debug)]
+pub enum EvaluatedIndex {
+    Index(usize),
+    Range { min: isize, max: isize },
 }
