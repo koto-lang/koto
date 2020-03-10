@@ -115,14 +115,16 @@ end
 
 bodies = [ref sun, ref jupiter, ref saturn, ref uranus, ref neptune]
 
+sqrt = math.sqrt # TODO use statement
+sum = math.sum
+
 advance = |bodies, nbodies, dt| # TODO ref bodies
-    sqrt = math.sqrt # TODO use statement
     for bi, i in bodies, 0..nbodies
+        bi_pos = bi.pos
         bi_vel = bi.vel
         for bj in bodies[(i + 1)..nbodies] # TODO to-range
-            dist = bi.pos - bj.pos
-            dist2_sum = dist[0] + dist[1] + dist[2] # TODO builtin
-            dist2 = dist_sum * dist_sum
+            dist = bi_pos - bj.pos
+            dist2 = sum (dist * dist)
             mag = sqrt dist2
             mag = dt / (mag * dist2)
             bm = bj.mass * mag
@@ -131,7 +133,6 @@ advance = |bodies, nbodies, dt| # TODO ref bodies
             bj.vel = bj.vel + dist * bm
         bi.vel = bi_vel
         bi.pos = bi.pos + dt * bi_vel
-
 
 #-
 
@@ -158,12 +159,12 @@ energy = |bodies, nbody|
     for bi, i in bodies, 0..nbody
         bi_vel = bi.vel
         bi_mass = bi.mass
-        e = e + 0.5 * bi_mass * (vec4.sum bi_vel * bi_vel)
+        e = e + 0.5 * bi_mass * (math.sum bi_vel * bi_vel)
         for j in (i + 1)..nbody
             bj = bodies[j]
             d = bi.pos - bj.pos
-            distance = math.sqrt(d * d)
-            e = e - ((bi_mass * bj.mass) / distance)
+            distance = math.sqrt math.sum d * d
+            e = e - (bi_mass * bj.mass) / distance
     e
 
 
@@ -188,8 +189,8 @@ end
 offset_momentum = |bodies, nbody|
     pos = vec4 0
     for body in bodies
-        pos = pos + body.pos * body.mass
-    bodies[0].pos = (pos * -1) / solar_mass
+        pos = pos + body.vel * body.mass # TODO += operator
+    bodies[0].vel = (pos * -1) / solar_mass # TODO - operator
 
 #-
 
@@ -208,7 +209,7 @@ bodies = ref bodies
 
 offset_momentum bodies, nbody
 
-print energy(bodies, nbody)
+print energy(bodies, nbody) # TODO format to 9dp
 for _ in 0..N
     advance(bodies, nbody, 0.01)
-print energy(bodies, nbody)
+print energy(bodies, nbody) # TODO format to 9dp
