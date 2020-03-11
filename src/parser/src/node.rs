@@ -18,6 +18,11 @@ pub enum Node {
         max: Box<AstNode>,
         inclusive: bool,
     },
+    IndexRange {
+        min: Option<Box<AstNode>>,
+        max: Option<Box<AstNode>>,
+        inclusive: bool,
+    },
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
@@ -62,6 +67,9 @@ impl fmt::Display for Node {
                 if l.len() == 1 { "entry" } else { "entries" }
             ),
             Range { inclusive, .. } => {
+                write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
+            }
+            IndexRange { inclusive, .. } => {
                 write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
             }
             Map(m) => write!(

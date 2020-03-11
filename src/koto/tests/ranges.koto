@@ -1,17 +1,30 @@
-r = 0..5
-assert_eq 5, size r
+# Assigning a range to a value creates a lazily evaluated range
+r = 0..2
+assert_eq 2, size r
+# Passing the range to a function will cause it to be captured in a list
+assert_eq r, [0, 1]
 
-# ..= creates an inclusive range
-y = 0..=5
-assert_eq 6, size y
+# Ranges are exclusive by default, ..= creates an inclusive range
+r = 0..=2
+assert_eq 3, size r
+assert_eq r, [0, 1, 2]
 
-# Ranges are resolved when inserted in a list
 assert_eq 10, size [10..20]
-assert_eq 5, size [r]
+assert_eq 3, size [r]
 
 # Indexing lists with ranges produces sub-lists
+n = [0..10]
+assert_eq n[2..5], [2, 3, 4]
+assert_eq n[2..=4], [2, 3, 4]
+
+# Function calls can be evaluated to find range boundaries
 z = |n| n
 x = [(z 10)..=(z 20)]
 y = x[z(5)..(10 + 0)]
 assert_eq 15, y[0]
 assert_eq 5, size y
+
+# Leaving off either range boundary creates a From/To range
+n = [0..=10]
+assert_eq n[..=2], [0, 1, 2]
+assert_eq n[8..], [8, 9, 10]

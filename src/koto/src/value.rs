@@ -10,6 +10,7 @@ pub enum Value<'a> {
     Vec4(vec4::Vec4),
     List(Rc<ValueList<'a>>),
     Range { min: isize, max: isize },
+    IndexRange { min: usize, max: Option<usize> },
     Map(Rc<ValueMap<'a>>),
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
@@ -43,6 +44,12 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, " }}")
             }
             Range { min, max } => write!(f, "[{}..{}]", min, max),
+            IndexRange { min, max } => write!(
+                f,
+                "[{}..{}]",
+                min,
+                max.map_or("".to_string(), |n| n.to_string()),
+            ),
             Ref(r) => {
                 let value = r.borrow();
                 write!(f, "Reference to {}{}", type_as_string(&value), value)
@@ -117,6 +124,34 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
+pub type BuiltinResult<'a> = Result<Value<'a>, String>;
+pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
+
+impl<'a> Clone for ExternalFunction<'a> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<'a> fmt::Debug for ExternalFunction<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let raw = Rc::into_raw(self.0.clone());
+        write!(f, "builtin function: {:?}", raw)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum EvaluatedLookupNode {
+    Id(Id),
+    Index(EvaluatedIndex),
+}
+
+#[derive(Clone, Debug)]
+pub enum EvaluatedIndex {
+    Index(usize),
+    Range { min: usize, max: Option<usize> },
+}
+
 pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
     use std::mem::discriminant;
     use Value::Ref;
@@ -148,22 +183,6 @@ pub fn make_reference(value: Value) -> (Value, bool) {
     }
 }
 
-pub type BuiltinResult<'a> = Result<Value<'a>, String>;
-pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
-
-impl<'a> Clone for ExternalFunction<'a> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl<'a> fmt::Debug for ExternalFunction<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.0.clone());
-        write!(f, "builtin function: {:?}", raw)
-    }
-}
-
 pub fn type_as_string(value: &Value) -> &'static str {
     use Value::*;
     match value {
@@ -173,6 +192,7 @@ pub fn type_as_string(value: &Value) -> &'static str {
         Vec4(_) => "Vec4",
         List(_) => "List",
         Range { .. } => "Range",
+        IndexRange { .. } => "IndexRange",
         Map(_) => "Map",
         Str(_) => "String",
         Ref(_) => "Reference",
@@ -180,16 +200,4 @@ pub fn type_as_string(value: &Value) -> &'static str {
         ExternalFunction(_) => "ExternalFunction",
         For(_) => "For",
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum EvaluatedLookupNode {
-    Id(Id),
-    Index(EvaluatedIndex),
-}
-
-#[derive(Clone, Debug)]
-pub enum EvaluatedIndex {
-    Index(usize),
-    Range { min: isize, max: isize },
 }

@@ -122,7 +122,7 @@ advance = |bodies, nbodies, dt| # TODO ref bodies
     for bi, i in bodies, 0..nbodies
         bi_pos = bi.pos
         bi_vel = bi.vel
-        for bj in bodies[(i + 1)..nbodies] # TODO to-range
+        for bj in bodies[(i + 1)..]
             dist = bi_pos - bj.pos
             dist2 = sum (dist * dist)
             mag = sqrt dist2

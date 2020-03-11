@@ -60,17 +60,10 @@ impl<'a> ValueList<'a> {
                             self.0[*i] = value.clone();
                         }
                         EvaluatedIndex::Range { min, max } => {
-                            let umin = *min as usize;
-                            let umax = *max as usize;
-                            if *min < 0 || *max < 0 {
-                                return runtime_error!(
-                                    node,
-                                    "Indexing with negative indices isn't supported, \
-                                     min: {}, max: {}",
-                                    min,
-                                    max
-                                );
-                            } else if umin >= self.0.len() || umax > self.0.len() {
+                            let min = *min;
+                            let max = max.unwrap_or(self.0.len());
+
+                            if min >= self.0.len() || max > self.0.len() {
                                 return runtime_error!(
                                     node,
                                     "Index out of bounds in '{}', \
@@ -81,7 +74,7 @@ impl<'a> ValueList<'a> {
                                     max
                                 );
                             } else {
-                                for i in umin..umax {
+                                for i in min..max {
                                     self.0[i] = value.clone();
                                 }
                             }

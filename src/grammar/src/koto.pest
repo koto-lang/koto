@@ -206,7 +206,7 @@ list = !{
   | "[" ~ operation ~ ("," ~ operation)* ~ "]"
 }
 
-range = ${ range_arg ~ range_op ~ range_arg }
+range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
 range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
 

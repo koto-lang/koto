@@ -141,18 +141,41 @@ impl KotoParser {
             Rule::range => {
                 let mut inner = pair.into_inner();
 
-                let min = next_as_boxed_ast!(inner);
-                let inclusive = inner.next().unwrap().as_str() == "..=";
-                let max = next_as_boxed_ast!(inner);
+                let maybe_min = match inner.peek().unwrap().as_rule() {
+                    Rule::range_op => None,
+                    _ => Some(next_as_boxed_ast!(inner)),
+                };
 
-                AstNode::new(
-                    span,
-                    Node::Range {
-                        min,
-                        inclusive,
-                        max,
-                    },
-                )
+                let inclusive = inner.next().unwrap().as_str() == "..=";
+
+                let maybe_max = if inner.peek().is_some() {
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
+
+                match (&maybe_min, &maybe_max) {
+                    (Some(min), Some(max)) => {
+                        AstNode::new(
+                            span,
+                            Node::Range {
+                                min: min.clone(),
+                                max: max.clone(),
+                                inclusive,
+                            },
+                        )
+                    }
+                    _ => {
+                        AstNode::new(
+                            span,
+                            Node::IndexRange {
+                                min: maybe_min,
+                                max: maybe_max,
+                                inclusive,
+                            },
+                        )
+                    }
+                }
             }
             Rule::map | Rule::map_value | Rule::map_inline => {
                 let inner = if pair.as_rule() == Rule::map_value {

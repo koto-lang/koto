@@ -2,8 +2,8 @@ use crate::{
     call_stack::CallStack,
     runtime_error,
     value::{
-        deref_value, make_reference, type_as_string, values_have_matching_type,
-        EvaluatedLookupNode, EvaluatedIndex, Value,
+        deref_value, make_reference, type_as_string, values_have_matching_type, EvaluatedIndex,
+        EvaluatedLookupNode, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
@@ -241,6 +241,11 @@ impl<'a> Runtime<'a> {
                 max,
                 inclusive,
             } => self.make_range(min, max, *inclusive, node)?,
+            Node::IndexRange {
+                min,
+                max,
+                inclusive,
+            } => self.make_index_range(min, max, *inclusive, node)?,
             Node::Map(entries) => {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
@@ -389,7 +394,31 @@ impl<'a> Runtime<'a> {
                 LookupNode::Index(index) => {
                     let index = match self.evaluate(&index.0)? {
                         Value::Number(i) => EvaluatedIndex::Index(i as usize),
-                        Value::Range{min, max} => EvaluatedIndex::Range{min, max},
+                        Value::Range { min, max } => {
+                            if min < 0 {
+                                return runtime_error!(
+                                    node,
+                                    "Negative values aren't allowed when indexing a list, \
+                                     found '{}' in '{}'",
+                                    min,
+                                    lookup
+                                );
+                            }
+                            if max < 0 {
+                                return runtime_error!(
+                                    node,
+                                    "Negative values aren't allowed when indexing a list, \
+                                     found '{}' in '{}'",
+                                    max,
+                                    lookup
+                                );
+                            }
+                            EvaluatedIndex::Range {
+                                min: min as usize,
+                                max: Some(max as usize),
+                            }
+                        }
+                        Value::IndexRange { min, max } => EvaluatedIndex::Range { min, max },
                         unexpected => {
                             return runtime_error!(
                             node,
@@ -473,7 +502,7 @@ impl<'a> Runtime<'a> {
         root: Value<'a>,
         node: &AstNode,
     ) -> Result<Option<Value<'a>>, Error> {
-        use Value::{List, Map, Number, Range};
+        use Value::{List, Map, Number, Range, IndexRange};
 
         let mut result = Some(root);
 
@@ -539,6 +568,26 @@ impl<'a> Runtime<'a> {
                                     // TODO Avoid allocating new vec, introduce 'slice' value type
                                     Some(List(Rc::new(ValueList::with_data(
                                         list.data()[umin..umax].to_vec(),
+                                    ))))
+                                }
+                            }
+                            IndexRange{min, max} => {
+                                let max = max.unwrap_or(list.data().len());
+
+                                if min >= list.data().len() || max > list.data().len() {
+                                    return runtime_error!(
+                                        node,
+                                        "Index out of bounds in '{}', \
+                                         List has a length of {} - min: {}, max: {}",
+                                        lookup,
+                                        list.data().len(),
+                                        min,
+                                        max
+                                    );
+                                } else {
+                                    // TODO Avoid allocating new vec, introduce 'slice' value type
+                                    Some(List(Rc::new(ValueList::with_data(
+                                        list.data()[min..max].to_vec(),
                                     ))))
                                 }
                             }
@@ -1052,6 +1101,75 @@ impl<'a> Runtime<'a> {
                 )
             }
         }
+    }
+
+    fn make_index_range(
+        &mut self,
+        min: &Option<Box<AstNode>>,
+        max: &Option<Box<AstNode>>,
+        inclusive: bool,
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        use Value::{IndexRange, Number};
+
+        let evaluated_min = if let Some(min_expression) = min {
+            match self.evaluate(min_expression)? {
+                Number(n) => {
+                    if n < 0.0 {
+                        return runtime_error!(
+                            node,
+                            "Negative numbers aren't allowed in index ranges, found {}",
+                            n
+                        );
+                    }
+
+                    n as usize
+                }
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "Expected Number for range start, found '{}'",
+                        type_as_string(&unexpected)
+                    );
+                }
+            }
+        } else {
+            0
+        };
+
+        let maybe_max = if let Some(max_expression) = max {
+            Some(match self.evaluate(max_expression)? {
+                Number(n) => {
+                    if n < 0.0 {
+                        return runtime_error!(
+                            node,
+                            "Negative numbers aren't allowed in index ranges, found {}",
+                            n
+                        );
+                    }
+
+                    if inclusive {
+                        n as usize + 1
+                    } else {
+                        n as usize
+                    }
+                }
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "Expected Number for range end, found '{}'",
+                        type_as_string(&unexpected)
+                    );
+                }
+            })
+        } else {
+            None
+        };
+
+        Ok(IndexRange {
+            min: evaluated_min,
+            max: maybe_max,
+        })
     }
 
     fn binary_op(
