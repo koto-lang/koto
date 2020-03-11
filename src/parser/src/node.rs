@@ -26,6 +26,7 @@ pub enum Node {
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
+    ReturnExpression(Box<AstNode>),
     RefExpression(Box<AstNode>),
     Negate(Box<AstNode>),
     Function(Rc<Function>),
@@ -90,6 +91,7 @@ impl fmt::Display for Node {
                 e.len(),
                 if e.len() == 1 { "" } else { "s" }
             ),
+            ReturnExpression(_) => write!(f, "Return Expression"),
             RefExpression(_) => write!(f, "Ref Expression"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
@@ -195,13 +197,5 @@ impl fmt::Display for AssignTarget {
             ),
             Lookup(lookup) => write!(f, "{}", lookup),
         }
-    }
-}
-
-pub fn is_single_value_node(node: &Node) -> bool {
-    use Node::*;
-    match node {
-        Id(_) | Bool(_) | Number(_) | Vec4(_) | Str(_) => true,
-        _ => false,
     }
 }

@@ -13,6 +13,13 @@ use koto_parser::{
 };
 use std::{cell::RefCell, path::Path, rc::Rc};
 
+#[derive(Clone, Debug)]
+enum ControlFlow<'a> {
+    None,
+    Function,
+    Return(Value<'a>),
+}
+
 enum ValueOrValues<'a> {
     Value(Value<'a>),
     Values(Vec<Value<'a>>),
@@ -24,11 +31,11 @@ pub struct Environment {
     pub args: Vec<String>,
 }
 
-#[derive(Default)]
 pub struct Runtime<'a> {
     environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
+    control_flow: ControlFlow<'a>,
 }
 
 #[cfg(feature = "trace")]
@@ -53,6 +60,7 @@ impl<'a> Runtime<'a> {
             environment: Default::default(),
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
+            control_flow: ControlFlow::None,
         };
         crate::builtins::register(&mut result);
         result
@@ -106,6 +114,7 @@ impl<'a> Runtime<'a> {
     pub fn run(&mut self, ast: &[AstNode]) -> RuntimeResult<'a> {
         runtime_trace!(self, "run");
 
+        self.control_flow = ControlFlow::None;
         self.evaluate_block(ast)
     }
 
@@ -116,6 +125,10 @@ impl<'a> Runtime<'a> {
         for (i, expression) in block.iter().enumerate() {
             if i < block.len() - 1 {
                 self.evaluate_and_expand(expression, false)?;
+                match self.control_flow {
+                    ControlFlow::Return(_) => return Ok(Value::Empty),
+                    _ => {}
+                }
             } else {
                 return self.evaluate_and_capture(expression);
             }
@@ -139,7 +152,7 @@ impl<'a> Runtime<'a> {
             let mut results = Vec::new();
 
             for expression in expressions.iter() {
-                if koto_parser::is_single_value_node(&expression.node) {
+                if is_single_value_node(&expression.node) {
                     results.push(self.evaluate(expression)?);
                 } else {
                     results.push(self.evaluate_and_capture(expression)?);
@@ -156,7 +169,7 @@ impl<'a> Runtime<'a> {
 
         runtime_trace!(self, "evaluate_and_capture - {}", expression.node);
 
-        if koto_parser::is_single_value_node(&expression.node) {
+        if is_single_value_node(&expression.node) {
             self.evaluate(expression)
         } else {
             match self.evaluate_and_expand(expression, true)? {
@@ -287,6 +300,16 @@ impl<'a> Runtime<'a> {
                     _ => Ref(Rc::new(RefCell::new(value))),
                 }
             }
+            Node::ReturnExpression(expression) => match self.control_flow {
+                ControlFlow::Function => {
+                    let value = self.evaluate_and_capture(expression)?;
+                    self.control_flow = ControlFlow::Return(value.clone());
+                    Value::Empty
+                }
+                _ => {
+                    return runtime_error!(node, "'return' is only allowed inside a function");
+                }
+            },
             Node::Negate(expression) => {
                 let value = self.evaluate_and_capture(expression)?;
                 match value {
@@ -939,7 +962,16 @@ impl<'a> Runtime<'a> {
             }
 
             self.call_stack.commit();
-            let result = self.evaluate_block(&f.body);
+            let cached_control_flow = self.control_flow.clone();
+            self.control_flow = ControlFlow::Function;
+
+            let mut result = self.evaluate_block(&f.body);
+            match &self.control_flow {
+                ControlFlow::Return(return_value) => result = Ok(return_value.clone()),
+                _ => {}
+            }
+
+            self.control_flow = cached_control_flow;
             self.call_stack.pop_frame();
             return result;
         }
@@ -1351,5 +1383,13 @@ impl<'a> Runtime<'a> {
                 type_as_string(&maybe_bool)
             );
         }
+    }
+}
+
+fn is_single_value_node(node: &Node) -> bool {
+    use Node::*;
+    match node {
+        For(_) | Range { .. } | IndexRange { .. } => false,
+        _ => true,
     }
 }

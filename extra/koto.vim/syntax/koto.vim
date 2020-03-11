@@ -3,7 +3,7 @@ if exists("b:current_syntax")
 endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
-syntax keyword kotoKeywords global not ref vec4
+syntax keyword kotoKeywords global not ref return vec4
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating for in
 syntax keyword kotoBuiltins env io list map math number print push size string

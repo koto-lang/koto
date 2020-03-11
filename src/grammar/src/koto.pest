@@ -57,7 +57,8 @@ assignment_target = _{ lookup | assignment_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 expression = _{
-  ( ref_expression
+  ( return_expression
+  | ref_expression
   | function
   | if_statement
   | for_loop
@@ -67,6 +68,7 @@ expression = _{
   ~ comment?
 }
 expressions = !{ expression ~ ("," ~ expression?)* }
+return_expression = !{ return_keyword ~ expression }
 ref_expression = !{ !ref_id ~ ref_keyword ~ expression }
 
 operation = ${
@@ -123,10 +125,10 @@ value_term = _{(
   | string
   | number
   | boolean
-  | ref_expression
-  | ref_id
   | lookup
   | id
+  | ref_expression
+  | ref_id
   | ("(" ~ operation ~ ")")
   )
   ~ comment?
@@ -253,6 +255,7 @@ keyword = _{
   | "not"
   | "or"
   | "ref"
+  | "return"
   | "then"
   | "true"
 }
@@ -265,6 +268,7 @@ if_keyword = @{ "if" ~ WHITESPACE+ }
 in_keyword = @{ "in" ~ WHITESPACE+ }
 not_keyword = @{ "not" ~ WHITESPACE+ }
 ref_keyword = @{ "ref" ~ WHITESPACE+ }
+return_keyword = @{ "return" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 
 
