@@ -9,8 +9,8 @@ pub enum Value<'a> {
     Number(f64),
     Vec4(vec4::Vec4),
     List(Rc<ValueList<'a>>),
-    Range { min: isize, max: isize },
-    IndexRange { min: usize, max: Option<usize> },
+    Range { start: isize, end: isize },
+    IndexRange { start: usize, end: Option<usize> },
     Map(Rc<ValueMap<'a>>),
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
@@ -43,12 +43,12 @@ impl<'a> fmt::Display for Value<'a> {
                 }
                 write!(f, " }}")
             }
-            Range { min, max } => write!(f, "[{}..{}]", min, max),
-            IndexRange { min, max } => write!(
+            Range { start, end } => write!(f, "[{}..{}]", start, end),
+            IndexRange { start, end } => write!(
                 f,
                 "[{}..{}]",
-                min,
-                max.map_or("".to_string(), |n| n.to_string()),
+                start,
+                end.map_or("".to_string(), |n| n.to_string()),
             ),
             Ref(r) => {
                 let value = r.borrow();
@@ -149,7 +149,7 @@ pub enum EvaluatedLookupNode {
 #[derive(Clone, Debug)]
 pub enum EvaluatedIndex {
     Index(usize),
-    Range { min: usize, max: Option<usize> },
+    Range { start: usize, end: Option<usize> },
 }
 
 pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {

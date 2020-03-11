@@ -177,7 +177,15 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         match first_arg_value {
             Empty => Ok(Number(0.0)),
             List(list) => Ok(Number(list.data().len() as f64)),
-            Range { min, max } => Ok(Number((max - min) as f64)),
+            Range { start, end } => {
+                println!("size: start: {} end: {}", start, end);
+
+                Ok(Number(if end >= start {
+                    end - start
+                } else {
+                    start - end
+                } as f64))
+            }
             unexpected => Err(format!(
                 "size is only supported for lists and ranges, found {}",
                 unexpected

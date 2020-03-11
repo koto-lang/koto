@@ -202,9 +202,16 @@ impl<'a> Runtime<'a> {
         let result = if expand_value {
             match value {
                 For(for_loop) => self.run_for_loop(&for_loop, expression, capture)?,
-                Range { min, max } => {
+                Range { start, end } => {
                     if capture {
-                        let expanded = (min..max).map(|n| Number(n as f64)).collect::<Vec<_>>();
+                        let expanded = if end >= start {
+                            (start..end).map(|n| Number(n as f64)).collect::<Vec<_>>()
+                        } else {
+                            (end..start)
+                                .rev()
+                                .map(|n| Number(n as f64))
+                                .collect::<Vec<_>>()
+                        };
                         List(Rc::new(ValueList::with_data(expanded)))
                     } else {
                         Empty
@@ -237,15 +244,15 @@ impl<'a> Runtime<'a> {
                 ValueOrValues::Values(values) => Value::List(Rc::new(ValueList::with_data(values))),
             },
             Node::Range {
-                min,
-                max,
+                start,
+                end,
                 inclusive,
-            } => self.make_range(min, max, *inclusive, node)?,
+            } => self.make_range(start, end, *inclusive, node)?,
             Node::IndexRange {
-                min,
-                max,
+                start,
+                end,
                 inclusive,
-            } => self.make_index_range(min, max, *inclusive, node)?,
+            } => self.make_index_range(start, end, *inclusive, node)?,
             Node::Map(entries) => {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
@@ -394,31 +401,31 @@ impl<'a> Runtime<'a> {
                 LookupNode::Index(index) => {
                     let index = match self.evaluate(&index.0)? {
                         Value::Number(i) => EvaluatedIndex::Index(i as usize),
-                        Value::Range { min, max } => {
-                            if min < 0 {
+                        Value::Range { start, end } => {
+                            if start < 0 {
                                 return runtime_error!(
                                     node,
                                     "Negative values aren't allowed when indexing a list, \
                                      found '{}' in '{}'",
-                                    min,
+                                    start,
                                     lookup
                                 );
                             }
-                            if max < 0 {
+                            if end < 0 {
                                 return runtime_error!(
                                     node,
                                     "Negative values aren't allowed when indexing a list, \
                                      found '{}' in '{}'",
-                                    max,
+                                    end,
                                     lookup
                                 );
                             }
                             EvaluatedIndex::Range {
-                                min: min as usize,
-                                max: Some(max as usize),
+                                start: start as usize,
+                                end: Some(end as usize),
                             }
                         }
-                        Value::IndexRange { min, max } => EvaluatedIndex::Range { min, max },
+                        Value::IndexRange { start, end } => EvaluatedIndex::Range { start, end },
                         unexpected => {
                             return runtime_error!(
                             node,
@@ -502,7 +509,7 @@ impl<'a> Runtime<'a> {
         root: Value<'a>,
         node: &AstNode,
     ) -> Result<Option<Value<'a>>, Error> {
-        use Value::{List, Map, Number, Range, IndexRange};
+        use Value::{IndexRange, List, Map, Number, Range};
 
         let mut result = Some(root);
 
@@ -540,54 +547,77 @@ impl<'a> Runtime<'a> {
                                     );
                                 }
                             }
-                            Range { min, max } => {
-                                let umin = min as usize;
-                                let umax = max as usize;
+                            Range { start, end } => {
+                                let ustart = start as usize;
+                                let uend = end as usize;
+
                                 if (lookup_index + 1) < (lookup.0.len() - 1) {
                                     return runtime_error!(
                                         node,
                                         "Indexing with a range is only supported at the end of a lookup chain (in '{}')",
-                                        lookup);
-                                } else if min < 0 || max < 0 {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with negative indices isn't supported, min: {}, max: {}",
-                                        min,
-                                        max
+                                        lookup
                                     );
-                                } else if umin > list.data().len() || umax > list.data().len() {
+                                } else if start < 0 || end < 0 {
                                     return runtime_error!(
                                         node,
-                                        "Index out of bounds in '{}', List has a length of {} - min: {}, max: {}",
+                                        "Indexing with negative indices isn't supported, start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                } else if start > end {
+                                    return runtime_error!(
+                                        node,
+                                        "Indexing with a descending range isn't supported, start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                }
+                                else if ustart > list.data().len() || uend > list.data().len() {
+                                    return runtime_error!(
+                                        node,
+                                        "Index out of bounds in '{}', List has a length of {} - start: {}, end: {}",
                                         lookup,
                                         list.data().len(),
-                                        min,
-                                        max
+                                        start,
+                                        end
                                     );
                                 } else {
                                     // TODO Avoid allocating new vec, introduce 'slice' value type
                                     Some(List(Rc::new(ValueList::with_data(
-                                        list.data()[umin..umax].to_vec(),
+                                        list.data()[ustart..uend].to_vec(),
                                     ))))
                                 }
                             }
-                            IndexRange{min, max} => {
-                                let max = max.unwrap_or(list.data().len());
+                            IndexRange{start, end} => {
+                                let end = end.unwrap_or(list.data().len());
 
-                                if min >= list.data().len() || max > list.data().len() {
+                                if (lookup_index + 1) < (lookup.0.len() - 1) {
+                                    return runtime_error!(
+                                        node,
+                                        "Indexing with a range is only supported at the end of a lookup chain (in '{}')",
+                                        lookup
+                                    );
+                                } else if start > end {
+                                    return runtime_error!(
+                                        node,
+                                        "Indexing with a descending range isn't supported, start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                }else if start >= list.data().len() || end > list.data().len() {
                                     return runtime_error!(
                                         node,
                                         "Index out of bounds in '{}', \
-                                         List has a length of {} - min: {}, max: {}",
+                                         List has a length of {} - start: {}, end: {}",
                                         lookup,
                                         list.data().len(),
-                                        min,
-                                        max
+                                        start,
+                                        end
                                     );
                                 } else {
                                     // TODO Avoid allocating new vec, introduce 'slice' value type
                                     Some(List(Rc::new(ValueList::with_data(
-                                        list.data()[min..max].to_vec(),
+                                        list.data()[start..end].to_vec(),
                                     ))))
                                 }
                             }
@@ -1066,36 +1096,42 @@ impl<'a> Runtime<'a> {
 
     fn make_range(
         &mut self,
-        min: &AstNode,
-        max: &AstNode,
+        start: &AstNode,
+        end: &AstNode,
         inclusive: bool,
         node: &AstNode,
     ) -> RuntimeResult<'a> {
         use Value::{Number, Range};
 
-        let min = self.evaluate(min)?;
-        let max = self.evaluate(max)?;
+        let start = self.evaluate(start)?;
+        let end = self.evaluate(end)?;
 
-        match (min, max) {
-            (Number(min), Number(max)) => {
-                let min = min as isize;
-                let max = max as isize;
-                let max = if inclusive { max + 1 } else { max };
-                if min <= max {
-                    Ok(Range { min, max })
+        match (start, end) {
+            (Number(start), Number(end)) => {
+                let start = start as isize;
+                let end = end as isize;
+
+                let (start, end) = if start <= end {
+                    if inclusive {
+                        (start, end + 1)
+                    } else {
+                        (start, end)
+                    }
                 } else {
-                    return runtime_error!(
-                        node,
-                        "Invalid range, min should be less than or equal to max - min: {}, max: {}",
-                        min,
-                        max
-                    );
-                }
+                    // descending ranges will be evaluated with (end..start).rev()
+                    if inclusive {
+                        (start + 1, end)
+                    } else {
+                        (start + 1, end + 1)
+                    }
+                };
+
+                Ok(Range { start, end })
             }
             unexpected => {
                 return runtime_error!(
                     node,
-                    "Expected numbers for range bounds, found min: {}, max: {}",
+                    "Expected numbers for range bounds, found start: {}, end: {}",
                     type_as_string(&unexpected.0),
                     type_as_string(&unexpected.1)
                 )
@@ -1105,15 +1141,15 @@ impl<'a> Runtime<'a> {
 
     fn make_index_range(
         &mut self,
-        min: &Option<Box<AstNode>>,
-        max: &Option<Box<AstNode>>,
+        start: &Option<Box<AstNode>>,
+        end: &Option<Box<AstNode>>,
         inclusive: bool,
         node: &AstNode,
     ) -> RuntimeResult<'a> {
         use Value::{IndexRange, Number};
 
-        let evaluated_min = if let Some(min_expression) = min {
-            match self.evaluate(min_expression)? {
+        let evaluated_start = if let Some(start_expression) = start {
+            match self.evaluate(start_expression)? {
                 Number(n) => {
                     if n < 0.0 {
                         return runtime_error!(
@@ -1137,8 +1173,8 @@ impl<'a> Runtime<'a> {
             0
         };
 
-        let maybe_max = if let Some(max_expression) = max {
-            Some(match self.evaluate(max_expression)? {
+        let maybe_end = if let Some(end_expression) = end {
+            Some(match self.evaluate(end_expression)? {
                 Number(n) => {
                     if n < 0.0 {
                         return runtime_error!(
@@ -1167,8 +1203,8 @@ impl<'a> Runtime<'a> {
         };
 
         Ok(IndexRange {
-            min: evaluated_min,
-            max: maybe_max,
+            start: evaluated_start,
+            end: maybe_end,
         })
     }
 

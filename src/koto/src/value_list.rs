@@ -59,22 +59,22 @@ impl<'a> ValueList<'a> {
                             }
                             self.0[*i] = value.clone();
                         }
-                        EvaluatedIndex::Range { min, max } => {
-                            let min = *min;
-                            let max = max.unwrap_or(self.0.len());
+                        EvaluatedIndex::Range { start, end } => {
+                            let start = *start;
+                            let end = end.unwrap_or(self.0.len());
 
-                            if min >= self.0.len() || max > self.0.len() {
+                            if start >= self.0.len() || end > self.0.len() {
                                 return runtime_error!(
                                     node,
                                     "Index out of bounds in '{}', \
-                                     List has a length of {} - min: {}, max: {}",
+                                     List has a length of {} - start: {}, end: {}",
                                     lookup,
                                     self.0.len(),
-                                    min,
-                                    max
+                                    start,
+                                    end
                                 );
                             } else {
-                                for i in min..max {
+                                for i in start..end {
                                     self.0[i] = value.clone();
                                 }
                             }

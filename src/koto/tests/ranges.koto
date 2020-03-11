@@ -1,12 +1,10 @@
-# Assigning a range to a value creates a lazily evaluated range
+# Assigning a range to a value creates a list
 r = 0..2
-assert_eq 2, size r
 # Passing the range to a function will cause it to be captured in a list
 assert_eq r, [0, 1]
 
 # Ranges are exclusive by default, ..= creates an inclusive range
 r = 0..=2
-assert_eq 3, size r
 assert_eq r, [0, 1, 2]
 
 assert_eq 10, size [10..20]
@@ -28,3 +26,12 @@ assert_eq 5, size y
 n = [0..=10]
 assert_eq n[..=2], [0, 1, 2]
 assert_eq n[8..], [8, 9, 10]
+
+# Descending ranges can also be used
+r = 2..0
+assert_eq 2, size r
+assert_eq r, [2, 1]
+assert_eq [2..=0], [2, 1, 0]
+
+a = x for x in 4..=1
+assert_eq a, [4, 3, 2, 1]

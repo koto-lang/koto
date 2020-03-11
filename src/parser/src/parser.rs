@@ -141,40 +141,36 @@ impl KotoParser {
             Rule::range => {
                 let mut inner = pair.into_inner();
 
-                let maybe_min = match inner.peek().unwrap().as_rule() {
+                let maybe_start = match inner.peek().unwrap().as_rule() {
                     Rule::range_op => None,
                     _ => Some(next_as_boxed_ast!(inner)),
                 };
 
                 let inclusive = inner.next().unwrap().as_str() == "..=";
 
-                let maybe_max = if inner.peek().is_some() {
+                let maybe_end = if inner.peek().is_some() {
                     Some(next_as_boxed_ast!(inner))
                 } else {
                     None
                 };
 
-                match (&maybe_min, &maybe_max) {
-                    (Some(min), Some(max)) => {
-                        AstNode::new(
-                            span,
-                            Node::Range {
-                                min: min.clone(),
-                                max: max.clone(),
-                                inclusive,
-                            },
-                        )
-                    }
-                    _ => {
-                        AstNode::new(
-                            span,
-                            Node::IndexRange {
-                                min: maybe_min,
-                                max: maybe_max,
-                                inclusive,
-                            },
-                        )
-                    }
+                match (&maybe_start, &maybe_end) {
+                    (Some(start), Some(end)) => AstNode::new(
+                        span,
+                        Node::Range {
+                            start: start.clone(),
+                            end: end.clone(),
+                            inclusive,
+                        },
+                    ),
+                    _ => AstNode::new(
+                        span,
+                        Node::IndexRange {
+                            start: maybe_start,
+                            end: maybe_end,
+                            inclusive,
+                        },
+                    ),
                 }
             }
             Rule::map | Rule::map_value | Rule::map_inline => {

@@ -19,11 +19,19 @@ impl<'a> Iterator for ValueIterator<'a> {
 
         let result = match &self.value {
             List(l) => l.data().get(self.index as usize).cloned(),
-            Range { min, max } => {
-                if self.index < (max - min) {
-                    Some(Number((min + self.index) as f64))
+            Range { start, end } => {
+                if start <= end {
+                    if self.index < (end - start) {
+                        Some(Number((start + self.index) as f64))
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    if self.index < (start - end) {
+                        Some(Number((start - self.index - 1) as f64))
+                    } else {
+                        None
+                    }
                 }
             }
             _ => None,

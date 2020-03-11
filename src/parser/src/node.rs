@@ -14,13 +14,13 @@ pub enum Node {
     Str(Rc<String>),
     List(Vec<AstNode>),
     Range {
-        min: Box<AstNode>,
-        max: Box<AstNode>,
+        start: Box<AstNode>,
+        end: Box<AstNode>,
         inclusive: bool,
     },
     IndexRange {
-        min: Option<Box<AstNode>>,
-        max: Option<Box<AstNode>>,
+        start: Option<Box<AstNode>>,
+        end: Option<Box<AstNode>>,
         inclusive: bool,
     },
     Map(Vec<(Id, AstNode)>),
