@@ -1,6 +1,6 @@
 use crate::{
     runtime_error,
-    value::{type_as_string, EvaluatedLookupNode, EvaluatedIndex},
+    value::{type_as_string, EvaluatedIndex, EvaluatedLookupNode},
     Error, LookupSlice, Value,
 };
 use koto_parser::AstNode;
@@ -50,7 +50,8 @@ impl<'a> ValueList<'a> {
                             if *i >= self.0.len() {
                                 return runtime_error!(
                                     node,
-                                    "Index out of bounds: List in {} has a length of {} but the index is {}",
+                                    "Index out of bounds: \
+                                     List in {} has a length of {} but the index is {}",
                                     lookup,
                                     self.0.len(),
                                     i
@@ -63,20 +64,22 @@ impl<'a> ValueList<'a> {
                             let umax = *max as usize;
                             if *min < 0 || *max < 0 {
                                 return runtime_error!(
-                                        node,
-                                        "Indexing with negative indices isn't supported, min: {}, max: {}",
-                                        min,
-                                        max
-                                    );
+                                    node,
+                                    "Indexing with negative indices isn't supported, \
+                                     min: {}, max: {}",
+                                    min,
+                                    max
+                                );
                             } else if umin >= self.0.len() || umax > self.0.len() {
                                 return runtime_error!(
-                                        node,
-                                        "Index out of bounds in '{}', List has a length of {} - min: {}, max: {}",
-                                        lookup,
-                                        self.0.len(),
-                                        min,
-                                        max
-                                    );
+                                    node,
+                                    "Index out of bounds in '{}', \
+                                     List has a length of {} - min: {}, max: {}",
+                                    lookup,
+                                    self.0.len(),
+                                    min,
+                                    max
+                                );
                             } else {
                                 for i in umin..umax {
                                     self.0[i] = value.clone();
@@ -90,7 +93,8 @@ impl<'a> ValueList<'a> {
                             if *i >= self.0.len() {
                                 return runtime_error!(
                                     node,
-                                    "Index out of bounds: List in {} has a length of {} but the index is {}",
+                                    "Index out of bounds: \
+                                     List in {} has a length of {} but the index is {}",
                                     lookup,
                                     self.0.len(),
                                     i
