@@ -3,7 +3,7 @@ use crate::{
     value::{type_as_string, BuiltinResult, EvaluatedLookupNode, ExternalFunction},
     Error, LookupSlice, Value, ValueList,
 };
-use koto_parser::{AstNode, Id, LookupNode};
+use koto_parser::{AstNode, Id};
 use rustc_hash::FxHashMap;
 use std::{cell::RefCell, rc::Rc};
 
@@ -45,58 +45,6 @@ impl<'a> ValueMap<'a> {
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {
         self.0.insert(name, value);
-    }
-
-    pub fn visit(&self, id: &[Id], visitor: impl Fn(&Value<'a>) + 'a) -> bool {
-        match self.0.get(id.first().unwrap().as_ref()) {
-            Some(value) => {
-                if id.len() == 1 {
-                    visitor(value);
-                    true
-                } else {
-                    match value {
-                        Value::Map(map) => map.visit(&id[1..], visitor),
-                        _ => false,
-                    }
-                }
-            }
-            None => false,
-        }
-    }
-
-    pub fn visit_mut<'b: 'a>(
-        &mut self,
-        id: &LookupSlice,
-        id_index: usize,
-        node: &AstNode,
-        mut visitor: impl FnMut(&LookupSlice, &AstNode, &mut Value<'a>) -> Result<(), Error> + 'b,
-    ) -> (bool, Result<(), Error>) {
-        let entry_id = match &id.0[id_index] {
-            LookupNode::Id(id) => id,
-            _ => unreachable!(),
-        };
-
-        if id_index == id.0.len() - 1 {
-            match self.0.get_mut(entry_id) {
-                Some(mut value) => (true, visitor(id, node, &mut value)),
-                _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
-            }
-        } else {
-            match self.0.get_mut(entry_id) {
-                Some(Value::Map(map)) => {
-                    Rc::make_mut(map).visit_mut(id, id_index + 1, node, visitor)
-                }
-                list @ Some(Value::List(_)) => {
-                    // todo
-                    (true, visitor(id, node, &mut list.unwrap()))
-                }
-                Some(unexpected) => (
-                    false,
-                    runtime_error!(node, "Expected map for {}, found {}", entry_id, unexpected),
-                ),
-                _ => (false, runtime_error!(node, "Value not found: {}", entry_id)),
-            }
-        }
     }
 
     pub fn set_value_from_lookup(
