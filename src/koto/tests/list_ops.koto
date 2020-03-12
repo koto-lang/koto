@@ -9,3 +9,9 @@ assert_eq a, ["hello", "hello"]
 a = [0..10]
 list.filter ref a, |n| n % 2 == 0
 assert_eq a, [0, 2, 4, 6, 8]
+
+
+###### list.transform
+a = ["1", "2", "3"]
+list.transform ref a, |x| number x
+assert_eq a, [1, 2, 3]

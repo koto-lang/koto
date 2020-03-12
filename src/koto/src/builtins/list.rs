@@ -78,7 +78,7 @@ pub fn register(global: &mut ValueMap) {
 
     list.add_fn("filter", |runtime, args| {
         if args.len() != 2 {
-            return builtin_error!("list.fill expects two arguments, found {}", args.len());
+            return builtin_error!("list.filter expects two arguments, found {}", args.len());
         }
 
         match &args[0] {
@@ -131,6 +131,54 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => builtin_error!(
                 "list.filter expects a reference to a list as its first argument, found {}",
+                value::type_as_string(unexpected)
+            ),
+        }
+    });
+
+    list.add_fn("transform", |runtime, args| {
+        if args.len() != 2 {
+            return builtin_error!("list.transform expects two arguments, found {}", args.len());
+        }
+
+        match &args[0] {
+            Ref(r) => {
+                match &mut *r.borrow_mut() {
+                    List(l) => match &args[1] {
+                        Function(f) => {
+                            if f.args.len() != 1 {
+                                return builtin_error!(
+                                    "The function passed to list.transform must have a \
+                                         single argument, found '{}'",
+                                    f.args.len()
+                                );
+                            }
+
+                            for value in Rc::make_mut(l).data_mut().iter_mut() {
+                                *value = runtime.call_function(f, &[value.clone()])?;
+                            }
+                        }
+                        unexpected => {
+                            return builtin_error!(
+                                "list.transform expects a function as its \
+                                                   second argument, found '{}'",
+                                value::type_as_string(&unexpected)
+                            )
+                        }
+                    },
+                    unexpected => {
+                        return builtin_error!(
+                            "list.transform expects a reference to a\
+                                 list as its first argument, found {}",
+                            value::type_as_string(&unexpected)
+                        )
+                    }
+                }
+
+                Ok(Value::Empty)
+            }
+            unexpected => builtin_error!(
+                "list.transform expects a reference to a list as its first argument, found {}",
                 value::type_as_string(unexpected)
             ),
         }
