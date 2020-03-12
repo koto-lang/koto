@@ -1,4 +1,4 @@
-use crate::{value_list::ValueList, value_map::ValueMap};
+use crate::{value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult};
 use koto_parser::{vec4, AstFor, Function, Id};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
@@ -124,8 +124,9 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
-pub type BuiltinResult<'a> = Result<Value<'a>, String>;
-pub struct ExternalFunction<'a>(pub Rc<RefCell<dyn FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a>>);
+pub struct ExternalFunction<'a>(
+    pub Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
+);
 
 impl<'a> Clone for ExternalFunction<'a> {
     fn clone(&self) -> Self {

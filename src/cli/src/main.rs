@@ -39,6 +39,10 @@ fn main() {
             Ok(ast) => match runtime.run(&ast) {
                 Ok(_) => {}
                 Err(e) => match e {
+                    Error::BuiltinError { message } => {
+                        eprintln!("Builtin error: {}\n", message,);
+                        assert!(false);
+                    }
                     Error::RuntimeError {
                         message,
                         start_pos,

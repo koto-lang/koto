@@ -1,7 +1,7 @@
 use crate::{
     runtime_error,
-    value::{type_as_string, BuiltinResult, EvaluatedLookupNode, ExternalFunction},
-    Error, LookupSlice, Value, ValueList,
+    value::{type_as_string, EvaluatedLookupNode, ExternalFunction},
+    Error, LookupSlice, Runtime, RuntimeResult, Value, ValueList,
 };
 use koto_parser::{AstNode, Id};
 use rustc_hash::FxHashMap;
@@ -24,7 +24,11 @@ impl<'a> ValueMap<'a> {
         ))
     }
 
-    pub fn add_fn(&mut self, name: &str, f: impl FnMut(&[Value<'a>]) -> BuiltinResult<'a> + 'a) {
+    pub fn add_fn(
+        &mut self,
+        name: &str,
+        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+    ) {
         self.add_value(
             name,
             Value::ExternalFunction(ExternalFunction(Rc::new(RefCell::new(f)))),

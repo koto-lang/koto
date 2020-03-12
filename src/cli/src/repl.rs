@@ -119,6 +119,9 @@ impl<'a> Repl<'a> {
                         match self.parser.parse(&self.input) {
                             Ok(ast) => match self.runtime.run(&ast) {
                                 Ok(result) => println!("{}", result),
+                                Err(Error::BuiltinError { message }) => {
+                                    self.print_error(&mut stdout, &message)
+                                }
                                 Err(Error::RuntimeError { message, .. }) => {
                                     self.print_error(&mut stdout, &message)
                                 }

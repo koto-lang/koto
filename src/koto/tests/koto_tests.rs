@@ -19,6 +19,10 @@ fn run_script(script_path: &str) {
             match runtime.run(&ast) {
                 Ok(_) => {}
                 Err(e) => match e {
+                    Error::BuiltinError { message } => {
+                        eprintln!("Builtin error: {}\n", message,);
+                        assert!(false);
+                    }
                     Error::RuntimeError {
                         message,
                         start_pos,
@@ -59,6 +63,7 @@ koto_test!(control_flow);
 koto_test!(files);
 koto_test!(functions);
 koto_test!(lists);
+koto_test!(list_ops);
 koto_test!(loops);
 koto_test!(maps);
 koto_test!(maps_and_lists);

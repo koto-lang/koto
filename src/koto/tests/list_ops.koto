@@ -1,0 +1,11 @@
+###### list.filter
+
+# Passing a value into list.filter will leave only matching elements in the list
+a = ["hello", 42, (vec4 0), "hello"]
+list.filter ref a, "hello"
+assert_eq a, ["hello", "hello"]
+
+# Passing a predicate will leave elements in the list for which the predicate returns true
+a = [0..10]
+list.filter ref a, |n| n % 2 == 0
+assert_eq a, [0, 2, 4, 6, 8]

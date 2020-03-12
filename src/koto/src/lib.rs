@@ -20,6 +20,9 @@ pub enum Error {
         start_pos: koto_parser::Position,
         end_pos: koto_parser::Position,
     },
+    BuiltinError {
+        message: String,
+    },
 }
 
 pub type RuntimeResult<'a> = Result<Value<'a>, Error>;

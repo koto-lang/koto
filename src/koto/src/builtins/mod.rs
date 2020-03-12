@@ -1,4 +1,4 @@
-use crate::{value, value::type_as_string, Runtime, Value, ValueList, ValueMap};
+use crate::{value, value::type_as_string, Error, Runtime, Value, ValueList, ValueMap};
 use koto_parser::vec4;
 use std::{fs, path::Path, rc::Rc};
 
@@ -6,29 +6,50 @@ mod list;
 mod math;
 
 #[macro_export]
+macro_rules! make_builtin_error {
+    ($message:expr) => {{
+        let error = Error::BuiltinError { message: $message };
+        #[cfg(panic_on_runtime_error)]
+        {
+            panic!();
+        }
+        error
+    }};
+}
+
+#[macro_export]
+macro_rules! builtin_error {
+    ($error:expr) => {
+        Err(crate::make_builtin_error!(String::from($error)))
+    };
+    ($error:expr, $($y:expr),+) => {
+        Err(crate::make_builtin_error!(format!($error, $($y),+)))
+    };
+}
+
+#[macro_export]
 macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
-        $map_name.add_fn($fn_name, |args| {
+        $map_name.add_fn($fn_name, |_, args| {
             if args.len() == 1 {
                 match args.first().unwrap() {
                     $type($match_name) => $body
                     unexpected => {
-                        return Err(format!(
+                        crate::builtin_error!(
                             "{}.{} only accepts a {} as its argument, found {}",
                             stringify!($map_name),
                             $fn_name,
                             stringify!($type),
                             value::type_as_string(unexpected)
-                        ))
+                        )
                     }
                 }
             } else {
-                Err(format!(
-                    "{}.{} expects one argument, found {}",
+                crate::builtin_error!("{}.{} expects one argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
-                ))
+                )
             }
         });
     }
@@ -83,7 +104,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             {
                 match fs::read_to_string(Path::new(path.as_ref())) {
                     Ok(result) => Ok(Str(Rc::new(result))),
-                    Err(e) => Err(format!("Unable to read file {}: {}", path, e)),
+                    Err(e) => builtin_error!("Unable to read file {}: {}", path, e),
                 }
             }
         });
@@ -91,86 +112,81 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         global.add_map("io", io);
     }
 
-    global.add_fn("assert", |args| {
+    global.add_fn("assert", |_, args| {
         for value in args.iter() {
             match value {
                 Bool(b) => {
                     if !b {
-                        return Err("Assertion failed".to_string());
+                        return builtin_error!("Assertion failed");
                     }
                 }
-                _ => return Err("assert only expects booleans as arguments".to_string()),
+                _ => return builtin_error!("assert only expects booleans as arguments"),
             }
         }
         Ok(Empty)
     });
 
-    global.add_fn("assert_eq", |args| {
+    global.add_fn("assert_eq", |_, args| {
         if args.len() != 2 {
-            Err(format!(
-                "assert_eq expects two arguments, found {}",
-                args.len()
-            ))
+            builtin_error!("assert_eq expects two arguments, found {}", args.len())
         } else if args[0] == args[1] {
             Ok(Empty)
         } else {
-            Err(format!(
+            builtin_error!(
                 "Assertion failed, '{}' is not equal to '{}'",
-                args[0], args[1]
-            ))
+                args[0],
+                args[1]
+            )
         }
     });
 
-    global.add_fn("assert_ne", |args| {
+    global.add_fn("assert_ne", |_, args| {
         if args.len() != 2 {
-            Err(format!(
-                "assert_ne expects two arguments, found {}",
-                args.len()
-            ))
+            builtin_error!("assert_ne expects two arguments, found {}", args.len())
         } else if args[0] != args[1] {
             Ok(Empty)
         } else {
-            Err(format!(
+            builtin_error!(
                 "Assertion failed, '{}' should not be equal to '{}'",
-                args[0], args[1]
-            ))
+                args[0],
+                args[1]
+            )
         }
     });
 
-    global.add_fn("assert_near", |args| {
+    global.add_fn("assert_near", |_, args| {
         if args.len() != 3 {
-            Err(format!(
-                "assert_eq expects three arguments, found {}",
-                args.len()
-            ))
+            builtin_error!("assert_eq expects three arguments, found {}", args.len())
         } else {
             match (&args[0], &args[1], &args[2]) {
                 (Number(a), Number(b), Number(allowed_diff)) => {
                     if (a - b).abs() <= *allowed_diff {
                         Ok(Empty)
                     } else {
-                        Err(format!(
+                        builtin_error!(
                             "Assertion failed, '{}' and '{}' are not within {} of each other",
-                            a, b, allowed_diff
-                        ))
+                            a,
+                            b,
+                            allowed_diff
+                        )
                     }
                 }
-                (a, b, c) => Err(format!(
+                (a, b, c) => builtin_error!(
                     "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
                     type_as_string(&a),
                     type_as_string(&b),
                     type_as_string(&c)
-                )),
+                ),
             }
         }
     });
 
-    global.add_fn("size", |args| {
+    global.add_fn("size", |_, args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing list as first argument for size".to_string());
+                return builtin_error!("Missing list as first argument for size");
             }
         };
 
@@ -186,19 +202,19 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                     start - end
                 } as f64))
             }
-            unexpected => Err(format!(
+            unexpected => builtin_error!(
                 "size is only supported for lists and ranges, found {}",
                 unexpected
-            )),
+            ),
         }
     });
 
-    global.add_fn("number", |args| {
+    global.add_fn("number", |_, args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing list as first argument for size".to_string());
+                return builtin_error!("Missing list as first argument for size");
             }
         };
 
@@ -206,16 +222,16 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             Number(_) => Ok(first_arg_value.clone()),
             Str(s) => match s.parse::<f64>() {
                 Ok(n) => Ok(Number(n)),
-                Err(_) => Err(format!("Failed to convert '{}' into a Number", s)),
+                Err(_) => builtin_error!("Failed to convert '{}' into a Number", s),
             },
-            unexpected => Err(format!(
+            unexpected => builtin_error!(
                 "number is only supported for numbers and strings, found {}",
                 unexpected
-            )),
+            ),
         }
     });
 
-    global.add_fn("vec4", |args| {
+    global.add_fn("vec4", |_, args| {
         use vec4::Vec4 as V4;
 
         let result = match args {
@@ -232,20 +248,20 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                         match value {
                             Number(n) => v[i] = *n as f32,
                             unexpected => {
-                                return Err(format!(
+                                return builtin_error!(
                                     "vec4 only accepts Numbers as arguments, - found {}",
                                     unexpected
-                                ))
+                                )
                             }
                         }
                     }
                     v
                 }
                 unexpected => {
-                    return Err(format!(
+                    return builtin_error!(
                         "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
                         unexpected
-                    ))
+                    )
                 }
             },
             _ => {
@@ -254,11 +270,11 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                     match arg {
                         Number(n) => v[i] = *n as f32,
                         unexpected => {
-                            return Err(format!(
+                            return builtin_error!(
                                 "vec4 only accepts Numbers as arguments, \
                                      or Vec4 or List as first argument - found {}",
                                 unexpected
-                            ));
+                            );
                         }
                     }
                 }
@@ -269,7 +285,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         Ok(Vec4(result))
     });
 
-    global.add_fn("print", |args| {
+    global.add_fn("print", |_, args| {
         for value in args.iter() {
             print!("{}", value);
         }

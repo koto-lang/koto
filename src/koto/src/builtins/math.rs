@@ -1,4 +1,4 @@
-use crate::{single_arg_fn, value, Value, ValueMap};
+use crate::{single_arg_fn, value, Error, Value, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;

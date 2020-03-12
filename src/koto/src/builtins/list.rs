@@ -1,19 +1,17 @@
-use crate::{value, Value, ValueList, ValueMap};
+use crate::{builtin_error, single_arg_fn, value, Error, Value, ValueList, ValueMap};
 use std::rc::Rc;
-
-use crate::single_arg_fn;
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
 
     let mut list = ValueMap::new();
 
-    list.add_fn("add", |args| {
+    list.add_fn("add", |_, args| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,
             None => {
-                return Err("Missing list as first argument for list.add".to_string());
+                return builtin_error!("Missing list as first argument for list.add");
             }
         };
 
@@ -26,10 +24,10 @@ pub fn register(global: &mut ValueMap) {
                 }
                 Ok(List(list))
             }
-            unexpected => Err(format!(
+            unexpected => builtin_error!(
                 "list.add is only supported for lists, found {}",
                 value::type_as_string(unexpected)
-            )),
+            ),
         }
     });
 
@@ -43,16 +41,13 @@ pub fn register(global: &mut ValueMap) {
             result.sort();
             Ok(List(Rc::new(ValueList::with_data(result))))
         } else {
-            Err("list.sort can only sort lists of numbers or strings".to_string())
+            builtin_error!("list.sort can only sort lists of numbers or strings")
         }
     });
 
-    list.add_fn("fill", |args| {
+    list.add_fn("fill", |_, args| {
         if args.len() != 2 {
-            return Err(format!(
-                "list.fill expects two arguments, found {}",
-                args.len()
-            ));
+            return builtin_error!("list.fill expects two arguments, found {}", args.len());
         }
 
         match &args[0] {
@@ -65,19 +60,79 @@ pub fn register(global: &mut ValueMap) {
                         }
                     }
                     unexpected => {
-                        return Err(format!(
+                        return builtin_error!(
                             "list.fill expects a reference to a\
                                  list as its first argument, found {}",
                             value::type_as_string(&unexpected)
-                        ))
+                        )
                     }
                 }
                 Ok(Value::Empty)
             }
-            unexpected => Err(format!(
+            unexpected => builtin_error!(
                 "list.fill expects a reference to a list as its first argument, found {}",
                 value::type_as_string(unexpected)
-            )),
+            ),
+        }
+    });
+
+    list.add_fn("filter", |runtime, args| {
+        if args.len() != 2 {
+            return builtin_error!("list.fill expects two arguments, found {}", args.len());
+        }
+
+        match &args[0] {
+            Ref(r) => {
+                match &mut *r.borrow_mut() {
+                    List(l) => match &args[1] {
+                        Function(f) => {
+                            if f.args.len() != 1 {
+                                return builtin_error!(
+                                    "The function passed to list.filter must have a \
+                                         single argument, found '{}'",
+                                    f.args.len()
+                                );
+                            }
+                            let mut write_index = 0;
+                            for read_index in 0..l.data().len() {
+                                let value = l.data()[read_index].clone();
+                                match runtime.call_function(f, &[value.clone()])? {
+                                    Bool(result) => {
+                                        if result {
+                                            Rc::make_mut(l).data_mut()[write_index] = value;
+                                            write_index += 1;
+                                        }
+                                    }
+                                    unexpected => {
+                                        return builtin_error!(
+                                            "list.filter expects a Bool to be returned from the \
+                                                    predicate, found '{}'",
+                                            value::type_as_string(&unexpected)
+                                        );
+                                    }
+                                }
+                            }
+                            Rc::make_mut(l).data_mut().resize(write_index, Value::Empty);
+                        }
+                        value => {
+                            Rc::make_mut(l).data_mut().retain(|x| x == value);
+                        }
+                    },
+                    unexpected => {
+                        return builtin_error!(
+                            "list.filter expects a reference to a\
+                                 list as its first argument, found {}",
+                            value::type_as_string(&unexpected)
+                        )
+                    }
+                }
+
+                Ok(Value::Empty)
+            }
+            unexpected => builtin_error!(
+                "list.filter expects a reference to a list as its first argument, found {}",
+                value::type_as_string(unexpected)
+            ),
         }
     });
 

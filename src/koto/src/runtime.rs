@@ -9,7 +9,7 @@ use crate::{
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{
-    AssignTarget, AstFor, AstIf, AstNode, AstOp, LookupNode, LookupOrId, Node, Scope,
+    AssignTarget, AstFor, AstIf, AstNode, AstOp, Function, LookupNode, LookupOrId, Node, Scope,
 };
 use std::{cell::RefCell, path::Path, rc::Rc};
 
@@ -324,7 +324,7 @@ impl<'a> Runtime<'a> {
                 }
             }
             Node::Function(f) => Function(f.clone()),
-            Node::Call { function, args } => self.call_function(function, args, node)?,
+            Node::Call { function, args } => self.lookup_and_call_function(function, args, node)?,
             Node::Assign { target, expression } => self.assign_value(target, expression, node)?,
             Node::MultiAssign {
                 targets,
@@ -863,7 +863,7 @@ impl<'a> Runtime<'a> {
         })
     }
 
-    fn call_function(
+    fn lookup_and_call_function(
         &mut self,
         lookup_or_id: &LookupOrId,
         args: &[AstNode],
@@ -883,12 +883,13 @@ impl<'a> Runtime<'a> {
                 let args_for_builtin = self.evaluate_expressions(args)?; // TODO optimize
                 let mut closure = f.0.borrow_mut();
                 let builtin_result = match args_for_builtin {
-                    ValueOrValues::Value(value) => (&mut *closure)(&[value]),
-                    ValueOrValues::Values(values) => (&mut *closure)(&values),
+                    ValueOrValues::Value(value) => (&mut *closure)(self, &[value]),
+                    ValueOrValues::Values(values) => (&mut *closure)(self, &values),
                 };
                 return match builtin_result {
                     Ok(value) => Ok(value),
-                    Err(e) => return runtime_error!(node, e),
+                    Err(Error::BuiltinError{message}) => return runtime_error!(node, message),
+                    Err(e) => return Err(e),
                 };
             }
             Some((Function(f), _)) => Some(f),
@@ -977,6 +978,36 @@ impl<'a> Runtime<'a> {
         }
 
         runtime_error!(node, "Function '{}' not found", lookup_or_id)
+    }
+
+    pub fn call_function(&mut self, f: &Function, args: &[Value<'a>]) -> RuntimeResult<'a> {
+        if f.args.len() != args.len() {
+            return runtime_error!(
+                f.body.first().expect("A function must have at least one node in its body"),
+                "Mismatch in number of arguments when calling function, \
+                                           expected {}, found {}",
+                f.args.len(),
+                args.len()
+            );
+        }
+
+        for (name, arg) in f.args.iter().zip(args.iter()) {
+            self.call_stack.push(name.clone(), arg.clone());
+        }
+
+        self.call_stack.commit();
+        let cached_control_flow = self.control_flow.clone();
+        self.control_flow = ControlFlow::Function;
+
+        let mut result = self.evaluate_block(&f.body);
+        match &self.control_flow {
+            ControlFlow::Return(return_value) => result = Ok(return_value.clone()),
+            _ => {}
+        }
+
+        self.control_flow = cached_control_flow;
+        self.call_stack.pop_frame();
+        return result;
     }
 
     fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> RuntimeResult<'a> {
