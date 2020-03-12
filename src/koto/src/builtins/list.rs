@@ -184,6 +184,55 @@ pub fn register(global: &mut ValueMap) {
         }
     });
 
+    list.add_fn("fold", |runtime, args| {
+        if args.len() != 3 {
+            return builtin_error!("list.fold expects three arguments, found {}", args.len());
+        }
+
+        match &args[0] {
+            Ref(r) => {
+                match &mut *r.borrow_mut() {
+                    List(l) => match &args[2] {
+                        Function(f) => {
+                            if f.args.len() != 2 {
+                                return builtin_error!(
+                                    "The function passed to list.fold must have two \
+                                     arguments, found '{}'",
+                                    f.args.len()
+                                );
+                            }
+
+                            let mut result = args[1].clone();
+                            for value in l.data().iter() {
+                                result = runtime.call_function(f, &[result, value.clone()])?;
+                            }
+
+                            Ok(result)
+                        }
+                        unexpected => {
+                            builtin_error!(
+                                "list.transform expects a function as its \
+                                                   second argument, found '{}'",
+                                value::type_as_string(&unexpected)
+                            )
+                        }
+                    },
+                    unexpected => {
+                        builtin_error!(
+                            "list.fold expects a reference to a\
+                                 list as its first argument, found {}",
+                            value::type_as_string(&unexpected)
+                        )
+                    }
+                }
+            }
+            unexpected => builtin_error!(
+                "list.fold expects a reference to a list as its first argument, found {}",
+                value::type_as_string(unexpected)
+            ),
+        }
+    });
+
     global.add_map("list", list);
 }
 

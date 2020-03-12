@@ -15,3 +15,9 @@ assert_eq a, [0, 2, 4, 6, 8]
 a = ["1", "2", "3"]
 list.transform ref a, |x| number x
 assert_eq a, [1, 2, 3]
+
+
+###### list.fold
+a = [2, 3, 4]
+x = list.fold a, 1, |x, y| x * y
+assert_eq x, 24

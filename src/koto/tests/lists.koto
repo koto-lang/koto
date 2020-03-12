@@ -47,4 +47,3 @@ a = [b, b, b]
 assert_eq a[1][1], 42
 a[1][1] = -1
 assert_eq a[1][1], -1
-
