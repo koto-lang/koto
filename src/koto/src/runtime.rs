@@ -20,6 +20,12 @@ enum ControlFlow<'a> {
     Return(Value<'a>),
 }
 
+impl<'a> Default for ControlFlow<'a> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 enum ValueOrValues<'a> {
     Value(Value<'a>),
     Values(Vec<Value<'a>>),
@@ -31,6 +37,7 @@ pub struct Environment {
     pub args: Vec<String>,
 }
 
+#[derive(Default)]
 pub struct Runtime<'a> {
     environment: Environment,
     global: ValueMap<'a>,
@@ -125,9 +132,8 @@ impl<'a> Runtime<'a> {
         for (i, expression) in block.iter().enumerate() {
             if i < block.len() - 1 {
                 self.evaluate_and_expand(expression, false)?;
-                match self.control_flow {
-                    ControlFlow::Return(_) => return Ok(Value::Empty),
-                    _ => {}
+                if let ControlFlow::Return(_) = self.control_flow {
+                    return Ok(Value::Empty);
                 }
             } else {
                 return self.evaluate_and_capture(expression);
@@ -540,7 +546,7 @@ impl<'a> Runtime<'a> {
             match result.clone().map(|v| deref_value(&v)) {
                 Some(Map(data)) => match lookup_node {
                     LookupNode::Id(id) => {
-                        result = data.0.get(id).map(|v| v.clone());
+                        result = data.0.get(id).cloned();
                     }
                     LookupNode::Index(_) => {
                         return runtime_error!(node, "Attempting to index a Map in '{}'", lookup);
@@ -612,7 +618,7 @@ impl<'a> Runtime<'a> {
                                 }
                             }
                             IndexRange{start, end} => {
-                                let end = end.unwrap_or(list.data().len());
+                                let end = end.unwrap_or_else(||list.data().len());
 
                                 if (lookup_index + 1) < (lookup.0.len() - 1) {
                                     return runtime_error!(
@@ -672,13 +678,10 @@ impl<'a> Runtime<'a> {
         };
 
         if self.call_stack.frame() > 0 {
-            match self.call_stack.get(root_id).cloned() {
-                Some(value) => {
-                    if let Some(found) = self.do_lookup(lookup, value, node)? {
-                        return Ok(Some((found, Scope::Local)));
-                    }
+            if let Some(value) = self.call_stack.get(root_id).cloned() {
+                if let Some(found) = self.do_lookup(lookup, value, node)? {
+                    return Ok(Some((found, Scope::Local)));
                 }
-                None => {}
             }
         }
 
@@ -888,7 +891,7 @@ impl<'a> Runtime<'a> {
                 };
                 return match builtin_result {
                     Ok(value) => Ok(value),
-                    Err(Error::BuiltinError{message}) => return runtime_error!(node, message),
+                    Err(Error::BuiltinError { message }) => return runtime_error!(node, message),
                     Err(e) => return Err(e),
                 };
             }
@@ -967,9 +970,9 @@ impl<'a> Runtime<'a> {
             self.control_flow = ControlFlow::Function;
 
             let mut result = self.evaluate_block(&f.body);
-            match &self.control_flow {
-                ControlFlow::Return(return_value) => result = Ok(return_value.clone()),
-                _ => {}
+
+            if let ControlFlow::Return(return_value) = &self.control_flow {
+                 result = Ok(return_value.clone());
             }
 
             self.control_flow = cached_control_flow;
@@ -983,7 +986,9 @@ impl<'a> Runtime<'a> {
     pub fn call_function(&mut self, f: &Function, args: &[Value<'a>]) -> RuntimeResult<'a> {
         if f.args.len() != args.len() {
             return runtime_error!(
-                f.body.first().expect("A function must have at least one node in its body"),
+                f.body
+                    .first()
+                    .expect("A function must have at least one node in its body"),
                 "Mismatch in number of arguments when calling function, \
                                            expected {}, found {}",
                 f.args.len(),
@@ -1000,14 +1005,15 @@ impl<'a> Runtime<'a> {
         self.control_flow = ControlFlow::Function;
 
         let mut result = self.evaluate_block(&f.body);
-        match &self.control_flow {
-            ControlFlow::Return(return_value) => result = Ok(return_value.clone()),
-            _ => {}
+
+        if let ControlFlow::Return(return_value) = &self.control_flow {
+             result = Ok(return_value.clone());
         }
 
         self.control_flow = cached_control_flow;
         self.call_stack.pop_frame();
-        return result;
+
+        result
     }
 
     fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> RuntimeResult<'a> {

@@ -6,7 +6,7 @@ pub fn register(global: &mut ValueMap) {
 
     let mut list = ValueMap::new();
 
-    list.add_fn("add", |_, args| {
+    list.add_fn("add", |_, args: &[Value]| {
         let mut arg_iter = args.iter();
         let first_arg_value = match arg_iter.next() {
             Some(arg) => arg,

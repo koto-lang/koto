@@ -41,7 +41,7 @@ fn main() {
                 Err(e) => match e {
                     Error::BuiltinError { message } => {
                         eprintln!("Builtin error: {}\n", message,);
-                        assert!(false);
+                        panic!();
                     }
                     Error::RuntimeError {
                         message,

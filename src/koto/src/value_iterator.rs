@@ -26,12 +26,10 @@ impl<'a> Iterator for ValueIterator<'a> {
                     } else {
                         None
                     }
+                } else if self.index < (start - end) {
+                    Some(Number((start - self.index - 1) as f64))
                 } else {
-                    if self.index < (start - end) {
-                        Some(Number((start - self.index - 1) as f64))
-                    } else {
-                        None
-                    }
+                    None
                 }
             }
             _ => None,

@@ -124,6 +124,9 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
+// Once Trait aliases are stabilized this can be simplified a bit,
+// see: https://github.com/rust-lang/rust/issues/55628
+#[allow(clippy::type_complexity)]
 pub struct ExternalFunction<'a>(
     pub Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
 );
