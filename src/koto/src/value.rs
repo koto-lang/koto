@@ -15,7 +15,7 @@ pub enum Value<'a> {
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
-    ExternalFunction(ExternalFunction<'a>),
+    BuiltinFunction(BuiltinFunction<'a>),
     For(Rc<AstFor>),
 }
 
@@ -51,16 +51,16 @@ impl<'a> fmt::Display for Value<'a> {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Ref(r) => {
-                let value = r.borrow();
-                write!(f, "Reference to {}{}", type_as_string(&value), value)
+                let value = deref_value(&r.borrow());
+                write!(f, "Ref {}", value)
             }
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
-                write!(f, "function: {:?}", raw)
+                write!(f, "Function: {:?}", raw)
             }
-            ExternalFunction(function) => {
+            BuiltinFunction(function) => {
                 let raw = Rc::into_raw(function.function.clone());
-                write!(f, "builtin function: {:?}", raw)
+                write!(f, "Builtin function: {:?}", raw)
             }
             For(_) => write!(f, "For loop"),
         }
@@ -127,12 +127,12 @@ impl<'a> From<bool> for Value<'a> {
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
-pub struct ExternalFunction<'a> {
+pub struct BuiltinFunction<'a> {
     pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
     pub is_instance_function: bool,
 }
 
-impl<'a> ExternalFunction<'a> {
+impl<'a> BuiltinFunction<'a> {
     pub fn new(
         function: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
         is_instance_function: bool,
@@ -144,7 +144,7 @@ impl<'a> ExternalFunction<'a> {
     }
 }
 
-impl<'a> Clone for ExternalFunction<'a> {
+impl<'a> Clone for BuiltinFunction<'a> {
     fn clone(&self) -> Self {
         Self {
             function: self.function.clone(),
@@ -153,7 +153,7 @@ impl<'a> Clone for ExternalFunction<'a> {
     }
 }
 
-impl<'a> fmt::Debug for ExternalFunction<'a> {
+impl<'a> fmt::Debug for BuiltinFunction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let raw = Rc::into_raw(self.function.clone());
         write!(
@@ -226,7 +226,7 @@ pub fn type_as_string(value: &Value) -> &'static str {
         Str(_) => "String",
         Ref(_) => "Reference",
         Function(_) => "Function",
-        ExternalFunction(_) => "ExternalFunction",
+        BuiltinFunction(_) => "BuiltinFunction",
         For(_) => "For",
     }
 }

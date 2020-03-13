@@ -3,7 +3,7 @@ use crate::{
     runtime_error,
     value::{
         deref_value, make_reference, type_as_string, values_have_matching_type, EvaluatedIndex,
-        EvaluatedLookupNode, ExternalFunction, Value,
+        EvaluatedLookupNode, BuiltinFunction, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
@@ -882,7 +882,7 @@ impl<'a> Runtime<'a> {
         };
 
         let maybe_function = match maybe_function {
-            Some((ExternalFunction(f), _)) => {
+            Some((BuiltinFunction(f), _)) => {
                 return self.call_builtin_function(&f, lookup_or_id, args, node);
             }
             Some((Function(f), _)) => Some(f),
@@ -975,7 +975,7 @@ impl<'a> Runtime<'a> {
 
     fn call_builtin_function(
         &mut self,
-        builtin: &ExternalFunction<'a>,
+        builtin: &BuiltinFunction<'a>,
         lookup_or_id: &LookupOrId,
         args: &[AstNode],
         node: &AstNode,

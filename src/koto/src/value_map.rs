@@ -1,6 +1,6 @@
 use crate::{
     runtime_error,
-    value::{type_as_string, EvaluatedLookupNode, ExternalFunction},
+    value::{type_as_string, EvaluatedLookupNode, BuiltinFunction},
     Error, LookupSlice, Runtime, RuntimeResult, Value, ValueList,
 };
 use koto_parser::{AstNode, Id};
@@ -29,7 +29,7 @@ impl<'a> ValueMap<'a> {
         name: &str,
         f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
     ) {
-        self.add_value(name, Value::ExternalFunction(ExternalFunction::new(f, false)));
+        self.add_value(name, Value::BuiltinFunction(BuiltinFunction::new(f, false)));
     }
 
     pub fn add_instance_fn(
@@ -37,7 +37,7 @@ impl<'a> ValueMap<'a> {
         name: &str,
         f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
     ) {
-        self.add_value(name, Value::ExternalFunction(ExternalFunction::new(f, true)));
+        self.add_value(name, Value::BuiltinFunction(BuiltinFunction::new(f, true)));
     }
 
     pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {
