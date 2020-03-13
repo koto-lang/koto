@@ -301,8 +301,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "koto_parser",
- "rustc-hash",
- "vec1",
+ "koto_runtime",
 ]
 
 [[package]]
@@ -328,6 +327,15 @@ version = "0.1.0"
 dependencies = [
  "koto_grammar",
  "pest",
+]
+
+[[package]]
+name = "koto_runtime"
+version = "0.1.0"
+dependencies = [
+ "koto_parser",
+ "rustc-hash",
+ "vec1",
 ]
 
 [[package]]

@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use koto::{Ast, Parser, Runtime};
+use koto::{Ast, Koto, Parser};
 use std::{env::current_dir, fs::read_to_string};
 
 struct BenchmarkRunner<'a> {
     ast: Ast,
-    runtime: Runtime<'a>,
+    koto: Koto<'a>,
 }
 
 impl<'a> BenchmarkRunner<'a> {
@@ -19,12 +19,12 @@ impl<'a> BenchmarkRunner<'a> {
 
         Self {
             ast,
-            runtime: Runtime::new(),
+            koto: Koto::new(),
         }
     }
 
     fn run(&mut self) {
-        self.runtime
+        self.koto
             .run(&self.ast)
             .expect("Error while running script");
     }
@@ -51,8 +51,8 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("spectral_norm", |b| {
         let mut runner = BenchmarkRunner::new("spectral_norm.koto");
-        runner.runtime.environment_mut().args = vec!["4".to_string()];
-        runner.runtime.setup_environment();
+        runner.koto.environment_mut().args = vec!["4".to_string()];
+        runner.koto.setup_environment();
         b.iter(|| {
             runner.run();
         })

@@ -1,5 +1,5 @@
-use crate::{
-    builtin_value::BuiltinValue,
+use koto_runtime::{
+    BuiltinValue,
     value,
     value::{deref_value, type_as_string},
     Error, Runtime, Value, ValueList, ValueMap,

@@ -1,4 +1,4 @@
-use koto::{Error, Parser, Runtime};
+use koto::{Error, Parser, Koto};
 use std::{fs::read_to_string, path::PathBuf};
 
 fn run_script(script_path: &str) {
@@ -13,7 +13,7 @@ fn run_script(script_path: &str) {
 
     match Parser::new().parse(&script) {
         Ok(ast) => {
-            let mut runtime = Runtime::new();
+            let mut runtime = Koto::new();
             runtime.environment_mut().script_path = Some(path.to_str().unwrap().to_string());
             runtime.setup_environment();
             match runtime.run(&ast) {

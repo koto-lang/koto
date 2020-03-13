@@ -4,6 +4,7 @@ members = [
   "src/grammar",
   "src/koto",
   "src/parser",
+  "src/runtime",
 ]
 
 [profile.dev]

@@ -6,13 +6,12 @@ edition = "2018"
 
 [features]
 default = []
-trace = []
-panic_on_runtime_error = []
+trace = ["koto_runtime/trace"]
+panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_parser = { path = "../parser" }
-rustc-hash = "1.1.0"
-vec1 = "1.4.0"
+koto_parser = {path = "../parser" }
+koto_runtime = {path = "../runtime" }
 
 [dev-dependencies]
 criterion = "0.3.1"

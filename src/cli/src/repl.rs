@@ -1,4 +1,4 @@
-use koto::{Error, Parser, Runtime};
+use koto::{Error, Parser, Koto};
 use std::{
     fmt,
     io::{stdin, stdout, Write},
@@ -10,7 +10,7 @@ use termion::{
 
 pub struct Repl<'a> {
     parser: Parser,
-    runtime: Runtime<'a>,
+    koto: Koto<'a>,
 
     input_history: Vec<String>,
     history_position: Option<usize>,
@@ -22,7 +22,7 @@ impl<'a> Repl<'a> {
     pub fn new() -> Self {
         Self {
             parser: Parser::new(),
-            runtime: Runtime::new(),
+            koto: Koto::new(),
             input_history: Vec::new(),
             history_position: None,
             input: String::new(),
@@ -147,7 +147,7 @@ impl<'a> Repl<'a> {
                     if !self.input.is_empty() {
                         stdout.suspend_raw_mode().unwrap();
                         match self.parser.parse(&self.input) {
-                            Ok(ast) => match self.runtime.run(&ast) {
+                            Ok(ast) => match self.koto.run(&ast) {
                                 Ok(result) => println!("{}", result),
                                 Err(Error::BuiltinError { message }) => {
                                     self.print_error(stdout, &message)

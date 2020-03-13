@@ -1,0 +1,15 @@
+[package]
+name = "koto_runtime"
+version = "0.1.0"
+authors = ["irh <ian.r.hobson@gmail.com>"]
+edition = "2018"
+
+[features]
+default = []
+trace = []
+panic_on_runtime_error = []
+
+[dependencies]
+koto_parser = { path = "../parser" }
+rustc-hash = "1.1.0"
+vec1 = "1.4.0"

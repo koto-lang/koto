@@ -11,10 +11,10 @@ use crate::{
 use koto_parser::{
     AssignTarget, AstFor, AstIf, AstNode, AstOp, Function, LookupNode, LookupOrId, Node, Scope,
 };
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug)]
-enum ControlFlow<'a> {
+pub enum ControlFlow<'a> {
     None,
     Function,
     Return(Value<'a>),
@@ -32,20 +32,14 @@ enum ValueOrValues<'a> {
 }
 
 #[derive(Default)]
-pub struct Environment {
-    pub script_path: Option<String>,
-    pub args: Vec<String>,
-}
-
-#[derive(Default)]
 pub struct Runtime<'a> {
-    environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
 }
 
 #[cfg(feature = "trace")]
+#[macro_export]
 macro_rules! runtime_trace  {
     ($self:expr, $message:expr) => {
         println!("{}{}", $self.runtime_indent(), $message);
@@ -56,6 +50,7 @@ macro_rules! runtime_trace  {
 }
 
 #[cfg(not(feature = "trace"))]
+#[macro_export]
 macro_rules! runtime_trace {
     ($self:expr, $message:expr) => {};
     ($self:expr, $message:expr, $($vals:expr),+) => {};
@@ -63,49 +58,11 @@ macro_rules! runtime_trace {
 
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
-        let mut result = Self {
-            environment: Default::default(),
+        Self {
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             control_flow: ControlFlow::None,
-        };
-        crate::builtins::register(&mut result);
-        result
-    }
-
-    pub fn environment_mut(&mut self) -> &mut Environment {
-        &mut self.environment
-    }
-
-    pub fn setup_environment(&mut self) {
-        use Value::{Empty, Str};
-
-        let (script_dir, script_path) = match &self.environment.script_path {
-            Some(path) => (
-                Path::new(&path)
-                    .parent()
-                    .map(|p| {
-                        Str(Rc::new(
-                            p.to_str().expect("invalid script path").to_string(),
-                        ))
-                    })
-                    .or(Some(Empty))
-                    .unwrap(),
-                Str(Rc::new(path.to_string())),
-            ),
-            None => (Empty, Empty),
-        };
-        let mut args = vec![script_path];
-        for arg in self.environment.args.iter() {
-            args.push(Str(Rc::new(arg.to_string())));
         }
-
-        let mut env = ValueMap::new();
-
-        env.add_value("script_dir", script_dir);
-        env.add_list("args", ValueList::with_data(args));
-
-        self.global.add_map("env", env);
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
@@ -117,16 +74,8 @@ impl<'a> Runtime<'a> {
         "  ".repeat(self.call_stack.frame())
     }
 
-    /// Run a script and capture the final value
-    pub fn run(&mut self, ast: &[AstNode]) -> RuntimeResult<'a> {
-        runtime_trace!(self, "run");
-
-        self.control_flow = ControlFlow::None;
-        self.evaluate_block(ast)
-    }
-
     /// Evaluate a series of expressions and return the final result
-    fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
         for (i, expression) in block.iter().enumerate() {

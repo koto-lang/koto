@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use koto::{Error, Parser, Runtime};
+use koto::{Error, Parser, Koto};
 use std::fs;
 
 mod repl;
@@ -23,20 +23,20 @@ fn main() {
 
     if let Some(path) = matches.value_of("script") {
         let parser = Parser::new();
-        let mut runtime = Runtime::new();
+        let mut koto = Koto::new();
 
         if let Some(script_args) = matches
             .values_of("args")
             .map(|args| args.map(|s| s.to_string()).collect::<Vec<_>>())
         {
-            runtime.environment_mut().args = script_args;
+            koto.environment_mut().args = script_args;
         }
 
-        runtime.setup_environment();
+        koto.setup_environment();
 
         let script = fs::read_to_string(path).expect("Unable to load path");
         match parser.parse(&script) {
-            Ok(ast) => match runtime.run(&ast) {
+            Ok(ast) => match koto.run(&ast) {
                 Ok(_) => {}
                 Err(e) => match e {
                     Error::BuiltinError { message } => {
