@@ -1,14 +1,14 @@
+mod io;
 mod list;
 mod math;
 
+use koto_parser::vec4;
 use koto_runtime::{
-    BuiltinValue,
     value,
     value::{deref_value, type_as_string},
     Error, Runtime, Value, ValueList, ValueMap,
 };
-use koto_parser::vec4;
-use std::{fmt, fs, path::Path, rc::Rc};
+use std::rc::Rc;
 
 #[macro_export]
 macro_rules! make_builtin_error {
@@ -65,6 +65,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
     let global = runtime.global_mut();
 
+    io::register(global);
     list::register(global);
     math::register(global);
 
@@ -96,25 +97,6 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         global.add_map("string", string);
-    }
-
-    {
-        let mut io = ValueMap::new();
-
-        single_arg_fn!(io, "exists", Str, path, {
-            Ok(Bool(Path::new(path.as_ref()).exists()))
-        });
-
-        single_arg_fn!(io, "read_string", Str, path, {
-            {
-                match fs::read_to_string(Path::new(path.as_ref())) {
-                    Ok(result) => Ok(Str(Rc::new(result))),
-                    Err(e) => builtin_error!("Unable to read file {}: {}", path, e),
-                }
-            }
-        });
-
-        global.add_map("io", io);
     }
 
     global.add_fn("assert", |_, args| {
