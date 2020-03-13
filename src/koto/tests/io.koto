@@ -1,17 +1,30 @@
+###### io.exists + io.read_to_string
 path = env.script_dir + "/data/test.txt"
 assert io.exists path
 contents = io.read_to_string path
-assert_eq string.lines(contents), ["aaa", "bbb", "ccc"]
+assert_eq (string.lines contents), ["aaa", "bbb", "ccc"]
+
+###### io.open
 file = io.open path
 assert_eq contents, file.read_to_string()
 
-write_temp_file = ||
-  temp = io.temp_file()
-  global temp_path = temp.path()
-  temp.write_line("hello")
-  assert io.exists temp_path
-  assert_eq io.read_to_string(temp_path), temp.read_to_string()
+###### io.temp_path() + io.create + io.remove_file
+path = io.temp_path()
+file = io.create path
+print path
+contents = "<(^_^)<"
+file.write contents
+assert_eq (io.read_to_string path), contents
+io.remove_file path
+assert not io.exists path
 
-write_temp_file()
-# Temp files should be deleted when they go out of scope
+###### io.temp_file
+temp = io.temp_file()
+global temp_path = temp.path()
+temp.write_line("hello")
+temp.write_line(42)
+assert io.exists temp_path
+assert_eq (io.read_to_string temp_path), temp.read_to_string()
+# Temp files are deleted when they're no longer used
+temp = () # TODO with block, i.e. with temp = io.temp_file()...
 assert not io.exists temp_path

@@ -5,6 +5,7 @@ pub type Id = Rc<String>;
 
 #[derive(Clone, Debug)]
 pub enum Node {
+    Empty,
     Id(Id),
     Lookup(Lookup),
     Ref(LookupOrId),
@@ -55,6 +56,7 @@ impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;
         match self {
+            Empty => write!(f, "()"),
             Id(id) => write!(f, "Id: {}", id),
             Ref(lookup) => write!(f, "Ref: {}", lookup),
             Bool(b) => write!(f, "Bool: {}", b),

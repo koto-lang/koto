@@ -200,6 +200,7 @@ impl<'a> Runtime<'a> {
         use Value::*;
 
         let result = match &node.node {
+            Node::Empty => Empty,
             Node::Bool(b) => Bool(*b),
             Node::Number(n) => Number(*n),
             Node::Vec4(v) => Vec4(*v),

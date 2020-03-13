@@ -127,8 +127,9 @@ impl KotoParser {
                     AstNode::new(span, Node::List(expressions))
                 }
             }
-            Rule::boolean => (AstNode::new(span, Node::Bool(pair.as_str().parse().unwrap()))),
-            Rule::number => (AstNode::new(span, Node::Number(pair.as_str().parse().unwrap()))),
+            Rule::empty => AstNode::new(span, Node::Empty),
+            Rule::boolean => AstNode::new(span, Node::Bool(pair.as_str().parse().unwrap())),
+            Rule::number => AstNode::new(span, Node::Number(pair.as_str().parse().unwrap())),
             Rule::string => {
                 let mut inner = pair.into_inner();
                 AstNode::new(span, Node::Str(next_as_rc_string!(inner)))
