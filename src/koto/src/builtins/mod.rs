@@ -1,10 +1,11 @@
 use crate::{
+    builtin_value::BuiltinValue,
     value,
     value::{deref_value, type_as_string},
     Error, Runtime, Value, ValueList, ValueMap,
 };
 use koto_parser::vec4;
-use std::{fs, path::Path, rc::Rc};
+use std::{fmt, fs, path::Path, rc::Rc};
 
 mod list;
 mod math;

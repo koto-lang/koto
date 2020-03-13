@@ -1,4 +1,6 @@
-use crate::{value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult};
+use crate::{
+    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult,
+};
 use koto_parser::{vec4, AstFor, Function, Id};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
@@ -16,6 +18,7 @@ pub enum Value<'a> {
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
     BuiltinFunction(BuiltinFunction<'a>),
+    BuiltinValue(Rc<dyn BuiltinValue>),
     For(Rc<AstFor>),
 }
 
@@ -23,12 +26,12 @@ impl<'a> fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
-            Empty => write!(f, "()"),
-            Bool(s) => write!(f, "{}", s),
-            Number(n) => write!(f, "{}", n),
+            Empty => f.write_str("()"),
+            Bool(b) => f.write_str(&b.to_string()),
+            Number(n) => f.write_str(&n.to_string()),
             Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
-            Str(s) => write!(f, "{}", s),
-            List(l) => write!(f, "{}", l),
+            Str(s) => f.write_str(&s),
+            List(l) => f.write_str(&l.to_string()),
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
@@ -62,6 +65,7 @@ impl<'a> fmt::Display for Value<'a> {
                 let raw = Rc::into_raw(function.function.clone());
                 write!(f, "Builtin function: {:?}", raw)
             }
+            BuiltinValue(ref value) => f.write_str(&value.to_string()),
             For(_) => write!(f, "For loop"),
         }
     }
@@ -212,21 +216,22 @@ pub fn make_reference(value: Value) -> (Value, bool) {
     }
 }
 
-pub fn type_as_string(value: &Value) -> &'static str {
+pub fn type_as_string(value: &Value) -> String {
     use Value::*;
-    match value {
-        Empty => "Empty",
-        Bool(_) => "Bool",
-        Number(_) => "Number",
-        Vec4(_) => "Vec4",
-        List(_) => "List",
-        Range { .. } => "Range",
-        IndexRange { .. } => "IndexRange",
-        Map(_) => "Map",
-        Str(_) => "String",
-        Ref(_) => "Reference",
-        Function(_) => "Function",
-        BuiltinFunction(_) => "BuiltinFunction",
-        For(_) => "For",
+    match &value {
+        Empty => "Empty".to_string(),
+        Bool(_) => "Bool".to_string(),
+        Number(_) => "Number".to_string(),
+        Vec4(_) => "Vec4".to_string(),
+        List(_) => "List".to_string(),
+        Range { .. } => "Range".to_string(),
+        IndexRange { .. } => "IndexRange".to_string(),
+        Map(_) => "Map".to_string(),
+        Str(_) => "String".to_string(),
+        Ref(r) => format!("Ref {}", type_as_string(&deref_value(&r.borrow()))),
+        Function(_) => "Function".to_string(),
+        BuiltinFunction(_) => "BuiltinFunction".to_string(),
+        BuiltinValue(value) => value.as_ref().value_type(),
+        For(_) => "For".to_string(),
     }
 }
