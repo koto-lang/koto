@@ -1,5 +1,3 @@
-mod builtins;
-
 pub use koto_parser::{Ast, AstNode, KotoParser as Parser};
 use koto_runtime::{runtime_trace, Runtime};
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
@@ -20,7 +18,9 @@ pub struct Koto<'a> {
 impl<'a> Koto<'a> {
     pub fn new() -> Self {
         let mut result = Self::default();
-        builtins::register(&mut result.runtime);
+
+        koto_std::register(&mut result.runtime);
+
         result
     }
 

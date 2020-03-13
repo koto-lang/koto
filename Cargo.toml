@@ -5,6 +5,7 @@ members = [
   "src/koto",
   "src/parser",
   "src/runtime",
+  "src/std",
 ]
 
 [profile.dev]

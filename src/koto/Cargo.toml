@@ -12,6 +12,7 @@ panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 [dependencies]
 koto_parser = {path = "../parser" }
 koto_runtime = {path = "../runtime" }
+koto_std = {path = "../std" }
 
 [dev-dependencies]
 criterion = "0.3.1"

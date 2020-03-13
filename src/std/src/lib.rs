@@ -1,3 +1,6 @@
+mod list;
+mod math;
+
 use koto_runtime::{
     BuiltinValue,
     value,
@@ -6,9 +9,6 @@ use koto_runtime::{
 };
 use koto_parser::vec4;
 use std::{fmt, fs, path::Path, rc::Rc};
-
-mod list;
-mod math;
 
 #[macro_export]
 macro_rules! make_builtin_error {
