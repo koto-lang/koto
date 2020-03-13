@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 koto_parser = {path = "../parser" }
 koto_runtime = {path = "../runtime" }
+
+tempfile = "3.1.0"

@@ -18,7 +18,7 @@ pub enum Value<'a> {
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
     BuiltinFunction(BuiltinFunction<'a>),
-    BuiltinValue(Rc<dyn BuiltinValue>),
+    BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
     For(Rc<AstFor>),
 }
 
@@ -65,7 +65,7 @@ impl<'a> fmt::Display for Value<'a> {
                 let raw = Rc::into_raw(function.function.clone());
                 write!(f, "Builtin function: {:?}", raw)
             }
-            BuiltinValue(ref value) => f.write_str(&value.to_string()),
+            BuiltinValue(ref value) => f.write_str(&value.borrow().to_string()),
             For(_) => write!(f, "For loop"),
         }
     }
@@ -231,7 +231,7 @@ pub fn type_as_string(value: &Value) -> String {
         Ref(r) => format!("Ref {}", type_as_string(&deref_value(&r.borrow()))),
         Function(_) => "Function".to_string(),
         BuiltinFunction(_) => "BuiltinFunction".to_string(),
-        BuiltinValue(value) => value.as_ref().value_type(),
+        BuiltinValue(value) => value.borrow().value_type(),
         For(_) => "For".to_string(),
     }
 }

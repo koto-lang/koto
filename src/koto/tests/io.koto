@@ -1,6 +1,17 @@
 path = env.script_dir + "/data/test.txt"
 assert io.exists path
-contents = io.read_string path
+contents = io.read_to_string path
 assert_eq (string.escape contents), "aaa\nbbb\nccc\n"
 lines = string.lines contents
 assert_eq lines, ["aaa", "bbb", "ccc"]
+
+write_temp_file = ||
+  temp = io.temp_file()
+  global temp_path = temp.path()
+  temp.write_line("hello")
+  assert io.exists temp_path
+  assert_eq io.read_to_string(temp_path), temp.read_to_string()
+
+write_temp_file()
+# Temp files should be deleted when they go out of scope
+assert not io.exists temp_path
