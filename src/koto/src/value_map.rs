@@ -5,7 +5,7 @@ use crate::{
 };
 use koto_parser::{AstNode, Id};
 use rustc_hash::FxHashMap;
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
 
@@ -22,7 +22,6 @@ impl<'a> ValueMap<'a> {
             capacity,
             Default::default(),
         ))
-
     }
 
     pub fn add_fn(
@@ -30,10 +29,15 @@ impl<'a> ValueMap<'a> {
         name: &str,
         f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
     ) {
-        self.add_value(
-            name,
-            Value::ExternalFunction(ExternalFunction(Rc::new(RefCell::new(f)))),
-        );
+        self.add_value(name, Value::ExternalFunction(ExternalFunction::new(f, false)));
+    }
+
+    pub fn add_instance_fn(
+        &mut self,
+        name: &str,
+        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+    ) {
+        self.add_value(name, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
     pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {

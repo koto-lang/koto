@@ -3,7 +3,7 @@ use crate::{
     runtime_error,
     value::{
         deref_value, make_reference, type_as_string, values_have_matching_type, EvaluatedIndex,
-        EvaluatedLookupNode, Value,
+        EvaluatedLookupNode, ExternalFunction, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
@@ -883,17 +883,7 @@ impl<'a> Runtime<'a> {
 
         let maybe_function = match maybe_function {
             Some((ExternalFunction(f), _)) => {
-                let args_for_builtin = self.evaluate_expressions(args)?; // TODO optimize
-                let mut closure = f.0.borrow_mut();
-                let builtin_result = match args_for_builtin {
-                    ValueOrValues::Value(value) => (&mut *closure)(self, &[value]),
-                    ValueOrValues::Values(values) => (&mut *closure)(self, &values),
-                };
-                return match builtin_result {
-                    Ok(value) => Ok(value),
-                    Err(Error::BuiltinError { message }) => return runtime_error!(node, message),
-                    Err(e) => return Err(e),
-                };
+                return self.call_builtin_function(&f, lookup_or_id, args, node);
             }
             Some((Function(f), _)) => Some(f),
             Some((unexpected, _)) => {
@@ -972,7 +962,7 @@ impl<'a> Runtime<'a> {
             let mut result = self.evaluate_block(&f.body);
 
             if let ControlFlow::Return(return_value) = &self.control_flow {
-                 result = Ok(return_value.clone());
+                result = Ok(return_value.clone());
             }
 
             self.control_flow = cached_control_flow;
@@ -981,6 +971,53 @@ impl<'a> Runtime<'a> {
         }
 
         runtime_error!(node, "Function '{}' not found", lookup_or_id)
+    }
+
+    fn call_builtin_function(
+        &mut self,
+        builtin: &ExternalFunction<'a>,
+        lookup_or_id: &LookupOrId,
+        args: &[AstNode],
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        let evaluated_args = self.evaluate_expressions(args)?;
+
+        let mut builtin_function = builtin.function.borrow_mut();
+
+        let builtin_result = if builtin.is_instance_function {
+            match lookup_or_id {
+                LookupOrId::Id(id) => {
+                    return runtime_error!(
+                        node,
+                        "External instance function '{}' can only be called if contained in a Map",
+                        id
+                    );
+                }
+                LookupOrId::Lookup(lookup) => {
+                    let map_id = lookup.parent_slice();
+                    let map_ref = self.make_reference_from_lookup(&map_id, node)?;
+                    match evaluated_args {
+                        ValueOrValues::Value(value) => {
+                            (&mut *builtin_function)(self, &[map_ref, value])
+                        }
+                        ValueOrValues::Values(mut values) => {
+                            values.insert(0, map_ref);
+                            (&mut *builtin_function)(self, &values)
+                        }
+                    }
+                }
+            }
+        } else {
+            match evaluated_args {
+                ValueOrValues::Value(value) => (&mut *builtin_function)(self, &[value]),
+                ValueOrValues::Values(values) => (&mut *builtin_function)(self, &values),
+            }
+        };
+
+        match builtin_result {
+            Err(Error::BuiltinError { message }) => runtime_error!(node, message),
+            other => other,
+        }
     }
 
     pub fn call_function(&mut self, f: &Function, args: &[Value<'a>]) -> RuntimeResult<'a> {
@@ -1007,7 +1044,7 @@ impl<'a> Runtime<'a> {
         let mut result = self.evaluate_block(&f.body);
 
         if let ControlFlow::Return(return_value) = &self.control_flow {
-             result = Ok(return_value.clone());
+            result = Ok(return_value.clone());
         }
 
         self.control_flow = cached_control_flow;

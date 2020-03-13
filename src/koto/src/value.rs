@@ -59,7 +59,7 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, "function: {:?}", raw)
             }
             ExternalFunction(function) => {
-                let raw = Rc::into_raw(function.0.clone());
+                let raw = Rc::into_raw(function.function.clone());
                 write!(f, "builtin function: {:?}", raw)
             }
             For(_) => write!(f, "For loop"),
@@ -127,20 +127,45 @@ impl<'a> From<bool> for Value<'a> {
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
-pub struct ExternalFunction<'a>(
-    pub Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
-);
+pub struct ExternalFunction<'a> {
+    pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
+    pub is_instance_function: bool,
+}
+
+impl<'a> ExternalFunction<'a> {
+    pub fn new(
+        function: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        is_instance_function: bool,
+    ) -> Self {
+        Self {
+            function: Rc::new(RefCell::new(function)),
+            is_instance_function,
+        }
+    }
+}
 
 impl<'a> Clone for ExternalFunction<'a> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            function: self.function.clone(),
+            is_instance_function: self.is_instance_function,
+        }
     }
 }
 
 impl<'a> fmt::Debug for ExternalFunction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.0.clone());
-        write!(f, "builtin function: {:?}", raw)
+        let raw = Rc::into_raw(self.function.clone());
+        write!(
+            f,
+            "builtin {}function: {:?}",
+            if self.is_instance_function {
+                "instance "
+            } else {
+                ""
+            },
+            raw
+        )
     }
 }
 
