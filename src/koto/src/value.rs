@@ -32,13 +32,13 @@ impl<'a> fmt::Display for Value<'a> {
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, value) in m.0.iter() {
+                for (key, _value) in m.0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}: {}", key, value)?;
+                    write!(f, "{}", key)?;
                     first = false;
                 }
                 write!(f, " }}")

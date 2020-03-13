@@ -1,4 +1,8 @@
-use crate::{value, value::type_as_string, Error, Runtime, Value, ValueList, ValueMap};
+use crate::{
+    value,
+    value::{deref_value, type_as_string},
+    Error, Runtime, Value, ValueList, ValueMap,
+};
 use koto_parser::vec4;
 use std::{fs, path::Path, rc::Rc};
 
@@ -32,7 +36,7 @@ macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
         $map_name.add_fn($fn_name, |_, args| {
             if args.len() == 1 {
-                match args.first().unwrap() {
+                match deref_value(args.first().unwrap()) {
                     $type($match_name) => $body
                     unexpected => {
                         crate::builtin_error!(
@@ -40,7 +44,7 @@ macro_rules! single_arg_fn {
                             stringify!($map_name),
                             $fn_name,
                             stringify!($type),
-                            value::type_as_string(unexpected)
+                            value::type_as_string(&unexpected)
                         )
                     }
                 }

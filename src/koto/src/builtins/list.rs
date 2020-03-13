@@ -1,4 +1,6 @@
-use crate::{builtin_error, single_arg_fn, value, Error, Value, ValueList, ValueMap};
+use crate::{
+    builtin_error, single_arg_fn, value, value::deref_value, Error, Value, ValueList, ValueMap,
+};
 use std::rc::Rc;
 
 pub fn register(global: &mut ValueMap) {
