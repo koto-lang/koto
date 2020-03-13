@@ -113,6 +113,52 @@ pub fn register(global: &mut ValueMap) {
         file_map
     };
 
+    io.add_fn("open", {
+        let file_map = file_map.clone();
+        move |_, args| {
+            if args.len() == 1 {
+                match deref_value(&args[0]) {
+                    Str(s) => {
+                        let path = match Path::new(s.as_ref()).canonicalize() {
+                            Ok(path) => path,
+                            Err(e) => {
+                                return builtin_error!("io.open: Error while opening path: {}", e);
+                            }
+                        };
+                        match fs::File::open(&path) {
+                            Ok(file) => {
+                                let mut file_map = file_map.clone();
+
+                                file_map.add_value(
+                                    "file",
+                                    Value::BuiltinValue(Rc::new(RefCell::new(File {
+                                        file,
+                                        path,
+                                        temporary: false,
+                                    }))),
+                                );
+
+                                Ok(Map(Rc::new(file_map)))
+                            }
+                            Err(e) => {
+                                return builtin_error!("io.open: Error while opening path: {}", e);
+                            }
+                        }
+                    }
+                    unexpected => builtin_error!(
+                        "io.open expects a String as its argument, found '{}'",
+                        type_as_string(&unexpected)
+                    ),
+                }
+            } else {
+                builtin_error!(
+                    "io.open expects a single argument argument, found {}",
+                    args.len()
+                )
+            }
+        }
+    });
+
     io.add_fn("temp_file", {
         let file_map = file_map.clone();
         move |_, _| {

@@ -37,7 +37,7 @@ macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
         $map_name.add_fn($fn_name, |_, args| {
             if args.len() == 1 {
-                match deref_value(args.first().unwrap()) {
+                match deref_value(&args[0]) {
                     $type($match_name) => $body
                     unexpected => {
                         crate::builtin_error!(
@@ -50,7 +50,7 @@ macro_rules! single_arg_fn {
                     }
                 }
             } else {
-                crate::builtin_error!("{}.{} expects one argument, found {}",
+                crate::builtin_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
