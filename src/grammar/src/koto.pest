@@ -1,6 +1,6 @@
 program = _{
   SOI
-  ~ (block ~ (empty_line+ ~ block)*)
+  ~ (block ~ (empty_line+ ~ block)*)?
   ~ empty_line*
   ~ EOI
 }

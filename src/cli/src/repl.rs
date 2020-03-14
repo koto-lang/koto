@@ -1,4 +1,4 @@
-use koto::{Error, Parser, Koto};
+use koto::{Error, Koto, Parser};
 use std::{
     fmt,
     io::{stdin, stdout, Write},
@@ -144,30 +144,28 @@ impl<'a> Repl<'a> {
             Key::Char(c) => match c {
                 '\n' => {
                     write!(stdout, "\r\n").unwrap();
-                    if !self.input.is_empty() {
-                        stdout.suspend_raw_mode().unwrap();
-                        match self.parser.parse(&self.input) {
-                            Ok(ast) => match self.koto.run(&ast) {
-                                Ok(result) => println!("{}", result),
-                                Err(Error::BuiltinError { message }) => {
-                                    self.print_error(stdout, &message)
-                                }
-                                Err(Error::RuntimeError { message, .. }) => {
-                                    self.print_error(stdout, &message)
-                                }
-                            },
-                            Err(e) => self.print_error(stdout, &e),
-                        }
-                        stdout.activate_raw_mode().unwrap();
-                        if self.input_history.is_empty()
-                            || self.input_history.last().unwrap() != &self.input
-                        {
-                            self.input_history.push(self.input.clone());
-                        }
-                        self.history_position = None;
-                        self.cursor = None;
-                        self.input.clear();
+                    stdout.suspend_raw_mode().unwrap();
+                    match self.parser.parse(&self.input) {
+                        Ok(ast) => match self.koto.run(&ast) {
+                            Ok(result) => println!("{}", result),
+                            Err(Error::BuiltinError { message }) => {
+                                self.print_error(stdout, &message)
+                            }
+                            Err(Error::RuntimeError { message, .. }) => {
+                                self.print_error(stdout, &message)
+                            }
+                        },
+                        Err(e) => self.print_error(stdout, &e),
                     }
+                    stdout.activate_raw_mode().unwrap();
+                    if self.input_history.is_empty()
+                        || self.input_history.last().unwrap() != &self.input
+                    {
+                        self.input_history.push(self.input.clone());
+                    }
+                    self.history_position = None;
+                    self.cursor = None;
+                    self.input.clear();
                 }
                 _ => {
                     let cursor = self.cursor;

@@ -89,7 +89,7 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        unreachable!();
+        Ok(Value::Empty)
     }
 
     /// Evaluate a series of expressions and capture their results in a list
