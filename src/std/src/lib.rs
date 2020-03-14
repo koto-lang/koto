@@ -1,9 +1,14 @@
-use crate::{value, value::type_as_string, Error, Runtime, Value, ValueList, ValueMap};
-use koto_parser::vec4;
-use std::{fs, path::Path, rc::Rc};
-
+mod io;
 mod list;
 mod math;
+
+use koto_parser::vec4;
+use koto_runtime::{
+    value,
+    value::{deref_value, type_as_string},
+    Error, Runtime, Value, ValueList, ValueMap,
+};
+use std::rc::Rc;
 
 #[macro_export]
 macro_rules! make_builtin_error {
@@ -32,7 +37,7 @@ macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
         $map_name.add_fn($fn_name, |_, args| {
             if args.len() == 1 {
-                match args.first().unwrap() {
+                match deref_value(&args[0]) {
                     $type($match_name) => $body
                     unexpected => {
                         crate::builtin_error!(
@@ -40,12 +45,12 @@ macro_rules! single_arg_fn {
                             stringify!($map_name),
                             $fn_name,
                             stringify!($type),
-                            value::type_as_string(unexpected)
+                            value::type_as_string(&unexpected)
                         )
                     }
                 }
             } else {
-                crate::builtin_error!("{}.{} expects one argument, found {}",
+                crate::builtin_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
@@ -60,6 +65,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
     let global = runtime.global_mut();
 
+    io::register(global);
     list::register(global);
     math::register(global);
 
@@ -91,25 +97,6 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         global.add_map("string", string);
-    }
-
-    {
-        let mut io = ValueMap::new();
-
-        single_arg_fn!(io, "exists", Str, path, {
-            Ok(Bool(Path::new(path.as_ref()).exists()))
-        });
-
-        single_arg_fn!(io, "read_string", Str, path, {
-            {
-                match fs::read_to_string(Path::new(path.as_ref())) {
-                    Ok(result) => Ok(Str(Rc::new(result))),
-                    Err(e) => builtin_error!("Unable to read file {}: {}", path, e),
-                }
-            }
-        });
-
-        global.add_map("io", io);
     }
 
     global.add_fn("assert", |_, args| {

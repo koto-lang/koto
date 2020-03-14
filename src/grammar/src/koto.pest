@@ -117,7 +117,8 @@ flow_term = _{
 }
 
 value_term = _{(
-  range
+  empty
+  | range
   | call
   | negate
   | map_inline
@@ -215,6 +216,8 @@ range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
 
 boolean = { "true" | "false" }
 negate = { not_keyword ~ operation }
+
+empty = { "()" }
 
 number = @{
   "-"?

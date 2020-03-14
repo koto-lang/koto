@@ -1,54 +1,68 @@
-mod builtins;
-mod call_stack;
-mod runtime;
-mod value;
-mod value_iterator;
-mod value_list;
-mod value_map;
+pub use koto_parser::{Ast, AstNode, KotoParser as Parser};
+use koto_runtime::{runtime_trace, Runtime};
+pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
+use std::{path::Path, rc::Rc};
 
-pub use koto_parser::{Ast, Id, KotoParser as Parser, Lookup, LookupSlice};
-
-pub use runtime::Runtime;
-pub use value::Value;
-pub use value_list::ValueList;
-pub use value_map::ValueMap;
-
-#[derive(Debug)]
-pub enum Error {
-    RuntimeError {
-        message: String,
-        start_pos: koto_parser::Position,
-        end_pos: koto_parser::Position,
-    },
-    BuiltinError {
-        message: String,
-    },
+#[derive(Default)]
+pub struct Environment {
+    pub script_path: Option<String>,
+    pub args: Vec<String>,
 }
 
-pub type RuntimeResult<'a> = Result<Value<'a>, Error>;
+#[derive(Default)]
+pub struct Koto<'a> {
+    environment: Environment,
+    runtime: Runtime<'a>,
+}
 
-#[macro_export]
-macro_rules! make_runtime_error {
-    ($node:expr, $message:expr) => {{
-        let error = Error::RuntimeError {
-            message: $message,
-            start_pos: $node.start_pos,
-            end_pos: $node.end_pos,
+impl<'a> Koto<'a> {
+    pub fn new() -> Self {
+        let mut result = Self::default();
+
+        koto_std::register(&mut result.runtime);
+
+        result
+    }
+
+    pub fn environment_mut(&mut self) -> &mut Environment {
+        &mut self.environment
+    }
+
+    pub fn setup_environment(&mut self) {
+        use Value::{Empty, Str};
+
+        let (script_dir, script_path) = match &self.environment.script_path {
+            Some(path) => (
+                Path::new(&path)
+                    .parent()
+                    .map(|p| {
+                        Str(Rc::new(
+                            p.to_str().expect("invalid script path").to_string(),
+                        ))
+                    })
+                    .or(Some(Empty))
+                    .unwrap(),
+                Str(Rc::new(path.to_string())),
+            ),
+            None => (Empty, Empty),
         };
-        #[cfg(panic_on_runtime_error)]
-        {
-            panic!();
+        let mut args = vec![script_path];
+        for arg in self.environment.args.iter() {
+            args.push(Str(Rc::new(arg.to_string())));
         }
-        error
-    }};
-}
 
-#[macro_export]
-macro_rules! runtime_error {
-    ($node:expr, $error:expr) => {
-        Err(crate::make_runtime_error!($node, String::from($error)))
-    };
-    ($node:expr, $error:expr, $($y:expr),+) => {
-        Err(crate::make_runtime_error!($node, format!($error, $($y),+)))
-    };
+        let mut env = ValueMap::new();
+
+        env.add_value("script_dir", script_dir);
+        env.add_list("args", ValueList::with_data(args));
+
+        self.runtime.global_mut().add_map("env", env);
+    }
+
+    /// Run a script and capture the final value
+    pub fn run(&mut self, ast: &[AstNode]) -> RuntimeResult<'a> {
+        runtime_trace!(self, "run");
+
+        self.runtime.evaluate_block(ast)
+    }
 }

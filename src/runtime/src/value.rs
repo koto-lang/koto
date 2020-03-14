@@ -1,4 +1,6 @@
-use crate::{value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult};
+use crate::{
+    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult,
+};
 use koto_parser::{vec4, AstFor, Function, Id};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
@@ -15,7 +17,8 @@ pub enum Value<'a> {
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
-    ExternalFunction(ExternalFunction<'a>),
+    BuiltinFunction(BuiltinFunction<'a>),
+    BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
     For(Rc<AstFor>),
 }
 
@@ -23,22 +26,22 @@ impl<'a> fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
-            Empty => write!(f, "()"),
-            Bool(s) => write!(f, "{}", s),
-            Number(n) => write!(f, "{}", n),
+            Empty => f.write_str("()"),
+            Bool(b) => f.write_str(&b.to_string()),
+            Number(n) => f.write_str(&n.to_string()),
             Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
-            Str(s) => write!(f, "{}", s),
-            List(l) => write!(f, "{}", l),
+            Str(s) => f.write_str(&s),
+            List(l) => f.write_str(&l.to_string()),
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, value) in m.0.iter() {
+                for (key, _value) in m.0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}: {}", key, value)?;
+                    write!(f, "{}", key)?;
                     first = false;
                 }
                 write!(f, " }}")
@@ -51,17 +54,18 @@ impl<'a> fmt::Display for Value<'a> {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Ref(r) => {
-                let value = r.borrow();
-                write!(f, "Reference to {}{}", type_as_string(&value), value)
+                let value = deref_value(&r.borrow());
+                write!(f, "Ref {}", value)
             }
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
-                write!(f, "function: {:?}", raw)
+                write!(f, "Function: {:?}", raw)
             }
-            ExternalFunction(function) => {
-                let raw = Rc::into_raw(function.0.clone());
-                write!(f, "builtin function: {:?}", raw)
+            BuiltinFunction(function) => {
+                let raw = Rc::into_raw(function.function.clone());
+                write!(f, "Builtin function: {:?}", raw)
             }
+            BuiltinValue(ref value) => f.write_str(&value.borrow().to_string()),
             For(_) => write!(f, "For loop"),
         }
     }
@@ -127,20 +131,45 @@ impl<'a> From<bool> for Value<'a> {
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
-pub struct ExternalFunction<'a>(
-    pub Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
-);
+pub struct BuiltinFunction<'a> {
+    pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
+    pub is_instance_function: bool,
+}
 
-impl<'a> Clone for ExternalFunction<'a> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+impl<'a> BuiltinFunction<'a> {
+    pub fn new(
+        function: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        is_instance_function: bool,
+    ) -> Self {
+        Self {
+            function: Rc::new(RefCell::new(function)),
+            is_instance_function,
+        }
     }
 }
 
-impl<'a> fmt::Debug for ExternalFunction<'a> {
+impl<'a> Clone for BuiltinFunction<'a> {
+    fn clone(&self) -> Self {
+        Self {
+            function: self.function.clone(),
+            is_instance_function: self.is_instance_function,
+        }
+    }
+}
+
+impl<'a> fmt::Debug for BuiltinFunction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.0.clone());
-        write!(f, "builtin function: {:?}", raw)
+        let raw = Rc::into_raw(self.function.clone());
+        write!(
+            f,
+            "builtin {}function: {:?}",
+            if self.is_instance_function {
+                "instance "
+            } else {
+                ""
+            },
+            raw
+        )
     }
 }
 
@@ -187,21 +216,22 @@ pub fn make_reference(value: Value) -> (Value, bool) {
     }
 }
 
-pub fn type_as_string(value: &Value) -> &'static str {
+pub fn type_as_string(value: &Value) -> String {
     use Value::*;
-    match value {
-        Empty => "Empty",
-        Bool(_) => "Bool",
-        Number(_) => "Number",
-        Vec4(_) => "Vec4",
-        List(_) => "List",
-        Range { .. } => "Range",
-        IndexRange { .. } => "IndexRange",
-        Map(_) => "Map",
-        Str(_) => "String",
-        Ref(_) => "Reference",
-        Function(_) => "Function",
-        ExternalFunction(_) => "ExternalFunction",
-        For(_) => "For",
+    match &value {
+        Empty => "Empty".to_string(),
+        Bool(_) => "Bool".to_string(),
+        Number(_) => "Number".to_string(),
+        Vec4(_) => "Vec4".to_string(),
+        List(_) => "List".to_string(),
+        Range { .. } => "Range".to_string(),
+        IndexRange { .. } => "IndexRange".to_string(),
+        Map(_) => "Map".to_string(),
+        Str(_) => "String".to_string(),
+        Ref(r) => format!("Ref {}", type_as_string(&deref_value(&r.borrow()))),
+        Function(_) => "Function".to_string(),
+        BuiltinFunction(_) => "BuiltinFunction".to_string(),
+        BuiltinValue(value) => value.borrow().value_type(),
+        For(_) => "For".to_string(),
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     runtime_error,
     value::{
         deref_value, make_reference, type_as_string, values_have_matching_type, EvaluatedIndex,
-        EvaluatedLookupNode, Value,
+        EvaluatedLookupNode, BuiltinFunction, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
@@ -11,10 +11,10 @@ use crate::{
 use koto_parser::{
     AssignTarget, AstFor, AstIf, AstNode, AstOp, Function, LookupNode, LookupOrId, Node, Scope,
 };
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug)]
-enum ControlFlow<'a> {
+pub enum ControlFlow<'a> {
     None,
     Function,
     Return(Value<'a>),
@@ -32,20 +32,14 @@ enum ValueOrValues<'a> {
 }
 
 #[derive(Default)]
-pub struct Environment {
-    pub script_path: Option<String>,
-    pub args: Vec<String>,
-}
-
-#[derive(Default)]
 pub struct Runtime<'a> {
-    environment: Environment,
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
 }
 
 #[cfg(feature = "trace")]
+#[macro_export]
 macro_rules! runtime_trace  {
     ($self:expr, $message:expr) => {
         println!("{}{}", $self.runtime_indent(), $message);
@@ -56,6 +50,7 @@ macro_rules! runtime_trace  {
 }
 
 #[cfg(not(feature = "trace"))]
+#[macro_export]
 macro_rules! runtime_trace {
     ($self:expr, $message:expr) => {};
     ($self:expr, $message:expr, $($vals:expr),+) => {};
@@ -63,49 +58,11 @@ macro_rules! runtime_trace {
 
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
-        let mut result = Self {
-            environment: Default::default(),
+        Self {
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             control_flow: ControlFlow::None,
-        };
-        crate::builtins::register(&mut result);
-        result
-    }
-
-    pub fn environment_mut(&mut self) -> &mut Environment {
-        &mut self.environment
-    }
-
-    pub fn setup_environment(&mut self) {
-        use Value::{Empty, Str};
-
-        let (script_dir, script_path) = match &self.environment.script_path {
-            Some(path) => (
-                Path::new(&path)
-                    .parent()
-                    .map(|p| {
-                        Str(Rc::new(
-                            p.to_str().expect("invalid script path").to_string(),
-                        ))
-                    })
-                    .or(Some(Empty))
-                    .unwrap(),
-                Str(Rc::new(path.to_string())),
-            ),
-            None => (Empty, Empty),
-        };
-        let mut args = vec![script_path];
-        for arg in self.environment.args.iter() {
-            args.push(Str(Rc::new(arg.to_string())));
         }
-
-        let mut env = ValueMap::new();
-
-        env.add_value("script_dir", script_dir);
-        env.add_list("args", ValueList::with_data(args));
-
-        self.global.add_map("env", env);
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
@@ -117,16 +74,8 @@ impl<'a> Runtime<'a> {
         "  ".repeat(self.call_stack.frame())
     }
 
-    /// Run a script and capture the final value
-    pub fn run(&mut self, ast: &[AstNode]) -> RuntimeResult<'a> {
-        runtime_trace!(self, "run");
-
-        self.control_flow = ControlFlow::None;
-        self.evaluate_block(ast)
-    }
-
     /// Evaluate a series of expressions and return the final result
-    fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
         for (i, expression) in block.iter().enumerate() {
@@ -251,6 +200,7 @@ impl<'a> Runtime<'a> {
         use Value::*;
 
         let result = match &node.node {
+            Node::Empty => Empty,
             Node::Bool(b) => Bool(*b),
             Node::Number(n) => Number(*n),
             Node::Vec4(v) => Vec4(*v),
@@ -882,18 +832,8 @@ impl<'a> Runtime<'a> {
         };
 
         let maybe_function = match maybe_function {
-            Some((ExternalFunction(f), _)) => {
-                let args_for_builtin = self.evaluate_expressions(args)?; // TODO optimize
-                let mut closure = f.0.borrow_mut();
-                let builtin_result = match args_for_builtin {
-                    ValueOrValues::Value(value) => (&mut *closure)(self, &[value]),
-                    ValueOrValues::Values(values) => (&mut *closure)(self, &values),
-                };
-                return match builtin_result {
-                    Ok(value) => Ok(value),
-                    Err(Error::BuiltinError { message }) => return runtime_error!(node, message),
-                    Err(e) => return Err(e),
-                };
+            Some((BuiltinFunction(f), _)) => {
+                return self.call_builtin_function(&f, lookup_or_id, args, node);
             }
             Some((Function(f), _)) => Some(f),
             Some((unexpected, _)) => {
@@ -972,7 +912,7 @@ impl<'a> Runtime<'a> {
             let mut result = self.evaluate_block(&f.body);
 
             if let ControlFlow::Return(return_value) = &self.control_flow {
-                 result = Ok(return_value.clone());
+                result = Ok(return_value.clone());
             }
 
             self.control_flow = cached_control_flow;
@@ -981,6 +921,53 @@ impl<'a> Runtime<'a> {
         }
 
         runtime_error!(node, "Function '{}' not found", lookup_or_id)
+    }
+
+    fn call_builtin_function(
+        &mut self,
+        builtin: &BuiltinFunction<'a>,
+        lookup_or_id: &LookupOrId,
+        args: &[AstNode],
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        let evaluated_args = self.evaluate_expressions(args)?;
+
+        let mut builtin_function = builtin.function.borrow_mut();
+
+        let builtin_result = if builtin.is_instance_function {
+            match lookup_or_id {
+                LookupOrId::Id(id) => {
+                    return runtime_error!(
+                        node,
+                        "External instance function '{}' can only be called if contained in a Map",
+                        id
+                    );
+                }
+                LookupOrId::Lookup(lookup) => {
+                    let map_id = lookup.parent_slice();
+                    let map_ref = self.make_reference_from_lookup(&map_id, node)?;
+                    match evaluated_args {
+                        ValueOrValues::Value(value) => {
+                            (&mut *builtin_function)(self, &[map_ref, value])
+                        }
+                        ValueOrValues::Values(mut values) => {
+                            values.insert(0, map_ref);
+                            (&mut *builtin_function)(self, &values)
+                        }
+                    }
+                }
+            }
+        } else {
+            match evaluated_args {
+                ValueOrValues::Value(value) => (&mut *builtin_function)(self, &[value]),
+                ValueOrValues::Values(values) => (&mut *builtin_function)(self, &values),
+            }
+        };
+
+        match builtin_result {
+            Err(Error::BuiltinError { message }) => runtime_error!(node, message),
+            other => other,
+        }
     }
 
     pub fn call_function(&mut self, f: &Function, args: &[Value<'a>]) -> RuntimeResult<'a> {
@@ -1007,7 +994,7 @@ impl<'a> Runtime<'a> {
         let mut result = self.evaluate_block(&f.body);
 
         if let ControlFlow::Return(return_value) = &self.control_flow {
-             result = Ok(return_value.clone());
+            result = Ok(return_value.clone());
         }
 
         self.control_flow = cached_control_flow;
