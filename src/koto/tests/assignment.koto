@@ -27,3 +27,8 @@ a, b, c =
 assert_eq a, 1
 assert_eq b, 2
 assert_eq c, 3
+
+###### Empty
+a = ()
+assert_eq a, ()
+assert_ne 1, ()

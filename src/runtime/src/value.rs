@@ -88,6 +88,7 @@ impl<'a> PartialEq for Value<'a> {
             (Ref(a), _) => a.borrow().deref() == other,
             (_, Ref(b)) => self == b.borrow().deref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
+            (Empty, Empty) => true,
             _ => false,
         }
     }
