@@ -63,6 +63,8 @@ expression = _{
   | if_statement
   | for_loop
   | while_loop
+  | break_keyword
+  | continue_keyword
   | operation
   | call
   )
@@ -255,6 +257,8 @@ map_access = ${ ("." ~ id) }
 
 keyword = _{
   "and"
+  | "break"
+  | "continue"
   | "else"
   | "false"
   | "for"
@@ -270,6 +274,8 @@ keyword = _{
   | "while"
 }
 
+break_keyword = @{ "break" }
+continue_keyword = @{ "continue"  }
 else_if_keyword = @{ "else if" ~ WHITESPACE+ }
 else_keyword = @{ "else" ~ WHITESPACE+ }
 for_keyword = @{ "for" ~ WHITESPACE+ }

@@ -477,6 +477,8 @@ impl KotoParser {
                 let body = next_as_boxed_ast!(inner);
                 AstNode::new(span, Node::While(Rc::new(AstWhile { condition, body })))
             }
+            Rule::break_keyword => AstNode::new(span, Node::Break),
+            Rule::continue_keyword => AstNode::new(span, Node::Continue),
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
     }

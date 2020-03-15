@@ -51,6 +51,8 @@ pub enum Node {
     If(AstIf),
     For(Rc<AstFor>),
     While(Rc<AstWhile>),
+    Break,
+    Continue,
 }
 
 impl fmt::Display for Node {
@@ -106,6 +108,8 @@ impl fmt::Display for Node {
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
+            Break => write!(f, "Break"),
+            Continue => write!(f, "Continue"),
         }
     }
 }

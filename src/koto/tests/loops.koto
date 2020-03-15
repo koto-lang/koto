@@ -44,3 +44,25 @@ count = 0
 x = while count < 5
   count = count + 1
 assert_eq x, [1..=5]
+
+
+###### Break and continue
+count = 0
+while true
+  count = count + 1
+  if count < 10
+    continue
+  else
+    break
+  assert false
+assert_eq count, 10
+
+count = 0
+for i in 0..100
+  if i % 2 == 0
+    continue
+  else if i == 5
+    break
+  else
+    count = count + 1
+assert_eq count, 2 # 2 odd numbers less than 5

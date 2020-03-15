@@ -19,6 +19,9 @@ pub enum ControlFlow<'a> {
     None,
     Function,
     Return(Value<'a>),
+    Loop,
+    Break,
+    Continue,
 }
 
 impl<'a> Default for ControlFlow<'a> {
@@ -77,13 +80,16 @@ impl<'a> Runtime<'a> {
 
     /// Evaluate a series of expressions and return the final result
     pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+        use ControlFlow::*;
+
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
         for (i, expression) in block.iter().enumerate() {
             if i < block.len() - 1 {
                 self.evaluate_and_expand(expression, false)?;
-                if let ControlFlow::Return(_) = self.control_flow {
-                    return Ok(Value::Empty);
+                match self.control_flow {
+                    Return(_) | Break | Continue => return Ok(Value::Empty),
+                    _ => {}
                 }
             } else {
                 return self.evaluate_and_capture(expression);
@@ -259,7 +265,7 @@ impl<'a> Runtime<'a> {
                 }
             }
             Node::ReturnExpression(expression) => match self.control_flow {
-                ControlFlow::Function => {
+                ControlFlow::Function | ControlFlow::Loop => { // TODO handle loop inside function
                     let value = self.evaluate_and_capture(expression)?;
                     self.control_flow = ControlFlow::Return(value.clone());
                     Value::Empty
@@ -292,6 +298,20 @@ impl<'a> Runtime<'a> {
             Node::If(if_statement) => self.do_if_statement(if_statement, node)?,
             Node::For(for_statement) => For(for_statement.clone()),
             Node::While(while_loop) => While(while_loop.clone()),
+            Node::Break => {
+                if !matches!(self.control_flow, ControlFlow::Loop) {
+                    return runtime_error!(node, "'break' found outside of loop");
+                }
+                self.control_flow = ControlFlow::Break;
+                Empty
+            }
+            Node::Continue => {
+                if !matches!(self.control_flow, ControlFlow::Loop) {
+                    return runtime_error!(node, "'continue' found outside of loop");
+                }
+                self.control_flow = ControlFlow::Continue;
+                Empty
+            }
         };
 
         Ok(result)
@@ -734,7 +754,26 @@ impl<'a> Runtime<'a> {
                     }
                 }
 
+                let cached_control_flow = self.control_flow.clone();
+                self.control_flow = ControlFlow::Loop;
+
                 let result = self.evaluate_and_capture(&f.body)?;
+
+                match self.control_flow {
+                    ControlFlow::Return(_) => return Ok(Empty),
+                    ControlFlow::Break => {
+                        self.control_flow = cached_control_flow;
+                        break;
+                    }
+                    ControlFlow::Continue => {
+                        self.control_flow = cached_control_flow;
+                        continue;
+                    }
+                    _ => {
+                        self.control_flow = cached_control_flow;
+                    }
+                }
+
                 if capture {
                     captured.push(result);
                 }
@@ -805,7 +844,27 @@ impl<'a> Runtime<'a> {
                         }
                     }
                 }
+
+                let cached_control_flow = self.control_flow.clone();
+                self.control_flow = ControlFlow::Loop;
+
                 let result = self.evaluate_and_capture(&f.body)?;
+
+                match self.control_flow {
+                    ControlFlow::Return(_) => return Ok(Empty),
+                    ControlFlow::Break => {
+                        self.control_flow = cached_control_flow;
+                        break;
+                    }
+                    ControlFlow::Continue => {
+                        self.control_flow = cached_control_flow;
+                        continue;
+                    }
+                    _ => {
+                        self.control_flow = cached_control_flow;
+                    }
+                }
+
                 if capture {
                     captured.push(result);
                 }
@@ -834,10 +893,30 @@ impl<'a> Runtime<'a> {
             match self.evaluate(&while_loop.condition)? {
                 Bool(b) => {
                     if b {
+                        let cached_control_flow = self.control_flow.clone();
+                        self.control_flow = ControlFlow::Loop;
+
                         let result = self.evaluate_and_capture(&while_loop.body)?;
+
+                        use ControlFlow::*;
+                        match self.control_flow {
+                            Break => {
+                                self.control_flow = cached_control_flow;
+                                break;
+                            }
+                            Continue => {
+                                self.control_flow = cached_control_flow;
+                                continue;
+                            }
+                            Return(_) => return Ok(Empty),
+                            _ => {
+                                self.control_flow = cached_control_flow;
+                            }
+                        }
+
                         if capture {
                             captured.push(result);
-                        }
+                        };
                     } else {
                         break;
                     }
