@@ -62,6 +62,7 @@ expression = _{
   | function
   | if_statement
   | for_loop
+  | while_loop
   | operation
   | call
   )
@@ -169,6 +170,11 @@ for_id = !{ id | placeholder }
 for_ids = { for_id ~ ("," ~ for_id)* }
 placeholder = { "_" }
 
+while_loop = !{
+  while_keyword ~ operation
+  ~ child_block
+}
+
 call = _{ call_with_parens | call_no_parens }
 call_with_parens = ${ lookup_or_id ~ call_args }
 call_args = !{
@@ -261,6 +267,7 @@ keyword = _{
   | "return"
   | "then"
   | "true"
+  | "while"
 }
 
 else_if_keyword = @{ "else if" ~ WHITESPACE+ }
@@ -273,6 +280,7 @@ not_keyword = @{ "not" ~ WHITESPACE+ }
 ref_keyword = @{ "ref" ~ WHITESPACE+ }
 return_keyword = @{ "return" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
+while_keyword = @{ "while" ~ WHITESPACE+ }
 
 
 WHITESPACE = _{ " " | "\t" }

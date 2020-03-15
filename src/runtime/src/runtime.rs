@@ -2,14 +2,15 @@ use crate::{
     call_stack::CallStack,
     runtime_error,
     value::{
-        deref_value, make_reference, type_as_string, values_have_matching_type, EvaluatedIndex,
-        EvaluatedLookupNode, BuiltinFunction, Value,
+        deref_value, make_reference, type_as_string, values_have_matching_type, BuiltinFunction,
+        EvaluatedIndex, EvaluatedLookupNode, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{
-    AssignTarget, AstFor, AstIf, AstNode, AstOp, Function, LookupNode, LookupOrId, Node, Scope,
+    AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId, Node,
+    Scope,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -163,13 +164,14 @@ impl<'a> Runtime<'a> {
         let value = self.evaluate(expression)?;
 
         let expand_value = match value {
-            For(_) | Range { .. } => true,
+            For(_) | While(_) | Range { .. } => true,
             _ => false,
         };
 
         let result = if expand_value {
             match value {
                 For(for_loop) => self.run_for_loop(&for_loop, expression, capture)?,
+                While(while_loop) => self.run_while_loop(&while_loop, expression, capture)?,
                 Range { start, end } => {
                     if capture {
                         let expanded = if end >= start {
@@ -288,7 +290,8 @@ impl<'a> Runtime<'a> {
             } => self.assign_values(targets, expressions, node)?,
             Node::Op { op, lhs, rhs } => self.binary_op(op, lhs, rhs, node)?,
             Node::If(if_statement) => self.do_if_statement(if_statement, node)?,
-            Node::For(f) => For(f.clone()),
+            Node::For(for_statement) => For(for_statement.clone()),
+            Node::While(while_loop) => While(while_loop.clone()),
         };
 
         Ok(result)
@@ -805,6 +808,46 @@ impl<'a> Runtime<'a> {
                 let result = self.evaluate_and_capture(&f.body)?;
                 if capture {
                     captured.push(result);
+                }
+            }
+        }
+
+        Ok(if captured.is_empty() {
+            Empty
+        } else {
+            List(Rc::new(ValueList::with_data(captured)))
+        })
+    }
+
+    fn run_while_loop(
+        &mut self,
+        while_loop: &Rc<AstWhile>,
+        node: &AstNode,
+        capture: bool,
+    ) -> RuntimeResult<'a> {
+        use Value::{Bool, Empty, List};
+
+        runtime_trace!(self, "run_while_loop");
+
+        let mut captured = Vec::new();
+        loop {
+            match self.evaluate(&while_loop.condition)? {
+                Bool(b) => {
+                    if b {
+                        let result = self.evaluate_and_capture(&while_loop.body)?;
+                        if capture {
+                            captured.push(result);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "Expected bool in while condition, found '{}'",
+                        unexpected
+                    );
                 }
             }
         }
@@ -1413,7 +1456,7 @@ impl<'a> Runtime<'a> {
 fn is_single_value_node(node: &Node) -> bool {
     use Node::*;
     match node {
-        For(_) | Range { .. } | IndexRange { .. } => false,
+        For(_) | While(_) | Range { .. } | IndexRange { .. } => false,
         _ => true,
     }
 }

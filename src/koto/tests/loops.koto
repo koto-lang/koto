@@ -39,3 +39,8 @@ assert_eq z, [[0, 100], [1, 101], [2, 102]]
 z2 = c, d for c, d in enumerate 100..103
 assert_eq z, z2
 
+###### While loops
+count = 0
+x = while count < 5
+  count = count + 1
+assert_eq x, [1..=5]

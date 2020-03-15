@@ -470,6 +470,13 @@ impl KotoParser {
                     })),
                 )
             }
+            Rule::while_loop => {
+                let mut inner = pair.into_inner();
+                inner.next(); // while
+                let condition = next_as_boxed_ast!(inner);
+                let body = next_as_boxed_ast!(inner);
+                AstNode::new(span, Node::While(Rc::new(AstWhile { condition, body })))
+            }
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
     }

@@ -50,6 +50,7 @@ pub enum Node {
     },
     If(AstIf),
     For(Rc<AstFor>),
+    While(Rc<AstWhile>),
 }
 
 impl fmt::Display for Node {
@@ -104,6 +105,7 @@ impl fmt::Display for Node {
             Op { op, .. } => write!(f, "Op: {:?}", op),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
+            While { .. } => write!(f, "While"),
         }
     }
 }
@@ -143,6 +145,12 @@ pub struct AstFor {
     pub args: Vec<Id>,
     pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
+    pub body: Box<AstNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AstWhile {
+    pub condition: Box<AstNode>,
     pub body: Box<AstNode>,
 }
 

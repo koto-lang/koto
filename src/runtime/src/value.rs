@@ -1,7 +1,7 @@
 use crate::{
     builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult,
 };
-use koto_parser::{vec4, AstFor, Function, Id};
+use koto_parser::{vec4, AstFor, AstWhile, Function, Id};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -20,6 +20,7 @@ pub enum Value<'a> {
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
     For(Rc<AstFor>),
+    While(Rc<AstWhile>),
 }
 
 impl<'a> fmt::Display for Value<'a> {
@@ -67,6 +68,7 @@ impl<'a> fmt::Display for Value<'a> {
             }
             BuiltinValue(ref value) => f.write_str(&value.borrow().to_string()),
             For(_) => write!(f, "For loop"),
+            While(_) => write!(f, "While loop"),
         }
     }
 }
@@ -233,5 +235,6 @@ pub fn type_as_string(value: &Value) -> String {
         BuiltinFunction(_) => "BuiltinFunction".to_string(),
         BuiltinValue(value) => value.borrow().value_type(),
         For(_) => "For".to_string(),
+        While(_) => "While".to_string(),
     }
 }
