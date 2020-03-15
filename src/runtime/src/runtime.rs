@@ -891,8 +891,8 @@ impl<'a> Runtime<'a> {
         let mut captured = Vec::new();
         loop {
             match self.evaluate(&while_loop.condition)? {
-                Bool(b) => {
-                    if b {
+                Bool(condition_result) => {
+                    if condition_result != while_loop.negate_condition {
                         let cached_control_flow = self.control_flow.clone();
                         self.control_flow = ControlFlow::Loop;
 

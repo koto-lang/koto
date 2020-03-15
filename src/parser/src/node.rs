@@ -156,6 +156,7 @@ pub struct AstFor {
 pub struct AstWhile {
     pub condition: Box<AstNode>,
     pub body: Box<AstNode>,
+    pub negate_condition: bool,
 }
 
 #[derive(Clone, Debug)]

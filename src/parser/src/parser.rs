@@ -472,10 +472,21 @@ impl KotoParser {
             }
             Rule::while_loop => {
                 let mut inner = pair.into_inner();
-                inner.next(); // while
+                let negate_condition = match inner.next().unwrap().as_rule() {
+                    Rule::while_keyword => false,
+                    Rule::until_keyword => true,
+                    _ => unreachable!(),
+                };
                 let condition = next_as_boxed_ast!(inner);
                 let body = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::While(Rc::new(AstWhile { condition, body })))
+                AstNode::new(
+                    span,
+                    Node::While(Rc::new(AstWhile {
+                        condition,
+                        body,
+                        negate_condition,
+                    })),
+                )
             }
             Rule::break_keyword => AstNode::new(span, Node::Break),
             Rule::continue_keyword => AstNode::new(span, Node::Continue),

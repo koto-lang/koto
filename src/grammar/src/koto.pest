@@ -173,7 +173,7 @@ for_ids = { for_id ~ ("," ~ for_id)* }
 placeholder = { "_" }
 
 while_loop = !{
-  while_keyword ~ operation
+  (while_keyword | until_keyword) ~ operation
   ~ child_block
 }
 
@@ -271,6 +271,7 @@ keyword = _{
   | "return"
   | "then"
   | "true"
+  | "until"
   | "while"
 }
 
@@ -286,6 +287,7 @@ not_keyword = @{ "not" ~ WHITESPACE+ }
 ref_keyword = @{ "ref" ~ WHITESPACE+ }
 return_keyword = @{ "return" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
+until_keyword = @{ "until" ~ WHITESPACE+ }
 while_keyword = @{ "while" ~ WHITESPACE+ }
 
 

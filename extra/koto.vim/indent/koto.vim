@@ -28,13 +28,13 @@ function! KotoIndent()
   let l:prev_line = getline(l:lnum)
   let l:line = getline(v:lnum)
 
-  " Ending in || or =
+  " Ending with || or =
   if l:prev_line =~# '\(|.*|\)\|=\s*\(#.*\)*$'
     let l:indent += &shiftwidth
   endif
 
-  " Starting in for, if, else
-  if l:prev_line =~# '^\s*\(for\s\|if\s\|else\).*$'
+  " Starting with for, until, while, if, else
+  if l:prev_line =~# '^\s*\(for\s\|until\s\|while\s\|if\s\|else\).*$'
     let l:indent += &shiftwidth
   endif
 
