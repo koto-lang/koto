@@ -28,6 +28,54 @@ pub fn register(global: &mut ValueMap) {
         })
     });
 
+    list.add_fn("pop", |_, args: &[Value]| {
+        list_op(args, 1, "pop", |list| match list.data_mut().pop() {
+            Some(value) => Ok(value),
+            None => Ok(Value::Empty),
+        })
+    });
+
+    list.add_fn("remove", |_, args: &[Value]| {
+        list_op(args, 2, "remove", |list| match &args[1] {
+            Number(n) => {
+                if *n < 0.0 {
+                    return builtin_error!("list.remove: Negative indices aren't allowed");
+                }
+                let index = *n as usize;
+                if index >= list.data().len() {
+                    return builtin_error!("list.remove: Index out of bounds");
+                }
+
+                Ok(list.data_mut().remove(index))
+            }
+            unexpected => builtin_error!(
+                "list.remove expects a number as its second argument, found '{}'",
+                value::type_as_string(&unexpected)
+            ),
+        })
+    });
+
+    list.add_fn("insert", |_, args: &[Value]| {
+        list_op(args, 3, "insert", |list| match &args[1] {
+            Number(n) => {
+                if *n < 0.0 {
+                    return builtin_error!("list.insert: Negative indices aren't allowed");
+                }
+                let index = *n as usize;
+                if index > list.data().len() {
+                    return builtin_error!("list.insert: Index out of bounds");
+                }
+
+                list.data_mut().insert(index, args[2].clone());
+                Ok(Value::Empty)
+            }
+            unexpected => builtin_error!(
+                "list.insert expects a number as its second argument, found '{}'",
+                value::type_as_string(&unexpected)
+            ),
+        })
+    });
+
     list.add_fn("fill", |_, args| {
         list_op(args, 2, "fill", |list| {
             let value = args[1].clone();
@@ -97,8 +145,7 @@ pub fn register(global: &mut ValueMap) {
                 Ok(Value::Empty)
             }
             unexpected => builtin_error!(
-                "list.transform expects a function as its \
-                                                   second argument, found '{}'",
+                "list.transform expects a function as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
         })
@@ -109,8 +156,7 @@ pub fn register(global: &mut ValueMap) {
             Function(f) => {
                 if f.args.len() != 2 {
                     return builtin_error!(
-                        "The function passed to list.fold must have two \
-                                     arguments, found '{}'",
+                        "The function passed to list.fold must have two arguments, found '{}'",
                         f.args.len()
                     );
                 }
@@ -123,8 +169,7 @@ pub fn register(global: &mut ValueMap) {
                 Ok(result)
             }
             unexpected => builtin_error!(
-                "list.transform expects a function as its \
-                                                   second argument, found '{}'",
+                "list.transform expects a function as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
         })
