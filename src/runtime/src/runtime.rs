@@ -246,6 +246,12 @@ impl<'a> Runtime<'a> {
                 let (value, _scope) = self.get_value_or_error(&id, node)?;
                 value
             }
+            Node::Copy(lookup_or_id) => match lookup_or_id {
+                LookupOrId::Id(id) => deref_value(&self.get_value_or_error(&id, node)?.0),
+                LookupOrId::Lookup(lookup) => {
+                    deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.0)
+                }
+            },
             Node::Ref(lookup_or_id) => match lookup_or_id {
                 LookupOrId::Id(id) => self.make_reference_from_id(&id, node)?,
                 LookupOrId::Lookup(lookup) => {
@@ -257,6 +263,9 @@ impl<'a> Runtime<'a> {
                 ValueOrValues::Value(value) => value,
                 ValueOrValues::Values(values) => Value::List(Rc::new(ValueList::with_data(values))),
             },
+            Node::CopyExpression(expression) => {
+                deref_value(&self.evaluate_and_capture(expression)?)
+            }
             Node::RefExpression(expression) => {
                 let value = self.evaluate_and_capture(expression)?;
                 match value {

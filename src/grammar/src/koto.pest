@@ -73,6 +73,7 @@ expression = _{
 expressions = !{ expression ~ ("," ~ expression?)* }
 return_expression = !{ return_keyword ~ expression }
 ref_expression = !{ !ref_id ~ ref_keyword ~ expression }
+copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
 
 operation = ${
    (term ~ operation_link+)
@@ -131,6 +132,8 @@ value_term = _{(
   | boolean
   | lookup
   | id
+  | copy_expression
+  | copy_id
   | ref_expression
   | ref_id
   | ("(" ~ operation ~ ")")
@@ -242,6 +245,7 @@ char = {
 }
 
 assignment_id = !{ global_keyword? ~ id }
+copy_id = !{ copy_keyword ~ lookup_or_id }
 ref_id = !{ ref_keyword ~ lookup_or_id }
 lookup_or_id = _{ lookup | id }
 id = @{ single_id }
@@ -259,6 +263,7 @@ keyword = _{
   "and"
   | "break"
   | "continue"
+  | "copy"
   | "else"
   | "false"
   | "for"
@@ -277,6 +282,7 @@ keyword = _{
 
 break_keyword = @{ "break" }
 continue_keyword = @{ "continue"  }
+copy_keyword = @{ "copy" ~ WHITESPACE+ }
 else_if_keyword = @{ "else if" ~ WHITESPACE+ }
 else_keyword = @{ "else" ~ WHITESPACE+ }
 for_keyword = @{ "for" ~ WHITESPACE+ }

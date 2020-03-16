@@ -198,6 +198,18 @@ impl KotoParser {
                 let id = Rc::new(pair.as_str().to_string());
                 AstNode::new(span, Node::Id(id))
             }
+            Rule::copy_id => {
+                let mut inner = pair.into_inner();
+                inner.next(); // copy
+                let lookup_or_id = next_as_lookup_or_id!(inner);
+                AstNode::new(span, Node::Copy(lookup_or_id))
+            }
+            Rule::copy_expression => {
+                let mut inner = pair.into_inner();
+                inner.next(); // copy
+                let expression = next_as_boxed_ast!(inner);
+                AstNode::new(span, Node::CopyExpression(expression))
+            }
             Rule::ref_id => {
                 let mut inner = pair.into_inner();
                 inner.next(); // ref

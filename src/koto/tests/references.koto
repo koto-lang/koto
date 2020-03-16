@@ -17,7 +17,13 @@ u = t
 u = "bye"
 assert_eq t, "bye"
 
-# Assigning a reference to another doesn't modify existing references - TODO copy builtin
+# copy can be used to make a copy of a reference's value
+x = ref 1
+y = copy x
+x = 2
+assert_eq y, 1
+
+# Assigning a reference to another doesn't modify existing references
 x = ref 1
 y = x
 x = ref 2

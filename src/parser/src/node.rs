@@ -8,6 +8,7 @@ pub enum Node {
     Empty,
     Id(Id),
     Lookup(Lookup),
+    Copy(LookupOrId),
     Ref(LookupOrId),
     Bool(bool),
     Number(f64),
@@ -28,6 +29,7 @@ pub enum Node {
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
     ReturnExpression(Box<AstNode>),
+    CopyExpression(Box<AstNode>),
     RefExpression(Box<AstNode>),
     Negate(Box<AstNode>),
     Function(Rc<Function>),
@@ -61,6 +63,7 @@ impl fmt::Display for Node {
         match self {
             Empty => write!(f, "()"),
             Id(id) => write!(f, "Id: {}", id),
+            Copy(lookup) => write!(f, "Copy: {}", lookup),
             Ref(lookup) => write!(f, "Ref: {}", lookup),
             Bool(b) => write!(f, "Bool: {}", b),
             Number(n) => write!(f, "Number: {}", n),
@@ -97,6 +100,7 @@ impl fmt::Display for Node {
                 if e.len() == 1 { "" } else { "s" }
             ),
             ReturnExpression(_) => write!(f, "Return Expression"),
+            CopyExpression(_) => write!(f, "Copy Expression"),
             RefExpression(_) => write!(f, "Ref Expression"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
