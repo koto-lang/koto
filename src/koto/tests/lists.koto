@@ -7,10 +7,6 @@ assert_ne z, []
 
 assert_eq z + z, [10, 20, 30, 10, 20, 30]
 
-y = list.add(z, 40, 50)
-assert_eq y[3], 40
-
-assert_eq 5, size y
 assert_eq 3, size z
 
 a, b, c = [10, 20, 30, 40]

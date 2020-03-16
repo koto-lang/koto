@@ -1,3 +1,11 @@
+###### list.push
+z = ref [1]
+list.push(z, 2)
+assert_eq z, [1, 2]
+list.push(z, 3)
+assert_eq z, [1, 2, 3]
+
+
 ###### list.filter
 
 # Passing a value into list.filter will leave only matching elements in the list
