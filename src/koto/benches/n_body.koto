@@ -203,7 +203,7 @@ for i=1,N do advance(bodies, nbody, 0.01) end
 io.write( string.format("%0.9f",energy(bodies, nbody)), "\n")
 -#
 
-N = number env.args[1]
+N = number env.args[0]
 nbody = size bodies
 bodies = ref bodies
 

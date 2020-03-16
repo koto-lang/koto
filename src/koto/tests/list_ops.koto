@@ -23,6 +23,12 @@ list.insert z, 3, -1
 assert_eq z, [1, 42, 3, -1]
 
 
+###### list.get
+z = [0..10]
+assert_eq (list.get z, 5), 5
+assert_eq (list.get z, 15), ()
+
+
 ###### list.filter
 
 # Passing a value into list.filter will leave only matching elements in the list

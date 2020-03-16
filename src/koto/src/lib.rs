@@ -46,14 +46,15 @@ impl<'a> Koto<'a> {
             ),
             None => (Empty, Empty),
         };
-        let mut args = vec![script_path];
-        for arg in self.environment.args.iter() {
-            args.push(Str(Rc::new(arg.to_string())));
-        }
+
+        let args =
+            self.environment.args.iter()
+            .map(|arg| Str(Rc::new(arg.to_string()))).collect::<Vec<_>>();
 
         let mut env = ValueMap::new();
 
         env.add_value("script_dir", script_dir);
+        env.add_value("script_path", script_path);
         env.add_list("args", ValueList::with_data(args));
 
         self.runtime.global_mut().add_map("env", env);

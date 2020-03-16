@@ -22,28 +22,52 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("push", |_, args: &[Value]| {
-        list_op(args, 2, "push", |list| {
+        ref_list_op(args, 2, "push", |list| {
             list.data_mut().extend(args[1..].iter().cloned());
             Ok(Value::Empty)
         })
     });
 
     list.add_fn("pop", |_, args: &[Value]| {
-        list_op(args, 1, "pop", |list| match list.data_mut().pop() {
+        ref_list_op(args, 1, "pop", |list| match list.data_mut().pop() {
             Some(value) => Ok(value),
             None => Ok(Value::Empty),
         })
     });
 
+    list.add_fn("get", |_, args: &[Value]| {
+        list_op(args, 2, "get", |list| match &args[1] {
+            Number(n) => {
+                if *n < 0.0 {
+                    return builtin_error!("list.get: Negative indices aren't allowed");
+                }
+                let index = *n as usize;
+                match list.data().get(index) {
+                    Some(value) => Ok(value.clone()),
+                    None => Ok(Value::Empty),
+                }
+            }
+            unexpected => builtin_error!(
+                "list.get expects a number as its second argument, found '{}'",
+                value::type_as_string(&unexpected)
+            ),
+        })
+    });
+
     list.add_fn("remove", |_, args: &[Value]| {
-        list_op(args, 2, "remove", |list| match &args[1] {
+        ref_list_op(args, 2, "remove", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
                     return builtin_error!("list.remove: Negative indices aren't allowed");
                 }
                 let index = *n as usize;
                 if index >= list.data().len() {
-                    return builtin_error!("list.remove: Index out of bounds");
+                    return builtin_error!(
+                        "list.remove: Index out of bounds - \
+                         the index is {} but the List only has {} elements",
+                        index,
+                        list.data().len()
+                    );
                 }
 
                 Ok(list.data_mut().remove(index))
@@ -56,7 +80,7 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("insert", |_, args: &[Value]| {
-        list_op(args, 3, "insert", |list| match &args[1] {
+        ref_list_op(args, 3, "insert", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
                     return builtin_error!("list.insert: Negative indices aren't allowed");
@@ -77,7 +101,7 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("fill", |_, args| {
-        list_op(args, 2, "fill", |list| {
+        ref_list_op(args, 2, "fill", |list| {
             let value = args[1].clone();
             for v in list.data_mut().iter_mut() {
                 *v = value.clone();
@@ -87,7 +111,7 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("filter", |runtime, args| {
-        list_op(args, 2, "filter", |list| {
+        ref_list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
                     if f.args.len() != 1 {
@@ -128,7 +152,7 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("transform", |runtime, args| {
-        list_op(args, 2, "transform", |list| match &args[1] {
+        ref_list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
                 if f.args.len() != 1 {
                     return builtin_error!(
@@ -179,6 +203,31 @@ pub fn register(global: &mut ValueMap) {
 }
 
 fn list_op<'a>(
+    args: &[Value<'a>],
+    arg_count: usize,
+    op_name: &str,
+    mut op: impl FnMut(&ValueList<'a>) -> RuntimeResult<'a>,
+) -> RuntimeResult<'a> {
+    if args.len() < arg_count {
+        return builtin_error!(
+            "list.{} expects {} arguments, found {}",
+            op_name,
+            arg_count,
+            args.len()
+        );
+    }
+
+    match deref_value(&args[0]) {
+        Value::List(list) => op(list.as_ref()),
+        unexpected => builtin_error!(
+            "list.{} expects a List as its first argument, found {}",
+            op_name,
+            value::type_as_string(&unexpected)
+        ),
+    }
+}
+
+fn ref_list_op<'a>(
     args: &[Value<'a>],
     arg_count: usize,
     op_name: &str,

@@ -15,7 +15,7 @@ assert a == 10 and b == 20 and c == 30
 a, b, c = [10, 20], [30, 40]
 assert_eq a, [10, 20]
 assert_eq b, [30, 40]
-assert_eq (size c), 0
+assert_eq c, ()
 
 # Modifying a list
 a = [0, 1, 2]
@@ -33,8 +33,8 @@ assert not list.is_sortable ["42", 10, 9]
 assert list.is_sortable ["42", "10", "9"]
 assert_eq [9, 10, 42], list.sort [42, 10, 9]
 
-a = [1, 2, 3]
-list.fill ref a, 42
+a = ref [1, 2, 3]
+list.fill a, 42
 assert_eq a, [42, 42, 42]
 
 ###### Multidimensional lists

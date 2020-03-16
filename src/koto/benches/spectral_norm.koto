@@ -30,7 +30,7 @@ AtAv = |x, y, t, n|
   Av x, t, n
   Atv t, y, n
 
-N = number env.args[1]
+N = number env.args[0]
 u = ref [1 for _ in 0..N] # TODO ref list.repeat 1, N
 v = ref [0 for _ in 0..N]
 t = ref [0 for _ in 0..N]
