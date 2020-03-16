@@ -71,7 +71,7 @@ expression = _{
   ~ comment?
 }
 expressions = !{ expression ~ ("," ~ expression?)* }
-return_expression = !{ return_keyword ~ expression }
+return_expression = !{ return_keyword ~ expressions }
 ref_expression = !{ !ref_id ~ ref_keyword ~ expression }
 copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
 

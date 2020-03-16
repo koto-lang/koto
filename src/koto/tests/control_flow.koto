@@ -36,7 +36,7 @@ if true
   assert_eq 13, fib 7
 
 
-# return keyword allows for early exit from functions
+####### return allows for early exit from functions
 match_digit = |n|
   match_digit_nested = |n|
     for i in 0..10
@@ -48,3 +48,10 @@ match_digit = |n|
       return match_digit_nested n
 x = match_digit(i) for i in 0..3
 assert_eq x, [0, 1, 2]
+
+###### return supports returning multiple values
+f = ||
+  return -1, 1
+a, b = f()
+assert_eq a, -1
+assert_eq b, 1
