@@ -57,6 +57,14 @@ pub fn koto_benchmark(c: &mut Criterion) {
             runner.run();
         })
     });
+    c.bench_function("fannkuch", |b| {
+        let mut runner = BenchmarkRunner::new("fannkuch.koto");
+        runner.koto.environment_mut().args = vec!["4".to_string(), "quiet".to_string()];
+        runner.koto.setup_environment();
+        b.iter(|| {
+            runner.run();
+        })
+    });
 }
 
 criterion_group!(benches, koto_benchmark);
