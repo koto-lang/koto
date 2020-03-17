@@ -52,3 +52,23 @@ assert_eq z, [1, 2, 3]
 z = [2, 3, 4]
 x = list.fold z, 1, |x, y| x * y
 assert_eq x, 24
+
+###### list.is_sortable + sort_copy
+
+assert list.is_sortable [42, 10, 9]
+assert not list.is_sortable ["42", 10, 9]
+assert list.is_sortable ["42", "10", "9"]
+
+
+###### list.sort + sort_copy
+assert_eq [9, 10, 42], list.sort_copy [42, 10, 9]
+
+z = ref [3, 2, 1]
+list.sort z
+assert_eq z, [1, 2, 3]
+
+
+###### list.fill
+a = ref [1, 2, 3]
+list.fill a, 42
+assert_eq a, [42, 42, 42]

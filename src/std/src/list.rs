@@ -11,14 +11,21 @@ pub fn register(global: &mut ValueMap) {
         Ok(Bool(list_is_sortable(&l)))
     });
 
-    single_arg_fn!(list, "sort", List, l, {
+    single_arg_fn!(list, "sort_copy", List, l, {
         if list_is_sortable(l.as_ref()) {
             let mut result = Vec::clone(l.data());
             result.sort();
             Ok(List(Rc::new(ValueList::with_data(result))))
         } else {
-            builtin_error!("list.sort can only sort lists of numbers or strings")
+            builtin_error!("list.sort_copy can only sort lists of numbers or strings")
         }
+    });
+
+    list.add_fn("sort", |_, args: &[Value]| {
+        ref_list_op(args, 1, "sort", |list| {
+            list.data_mut().sort();
+            Ok(Value::Empty)
+        })
     });
 
     list.add_fn("push", |_, args: &[Value]| {

@@ -24,7 +24,7 @@ assert_eq m.baz.foo, 99
 m2 = m + { baz: 99 }
 assert (m2.bar 2) == 4 and m2.baz == 99
 
-assert_eq (list.sort map.keys m), ["bar", "baz", "foo"]
+assert_eq (list.sort_copy map.keys m), ["bar", "baz", "foo"]
 
 
 ###### Maps as classes
@@ -94,9 +94,9 @@ assert_eq z, {baz: -1}
 
 # New entries can be added
 x.new = "O_o"
-assert_eq (list.sort map.keys x), ["bar", "foo", "new"]
+assert_eq (list.sort_copy map.keys x), ["bar", "foo", "new"]
 x.bar.new = ">_<"
-assert_eq (list.sort map.keys x.bar), ["baz", "new"]
+assert_eq (list.sort_copy map.keys x.bar), ["baz", "new"]
 
 # Maps can be nested deeply
 deep = {a: {b: {c: {d: {e: {f: 42}}}}}}
