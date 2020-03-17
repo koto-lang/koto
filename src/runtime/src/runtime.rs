@@ -9,8 +9,8 @@ use crate::{
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{
-    AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId, Node,
-    Scope,
+    vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId,
+    Node, Scope,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -211,7 +211,58 @@ impl<'a> Runtime<'a> {
             Node::Empty => Empty,
             Node::Bool(b) => Bool(*b),
             Node::Number(n) => Number(*n),
-            Node::Vec4(v) => Vec4(*v),
+            Node::Vec4(expressions) => {
+                let v = match &expressions.as_slice() {
+                    [expression] => match &self.evaluate_and_capture(expression)? {
+                        Number(n) => {
+                            let n = *n as f32;
+                            vec4::Vec4(n, n, n, n)
+                        }
+                        Vec4(v) => *v,
+                        List(list) => {
+                            let mut v = vec4::Vec4::default();
+                            for (i, value) in list.data().iter().take(4).enumerate() {
+                                match value {
+                                    Number(n) => v[i] = *n as f32,
+                                    unexpected => {
+                                        return runtime_error!(
+                                            node,
+                                            "vec4 only accepts Numbers as arguments, - found {}",
+                                            unexpected
+                                        )
+                                    }
+                                }
+                            }
+                            v
+                        }
+                        unexpected => {
+                            return runtime_error!(
+                            node,
+                            "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
+                            unexpected
+                            );
+                        }
+                    },
+                    _ => {
+                        let mut v = vec4::Vec4::default();
+                        for (i, expression) in expressions.iter().take(4).enumerate() {
+                            match &self.evaluate(expression)? {
+                                Number(n) => v[i] = *n as f32,
+                                unexpected => {
+                                    return runtime_error!(
+                                        node,
+                                        "vec4 only accepts Numbers as arguments, \
+                                    or Vec4 or List as first argument - found {}",
+                                        unexpected
+                                    );
+                                }
+                            }
+                        }
+                        v
+                    }
+                };
+                Vec4(v)
+            }
             Node::Str(s) => Str(s.clone()),
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
@@ -274,7 +325,8 @@ impl<'a> Runtime<'a> {
                 }
             }
             Node::ReturnExpression(expression) => match self.control_flow {
-                ControlFlow::Function | ControlFlow::Loop => { // TODO handle loop inside function
+                ControlFlow::Function | ControlFlow::Loop => {
+                    // TODO handle loop inside function
                     let value = self.evaluate_and_capture(expression)?;
                     self.control_flow = ControlFlow::Return(value.clone());
                     Value::Empty

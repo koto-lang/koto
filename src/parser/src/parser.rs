@@ -136,8 +136,14 @@ impl KotoParser {
             }
             Rule::list => {
                 let inner = pair.into_inner();
-                let elements: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                let elements = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
                 AstNode::new(span, Node::List(elements))
+            }
+            Rule::vec4 => {
+                let mut inner = pair.into_inner();
+                inner.next(); // vec4
+                let expressions = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
+                AstNode::new(span, Node::Vec4(expressions))
             }
             Rule::range => {
                 let mut inner = pair.into_inner();

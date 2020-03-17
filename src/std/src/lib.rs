@@ -2,7 +2,6 @@ mod io;
 mod list;
 mod math;
 
-use koto_parser::vec4;
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
@@ -216,60 +215,6 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                 unexpected
             ),
         }
-    });
-
-    global.add_fn("vec4", |_, args| {
-        use vec4::Vec4 as V4;
-
-        let result = match args {
-            [] => V4::default(),
-            [arg] => match arg {
-                Number(n) => {
-                    let n = *n as f32;
-                    V4(n, n, n, n)
-                }
-                Vec4(v) => *v,
-                List(list) => {
-                    let mut v = V4::default();
-                    for (i, value) in list.data().iter().take(4).enumerate() {
-                        match value {
-                            Number(n) => v[i] = *n as f32,
-                            unexpected => {
-                                return builtin_error!(
-                                    "vec4 only accepts Numbers as arguments, - found {}",
-                                    unexpected
-                                )
-                            }
-                        }
-                    }
-                    v
-                }
-                unexpected => {
-                    return builtin_error!(
-                        "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
-                        unexpected
-                    )
-                }
-            },
-            _ => {
-                let mut v = V4::default();
-                for (i, arg) in args.iter().take(4).enumerate() {
-                    match arg {
-                        Number(n) => v[i] = *n as f32,
-                        unexpected => {
-                            return builtin_error!(
-                                "vec4 only accepts Numbers as arguments, \
-                                     or Vec4 or List as first argument - found {}",
-                                unexpected
-                            );
-                        }
-                    }
-                }
-                v
-            }
-        };
-
-        Ok(Vec4(result))
     });
 
     global.add_fn("print", |_, args| {

@@ -136,6 +136,7 @@ value_term = _{(
   | copy_id
   | ref_expression
   | ref_id
+  | vec4
   | ("(" ~ operation ~ ")")
   )
   ~ comment?
@@ -224,6 +225,7 @@ range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
 range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
 
+vec4 = !{ vec4_keyword ~ operation ~ ("," ~ operation){, 3} }
 
 boolean = { "true" | "false" }
 negate = { not_keyword ~ operation }
@@ -277,6 +279,7 @@ keyword = _{
   | "then"
   | "true"
   | "until"
+  | "vec4"
   | "while"
 }
 
@@ -294,6 +297,7 @@ ref_keyword = @{ "ref" ~ WHITESPACE+ }
 return_keyword = @{ "return" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 until_keyword = @{ "until" ~ WHITESPACE+ }
+vec4_keyword = @{ "vec4" ~ WHITESPACE+ }
 while_keyword = @{ "while" ~ WHITESPACE+ }
 
 

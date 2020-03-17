@@ -1,4 +1,4 @@
-use crate::{vec4, AstNode, Lookup};
+use crate::{AstNode, Lookup};
 use std::{fmt, rc::Rc};
 
 pub type Id = Rc<String>;
@@ -12,7 +12,7 @@ pub enum Node {
     Ref(LookupOrId),
     Bool(bool),
     Number(f64),
-    Vec4(vec4::Vec4),
+    Vec4(Vec<AstNode>),
     Str(Rc<String>),
     List(Vec<AstNode>),
     Range {
