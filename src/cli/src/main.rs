@@ -6,8 +6,8 @@ mod repl;
 use repl::Repl;
 
 fn main() {
-    let matches = App::new("koto")
-        .version("1.0")
+    let matches = App::new("Koto")
+        .version(env!("CARGO_PKG_VERSION"))
         .arg(
             Arg::with_name("script")
                 .help("The koto script to run")

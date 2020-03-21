@@ -8,6 +8,8 @@ use termion::{
     raw::RawTerminal, style,
 };
 
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 pub struct Repl<'a> {
     parser: Parser,
     koto: Koto<'a>,
@@ -34,7 +36,7 @@ impl<'a> Repl<'a> {
         let stdin = stdin();
         let mut stdout = stdout().into_raw_mode().unwrap();
 
-        write!(stdout, "Koto\r\n» ").unwrap();
+        write!(stdout, "Welcome to Koto v{}\r\n» ", VERSION).unwrap();
         stdout.flush().unwrap();
 
         for c in stdin.keys() {
