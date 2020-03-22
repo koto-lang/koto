@@ -1,4 +1,4 @@
-use koto::{Error, Koto, Parser};
+use koto::Koto;
 use std::{
     fmt,
     io::{stdin, stdout, Write},
@@ -11,9 +11,7 @@ use termion::{
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 pub struct Repl<'a> {
-    parser: Parser,
     koto: Koto<'a>,
-
     input_history: Vec<String>,
     history_position: Option<usize>,
     input: String,
@@ -23,7 +21,6 @@ pub struct Repl<'a> {
 impl<'a> Repl<'a> {
     pub fn new() -> Self {
         Self {
-            parser: Parser::new(),
             koto: Koto::new(),
             input_history: Vec::new(),
             history_position: None,
@@ -147,15 +144,10 @@ impl<'a> Repl<'a> {
                 '\n' => {
                     write!(stdout, "\r\n").unwrap();
                     stdout.suspend_raw_mode().unwrap();
-                    match self.parser.parse(&self.input) {
-                        Ok(ast) => match self.koto.run(&ast) {
+                    match self.koto.parse(&self.input) {
+                        Ok(_) => match self.koto.run() {
                             Ok(result) => println!("{}", result),
-                            Err(Error::BuiltinError { message }) => {
-                                self.print_error(stdout, &message)
-                            }
-                            Err(Error::RuntimeError { message, .. }) => {
-                                self.print_error(stdout, &message)
-                            }
+                            Err(error) => self.print_error(stdout, &error),
                         },
                         Err(e) => self.print_error(stdout, &e),
                     }

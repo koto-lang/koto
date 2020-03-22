@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use koto::{Error, Parser, Koto};
+use koto::Koto;
 use std::fs;
 
 mod repl;
@@ -22,46 +22,19 @@ fn main() {
         .get_matches();
 
     if let Some(path) = matches.value_of("script") {
-        let parser = Parser::new();
         let mut koto = Koto::new();
 
-        if let Some(script_args) = matches
-            .values_of("args")
-            .map(|args| args.map(|s| s.to_string()).collect::<Vec<_>>())
-        {
-            koto.environment_mut().args = script_args;
-        }
-
-        koto.setup_environment();
+        let args = match matches.values_of("args") {
+            Some(args) => args.map(|s| s.to_string()).collect::<Vec<_>>(),
+            None => Vec::new(),
+        };
 
         let script = fs::read_to_string(path).expect("Unable to load path");
-        match parser.parse(&script) {
-            Ok(ast) => match koto.run(&ast) {
-                Ok(_) => {}
-                Err(e) => match e {
-                    Error::BuiltinError { message } => {
-                        eprintln!("Builtin error: {}\n", message,);
-                        panic!();
-                    }
-                    Error::RuntimeError {
-                        message,
-                        start_pos,
-                        end_pos,
-                    } => {
-                        let excerpt = script
-                            .lines()
-                            .skip(start_pos.line - 1)
-                            .take(end_pos.line - start_pos.line + 1)
-                            .map(|line| format!("  | {}\n", line))
-                            .collect::<String>();
-                        eprintln!(
-                            "Runtime error: {}\n  --> {}:{}\n  |\n{}  |",
-                            message, start_pos.line, start_pos.column, excerpt
-                        )
-                    }
-                },
-            },
-            Err(e) => eprintln!("Error while parsing source: {}", e),
+        match koto.run_script_with_args(&script, args) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("{}", e);
+            }
         }
     } else {
         let mut repl = Repl::new();

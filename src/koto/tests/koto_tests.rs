@@ -1,4 +1,4 @@
-use koto::{Error, Parser, Koto};
+use koto::Koto;
 use std::{fs::read_to_string, path::PathBuf};
 
 fn run_script(script_path: &str) {
@@ -11,39 +11,11 @@ fn run_script(script_path: &str) {
     }
     let script = read_to_string(&path).expect(&format!("Unable to load path '{:?}'", &path));
 
-    match Parser::new().parse(&script) {
-        Ok(ast) => {
-            let mut runtime = Koto::new();
-            runtime.environment_mut().script_path = Some(path.to_str().unwrap().to_string());
-            runtime.setup_environment();
-            match runtime.run(&ast) {
-                Ok(_) => {}
-                Err(e) => match e {
-                    Error::BuiltinError { message } => {
-                        eprintln!("Builtin error: {}\n", message,);
-                        assert!(false);
-                    }
-                    Error::RuntimeError {
-                        message,
-                        start_pos,
-                        end_pos,
-                    } => {
-                        let excerpt = script
-                            .lines()
-                            .skip(start_pos.line - 1)
-                            .take(end_pos.line - start_pos.line + 1)
-                            .map(|line| format!("\n  | {}", line))
-                            .collect::<String>();
-                        eprintln!(
-                            "Runtime error: {}\n  --> {}:{}\n  |{}\n  |",
-                            message, start_pos.line, start_pos.column, excerpt
-                        );
-                        assert!(false);
-                    }
-                },
-            }
-        }
-        Err(e) => assert!(false, format!("Parsing error:\n{}", e)),
+    let mut koto = Koto::new();
+    koto.set_script_path(Some(path.to_string_lossy().to_string()));
+    if let Err(error) = koto.run_script_with_args(&script, vec![]) {
+        eprintln!("{}", error);
+        assert!(false);
     }
 }
 

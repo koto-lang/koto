@@ -1,8 +1,10 @@
 use crate::{lookup::*, node::*, prec_climber::PrecClimber, Ast, AstNode, LookupNode};
-use pest::{error::Error, Parser};
+use pest::Parser;
 use std::rc::Rc;
 
 use koto_grammar::Rule;
+
+type Error = pest::error::Error<Rule>;
 
 pub struct KotoParser {
     climber: PrecClimber<Rule>,
@@ -32,7 +34,7 @@ impl KotoParser {
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<Ast, Error<Rule>> {
+    pub fn parse(&self, source: &str) -> Result<Ast, Error> {
         let parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
         let mut ast = vec![];
