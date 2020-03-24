@@ -35,6 +35,12 @@ impl AstNode {
             end_pos,
         }
     }
+
+    pub fn dummy() -> Self {
+        Self {
+            node: Node::Empty,
+            start_pos: Position { line: 0, column: 0 },
+            end_pos: Position { line: 0, column: 0 },
+        }
+    }
 }
-
-

@@ -424,7 +424,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value(&self, id: &Id) -> Option<(Value<'a>, Scope)> {
+    pub fn get_value(&self, id: &Id) -> Option<(Value<'a>, Scope)> {
         if self.call_stack.frame() > 0 {
             if let Some(value) = self.call_stack.get(id) {
                 return Some((value.clone(), Scope::Local));
@@ -999,7 +999,7 @@ impl<'a> Runtime<'a> {
         })
     }
 
-    fn lookup_and_call_function(
+    pub fn lookup_and_call_function(
         &mut self,
         lookup_or_id: &LookupOrId,
         args: &[AstNode],

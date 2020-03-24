@@ -1,4 +1,4 @@
-pub use koto_parser::{Ast, AstNode, KotoParser as Parser};
+pub use koto_parser::{Ast, AstNode, KotoParser as Parser, LookupOrId};
 use koto_runtime::{runtime_trace, Runtime};
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
@@ -33,7 +33,12 @@ impl<'a> Koto<'a> {
     ) -> Result<Value<'a>, String> {
         self.parse(script)?;
         self.set_args(args);
-        self.run()
+        self.run()?;
+        if self.has_function("main") {
+            self.call_function("main")
+        } else {
+            Ok(Value::Empty)
+        }
     }
 
     pub fn parse(&mut self, script: &str) -> Result<(), String> {
@@ -90,7 +95,7 @@ impl<'a> Koto<'a> {
             .runtime
             .global_mut()
             .0
-            .get_mut(&Rc::new("env".to_string()))
+            .get_mut(&Rc::new("env".to_string())) // TODO no rc
             .unwrap()
         {
             Map(map) => {
@@ -106,6 +111,44 @@ impl<'a> Koto<'a> {
         runtime_trace!(self, "run");
 
         match self.runtime.evaluate_block(&self.ast) {
+            Ok(result) => Ok(result),
+            Err(e) => Err(match e {
+                Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                Error::RuntimeError {
+                    message,
+                    start_pos,
+                    end_pos,
+                } => {
+                    let excerpt = self
+                        .script
+                        .lines()
+                        .skip(start_pos.line - 1)
+                        .take(end_pos.line - start_pos.line + 1)
+                        .map(|line| format!("  | {}\n", line))
+                        .collect::<String>();
+                    format!(
+                        "Runtime error: {}\n  --> {}:{}\n  |\n{}  |",
+                        message, start_pos.line, start_pos.column, excerpt
+                    )
+                }
+            }),
+        }
+    }
+
+    pub fn has_function(&self, function_name: &str) -> bool {
+        // TODO no rc
+        matches!(
+            self.runtime.get_value(&Rc::new(function_name.to_string())),
+            Some((Value::Function(_), _))
+        )
+    }
+
+    pub fn call_function(&mut self, function_name: &str) -> Result<Value<'a>, String> {
+        match self.runtime.lookup_and_call_function(
+            &LookupOrId::Id(Rc::new(function_name.to_string())),
+            &vec![],
+            &AstNode::dummy(),
+        ) {
             Ok(result) => Ok(result),
             Err(e) => Err(match e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
