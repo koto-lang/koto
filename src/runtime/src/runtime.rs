@@ -425,6 +425,7 @@ impl<'a> Runtime<'a> {
     }
 
     pub fn get_value(&self, id: &Id) -> Option<(Value<'a>, Scope)> {
+        runtime_trace!(self, "get_value: {}", id);
         if self.call_stack.frame() > 0 {
             if let Some(value) = self.call_stack.get(id) {
                 return Some((value.clone(), Scope::Local));
@@ -572,6 +573,8 @@ impl<'a> Runtime<'a> {
         root: Value<'a>,
         node: &AstNode,
     ) -> Result<Option<Value<'a>>, Error> {
+        runtime_trace!(self, "do_lookup: {} - {}", lookup, root);
+
         use Value::{IndexRange, List, Map, Number, Range};
 
         let mut result = Some(root);
@@ -706,6 +709,8 @@ impl<'a> Runtime<'a> {
         lookup: &LookupSlice,
         node: &AstNode,
     ) -> Result<Option<(Value<'a>, Scope)>, Error> {
+        runtime_trace!(self, "lookup_value: {}", lookup);
+
         let root_id = match &lookup.0[0] {
             LookupNode::Id(id) => id,
             _ => unreachable!(),
@@ -1007,7 +1012,7 @@ impl<'a> Runtime<'a> {
     ) -> RuntimeResult<'a> {
         use Value::*;
 
-        runtime_trace!(self, "call_function - {}", lookup_or_id);
+        runtime_trace!(self, "lookup_and_call_function - {}", lookup_or_id);
 
         let maybe_function = match lookup_or_id {
             LookupOrId::Id(id) => self.get_value(&id),

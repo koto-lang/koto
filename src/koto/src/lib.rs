@@ -1,5 +1,5 @@
 pub use koto_parser::{Ast, AstNode, KotoParser as Parser, LookupOrId};
-use koto_runtime::{runtime_trace, Runtime};
+use koto_runtime::Runtime;
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
 
@@ -108,8 +108,6 @@ impl<'a> Koto<'a> {
     }
 
     pub fn run(&mut self) -> Result<Value<'a>, String> {
-        runtime_trace!(self, "run");
-
         match self.runtime.evaluate_block(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match e {

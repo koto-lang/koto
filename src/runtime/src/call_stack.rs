@@ -4,7 +4,7 @@ use crate::{Id, Value};
 pub struct CallStack<'a> {
     values: Vec<(Id, Value<'a>)>,
     frame_size: Vec<usize>,
-    frame_value_count: usize,
+    pending_frame_size: usize,
 }
 
 impl<'a> CallStack<'a> {
@@ -13,7 +13,7 @@ impl<'a> CallStack<'a> {
         Self {
             values: Vec::with_capacity(initial_capacity),
             frame_size: Vec::with_capacity(initial_capacity),
-            frame_value_count: 0,
+            pending_frame_size: 0,
         }
     }
 
@@ -23,12 +23,12 @@ impl<'a> CallStack<'a> {
 
     pub fn push(&mut self, id: Id, value: Value<'a>) {
         self.values.push((id, value));
-        self.frame_value_count += 1;
+        self.pending_frame_size += 1;
     }
 
     pub fn extend(&mut self, id: Id, value: Value<'a>) {
         assert_eq!(
-            self.frame_value_count, 0,
+            self.pending_frame_size, 0,
             "Extend called before commit or cancel"
         );
         self.values.push((id, value));
@@ -39,15 +39,15 @@ impl<'a> CallStack<'a> {
     }
 
     pub fn commit(&mut self) {
-        self.frame_size.push(self.frame_value_count);
-        self.frame_value_count = 0;
+        self.frame_size.push(self.pending_frame_size);
+        self.pending_frame_size = 0;
     }
 
     pub fn cancel(&mut self) {
-        for _ in 0..self.frame_value_count {
+        for _ in 0..self.pending_frame_size {
             self.values.pop();
         }
-        self.frame_value_count = 0;
+        self.pending_frame_size = 0;
     }
 
     pub fn pop_frame(&mut self) {
@@ -61,8 +61,8 @@ impl<'a> CallStack<'a> {
     pub fn frame_values(&self) -> Option<&[(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
-                let values_start = self.values.len() - size;
-                Some(&self.values[values_start..])
+                let values_start = self.values.len() - self.pending_frame_size - size;
+                Some(&self.values[values_start..(values_start + size)])
             }
             None => None,
         }
@@ -71,8 +71,8 @@ impl<'a> CallStack<'a> {
     fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
-                let values_start = self.values.len() - size;
-                Some(&mut self.values[values_start..])
+                let values_start = self.values.len() - self.pending_frame_size - size;
+                Some(&mut self.values[values_start..(values_start + size)])
             }
             None => None,
         }
@@ -128,6 +128,8 @@ mod tests {
         assert_eq!(stack.get("bar"), Some(&Number(99.0)));
 
         stack.push(Rc::new("baz".to_string()), Number(-1.0));
+        // We should be able to access the previous frame values while preparing the next
+        assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         stack.commit();
 
         assert_eq!(stack.frame(), 2);
