@@ -57,14 +57,15 @@ fannkuch = |n|
         t = list.remove p, 1
         list.insert p, (i + 1), t
 
-n = list.get env.args, 0
-if n == ()
-  n = 4
-else
-  n = number n
+main = ||
+  n = list.get env.args, 0
+  if n == ()
+    n = 4
+  else
+    n = number n
 
-sum, flips = fannkuch(n)
+  sum, flips = fannkuch(n)
 
-if (list.get env.args, 1) != "quiet"
-  print sum
-  print "Pfannkuchen(", n, ") = ", flips
+  if (list.get env.args, 1) != "quiet"
+    print sum
+    print "Pfannkuchen(", n, ") = ", flips

@@ -30,19 +30,17 @@ AtAv = |x, y, t, n|
   Av x, t, n
   Atv t, y, n
 
-N = number env.args[0]
-u = ref [1 for _ in 0..N] # TODO ref list.repeat 1, N
-v = ref [0 for _ in 0..N]
-t = ref [0 for _ in 0..N]
-
-for _ in 0..10
-  AtAv u, v, t, N
-  AtAv v, u, t, N
-
-vBv, vv = 0, 0
-for ui, vi in u, v
-  vBv = vBv + ui * vi
-  vv = vv + vi * vi
-
-result = math.sqrt vBv / vv
-# print result
+main = ||
+  N = number env.args[0]
+  u = ref [1 for _ in 0..N] # TODO ref list.repeat 1, N
+  v = ref [0 for _ in 0..N]
+  t = ref [0 for _ in 0..N]
+  for _ in 0..10
+    AtAv u, v, t, N
+    AtAv v, u, t, N
+  vBv, vv = 0, 0
+  for ui, vi in u, v
+    vBv = vBv + ui * vi
+    vv = vv + vi * vi
+  result = math.sqrt vBv / vv
+  # print result

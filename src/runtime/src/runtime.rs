@@ -670,7 +670,7 @@ impl<'a> Runtime<'a> {
                                         start,
                                         end
                                     );
-                                }else if start >= list.data().len() || end > list.data().len() {
+                                }else if start > list.data().len() || end > list.data().len() {
                                     return runtime_error!(
                                         node,
                                         "Index out of bounds in '{}', \
