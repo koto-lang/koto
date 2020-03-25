@@ -79,7 +79,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and return the final result
-    fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
@@ -285,7 +285,7 @@ impl<'a> Runtime<'a> {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
                     let value = self.evaluate_and_capture(node)?;
-                    map.insert(id.clone(), value);
+                    map.insert(Id(id.clone()), value);
                 }
                 Map(Rc::new(map))
             }
@@ -294,17 +294,19 @@ impl<'a> Runtime<'a> {
                 value
             }
             Node::Id(id) => {
-                let (value, _scope) = self.get_value_or_error(&id, node)?;
+                let (value, _scope) = self.get_value_or_error(id.as_ref(), node)?;
                 value
             }
             Node::Copy(lookup_or_id) => match lookup_or_id {
-                LookupOrId::Id(id) => deref_value(&self.get_value_or_error(&id, node)?.0),
+                LookupOrId::Id(id) => {
+                    deref_value(&self.get_value_or_error(id.as_ref(), node)?.0)
+                }
                 LookupOrId::Lookup(lookup) => {
                     deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.0)
                 }
             },
             Node::Ref(lookup_or_id) => match lookup_or_id {
-                LookupOrId::Id(id) => self.make_reference_from_id(&id, node)?,
+                LookupOrId::Id(id) => self.make_reference_from_id(&Id(id.clone()), node)?,
                 LookupOrId::Lookup(lookup) => {
                     self.make_reference_from_lookup(&lookup.as_slice(), node)?
                 }
@@ -384,7 +386,7 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
-            match self.global.0.get_mut(id.as_ref()) {
+            match self.global.0.get_mut(id) {
                 Some(exists) => match (&exists, &value) {
                     (Ref(ref_a), Ref(ref_b)) => {
                         if ref_a != ref_b {
@@ -403,7 +405,7 @@ impl<'a> Runtime<'a> {
                 }
             }
         } else {
-            match self.call_stack.get_mut(id.as_ref()) {
+            match self.call_stack.get_mut(id.as_str()) {
                 Some(exists) => match (&exists, &value) {
                     (Ref(ref_a), Ref(ref_b)) => {
                         if ref_a != ref_b {
@@ -424,7 +426,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn get_value(&self, id: &Id) -> Option<(Value<'a>, Scope)> {
+    pub fn get_value(&self, id: &str) -> Option<(Value<'a>, Scope)> {
         runtime_trace!(self, "get_value: {}", id);
         if self.call_stack.frame() > 0 {
             if let Some(value) = self.call_stack.get(id) {
@@ -438,7 +440,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value_or_error(&self, id: &Id, node: &AstNode) -> Result<(Value<'a>, Scope), Error> {
+    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<(Value<'a>, Scope), Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -454,14 +456,14 @@ impl<'a> Runtime<'a> {
         use Value::{List, Map, Ref};
 
         let root_id = match &lookup.0[0] {
-            LookupNode::Id(id) => id,
+            LookupNode::Id(id) => Id(id.clone()),
             _ => unreachable!(),
         };
 
         let evaluated_lookup = lookup.0[1..]
             .iter()
             .map(|lookup_node| match lookup_node {
-                LookupNode::Id(id) => Ok(EvaluatedLookupNode::Id(id.clone())),
+                LookupNode::Id(id) => Ok(EvaluatedLookupNode::Id(Id(id.clone()))),
                 LookupNode::Index(index) => {
                     let index = match self.evaluate(&index.0)? {
                         Value::Number(i) => EvaluatedIndex::Index(i as usize),
@@ -555,12 +557,12 @@ impl<'a> Runtime<'a> {
         }
 
         if self.call_stack.frame() > 0 {
-            if let Some(root) = self.call_stack.get_mut(root_id) {
+            if let Some(root) = self.call_stack.get_mut(root_id.as_str()) {
                 return set_value_from_lookup_helper!(root);
             }
         }
 
-        if let Some(root) = self.global.0.get_mut(root_id) {
+        if let Some(root) = self.global.0.get_mut(&root_id) {
             return set_value_from_lookup_helper!(root);
         }
 
@@ -781,30 +783,33 @@ impl<'a> Runtime<'a> {
 
             for value in value_iter {
                 if single_arg {
-                    self.set_value(first_arg, value.clone(), Scope::Local);
+                    self.set_value(&Id(first_arg.clone()), value.clone(), Scope::Local);
                 } else {
                     let mut arg_iter = f.args.iter().peekable();
                     match value {
                         List(a) => {
                             for list_value in a.data().iter() {
                                 match arg_iter.next() {
-                                    Some(arg) => {
-                                        self.set_value(arg, list_value.clone(), Scope::Local)
-                                    }
+                                    Some(arg) => self.set_value(
+                                        &Id(arg.clone()),
+                                        list_value.clone(),
+                                        Scope::Local,
+                                    ),
                                     None => break,
                                 }
                             }
                         }
                         _ => self.set_value(
-                            arg_iter
+                            &Id(arg_iter
                                 .next()
-                                .expect("For loops have at least one argument"),
+                                .expect("For loops have at least one argument")
+                                .clone()),
                             value.clone(),
                             Scope::Local,
                         ),
                     }
                     for remaining_arg in arg_iter {
-                        self.set_value(remaining_arg, Value::Empty, Scope::Local);
+                        self.set_value(&Id(remaining_arg.clone()), Value::Empty, Scope::Local);
                     }
                 }
 
@@ -878,10 +883,10 @@ impl<'a> Runtime<'a> {
             while multi_range_iterator.get_next_values(&mut values) {
                 if single_arg {
                     if values.len() == 1 {
-                        self.set_value(first_arg, values[0].clone(), Scope::Local);
+                        self.set_value(&Id(first_arg.clone()), values[0].clone(), Scope::Local);
                     } else {
                         self.set_value(
-                            first_arg,
+                            &Id(first_arg.clone()),
                             Value::List(Rc::new(ValueList::with_data(values.clone()))),
                             Scope::Local,
                         );
@@ -891,13 +896,13 @@ impl<'a> Runtime<'a> {
                     for value in values.iter() {
                         match arg_iter.next() {
                             Some(arg) => {
-                                self.set_value(arg, value.clone(), Scope::Local);
+                                self.set_value(&Id(arg.clone()), value.clone(), Scope::Local);
                             }
                             None => break,
                         }
                     }
                     for remaining_arg in arg_iter {
-                        self.set_value(remaining_arg, Value::Empty, Scope::Local);
+                        self.set_value(&Id(remaining_arg.clone()), Value::Empty, Scope::Local);
                     }
                 }
 
@@ -1022,7 +1027,7 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "lookup_and_call_function - {}", lookup_or_id);
 
         let maybe_function = match lookup_or_id {
-            LookupOrId::Id(id) => self.get_value(&id),
+            LookupOrId::Id(id) => self.get_value(id.as_ref()),
             LookupOrId::Lookup(lookup) => self.lookup_value(&lookup.as_slice(), node)?,
         };
 
@@ -1048,7 +1053,7 @@ impl<'a> Runtime<'a> {
             match lookup_or_id {
                 LookupOrId::Id(id) => {
                     // allow standalone functions to be able to call themselves
-                    self.call_stack.push(id.clone(), Function(f.clone()));
+                    self.call_stack.push(Id(id.clone()), Function(f.clone()));
                 }
                 LookupOrId::Lookup(lookup) => {
                     // implicit self for map functions
@@ -1057,7 +1062,7 @@ impl<'a> Runtime<'a> {
                             let map_id = lookup.parent_slice();
                             self.make_reference_from_lookup(&map_id, node)?;
                             let (map, _scope) = self.lookup_value(&map_id, node)?.unwrap();
-                            self.call_stack.push(self_arg.clone(), map);
+                            self.call_stack.push(Id(self_arg.clone()), map);
                             implicit_self = true;
                         }
                         _ => {}
@@ -1097,7 +1102,7 @@ impl<'a> Runtime<'a> {
                     }
                 };
 
-                self.call_stack.push(name.clone(), arg_value);
+                self.call_stack.push(Id(name.clone()), arg_value);
             }
 
             self.call_stack.commit();
@@ -1179,7 +1184,7 @@ impl<'a> Runtime<'a> {
         }
 
         for (name, arg) in f.args.iter().zip(args.iter()) {
-            self.call_stack.push(name.clone(), arg.clone());
+            self.call_stack.push(Id(name.clone()), arg.clone());
         }
 
         self.call_stack.commit();
@@ -1199,7 +1204,7 @@ impl<'a> Runtime<'a> {
     }
 
     fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> RuntimeResult<'a> {
-        let (value, scope) = self.get_value_or_error(&id, node)?;
+        let (value, scope) = self.get_value_or_error(id.as_str(), node)?;
         let (value_ref, made_ref) = make_reference(value);
         if made_ref {
             self.set_value(id, value_ref.clone(), scope);
@@ -1215,7 +1220,7 @@ impl<'a> Runtime<'a> {
         match lookup.0.last().unwrap() {
             LookupNode::Id(id) => {
                 if lookup.0.len() == 1 {
-                    self.make_reference_from_id(id, node)
+                    self.make_reference_from_id(&Id(id.clone()), node)
                 } else {
                     let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
 
@@ -1250,7 +1255,7 @@ impl<'a> Runtime<'a> {
 
         match target {
             AssignTarget::Id { id, scope } => {
-                self.set_value(id, value.clone(), *scope);
+                self.set_value(&Id(id.clone()), value.clone(), *scope);
             }
             AssignTarget::Lookup(lookup) => {
                 self.set_value_from_lookup(&lookup.as_slice(), &value, node)?;
@@ -1272,7 +1277,7 @@ impl<'a> Runtime<'a> {
             ($target:expr, $value:expr) => {
                 match $target {
                     AssignTarget::Id { id, scope } => {
-                        self.set_value(&id, $value, *scope);
+                        self.set_value(&Id(id.clone()), $value, *scope);
                     }
                     AssignTarget::Lookup(lookup) => {
                         self.set_value_from_lookup(&lookup.as_slice(), &$value, node)?;

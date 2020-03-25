@@ -1,13 +1,15 @@
 mod builtin_value;
 mod call_stack;
+mod id;
 mod runtime;
 pub mod value;
 mod value_iterator;
 mod value_list;
 mod value_map;
 
-use koto_parser::{Id, LookupSlice};
+use koto_parser::{LookupSlice};
 
+use id::Id;
 pub use runtime::Runtime;
 
 pub use builtin_value::BuiltinValue;

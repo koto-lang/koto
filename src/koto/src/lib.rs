@@ -91,13 +91,7 @@ impl<'a> Koto<'a> {
             None => (Empty, Empty),
         };
 
-        match self
-            .runtime
-            .global_mut()
-            .0
-            .get_mut(&Rc::new("env".to_string())) // TODO no rc
-            .unwrap()
-        {
+        match self.runtime.global_mut().0.get_mut("env").unwrap() {
             Map(map) => {
                 let map = Rc::make_mut(map);
                 map.add_value("script_dir", script_dir);
@@ -122,9 +116,8 @@ impl<'a> Koto<'a> {
     }
 
     pub fn has_function(&self, function_name: &str) -> bool {
-        // TODO no rc
         matches!(
-            self.runtime.get_value(&Rc::new(function_name.to_string())),
+            self.runtime.get_value(function_name),
             Some((Value::Function(_), _))
         )
     }

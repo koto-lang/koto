@@ -73,7 +73,9 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         single_arg_fn!(map, "keys", Map, m, {
             Ok(List(Rc::new(ValueList::with_data(
-                m.0.keys().map(|k| Str(k.clone())).collect::<Vec<_>>(),
+                m.0.keys()
+                    .map(|k| Str(Rc::new(k.as_str().to_string())))
+                    .collect::<Vec<_>>(),
             ))))
         });
 

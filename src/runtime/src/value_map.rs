@@ -1,9 +1,9 @@
 use crate::{
     runtime_error,
-    value::{type_as_string, EvaluatedLookupNode, BuiltinFunction},
-    Error, LookupSlice, Runtime, RuntimeResult, Value, ValueList,
+    value::{type_as_string, BuiltinFunction, EvaluatedLookupNode},
+    Error, Id, LookupSlice, Runtime, RuntimeResult, Value, ValueList,
 };
-use koto_parser::{AstNode, Id};
+use koto_parser::AstNode;
 use rustc_hash::FxHashMap;
 use std::rc::Rc;
 
@@ -49,7 +49,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_value(&mut self, name: &str, value: Value<'a>) {
-        self.insert(Rc::new(name.to_string()), value);
+        self.insert(Id::new(name), value);
     }
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {

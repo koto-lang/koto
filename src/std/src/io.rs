@@ -51,7 +51,7 @@ pub fn register(global: &mut ValueMap) {
                 Ref(map_ref) => {
                     match &*map_ref.borrow() {
                         // TODO Find a way to get from ValueMap with &str as key
-                        Map(instance) => match instance.as_ref().0.get(&"file".to_string()) {
+                        Map(instance) => match instance.as_ref().0.get("file") {
                             Some(Value::BuiltinValue(maybe_file)) => {
                                 match maybe_file.borrow_mut().downcast_mut::<File>() {
                                     Some(file_handle) => file_op(file_handle),

@@ -81,7 +81,7 @@ impl<'a> CallStack<'a> {
     pub fn get(&self, id: &str) -> Option<&Value<'a>> {
         match self.frame_values() {
             Some(values) => values.iter().find_map(|(value_id, value)| {
-                if value_id.as_ref() == id {
+                if value_id == id {
                     Some(value)
                 } else {
                     None
@@ -94,7 +94,7 @@ impl<'a> CallStack<'a> {
     pub fn get_mut(&mut self, id: &str) -> Option<&mut Value<'a>> {
         match self.frame_values_mut() {
             Some(values) => values.iter_mut().find_map(|(value_id, value)| {
-                if value_id.as_ref() == id {
+                if value_id == id {
                     Some(value)
                 } else {
                     None
@@ -111,7 +111,6 @@ mod tests {
 
     #[test]
     fn callstack() {
-        use std::rc::Rc;
         use Value::*;
 
         let mut stack = CallStack::new();
@@ -119,15 +118,15 @@ mod tests {
         assert_eq!(stack.frame(), 0);
         assert_eq!(stack.get("foo"), None);
 
-        stack.push(Rc::new("foo".to_string()), Number(42.0));
-        stack.push(Rc::new("bar".to_string()), Number(99.0));
+        stack.push(Id::new("foo"), Number(42.0));
+        stack.push(Id::new("bar"), Number(99.0));
         stack.commit();
 
         assert_eq!(stack.frame(), 1);
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         assert_eq!(stack.get("bar"), Some(&Number(99.0)));
 
-        stack.push(Rc::new("baz".to_string()), Number(-1.0));
+        stack.push(Id::new("baz"), Number(-1.0));
         // We should be able to access the previous frame values while preparing the next
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         stack.commit();
@@ -137,7 +136,7 @@ mod tests {
         assert_eq!(stack.get("bar"), None);
         assert_eq!(stack.get("baz"), Some(&Number(-1.0)));
 
-        stack.extend(Rc::new("qux".to_string()), Number(100.0));
+        stack.extend(Id::new("qux"), Number(100.0));
         assert_eq!(stack.get("qux"), Some(&Number(100.0)));
 
         stack.pop_frame();
@@ -149,7 +148,7 @@ mod tests {
         assert_eq!(stack.get("baz"), None);
         assert_eq!(stack.get("qux"), None);
 
-        stack.push(Rc::new("baz".to_string()), Number(-1.0));
+        stack.push(Id::new("baz"), Number(-1.0));
 
         stack.cancel();
         assert_eq!(stack.frame(), 1);
