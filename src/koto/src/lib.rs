@@ -1,4 +1,4 @@
-pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId};
+pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId, Position};
 use koto_runtime::Runtime;
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
@@ -110,25 +110,13 @@ impl<'a> Koto<'a> {
     pub fn run(&mut self) -> Result<Value<'a>, String> {
         match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
-            Err(e) => Err(match e {
+            Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
-                } => {
-                    let excerpt = self
-                        .script
-                        .lines()
-                        .skip(start_pos.line - 1)
-                        .take(end_pos.line - start_pos.line + 1)
-                        .map(|line| format!("  | {}\n", line))
-                        .collect::<String>();
-                    format!(
-                        "Runtime error: {}\n  --> {}:{}\n  |\n{}  |",
-                        message, start_pos.line, start_pos.column, excerpt
-                    )
-                }
+                } => self.format_runtime_error(message, start_pos, end_pos),
             }),
         }
     }
@@ -148,26 +136,79 @@ impl<'a> Koto<'a> {
             &AstNode::default(),
         ) {
             Ok(result) => Ok(result),
-            Err(e) => Err(match e {
+            Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
-                } => {
-                    let excerpt = self
-                        .script
-                        .lines()
-                        .skip(start_pos.line - 1)
-                        .take(end_pos.line - start_pos.line + 1)
-                        .map(|line| format!("  | {}\n", line))
-                        .collect::<String>();
-                    format!(
-                        "Runtime error: {}\n  --> {}:{}\n  |\n{}  |",
-                        message, start_pos.line, start_pos.column, excerpt
-                    )
-                }
+                } => self.format_runtime_error(&message, start_pos, end_pos),
             }),
         }
+    }
+
+    fn format_runtime_error(
+        &self,
+        message: &str,
+        start_pos: &Position,
+        end_pos: &Position,
+    ) -> String {
+        let excerpt_lines = self
+            .script
+            .lines()
+            .skip(start_pos.line - 1)
+            .take(end_pos.line - start_pos.line + 1)
+            .collect::<Vec<_>>();
+
+        let line_numbers = (start_pos.line..=end_pos.line)
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
+
+        let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
+
+        let padding = format!("{}", " ".repeat(number_width + 2));
+
+        let excerpt = if excerpt_lines.len() == 1 {
+            let mut excerpt = format!(
+                " {:>width$} | {}\n",
+                line_numbers.first().unwrap(),
+                excerpt_lines.first().unwrap(),
+                width = number_width
+            );
+
+            excerpt += &format!(
+                "{}|{}\n",
+                padding,
+                format!(
+                    "{}{}",
+                    " ".repeat(start_pos.column),
+                    "^".repeat(end_pos.column - start_pos.column)
+                ),
+            );
+
+            excerpt
+        } else {
+            let mut excerpt = String::new();
+
+            for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
+                excerpt += &format!(
+                    " {:>width$} | {}\n",
+                    line_number,
+                    excerpt_line,
+                    width = number_width
+                );
+            }
+
+            excerpt
+        };
+
+        format!(
+            "Runtime error: {message}\n --> {}:{}\n{padding}|\n{excerpt}{padding}|",
+            start_pos.line,
+            start_pos.column,
+            padding = padding,
+            excerpt = excerpt,
+            message = message
+        )
     }
 }
