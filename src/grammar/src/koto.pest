@@ -67,6 +67,7 @@ expression = _{
   | continue_keyword
   | operation
   | call
+  | debug
   )
   ~ comment?
 }
@@ -189,6 +190,14 @@ call_args = !{
 }
 call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
 
+debug = _{ debug_with_parens | debug_no_parens }
+debug_with_parens = ${ debug_keyword ~ debug_args }
+debug_args = !{
+  ("(" ~ ")")
+  | "(" ~ operation ~ ("," ~ operation)* ~ ")"
+}
+debug_no_parens = ${ debug_keyword ~ WHITESPACE+ ~ operations }
+
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
 function_inline = !{ function_args ~ assignment_or_expression }
@@ -266,6 +275,7 @@ keyword = _{
   | "break"
   | "continue"
   | "copy"
+  | "debug"
   | "else"
   | "false"
   | "for"
@@ -286,6 +296,7 @@ keyword = _{
 break_keyword = @{ "break" }
 continue_keyword = @{ "continue"  }
 copy_keyword = @{ "copy" ~ WHITESPACE+ }
+debug_keyword = @{ "debug" }
 else_if_keyword = @{ "else if" ~ WHITESPACE+ }
 else_keyword = @{ "else" ~ WHITESPACE+ }
 for_keyword = @{ "for" ~ WHITESPACE+ }

@@ -260,6 +260,20 @@ impl KotoParser {
                 };
                 AstNode::new(span, Node::Call { function, args })
             }
+            Rule::debug_with_parens | Rule::debug_no_parens => {
+                let mut inner = pair.into_inner();
+                inner.next(); // debug
+                let expressions = inner
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .map(|pair| {
+                        let text = pair.as_str().to_string();
+                        (text, self.build_ast(pair))
+                    })
+                    .collect::<Vec<_>>();
+                AstNode::new(span, Node::Debug { expressions })
+            }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
                 let target = match inner.peek().unwrap().as_rule() {

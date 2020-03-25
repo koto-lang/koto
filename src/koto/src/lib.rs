@@ -75,7 +75,7 @@ impl<'a> Koto<'a> {
     pub fn set_script_path(&mut self, path: Option<String>) {
         use Value::{Empty, Map, Str};
 
-        let (script_dir, script_path) = match path {
+        let (script_dir, script_path) = match &path {
             Some(path) => (
                 Path::new(&path)
                     .parent()
@@ -90,6 +90,8 @@ impl<'a> Koto<'a> {
             ),
             None => (Empty, Empty),
         };
+
+        self.runtime.set_script_path(path);
 
         match self.runtime.global_mut().0.get_mut("env").unwrap() {
             Map(map) => {

@@ -37,6 +37,9 @@ pub enum Node {
         function: LookupOrId,
         args: Vec<AstNode>,
     },
+    Debug {
+        expressions: Vec<(String, AstNode)>,
+    },
     Assign {
         target: AssignTarget,
         expression: Box<AstNode>,
@@ -110,7 +113,8 @@ impl fmt::Display for Node {
             RefExpression(_) => write!(f, "Ref Expression"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
-            Call { function, .. } => write!(f, "Call: {}", function),
+            Call { .. } => write!(f, "Call Statement"),
+            Debug { .. } => write!(f, "Debug Statement"),
             Lookup(lookup) => write!(f, "Lookup: {}", lookup),
             Assign { target, .. } => write!(f, "Assign: target: {}", target),
             MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),

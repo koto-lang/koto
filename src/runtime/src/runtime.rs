@@ -40,6 +40,7 @@ pub struct Runtime<'a> {
     global: ValueMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
+    script_path: Option<String>,
 }
 
 #[cfg(feature = "trace")]
@@ -66,11 +67,16 @@ impl<'a> Runtime<'a> {
             global: ValueMap::with_capacity(32),
             call_stack: CallStack::new(),
             control_flow: ControlFlow::None,
+            script_path: None,
         }
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
         &mut self.global
+    }
+
+    pub fn set_script_path(&mut self, path: Option<String>) {
+        self.script_path = path;
     }
 
     #[allow(dead_code)]
@@ -298,9 +304,7 @@ impl<'a> Runtime<'a> {
                 value
             }
             Node::Copy(lookup_or_id) => match lookup_or_id {
-                LookupOrId::Id(id) => {
-                    deref_value(&self.get_value_or_error(id.as_ref(), node)?.0)
-                }
+                LookupOrId::Id(id) => deref_value(&self.get_value_or_error(id.as_ref(), node)?.0),
                 LookupOrId::Lookup(lookup) => {
                     deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.0)
                 }
@@ -352,6 +356,7 @@ impl<'a> Runtime<'a> {
             }
             Node::Function(f) => Function(f.clone()),
             Node::Call { function, args } => self.lookup_and_call_function(function, args, node)?,
+            Node::Debug { expressions } => self.debug_statement(expressions, node)?,
             Node::Assign { target, expression } => self.assign_value(target, expression, node)?,
             Node::MultiAssign {
                 targets,
@@ -1014,6 +1019,22 @@ impl<'a> Runtime<'a> {
         } else {
             List(Rc::new(ValueList::with_data(captured)))
         })
+    }
+
+    pub fn debug_statement(
+        &mut self,
+        expressions: &[(String, AstNode)],
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        let prefix = match &self.script_path {
+            Some(path) => format!("[{}: {}]", path, node.start_pos.line),
+            None => format!("[{}]", node.start_pos.line),
+        };
+        for (text, expression) in expressions.iter() {
+            let value = self.evaluate_and_capture(expression)?;
+            println!("{} {}: {}", prefix, text, value);
+        }
+        Ok(Value::Empty)
     }
 
     pub fn lookup_and_call_function(
