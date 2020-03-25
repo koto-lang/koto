@@ -1,4 +1,4 @@
-pub use koto_parser::{Ast, AstNode, KotoParser as Parser, LookupOrId};
+pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId};
 use koto_runtime::Runtime;
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
@@ -7,7 +7,7 @@ use std::{path::Path, rc::Rc};
 pub struct Koto<'a> {
     script: String,
     parser: Parser,
-    ast: Vec<AstNode>,
+    ast: AstNode,
     runtime: Runtime<'a>,
 }
 
@@ -108,7 +108,7 @@ impl<'a> Koto<'a> {
     }
 
     pub fn run(&mut self) -> Result<Value<'a>, String> {
-        match self.runtime.evaluate_block(&self.ast) {
+        match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
@@ -145,7 +145,7 @@ impl<'a> Koto<'a> {
         match self.runtime.lookup_and_call_function(
             &LookupOrId::Id(Rc::new(function_name.to_string())),
             &vec![],
-            &AstNode::dummy(),
+            &AstNode::default(),
         ) {
             Ok(result) => Ok(result),
             Err(e) => Err(match e {

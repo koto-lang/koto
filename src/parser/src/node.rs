@@ -57,6 +57,12 @@ pub enum Node {
     Continue,
 }
 
+impl Default for Node {
+    fn default() -> Self {
+        Node::Empty
+    }
+}
+
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;

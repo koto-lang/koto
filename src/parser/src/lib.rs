@@ -8,8 +8,6 @@ pub use lookup::*;
 pub use node::*;
 pub use parser::*;
 
-pub type Ast = Vec<AstNode>;
-
 #[derive(Clone, Debug)]
 pub struct AstNode {
     pub node: Node,
@@ -35,10 +33,11 @@ impl AstNode {
             end_pos,
         }
     }
-
-    pub fn dummy() -> Self {
+}
+impl Default for AstNode {
+    fn default() -> Self {
         Self {
-            node: Node::Empty,
+            node: Default::default(),
             start_pos: Position { line: 0, column: 0 },
             end_pos: Position { line: 0, column: 0 },
         }

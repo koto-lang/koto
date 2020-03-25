@@ -79,7 +79,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and return the final result
-    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
@@ -202,7 +202,7 @@ impl<'a> Runtime<'a> {
         Ok(ValueOrValues::Value(result))
     }
 
-    fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
+    pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
         runtime_trace!(self, "evaluate - {}", node.node);
 
         use Value::*;

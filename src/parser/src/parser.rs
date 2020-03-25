@@ -1,4 +1,4 @@
-use crate::{lookup::*, node::*, prec_climber::PrecClimber, Ast, AstNode, LookupNode};
+use crate::{lookup::*, node::*, prec_climber::PrecClimber, AstNode, LookupNode};
 use pest::Parser;
 use std::rc::Rc;
 
@@ -34,17 +34,10 @@ impl KotoParser {
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<Ast, Error> {
-        let parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
+    pub fn parse(&self, source: &str) -> Result<AstNode, Error> {
+        let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
-        let mut ast = vec![];
-        for pair in parsed {
-            if pair.as_rule() == Rule::block {
-                ast.push(self.build_ast(pair));
-            }
-        }
-
-        Ok(ast)
+        Ok(self.build_ast(parsed.next().unwrap()))
     }
 
     fn build_ast(&self, pair: pest::iterators::Pair<Rule>) -> AstNode {
@@ -114,7 +107,7 @@ impl KotoParser {
         let span = pair.as_span();
         match pair.as_rule() {
             Rule::next_expression => self.build_ast(pair.into_inner().next().unwrap()),
-            Rule::block | Rule::child_block => {
+            Rule::program | Rule::child_block => {
                 let inner = pair.into_inner();
                 let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 AstNode::new(span, Node::Block(block))
