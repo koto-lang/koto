@@ -606,7 +606,8 @@ impl<'a> Runtime<'a> {
                                 } else {
                                     return runtime_error!(
                                         node,
-                                        "Index out of bounds in '{}', List has a length of {} but the index is {}",
+                                        "Index out of bounds in '{}', \
+                                         List has a length of {} but the index is {}",
                                         lookup,
                                         list.data().len(),
                                         i
@@ -620,28 +621,31 @@ impl<'a> Runtime<'a> {
                                 if (lookup_index + 1) < (lookup.0.len() - 1) {
                                     return runtime_error!(
                                         node,
-                                        "Indexing with a range is only supported at the end of a lookup chain (in '{}')",
+                                        "Indexing with a range is only supported at the end of a \
+                                         lookup chain (in '{}')",
                                         lookup
                                     );
                                 } else if start < 0 || end < 0 {
                                     return runtime_error!(
                                         node,
-                                        "Indexing with negative indices isn't supported, start: {}, end: {}",
+                                        "Indexing with negative indices isn't supported, \
+                                         start: {}, end: {}",
                                         start,
                                         end
                                     );
                                 } else if start > end {
                                     return runtime_error!(
                                         node,
-                                        "Indexing with a descending range isn't supported, start: {}, end: {}",
+                                        "Indexing with a descending range isn't supported, \
+                                         start: {}, end: {}",
                                         start,
                                         end
                                     );
-                                }
-                                else if ustart > list.data().len() || uend > list.data().len() {
+                                } else if ustart > list.data().len() || uend > list.data().len() {
                                     return runtime_error!(
                                         node,
-                                        "Index out of bounds in '{}', List has a length of {} - start: {}, end: {}",
+                                        "Index out of bounds in '{}', \
+                                         List has a length of {} - start: {}, end: {}",
                                         lookup,
                                         list.data().len(),
                                         start,
@@ -654,23 +658,25 @@ impl<'a> Runtime<'a> {
                                     ))))
                                 }
                             }
-                            IndexRange{start, end} => {
-                                let end = end.unwrap_or_else(||list.data().len());
+                            IndexRange { start, end } => {
+                                let end = end.unwrap_or_else(|| list.data().len());
 
                                 if (lookup_index + 1) < (lookup.0.len() - 1) {
                                     return runtime_error!(
                                         node,
-                                        "Indexing with a range is only supported at the end of a lookup chain (in '{}')",
+                                        "Indexing with a range is only supported at the end of a \
+                                         lookup chain (in '{}')",
                                         lookup
                                     );
                                 } else if start > end {
                                     return runtime_error!(
                                         node,
-                                        "Indexing with a descending range isn't supported, start: {}, end: {}",
+                                        "Indexing with a descending range isn't supported, \
+                                         start: {}, end: {}",
                                         start,
                                         end
                                     );
-                                }else if start > list.data().len() || end > list.data().len() {
+                                } else if start > list.data().len() || end > list.data().len() {
                                     return runtime_error!(
                                         node,
                                         "Index out of bounds in '{}', \
@@ -690,7 +696,8 @@ impl<'a> Runtime<'a> {
                             unexpected => {
                                 return runtime_error!(
                                     node,
-                                    "Indexing is only supported with number values or ranges, found {})",
+                                    "Indexing is only supported with number values or ranges, \
+                                     found {})",
                                     type_as_string(&unexpected)
                                 )
                             }
