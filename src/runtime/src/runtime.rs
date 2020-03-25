@@ -1466,29 +1466,70 @@ impl<'a> Runtime<'a> {
         rhs: &AstNode,
         node: &AstNode,
     ) -> RuntimeResult<'a> {
+        runtime_trace!(self, "binary_op: {:?}", op);
+
         use Value::*;
 
-        let a = self.evaluate_and_capture(lhs)?;
-        let b = self.evaluate_and_capture(rhs)?;
-
-        runtime_trace!(self, "{:?} - a: {} b: {}", op, &a, &b);
-
-        macro_rules! binary_op_error {
-            ($op:ident, $a:ident, $b:ident) => {
-                runtime_error!(
-                    node,
-                    "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
-                    op,
-                    a,
-                    b
-                )
-            };
+        let binary_op_error = |lhs, rhs| {
+            runtime_error!(
+                node,
+                "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
+                op,
+                lhs,
+                rhs
+            )
         };
 
+        let lhs_value = self.evaluate_and_capture(lhs)?;
+
         match op {
-            AstOp::Equal => Ok((a == b).into()),
-            AstOp::NotEqual => Ok((a != b).into()),
-            _ => match (&a, &b) {
+            AstOp::And => {
+                return if let Bool(a) = lhs_value {
+                    if a {
+                        match self.evaluate_and_capture(rhs)? {
+                            Bool(b) => Ok(Bool(b)),
+                            rhs_value => binary_op_error(lhs_value, rhs_value),
+                        }
+                    } else {
+                        Ok(Bool(false))
+                    }
+                } else {
+                    runtime_error!(
+                        node,
+                        "'and' only works with Bools, found '{}'",
+                        type_as_string(&lhs_value)
+                    )
+                }
+            }
+            AstOp::Or => {
+                return if let Bool(a) = lhs_value {
+                    if !a {
+                        match self.evaluate_and_capture(rhs)? {
+                            Bool(b) => Ok(Bool(b)),
+                            rhs_value => binary_op_error(lhs_value, rhs_value),
+                        }
+                    } else {
+                        Ok(Bool(true))
+                    }
+                } else {
+                    runtime_error!(
+                        node,
+                        "'or' only works with Bools, found '{}'",
+                        type_as_string(&lhs_value)
+                    )
+                }
+            }
+            _ => {}
+        }
+
+        let rhs_value = self.evaluate_and_capture(rhs)?;
+
+        runtime_trace!(self, "{:?} - lhs: {} rhs: {}", op, &lhs_value, &rhs_value);
+
+        match op {
+            AstOp::Equal => Ok((lhs_value == rhs_value).into()),
+            AstOp::NotEqual => Ok((lhs_value != rhs_value).into()),
+            _ => match (&lhs_value, &rhs_value) {
                 (Number(a), Number(b)) => match op {
                     AstOp::Add => Ok(Number(a + b)),
                     AstOp::Subtract => Ok(Number(a - b)),
@@ -1499,7 +1540,7 @@ impl<'a> Runtime<'a> {
                     AstOp::LessOrEqual => Ok(Bool(a <= b)),
                     AstOp::Greater => Ok(Bool(a > b)),
                     AstOp::GreaterOrEqual => Ok(Bool(a >= b)),
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Vec4(a), Vec4(b)) => match op {
                     AstOp::Add => Ok(Vec4(*a + *b)),
@@ -1507,7 +1548,7 @@ impl<'a> Runtime<'a> {
                     AstOp::Multiply => Ok(Vec4(*a * *b)),
                     AstOp::Divide => Ok(Vec4(*a / *b)),
                     AstOp::Modulo => Ok(Vec4(*a % *b)),
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Number(a), Vec4(b)) => match op {
                     AstOp::Add => Ok(Vec4(*a + *b)),
@@ -1515,7 +1556,7 @@ impl<'a> Runtime<'a> {
                     AstOp::Multiply => Ok(Vec4(*a * *b)),
                     AstOp::Divide => Ok(Vec4(*a / *b)),
                     AstOp::Modulo => Ok(Vec4(*a % *b)),
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Vec4(a), Number(b)) => match op {
                     AstOp::Add => Ok(Vec4(*a + *b)),
@@ -1523,12 +1564,11 @@ impl<'a> Runtime<'a> {
                     AstOp::Multiply => Ok(Vec4(*a * *b)),
                     AstOp::Divide => Ok(Vec4(*a / *b)),
                     AstOp::Modulo => Ok(Vec4(*a % *b)),
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
-                (Bool(a), Bool(b)) => match op {
-                    AstOp::And => Ok(Bool(*a && *b)),
-                    AstOp::Or => Ok(Bool(*a || *b)),
-                    _ => binary_op_error!(op, a, b),
+                (Bool(_), Bool(_)) => match op {
+                    AstOp::And | AstOp::Or => unreachable!(), // handled earlier
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (List(a), List(b)) => match op {
                     AstOp::Add => {
@@ -1536,7 +1576,7 @@ impl<'a> Runtime<'a> {
                         result.extend(Vec::clone(b.data()).into_iter());
                         Ok(List(Rc::new(ValueList::with_data(result))))
                     }
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Map(a), Map(b)) => match op {
                     AstOp::Add => {
@@ -1544,16 +1584,16 @@ impl<'a> Runtime<'a> {
                         result.extend(b.0.clone().into_iter());
                         Ok(Map(Rc::new(ValueMap(result))))
                     }
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Str(a), Str(b)) => match op {
                     AstOp::Add => {
                         let result = String::clone(a) + b.as_ref();
                         Ok(Str(Rc::new(result)))
                     }
-                    _ => binary_op_error!(op, a, b),
+                    _ => binary_op_error(lhs_value, rhs_value),
                 },
-                _ => binary_op_error!(op, a, b),
+                _ => binary_op_error(lhs_value, rhs_value),
             },
         }
     }

@@ -1,0 +1,12 @@
+assert true and true
+assert not (true and false)
+assert not (false and true)
+assert true or false
+assert false or true
+
+# Short circuiting applies to the boolean operators 'and' and 'or'
+a = false and assert false
+assert not a
+
+a = true or assert false
+assert a

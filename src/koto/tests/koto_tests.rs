@@ -36,6 +36,7 @@ koto_test!(functions);
 koto_test!(io);
 koto_test!(lists);
 koto_test!(list_ops);
+koto_test!(logic);
 koto_test!(loops);
 koto_test!(maps);
 koto_test!(maps_and_lists);
