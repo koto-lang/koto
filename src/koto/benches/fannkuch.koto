@@ -51,7 +51,7 @@ fannkuch = |n|
           s[i] = s[i] - 1
           break
         if i == n
-          return [sum, max_flips]
+          return sum, max_flips
         s[i] = i
         # Rotate 1<-...<-i+1.
         t = list.remove p, 1
