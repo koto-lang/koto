@@ -34,6 +34,7 @@ koto_test!(comments);
 koto_test!(control_flow);
 koto_test!(functions);
 koto_test!(io);
+koto_test!(line_breaks);
 koto_test!(lists);
 koto_test!(list_ops);
 koto_test!(logic);

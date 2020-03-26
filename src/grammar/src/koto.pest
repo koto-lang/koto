@@ -312,7 +312,8 @@ vec4_keyword = @{ "vec4" ~ WHITESPACE+ }
 while_keyword = @{ "while" ~ WHITESPACE+ }
 
 
-WHITESPACE = _{ " " | "\t" }
+WHITESPACE = _{ whitespace_char | ("\\" ~ whitespace_char* ~ NEWLINE) }
+whitespace_char = _{ " " | "\t" }
 comment = _{ multiline_comment | inline_comment }
 inline_comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
 multiline_comment = _{ "#-" ~ (!"-#" ~ multiline_comment* ~ ANY)* ~ "-#" }

@@ -1,0 +1,12 @@
+###### \ can be used to break lines
+a = 1 \
+    + 2 + 3 \
+    + 4
+assert_eq a, 10
+
+x = vec4 \
+  0, 1, 2, 3
+assert_eq \
+  x, \
+  vec4 0, 1 \
+     , 2, 3
