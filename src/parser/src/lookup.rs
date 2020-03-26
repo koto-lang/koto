@@ -11,6 +11,7 @@ pub struct Lookup(pub Vec<LookupNode>);
 pub enum LookupNode {
     Id(Id),
     Index(Index),
+    Call(Vec<AstNode>)
 }
 
 impl Lookup {
@@ -75,6 +76,9 @@ impl<'a> fmt::Display for LookupSlice<'a> {
                         _ => "...".to_string(),
                     };
                     write!(f, "[{}]", expression)?
+                }
+                LookupNode::Call(_) => {
+                    write!(f, "()")?
                 }
             }
             first = false;

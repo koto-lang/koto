@@ -67,7 +67,7 @@ impl<'a> Koto<'a> {
             .get_mut(&Rc::new("env".to_string()))
             .unwrap()
         {
-            Map(map) => Rc::make_mut(map).add_list("args", ValueList::with_data(koto_args)),
+            Map(map) => map.borrow_mut().add_list("args", ValueList::with_data(koto_args)),
             _ => unreachable!(),
         }
     }
@@ -95,7 +95,7 @@ impl<'a> Koto<'a> {
 
         match self.runtime.global_mut().0.get_mut("env").unwrap() {
             Map(map) => {
-                let map = Rc::make_mut(map);
+                let mut map = map.borrow_mut();
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
             }

@@ -11,10 +11,10 @@ pub enum Value<'a> {
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
-    List(Rc<ValueList<'a>>),
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
-    Map(Rc<ValueMap<'a>>),
+    List(Rc<RefCell<ValueList<'a>>>),
+    Map(Rc<RefCell<ValueMap<'a>>>),
     Str(Rc<String>),
     Ref(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
@@ -33,11 +33,11 @@ impl<'a> fmt::Display for Value<'a> {
             Number(n) => f.write_str(&n.to_string()),
             Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
             Str(s) => f.write_str(&s),
-            List(l) => f.write_str(&l.to_string()),
+            List(l) => f.write_str(&l.borrow().to_string()),
             Map(m) => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, _value) in m.0.iter() {
+                for (key, _value) in m.borrow().0.iter() {
                     if first {
                         write!(f, " ")?;
                     } else {
@@ -198,6 +198,17 @@ pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
         (Ref(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
         (_, Ref(b)) => discriminant(a) == discriminant(b.borrow().deref()),
         (_, _) => discriminant(a) == discriminant(b),
+    }
+}
+
+pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
+    use Value::{List, Map, Ref};
+
+    match value {
+        List(l) => List(Rc::new(RefCell::new(l.borrow().clone()))),
+        Map(m) => Map(Rc::new(RefCell::new(m.borrow().clone()))),
+        Ref(r) => r.borrow().clone(),
+        _ => value.clone(),
     }
 }
 
