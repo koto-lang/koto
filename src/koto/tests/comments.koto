@@ -1,5 +1,7 @@
 # This is a comment
 assert true # This is a trailing comment
+sum = math.sum # Another trailing comment
+sqrt = math.sqrt
 
 #-
 Multiline comments start with #- and end with -#

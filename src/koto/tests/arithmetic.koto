@@ -12,7 +12,7 @@ assert_eq (3 - 2) / (4 - 2), 0.5
 
 assert_eq 2 + 5 % 3, 4
 
-# Long expressions can be broken up with indentation
+# Long expressions can be broken before operators
 a = 1
   + 2 * 3
       # Comments and new indentation can introduced

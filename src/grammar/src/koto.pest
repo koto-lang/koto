@@ -35,7 +35,6 @@ next_expression = @{
 push_indentation = @{ indentation ~ PUSH(indent) }
 indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
-empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 
 assignment_or_expression = _{ (assignment | expressions) ~ comment? }
 next_assignment_or_expression = @{
@@ -81,7 +80,7 @@ operation = ${
    | (term ~ operation_link?)
     ~ (WHITESPACE* ~ comment)?
 }
-operations = !{ operation ~ ("," ~ operation)* }
+operations = !{ operation ~ (comma_separator ~ operation)* }
 operation_link = _{
   (NEWLINE* ~ WHITESPACE+ | empty_line* ~ WHITESPACE+)*
   ~ op ~ WHITESPACE* ~ term
@@ -185,29 +184,36 @@ while_loop = !{
 call = _{ call_with_parens | call_no_parens }
 call_with_parens = ${ lookup_or_id ~ call_args }
 call_args = !{
-  ("(" ~ ")")
-  | "(" ~ operation ~ ("," ~ operation)* ~ ")"
+  "("
+  ~ separator_line?
+  ~ (operation ~ (comma_separator ~ operation)* ~ comma_separator?)?
+  ~ separator_line?
+  ~ ")"
 }
 call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
 
 debug = _{ debug_with_parens | debug_no_parens }
-debug_with_parens = ${ debug_keyword ~ debug_args }
-debug_args = !{
-  ("(" ~ ")")
-  | "(" ~ operation ~ ("," ~ operation)* ~ ")"
-}
+debug_with_parens = ${ debug_keyword ~ call_args }
 debug_no_parens = ${ debug_keyword ~ WHITESPACE+ ~ operations }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
 function_inline = !{ function_args ~ assignment_or_expression }
 function_args = {
-  "|" ~ "|"
-  | "|" ~ id ~ ("," ~ id)* ~ "|"
+  "|"
+  ~ separator_line*
+  ~ (id ~ (comma_separator ~ id)* ~ comma_separator?)?
+  ~ separator_line?
+  ~ "|"
 }
 
-map_inline = !{ "{" ~ (map_entry_inline ~ ("," ~ map_entry_inline)*)?  ~"}" }
-map_entry_inline = !{ id ~ ":" ~ operation }
+map_inline = !{
+  "{"
+  ~ separator_line*
+  ~ (map_entry_inline ~ (comma_separator ~ map_entry_inline)* ~ comma_separator?)?
+  ~ "}"
+}
+map_entry_inline = !{ id ~ ":" ~ separator_line* ~ operation }
 
 map = @{
   empty_line*
@@ -226,15 +232,25 @@ map_entry_block = !{ id ~ ":" ~ map }
 next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 
 list = !{
-  "[" ~ "]"
-  | "[" ~ operation ~ ("," ~ operation)* ~ "]"
+  "["
+  ~ separator_line*
+  ~ (operation ~ (comma_separator ~ operation)* ~ comma_separator?)?
+  ~ "]"
 }
 
 range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
 range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
 
-vec4 = !{ vec4_keyword ~ operation ~ ("," ~ operation){, 3} }
+vec4 = _{ vec4_with_parens | vec4_no_parens }
+vec4_with_parens = !{
+  vec4_keyword
+  ~ "("
+  ~ separator_line*
+  ~ operation ~ (comma_separator ~ operation){, 3} ~ comma_separator?
+  ~ ")"
+  }
+vec4_no_parens = !{ vec4_keyword ~ operation ~ (comma_separator ~ operation){, 3} }
 
 boolean = { "true" | "false" }
 negate = { not_keyword ~ operation }
@@ -263,7 +279,6 @@ id = @{ single_id }
 single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
-ids = { id ~ ("," ~ id)* }
 
 lookup = ${ (id ~ lookup_node+) }
 lookup_node = _{ index | map_access }
@@ -308,12 +323,15 @@ ref_keyword = @{ "ref" ~ WHITESPACE+ }
 return_keyword = @{ "return" ~ WHITESPACE+ }
 then_keyword = @{ "then" ~ WHITESPACE+ }
 until_keyword = @{ "until" ~ WHITESPACE+ }
-vec4_keyword = @{ "vec4" ~ WHITESPACE+ }
+vec4_keyword = @{ "vec4" }
 while_keyword = @{ "while" ~ WHITESPACE+ }
 
+comma_separator = _{ "," ~ separator_line* }
+separator_line = _{ inline_comment? ~ NEWLINE ~ (comment ~ NEWLINE)* }
 
 WHITESPACE = _{ whitespace_char | ("\\" ~ whitespace_char* ~ NEWLINE) }
 whitespace_char = _{ " " | "\t" }
+empty_line = @{ NEWLINE | (WHITESPACE+ ~ NEWLINE) | (WHITESPACE* ~ comment) }
 comment = _{ multiline_comment | inline_comment }
 inline_comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
 multiline_comment = _{ "#-" ~ (!"-#" ~ multiline_comment* ~ ANY)* ~ "-#" }
