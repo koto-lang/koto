@@ -1,4 +1,4 @@
-pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId, Position};
+pub use koto_parser::{AstNode, KotoParser as Parser, LookupSliceOrId, LookupOrId, Position};
 use koto_runtime::Runtime;
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
@@ -126,7 +126,7 @@ impl<'a> Koto<'a> {
 
     pub fn call_function(&mut self, function_name: &str) -> Result<Value<'a>, String> {
         match self.runtime.lookup_and_call_function(
-            &LookupOrId::Id(Rc::new(function_name.to_string())),
+            &LookupSliceOrId::Id(Rc::new(function_name.to_string())),
             &vec![],
             &AstNode::default(),
         ) {

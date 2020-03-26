@@ -10,9 +10,9 @@ use crate::{
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId,
-    Node, Scope,
+    LookupSliceOrId, Node, Scope,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow<'a> {
@@ -27,6 +27,48 @@ pub enum ControlFlow<'a> {
 impl<'a> Default for ControlFlow<'a> {
     fn default() -> Self {
         Self::None
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ValueAndLookupIndex<'a> {
+    value: Value<'a>,
+    lookup_index: Option<usize>,
+}
+
+impl<'a> ValueAndLookupIndex<'a> {
+    fn new(value: Value<'a>, lookup_index: Option<usize>) -> Self {
+        Self {
+            value,
+            lookup_index,
+        }
+    }
+}
+
+impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Value: {}, LookupIndex: {:?}",
+            self.value, self.lookup_index
+        )
+    }
+}
+
+#[derive(Debug)]
+struct LookupResult<'a> {
+    value: Value<'a>,
+    parent: ValueAndLookupIndex<'a>,
+    _scope: Scope,
+}
+
+impl<'a> LookupResult<'a> {
+    fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>, _scope: Scope) -> Self {
+        Self {
+            value,
+            parent,
+            _scope,
+        }
     }
 }
 
@@ -110,7 +152,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         expressions: &[AstNode],
     ) -> Result<ValueOrValues<'a>, Error> {
-        runtime_trace!(self, "evaluate_expressions - {}", expressions.len());
+        runtime_trace!(self, "evaluate_expressions: {}", expressions.len());
 
         if expressions.len() == 1 {
             Ok(ValueOrValues::Value(
@@ -135,7 +177,7 @@ impl<'a> Runtime<'a> {
     fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult<'a> {
         use Value::*;
 
-        runtime_trace!(self, "evaluate_and_capture - {}", expression.node);
+        runtime_trace!(self, "evaluate_and_capture: {}", expression.node);
 
         if is_single_value_node(&expression.node) {
             self.evaluate(expression)
@@ -209,7 +251,7 @@ impl<'a> Runtime<'a> {
     }
 
     pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
-        runtime_trace!(self, "evaluate - {}", node.node);
+        runtime_trace!(self, "evaluate: {}", node.node);
 
         use Value::*;
 
@@ -297,10 +339,7 @@ impl<'a> Runtime<'a> {
                 }
                 Map(Rc::new(RefCell::new(map)))
             }
-            Node::Lookup(lookup) => {
-                let (value, _scope) = self.lookup_value_or_error(&lookup.as_slice(), node)?;
-                value
-            }
+            Node::Lookup(lookup) => self.lookup_value_or_error(&lookup.as_slice(), node)?.value,
             Node::Id(id) => {
                 let (value, _scope) = self.get_value_or_error(id.as_ref(), node)?;
                 value
@@ -308,7 +347,7 @@ impl<'a> Runtime<'a> {
             Node::Copy(lookup_or_id) => match lookup_or_id {
                 LookupOrId::Id(id) => copy_value(&self.get_value_or_error(id.as_ref(), node)?.0),
                 LookupOrId::Lookup(lookup) => {
-                    deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.0)
+                    deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.value)
                 }
             },
             Node::Ref(lookup_or_id) => match lookup_or_id {
@@ -357,7 +396,9 @@ impl<'a> Runtime<'a> {
                 }
             }
             Node::Function(f) => Function(f.clone()),
-            Node::Call { function, args } => self.lookup_and_call_function(function, args, node)?,
+            Node::Call { function, args } => {
+                self.lookup_and_call_function(&function.as_slice(), args, node)?
+            }
             Node::Debug { expressions } => self.debug_statement(expressions, node)?,
             Node::Assign { target, expression } => self.assign_value(target, expression, node)?,
             Node::MultiAssign {
@@ -457,7 +498,7 @@ impl<'a> Runtime<'a> {
     fn set_value_from_lookup(
         &mut self,
         lookup: &LookupSlice,
-        value: &Value<'a>,
+        value: Value<'a>,
         node: &AstNode,
     ) -> Result<(), Error> {
         let root_id = match &lookup.0[0] {
@@ -467,53 +508,92 @@ impl<'a> Runtime<'a> {
 
         if self.call_stack.frame() > 0 {
             if let Some(root) = self.call_stack.make_mut(root_id.as_str()) {
-                return self.do_set_value_from_lookup(lookup, root, value, node);
+                self.do_lookup(lookup, root, Some(value), node)?;
+                return Ok(());
             }
         }
 
         if let Some(root) = self.global.make_mut(root_id.as_str()) {
-            return self.do_set_value_from_lookup(lookup, root, value, node);
+            self.do_lookup(lookup, root, Some(value), node)?;
+            return Ok(());
         }
 
         runtime_error!(node, "'{}' not found", root_id.to_string())
     }
 
-    fn do_set_value_from_lookup(
+    fn do_lookup(
         &mut self,
         lookup: &LookupSlice,
         root: Value<'a>,
-        value: &Value<'a>,
+        value_to_set: Option<Value<'a>>,
         node: &AstNode,
-    ) -> Result<(), Error> {
-        runtime_trace!(self, "do_set_value_from_lookup: {} - {}", lookup, root);
+    ) -> Result<Option<(Value<'a>, ValueAndLookupIndex<'a>)>, Error> {
+        use Value::{BuiltinFunction, Function, IndexRange, List, Map, Number, Range};
 
-        use Value::{Function, IndexRange, List, Map, Number, Range};
+        runtime_trace!(
+            self,
+            "do_lookup: {} - root: {} - value_to_set",
+            lookup,
+            root,
+            if value_to_set.is_some() {
+                value_to_set.unwrap().to_string()
+            } else {
+                "None".to_string()
+            }
+        );
+        assert!(lookup.0.len() > 1);
 
+        let mut parent = ValueAndLookupIndex::new(root.clone(), Some(0));
         let mut current_node = root;
+        let mut temporary_value = false;
 
         for (lookup_index, lookup_node) in lookup.0[1..].iter().enumerate() {
-            match deref_value(&current_node) {
+            let deref_current = deref_value(&current_node);
+
+            // We want to keep track of the parent container for the next lookup node
+            // If the current node is a function then we skip over it
+            parent = match &deref_current {
+                Function(_) | BuiltinFunction(_) => parent,
+                _ => ValueAndLookupIndex::new(
+                    current_node.clone(),
+                    if temporary_value {
+                        None
+                    } else {
+                        Some(lookup_index)
+                    },
+                ),
+            };
+
+            match &deref_current {
                 Map(data) => match lookup_node {
-                    LookupNode::Id(id) => {
-                        if (lookup_index + 1) == lookup.0.len() - 1 {
-                            data.borrow_mut().insert(Id(id.clone()), value.clone());
-                            return Ok(());
-                        } else {
-                            match data.borrow_mut().make_mut(&id) {
-                                Some(value) => {
-                                    current_node = value;
-                                }
-                                None => {
-                                    return runtime_error!(
-                                        node,
-                                        "'{}' not found in '{}'",
-                                        id,
-                                        lookup
-                                    );
+                    LookupNode::Id(id) => match &value_to_set {
+                        Some(value) => {
+                            if (lookup_index + 1) == lookup.0.len() - 1 {
+                                data.borrow_mut().insert(Id(id.clone()), value.clone());
+                                return Ok(None);
+                            } else {
+                                match data.borrow_mut().make_mut(&id) {
+                                    Some(value) => {
+                                        current_node = value;
+                                    }
+                                    None => {
+                                        return runtime_error!(
+                                            node,
+                                            "'{}' not found in '{}'",
+                                            id,
+                                            lookup
+                                        );
+                                    }
                                 }
                             }
                         }
-                    }
+                        None => match data.borrow().0.get(id) {
+                            Some(value) => current_node = value.clone(),
+                            None => {
+                                return Ok(None);
+                            }
+                        },
+                    },
                     LookupNode::Index(_) => {
                         return runtime_error!(node, "Attempting to index a Map in '{}'", lookup);
                     }
@@ -526,23 +606,24 @@ impl<'a> Runtime<'a> {
                     }
                 },
                 List(list) => match lookup_node {
-                    LookupNode::Id(_) => {
-                        return runtime_error!(
-                            node,
-                            "Attempting to access a List like a map in '{}'",
-                            lookup
-                        );
-                    }
                     LookupNode::Index(index) => {
                         let list_len = list.borrow().data().len();
                         match self.evaluate(&index.0)? {
                             Number(i) => {
                                 let i = i as usize;
                                 if i < list_len {
-                                    if (lookup_index + 1) == lookup.0.len() - 1 {
-                                        list.borrow_mut().data_mut()[i] = value.clone();
-                                    } else {
-                                        current_node = list.borrow_mut().make_mut(i);
+                                    match &value_to_set {
+                                        Some(value) => {
+                                            if (lookup_index + 1) == lookup.0.len() - 1 {
+                                                list.borrow_mut().data_mut()[i] = value.clone();
+                                                return Ok(None);
+                                            } else {
+                                                current_node = list.borrow_mut().make_mut(i);
+                                            }
+                                        }
+                                        None => {
+                                            current_node = list.borrow().data()[i].clone();
+                                        }
                                     }
                                 } else {
                                     return runtime_error!(
@@ -593,10 +674,23 @@ impl<'a> Runtime<'a> {
                                         end
                                     );
                                 } else {
-                                    let mut list_borrow = list.borrow_mut();
-                                    let list_data = list_borrow.data_mut();
-                                    for i in ustart..uend {
-                                        list_data[i] = value.clone();
+                                    match &value_to_set {
+                                        Some(value) => {
+                                            let mut list_borrow = list.borrow_mut();
+                                            let list_data = list_borrow.data_mut();
+                                            for i in ustart..uend {
+                                                list_data[i] = value.clone();
+                                            }
+                                            return Ok(None);
+                                        }
+                                        None => {
+                                            // TODO Avoid allocating new vec,
+                                            // introduce 'slice' value type
+                                            current_node =
+                                                List(Rc::new(RefCell::new(ValueList::with_data(
+                                                    list.borrow().data()[ustart..uend].to_vec(),
+                                                ))))
+                                        }
                                     }
                                 }
                             }
@@ -629,10 +723,22 @@ impl<'a> Runtime<'a> {
                                         end
                                     );
                                 } else {
-                                    let mut list_borrow = list.borrow_mut();
-                                    let list_data = list_borrow.data_mut();
-                                    for i in start..end {
-                                        list_data[i] = value.clone();
+                                    match &value_to_set {
+                                        Some(value) => {
+                                            let mut list_borrow = list.borrow_mut();
+                                            let list_data = list_borrow.data_mut();
+                                            for i in start..end {
+                                                list_data[i] = value.clone();
+                                            }
+                                        }
+                                        None => {
+                                            // TODO Avoid allocating new vec,
+                                            // introduce 'slice' value type
+                                            current_node =
+                                                List(Rc::new(RefCell::new(ValueList::with_data(
+                                                    list.borrow().data()[start..end].to_vec(),
+                                                ))))
+                                        }
                                     }
                                 }
                             }
@@ -646,77 +752,6 @@ impl<'a> Runtime<'a> {
                             }
                         };
                     }
-                    LookupNode::Call(_) => {
-                        return runtime_error!(
-                            node,
-                            "Attempting to call a List like a Function in '{}'",
-                            lookup
-                        );
-                    }
-                },
-                Function(_function) => match lookup_node {
-                    LookupNode::Id(_) => {
-                        return runtime_error!(
-                            node,
-                            "Attempting to access a Function like a Map in '{}'",
-                            lookup
-                        );
-                    }
-                    LookupNode::Index(_) => {
-                        return runtime_error!(
-                            node,
-                            "Attempting to index a Function in '{}'",
-                            lookup
-                        );
-                    }
-                    LookupNode::Call(_) => {
-                        unimplemented!();
-                    }
-                },
-                unexpected => {
-                    return runtime_error!(
-                        node,
-                        "Expected List, Map, or Function call in '{}', found {}",
-                        lookup,
-                        type_as_string(&unexpected)
-                    )
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn do_lookup(
-        &mut self,
-        lookup: &LookupSlice,
-        root: Value<'a>,
-        node: &AstNode,
-    ) -> Result<Option<Value<'a>>, Error> {
-        runtime_trace!(self, "do_lookup: {} - {}", lookup, root);
-
-        use Value::{Function, IndexRange, List, Map, Number, Range};
-
-        let mut result = Some(root);
-
-        for (lookup_index, lookup_node) in lookup.0[1..].iter().enumerate() {
-            match result.clone().map(|v| deref_value(&v)) {
-                Some(Map(data)) => match lookup_node {
-                    LookupNode::Id(id) => {
-                        result = data.borrow().0.get(id).cloned();
-                    }
-                    LookupNode::Index(_) => {
-                        return runtime_error!(node, "Attempting to index a Map in '{}'", lookup);
-                    }
-                    LookupNode::Call(_) => {
-                        return runtime_error!(
-                            node,
-                            "Attempting to call a Map like a Function in '{}'",
-                            lookup
-                        );
-                    }
-                },
-                Some(List(list)) => match lookup_node {
                     LookupNode::Id(_) => {
                         return runtime_error!(
                             node,
@@ -724,114 +759,6 @@ impl<'a> Runtime<'a> {
                             lookup
                         );
                     }
-                    LookupNode::Index(index) => {
-                        let list_borrow = list.borrow();
-                        let list_data = list_borrow.data();
-                        result = match self.evaluate(&index.0)? {
-                            Number(i) => {
-                                let i = i as usize;
-                                if i < list_data.len() {
-                                    Some(list_data[i].clone())
-                                } else {
-                                    return runtime_error!(
-                                        node,
-                                        "Index out of bounds in '{}', \
-                                         List has a length of {} but the index is {}",
-                                        lookup,
-                                        list_data.len(),
-                                        i
-                                    );
-                                }
-                            }
-                            Range { start, end } => {
-                                let ustart = start as usize;
-                                let uend = end as usize;
-
-                                if (lookup_index + 1) < (lookup.0.len() - 1) {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with a range is only supported at the end of a \
-                                         lookup chain (in '{}')",
-                                        lookup
-                                    );
-                                } else if start < 0 || end < 0 {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with negative indices isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > end {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with a descending range isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if ustart > list_data.len() || uend > list_data.len() {
-                                    return runtime_error!(
-                                        node,
-                                        "Index out of bounds in '{}', \
-                                         List has a length of {} - start: {}, end: {}",
-                                        lookup,
-                                        list_data.len(),
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    // TODO Avoid allocating new vec, introduce 'slice' value type
-                                    Some(List(Rc::new(RefCell::new(ValueList::with_data(
-                                        list_data[ustart..uend].to_vec(),
-                                    )))))
-                                }
-                            }
-                            IndexRange { start, end } => {
-                                let end = end.unwrap_or_else(|| list_data.len());
-
-                                if (lookup_index + 1) < (lookup.0.len() - 1) {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with a range is only supported at the end of a \
-                                         lookup chain (in '{}')",
-                                        lookup
-                                    );
-                                } else if start > end {
-                                    return runtime_error!(
-                                        node,
-                                        "Indexing with a descending range isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > list_data.len() || end > list_data.len() {
-                                    return runtime_error!(
-                                        node,
-                                        "Index out of bounds in '{}', \
-                                         List has a length of {} - start: {}, end: {}",
-                                        lookup,
-                                        list_data.len(),
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    // TODO Avoid allocating new vec, introduce 'slice' value type
-                                    Some(List(Rc::new(RefCell::new(ValueList::with_data(
-                                        list_data[start..end].to_vec(),
-                                    )))))
-                                }
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node,
-                                    "Indexing is only supported with number values or ranges, \
-                                     found {})",
-                                    type_as_string(&unexpected)
-                                )
-                            }
-                        };
-                    }
                     LookupNode::Call(_) => {
                         return runtime_error!(
                             node,
@@ -840,7 +767,18 @@ impl<'a> Runtime<'a> {
                         );
                     }
                 },
-                Some(Function(_function)) => match lookup_node {
+                Function(function) => match lookup_node {
+                    LookupNode::Call(args) => {
+                        temporary_value = true;
+
+                        current_node = self.evaluate_args_and_call_function(
+                            &function,
+                            &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
+                            Some(parent.clone()),
+                            args,
+                            node,
+                        )?;
+                    }
                     LookupNode::Id(_) => {
                         return runtime_error!(
                             node,
@@ -855,22 +793,46 @@ impl<'a> Runtime<'a> {
                             lookup
                         );
                     }
-                    LookupNode::Call(_) => {
-                        unimplemented!();
+                },
+                BuiltinFunction(function) => match lookup_node {
+                    LookupNode::Id(_) => {
+                        return runtime_error!(
+                            node,
+                            "Attempting to access a Function like a Map in '{}'",
+                            lookup
+                        );
+                    }
+                    LookupNode::Index(_) => {
+                        return runtime_error!(
+                            node,
+                            "Attempting to index a Function in '{}'",
+                            lookup
+                        );
+                    }
+                    LookupNode::Call(args) => {
+                        temporary_value = true;
+
+                        current_node = self.call_builtin_function(
+                            &function,
+                            &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
+                            Some(parent.clone()),
+                            args,
+                            node,
+                        )?;
                     }
                 },
                 _ => break,
             }
         }
 
-        Ok(result)
+        Ok(Some((current_node, parent)))
     }
 
     fn lookup_value(
         &mut self,
         lookup: &LookupSlice,
         node: &AstNode,
-    ) -> Result<Option<(Value<'a>, Scope)>, Error> {
+    ) -> Result<Option<LookupResult<'a>>, Error> {
         runtime_trace!(self, "lookup_value: {}", lookup);
 
         let root_id = match &lookup.0[0] {
@@ -879,16 +841,16 @@ impl<'a> Runtime<'a> {
         };
 
         if self.call_stack.frame() > 0 {
-            if let Some(value) = self.call_stack.get(root_id).cloned() {
-                if let Some(found) = self.do_lookup(lookup, value, node)? {
-                    return Ok(Some((found, Scope::Local)));
+            if let Some(root) = self.call_stack.get(root_id).cloned() {
+                if let Some((found, parent)) = self.do_lookup(lookup, root, None, node)? {
+                    return Ok(Some(LookupResult::new(found, parent, Scope::Local)));
                 }
             }
         }
 
         match self.global.0.get(root_id).cloned() {
-            Some(value) => match self.do_lookup(lookup, value, node)? {
-                Some(value) => Ok(Some((value, Scope::Global))),
+            Some(root) => match self.do_lookup(lookup, root, None, node)? {
+                Some((found, parent)) => Ok(Some(LookupResult::new(found, parent, Scope::Global))),
                 None => Ok(None),
             },
             None => Ok(None),
@@ -899,7 +861,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         id: &LookupSlice,
         node: &AstNode,
-    ) -> Result<(Value<'a>, Scope), Error> {
+    ) -> Result<LookupResult<'a>, Error> {
         match self.lookup_value(id, node)? {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -1189,7 +1151,7 @@ impl<'a> Runtime<'a> {
 
     pub fn lookup_and_call_function(
         &mut self,
-        lookup_or_id: &LookupOrId,
+        lookup_or_id: &LookupSliceOrId,
         args: &[AstNode],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
@@ -1197,19 +1159,22 @@ impl<'a> Runtime<'a> {
 
         runtime_trace!(self, "lookup_and_call_function - {}", lookup_or_id);
 
-        let maybe_function = match lookup_or_id {
-            LookupOrId::Id(id) => self.get_value(id.as_ref()),
-            LookupOrId::Lookup(lookup) => self.lookup_value(&lookup.as_slice(), node)?,
+        let (maybe_function, maybe_parent) = match lookup_or_id {
+            LookupSliceOrId::Id(id) => (self.get_value(id.as_ref()).map(|x| x.0), None),
+            LookupSliceOrId::LookupSlice(lookup) => match self.lookup_value(&lookup, node)? {
+                Some(lookup_result) => (Some(lookup_result.value), Some(lookup_result.parent)),
+                None => (None, None),
+            },
         };
 
         match maybe_function {
-            Some((BuiltinFunction(f), _)) => {
-                self.call_builtin_function(&f, lookup_or_id, args, node)
+            Some(BuiltinFunction(f)) => {
+                self.call_builtin_function(&f, lookup_or_id, maybe_parent, args, node)
             }
-            Some((Function(f), _)) => {
-                self.evaluate_args_and_call_function(&f, lookup_or_id, args, node)
+            Some(Function(f)) => {
+                self.evaluate_args_and_call_function(&f, lookup_or_id, maybe_parent, args, node)
             }
-            Some((unexpected, _)) => runtime_error!(
+            Some(unexpected) => runtime_error!(
                 node,
                 "Expected '{}' to be a Function, found {}",
                 lookup_or_id,
@@ -1222,26 +1187,38 @@ impl<'a> Runtime<'a> {
     fn call_builtin_function(
         &mut self,
         builtin: &BuiltinFunction<'a>,
-        lookup_or_id: &LookupOrId,
+        lookup_or_id: &LookupSliceOrId,
+        parent: Option<ValueAndLookupIndex<'a>>,
         args: &[AstNode],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
+        runtime_trace!(
+            self,
+            "call_builtin_function - {} - parent: {:?}",
+            lookup_or_id,
+            parent
+        );
+
         let evaluated_args = self.evaluate_expressions(args)?;
 
         let mut builtin_function = builtin.function.borrow_mut();
 
         let builtin_result = if builtin.is_instance_function {
-            match lookup_or_id {
-                LookupOrId::Id(id) => {
-                    return runtime_error!(
-                        node,
-                        "External instance function '{}' can only be called if contained in a Map",
-                        id
-                    );
-                }
-                LookupOrId::Lookup(lookup) => {
-                    let map_id = lookup.parent_slice();
-                    let map_ref = self.make_reference_from_lookup(&map_id, node)?;
+            match parent {
+                Some(parent) => {
+                    let map_ref = match parent.lookup_index {
+                        Some(parent_lookup_index) => {
+                            let function_lookup = match lookup_or_id {
+                                LookupSliceOrId::LookupSlice(lookup) => lookup,
+                                _ => unreachable!(),
+                            };
+                            self.make_reference_from_lookup(
+                                &function_lookup.first_n(parent_lookup_index),
+                                node,
+                            )?
+                        }
+                        None => make_reference(parent.value).0,
+                    };
                     match evaluated_args {
                         ValueOrValues::Value(value) => {
                             (&mut *builtin_function)(self, &[map_ref, value])
@@ -1251,6 +1228,13 @@ impl<'a> Runtime<'a> {
                             (&mut *builtin_function)(self, &values)
                         }
                     }
+                }
+                None => {
+                    return runtime_error!(
+                        node,
+                        "External instance function '{}' can only be called if contained in a Map",
+                        lookup_or_id
+                    );
                 }
             }
         } else {
@@ -1269,32 +1253,56 @@ impl<'a> Runtime<'a> {
     fn evaluate_args_and_call_function(
         &mut self,
         f: &Rc<Function>,
-        lookup_or_id: &LookupOrId,
+        lookup_or_id: &LookupSliceOrId,
+        parent: Option<ValueAndLookupIndex<'a>>,
         args: &[AstNode],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
-        let mut implicit_self = false;
+        runtime_trace!(
+            self,
+            "evaluate_args_and_call_function - {} - parent: {}",
+            lookup_or_id,
+            if parent.is_some() {
+                format!("{}", parent.clone().unwrap())
+            } else {
+                "None".to_string()
+            }
+        );
 
-        match lookup_or_id {
-            LookupOrId::Id(id) => {
+        let implicit_self = match lookup_or_id {
+            LookupSliceOrId::Id(id) => {
                 // allow standalone functions to be able to call themselves
                 self.call_stack
                     .push(Id(id.clone()), Value::Function(f.clone()));
+                false
             }
-            LookupOrId::Lookup(lookup) => {
+            LookupSliceOrId::LookupSlice(_) => {
                 // implicit self for map functions
                 match f.args.first() {
                     Some(self_arg) if self_arg.as_ref() == "self" => {
-                        let map_id = lookup.parent_slice();
-                        self.make_reference_from_lookup(&map_id, node)?;
-                        let (map, _scope) = self.lookup_value(&map_id, node)?.unwrap();
-                        self.call_stack.push(Id(self_arg.clone()), map);
-                        implicit_self = true;
+                        let parent = parent.unwrap();
+                        assert!(matches!(parent.value, Value::Map(_) | Value::Ref(_)));
+                        let self_ref = match parent.lookup_index {
+                            Some(index) => {
+                                let function_lookup = match lookup_or_id {
+                                    LookupSliceOrId::LookupSlice(lookup) => lookup,
+                                    _ => unreachable!(),
+                                };
+
+                                self.make_reference_from_lookup(
+                                    &function_lookup.first_n(index),
+                                    node,
+                                )?
+                            }
+                            None => make_reference(parent.value).0,
+                        };
+                        self.call_stack.push(Id(self_arg.clone()), self_ref);
+                        true
                     }
-                    _ => {}
+                    _ => false,
                 }
             }
-        }
+        };
 
         let arg_count = f.args.len();
         let expected_args = if implicit_self {
@@ -1380,6 +1388,8 @@ impl<'a> Runtime<'a> {
     }
 
     fn make_reference_from_id(&mut self, id: &Id, node: &AstNode) -> RuntimeResult<'a> {
+        runtime_trace!(self, "make_reference_from_id: {}", id);
+
         let (value, scope) = self.get_value_or_error(id.as_str(), node)?;
         let (value_ref, made_ref) = make_reference(value);
         if made_ref {
@@ -1393,27 +1403,29 @@ impl<'a> Runtime<'a> {
         lookup: &LookupSlice,
         node: &AstNode,
     ) -> RuntimeResult<'a> {
+        runtime_trace!(self, "make_reference_from_lookup: {}", lookup);
+
         match lookup.0.last().unwrap() {
             LookupNode::Id(id) => {
                 if lookup.0.len() == 1 {
                     self.make_reference_from_id(&Id(id.clone()), node)
                 } else {
-                    let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
+                    let lookup_result = self.lookup_value_or_error(lookup, node)?;
 
-                    let (value_ref, made_ref) = make_reference(value);
+                    let (value_ref, made_ref) = make_reference(lookup_result.value);
                     if made_ref {
-                        self.set_value_from_lookup(&lookup, &value_ref, node)?;
+                        self.set_value_from_lookup(&lookup, value_ref.clone(), node)?;
                     }
 
                     Ok(value_ref)
                 }
             }
             LookupNode::Index(_) => {
-                let (value, _scope) = self.lookup_value_or_error(lookup, node)?;
+                let lookup_result = self.lookup_value_or_error(lookup, node)?;
 
-                let (value_ref, made_ref) = make_reference(value);
+                let (value_ref, made_ref) = make_reference(lookup_result.value);
                 if made_ref {
-                    self.set_value_from_lookup(&lookup, &value_ref, node)?;
+                    self.set_value_from_lookup(&lookup, value_ref.clone(), node)?;
                 }
 
                 Ok(value_ref)
@@ -1437,7 +1449,7 @@ impl<'a> Runtime<'a> {
                 self.set_value(&Id(id.clone()), value.clone(), *scope);
             }
             AssignTarget::Lookup(lookup) => {
-                self.set_value_from_lookup(&lookup.as_slice(), &value, node)?;
+                self.set_value_from_lookup(&lookup.as_slice(), value.clone(), node)?;
             }
         }
 
@@ -1459,7 +1471,7 @@ impl<'a> Runtime<'a> {
                         self.set_value(&Id(id.clone()), $value, *scope);
                     }
                     AssignTarget::Lookup(lookup) => {
-                        self.set_value_from_lookup(&lookup.as_slice(), &$value, node)?;
+                        self.set_value_from_lookup(&lookup.as_slice(), $value, node)?;
                     }
                 }
             };

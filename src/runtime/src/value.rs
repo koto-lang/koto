@@ -1,6 +1,5 @@
 use crate::{
-    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Id, Runtime,
-    RuntimeResult,
+    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile, Function};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
@@ -35,6 +34,7 @@ impl<'a> fmt::Display for Value<'a> {
             Str(s) => f.write_str(&s),
             List(l) => f.write_str(&l.borrow().to_string()),
             Map(m) => {
+                write!(f, "Map {:?} ", Rc::into_raw(m.clone()))?;
                 write!(f, "{{")?;
                 let mut first = true;
                 for (key, _value) in m.borrow().0.iter() {
@@ -177,18 +177,6 @@ impl<'a> fmt::Debug for BuiltinFunction<'a> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum EvaluatedLookupNode {
-    Id(Id),
-    Index(EvaluatedIndex),
-}
-
-#[derive(Clone, Debug)]
-pub enum EvaluatedIndex {
-    Index(usize),
-    Range { start: usize, end: Option<usize> },
-}
-
 pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
     use std::mem::discriminant;
     use Value::Ref;
@@ -221,14 +209,23 @@ pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
     }
 }
 
-pub fn make_reference(value: Value) -> (Value, bool) {
-    match value {
-        Value::Ref(_) => (value, false),
-        _ => {
-            let cloned = Rc::new(RefCell::new(value.clone()));
-            (Value::Ref(cloned), true)
+pub fn make_reference(mut value: Value) -> (Value, bool) {
+    // When making a reference out of a List or Map, we need to call make_mut to ensure that
+    // existing bindings to the internal data don't get modified by modifications to the reference
+    match &mut value {
+        Value::List(l) => {
+            Rc::make_mut(l);
         }
+        Value::Map(m) => {
+            Rc::make_mut(m);
+        }
+        Value::Ref(_) => {
+            return (value, false);
+        }
+        _ => {}
     }
+    let cloned = Rc::new(RefCell::new(value.clone()));
+    (Value::Ref(cloned), true)
 }
 
 pub fn type_as_string(value: &Value) -> String {

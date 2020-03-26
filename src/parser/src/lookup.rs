@@ -2,7 +2,7 @@ use crate::{AstNode, Id, Node};
 use std::fmt;
 
 #[derive(Clone, Debug)]
-pub struct Index (pub Box<AstNode>);
+pub struct Index(pub Box<AstNode>);
 
 #[derive(Clone, Debug)]
 pub struct Lookup(pub Vec<LookupNode>);
@@ -11,16 +11,12 @@ pub struct Lookup(pub Vec<LookupNode>);
 pub enum LookupNode {
     Id(Id),
     Index(Index),
-    Call(Vec<AstNode>)
+    Call(Vec<AstNode>),
 }
 
 impl Lookup {
     pub fn as_slice(&self) -> LookupSlice {
         LookupSlice(self.0.as_slice())
-    }
-
-    pub fn parent_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[..self.0.len() - 1])
     }
 
     pub fn value_slice(&self) -> LookupSlice {
@@ -42,10 +38,6 @@ impl fmt::Display for Lookup {
 pub struct LookupSlice<'a>(pub &'a [LookupNode]);
 
 impl<'a> LookupSlice<'a> {
-    pub fn parent_slice(&self) -> LookupSlice {
-        LookupSlice(&self.0[..self.0.len() - 1])
-    }
-
     pub fn value_slice(&self) -> LookupSlice {
         LookupSlice(&self.0[self.0.len() - 1..])
     }
@@ -54,8 +46,8 @@ impl<'a> LookupSlice<'a> {
         &self.0[self.0.len() - 1]
     }
 
-    pub fn slice(&self, start: usize, end: usize) -> LookupSlice {
-        LookupSlice(&self.0[start..end])
+    pub fn first_n(&self, n: usize) -> LookupSlice {
+        LookupSlice(&self.0[..=n])
     }
 }
 
@@ -77,9 +69,7 @@ impl<'a> fmt::Display for LookupSlice<'a> {
                     };
                     write!(f, "[{}]", expression)?
                 }
-                LookupNode::Call(_) => {
-                    write!(f, "()")?
-                }
+                LookupNode::Call(_) => write!(f, "()")?,
             }
             first = false;
         }

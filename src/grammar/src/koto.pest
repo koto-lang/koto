@@ -181,8 +181,9 @@ while_loop = !{
   ~ child_block
 }
 
-call = _{ call_with_parens | call_no_parens }
-call_with_parens = ${ lookup_or_id ~ call_args }
+call = _{ call_no_parens }
+call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
+
 call_args = !{
   "("
   ~ separator_line?
@@ -190,7 +191,6 @@ call_args = !{
   ~ separator_line?
   ~ ")"
 }
-call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
 
 debug = _{ debug_with_parens | debug_no_parens }
 debug_with_parens = ${ debug_keyword ~ call_args }
@@ -280,8 +280,8 @@ single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
 
-lookup = ${ (id ~ lookup_node+) }
-lookup_node = _{ index | map_access }
+lookup = ${ (id | "(" ~ operation ~ ")") ~ lookup_node+ }
+lookup_node = _{ index | call_args | map_access }
 index = ${ "[" ~ operation ~ "]" }
 map_access = ${ ("." ~ id) }
 
