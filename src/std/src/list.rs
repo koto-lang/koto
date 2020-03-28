@@ -1,6 +1,6 @@
 use crate::{builtin_error, single_arg_fn};
 use koto_runtime::{value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap};
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
@@ -8,14 +8,14 @@ pub fn register(global: &mut ValueMap) {
     let mut list = ValueMap::new();
 
     single_arg_fn!(list, "is_sortable", List, l, {
-        Ok(Bool(list_is_sortable(&l)))
+        Ok(Bool(list_is_sortable(&l.borrow())))
     });
 
     single_arg_fn!(list, "sort_copy", List, l, {
-        if list_is_sortable(l.as_ref()) {
-            let mut result = Vec::clone(l.data());
+        if list_is_sortable(&l.borrow()) {
+            let mut result = Vec::clone(l.borrow().data());
             result.sort();
-            Ok(List(Rc::new(ValueList::with_data(result))))
+            Ok(List(Rc::new(RefCell::new(ValueList::with_data(result)))))
         } else {
             builtin_error!("list.sort_copy can only sort lists of numbers or strings")
         }
@@ -225,7 +225,7 @@ fn list_op<'a>(
     }
 
     match deref_value(&args[0]) {
-        Value::List(list) => op(list.as_ref()),
+        Value::List(list) => op(&list.borrow()),
         unexpected => builtin_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
@@ -251,7 +251,7 @@ fn ref_list_op<'a>(
 
     match &args[0] {
         Value::Ref(r) => match &mut *r.borrow_mut() {
-            Value::List(l) => op(Rc::make_mut(l)),
+            Value::List(l) => op(&mut l.borrow_mut()),
             unexpected => builtin_error!(
                 "list.{} expects a reference to a list as its first argument, found {}",
                 op_name,

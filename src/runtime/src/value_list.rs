@@ -1,12 +1,6 @@
-use crate::{
-    runtime_error,
-    value::{type_as_string, EvaluatedIndex, EvaluatedLookupNode},
-    Error, LookupSlice, Value,
-};
-use koto_parser::AstNode;
+use crate::Value;
 
-use std::fmt;
-use std::rc::Rc;
+use std::{fmt, rc::Rc};
 
 #[derive(Clone, Debug, Default)]
 pub struct ValueList<'a>(Vec<Value<'a>>);
@@ -32,146 +26,18 @@ impl<'a> ValueList<'a> {
         &mut self.0
     }
 
-    pub fn set_value_from_lookup(
-        &mut self,
-        lookup: &LookupSlice,
-        evaluated_lookup: &[EvaluatedLookupNode],
-        lookup_index: usize,
-        value: &Value<'a>,
-        node: &AstNode,
-    ) -> Result<(), Error> {
-        use Value::{List, Map, Ref};
-
-        match &evaluated_lookup[lookup_index] {
-            EvaluatedLookupNode::Index(list_index) => {
-                if lookup_index == evaluated_lookup.len() - 1 {
-                    match list_index {
-                        EvaluatedIndex::Index(i) => {
-                            if *i >= self.0.len() {
-                                return runtime_error!(
-                                    node,
-                                    "Index out of bounds: \
-                                     List in {} has a length of {} but the index is {}",
-                                    lookup,
-                                    self.0.len(),
-                                    i
-                                );
-                            }
-                            self.0[*i] = value.clone();
-                        }
-                        EvaluatedIndex::Range { start, end } => {
-                            let start = *start;
-                            let end = end.unwrap_or(self.0.len());
-
-                            if start >= self.0.len() || end > self.0.len() {
-                                return runtime_error!(
-                                    node,
-                                    "Index out of bounds in '{}', \
-                                     List has a length of {} - start: {}, end: {}",
-                                    lookup,
-                                    self.0.len(),
-                                    start,
-                                    end
-                                );
-                            } else {
-                                for i in start..end {
-                                    self.0[i] = value.clone();
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    let list_index = match list_index {
-                        EvaluatedIndex::Index(i) => {
-                            if *i >= self.0.len() {
-                                return runtime_error!(
-                                    node,
-                                    "Index out of bounds: \
-                                     List in {} has a length of {} but the index is {}",
-                                    lookup,
-                                    self.0.len(),
-                                    i
-                                );
-                            }
-                            i
-                        }
-                        EvaluatedIndex::Range { .. } => {
-                            return runtime_error!(
-                                node,
-                                "Ranges are only supported at the end of a lookup, in '{}'",
-                                lookup
-                            );
-                        }
-                    };
-
-                    match &mut self.0[*list_index] {
-                        Map(entry) => {
-                            return Rc::make_mut(entry).set_value_from_lookup(
-                                lookup,
-                                evaluated_lookup,
-                                lookup_index + 1,
-                                value,
-                                node,
-                            );
-                        }
-                        List(entry) => {
-                            return Rc::make_mut(entry).set_value_from_lookup(
-                                lookup,
-                                evaluated_lookup,
-                                lookup_index + 1,
-                                value,
-                                node,
-                            );
-                        }
-                        Ref(ref_value) => match &mut *ref_value.borrow_mut() {
-                            Map(entry) => {
-                                return Rc::make_mut(entry).set_value_from_lookup(
-                                    lookup,
-                                    evaluated_lookup,
-                                    lookup_index + 1,
-                                    value,
-                                    node,
-                                );
-                            }
-                            List(entry) => {
-                                return Rc::make_mut(entry).set_value_from_lookup(
-                                    lookup,
-                                    evaluated_lookup,
-                                    lookup_index + 1,
-                                    value,
-                                    node,
-                                );
-                            }
-                            unexpected => {
-                                return runtime_error!(
-                                    node,
-                                    "Expected List or Map in '{}', found {}",
-                                    lookup,
-                                    type_as_string(unexpected)
-                                );
-                            }
-                        },
-                        unexpected => {
-                            return runtime_error!(
-                                node,
-                                "Expected List or Map in '{}', found {}",
-                                lookup,
-                                type_as_string(unexpected)
-                            );
-                        }
-                    }
-                }
+    pub fn make_mut(&mut self, index: usize) -> Value<'a> {
+        let value = &mut self.0[index];
+        match value {
+            Value::Map(entry) => {
+                Rc::make_mut(entry);
             }
-            EvaluatedLookupNode::Id(_) => {
-                return runtime_error!(
-                    node,
-                    "Attempting to access a List like a Map in '{}'",
-                    lookup
-                );
+            Value::List(entry) => {
+                Rc::make_mut(entry);
             }
+            _ => {}
         }
-
-        Ok(())
+        value.clone()
     }
 }
 

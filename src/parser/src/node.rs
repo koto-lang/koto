@@ -1,4 +1,4 @@
-use crate::{AstNode, Lookup};
+use crate::{AstNode, Lookup, LookupSlice};
 use std::{fmt, rc::Rc};
 
 pub type Id = Rc<String>;
@@ -145,6 +145,30 @@ impl fmt::Display for LookupOrId {
         match self {
             LookupOrId::Id(id) => write!(f, "Id: {}", id),
             LookupOrId::Lookup(lookup) => lookup.fmt(f),
+        }
+    }
+}
+
+impl LookupOrId {
+    pub fn as_slice<'a>(&'a self) -> LookupSliceOrId<'a> {
+        match self {
+            LookupOrId::Id(id) => LookupSliceOrId::Id(id.clone()),
+            LookupOrId::Lookup(lookup) => LookupSliceOrId::LookupSlice(lookup.as_slice()),
+        }
+   }
+}
+
+#[derive(Clone, Debug)]
+pub enum LookupSliceOrId<'a> {
+    Id(Id),
+    LookupSlice(LookupSlice<'a>),
+}
+
+impl<'a> fmt::Display for LookupSliceOrId<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LookupSliceOrId::Id(id) => write!(f, "Id: {}", id),
+            LookupSliceOrId::LookupSlice(lookup_slice) => lookup_slice.fmt(f),
         }
     }
 }

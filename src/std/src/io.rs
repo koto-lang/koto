@@ -51,7 +51,7 @@ pub fn register(global: &mut ValueMap) {
                 Ref(map_ref) => {
                     match &*map_ref.borrow() {
                         // TODO Find a way to get from ValueMap with &str as key
-                        Map(instance) => match instance.as_ref().0.get("file") {
+                        Map(instance) => match instance.borrow().0.get("file") {
                             Some(Value::BuiltinValue(maybe_file)) => {
                                 match maybe_file.borrow_mut().downcast_mut::<File>() {
                                     Some(file_handle) => file_op(file_handle),
@@ -182,7 +182,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(Rc::new(file_map)))
+                                Ok(Map(Rc::new(RefCell::new(file_map))))
                             }
                             Err(e) => {
                                 return builtin_error!("io.open: Error while opening path: {}", e);
@@ -220,7 +220,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(Rc::new(file_map)))
+                                Ok(Map(Rc::new(RefCell::new(file_map))))
                             }
                             Err(e) => {
                                 return builtin_error!(
@@ -279,7 +279,7 @@ pub fn register(global: &mut ValueMap) {
                 }))),
             );
 
-            Ok(Map(Rc::new(file_map)))
+            Ok(Map(Rc::new(RefCell::new(file_map))))
         }
     });
 

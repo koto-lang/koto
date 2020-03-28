@@ -33,6 +33,7 @@ koto_test!(assignment);
 koto_test!(comments);
 koto_test!(control_flow);
 koto_test!(functions);
+koto_test!(functions_in_lookups);
 koto_test!(io);
 koto_test!(line_breaks);
 koto_test!(lists);

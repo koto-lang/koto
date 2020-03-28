@@ -7,7 +7,7 @@ use koto_runtime::{
     value::{deref_value, type_as_string},
     Error, Runtime, Value, ValueList, ValueMap,
 };
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 #[macro_export]
 macro_rules! make_builtin_error {
@@ -72,11 +72,13 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let mut map = ValueMap::new();
 
         single_arg_fn!(map, "keys", Map, m, {
-            Ok(List(Rc::new(ValueList::with_data(
-                m.0.keys()
+            Ok(List(Rc::new(RefCell::new(ValueList::with_data(
+                m.borrow()
+                    .0
+                    .keys()
                     .map(|k| Str(Rc::new(k.as_str().to_string())))
                     .collect::<Vec<_>>(),
-            ))))
+            )))))
         });
 
         global.add_map("map", map);
@@ -90,11 +92,11 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         single_arg_fn!(string, "lines", Str, s, {
-            Ok(List(Rc::new(ValueList::with_data(
+            Ok(List(Rc::new(RefCell::new(ValueList::with_data(
                 s.lines()
                     .map(|line| Str(Rc::new(line.to_string())))
                     .collect::<Vec<_>>(),
-            ))))
+            )))))
         });
 
         global.add_map("string", string);
@@ -180,7 +182,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         match first_arg_value {
             Empty => Ok(Number(0.0)),
-            List(list) => Ok(Number(list.data().len() as f64)),
+            List(list) => Ok(Number(list.borrow().data().len() as f64)),
             Range { start, end } => {
                 println!("size: start: {} end: {}", start, end);
 

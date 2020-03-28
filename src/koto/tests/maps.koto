@@ -31,7 +31,7 @@ assert_eq (list.sort_copy map.keys m), ["bar", "baz", "foo"]
 
 make_o = ||
   foo: 42
-  get_foo: |self| 42 # self refers to table instance
+  get_foo: |self| self.foo # self refers to table instance
 
 o = make_o()
 assert_eq 42, o.get_foo() # implicit self
@@ -89,6 +89,7 @@ x.bar.baz = [1, 2, 3]
 assert_eq x.bar.baz, [1, 2, 3]
 
 # y and z haven't been modified
+debug y.bar.baz
 assert_eq y, {foo: 0, bar: {baz: -1}}
 assert_eq z, {baz: -1}
 

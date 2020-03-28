@@ -1,4 +1,4 @@
-pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId, Position};
+pub use koto_parser::{AstNode, KotoParser as Parser, LookupSliceOrId, LookupOrId, Position};
 use koto_runtime::Runtime;
 pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
@@ -67,7 +67,7 @@ impl<'a> Koto<'a> {
             .get_mut(&Rc::new("env".to_string()))
             .unwrap()
         {
-            Map(map) => Rc::make_mut(map).add_list("args", ValueList::with_data(koto_args)),
+            Map(map) => map.borrow_mut().add_list("args", ValueList::with_data(koto_args)),
             _ => unreachable!(),
         }
     }
@@ -95,7 +95,7 @@ impl<'a> Koto<'a> {
 
         match self.runtime.global_mut().0.get_mut("env").unwrap() {
             Map(map) => {
-                let map = Rc::make_mut(map);
+                let mut map = map.borrow_mut();
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
             }
@@ -126,7 +126,7 @@ impl<'a> Koto<'a> {
 
     pub fn call_function(&mut self, function_name: &str) -> Result<Value<'a>, String> {
         match self.runtime.lookup_and_call_function(
-            &LookupOrId::Id(Rc::new(function_name.to_string())),
+            &LookupSliceOrId::Id(Rc::new(function_name.to_string())),
             &vec![],
             &AstNode::default(),
         ) {

@@ -77,6 +77,13 @@ impl KotoParser {
                                 let expression = next_as_boxed_ast!(inner);
                                 LookupNode::Index(Index(expression))
                             }
+                            Rule::call_args => {
+                                let args = pair
+                                    .into_inner()
+                                    .map(|pair| self.build_ast(pair))
+                                    .collect::<Vec<_>>();
+                                LookupNode::Call(args)
+                            }
                             unexpected => {
                                 panic!("Unexpected rule while making lookup node: {:?}", unexpected)
                             }
@@ -246,7 +253,7 @@ impl KotoParser {
                 let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
                 AstNode::new(span, Node::Function(Rc::new(self::Function { args, body })))
             }
-            Rule::call_with_parens | Rule::call_no_parens => {
+            Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
                 let function = next_as_lookup_or_id!(inner);
                 let args = match inner.peek().unwrap().as_rule() {

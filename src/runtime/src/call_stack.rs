@@ -1,4 +1,5 @@
 use crate::{Id, Value};
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct CallStack<'a> {
@@ -80,28 +81,55 @@ impl<'a> CallStack<'a> {
 
     pub fn get(&self, id: &str) -> Option<&Value<'a>> {
         match self.frame_values() {
-            Some(values) => values.iter().find_map(|(value_id, value)| {
-                if value_id == id {
-                    Some(value)
-                } else {
-                    None
-                }
-            }),
+            Some(values) => values.iter().find_map(
+                |(value_id, value)| {
+                    if value_id == id {
+                        Some(value)
+                    } else {
+                        None
+                    }
+                },
+            ),
             None => None,
         }
     }
 
     pub fn get_mut(&mut self, id: &str) -> Option<&mut Value<'a>> {
         match self.frame_values_mut() {
-            Some(values) => values.iter_mut().find_map(|(value_id, value)| {
-                if value_id == id {
-                    Some(value)
-                } else {
-                    None
-                }
-            }),
+            Some(values) => {
+                values.iter_mut().find_map(
+                    |(value_id, value)| {
+                        if value_id == id {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    },
+                )
+            }
             None => None,
         }
+    }
+
+    pub fn make_mut(&mut self, id: &str) -> Option<Value<'a>> {
+        if let Some(values) = self.frame_values_mut() {
+            for (value_id, value) in values.iter_mut() {
+                if value_id == id {
+                    match value {
+                        Value::Map(entry) => {
+                            Rc::make_mut(entry);
+                        }
+                        Value::List(entry) => {
+                            Rc::make_mut(entry);
+                        }
+                        _ => {}
+                    }
+                    return Some(value.clone());
+                }
+            }
+        }
+
+        None
     }
 }
 
