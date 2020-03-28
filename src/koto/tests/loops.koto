@@ -4,7 +4,7 @@ for x in 0..10
   for y in -5..5 if x == y and x < 3
     assert_eq(x, y)
 
-    # loop bodies share scope of statment
+    # loop bodies share scope of statement
     count = count + 1
 
 assert_eq count, 3
@@ -17,7 +17,7 @@ square = |x| x * x
 c = square(x) for x in [1, 2, 3]
 assert_eq c, [1, 4, 9]
 
-filter = |xs, f| x for x in xs if f(x)
+filter = |xs, f| x for x in xs if f x
 a = filter(0..20, |x| not x <= 15)
 assert_eq a, [16, 17, 18, 19]
 
