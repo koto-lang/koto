@@ -259,58 +259,7 @@ impl<'a> Runtime<'a> {
             Node::Empty => Empty,
             Node::Bool(b) => Bool(*b),
             Node::Number(n) => Number(*n),
-            Node::Vec4(expressions) => {
-                let v = match &expressions.as_slice() {
-                    [expression] => match &self.evaluate_and_capture(expression)? {
-                        Number(n) => {
-                            let n = *n as f32;
-                            vec4::Vec4(n, n, n, n)
-                        }
-                        Vec4(v) => *v,
-                        List(list) => {
-                            let mut v = vec4::Vec4::default();
-                            for (i, value) in list.borrow().data().iter().take(4).enumerate() {
-                                match value {
-                                    Number(n) => v[i] = *n as f32,
-                                    unexpected => {
-                                        return runtime_error!(
-                                            node,
-                                            "vec4 only accepts Numbers as arguments, - found {}",
-                                            unexpected
-                                        )
-                                    }
-                                }
-                            }
-                            v
-                        }
-                        unexpected => {
-                            return runtime_error!(
-                            node,
-                            "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
-                            unexpected
-                            );
-                        }
-                    },
-                    _ => {
-                        let mut v = vec4::Vec4::default();
-                        for (i, expression) in expressions.iter().take(4).enumerate() {
-                            match &self.evaluate(expression)? {
-                                Number(n) => v[i] = *n as f32,
-                                unexpected => {
-                                    return runtime_error!(
-                                        node,
-                                        "vec4 only accepts Numbers as arguments, \
-                                    or Vec4 or List as first argument - found {}",
-                                        unexpected
-                                    );
-                                }
-                            }
-                        }
-                        v
-                    }
-                };
-                Vec4(v)
-            }
+            Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
             Node::Str(s) => Str(s.clone()),
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
@@ -795,6 +744,17 @@ impl<'a> Runtime<'a> {
                     }
                 },
                 BuiltinFunction(function) => match lookup_node {
+                    LookupNode::Call(args) => {
+                        temporary_value = true;
+
+                        current_node = self.call_builtin_function(
+                            &function,
+                            &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
+                            Some(parent.clone()),
+                            args,
+                            node,
+                        )?;
+                    }
                     LookupNode::Id(_) => {
                         return runtime_error!(
                             node,
@@ -808,17 +768,6 @@ impl<'a> Runtime<'a> {
                             "Attempting to index a Function in '{}'",
                             lookup
                         );
-                    }
-                    LookupNode::Call(args) => {
-                        temporary_value = true;
-
-                        current_node = self.call_builtin_function(
-                            &function,
-                            &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
-                            Some(parent.clone()),
-                            args,
-                            node,
-                        )?;
                     }
                 },
                 _ => break,
@@ -1839,6 +1788,61 @@ impl<'a> Runtime<'a> {
                 type_as_string(&maybe_bool)
             );
         }
+    }
+
+    fn make_vec4(&mut self, expressions: &[AstNode], node: &AstNode) -> RuntimeResult<'a> {
+        use Value::{List, Number, Vec4};
+
+        let v = match expressions {
+            [expression] => match &self.evaluate_and_capture(expression)? {
+                Number(n) => {
+                    let n = *n as f32;
+                    vec4::Vec4(n, n, n, n)
+                }
+                Vec4(v) => *v,
+                List(list) => {
+                    let mut v = vec4::Vec4::default();
+                    for (i, value) in list.borrow().data().iter().take(4).enumerate() {
+                        match value {
+                            Number(n) => v[i] = *n as f32,
+                            unexpected => {
+                                return runtime_error!(
+                                    node,
+                                    "vec4 only accepts Numbers as arguments, - found {}",
+                                    unexpected
+                                )
+                            }
+                        }
+                    }
+                    v
+                }
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "vec4 only accepts a Number, Vec4, or List as first argument - found {}",
+                        unexpected
+                    );
+                }
+            },
+            _ => {
+                let mut v = vec4::Vec4::default();
+                for (i, expression) in expressions.iter().take(4).enumerate() {
+                    match &self.evaluate(expression)? {
+                        Number(n) => v[i] = *n as f32,
+                        unexpected => {
+                            return runtime_error!(
+                                node,
+                                "vec4 only accepts Numbers as arguments, \
+                                    or Vec4 or List as first argument - found {}",
+                                unexpected
+                            );
+                        }
+                    }
+                }
+                v
+            }
+        };
+        Ok(Vec4(v))
     }
 }
 
