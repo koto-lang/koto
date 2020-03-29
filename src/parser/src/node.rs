@@ -28,7 +28,7 @@ pub enum Node {
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
-    ReturnExpression(Box<AstNode>),
+    ReturnExpression(Option<Box<AstNode>>),
     CopyExpression(Box<AstNode>),
     RefExpression(Box<AstNode>),
     Negate(Box<AstNode>),

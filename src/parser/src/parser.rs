@@ -233,7 +233,11 @@ impl KotoParser {
             Rule::return_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // return
-                let expression = next_as_boxed_ast!(inner);
+                let expression = if inner.peek().is_some() {
+                    Some(next_as_boxed_ast!(inner))
+                } else {
+                    None
+                };
                 AstNode::new(span, Node::ReturnExpression(expression))
             }
             Rule::negate => {

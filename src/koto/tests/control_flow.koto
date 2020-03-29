@@ -55,3 +55,10 @@ f = ||
 a, b = f()
 assert_eq a, -1
 assert_eq b, 1
+
+##### return can also be used without a value
+f = ||
+  if true
+    return
+  assert false
+f()

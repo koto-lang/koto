@@ -18,7 +18,8 @@ use std::{cell::RefCell, fmt, rc::Rc};
 pub enum ControlFlow<'a> {
     None,
     Function,
-    Return(Value<'a>),
+    Return,
+    ReturnValue(Value<'a>),
     Loop,
     Break,
     Continue,
@@ -136,7 +137,7 @@ impl<'a> Runtime<'a> {
             if i < block.len() - 1 {
                 self.evaluate_and_expand(expression, false)?;
                 match self.control_flow {
-                    Return(_) | Break | Continue => return Ok(Value::Empty),
+                    Return | ReturnValue(_) | Break | Continue => return Ok(Value::Empty),
                     _ => {}
                 }
             } else {
@@ -323,8 +324,15 @@ impl<'a> Runtime<'a> {
             Node::ReturnExpression(expression) => match self.control_flow {
                 ControlFlow::Function | ControlFlow::Loop => {
                     // TODO handle loop inside function
-                    let value = self.evaluate_and_capture(expression)?;
-                    self.control_flow = ControlFlow::Return(value.clone());
+                    match expression {
+                        Some(expression) => {
+                            let value = self.evaluate_and_capture(expression)?;
+                            self.control_flow = ControlFlow::ReturnValue(value.clone());
+                        }
+                        None => {
+                            self.control_flow = ControlFlow::Return;
+                        }
+                    }
                     Value::Empty
                 }
                 _ => {
@@ -902,7 +910,7 @@ impl<'a> Runtime<'a> {
                 let result = self.evaluate_and_capture(&f.body)?;
 
                 match self.control_flow {
-                    ControlFlow::Return(_) => return Ok(Empty),
+                    ControlFlow::Return | ControlFlow::ReturnValue(_) => return Ok(Empty),
                     ControlFlow::Break => {
                         self.control_flow = cached_control_flow;
                         break;
@@ -995,7 +1003,7 @@ impl<'a> Runtime<'a> {
                 let result = self.evaluate_and_capture(&f.body)?;
 
                 match self.control_flow {
-                    ControlFlow::Return(_) => return Ok(Empty),
+                    ControlFlow::Return | ControlFlow::ReturnValue(_) => return Ok(Empty),
                     ControlFlow::Break => {
                         self.control_flow = cached_control_flow;
                         break;
@@ -1052,7 +1060,7 @@ impl<'a> Runtime<'a> {
                                 self.control_flow = cached_control_flow;
                                 continue;
                             }
-                            Return(_) => return Ok(Empty),
+                            Return | ReturnValue(_) => return Ok(Empty),
                             _ => {
                                 self.control_flow = cached_control_flow;
                             }
@@ -1294,7 +1302,7 @@ impl<'a> Runtime<'a> {
 
         let mut result = self.evaluate_block(&f.body);
 
-        if let ControlFlow::Return(return_value) = &self.control_flow {
+        if let ControlFlow::ReturnValue(return_value) = &self.control_flow {
             result = Ok(return_value.clone());
         }
 
@@ -1326,7 +1334,7 @@ impl<'a> Runtime<'a> {
 
         let mut result = self.evaluate_block(&f.body);
 
-        if let ControlFlow::Return(return_value) = &self.control_flow {
+        if let ControlFlow::ReturnValue(return_value) = &self.control_flow {
             result = Ok(return_value.clone());
         }
 
