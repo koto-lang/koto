@@ -354,6 +354,7 @@ dependencies = [
  "downcast-rs",
  "koto_parser",
  "rustc-hash",
+ "smallvec",
  "vec1",
 ]
 
@@ -743,6 +744,12 @@ dependencies = [
  "fake-simd",
  "opaque-debug",
 ]
+
+[[package]]
+name = "smallvec"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
 
 [[package]]
 name = "sourcefile"

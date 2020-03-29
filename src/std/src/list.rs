@@ -1,5 +1,7 @@
 use crate::{builtin_error, single_arg_fn};
-use koto_runtime::{value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap};
+use koto_runtime::{
+    value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn register(global: &mut ValueMap) {
@@ -13,7 +15,7 @@ pub fn register(global: &mut ValueMap) {
 
     single_arg_fn!(list, "sort_copy", List, l, {
         if list_is_sortable(&l.borrow()) {
-            let mut result = Vec::clone(l.borrow().data());
+            let mut result = ValueVec::clone(l.borrow().data());
             result.sort();
             Ok(List(Rc::new(RefCell::new(ValueList::with_data(result)))))
         } else {

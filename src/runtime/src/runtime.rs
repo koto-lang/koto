@@ -6,6 +6,7 @@ use crate::{
         BuiltinFunction, Value,
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
+    value_list::ValueVec,
     Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{
@@ -75,7 +76,7 @@ impl<'a> LookupResult<'a> {
 
 enum ValueOrValues<'a> {
     Value(Value<'a>),
-    Values(Vec<Value<'a>>),
+    Values(ValueVec<'a>),
 }
 
 #[derive(Default)]
@@ -160,15 +161,16 @@ impl<'a> Runtime<'a> {
                 self.evaluate_and_capture(&expressions[0])?,
             ))
         } else {
-            let mut results = Vec::new();
-
-            for expression in expressions.iter() {
-                if is_single_value_node(&expression.node) {
-                    results.push(self.evaluate(expression)?);
-                } else {
-                    results.push(self.evaluate_and_capture(expression)?);
-                }
-            }
+            let results = expressions
+                .iter()
+                .map(|expression| {
+                    Ok(if is_single_value_node(&expression.node) {
+                        self.evaluate(expression)?
+                    } else {
+                        self.evaluate_and_capture(expression)?
+                    })
+                })
+                .collect::<Result<ValueVec, Error>>()?;
 
             Ok(ValueOrValues::Values(results))
         }
@@ -197,7 +199,7 @@ impl<'a> Runtime<'a> {
                             ),
                             _ => Ok(value),
                         })
-                        .collect::<Result<Vec<_>, Error>>()?;
+                        .collect::<Result<ValueVec, Error>>()?;
                     Ok(List(Rc::new(RefCell::new(ValueList::with_data(list)))))
                 }
             }
@@ -230,12 +232,12 @@ impl<'a> Runtime<'a> {
                 Range { start, end } => {
                     if capture {
                         let expanded = if end >= start {
-                            (start..end).map(|n| Number(n as f64)).collect::<Vec<_>>()
+                            (start..end).map(|n| Number(n as f64)).collect::<ValueVec>()
                         } else {
                             (end..start)
                                 .rev()
                                 .map(|n| Number(n as f64))
-                                .collect::<Vec<_>>()
+                                .collect::<ValueVec>()
                         };
                         List(Rc::new(RefCell::new(ValueList::with_data(expanded))))
                     } else {
@@ -265,7 +267,7 @@ impl<'a> Runtime<'a> {
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
-                    _ => List(Rc::new(RefCell::new(ValueList::with_data(vec![value])))),
+                    _ => List(Rc::new(RefCell::new(ValueList::from_slice(&[value])))),
                 },
                 ValueOrValues::Values(values) => {
                     Value::List(Rc::new(RefCell::new(ValueList::with_data(values))))
@@ -644,8 +646,8 @@ impl<'a> Runtime<'a> {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
                                             current_node =
-                                                List(Rc::new(RefCell::new(ValueList::with_data(
-                                                    list.borrow().data()[ustart..uend].to_vec(),
+                                                List(Rc::new(RefCell::new(ValueList::from_slice(
+                                                    &list.borrow().data()[ustart..uend],
                                                 ))))
                                         }
                                     }
@@ -692,8 +694,8 @@ impl<'a> Runtime<'a> {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
                                             current_node =
-                                                List(Rc::new(RefCell::new(ValueList::with_data(
-                                                    list.borrow().data()[start..end].to_vec(),
+                                                List(Rc::new(RefCell::new(ValueList::from_slice(
+                                                    &list.borrow().data()[start..end],
                                                 ))))
                                         }
                                     }
@@ -836,7 +838,7 @@ impl<'a> Runtime<'a> {
 
         let f = &for_loop;
 
-        let mut captured = Vec::new();
+        let mut captured = ValueVec::new();
 
         if f.ranges.len() == 1 {
             let range = self.evaluate(f.ranges.first().unwrap())?;
@@ -950,7 +952,7 @@ impl<'a> Runtime<'a> {
             let single_arg = f.args.len() == 1;
             let first_arg = f.args.first().unwrap();
 
-            let mut values = Vec::new();
+            let mut values = ValueVec::new();
 
             while multi_range_iterator.get_next_values(&mut values) {
                 if single_arg {
@@ -1040,7 +1042,7 @@ impl<'a> Runtime<'a> {
 
         runtime_trace!(self, "run_while_loop");
 
-        let mut captured = Vec::new();
+        let mut captured = ValueVec::new();
         loop {
             match self.evaluate(&while_loop.condition)? {
                 Bool(condition_result) => {
@@ -1464,7 +1466,7 @@ impl<'a> Runtime<'a> {
 
             Ok(value)
         } else {
-            let mut results = Vec::new();
+            let mut results = ValueVec::new();
 
             for expression in expressions.iter() {
                 let value = self.evaluate_and_capture(expression)?;
@@ -1726,8 +1728,8 @@ impl<'a> Runtime<'a> {
                 },
                 (List(a), List(b)) => match op {
                     AstOp::Add => {
-                        let mut result = Vec::clone(a.borrow().data());
-                        result.extend(Vec::clone(b.borrow().data()).into_iter());
+                        let mut result = ValueVec::clone(a.borrow().data());
+                        result.extend(ValueVec::clone(b.borrow().data()).into_iter());
                         Ok(List(Rc::new(RefCell::new(ValueList::with_data(result)))))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),

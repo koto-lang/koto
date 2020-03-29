@@ -1,6 +1,6 @@
 pub use koto_parser::{AstNode, KotoParser as Parser, LookupSliceOrId, LookupOrId, Position};
 use koto_runtime::Runtime;
-pub use koto_runtime::{Error, RuntimeResult, Value, ValueList, ValueMap};
+pub use koto_runtime::{Error, RuntimeResult, Value, ValueVec, ValueList, ValueMap};
 use std::{path::Path, rc::Rc};
 
 #[derive(Default)]
@@ -58,7 +58,7 @@ impl<'a> Koto<'a> {
         let koto_args = args
             .iter()
             .map(|arg| Str(Rc::new(arg.to_string())))
-            .collect::<Vec<_>>();
+            .collect::<ValueVec>();
 
         match self
             .runtime

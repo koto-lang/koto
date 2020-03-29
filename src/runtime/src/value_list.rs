@@ -2,27 +2,34 @@ use crate::Value;
 
 use std::{fmt, rc::Rc};
 
+// pub type ValueVec<'a> = Vec<Value<'a>>;
+pub type ValueVec<'a> = smallvec::SmallVec<[Value<'a>; 4]>;
+
 #[derive(Clone, Debug, Default)]
-pub struct ValueList<'a>(Vec<Value<'a>>);
+pub struct ValueList<'a>(ValueVec<'a>);
 
 impl<'a> ValueList<'a> {
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self(ValueVec::new())
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Vec::with_capacity(capacity))
+        Self(ValueVec::with_capacity(capacity))
     }
 
-    pub fn with_data(data: Vec<Value<'a>>) -> Self {
+    pub fn with_data(data: ValueVec<'a>) -> Self {
         Self(data)
     }
 
-    pub fn data(&self) -> &Vec<Value<'a>> {
+    pub fn from_slice(data: &[Value<'a>]) -> Self {
+        Self(data.iter().cloned().collect::<ValueVec>())
+    }
+
+    pub fn data(&self) -> &ValueVec<'a> {
         &self.0
     }
 
-    pub fn data_mut(&mut self) -> &mut Vec<Value<'a>> {
+    pub fn data_mut(&mut self) -> &mut ValueVec<'a> {
         &mut self.0
     }
 

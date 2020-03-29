@@ -14,7 +14,7 @@ pub use runtime::Runtime;
 
 pub use builtin_value::BuiltinValue;
 pub use value::Value;
-pub use value_list::ValueList;
+pub use value_list::{ValueVec, ValueList};
 pub use value_map::ValueMap;
 
 #[derive(Debug)]

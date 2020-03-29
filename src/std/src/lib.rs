@@ -5,7 +5,7 @@ mod math;
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    Error, Runtime, Value, ValueList, ValueMap,
+    Error, Runtime, Value, ValueList, ValueMap, ValueVec,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -77,7 +77,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                     .0
                     .keys()
                     .map(|k| Str(Rc::new(k.as_str().to_string())))
-                    .collect::<Vec<_>>(),
+                    .collect::<ValueVec>(),
             )))))
         });
 
@@ -95,7 +95,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             Ok(List(Rc::new(RefCell::new(ValueList::with_data(
                 s.lines()
                     .map(|line| Str(Rc::new(line.to_string())))
-                    .collect::<Vec<_>>(),
+                    .collect::<ValueVec>(),
             )))))
         });
 

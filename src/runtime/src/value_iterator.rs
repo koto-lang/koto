@@ -1,4 +1,5 @@
-use crate::Value;
+use crate::{Value, ValueVec};
+use smallvec::SmallVec;
 
 pub(super) struct ValueIterator<'a> {
     value: Value<'a>,
@@ -44,17 +45,17 @@ impl<'a> Iterator for ValueIterator<'a> {
 }
 
 pub(super) struct MultiRangeValueIterator<'a> {
-    pub iterators: Vec<ValueIterator<'a>>,
+    pub iterators: SmallVec<[ValueIterator<'a>; 4]>,
 }
 
 impl<'a> MultiRangeValueIterator<'a> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            iterators: Vec::with_capacity(capacity),
+            iterators: SmallVec::with_capacity(capacity),
         }
     }
 
-    pub fn get_next_values(&mut self, output: &mut Vec<Value<'a>>) -> bool {
+    pub fn get_next_values(&mut self, output: &mut ValueVec<'a>) -> bool {
         output.clear();
 
         for iter in self.iterators.iter_mut() {
