@@ -422,6 +422,7 @@ impl KotoParser {
 
                 let else_node = if inner.peek().is_some() {
                     let mut inner = inner.next().unwrap().into_inner();
+                    inner.next(); // else
                     Some(next_as_boxed_ast!(inner))
                 } else {
                     None
@@ -522,8 +523,8 @@ impl KotoParser {
                     })),
                 )
             }
-            Rule::break_keyword => AstNode::new(span, Node::Break),
-            Rule::continue_keyword => AstNode::new(span, Node::Continue),
+            Rule::break_ => AstNode::new(span, Node::Break),
+            Rule::continue_ => AstNode::new(span, Node::Continue),
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
     }

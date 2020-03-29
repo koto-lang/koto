@@ -62,11 +62,11 @@ expression = _{
   | if_statement
   | for_loop
   | while_loop
-  | break_keyword
-  | continue_keyword
+  | break_
+  | continue_
   | operation
-  | call
-  | debug
+  | function_call
+  | debug_expression
   )
   ~ comment?
 }
@@ -94,20 +94,6 @@ op = _{
   | and | or
 }
 
-add = { "+" }
-subtract = { "-" }
-multiply = { "*" }
-divide = { "/" }
-modulo = { "%" }
-equal = { "==" }
-not_equal = { "!=" }
-greater = { ">" }
-greater_or_equal = { ">=" }
-less = { "<" }
-less_or_equal = { "<=" }
-and = { "and" }
-or = { "or" }
-
 term = _{
   map
   | function_inline
@@ -123,7 +109,7 @@ flow_term = _{
 value_term = _{(
   empty
   | range
-  | call
+  | function_call
   | negate
   | map_inline
   | list
@@ -136,7 +122,7 @@ value_term = _{(
   | copy_id
   | ref_expression
   | ref_id
-  | vec4
+  | vec4_expression
   | ("(" ~ operation ~ ")")
   )
   ~ comment?
@@ -152,7 +138,7 @@ if_block = !{
   ~ else_block?
 }
 else_if_block = { NEWLINE* ~ else_if_keyword ~ expression ~ child_block }
-else_block = { NEWLINE* ~ "else" ~ child_block }
+else_block = { NEWLINE* ~ else_ ~ child_block }
 if_inline = !{
   if_keyword ~ expression
   ~ then_keyword ~ expressions
@@ -181,7 +167,7 @@ while_loop = !{
   ~ child_block
 }
 
-call = _{ call_no_parens }
+function_call = _{ call_no_parens }
 call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
 
 call_args = !{
@@ -192,9 +178,9 @@ call_args = !{
   ~ ")"
 }
 
-debug = _{ debug_with_parens | debug_no_parens }
-debug_with_parens = ${ debug_keyword ~ call_args }
-debug_no_parens = ${ debug_keyword ~ WHITESPACE+ ~ operations }
+debug_expression = _{ debug_with_parens | debug_no_parens }
+debug_with_parens = ${ debug ~ call_args }
+debug_no_parens = ${ debug ~ WHITESPACE+ ~ operations }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
@@ -240,19 +226,19 @@ list = !{
 
 range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | call | lookup | id | ("(" ~ operation ~ ")") }
+range_arg = _{ number | function_call | lookup | id | ("(" ~ operation ~ ")") }
 
-vec4 = _{ vec4_with_parens | vec4_no_parens }
+vec4_expression = _{ vec4_with_parens | vec4_no_parens }
 vec4_with_parens = !{
-  vec4_keyword
+  vec4
   ~ "("
   ~ separator_line*
   ~ operation ~ (comma_separator ~ operation){, 3} ~ comma_separator?
   ~ ")"
   }
-vec4_no_parens = !{ vec4_keyword ~ operation ~ (comma_separator ~ operation){, 3} }
+vec4_no_parens = !{ vec4 ~ operation ~ (comma_separator ~ operation){, 3} }
 
-boolean = { "true" | "false" }
+boolean = { true_ | false_ }
 negate = { not_keyword ~ operation }
 
 empty = { "()" }
@@ -285,46 +271,75 @@ lookup_node = _{ index | call_args | map_access }
 index = ${ "[" ~ operation ~ "]" }
 map_access = ${ ("." ~ id) }
 
+add = { "+" }
+subtract = { "-" }
+multiply = { "*" }
+divide = { "/" }
+modulo = { "%" }
+equal = { "==" }
+not_equal = { "!=" }
+greater = { ">" }
+greater_or_equal = { ">=" }
+less = { "<" }
+less_or_equal = { "<=" }
+and = { "and" }
+or = { "or" }
+
+break_ = { "break" }
+continue_ = { "continue"  }
+copy = { "copy" }
+debug = { "debug" }
+else_ = { "else" }
+false_ = { "false" }
+for_ = { "for" }
+global = { "global" }
+if_ = { "if" }
+in_ = { "in" }
+not = { "not" }
+ref_ = { "ref" }
+return_ = { "return" }
+then = { "then" }
+true_ = { "true" }
+until = { "until" }
+vec4 = { "vec4" }
+while_ = { "while" }
+
 keyword = _{
-  "and"
-  | "break"
-  | "continue"
-  | "copy"
-  | "debug"
-  | "else"
-  | "false"
-  | "for"
-  | "global"
-  | "if"
-  | "in"
-  | "not"
-  | "or"
-  | "ref"
-  | "return"
-  | "then"
-  | "true"
-  | "until"
-  | "vec4"
-  | "while"
+  and
+  | break_
+  | continue_
+  | copy
+  | debug
+  | else_
+  | false_
+  | for_
+  | global
+  | if_
+  | in_
+  | not
+  | or
+  | ref_
+  | return_
+  | then
+  | true_
+  | until
+  | vec4
+  | while_
 }
 
-break_keyword = @{ "break" }
-continue_keyword = @{ "continue"  }
-copy_keyword = @{ "copy" ~ WHITESPACE+ }
-debug_keyword = @{ "debug" }
-else_if_keyword = @{ "else if" ~ WHITESPACE+ }
-else_keyword = @{ "else" ~ WHITESPACE+ }
-for_keyword = @{ "for" ~ WHITESPACE+ }
-global_keyword = @{ "global" ~ WHITESPACE+ }
-if_keyword = @{ "if" ~ WHITESPACE+ }
-in_keyword = @{ "in" ~ WHITESPACE+ }
-not_keyword = @{ "not" ~ WHITESPACE+ }
-ref_keyword = @{ "ref" ~ WHITESPACE+ }
-return_keyword = @{ "return" ~ WHITESPACE+ }
-then_keyword = @{ "then" ~ WHITESPACE+ }
-until_keyword = @{ "until" ~ WHITESPACE+ }
-vec4_keyword = @{ "vec4" }
-while_keyword = @{ "while" ~ WHITESPACE+ }
+copy_keyword = @{ copy ~ WHITESPACE+ }
+else_if_keyword = @{ else_ ~ WHITESPACE+ ~ if_ ~ WHITESPACE+ }
+else_keyword = @{ else_ ~ WHITESPACE+ }
+for_keyword = @{ for_ ~ WHITESPACE+ }
+global_keyword = @{ global ~ WHITESPACE+ }
+if_keyword = @{ if_ ~ WHITESPACE+ }
+in_keyword = @{ in_ ~ WHITESPACE+ }
+not_keyword = @{ not ~ WHITESPACE+ }
+ref_keyword = @{ ref_ ~ WHITESPACE+ }
+return_keyword = @{ return_ ~ WHITESPACE+ }
+then_keyword = @{ then ~ WHITESPACE+ }
+until_keyword = @{ until ~ WHITESPACE+ }
+while_keyword = @{ while_ ~ WHITESPACE+ }
 
 comma_separator = _{ "," ~ separator_line* }
 separator_line = _{ inline_comment? ~ NEWLINE ~ (comment ~ NEWLINE)* }
