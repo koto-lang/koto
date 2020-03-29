@@ -1,5 +1,5 @@
 ###### list.push + pop
-z = ref [1]
+z = share [1]
 list.push(z, 2)
 assert_eq z, [1, 2]
 list.push(z, 3)
@@ -14,7 +14,7 @@ assert_eq z, []
 
 
 ###### list.remove + insert
-z = ref [1, 2, 3]
+z = share [1, 2, 3]
 assert_eq (list.remove z, 1), 2
 assert_eq z, [1, 3]
 list.insert z, 1, 42
@@ -63,12 +63,12 @@ assert list.is_sortable ["42", "10", "9"]
 ###### list.sort + sort_copy
 assert_eq [9, 10, 42], list.sort_copy [42, 10, 9]
 
-z = ref [3, 2, 1]
+z = share [3, 2, 1]
 list.sort z
 assert_eq z, [1, 2, 3]
 
 
 ###### list.fill
-a = ref [1, 2, 3]
+a = share [1, 2, 3]
 list.fill a, 42
 assert_eq a, [42, 42, 42]

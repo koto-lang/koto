@@ -11,7 +11,7 @@ fannkuch = |n|
   p = 0..=n
   s = p
   q = p
-  p = ref p
+  p = share p
   sign = 1
   sum = 0
   max_flips = 0

@@ -38,7 +38,7 @@ pub fn register(global: &mut ValueMap) {
             args: &[Value<'a>],
             mut file_op: impl FnMut(&mut File) -> RuntimeResult<'a>,
         ) -> RuntimeResult<'a> {
-            use Value::Ref;
+            use Value::Share;
 
             if args.len() == 0 {
                 return builtin_error!(
@@ -48,7 +48,7 @@ pub fn register(global: &mut ValueMap) {
             }
 
             match &args[0] {
-                Ref(map_ref) => {
+                Share(map_ref) => {
                     match &*map_ref.borrow() {
                         // TODO Find a way to get from ValueMap with &str as key
                         Map(instance) => match instance.borrow().0.get("file") {

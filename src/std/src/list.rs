@@ -252,16 +252,16 @@ fn ref_list_op<'a>(
     }
 
     match &args[0] {
-        Value::Ref(r) => match &mut *r.borrow_mut() {
+        Value::Share(r) => match &mut *r.borrow_mut() {
             Value::List(l) => op(&mut l.borrow_mut()),
             unexpected => builtin_error!(
-                "list.{} expects a reference to a list as its first argument, found {}",
+                "list.{} expects a shared list as its first argument, found {}",
                 op_name,
                 value::type_as_string(&unexpected)
             ),
         },
         unexpected => builtin_error!(
-            "list.{} expects a reference to a list as its first argument, found {}",
+            "list.{} expects a shared list as its first argument, found {}",
             op_name,
             value::type_as_string(unexpected)
         ),

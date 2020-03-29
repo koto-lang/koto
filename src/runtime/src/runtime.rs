@@ -302,7 +302,7 @@ impl<'a> Runtime<'a> {
                     deref_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.value)
                 }
             },
-            Node::Ref(lookup_or_id) => match lookup_or_id {
+            Node::Share(lookup_or_id) => match lookup_or_id {
                 LookupOrId::Id(id) => self.make_reference_from_id(&Id(id.clone()), node)?,
                 LookupOrId::Lookup(lookup) => {
                     self.make_reference_from_lookup(&lookup.as_slice(), node)?
@@ -316,11 +316,11 @@ impl<'a> Runtime<'a> {
                 }
             },
             Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
-            Node::RefExpression(expression) => {
+            Node::ShareExpression(expression) => {
                 let value = self.evaluate_and_capture(expression)?;
                 match value {
-                    Ref(_) => value,
-                    _ => Ref(Rc::new(RefCell::new(value))),
+                    Share(_) => value,
+                    _ => Share(Rc::new(RefCell::new(value))),
                 }
             }
             Node::ReturnExpression(expression) => match self.control_flow {
@@ -388,19 +388,19 @@ impl<'a> Runtime<'a> {
     }
 
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
-        use Value::Ref;
+        use Value::Share;
 
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
             match self.global.0.get_mut(id) {
                 Some(exists) => match (&exists, &value) {
-                    (Ref(ref_a), Ref(ref_b)) => {
+                    (Share(ref_a), Share(ref_b)) => {
                         if ref_a != ref_b {
                             *exists = value;
                         }
                     }
-                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                    (Share(ref_a), _) if values_have_matching_type(&exists, &value) => {
                         *ref_a.borrow_mut() = value;
                     }
                     _ => {
@@ -414,12 +414,12 @@ impl<'a> Runtime<'a> {
         } else {
             match self.call_stack.get_mut(id.as_str()) {
                 Some(exists) => match (&exists, &value) {
-                    (Ref(ref_a), Ref(ref_b)) => {
+                    (Share(ref_a), Share(ref_b)) => {
                         if ref_a != ref_b {
                             *exists = value;
                         }
                     }
-                    (Ref(ref_a), _) if values_have_matching_type(&exists, &value) => {
+                    (Share(ref_a), _) if values_have_matching_type(&exists, &value) => {
                         *ref_a.borrow_mut() = value;
                     }
                     _ => {
@@ -1240,7 +1240,7 @@ impl<'a> Runtime<'a> {
                 match f.args.first() {
                     Some(self_arg) if self_arg.as_ref() == "self" => {
                         let parent = parent.unwrap();
-                        assert!(matches!(parent.value, Value::Map(_) | Value::Ref(_)));
+                        assert!(matches!(parent.value, Value::Map(_) | Value::Share(_)));
                         let self_ref = match parent.lookup_index {
                             Some(index) => {
                                 let function_lookup = match lookup_or_id {

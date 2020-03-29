@@ -15,7 +15,7 @@ pub enum Value<'a> {
     List(Rc<RefCell<ValueList<'a>>>),
     Map(Rc<RefCell<ValueMap<'a>>>),
     Str(Rc<String>),
-    Ref(Rc<RefCell<Value<'a>>>),
+    Share(Rc<RefCell<Value<'a>>>),
     Function(Rc<Function>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
@@ -55,9 +55,9 @@ impl<'a> fmt::Display for Value<'a> {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Ref(r) => {
+            Share(r) => {
                 let value = deref_value(&r.borrow());
-                write!(f, "Ref {}", value)
+                write!(f, "Share: {}", value)
             }
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
@@ -85,9 +85,9 @@ impl<'a> PartialEq for Value<'a> {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a.as_ref() == b.as_ref(),
             (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
-            (Ref(a), Ref(b)) => a.as_ref() == b.as_ref(),
-            (Ref(a), _) => a.borrow().deref() == other,
-            (_, Ref(b)) => self == b.borrow().deref(),
+            (Share(a), Share(b)) => a.as_ref() == b.as_ref(),
+            (Share(a), _) => a.borrow().deref() == other,
+            (_, Share(b)) => self == b.borrow().deref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             (Empty, Empty) => true,
             _ => false,
@@ -179,32 +179,32 @@ impl<'a> fmt::Debug for BuiltinFunction<'a> {
 
 pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
     use std::mem::discriminant;
-    use Value::Ref;
+    use Value::Share;
 
     match (a, b) {
-        (Ref(a), Ref(b)) => discriminant(a.borrow().deref()) == discriminant(b.borrow().deref()),
-        (Ref(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
-        (_, Ref(b)) => discriminant(a) == discriminant(b.borrow().deref()),
+        (Share(a), Share(b)) => discriminant(a.borrow().deref()) == discriminant(b.borrow().deref()),
+        (Share(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
+        (_, Share(b)) => discriminant(a) == discriminant(b.borrow().deref()),
         (_, _) => discriminant(a) == discriminant(b),
     }
 }
 
 pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
-    use Value::{List, Map, Ref};
+    use Value::{List, Map, Share};
 
     match value {
         List(l) => List(Rc::new(RefCell::new(l.borrow().clone()))),
         Map(m) => Map(Rc::new(RefCell::new(m.borrow().clone()))),
-        Ref(r) => r.borrow().clone(),
+        Share(r) => r.borrow().clone(),
         _ => value.clone(),
     }
 }
 
 pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
-    use Value::Ref;
+    use Value::Share;
 
     match value {
-        Ref(r) => r.borrow().clone(),
+        Share(r) => r.borrow().clone(),
         _ => value.clone(),
     }
 }
@@ -219,13 +219,13 @@ pub fn make_reference(mut value: Value) -> (Value, bool) {
         Value::Map(m) => {
             Rc::make_mut(m);
         }
-        Value::Ref(_) => {
+        Value::Share(_) => {
             return (value, false);
         }
         _ => {}
     }
     let cloned = Rc::new(RefCell::new(value.clone()));
-    (Value::Ref(cloned), true)
+    (Value::Share(cloned), true)
 }
 
 pub fn type_as_string(value: &Value) -> String {
@@ -240,7 +240,7 @@ pub fn type_as_string(value: &Value) -> String {
         IndexRange { .. } => "IndexRange".to_string(),
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
-        Ref(r) => format!("Ref {}", type_as_string(&deref_value(&r.borrow()))),
+        Share(value) => format!("Share({})", type_as_string(&deref_value(&value.borrow()))),
         Function(_) => "Function".to_string(),
         BuiltinFunction(_) => "BuiltinFunction".to_string(),
         BuiltinValue(value) => value.borrow().value_type(),

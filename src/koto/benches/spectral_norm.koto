@@ -32,9 +32,9 @@ AtAv = |x, y, t, n|
 
 main = ||
   N = number env.args[0]
-  u = ref [1 for _ in 0..N] # TODO ref list.repeat 1, N
-  v = ref [0 for _ in 0..N]
-  t = ref [0 for _ in 0..N]
+  u = share [1 for _ in 0..N] # TODO share list.repeat 1, N
+  v = share [0 for _ in 0..N]
+  t = share [0 for _ in 0..N]
   for _ in 0..10
     AtAv u, v, t, N
     AtAv v, u, t, N

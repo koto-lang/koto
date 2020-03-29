@@ -44,7 +44,7 @@ koto_test!(maps);
 koto_test!(maps_and_lists);
 koto_test!(math);
 koto_test!(ranges);
-koto_test!(references);
+koto_test!(shares);
 koto_test!(strings);
 koto_test!(vec4_new);
 koto_test!(vec4_ops);
