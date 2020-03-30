@@ -234,6 +234,15 @@ pub enum AssignTarget {
     Lookup(Lookup),
 }
 
+impl AssignTarget {
+    pub fn to_node(&self) -> Node{
+        match self {
+            AssignTarget::Id{id, ..} => Node::Id(id.clone()),
+            AssignTarget::Lookup(lookup) => Node::Lookup(lookup.clone()),
+        }
+    }
+}
+
 impl fmt::Display for AssignTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use AssignTarget::*;

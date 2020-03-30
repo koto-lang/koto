@@ -1636,13 +1636,13 @@ impl<'a> Runtime<'a> {
             )
         };
 
-        let lhs_value = self.evaluate_and_capture(lhs)?;
+        let lhs_value = deref_value(&self.evaluate_and_capture(lhs)?);
 
         match op {
             AstOp::And => {
                 return if let Bool(a) = lhs_value {
                     if a {
-                        match self.evaluate_and_capture(rhs)? {
+                        match deref_value(&self.evaluate_and_capture(rhs)?) {
                             Bool(b) => Ok(Bool(b)),
                             rhs_value => binary_op_error(lhs_value, rhs_value),
                         }
@@ -1660,7 +1660,7 @@ impl<'a> Runtime<'a> {
             AstOp::Or => {
                 return if let Bool(a) = lhs_value {
                     if !a {
-                        match self.evaluate_and_capture(rhs)? {
+                        match deref_value(&self.evaluate_and_capture(rhs)?) {
                             Bool(b) => Ok(Bool(b)),
                             rhs_value => binary_op_error(lhs_value, rhs_value),
                         }
@@ -1678,7 +1678,7 @@ impl<'a> Runtime<'a> {
             _ => {}
         }
 
-        let rhs_value = self.evaluate_and_capture(rhs)?;
+        let rhs_value = deref_value(&self.evaluate_and_capture(rhs)?);
 
         runtime_trace!(self, "{:?} - lhs: {} rhs: {}", op, &lhs_value, &rhs_value);
 

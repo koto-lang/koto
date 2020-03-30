@@ -306,7 +306,29 @@ impl KotoParser {
                     Rule::lookup => AssignTarget::Lookup(next_as_lookup!(inner)),
                     _ => unreachable!(),
                 };
-                let expression = next_as_boxed_ast!(inner);
+                let operator = inner.next().unwrap().as_rule();
+                let rhs = next_as_boxed_ast!(inner);
+                macro_rules! make_assign_op {
+                    ($op:ident) => {
+                        Box::new(AstNode::new(
+                            span.clone(),
+                            Node::Op {
+                                op: AstOp::$op,
+                                lhs: Box::new(AstNode::new(span.clone(), target.to_node())),
+                                rhs,
+                            },
+                        ))
+                    };
+                };
+                let expression = match operator {
+                    Rule::assign => rhs,
+                    Rule::assign_add => make_assign_op!(Add),
+                    Rule::assign_subtract => make_assign_op!(Subtract),
+                    Rule::assign_multiply => make_assign_op!(Multiply),
+                    Rule::assign_divide => make_assign_op!(Divide),
+                    Rule::assign_modulo => make_assign_op!(Modulo),
+                    _ => unreachable!(),
+                };
                 AstNode::new(span, Node::Assign { target, expression })
             }
             Rule::multiple_assignment => {

@@ -20,7 +20,8 @@ assert_eq t, "bye"
 # copy can be used to make a copy of a share's value
 x = share 1
 y = copy x
-x = 2
+x *= 2
+assert_eq x, 2
 assert_eq y, 1
 
 # Assigning a share to another doesn't modify existing shares
@@ -88,5 +89,5 @@ assert_eq b, [7, 7, 7]
 # Maps can be shared too
 m = {foo: 42}
 n = share m
-n.foo = 99
-assert_eq m.foo, 99
+n.foo /= 2
+assert_eq m.foo, 21

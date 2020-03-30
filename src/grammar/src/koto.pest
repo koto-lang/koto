@@ -47,13 +47,23 @@ next_assignment_or_expression = @{
 assignment = _{ single_assignment | multiple_assignment }
 single_assignment = !{
   assignment_target
-  ~ "=" ~ (expressions | expression_block)
+  ~ assignment_operator
+  ~ (expressions | expression_block)
 }
 multiple_assignment = !{
   assignment_targets
   ~ "=" ~ (expressions | expression_block) }
 assignment_target = _{ lookup | assignment_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
+
+assignment_operator = _{
+  assign
+  | assign_add
+  | assign_subtract
+  | assign_multiply
+  | assign_divide
+  | assign_modulo
+}
 
 expression = _{
   ( return_expression
@@ -284,6 +294,13 @@ less = { "<" }
 less_or_equal = { "<=" }
 and = { "and" }
 or = { "or" }
+
+assign = { "=" }
+assign_add = { "+=" }
+assign_subtract = { "-=" }
+assign_multiply = { "*=" }
+assign_divide = { "/=" }
+assign_modulo = { "%=" }
 
 break_ = { "break" }
 continue_ = { "continue"  }
