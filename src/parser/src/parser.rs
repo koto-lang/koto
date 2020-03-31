@@ -6,6 +6,8 @@ use koto_grammar::Rule;
 
 type Error = pest::error::Error<Rule>;
 
+const TEMP_VAR_PREFIX: &str = "__";
+
 pub struct KotoParser {
     climber: PrecClimber<Rule>,
 }
@@ -371,40 +373,46 @@ impl KotoParser {
                     },
                 )
             }
-            Rule::operation => self.climber.climb(
-                pair.into_inner(),
-                |pair: Pair<Rule>| self.build_ast(pair),
-                |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
-                    let span = op.as_span();
-                    let lhs = Box::new(lhs);
-                    let rhs = Box::new(rhs);
-                    use AstOp::*;
-                    macro_rules! make_ast_op {
-                        ($op:expr) => {
-                            AstNode::new(span, Node::Op { op: $op, lhs, rhs })
+            Rule::operation => {
+                let operation_tree = self.climber.climb(
+                    pair.into_inner(),
+                    |pair: Pair<Rule>| self.build_ast(pair),
+                    |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
+                        use AstOp::*;
+
+                        let span = op.as_span();
+                        let lhs = Box::new(lhs);
+                        let rhs = Box::new(rhs);
+
+                        macro_rules! make_ast_op {
+                            ($op:expr) => {
+                                AstNode::new(span, Node::Op { op: $op, lhs, rhs })
+                            };
                         };
-                    };
-                    match op.as_rule() {
-                        Rule::add => make_ast_op!(Add),
-                        Rule::subtract => make_ast_op!(Subtract),
-                        Rule::multiply => make_ast_op!(Multiply),
-                        Rule::divide => make_ast_op!(Divide),
-                        Rule::modulo => make_ast_op!(Modulo),
-                        Rule::equal => make_ast_op!(Equal),
-                        Rule::not_equal => make_ast_op!(NotEqual),
-                        Rule::greater => make_ast_op!(Greater),
-                        Rule::greater_or_equal => make_ast_op!(GreaterOrEqual),
-                        Rule::less => make_ast_op!(Less),
-                        Rule::less_or_equal => make_ast_op!(LessOrEqual),
-                        Rule::and => make_ast_op!(And),
-                        Rule::or => make_ast_op!(Or),
-                        unexpected => {
-                            let error = format!("Unexpected operator: {:?}", unexpected);
-                            unreachable!(error)
+
+                        match op.as_rule() {
+                            Rule::add => make_ast_op!(Add),
+                            Rule::subtract => make_ast_op!(Subtract),
+                            Rule::multiply => make_ast_op!(Multiply),
+                            Rule::divide => make_ast_op!(Divide),
+                            Rule::modulo => make_ast_op!(Modulo),
+                            Rule::equal => make_ast_op!(Equal),
+                            Rule::not_equal => make_ast_op!(NotEqual),
+                            Rule::greater => make_ast_op!(Greater),
+                            Rule::greater_or_equal => make_ast_op!(GreaterOrEqual),
+                            Rule::less => make_ast_op!(Less),
+                            Rule::less_or_equal => make_ast_op!(LessOrEqual),
+                            Rule::and => make_ast_op!(And),
+                            Rule::or => make_ast_op!(Or),
+                            unexpected => {
+                                let error = format!("Unexpected operator: {:?}", unexpected);
+                                unreachable!(error)
+                            }
                         }
-                    }
-                },
-            ),
+                    },
+                );
+                self.post_process_operation_tree(operation_tree, 0)
+            }
             Rule::if_inline => {
                 let mut inner = pair.into_inner();
                 inner.next(); // if
@@ -552,6 +560,103 @@ impl KotoParser {
             Rule::break_ => AstNode::new(span, Node::Break),
             Rule::continue_ => AstNode::new(span, Node::Continue),
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
+        }
+    }
+
+    fn post_process_operation_tree(&self, tree: AstNode, temp_value_counter: usize) -> AstNode {
+        // To support chained comparisons:
+        //   if the node is an op
+        //     and if the op is a comparison
+        //       and if the lhs is also a comparison
+        //         then convert the node to an And
+        //           ..with lhs as the And's lhs, but with its rhs assigning to a temp value
+        //           ..with rhs as the node's op, and with its lhs reading from the temp value
+        //     then proceed down lhs and rhs
+        match tree.node {
+            Node::Op { op, lhs, rhs } => {
+                use AstOp::*;
+                let (op, lhs, rhs) = match op {
+                    Greater | GreaterOrEqual | Less | LessOrEqual => {
+                        let chained_temp_value = match &lhs.node {
+                            Node::Op { op, .. } => match op {
+                                Greater | GreaterOrEqual | Less | LessOrEqual => {
+                                    let temp_value = Id::new(format!(
+                                        "{}{}",
+                                        TEMP_VAR_PREFIX, temp_value_counter
+                                    ));
+                                    Some(temp_value)
+                                }
+                                _ => None,
+                            },
+                            _ => None,
+                        };
+
+                        if let Some(chained_temp_value) = chained_temp_value {
+                            // rewrite the lhs to have its rhs assigned to a temp value
+                            let lhs = match lhs.node {
+                                Node::Op {
+                                    op: lhs_op,
+                                    lhs: lhs_lhs,
+                                    rhs: lhs_rhs,
+                                } => Box::new(AstNode {
+                                    node: Node::Op {
+                                        op: lhs_op,
+                                        lhs: lhs_lhs,
+                                        rhs: Box::new(AstNode {
+                                            node: Node::Assign {
+                                                target: AssignTarget::Id {
+                                                    id: chained_temp_value.clone(),
+                                                    scope: Scope::Local,
+                                                },
+                                                expression: lhs_rhs.clone(),
+                                            },
+                                            ..*lhs_rhs
+                                        }),
+                                    },
+                                    ..*lhs
+                                }),
+                                _ => unreachable!(),
+                            };
+
+                            // rewrite the rhs to perform the node's comparison,
+                            // reading from the temp value on its lhs
+                            let rhs = Box::new(AstNode {
+                                node: Node::Op {
+                                    op,
+                                    lhs: Box::new(AstNode {
+                                        node: Node::Id(chained_temp_value.clone()),
+                                        start_pos: tree.start_pos,
+                                        end_pos: tree.end_pos,
+                                    }),
+                                    rhs: rhs,
+                                },
+                                start_pos: tree.start_pos,
+                                end_pos: tree.end_pos,
+                            });
+
+                            // Insert an And to chain the comparisons
+                            (AstOp::And, lhs, rhs)
+                        } else {
+                            (op, lhs, rhs)
+                        }
+                    }
+                    _ => (op, lhs, rhs),
+                };
+
+                AstNode {
+                    node: Node::Op {
+                        op: op,
+                        lhs: Box::new(
+                            self.post_process_operation_tree(*lhs, temp_value_counter + 1),
+                        ),
+                        rhs: Box::new(
+                            self.post_process_operation_tree(*rhs, temp_value_counter + 1),
+                        ),
+                    },
+                    ..tree
+                }
+            }
+            node => AstNode { node, ..tree },
         }
     }
 }

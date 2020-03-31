@@ -205,7 +205,8 @@ pub struct AstIf {
     pub else_if_node: Option<Box<AstNode>>,
     pub else_node: Option<Box<AstNode>>,
 }
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Copy, Debug)]
 pub enum AstOp {
     Add,
     Subtract,
