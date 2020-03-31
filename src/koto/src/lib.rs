@@ -172,7 +172,7 @@ impl<'a> Koto<'a> {
             );
 
             excerpt += &format!(
-                "{}|{}\n",
+                "{}|{}",
                 padding,
                 format!(
                     "{}{}",
@@ -187,7 +187,7 @@ impl<'a> Koto<'a> {
 
             for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
                 excerpt += &format!(
-                    " {:>width$} | {}\n",
+                    " {:>width$} | {}",
                     line_number,
                     excerpt_line,
                     width = number_width
@@ -198,7 +198,7 @@ impl<'a> Koto<'a> {
         };
 
         format!(
-            "Runtime error: {message}\n --> {}:{}\n{padding}|\n{excerpt}{padding}|",
+            "Runtime error: {message}\n --> {}:{}\n{padding}|\n{excerpt}",
             start_pos.line,
             start_pos.column,
             padding = padding,
