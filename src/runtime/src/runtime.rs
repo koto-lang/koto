@@ -303,11 +303,12 @@ impl<'a> Runtime<'a> {
                 end,
                 inclusive,
             } => self.make_range(start, end, *inclusive, node)?,
-            Node::IndexRange {
-                start,
-                end,
-                inclusive,
-            } => self.make_index_range(start, end, *inclusive, node)?,
+            Node::RangeFrom { start } => self.make_range_from(start, node)?,
+            Node::RangeTo { end, inclusive } => self.make_range_to(end, *inclusive, node)?,
+            Node::RangeFull => IndexRange {
+                start: 0,
+                end: None,
+            },
             Node::Map(entries) => {
                 let mut map = ValueMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
@@ -1574,72 +1575,76 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn make_index_range(
+    fn make_range_from(
         &mut self,
-        start: &Option<Box<AstNode>>,
-        end: &Option<Box<AstNode>>,
+        start_expression: &Box<AstNode>,
+        node: &AstNode,
+    ) -> RuntimeResult<'a> {
+        use Value::{IndexRange, Number};
+
+        let evaluated_start = match self.evaluate(start_expression)? {
+            Number(n) => {
+                if n < 0.0 {
+                    return runtime_error!(
+                        node,
+                        "Negative numbers aren't allowed in index ranges, found {}",
+                        n
+                    );
+                }
+
+                n as usize
+            }
+            unexpected => {
+                return runtime_error!(
+                    node,
+                    "Expected Number for range start, found '{}'",
+                    type_as_string(&unexpected)
+                );
+            }
+        };
+
+        Ok(IndexRange {
+            start: evaluated_start,
+            end: None,
+        })
+    }
+
+    fn make_range_to(
+        &mut self,
+        end_expression: &Box<AstNode>,
         inclusive: bool,
         node: &AstNode,
     ) -> RuntimeResult<'a> {
         use Value::{IndexRange, Number};
 
-        let evaluated_start = if let Some(start_expression) = start {
-            match self.evaluate(start_expression)? {
-                Number(n) => {
-                    if n < 0.0 {
-                        return runtime_error!(
-                            node,
-                            "Negative numbers aren't allowed in index ranges, found {}",
-                            n
-                        );
-                    }
+        let evaluated_end = match self.evaluate(end_expression)? {
+            Number(n) => {
+                if n < 0.0 {
+                    return runtime_error!(
+                        node,
+                        "Negative numbers aren't allowed in index ranges, found {}",
+                        n
+                    );
+                }
 
+                if inclusive {
+                    n as usize + 1
+                } else {
                     n as usize
                 }
-                unexpected => {
-                    return runtime_error!(
-                        node,
-                        "Expected Number for range start, found '{}'",
-                        type_as_string(&unexpected)
-                    );
-                }
             }
-        } else {
-            0
-        };
-
-        let maybe_end = if let Some(end_expression) = end {
-            Some(match self.evaluate(end_expression)? {
-                Number(n) => {
-                    if n < 0.0 {
-                        return runtime_error!(
-                            node,
-                            "Negative numbers aren't allowed in index ranges, found {}",
-                            n
-                        );
-                    }
-
-                    if inclusive {
-                        n as usize + 1
-                    } else {
-                        n as usize
-                    }
-                }
-                unexpected => {
-                    return runtime_error!(
-                        node,
-                        "Expected Number for range end, found '{}'",
-                        type_as_string(&unexpected)
-                    );
-                }
-            })
-        } else {
-            None
+            unexpected => {
+                return runtime_error!(
+                    node,
+                    "Expected Number for range end, found '{}'",
+                    type_as_string(&unexpected)
+                );
+            }
         };
 
         Ok(IndexRange {
-            start: evaluated_start,
-            end: maybe_end,
+            start: 0,
+            end: Some(evaluated_end),
         })
     }
 
@@ -1887,7 +1892,7 @@ impl<'a> Runtime<'a> {
 fn is_single_value_node(node: &Node) -> bool {
     use Node::*;
     match node {
-        For(_) | While(_) | Range { .. } | IndexRange { .. } => false,
+        For(_) | While(_) | Range { .. } | RangeFrom { .. } | RangeTo { .. } | RangeFull => false,
         _ => true,
     }
 }

@@ -20,11 +20,14 @@ pub enum Node {
         end: Box<AstNode>,
         inclusive: bool,
     },
-    IndexRange {
-        start: Option<Box<AstNode>>,
-        end: Option<Box<AstNode>>,
+    RangeFrom {
+        start: Box<AstNode>,
+    },
+    RangeTo {
+        end: Box<AstNode>,
         inclusive: bool,
     },
+    RangeFull,
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
@@ -88,9 +91,9 @@ impl fmt::Display for Node {
             Range { inclusive, .. } => {
                 write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
             }
-            IndexRange { inclusive, .. } => {
-                write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
-            }
+            RangeFrom { .. } => write!(f, "RangeFrom"),
+            RangeTo { .. } => write!(f, "RangeTo"),
+            RangeFull { .. } => write!(f, "RangeFull"),
             Map(m) => write!(
                 f,
                 "Map with {} {}",
@@ -157,7 +160,7 @@ impl LookupOrId {
             LookupOrId::Id(id) => LookupSliceOrId::Id(id.clone()),
             LookupOrId::Lookup(lookup) => LookupSliceOrId::LookupSlice(lookup.as_slice()),
         }
-   }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -238,9 +241,9 @@ pub enum AssignTarget {
 }
 
 impl AssignTarget {
-    pub fn to_node(&self) -> Node{
+    pub fn to_node(&self) -> Node {
         match self {
-            AssignTarget::Id{id, ..} => Node::Id(id.clone()),
+            AssignTarget::Id { id, .. } => Node::Id(id.clone()),
             AssignTarget::Lookup(lookup) => Node::Lookup(lookup.clone()),
         }
     }

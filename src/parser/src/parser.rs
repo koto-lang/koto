@@ -165,24 +165,24 @@ impl KotoParser {
                     None
                 };
 
-                match (&maybe_start, &maybe_end) {
-                    (Some(start), Some(end)) => AstNode::new(
-                        span,
-                        Node::Range {
+                AstNode::new(
+                    span,
+                    match (&maybe_start, &maybe_end) {
+                        (Some(start), Some(end)) => Node::Range {
                             start: start.clone(),
                             end: end.clone(),
                             inclusive,
                         },
-                    ),
-                    _ => AstNode::new(
-                        span,
-                        Node::IndexRange {
-                            start: maybe_start,
-                            end: maybe_end,
+                        (Some(start), None) => Node::RangeFrom {
+                            start: start.clone(),
+                        },
+                        (None, Some(end)) => Node::RangeTo {
+                            end: end.clone(),
                             inclusive,
                         },
-                    ),
-                }
+                        _ => Node::RangeFull,
+                    },
+                )
             }
             Rule::map | Rule::map_value | Rule::map_inline => {
                 let inner = if pair.as_rule() == Rule::map_value {
@@ -235,12 +235,14 @@ impl KotoParser {
             Rule::return_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // return
-                AstNode::new(span,
+                AstNode::new(
+                    span,
                     if inner.peek().is_some() {
-                     Node::ReturnExpression(next_as_boxed_ast!(inner))
+                        Node::ReturnExpression(next_as_boxed_ast!(inner))
                     } else {
-                    Node::Return
-                    })
+                        Node::Return
+                    },
+                )
             }
             Rule::negate => {
                 let mut inner = pair.into_inner();
