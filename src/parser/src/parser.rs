@@ -257,6 +257,16 @@ impl KotoParser {
                     .collect::<Vec<_>>();
                 // collect function body
                 let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+
+                let body = if body.len() == 1 {
+                    vec![AstNode::new(
+                        span.clone(),
+                        Node::ReturnExpression(Some(Box::new(body.first().unwrap().clone()))),
+                    )]
+                } else {
+                    body
+                };
+
                 AstNode::new(span, Node::Function(Rc::new(self::Function { args, body })))
             }
             Rule::call_no_parens => {

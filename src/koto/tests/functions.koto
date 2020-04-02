@@ -6,11 +6,11 @@ add = |x, y|
   x2 = x
   do_add = |x, y|
     x = x + y # Nested trailing comment
-    x
+    return x
   result = do_add x, y
   # function arguments are locally scoped
   assert x == x2
-  result
+  return result
 assert_eq 3, add 1, 2
 
 # functions can call globally defined functions

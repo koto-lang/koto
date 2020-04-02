@@ -128,21 +128,46 @@ impl<'a> Runtime<'a> {
         "  ".repeat(self.call_stack.frame())
     }
 
-    /// Evaluate a series of expressions and return the final result
+    /// Evaluate a series of expressions
     pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
+        for expression in block.iter() {
+            self.evaluate_and_expand(expression, false)?;
+            match &self.control_flow {
+                Return | Break | Continue => return Ok(Value::Empty),
+                ReturnValue(result) => return Ok(result.clone()),
+                _ => {}
+            }
+        }
+
+        Ok(Value::Empty)
+    }
+
+    /// Evaluate a series of expressions and return the final result
+    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+        use ControlFlow::*;
+
+        runtime_trace!(self, "evaluate_block_and_capture - {}", block.len());
+
         for (i, expression) in block.iter().enumerate() {
             if i < block.len() - 1 {
                 self.evaluate_and_expand(expression, false)?;
-                match self.control_flow {
-                    Return | ReturnValue(_) | Break | Continue => return Ok(Value::Empty),
+                match &self.control_flow {
+                    Return | Break | Continue => return Ok(Value::Empty),
+                    ReturnValue(result) => return Ok(result.clone()),
                     _ => {}
                 }
             } else {
-                return self.evaluate_and_capture(expression);
+                let result = self.evaluate_and_capture(expression)?;
+
+                return Ok(match &self.control_flow {
+                    Return | Break | Continue => Value::Empty,
+                    ReturnValue(result) => result.clone(),
+                    _ => result,
+                });
             }
         }
 
@@ -308,7 +333,7 @@ impl<'a> Runtime<'a> {
                     self.make_reference_from_lookup(&lookup.as_slice(), node)?
                 }
             },
-            Node::Block(block) => self.evaluate_block(&block)?,
+            Node::Block(block) => self.evaluate_block_and_capture(&block)?,
             Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
                 ValueOrValues::Value(value) => value,
                 ValueOrValues::Values(values) => {
