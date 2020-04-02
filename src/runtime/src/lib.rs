@@ -7,14 +7,14 @@ mod value_iterator;
 mod value_list;
 mod value_map;
 
-use koto_parser::{LookupSlice};
+use koto_parser::LookupSlice;
 
 use id::Id;
 pub use runtime::Runtime;
 
 pub use builtin_value::BuiltinValue;
-pub use value::Value;
-pub use value_list::{ValueVec, ValueList};
+pub use value::{type_as_string, Value};
+pub use value_list::{ValueList, ValueVec};
 pub use value_map::ValueMap;
 
 #[derive(Debug)]

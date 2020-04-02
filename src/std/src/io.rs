@@ -1,4 +1,4 @@
-use crate::{builtin_error, single_arg_fn};
+use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
@@ -38,50 +38,9 @@ pub fn register(global: &mut ValueMap) {
             args: &[Value<'a>],
             mut file_op: impl FnMut(&mut File) -> RuntimeResult<'a>,
         ) -> RuntimeResult<'a> {
-            use Value::Share;
-
-            if args.len() == 0 {
-                return builtin_error!(
-                    "File.{}: Expected file instance as first argument",
-                    fn_name
-                );
-            }
-
-            match &args[0] {
-                Share(map_ref) => {
-                    match &*map_ref.borrow() {
-                        // TODO Find a way to get from ValueMap with &str as key
-                        Map(instance) => match instance.borrow().0.get("file") {
-                            Some(Value::BuiltinValue(maybe_file)) => {
-                                match maybe_file.borrow_mut().downcast_mut::<File>() {
-                                    Some(file_handle) => file_op(file_handle),
-                                    None => builtin_error!(
-                                        "File.{}: Invalid type for file handle, found '{}'",
-                                        fn_name,
-                                        maybe_file.borrow().value_type()
-                                    ),
-                                }
-                            }
-                            Some(unexpected) => builtin_error!(
-                                "File.{}: Invalid type for File handle, found '{}'",
-                                fn_name,
-                                type_as_string(unexpected)
-                            ),
-                            None => builtin_error!("File.{}: File handle not found", fn_name),
-                        },
-                        unexpected => builtin_error!(
-                            "File.{}: Expected File instance as first argument, found '{}'",
-                            fn_name,
-                            unexpected
-                        ),
-                    }
-                }
-                unexpected => builtin_error!(
-                    "File.{}: Expected File instance as first argument, found '{}'",
-                    fn_name,
-                    unexpected
-                ),
-            }
+            get_builtin_instance!(args, "File", fn_name, File, file_ref, {
+                file_op(file_ref)
+            })
         }
 
         let mut file_map = ValueMap::new();
@@ -174,7 +133,7 @@ pub fn register(global: &mut ValueMap) {
                                 let mut file_map = file_map.clone();
 
                                 file_map.add_value(
-                                    "file",
+                                    "_data",
                                     Value::BuiltinValue(Rc::new(RefCell::new(File {
                                         file,
                                         path: path.to_path_buf(),
@@ -212,7 +171,7 @@ pub fn register(global: &mut ValueMap) {
                                 let mut file_map = file_map.clone();
 
                                 file_map.add_value(
-                                    "file",
+                                    "_data",
                                     Value::BuiltinValue(Rc::new(RefCell::new(File {
                                         file,
                                         path: path.to_path_buf(),
@@ -271,7 +230,7 @@ pub fn register(global: &mut ValueMap) {
 
             let mut file_map = file_map.clone();
             file_map.add_value(
-                "file",
+                "_data",
                 Value::BuiltinValue(Rc::new(RefCell::new(File {
                     file: temp_file,
                     path,

@@ -24,10 +24,10 @@ macro_rules! make_builtin_error {
 #[macro_export]
 macro_rules! builtin_error {
     ($error:expr) => {
-        Err(crate::make_builtin_error!(String::from($error)))
+        Err($crate::make_builtin_error!(String::from($error)))
     };
     ($error:expr, $($y:expr),+) => {
-        Err(crate::make_builtin_error!(format!($error, $($y),+)))
+        Err($crate::make_builtin_error!(format!($error, $($y),+)))
     };
 }
 
@@ -39,7 +39,7 @@ macro_rules! single_arg_fn {
                 match deref_value(&args[0]) {
                     $type($match_name) => $body
                     unexpected => {
-                        crate::builtin_error!(
+                        $crate::builtin_error!(
                             "{}.{} only accepts a {} as its argument, found {}",
                             stringify!($map_name),
                             $fn_name,
@@ -49,7 +49,7 @@ macro_rules! single_arg_fn {
                     }
                 }
             } else {
-                crate::builtin_error!("{}.{} expects a single argument, found {}",
+                $crate::builtin_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
@@ -57,6 +57,65 @@ macro_rules! single_arg_fn {
             }
         });
     }
+}
+
+#[macro_export]
+macro_rules! get_builtin_instance {
+    ($args: ident,
+     $builtin_name: expr,
+     $fn_name: expr,
+     $builtin_type: ident,
+     $match_name: ident,
+     $body: block) => {{
+        if $args.len() == 0 {
+            return builtin_error!(
+                "{0}.{1}: Expected {0} instance as first argument",
+                $builtin_name,
+                $fn_name
+            );
+        }
+
+        match &$args[0] {
+            Value::Share(map_ref) => match &*map_ref.borrow() {
+                Map(instance) => match instance.borrow().0.get("_data") {
+                    Some(Value::BuiltinValue(maybe_builtin)) => {
+                        match maybe_builtin.borrow_mut().downcast_mut::<$builtin_type>() {
+                            Some($match_name) => $body,
+                            None => $crate::builtin_error!(
+                                "{0}.{1}: Invalid type for {0} handle, found '{2}'",
+                                $builtin_name,
+                                $fn_name,
+                                maybe_builtin.borrow().value_type()
+                            ),
+                        }
+                    }
+                    Some(unexpected) => $crate::builtin_error!(
+                        "{0}.{1}: Invalid type for {0} handle, found '{2}'",
+                        $builtin_name,
+                        $fn_name,
+                        type_as_string(unexpected)
+                    ),
+                    None => $crate::builtin_error!(
+                        "{0}.{1}: {0} handle not found",
+                        $builtin_name,
+                        $fn_name
+                    ),
+                },
+                unexpected => $crate::builtin_error!(
+                    "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
+                    $builtin_name,
+                    $fn_name,
+                    unexpected
+                ),
+            },
+            unexpected => $crate::builtin_error!(
+                "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
+                $builtin_name,
+                $fn_name,
+                unexpected
+            ),
+        }
+    }};
 }
 
 pub fn register<'a>(runtime: &mut Runtime<'a>) {
