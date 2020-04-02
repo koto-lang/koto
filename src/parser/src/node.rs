@@ -28,7 +28,6 @@ pub enum Node {
     Map(Vec<(Id, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
-    ReturnExpression(Option<Box<AstNode>>),
     CopyExpression(Box<AstNode>),
     ShareExpression(Box<AstNode>),
     Negate(Box<AstNode>),
@@ -58,6 +57,8 @@ pub enum Node {
     While(Rc<AstWhile>),
     Break,
     Continue,
+    Return,
+    ReturnExpression(Box<AstNode>),
 }
 
 impl Default for Node {
@@ -108,7 +109,6 @@ impl fmt::Display for Node {
                 e.len(),
                 if e.len() == 1 { "" } else { "s" }
             ),
-            ReturnExpression(_) => write!(f, "Return Expression"),
             CopyExpression(_) => write!(f, "Copy Expression"),
             ShareExpression(_) => write!(f, "Share Expression"),
             Negate(_) => write!(f, "Negate"),
@@ -124,6 +124,8 @@ impl fmt::Display for Node {
             While { .. } => write!(f, "While"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
+            Return => write!(f, "Return"),
+            ReturnExpression(_) => write!(f, "Return Expression"),
         }
     }
 }

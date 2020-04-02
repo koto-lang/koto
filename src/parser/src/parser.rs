@@ -235,12 +235,12 @@ impl KotoParser {
             Rule::return_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // return
-                let expression = if inner.peek().is_some() {
-                    Some(next_as_boxed_ast!(inner))
-                } else {
-                    None
-                };
-                AstNode::new(span, Node::ReturnExpression(expression))
+                AstNode::new(span,
+                    if inner.peek().is_some() {
+                     Node::ReturnExpression(next_as_boxed_ast!(inner))
+                    } else {
+                    Node::Return
+                    })
             }
             Rule::negate => {
                 let mut inner = pair.into_inner();
@@ -261,7 +261,7 @@ impl KotoParser {
                 let body = if body.len() == 1 {
                     vec![AstNode::new(
                         span.clone(),
-                        Node::ReturnExpression(Some(Box::new(body.first().unwrap().clone()))),
+                        Node::ReturnExpression(Box::new(body.first().unwrap().clone())),
                     )]
                 } else {
                     body

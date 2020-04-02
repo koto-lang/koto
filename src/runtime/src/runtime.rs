@@ -348,18 +348,21 @@ impl<'a> Runtime<'a> {
                     _ => Share(Rc::new(RefCell::new(value))),
                 }
             }
+            Node::Return => match self.control_flow {
+                ControlFlow::Function | ControlFlow::Loop => {
+                    // TODO handle loop inside function
+                    self.control_flow = ControlFlow::Return;
+                    Value::Empty
+                }
+                _ => {
+                    return runtime_error!(node, "'return' is only allowed inside a function");
+                }
+            },
             Node::ReturnExpression(expression) => match self.control_flow {
                 ControlFlow::Function | ControlFlow::Loop => {
                     // TODO handle loop inside function
-                    match expression {
-                        Some(expression) => {
-                            let value = self.evaluate_and_capture(expression)?;
-                            self.control_flow = ControlFlow::ReturnValue(value.clone());
-                        }
-                        None => {
-                            self.control_flow = ControlFlow::Return;
-                        }
-                    }
+                    let value = self.evaluate_and_capture(expression)?;
+                    self.control_flow = ControlFlow::ReturnValue(value.clone());
                     Value::Empty
                 }
                 _ => {
