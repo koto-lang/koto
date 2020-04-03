@@ -285,7 +285,8 @@ impl<'a> Runtime<'a> {
 
         let result = match &node.node {
             Node::Empty => Empty,
-            Node::Bool(b) => Bool(*b),
+            Node::BoolTrue => Bool(true),
+            Node::BoolFalse => Bool(false),
             Node::Number(n) => Number(*n),
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
             Node::Str(s) => Str(s.clone()),

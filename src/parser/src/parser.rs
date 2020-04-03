@@ -132,7 +132,17 @@ impl KotoParser {
                 }
             }
             Rule::empty => AstNode::new(span, Node::Empty),
-            Rule::boolean => AstNode::new(span, Node::Bool(pair.as_str().parse().unwrap())),
+            Rule::boolean => {
+                let bool_value: bool = pair.as_str().parse().unwrap();
+                AstNode::new(
+                    span,
+                    if bool_value {
+                        Node::BoolTrue
+                    } else {
+                        Node::BoolFalse
+                    },
+                )
+            }
             Rule::number => AstNode::new(span, Node::Number(pair.as_str().parse().unwrap())),
             Rule::string => {
                 let mut inner = pair.into_inner();
