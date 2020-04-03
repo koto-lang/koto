@@ -13,7 +13,7 @@ pub enum Value<'a> {
     Vec4(vec4::Vec4),
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
-    List(RcCell<ValueList<'a>>),
+    List(ValueList<'a>),
     Map(RcCell<ValueMap<'a>>),
     Str(Rc<String>),
     Share(RcCell<Value<'a>>),
@@ -33,7 +33,7 @@ impl<'a> fmt::Display for Value<'a> {
             Number(n) => f.write_str(&n.to_string()),
             Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
             Str(s) => f.write_str(&s),
-            List(l) => f.write_str(&l.borrow().to_string()),
+            List(l) => f.write_str(&l.to_string()),
             Map(m) => {
                 write!(f, "Map: ")?;
                 write!(f, "{{")?;
@@ -196,7 +196,7 @@ pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
     use Value::{List, Map, Share};
 
     match value {
-        List(l) => List(RcCell::new(l.borrow().clone())),
+        List(l) => List(ValueList::with_data(l.data().clone())),
         Map(m) => Map(RcCell::new(m.borrow().clone())),
         Share(r) => r.borrow().clone(),
         _ => value.clone(),

@@ -35,7 +35,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {
-        self.add_value(name, Value::List(RcCell::new(list)));
+        self.add_value(name, Value::List(list));
     }
 
     pub fn add_map(&mut self, name: &str, map: ValueMap<'a>) {

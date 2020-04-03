@@ -19,7 +19,7 @@ impl<'a> Iterator for ValueIterator<'a> {
         use Value::*;
 
         let result = match &self.value {
-            List(l) => l.borrow().data().get(self.index as usize).cloned(),
+            List(l) => l.data().get(self.index as usize).cloned(),
             Range { start, end } => {
                 if start <= end {
                     if self.index < (end - start) {

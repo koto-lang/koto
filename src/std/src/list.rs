@@ -1,7 +1,5 @@
 use crate::{builtin_error, single_arg_fn};
-use koto_runtime::{
-    value, value::deref_value, Error, RcCell, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
-};
+use koto_runtime::{value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
@@ -9,14 +7,14 @@ pub fn register(global: &mut ValueMap) {
     let mut list = ValueMap::new();
 
     single_arg_fn!(list, "is_sortable", List, l, {
-        Ok(Bool(list_is_sortable(&l.borrow())))
+        Ok(Bool(list_is_sortable(&l)))
     });
 
     single_arg_fn!(list, "sort_copy", List, l, {
-        if list_is_sortable(&l.borrow()) {
-            let mut result = ValueVec::clone(l.borrow().data());
+        if list_is_sortable(&l) {
+            let mut result = l.data().clone();
             result.sort();
-            Ok(List(RcCell::new(ValueList::with_data(result))))
+            Ok(List(ValueList::with_data(result)))
         } else {
             builtin_error!("list.sort_copy can only sort lists of numbers or strings")
         }
@@ -130,7 +128,7 @@ pub fn register(global: &mut ValueMap) {
                         );
                     }
                     let mut write_index = 0;
-                    for read_index in 0..list.data().len() {
+                    for read_index in 0..list.len() {
                         let value = list.data()[read_index].clone();
                         match runtime.call_function(f, &[value.clone()])? {
                             Bool(result) => {
@@ -142,7 +140,7 @@ pub fn register(global: &mut ValueMap) {
                             unexpected => {
                                 return builtin_error!(
                                     "list.filter expects a Bool to be returned from the \
-                                                    predicate, found '{}'",
+                                     predicate, found '{}'",
                                     value::type_as_string(&unexpected)
                                 );
                             }
@@ -226,7 +224,7 @@ fn list_op<'a>(
     }
 
     match deref_value(&args[0]) {
-        Value::List(list) => op(&list.borrow()),
+        Value::List(list) => op(&list),
         unexpected => builtin_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
@@ -252,7 +250,7 @@ fn ref_list_op<'a>(
 
     match &args[0] {
         Value::Share(r) => match &mut *r.borrow_mut() {
-            Value::List(l) => op(&mut l.borrow_mut()),
+            Value::List(list) => op(list),
             unexpected => builtin_error!(
                 "list.{} expects a shared list as its first argument, found {}",
                 op_name,

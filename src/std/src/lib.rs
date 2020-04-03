@@ -5,7 +5,7 @@ mod math;
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    Error, RcCell, Runtime, Value, ValueList, ValueMap, ValueVec,
+    Error, Runtime, Value, ValueList, ValueMap, ValueVec,
 };
 use std::rc::Rc;
 
@@ -131,13 +131,13 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let mut map = ValueMap::new();
 
         single_arg_fn!(map, "keys", Map, m, {
-            Ok(List(RcCell::new(ValueList::with_data(
+            Ok(List(ValueList::with_data(
                 m.borrow()
                     .0
                     .keys()
                     .map(|k| Str(Rc::new(k.as_str().to_string())))
                     .collect::<ValueVec>(),
-            ))))
+            )))
         });
 
         global.add_map("map", map);
@@ -151,11 +151,11 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         single_arg_fn!(string, "lines", Str, s, {
-            Ok(List(RcCell::new(ValueList::with_data(
+            Ok(List(ValueList::with_data(
                 s.lines()
                     .map(|line| Str(Rc::new(line.to_string())))
                     .collect::<ValueVec>(),
-            ))))
+            )))
         });
 
         global.add_map("string", string);
@@ -241,7 +241,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         match first_arg_value {
             Empty => Ok(Number(0.0)),
-            List(list) => Ok(Number(list.borrow().data().len() as f64)),
+            List(list) => Ok(Number(list.data().len() as f64)),
             Range { start, end } => {
                 println!("size: start: {} end: {}", start, end);
 

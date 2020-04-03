@@ -225,7 +225,7 @@ impl<'a> Runtime<'a> {
                             _ => Ok(value),
                         })
                         .collect::<Result<ValueVec, Error>>()?;
-                    Ok(List(RcCell::new(ValueList::with_data(list))))
+                    Ok(List(ValueList::with_data(list)))
                 }
             }
         }
@@ -264,7 +264,7 @@ impl<'a> Runtime<'a> {
                                 .map(|n| Number(n as f64))
                                 .collect::<ValueVec>()
                         };
-                        List(RcCell::new(ValueList::with_data(expanded)))
+                        List(ValueList::with_data(expanded))
                     } else {
                         Empty
                     }
@@ -292,9 +292,9 @@ impl<'a> Runtime<'a> {
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
-                    _ => List(RcCell::new(ValueList::from_slice(&[value]))),
+                    _ => List(ValueList::from_slice(&[value])),
                 },
-                ValueOrValues::Values(values) => List(RcCell::new(ValueList::with_data(values))),
+                ValueOrValues::Values(values) => List(ValueList::with_data(values)),
             },
             Node::Range {
                 start,
@@ -335,7 +335,7 @@ impl<'a> Runtime<'a> {
             Node::Block(block) => self.evaluate_block_and_capture(&block)?,
             Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
                 ValueOrValues::Value(value) => value,
-                ValueOrValues::Values(values) => List(RcCell::new(ValueList::with_data(values))),
+                ValueOrValues::Values(values) => List(ValueList::with_data(values)),
             },
             Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
             Node::ShareExpression(expression) => {
@@ -591,7 +591,7 @@ impl<'a> Runtime<'a> {
                 },
                 List(list) => match lookup_node {
                     LookupNode::Index(index) => {
-                        let list_len = list.borrow().data().len();
+                        let list_len = list.data().len();
                         match self.evaluate(&index.0)? {
                             Number(i) => {
                                 let i = i as usize;
@@ -599,14 +599,14 @@ impl<'a> Runtime<'a> {
                                     match &value_to_set {
                                         Some(value) => {
                                             if (lookup_index + 1) == lookup.0.len() - 1 {
-                                                list.borrow_mut().data_mut()[i] = value.clone();
+                                                list.data_mut()[i] = value.clone();
                                                 return Ok(None);
                                             } else {
-                                                current_node = list.borrow_mut().make_mut(i);
+                                                current_node = list.make_element_unique(i);
                                             }
                                         }
                                         None => {
-                                            current_node = list.borrow().data()[i].clone();
+                                            current_node = list.data()[i].clone();
                                         }
                                     }
                                 } else {
@@ -660,8 +660,7 @@ impl<'a> Runtime<'a> {
                                 } else {
                                     match &value_to_set {
                                         Some(value) => {
-                                            let mut list_borrow = list.borrow_mut();
-                                            let list_data = list_borrow.data_mut();
+                                            let mut list_data = list.data_mut();
                                             for i in ustart..uend {
                                                 list_data[i] = value.clone();
                                             }
@@ -670,9 +669,9 @@ impl<'a> Runtime<'a> {
                                         None => {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
-                                            current_node = List(RcCell::new(ValueList::from_slice(
-                                                &list.borrow().data()[ustart..uend],
-                                            )))
+                                            current_node = List(ValueList::from_slice(
+                                                &list.data()[ustart..uend],
+                                            ))
                                         }
                                     }
                                 }
@@ -708,8 +707,7 @@ impl<'a> Runtime<'a> {
                                 } else {
                                     match &value_to_set {
                                         Some(value) => {
-                                            let mut list_borrow = list.borrow_mut();
-                                            let list_data = list_borrow.data_mut();
+                                            let mut list_data = list.data_mut();
                                             for i in start..end {
                                                 list_data[i] = value.clone();
                                             }
@@ -717,9 +715,9 @@ impl<'a> Runtime<'a> {
                                         None => {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
-                                            current_node = List(RcCell::new(ValueList::from_slice(
-                                                &list.borrow().data()[start..end],
-                                            )))
+                                            current_node = List(ValueList::from_slice(
+                                                &list.data()[start..end],
+                                            ))
                                         }
                                     }
                                 }
@@ -885,7 +883,7 @@ impl<'a> Runtime<'a> {
                     let mut arg_iter = f.args.iter().peekable();
                     match value {
                         List(a) => {
-                            for list_value in a.borrow().data().iter() {
+                            for list_value in a.data().iter() {
                                 match arg_iter.next() {
                                     Some(arg) => self.set_value(
                                         &Id(arg.clone()),
@@ -984,7 +982,7 @@ impl<'a> Runtime<'a> {
                     } else {
                         self.set_value(
                             &Id(first_arg.clone()),
-                            Value::List(RcCell::new(ValueList::with_data(values.clone()))),
+                            List(ValueList::with_data(values.clone())),
                             Scope::Local,
                         );
                     }
@@ -1049,7 +1047,7 @@ impl<'a> Runtime<'a> {
         Ok(if captured.is_empty() {
             Empty
         } else {
-            List(RcCell::new(ValueList::with_data(captured)))
+            List(ValueList::with_data(captured))
         })
     }
 
@@ -1109,7 +1107,7 @@ impl<'a> Runtime<'a> {
         Ok(if captured.is_empty() {
             Empty
         } else {
-            List(RcCell::new(ValueList::with_data(captured)))
+            List(ValueList::with_data(captured))
         })
     }
 
@@ -1462,8 +1460,8 @@ impl<'a> Runtime<'a> {
 
             match &value {
                 List(l) => {
-                    let list_borrow = l.borrow();
-                    let mut result_iter = list_borrow.data().iter();
+                    let list_data = l.data();
+                    let mut result_iter = list_data.iter();
                     for target in targets.iter() {
                         let value = result_iter.next().unwrap_or(&Empty);
                         set_value!(target, value.clone());
@@ -1518,7 +1516,7 @@ impl<'a> Runtime<'a> {
 
             // TODO This capture only needs to take place when its the final statement in a
             //      block, e.g. last statement in a function
-            Ok(List(RcCell::new(ValueList::with_data(results))))
+            Ok(List(ValueList::with_data(results)))
         }
     }
 
@@ -1753,9 +1751,9 @@ impl<'a> Runtime<'a> {
                 },
                 (List(a), List(b)) => match op {
                     AstOp::Add => {
-                        let mut result = ValueVec::clone(a.borrow().data());
-                        result.extend(ValueVec::clone(b.borrow().data()).into_iter());
-                        Ok(List(RcCell::new(ValueList::with_data(result))))
+                        let mut result = ValueVec::clone(&a.data());
+                        result.extend(ValueVec::clone(&b.data()).into_iter());
+                        Ok(List(ValueList::with_data(result)))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
@@ -1837,7 +1835,7 @@ impl<'a> Runtime<'a> {
                 Vec4(v) => *v,
                 List(list) => {
                     let mut v = vec4::Vec4::default();
-                    for (i, value) in list.borrow().data().iter().take(4).enumerate() {
+                    for (i, value) in list.data().iter().take(4).enumerate() {
                         match value {
                             Number(n) => v[i] = *n as f32,
                             unexpected => {
