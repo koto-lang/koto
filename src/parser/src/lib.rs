@@ -1,3 +1,4 @@
+mod constant_pool;
 mod lookup;
 mod node;
 mod parser;
