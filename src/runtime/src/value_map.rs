@@ -1,6 +1,5 @@
-use crate::{value::BuiltinFunction, Id, Runtime, RuntimeResult, Value, ValueList};
+use crate::{value::BuiltinFunction, Id, RcCell, Runtime, RuntimeResult, Value, ValueList};
 use rustc_hash::FxHashMap;
-use std::{cell::RefCell, rc::Rc};
 
 pub type ValueHashMap<'a> = FxHashMap<Id, Value<'a>>;
 
@@ -36,11 +35,11 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_list(&mut self, name: &str, list: ValueList<'a>) {
-        self.add_value(name, Value::List(Rc::new(RefCell::new(list))));
+        self.add_value(name, Value::List(RcCell::new(list)));
     }
 
     pub fn add_map(&mut self, name: &str, map: ValueMap<'a>) {
-        self.add_value(name, Value::Map(Rc::new(RefCell::new(map))));
+        self.add_value(name, Value::Map(RcCell::new(map)));
     }
 
     pub fn add_value(&mut self, name: &str, value: Value<'a>) {
@@ -51,21 +50,21 @@ impl<'a> ValueMap<'a> {
         self.0.insert(name, value);
     }
 
-    pub fn make_mut(&mut self, name: &str) -> Option<Value<'a>> {
+    pub fn make_unique(&mut self, name: &str) -> Option<Value<'a>> {
         match self.0.get_mut(name) {
             Some(value) => {
                 match value {
                     Value::Map(entry) => {
-                        Rc::make_mut(entry);
+                        entry.make_unique();
                     }
                     Value::List(entry) => {
-                        Rc::make_mut(entry);
+                        entry.make_unique();
                     }
                     _ => {}
                 }
                 Some(value.clone())
             }
-            None => None
+            None => None,
         }
     }
 }

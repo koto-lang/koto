@@ -2,7 +2,7 @@ use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    BuiltinValue, Error, RuntimeResult, Value, ValueMap,
+    BuiltinValue, Error, RcCell, RuntimeResult, Value, ValueMap,
 };
 use std::{
     cell::RefCell,
@@ -141,7 +141,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(Rc::new(RefCell::new(file_map))))
+                                Ok(Map(RcCell::new(file_map)))
                             }
                             Err(e) => {
                                 return builtin_error!("io.open: Error while opening path: {}", e);
@@ -179,7 +179,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(Rc::new(RefCell::new(file_map))))
+                                Ok(Map(RcCell::new(file_map)))
                             }
                             Err(e) => {
                                 return builtin_error!(
@@ -238,7 +238,7 @@ pub fn register(global: &mut ValueMap) {
                 }))),
             );
 
-            Ok(Map(Rc::new(RefCell::new(file_map))))
+            Ok(Map(RcCell::new(file_map)))
         }
     });
 

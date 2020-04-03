@@ -7,13 +7,13 @@ use crate::{
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
-    Error, Id, LookupSlice, RuntimeResult, ValueList, ValueMap,
+    Error, Id, LookupSlice, RcCell, RuntimeResult, ValueList, ValueMap,
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId,
     LookupSliceOrId, Node, Scope,
 };
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::{fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow<'a> {
@@ -225,7 +225,7 @@ impl<'a> Runtime<'a> {
                             _ => Ok(value),
                         })
                         .collect::<Result<ValueVec, Error>>()?;
-                    Ok(List(Rc::new(RefCell::new(ValueList::with_data(list)))))
+                    Ok(List(RcCell::new(ValueList::with_data(list))))
                 }
             }
         }
@@ -264,7 +264,7 @@ impl<'a> Runtime<'a> {
                                 .map(|n| Number(n as f64))
                                 .collect::<ValueVec>()
                         };
-                        List(Rc::new(RefCell::new(ValueList::with_data(expanded))))
+                        List(RcCell::new(ValueList::with_data(expanded)))
                     } else {
                         Empty
                     }
@@ -292,11 +292,9 @@ impl<'a> Runtime<'a> {
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
-                    _ => List(Rc::new(RefCell::new(ValueList::from_slice(&[value])))),
+                    _ => List(RcCell::new(ValueList::from_slice(&[value]))),
                 },
-                ValueOrValues::Values(values) => {
-                    Value::List(Rc::new(RefCell::new(ValueList::with_data(values))))
-                }
+                ValueOrValues::Values(values) => List(RcCell::new(ValueList::with_data(values))),
             },
             Node::Range {
                 start,
@@ -315,7 +313,7 @@ impl<'a> Runtime<'a> {
                     let value = self.evaluate_and_capture(node)?;
                     map.insert(Id(id.clone()), value);
                 }
-                Map(Rc::new(RefCell::new(map)))
+                Map(RcCell::new(map))
             }
             Node::Lookup(lookup) => self.lookup_value_or_error(&lookup.as_slice(), node)?.value,
             Node::Id(id) => {
@@ -337,16 +335,14 @@ impl<'a> Runtime<'a> {
             Node::Block(block) => self.evaluate_block_and_capture(&block)?,
             Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
                 ValueOrValues::Value(value) => value,
-                ValueOrValues::Values(values) => {
-                    Value::List(Rc::new(RefCell::new(ValueList::with_data(values))))
-                }
+                ValueOrValues::Values(values) => List(RcCell::new(ValueList::with_data(values))),
             },
             Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
             Node::ShareExpression(expression) => {
                 let value = self.evaluate_and_capture(expression)?;
                 match value {
                     Share(_) => value,
-                    _ => Share(Rc::new(RefCell::new(value))),
+                    _ => Share(RcCell::new(value)),
                 }
             }
             Node::Return => match self.control_flow {
@@ -495,13 +491,13 @@ impl<'a> Runtime<'a> {
         };
 
         if self.call_stack.frame() > 0 {
-            if let Some(root) = self.call_stack.make_mut(root_id.as_str()) {
+            if let Some(root) = self.call_stack.make_unique(root_id.as_str()) {
                 self.do_lookup(lookup, root, Some(value), node)?;
                 return Ok(());
             }
         }
 
-        if let Some(root) = self.global.make_mut(root_id.as_str()) {
+        if let Some(root) = self.global.make_unique(root_id.as_str()) {
             self.do_lookup(lookup, root, Some(value), node)?;
             return Ok(());
         }
@@ -560,7 +556,7 @@ impl<'a> Runtime<'a> {
                                 data.borrow_mut().insert(Id(id.clone()), value.clone());
                                 return Ok(None);
                             } else {
-                                match data.borrow_mut().make_mut(&id) {
+                                match data.borrow_mut().make_unique(&id) {
                                     Some(value) => {
                                         current_node = value;
                                     }
@@ -674,10 +670,9 @@ impl<'a> Runtime<'a> {
                                         None => {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
-                                            current_node =
-                                                List(Rc::new(RefCell::new(ValueList::from_slice(
-                                                    &list.borrow().data()[ustart..uend],
-                                                ))))
+                                            current_node = List(RcCell::new(ValueList::from_slice(
+                                                &list.borrow().data()[ustart..uend],
+                                            )))
                                         }
                                     }
                                 }
@@ -722,10 +717,9 @@ impl<'a> Runtime<'a> {
                                         None => {
                                             // TODO Avoid allocating new vec,
                                             // introduce 'slice' value type
-                                            current_node =
-                                                List(Rc::new(RefCell::new(ValueList::from_slice(
-                                                    &list.borrow().data()[start..end],
-                                                ))))
+                                            current_node = List(RcCell::new(ValueList::from_slice(
+                                                &list.borrow().data()[start..end],
+                                            )))
                                         }
                                     }
                                 }
@@ -990,9 +984,7 @@ impl<'a> Runtime<'a> {
                     } else {
                         self.set_value(
                             &Id(first_arg.clone()),
-                            Value::List(Rc::new(RefCell::new(ValueList::with_data(
-                                values.clone(),
-                            )))),
+                            Value::List(RcCell::new(ValueList::with_data(values.clone()))),
                             Scope::Local,
                         );
                     }
@@ -1057,7 +1049,7 @@ impl<'a> Runtime<'a> {
         Ok(if captured.is_empty() {
             Empty
         } else {
-            List(Rc::new(RefCell::new(ValueList::with_data(captured))))
+            List(RcCell::new(ValueList::with_data(captured)))
         })
     }
 
@@ -1117,7 +1109,7 @@ impl<'a> Runtime<'a> {
         Ok(if captured.is_empty() {
             Empty
         } else {
-            List(Rc::new(RefCell::new(ValueList::with_data(captured))))
+            List(RcCell::new(ValueList::with_data(captured)))
         })
     }
 
@@ -1526,7 +1518,7 @@ impl<'a> Runtime<'a> {
 
             // TODO This capture only needs to take place when its the final statement in a
             //      block, e.g. last statement in a function
-            Ok(List(Rc::new(RefCell::new(ValueList::with_data(results)))))
+            Ok(List(RcCell::new(ValueList::with_data(results))))
         }
     }
 
@@ -1763,7 +1755,7 @@ impl<'a> Runtime<'a> {
                     AstOp::Add => {
                         let mut result = ValueVec::clone(a.borrow().data());
                         result.extend(ValueVec::clone(b.borrow().data()).into_iter());
-                        Ok(List(Rc::new(RefCell::new(ValueList::with_data(result)))))
+                        Ok(List(RcCell::new(ValueList::with_data(result))))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
@@ -1771,7 +1763,7 @@ impl<'a> Runtime<'a> {
                     AstOp::Add => {
                         let mut result = a.borrow().0.clone();
                         result.extend(b.borrow().0.clone().into_iter());
-                        Ok(Map(Rc::new(RefCell::new(ValueMap(result)))))
+                        Ok(Map(RcCell::new(ValueMap(result))))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },

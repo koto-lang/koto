@@ -1,5 +1,6 @@
 use crate::{
-    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime, RuntimeResult,
+    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, RcCell, Runtime,
+    RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile, Function};
 use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
@@ -12,10 +13,10 @@ pub enum Value<'a> {
     Vec4(vec4::Vec4),
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
-    List(Rc<RefCell<ValueList<'a>>>),
-    Map(Rc<RefCell<ValueMap<'a>>>),
+    List(RcCell<ValueList<'a>>),
+    Map(RcCell<ValueMap<'a>>),
     Str(Rc<String>),
-    Share(Rc<RefCell<Value<'a>>>),
+    Share(RcCell<Value<'a>>),
     Function(Rc<Function>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
@@ -34,7 +35,7 @@ impl<'a> fmt::Display for Value<'a> {
             Str(s) => f.write_str(&s),
             List(l) => f.write_str(&l.borrow().to_string()),
             Map(m) => {
-                write!(f, "Map {:?} ", Rc::into_raw(m.clone()))?;
+                write!(f, "Map: ")?;
                 write!(f, "{{")?;
                 let mut first = true;
                 for (key, _value) in m.borrow().0.iter() {
@@ -83,9 +84,9 @@ impl<'a> PartialEq for Value<'a> {
             (Vec4(a), Vec4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
-            (List(a), List(b)) => a.as_ref() == b.as_ref(),
-            (Map(a), Map(b)) => a.as_ref() == b.as_ref(),
-            (Share(a), Share(b)) => a.as_ref() == b.as_ref(),
+            (List(a), List(b)) => a == b,
+            (Map(a), Map(b)) => a == b,
+            (Share(a), Share(b)) => a == b,
             (Share(a), _) => a.borrow().deref() == other,
             (_, Share(b)) => self == b.borrow().deref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
@@ -182,7 +183,9 @@ pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
     use Value::Share;
 
     match (a, b) {
-        (Share(a), Share(b)) => discriminant(a.borrow().deref()) == discriminant(b.borrow().deref()),
+        (Share(a), Share(b)) => {
+            discriminant(a.borrow().deref()) == discriminant(b.borrow().deref())
+        }
         (Share(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
         (_, Share(b)) => discriminant(a) == discriminant(b.borrow().deref()),
         (_, _) => discriminant(a) == discriminant(b),
@@ -193,8 +196,8 @@ pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
     use Value::{List, Map, Share};
 
     match value {
-        List(l) => List(Rc::new(RefCell::new(l.borrow().clone()))),
-        Map(m) => Map(Rc::new(RefCell::new(m.borrow().clone()))),
+        List(l) => List(RcCell::new(l.borrow().clone())),
+        Map(m) => Map(RcCell::new(m.borrow().clone())),
         Share(r) => r.borrow().clone(),
         _ => value.clone(),
     }
@@ -210,22 +213,19 @@ pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
 }
 
 pub fn make_reference(mut value: Value) -> (Value, bool) {
-    // When making a reference out of a List or Map, we need to call make_mut to ensure that
+    // When making a reference out of a List or Map, we need to call make_unique to ensure that
     // existing bindings to the internal data don't get modified by modifications to the reference
     match &mut value {
         Value::List(l) => {
-            Rc::make_mut(l);
+            l.make_unique();
         }
-        Value::Map(m) => {
-            Rc::make_mut(m);
-        }
+        Value::Map(m) => m.make_unique(),
         Value::Share(_) => {
             return (value, false);
         }
         _ => {}
     }
-    let cloned = Rc::new(RefCell::new(value.clone()));
-    (Value::Share(cloned), true)
+    (Value::Share(RcCell::new(value.clone())), true)
 }
 
 pub fn type_as_string(value: &Value) -> String {

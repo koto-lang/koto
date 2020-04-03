@@ -1,8 +1,7 @@
 use crate::{builtin_error, single_arg_fn};
 use koto_runtime::{
-    value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    value, value::deref_value, Error, RcCell, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
-use std::{cell::RefCell, rc::Rc};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
@@ -17,7 +16,7 @@ pub fn register(global: &mut ValueMap) {
         if list_is_sortable(&l.borrow()) {
             let mut result = ValueVec::clone(l.borrow().data());
             result.sort();
-            Ok(List(Rc::new(RefCell::new(ValueList::with_data(result)))))
+            Ok(List(RcCell::new(ValueList::with_data(result))))
         } else {
             builtin_error!("list.sort_copy can only sort lists of numbers or strings")
         }

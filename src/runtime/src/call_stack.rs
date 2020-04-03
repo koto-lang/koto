@@ -1,5 +1,4 @@
 use crate::{Id, Value};
-use std::rc::Rc;
 
 #[derive(Default)]
 pub struct CallStack<'a> {
@@ -111,16 +110,16 @@ impl<'a> CallStack<'a> {
         }
     }
 
-    pub fn make_mut(&mut self, id: &str) -> Option<Value<'a>> {
+    pub fn make_unique(&mut self, id: &str) -> Option<Value<'a>> {
         if let Some(values) = self.frame_values_mut() {
             for (value_id, value) in values.iter_mut() {
                 if value_id == id {
                     match value {
                         Value::Map(entry) => {
-                            Rc::make_mut(entry);
+                            entry.make_unique();
                         }
                         Value::List(entry) => {
-                            Rc::make_mut(entry);
+                            entry.make_unique();
                         }
                         _ => {}
                     }

@@ -5,9 +5,9 @@ mod math;
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    Error, Runtime, Value, ValueList, ValueMap, ValueVec,
+    Error, RcCell, Runtime, Value, ValueList, ValueMap, ValueVec,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[macro_export]
 macro_rules! make_builtin_error {
@@ -131,13 +131,13 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let mut map = ValueMap::new();
 
         single_arg_fn!(map, "keys", Map, m, {
-            Ok(List(Rc::new(RefCell::new(ValueList::with_data(
+            Ok(List(RcCell::new(ValueList::with_data(
                 m.borrow()
                     .0
                     .keys()
                     .map(|k| Str(Rc::new(k.as_str().to_string())))
                     .collect::<ValueVec>(),
-            )))))
+            ))))
         });
 
         global.add_map("map", map);
@@ -151,11 +151,11 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         });
 
         single_arg_fn!(string, "lines", Str, s, {
-            Ok(List(Rc::new(RefCell::new(ValueList::with_data(
+            Ok(List(RcCell::new(ValueList::with_data(
                 s.lines()
                     .map(|line| Str(Rc::new(line.to_string())))
                     .collect::<ValueVec>(),
-            )))))
+            ))))
         });
 
         global.add_map("string", string);

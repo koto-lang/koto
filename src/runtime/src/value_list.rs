@@ -1,6 +1,6 @@
 use crate::Value;
 
-use std::{fmt, rc::Rc};
+use std::fmt;
 
 // pub type ValueVec<'a> = Vec<Value<'a>>;
 pub type ValueVec<'a> = smallvec::SmallVec<[Value<'a>; 4]>;
@@ -37,10 +37,10 @@ impl<'a> ValueList<'a> {
         let value = &mut self.0[index];
         match value {
             Value::Map(entry) => {
-                Rc::make_mut(entry);
+                entry.make_unique();
             }
             Value::List(entry) => {
-                Rc::make_mut(entry);
+                entry.make_unique();
             }
             _ => {}
         }
