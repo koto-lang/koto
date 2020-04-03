@@ -1,7 +1,9 @@
 use crate::{builtin_error, single_arg_fn};
-use koto_runtime::{value, value::deref_value, Error, RuntimeResult, Value, ValueList, ValueMap};
+use koto_runtime::{
+    value, value::deref_value, Error, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,
+};
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(global: &mut ValueHashMap) {
     use Value::*;
 
     let mut list = ValueMap::new();
@@ -205,7 +207,7 @@ pub fn register(global: &mut ValueMap) {
         })
     });
 
-    global.add_map("list", list);
+    global.add_value("list", Map(list));
 }
 
 fn list_op<'a>(

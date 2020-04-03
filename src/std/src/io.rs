@@ -2,7 +2,7 @@ use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    BuiltinValue, Error, RcCell, RuntimeResult, Value, ValueMap,
+    BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
 };
 use std::{
     cell::RefCell,
@@ -12,7 +12,7 @@ use std::{
     rc::Rc,
 };
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(global: &mut ValueHashMap) {
     use Value::{Bool, Map, Number, Str};
 
     let mut io = ValueMap::new();
@@ -38,9 +38,7 @@ pub fn register(global: &mut ValueMap) {
             args: &[Value<'a>],
             mut file_op: impl FnMut(&mut File) -> RuntimeResult<'a>,
         ) -> RuntimeResult<'a> {
-            get_builtin_instance!(args, "File", fn_name, File, file_ref, {
-                file_op(file_ref)
-            })
+            get_builtin_instance!(args, "File", fn_name, File, file_ref, { file_op(file_ref) })
         }
 
         let mut file_map = ValueMap::new();
@@ -141,7 +139,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(RcCell::new(file_map)))
+                                Ok(Map(file_map))
                             }
                             Err(e) => {
                                 return builtin_error!("io.open: Error while opening path: {}", e);
@@ -179,7 +177,7 @@ pub fn register(global: &mut ValueMap) {
                                     }))),
                                 );
 
-                                Ok(Map(RcCell::new(file_map)))
+                                Ok(Map(file_map))
                             }
                             Err(e) => {
                                 return builtin_error!(
@@ -229,6 +227,7 @@ pub fn register(global: &mut ValueMap) {
             };
 
             let mut file_map = file_map.clone();
+
             file_map.add_value(
                 "_data",
                 Value::BuiltinValue(Rc::new(RefCell::new(File {
@@ -238,7 +237,7 @@ pub fn register(global: &mut ValueMap) {
                 }))),
             );
 
-            Ok(Map(RcCell::new(file_map)))
+            Ok(Map(file_map))
         }
     });
 

@@ -20,7 +20,7 @@ assert not io.exists path
 
 ###### io.temp_file
 temp = io.temp_file()
-global temp_path = temp.path()
+temp_path = temp.path()
 temp.write_line("hello")
 temp.write_line(42)
 assert io.exists temp_path

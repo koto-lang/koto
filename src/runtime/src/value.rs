@@ -14,7 +14,7 @@ pub enum Value<'a> {
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
     List(ValueList<'a>),
-    Map(RcCell<ValueMap<'a>>),
+    Map(ValueMap<'a>),
     Str(Rc<String>),
     Share(RcCell<Value<'a>>),
     Function(Rc<Function>),
@@ -38,7 +38,7 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, "Map: ")?;
                 write!(f, "{{")?;
                 let mut first = true;
-                for (key, _value) in m.borrow().0.iter() {
+                for (key, _value) in m.data().iter() {
                     if first {
                         write!(f, " ")?;
                     } else {
@@ -197,7 +197,7 @@ pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
 
     match value {
         List(l) => List(ValueList::with_data(l.data().clone())),
-        Map(m) => Map(RcCell::new(m.borrow().clone())),
+        Map(m) => Map(ValueMap::with_data(m.data().clone())),
         Share(r) => r.borrow().clone(),
         _ => value.clone(),
     }

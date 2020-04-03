@@ -77,7 +77,7 @@ macro_rules! get_builtin_instance {
 
         match &$args[0] {
             Value::Share(map_ref) => match &*map_ref.borrow() {
-                Map(instance) => match instance.borrow().0.get("_data") {
+                Map(instance) => match instance.data().get("_data") {
                     Some(Value::BuiltinValue(maybe_builtin)) => {
                         match maybe_builtin.borrow_mut().downcast_mut::<$builtin_type>() {
                             Some($match_name) => $body,
@@ -132,15 +132,14 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
         single_arg_fn!(map, "keys", Map, m, {
             Ok(List(ValueList::with_data(
-                m.borrow()
-                    .0
+                m.data()
                     .keys()
                     .map(|k| Str(Rc::new(k.as_str().to_string())))
                     .collect::<ValueVec>(),
             )))
         });
 
-        global.add_map("map", map);
+        global.add_value("map", Map(map));
     }
 
     {
@@ -158,7 +157,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
             )))
         });
 
-        global.add_map("string", string);
+        global.add_value("string", Map(string));
     }
 
     global.add_fn("assert", |_, args| {

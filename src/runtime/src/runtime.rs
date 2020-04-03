@@ -7,7 +7,7 @@ use crate::{
     },
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
-    Error, Id, LookupSlice, RcCell, RuntimeResult, ValueList, ValueMap,
+    Error, Id, LookupSlice, RcCell, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId,
@@ -81,7 +81,7 @@ enum ValueOrValues<'a> {
 
 #[derive(Default)]
 pub struct Runtime<'a> {
-    global: ValueMap<'a>,
+    global: ValueHashMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
     script_path: Option<String>,
@@ -108,14 +108,14 @@ macro_rules! runtime_trace {
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         Self {
-            global: ValueMap::with_capacity(32),
+            global: ValueHashMap::with_capacity(32),
             call_stack: CallStack::new(),
             control_flow: ControlFlow::None,
             script_path: None,
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
         &mut self.global
     }
 
@@ -308,12 +308,12 @@ impl<'a> Runtime<'a> {
                 end: None,
             },
             Node::Map(entries) => {
-                let mut map = ValueMap::with_capacity(entries.len());
+                let mut map = ValueHashMap::with_capacity(entries.len());
                 for (id, node) in entries.iter() {
                     let value = self.evaluate_and_capture(node)?;
                     map.insert(Id(id.clone()), value);
                 }
-                Map(RcCell::new(map))
+                Map(ValueMap::with_data(map))
             }
             Node::Lookup(lookup) => self.lookup_value_or_error(&lookup.as_slice(), node)?.value,
             Node::Id(id) => {
@@ -418,7 +418,7 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame() == 0 || scope == Scope::Global {
-            match self.global.0.get_mut(id) {
+            match self.global.get_mut(id) {
                 Some(exists) => match (&exists, &value) {
                     (Share(ref_a), Share(ref_b)) => {
                         if ref_a != ref_b {
@@ -433,7 +433,7 @@ impl<'a> Runtime<'a> {
                     }
                 },
                 None => {
-                    self.global.0.insert(id.clone(), value);
+                    self.global.insert(id.clone(), value);
                 }
             }
         } else {
@@ -466,7 +466,7 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.0.get(id) {
+        match self.global.get(id) {
             Some(value) => Some((value.clone(), Scope::Global)),
             None => None,
         }
@@ -497,7 +497,7 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        if let Some(root) = self.global.make_unique(root_id.as_str()) {
+        if let Some(root) = self.global.make_element_unique(root_id.as_str()) {
             self.do_lookup(lookup, root, Some(value), node)?;
             return Ok(());
         }
@@ -549,14 +549,14 @@ impl<'a> Runtime<'a> {
             };
 
             match &deref_current {
-                Map(data) => match lookup_node {
+                Map(map) => match lookup_node {
                     LookupNode::Id(id) => match &value_to_set {
                         Some(value) => {
                             if (lookup_index + 1) == lookup.0.len() - 1 {
-                                data.borrow_mut().insert(Id(id.clone()), value.clone());
+                                map.data_mut().insert(Id(id.clone()), value.clone());
                                 return Ok(None);
                             } else {
-                                match data.borrow_mut().make_unique(&id) {
+                                match map.make_element_unique(&id) {
                                     Some(value) => {
                                         current_node = value;
                                     }
@@ -571,7 +571,7 @@ impl<'a> Runtime<'a> {
                                 }
                             }
                         }
-                        None => match data.borrow().0.get(id) {
+                        None => match map.data().get(id) {
                             Some(value) => current_node = value.clone(),
                             None => {
                                 return Ok(None);
@@ -828,7 +828,7 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.0.get(root_id).cloned() {
+        match self.global.get(root_id).cloned() {
             Some(root) => match self.do_lookup(lookup, root, None, node)? {
                 Some((found, parent)) => Ok(Some(LookupResult::new(found, parent, Scope::Global))),
                 None => Ok(None),
@@ -1759,9 +1759,9 @@ impl<'a> Runtime<'a> {
                 },
                 (Map(a), Map(b)) => match op {
                     AstOp::Add => {
-                        let mut result = a.borrow().0.clone();
-                        result.extend(b.borrow().0.clone().into_iter());
-                        Ok(Map(RcCell::new(ValueMap(result))))
+                        let mut result = a.data().clone();
+                        result.extend(&b.data());
+                        Ok(Map(ValueMap::with_data(result)))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
