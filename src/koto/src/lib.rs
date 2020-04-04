@@ -1,5 +1,5 @@
 pub use koto_parser::{
-    AstNode, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+    AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
@@ -41,9 +41,8 @@ impl<'a> Koto<'a> {
         self.set_args(args);
         self.run()?;
 
-        // TODO find a better way to call functions
-        if let Some(id_index) = self.runtime.str_to_id_index("main"){
-            self.call_function(id_index)
+        if let Some(main) = self.get_global_function("main") {
+            self.call_function(&main, &[])
         } else {
             Ok(Value::Empty)
         }
@@ -123,19 +122,19 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn has_function(&self, function_name: &str) -> bool {
-        matches!(
-            self.runtime.get_value(function_name),
-            Some((Value::Function(_), _))
-        )
+    pub fn get_global_function(&self, function_name: &str) -> Option<Rc<Function>> {
+        match self.runtime.get_value(function_name) {
+            Some((Value::Function(function), _)) => Some(function),
+            _ => None,
+        }
     }
 
-    pub fn call_function(&mut self, function_id_index: u32) -> Result<Value<'a>, String> {
-        match self.runtime.lookup_and_call_function(
-            &LookupSliceOrId::Id(function_id_index),
-            &vec![],
-            &AstNode::default(),
-        ) {
+    pub fn call_function(
+        &mut self,
+        function: &Function,
+        args: &[Value<'a>],
+    ) -> Result<Value<'a>, String> {
+        match self.runtime.call_function(function, args) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
