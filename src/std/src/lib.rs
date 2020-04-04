@@ -2,6 +2,8 @@ mod io;
 mod list;
 mod math;
 
+pub use koto_runtime::BUILTIN_DATA_ID;
+
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
@@ -77,7 +79,7 @@ macro_rules! get_builtin_instance {
 
         match &$args[0] {
             Value::Share(map_ref) => match &*map_ref.borrow() {
-                Map(instance) => match instance.data().get("_data") {
+                Map(instance) => match instance.data().get($crate::BUILTIN_DATA_ID) {
                     Some(Value::BuiltinValue(maybe_builtin)) => {
                         match maybe_builtin.borrow_mut().downcast_mut::<$builtin_type>() {
                             Some($match_name) => $body,

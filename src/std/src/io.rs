@@ -5,7 +5,6 @@ use koto_runtime::{
     BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
 };
 use std::{
-    cell::RefCell,
     fmt, fs,
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
@@ -130,14 +129,11 @@ pub fn register(global: &mut ValueHashMap) {
                             Ok(file) => {
                                 let mut file_map = file_map.clone();
 
-                                file_map.add_value(
-                                    "_data",
-                                    Value::BuiltinValue(Rc::new(RefCell::new(File {
-                                        file,
-                                        path: path.to_path_buf(),
-                                        temporary: false,
-                                    }))),
-                                );
+                                file_map.set_builtin_value(File {
+                                    file,
+                                    path: path.to_path_buf(),
+                                    temporary: false,
+                                });
 
                                 Ok(Map(file_map))
                             }
@@ -168,14 +164,11 @@ pub fn register(global: &mut ValueHashMap) {
                             Ok(file) => {
                                 let mut file_map = file_map.clone();
 
-                                file_map.add_value(
-                                    "_data",
-                                    Value::BuiltinValue(Rc::new(RefCell::new(File {
-                                        file,
-                                        path: path.to_path_buf(),
-                                        temporary: false,
-                                    }))),
-                                );
+                                file_map.set_builtin_value(File {
+                                    file,
+                                    path: path.to_path_buf(),
+                                    temporary: false,
+                                });
 
                                 Ok(Map(file_map))
                             }
@@ -228,14 +221,11 @@ pub fn register(global: &mut ValueHashMap) {
 
             let mut file_map = file_map.clone();
 
-            file_map.add_value(
-                "_data",
-                Value::BuiltinValue(Rc::new(RefCell::new(File {
-                    file: temp_file,
-                    path,
-                    temporary: true,
-                }))),
-            );
+            file_map.set_builtin_value(File {
+                file: temp_file,
+                path,
+                temporary: true,
+            });
 
             Ok(Map(file_map))
         }
