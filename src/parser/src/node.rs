@@ -1,5 +1,5 @@
 use crate::{AstNode, Lookup, LookupSlice};
-use std::{fmt, rc::Rc};
+use std::rc::Rc;
 
 pub type ConstantIndex = u32;
 
@@ -68,70 +68,6 @@ pub enum Node {
 impl Default for Node {
     fn default() -> Self {
         Node::Empty
-    }
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Node::*;
-        match self {
-            Empty => write!(f, "()"),
-            Id(_) => write!(f, "Id"),
-            Copy(_) => write!(f, "Copy"),
-            Share(_) => write!(f, "Share"),
-            BoolTrue => write!(f, "Bool: True"),
-            BoolFalse => write!(f, "Bool: False"),
-            Number(_) => write!(f, "Number"),
-            Vec4(v) => write!(f, "Vec4: {:?}", v),
-            Str(_) => write!(f, "Str"),
-            List(l) => write!(
-                f,
-                "List with {} {}",
-                l.len(),
-                if l.len() == 1 { "entry" } else { "entries" }
-            ),
-            Range { inclusive, .. } => {
-                write!(f, "Range: {}", if *inclusive { "..=" } else { ".." },)
-            }
-            RangeFrom { .. } => write!(f, "RangeFrom"),
-            RangeTo { .. } => write!(f, "RangeTo"),
-            RangeFull { .. } => write!(f, "RangeFull"),
-            Map(m) => write!(
-                f,
-                "Map with {} {}",
-                m.len(),
-                if m.len() == 1 { "entry" } else { "entries" }
-            ),
-            Block(b) => write!(
-                f,
-                "Block with {} expression{}",
-                b.len(),
-                if b.len() == 1 { "" } else { "s" }
-            ),
-            Expressions(e) => write!(
-                f,
-                "Expressions with {} expression{}",
-                e.len(),
-                if e.len() == 1 { "" } else { "s" }
-            ),
-            CopyExpression(_) => write!(f, "Copy Expression"),
-            ShareExpression(_) => write!(f, "Share Expression"),
-            Negate(_) => write!(f, "Negate"),
-            Function(_) => write!(f, "Function"),
-            Call { .. } => write!(f, "Call Statement"),
-            Debug { .. } => write!(f, "Debug Statement"),
-            Lookup(_) => write!(f, "Lookup"),
-            Assign { .. } => write!(f, "Assign"),
-            MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
-            Op { op, .. } => write!(f, "Op: {:?}", op),
-            If(_) => write!(f, "If"),
-            For(_) => write!(f, "For"),
-            While { .. } => write!(f, "While"),
-            Break => write!(f, "Break"),
-            Continue => write!(f, "Continue"),
-            Return => write!(f, "Return"),
-            ReturnExpression(_) => write!(f, "Return Expression"),
-        }
     }
 }
 
