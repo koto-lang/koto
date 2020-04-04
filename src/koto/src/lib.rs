@@ -3,7 +3,8 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList,
+    ValueMap, ValueVec,
 };
 pub use koto_std::{builtin_error, get_builtin_instance};
 use std::{path::Path, rc::Rc};

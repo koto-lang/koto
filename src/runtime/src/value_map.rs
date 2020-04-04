@@ -1,14 +1,14 @@
 use crate::{
-    builtin_value::BuiltinValue, value::BuiltinFunction, Id, RcCell, Runtime, RuntimeResult, Value,
-    ValueList,
+    builtin_value::BuiltinValue,
+    value::{make_builtin_value, BuiltinFunction},
+    Id, RcCell, Runtime, RuntimeResult, Value, ValueList,
 };
 use rustc_hash::FxHashMap;
 use std::{
     borrow::Borrow,
-    cell::{Ref, RefCell, RefMut},
+    cell::{Ref, RefMut},
     collections::hash_map::{Iter, Keys},
     hash::Hash,
-    rc::Rc,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -165,10 +165,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn set_builtin_value(&mut self, data: impl BuiltinValue) {
-        self.add_value(
-            crate::BUILTIN_DATA_ID,
-            Value::BuiltinValue(Rc::new(RefCell::new(data))),
-        );
+        self.add_value(crate::BUILTIN_DATA_ID, make_builtin_value(data));
     }
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {
