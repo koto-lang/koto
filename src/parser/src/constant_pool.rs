@@ -37,7 +37,7 @@ impl ConstantPool {
                 assert!(bytes.len() < 1 << 8);
                 let len = bytes.len() as u8;
 
-                self.data.extend_from_slice(&[len]);
+                self.data.push(len);
                 self.data.extend_from_slice(bytes);
 
                 index
