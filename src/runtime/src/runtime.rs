@@ -10,8 +10,8 @@ use crate::{
     Error, Id, LookupSlice, RcCell, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
-    vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, Function, LookupNode, LookupOrId,
-    LookupSliceOrId, Node, Scope,
+    vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantPool, Function,
+    LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
 };
 use std::{fmt, rc::Rc};
 
@@ -81,6 +81,7 @@ enum ValueOrValues<'a> {
 
 #[derive(Default)]
 pub struct Runtime<'a> {
+    constants: ConstantPool,
     global: ValueHashMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
@@ -109,10 +110,15 @@ impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         Self {
             global: ValueHashMap::with_capacity(32),
-            call_stack: CallStack::new(),
             control_flow: ControlFlow::None,
+            call_stack: CallStack::with_capacity(32),
             script_path: None,
+            ..Default::default()
         }
+    }
+
+    pub fn constants_mut(&mut self) -> &mut ConstantPool {
+        &mut self.constants
     }
 
     pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
@@ -287,7 +293,9 @@ impl<'a> Runtime<'a> {
             Node::Empty => Empty,
             Node::BoolTrue => Bool(true),
             Node::BoolFalse => Bool(false),
-            Node::Number(n) => Number(*n),
+            Node::Number(constant_index) => {
+                Number(self.constants.get_f64(*constant_index as usize))
+            }
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
             Node::Str(s) => Str(s.clone()),
             Node::List(elements) => match self.evaluate_expressions(elements)? {

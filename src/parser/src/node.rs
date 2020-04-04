@@ -12,7 +12,7 @@ pub enum Node {
     Share(LookupOrId),
     BoolTrue,
     BoolFalse,
-    Number(f64),
+    Number(u32),
     Vec4(Vec<AstNode>),
     Str(Rc<String>),
     List(Vec<AstNode>),

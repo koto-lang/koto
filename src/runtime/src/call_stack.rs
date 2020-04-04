@@ -8,8 +8,7 @@ pub struct CallStack<'a> {
 }
 
 impl<'a> CallStack<'a> {
-    pub fn new() -> Self {
-        let initial_capacity = 32;
+    pub fn with_capacity(initial_capacity: usize) -> Self {
         Self {
             values: Vec::with_capacity(initial_capacity),
             frame_size: Vec::with_capacity(initial_capacity),
@@ -140,7 +139,7 @@ mod tests {
     fn callstack() {
         use Value::*;
 
-        let mut stack = CallStack::new();
+        let mut stack = CallStack::with_capacity(32);
 
         assert_eq!(stack.frame(), 0);
         assert_eq!(stack.get("foo"), None);

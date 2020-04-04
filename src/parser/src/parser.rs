@@ -1,6 +1,6 @@
-use crate::{lookup::*, node::*, prec_climber::PrecClimber, AstNode, LookupNode};
+use crate::{lookup::*, node::*, prec_climber::PrecClimber, AstNode, ConstantPool, LookupNode};
 use pest::Parser;
-use std::rc::Rc;
+use std::{convert::TryFrom, rc::Rc};
 
 use koto_grammar::Rule;
 
@@ -36,18 +36,22 @@ impl KotoParser {
         }
     }
 
-    pub fn parse(&self, source: &str) -> Result<AstNode, Error> {
+    pub fn parse(&self, source: &str, constants: &mut ConstantPool) -> Result<AstNode, Error> {
         let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
-        Ok(self.build_ast(parsed.next().unwrap()))
+        Ok(self.build_ast(parsed.next().unwrap(), constants))
     }
 
-    fn build_ast(&self, pair: pest::iterators::Pair<Rule>) -> AstNode {
+    fn build_ast(
+        &self,
+        pair: pest::iterators::Pair<Rule>,
+        constants: &mut ConstantPool,
+    ) -> AstNode {
         use pest::iterators::Pair;
 
         macro_rules! next_as_boxed_ast {
             ($inner:expr) => {
-                Box::new(self.build_ast($inner.next().unwrap()))
+                Box::new(self.build_ast($inner.next().unwrap(), constants))
             };
         }
 
@@ -82,7 +86,7 @@ impl KotoParser {
                             Rule::call_args => {
                                 let args = pair
                                     .into_inner()
-                                    .map(|pair| self.build_ast(pair))
+                                    .map(|pair| self.build_ast(pair, constants))
                                     .collect::<Vec<_>>();
                                 LookupNode::Call(args)
                             }
@@ -115,15 +119,18 @@ impl KotoParser {
 
         let span = pair.as_span();
         match pair.as_rule() {
-            Rule::next_expression => self.build_ast(pair.into_inner().next().unwrap()),
+            Rule::next_expression => self.build_ast(pair.into_inner().next().unwrap(), constants),
             Rule::program | Rule::child_block => {
                 let inner = pair.into_inner();
-                let block: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                let block: Vec<AstNode> =
+                    inner.map(|pair| self.build_ast(pair, constants)).collect();
                 AstNode::new(span, Node::Block(block))
             }
             Rule::expressions | Rule::value_terms => {
                 let inner = pair.into_inner();
-                let expressions = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
+                let expressions = inner
+                    .map(|pair| self.build_ast(pair, constants))
+                    .collect::<Vec<_>>();
 
                 if expressions.len() == 1 {
                     expressions.first().unwrap().clone()
@@ -143,20 +150,32 @@ impl KotoParser {
                     },
                 )
             }
-            Rule::number => AstNode::new(span, Node::Number(pair.as_str().parse().unwrap())),
+            Rule::number => {
+                let n: f64 = pair.as_str().parse().unwrap();
+                let constant_index = match u32::try_from(constants.add_f64(n)) {
+                    Ok(index) => index,
+                    Err(_) => panic!("The constant pool has overflowed"), // TODO Return an error
+                };
+
+                AstNode::new(span, Node::Number(constant_index))
+            }
             Rule::string => {
                 let mut inner = pair.into_inner();
                 AstNode::new(span, Node::Str(next_as_rc_string!(inner)))
             }
             Rule::list => {
                 let inner = pair.into_inner();
-                let elements = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
+                let elements = inner
+                    .map(|pair| self.build_ast(pair, constants))
+                    .collect::<Vec<_>>();
                 AstNode::new(span, Node::List(elements))
             }
             Rule::vec4_with_parens | Rule::vec4_no_parens => {
                 let mut inner = pair.into_inner();
                 inner.next(); // vec4
-                let expressions = inner.map(|pair| self.build_ast(pair)).collect::<Vec<_>>();
+                let expressions = inner
+                    .map(|pair| self.build_ast(pair, constants))
+                    .collect::<Vec<_>>();
                 AstNode::new(span, Node::Vec4(expressions))
             }
             Rule::range => {
@@ -204,7 +223,7 @@ impl KotoParser {
                     .map(|pair| {
                         let mut inner = pair.into_inner();
                         let id = next_as_rc_string!(inner);
-                        let value = self.build_ast(inner.next().unwrap());
+                        let value = self.build_ast(inner.next().unwrap(), constants);
                         (id, value)
                     })
                     .collect::<Vec<_>>();
@@ -268,7 +287,8 @@ impl KotoParser {
                     .map(|pair| Rc::new(pair.as_str().to_string()))
                     .collect::<Vec<_>>();
                 // collect function body
-                let body: Vec<AstNode> = inner.map(|pair| self.build_ast(pair)).collect();
+                let body: Vec<AstNode> =
+                    inner.map(|pair| self.build_ast(pair, constants)).collect();
 
                 let body = if body.len() == 1 {
                     vec![AstNode::new(
@@ -289,9 +309,9 @@ impl KotoParser {
                         .next()
                         .unwrap()
                         .into_inner()
-                        .map(|pair| self.build_ast(pair))
+                        .map(|pair| self.build_ast(pair, constants))
                         .collect::<Vec<_>>(),
-                    _ => vec![self.build_ast(inner.next().unwrap())],
+                    _ => vec![self.build_ast(inner.next().unwrap(), constants)],
                 };
                 AstNode::new(span, Node::Call { function, args })
             }
@@ -304,7 +324,7 @@ impl KotoParser {
                     .into_inner()
                     .map(|pair| {
                         let text = pair.as_str().to_string();
-                        (text, self.build_ast(pair))
+                        (text, self.build_ast(pair, constants))
                     })
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Debug { expressions })
@@ -385,7 +405,7 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair))
+                    .map(|pair| self.build_ast(pair, constants))
                     .collect::<Vec<_>>();
                 AstNode::new(
                     span,
@@ -398,7 +418,7 @@ impl KotoParser {
             Rule::operation => {
                 let operation_tree = self.climber.climb(
                     pair.into_inner(),
-                    |pair: Pair<Rule>| self.build_ast(pair),
+                    |pair: Pair<Rule>| self.build_ast(pair, constants),
                     |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
                         use AstOp::*;
 
@@ -509,7 +529,7 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair))
+                    .map(|pair| self.build_ast(pair, constants))
                     .collect::<Vec<_>>();
                 let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
                     inner.next();
@@ -543,7 +563,7 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair))
+                    .map(|pair| self.build_ast(pair, constants))
                     .collect::<Vec<_>>();
                 let condition = if inner.next().is_some() {
                     // if

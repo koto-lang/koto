@@ -1,4 +1,6 @@
-pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position};
+pub use koto_parser::{
+    AstNode, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+};
 use koto_runtime::Runtime;
 pub use koto_runtime::{
     type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
@@ -35,6 +37,7 @@ impl<'a> Koto<'a> {
         args: Vec<String>,
     ) -> Result<Value<'a>, String> {
         self.parse(script)?;
+
         self.set_args(args);
         self.run()?;
         if self.has_function("main") {
@@ -45,10 +48,12 @@ impl<'a> Koto<'a> {
     }
 
     pub fn parse(&mut self, script: &str) -> Result<(), String> {
-        match self.parser.parse(&script) {
+        let constants = self.runtime.constants_mut();
+        match self.parser.parse(&script, constants) {
             Ok(ast) => {
-                self.script = script.to_string();
                 self.ast = ast;
+                self.script = script.to_string();
+                constants.shrink_to_fit();
                 Ok(())
             }
             Err(e) => Err(format!("Error while parsing script: {}", e)),
@@ -63,12 +68,7 @@ impl<'a> Koto<'a> {
             .map(|arg| Str(Rc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self
-            .runtime
-            .global_mut()
-            .get_mut("env")
-            .unwrap()
-        {
+        match self.runtime.global_mut().get_mut("env").unwrap() {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),

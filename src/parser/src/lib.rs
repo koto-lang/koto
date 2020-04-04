@@ -8,6 +8,7 @@ pub mod vec4;
 pub use lookup::*;
 pub use node::*;
 pub use parser::*;
+pub use constant_pool::ConstantPool;
 
 #[derive(Clone, Debug)]
 pub struct AstNode {
