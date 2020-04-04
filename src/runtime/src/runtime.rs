@@ -10,8 +10,8 @@ use crate::{
     Error, Id, LookupSlice, RcCell, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
-    vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantPool, Function,
-    LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
+    vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, ConstantPool,
+    Function, LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
 };
 use rustc_hash::FxHashMap;
 use std::{fmt, rc::Rc};
@@ -1145,16 +1145,21 @@ impl<'a> Runtime<'a> {
 
     pub fn debug_statement(
         &mut self,
-        expressions: &[(String, AstNode)],
+        expressions: &[(ConstantIndex, AstNode)],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
         let prefix = match &self.script_path {
             Some(path) => format!("[{}: {}]", path, node.start_pos.line),
             None => format!("[{}]", node.start_pos.line),
         };
-        for (text, expression) in expressions.iter() {
+        for (debug_text_id, expression) in expressions.iter() {
             let value = self.evaluate_and_capture(expression)?;
-            println!("{} {}: {}", prefix, text, value);
+            println!(
+                "{} {}: {}",
+                prefix,
+                self.get_constant_string(debug_text_id),
+                value
+            );
         }
         Ok(Value::Empty)
     }

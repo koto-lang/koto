@@ -41,7 +41,7 @@ pub enum Node {
         args: Vec<AstNode>,
     },
     Debug {
-        expressions: Vec<(String, AstNode)>,
+        expressions: Vec<(ConstantIndex, AstNode)>,
     },
     Assign {
         target: AssignTarget,

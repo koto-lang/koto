@@ -316,8 +316,10 @@ impl KotoParser {
                     .unwrap()
                     .into_inner()
                     .map(|pair| {
-                        let text = pair.as_str().to_string();
-                        (text, self.build_ast(pair, constants))
+                        (
+                            add_constant_string(constants, pair.as_str()),
+                            self.build_ast(pair, constants),
+                        )
                     })
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Debug { expressions })
