@@ -1,11 +1,15 @@
 use std::{borrow::Borrow, fmt, hash::Hash, rc::Rc};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Id(pub koto_parser::Id);
+pub struct Id(Rc<String>);
 
 impl Id {
-    pub fn new(id: &str) -> Self {
-        Self(Rc::new(id.to_string()))
+    pub fn new(id: Rc<String>) -> Self {
+        Self(id)
+    }
+
+    pub fn from_str(id: &str) -> Self {
+        Self::new(Rc::new(id.to_string()))
     }
 
     pub fn as_str(&self) -> &str {

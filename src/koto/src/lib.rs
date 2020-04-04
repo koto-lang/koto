@@ -40,8 +40,10 @@ impl<'a> Koto<'a> {
 
         self.set_args(args);
         self.run()?;
-        if self.has_function("main") {
-            self.call_function("main")
+
+        // TODO find a better way to call functions
+        if let Some(id_index) = self.runtime.str_to_id_index("main"){
+            self.call_function(id_index)
         } else {
             Ok(Value::Empty)
         }
@@ -128,9 +130,9 @@ impl<'a> Koto<'a> {
         )
     }
 
-    pub fn call_function(&mut self, function_name: &str) -> Result<Value<'a>, String> {
+    pub fn call_function(&mut self, function_id_index: u32) -> Result<Value<'a>, String> {
         match self.runtime.lookup_and_call_function(
-            &LookupSliceOrId::Id(Rc::new(function_name.to_string())),
+            &LookupSliceOrId::Id(function_id_index),
             &vec![],
             &AstNode::default(),
         ) {

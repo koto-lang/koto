@@ -1,19 +1,19 @@
 use crate::{AstNode, Lookup, LookupSlice};
 use std::{fmt, rc::Rc};
 
-pub type Id = Rc<String>;
+pub type ConstantIndex = u32;
 
 #[derive(Clone, Debug)]
 pub enum Node {
     Empty,
-    Id(Id),
+    Id(ConstantIndex),
     Lookup(Lookup),
     Copy(LookupOrId),
     Share(LookupOrId),
     BoolTrue,
     BoolFalse,
-    Number(u32),
-    Str(u32),
+    Number(ConstantIndex),
+    Str(ConstantIndex),
     Vec4(Vec<AstNode>),
     List(Vec<AstNode>),
     Range {
@@ -29,7 +29,7 @@ pub enum Node {
         inclusive: bool,
     },
     RangeFull,
-    Map(Vec<(Id, AstNode)>),
+    Map(Vec<(ConstantIndex, AstNode)>),
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
     CopyExpression(Box<AstNode>),
@@ -76,9 +76,9 @@ impl fmt::Display for Node {
         use Node::*;
         match self {
             Empty => write!(f, "()"),
-            Id(id) => write!(f, "Id: {}", id),
-            Copy(lookup) => write!(f, "Copy: {}", lookup),
-            Share(lookup) => write!(f, "Share: {}", lookup),
+            Id(_) => write!(f, "Id"),
+            Copy(_) => write!(f, "Copy"),
+            Share(_) => write!(f, "Share"),
             BoolTrue => write!(f, "Bool: True"),
             BoolFalse => write!(f, "Bool: False"),
             Number(_) => write!(f, "Number"),
@@ -120,8 +120,8 @@ impl fmt::Display for Node {
             Function(_) => write!(f, "Function"),
             Call { .. } => write!(f, "Call Statement"),
             Debug { .. } => write!(f, "Debug Statement"),
-            Lookup(lookup) => write!(f, "Lookup: {}", lookup),
-            Assign { target, .. } => write!(f, "Assign: target: {}", target),
+            Lookup(_) => write!(f, "Lookup"),
+            Assign { .. } => write!(f, "Assign"),
             MultiAssign { targets, .. } => write!(f, "MultiAssign: targets: {:?}", targets,),
             Op { op, .. } => write!(f, "Op: {:?}", op),
             If(_) => write!(f, "If"),
@@ -143,23 +143,14 @@ pub struct Position {
 
 #[derive(Clone, Debug)]
 pub enum LookupOrId {
-    Id(Id),
+    Id(ConstantIndex),
     Lookup(Lookup),
-}
-
-impl fmt::Display for LookupOrId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LookupOrId::Id(id) => write!(f, "Id: {}", id),
-            LookupOrId::Lookup(lookup) => lookup.fmt(f),
-        }
-    }
 }
 
 impl LookupOrId {
     pub fn as_slice<'a>(&'a self) -> LookupSliceOrId<'a> {
         match self {
-            LookupOrId::Id(id) => LookupSliceOrId::Id(id.clone()),
+            LookupOrId::Id(id) => LookupSliceOrId::Id(*id),
             LookupOrId::Lookup(lookup) => LookupSliceOrId::LookupSlice(lookup.as_slice()),
         }
     }
@@ -167,17 +158,8 @@ impl LookupOrId {
 
 #[derive(Clone, Debug)]
 pub enum LookupSliceOrId<'a> {
-    Id(Id),
+    Id(ConstantIndex),
     LookupSlice(LookupSlice<'a>),
-}
-
-impl<'a> fmt::Display for LookupSliceOrId<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LookupSliceOrId::Id(id) => write!(f, "Id: {}", id),
-            LookupSliceOrId::LookupSlice(lookup_slice) => lookup_slice.fmt(f),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -185,13 +167,13 @@ pub struct Block {}
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub args: Vec<Id>,
+    pub args: Vec<ConstantIndex>,
     pub body: Vec<AstNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
-    pub args: Vec<Id>,
+    pub args: Vec<ConstantIndex>,
     pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
     pub body: Box<AstNode>,
@@ -238,34 +220,15 @@ pub enum Scope {
 
 #[derive(Clone, Debug)]
 pub enum AssignTarget {
-    Id { id: Id, scope: Scope },
+    Id { id_index: u32, scope: Scope },
     Lookup(Lookup),
 }
 
 impl AssignTarget {
     pub fn to_node(&self) -> Node {
         match self {
-            AssignTarget::Id { id, .. } => Node::Id(id.clone()),
+            AssignTarget::Id { id_index, .. } => Node::Id(*id_index),
             AssignTarget::Lookup(lookup) => Node::Lookup(lookup.clone()),
-        }
-    }
-}
-
-impl fmt::Display for AssignTarget {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use AssignTarget::*;
-        match self {
-            Id { id, scope } => write!(
-                f,
-                "{}{}",
-                id,
-                if *scope == Scope::Global {
-                    " - global"
-                } else {
-                    ""
-                }
-            ),
-            Lookup(lookup) => write!(f, "{}", lookup),
         }
     }
 }

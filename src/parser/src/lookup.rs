@@ -1,5 +1,4 @@
-use crate::{AstNode, Id, Node};
-use std::fmt;
+use crate::{AstNode, ConstantIndex};
 
 #[derive(Clone, Debug)]
 pub struct Index(pub Box<AstNode>);
@@ -9,7 +8,7 @@ pub struct Lookup(pub Vec<LookupNode>);
 
 #[derive(Clone, Debug)]
 pub enum LookupNode {
-    Id(Id),
+    Id(ConstantIndex),
     Index(Index),
     Call(Vec<AstNode>),
 }
@@ -28,12 +27,6 @@ impl Lookup {
     }
 }
 
-impl fmt::Display for Lookup {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        LookupSlice(&self.0).fmt(f)
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct LookupSlice<'a>(pub &'a [LookupNode]);
 
@@ -48,31 +41,5 @@ impl<'a> LookupSlice<'a> {
 
     pub fn first_n(&self, n: usize) -> LookupSlice {
         LookupSlice(&self.0[..=n])
-    }
-}
-
-impl<'a> fmt::Display for LookupSlice<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut first = true;
-        for node in self.0.iter() {
-            match &node {
-                LookupNode::Id(id) => {
-                    if !first {
-                        write!(f, ".")?;
-                    }
-                    write!(f, "{}", id)?
-                }
-                LookupNode::Index(index) => {
-                    let expression = match index.0.node {
-                        Node::Number(n) => n.to_string(),
-                        _ => "...".to_string(),
-                    };
-                    write!(f, "[{}]", expression)?
-                }
-                LookupNode::Call(_) => write!(f, "()")?,
-            }
-            first = false;
-        }
-        Ok(())
     }
 }

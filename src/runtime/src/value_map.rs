@@ -47,7 +47,7 @@ impl<'a> ValueHashMap<'a> {
     }
 
     pub fn add_value(&mut self, id: &str, value: Value<'a>) {
-        self.insert(Id::new(id), value);
+        self.insert(Id::from_str(id), value);
     }
 
     pub fn insert(&mut self, id: Id, value: Value<'a>) {
@@ -157,7 +157,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn add_value(&mut self, id: &str, value: Value<'a>) {
-        self.insert(Id::new(id), value);
+        self.insert(Id::from_str(id), value);
     }
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {
