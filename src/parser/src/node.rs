@@ -13,8 +13,8 @@ pub enum Node {
     BoolTrue,
     BoolFalse,
     Number(u32),
+    Str(u32),
     Vec4(Vec<AstNode>),
-    Str(Rc<String>),
     List(Vec<AstNode>),
     Range {
         start: Box<AstNode>,
@@ -81,9 +81,9 @@ impl fmt::Display for Node {
             Share(lookup) => write!(f, "Share: {}", lookup),
             BoolTrue => write!(f, "Bool: True"),
             BoolFalse => write!(f, "Bool: False"),
-            Number(n) => write!(f, "Number: {}", n),
+            Number(_) => write!(f, "Number"),
             Vec4(v) => write!(f, "Vec4: {:?}", v),
-            Str(s) => write!(f, "Str: {}", s),
+            Str(_) => write!(f, "Str"),
             List(l) => write!(
                 f,
                 "List with {} {}",

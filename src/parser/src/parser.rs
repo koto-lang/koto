@@ -161,7 +161,13 @@ impl KotoParser {
             }
             Rule::string => {
                 let mut inner = pair.into_inner();
-                AstNode::new(span, Node::Str(next_as_rc_string!(inner)))
+                let s = inner.next().unwrap().as_str();
+                let constant_index = match u32::try_from(constants.add_string(s)) {
+                    Ok(index) => index,
+                    Err(_) => panic!("The constant pool has overflowed"), // TODO Return an error
+                };
+
+                AstNode::new(span, Node::Str(constant_index))
             }
             Rule::list => {
                 let inner = pair.into_inner();

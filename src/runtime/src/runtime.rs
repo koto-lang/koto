@@ -13,6 +13,7 @@ use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantPool, Function,
     LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
 };
+use rustc_hash::FxHashMap;
 use std::{fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -82,6 +83,7 @@ enum ValueOrValues<'a> {
 #[derive(Default)]
 pub struct Runtime<'a> {
     constants: ConstantPool,
+    string_constants: FxHashMap<u32, Rc<String>>,
     global: ValueHashMap<'a>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
@@ -297,7 +299,18 @@ impl<'a> Runtime<'a> {
                 Number(self.constants.get_f64(*constant_index as usize))
             }
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
-            Node::Str(s) => Str(s.clone()),
+            Node::Str(constant_index) => match self.string_constants.get(constant_index) {
+                Some(s) => Str(s.clone()),
+                None => {
+                    let s = Rc::new(
+                        self.constants
+                            .get_string(*constant_index as usize)
+                            .to_string(),
+                    );
+                    self.string_constants.insert(*constant_index, s.clone());
+                    Str(s)
+                }
+            },
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
