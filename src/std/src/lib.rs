@@ -7,7 +7,7 @@ pub use koto_runtime::BUILTIN_DATA_ID;
 use koto_runtime::{
     value,
     value::{deref_value, type_as_string},
-    Error, Runtime, Value, ValueList, ValueMap, ValueVec,
+    BuiltinValue, Error, Runtime, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use std::rc::Rc;
 
@@ -61,6 +61,27 @@ macro_rules! single_arg_fn {
     }
 }
 
+pub fn visit_builtin_value<'a, T>(
+    map: &ValueMap<'a>,
+    mut f: impl FnMut(&mut T) -> RuntimeResult<'a>,
+) -> RuntimeResult<'a>
+where
+    T: BuiltinValue,
+{
+    match map.data().get(BUILTIN_DATA_ID) {
+        Some(Value::BuiltinValue(maybe_builtin)) => {
+            match maybe_builtin.as_ref().borrow_mut().downcast_mut::<T>() {
+                Some(builtin) => f(builtin),
+                None => builtin_error!(
+                    "Invalid type for builtin value, found '{}'",
+                    maybe_builtin.borrow().value_type()
+                ),
+            }
+        }
+        _ => builtin_error!("Builtin value not found"),
+    }
+}
+
 #[macro_export]
 macro_rules! get_builtin_instance {
     ($args: ident,
@@ -79,30 +100,9 @@ macro_rules! get_builtin_instance {
 
         match &$args[0] {
             Value::Share(map_ref) => match &*map_ref.borrow() {
-                Map(instance) => match instance.data().get($crate::BUILTIN_DATA_ID) {
-                    Some(Value::BuiltinValue(maybe_builtin)) => {
-                        match maybe_builtin.borrow_mut().downcast_mut::<$builtin_type>() {
-                            Some($match_name) => $body,
-                            None => $crate::builtin_error!(
-                                "{0}.{1}: Invalid type for {0} handle, found '{2}'",
-                                $builtin_name,
-                                $fn_name,
-                                maybe_builtin.borrow().value_type()
-                            ),
-                        }
-                    }
-                    Some(unexpected) => $crate::builtin_error!(
-                        "{0}.{1}: Invalid type for {0} handle, found '{2}'",
-                        $builtin_name,
-                        $fn_name,
-                        type_as_string(unexpected)
-                    ),
-                    None => $crate::builtin_error!(
-                        "{0}.{1}: {0} handle not found",
-                        $builtin_name,
-                        $fn_name
-                    ),
-                },
+                Value::Map(instance) => {
+                    $crate::visit_builtin_value(instance, |$match_name: &mut $builtin_type| $body)
+                }
                 unexpected => $crate::builtin_error!(
                     "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                     $builtin_name,

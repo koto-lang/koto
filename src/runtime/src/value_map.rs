@@ -1,7 +1,7 @@
 use crate::{
     builtin_value::BuiltinValue,
     value::{make_builtin_value, BuiltinFunction},
-    Id, RcCell, Runtime, RuntimeResult, Value, ValueList,
+    Id, RcCell, Runtime, RuntimeResult, Value, ValueList, BUILTIN_DATA_ID,
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -165,7 +165,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn set_builtin_value(&mut self, data: impl BuiltinValue) {
-        self.add_value(crate::BUILTIN_DATA_ID, make_builtin_value(data));
+        self.add_value(BUILTIN_DATA_ID, make_builtin_value(data));
     }
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {
@@ -188,3 +188,4 @@ impl<'a> PartialEq for ValueMap<'a> {
     }
 }
 impl<'a> Eq for ValueMap<'a> {}
+
