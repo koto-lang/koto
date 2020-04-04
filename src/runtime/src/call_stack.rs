@@ -8,8 +8,7 @@ pub struct CallStack<'a> {
 }
 
 impl<'a> CallStack<'a> {
-    pub fn new() -> Self {
-        let initial_capacity = 32;
+    pub fn with_capacity(initial_capacity: usize) -> Self {
         Self {
             values: Vec::with_capacity(initial_capacity),
             frame_size: Vec::with_capacity(initial_capacity),
@@ -140,20 +139,20 @@ mod tests {
     fn callstack() {
         use Value::*;
 
-        let mut stack = CallStack::new();
+        let mut stack = CallStack::with_capacity(32);
 
         assert_eq!(stack.frame(), 0);
         assert_eq!(stack.get("foo"), None);
 
-        stack.push(Id::new("foo"), Number(42.0));
-        stack.push(Id::new("bar"), Number(99.0));
+        stack.push(Id::from_str("foo"), Number(42.0));
+        stack.push(Id::from_str("bar"), Number(99.0));
         stack.commit();
 
         assert_eq!(stack.frame(), 1);
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         assert_eq!(stack.get("bar"), Some(&Number(99.0)));
 
-        stack.push(Id::new("baz"), Number(-1.0));
+        stack.push(Id::from_str("baz"), Number(-1.0));
         // We should be able to access the previous frame values while preparing the next
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         stack.commit();
@@ -163,7 +162,7 @@ mod tests {
         assert_eq!(stack.get("bar"), None);
         assert_eq!(stack.get("baz"), Some(&Number(-1.0)));
 
-        stack.extend(Id::new("qux"), Number(100.0));
+        stack.extend(Id::from_str("qux"), Number(100.0));
         assert_eq!(stack.get("qux"), Some(&Number(100.0)));
 
         stack.pop_frame();
@@ -175,7 +174,7 @@ mod tests {
         assert_eq!(stack.get("baz"), None);
         assert_eq!(stack.get("qux"), None);
 
-        stack.push(Id::new("baz"), Number(-1.0));
+        stack.push(Id::from_str("baz"), Number(-1.0));
 
         stack.cancel();
         assert_eq!(stack.frame(), 1);

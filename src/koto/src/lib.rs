@@ -1,4 +1,6 @@
-pub use koto_parser::{AstNode, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position};
+pub use koto_parser::{
+    AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+};
 use koto_runtime::Runtime;
 pub use koto_runtime::{
     type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
@@ -35,20 +37,24 @@ impl<'a> Koto<'a> {
         args: Vec<String>,
     ) -> Result<Value<'a>, String> {
         self.parse(script)?;
+
         self.set_args(args);
         self.run()?;
-        if self.has_function("main") {
-            self.call_function("main")
+
+        if let Some(main) = self.get_global_function("main") {
+            self.call_function(&main, &[])
         } else {
             Ok(Value::Empty)
         }
     }
 
     pub fn parse(&mut self, script: &str) -> Result<(), String> {
-        match self.parser.parse(&script) {
+        let constants = self.runtime.constants_mut();
+        match self.parser.parse(&script, constants) {
             Ok(ast) => {
-                self.script = script.to_string();
                 self.ast = ast;
+                self.script = script.to_string();
+                constants.shrink_to_fit();
                 Ok(())
             }
             Err(e) => Err(format!("Error while parsing script: {}", e)),
@@ -63,12 +69,7 @@ impl<'a> Koto<'a> {
             .map(|arg| Str(Rc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self
-            .runtime
-            .global_mut()
-            .get_mut("env")
-            .unwrap()
-        {
+        match self.runtime.global_mut().get_mut("env").unwrap() {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -121,19 +122,19 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn has_function(&self, function_name: &str) -> bool {
-        matches!(
-            self.runtime.get_value(function_name),
-            Some((Value::Function(_), _))
-        )
+    pub fn get_global_function(&self, function_name: &str) -> Option<Rc<Function>> {
+        match self.runtime.get_value(function_name) {
+            Some((Value::Function(function), _)) => Some(function),
+            _ => None,
+        }
     }
 
-    pub fn call_function(&mut self, function_name: &str) -> Result<Value<'a>, String> {
-        match self.runtime.lookup_and_call_function(
-            &LookupSliceOrId::Id(Rc::new(function_name.to_string())),
-            &vec![],
-            &AstNode::default(),
-        ) {
+    pub fn call_function(
+        &mut self,
+        function: &Function,
+        args: &[Value<'a>],
+    ) -> Result<Value<'a>, String> {
+        match self.runtime.call_function(function, args) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),

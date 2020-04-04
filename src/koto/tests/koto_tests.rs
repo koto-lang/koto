@@ -42,6 +42,7 @@ koto_test!(logic);
 koto_test!(loops);
 koto_test!(maps);
 koto_test!(maps_and_lists);
+koto_test!(maps_nested_assignments);
 koto_test!(math);
 koto_test!(ranges);
 koto_test!(shares);
