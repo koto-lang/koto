@@ -1,5 +1,5 @@
 pub use koto_parser::{
-    AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+    vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
