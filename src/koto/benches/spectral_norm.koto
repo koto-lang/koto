@@ -15,7 +15,7 @@ Av = |x y n|
     i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A(i1 (j + 1))
+      a = a + x[j] * (A i1 (j + 1))
     y[i] = a
 
 Atv = |x y n|
@@ -23,12 +23,12 @@ Atv = |x y n|
     i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A((j + 1) i1)
+      a = a + x[j] * (A (j + 1) i1)
     y[i] = a
 
 AtAv = |x y t n|
-  Av x, t, n
-  Atv t, y, n
+  Av x t n
+  Atv t y n
 
 main = ||
   N = number env.args[0]
@@ -36,11 +36,11 @@ main = ||
   v = share [0 for _ in 0..N]
   t = share [0 for _ in 0..N]
   for _ in 0..10
-    AtAv u, v, t, N
-    AtAv v, u, t, N
+    AtAv u v t N
+    AtAv v u t N
   vBv, vv = 0, 0
   for ui, vi in u, v
     vBv = vBv + ui * vi
     vv = vv + vi * vi
-  result = math.sqrt vBv / vv
+  result = math.sqrt (vBv / vv)
   # print result

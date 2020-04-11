@@ -1,16 +1,16 @@
 # Single line if statement
 is_zero = |x| x == 0
 if is_zero 0 then assert true
-assert if is_zero 0 then true else false
+assert (if is_zero 0 then true else false)
 a, b = if true then 10, 20 else 30, 40
-assert_eq b, 20
+assert_eq b 20
 
 
 # Multiline if statement
 x = true
 if x
   a = 42
-  assert a == 42
+  assert_eq a 42
 
 if x == false
   # This comment shouldn't break parsing
@@ -32,8 +32,8 @@ if true
     else if n == 1
       1
     else
-      (fib n - 1) + (fib n - 2)
-  assert_eq 13, (fib 7)
+      (fib (n - 1)) + (fib (n - 2))
+  assert_eq 13 (fib 7)
 
 
 ####### return allows for early exit from functions
@@ -47,14 +47,14 @@ match_digit = |n|
     if i == n
       return match_digit_nested n
 x = match_digit(i) for i in 0..3
-assert_eq x, [0 1 2]
+assert_eq x [0 1 2]
 
 ###### return supports returning multiple values
 f = ||
   return -1, 1
 a, b = f()
-assert_eq a, -1
-assert_eq b, 1
+assert_eq a -1
+assert_eq b 1
 
 ##### return can also be used without a value
 f = ||

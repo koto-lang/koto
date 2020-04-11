@@ -297,15 +297,9 @@ impl KotoParser {
             Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
                 let function = next_as_lookup_or_id!(inner);
-                let args = match inner.peek().unwrap().as_rule() {
-                    Rule::call_args | Rule::operations => inner
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .map(|pair| self.build_ast(pair, constants))
-                        .collect::<Vec<_>>(),
-                    _ => vec![self.build_ast(inner.next().unwrap(), constants)],
-                };
+                let args = inner
+                    .map(|pair| self.build_ast(pair, constants))
+                    .collect::<Vec<_>>();
                 AstNode::new(span, Node::Call { function, args })
             }
             Rule::debug_with_parens | Rule::debug_no_parens => {

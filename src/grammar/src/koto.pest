@@ -181,7 +181,10 @@ while_loop = !{
 }
 
 function_call = _{ call_no_parens }
-call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
+call_no_parens = ${
+  lookup_or_id
+  ~ (WHITESPACE+ ~ value_term)+
+  }
 
 call_args = !{
   "("

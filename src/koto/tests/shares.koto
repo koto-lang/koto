@@ -2,92 +2,92 @@
 x = 1
 y = share x
 y = 42
-assert_eq x, 42
+assert_eq x 42
 
 # A share can be created from a literal
 a = share 1
 b = a
 b = 99
-assert_eq a, 99
+assert_eq a 99
 
 # share can be used to turn a value into a share
 t = "hi"
 t = share t
 u = t
 u = "bye"
-assert_eq t, "bye"
+assert_eq t "bye"
 
 # copy can be used to make a copy of a share's value
 x = share 1
 y = copy x
 x *= 2
-assert_eq x, 2
-assert_eq y, 1
+assert_eq x 2
+assert_eq y 1
 
 # Assigning a share to another doesn't modify existing shares
 x = share 1
 y = x
 x = share 2
-assert_eq x, 2
-assert_eq y, 1
+assert_eq x 2
+assert_eq y 1
 
 # Assigning a share to itself is a no-op
 x = x
-assert_eq x, 2
+assert_eq x 2
 
 # Modifying a list makes a COW clone by default
 a = [1 2 3]
 b = a
-assert_eq a, b
+assert_eq a b
 a[1] = 42
-assert_ne a, b
+assert_ne a b
 
 # share assignment turns the source and target lists into shares to each other
 c = share a
-assert_eq a, c
+assert_eq a c
 
 # Modifications to a or c will be reflected in each other
 a[0] = 99
-assert_eq a, c
+assert_eq a c
 c[2] = -1
-assert_eq a, c
+assert_eq a c
 
 # Assigning a share to a new value creates a new share to the data
 d = c
 # Using the share keyword with a share will bind to the underlying data
 e = share c
 
-assert_eq c, d
-assert_eq c[0], 99 # Indexing a share to a list works as expected
-assert_eq d, e
-assert_eq e, [99 42 -1]
+assert_eq c d
+assert_eq c[0] 99 # Indexing a share to a list works as expected
+assert_eq d e
+assert_eq e [99 42 -1]
 
 # Reassigning a share with a new type doesn't affect other shares
 a = "hi"
-assert_eq a, "hi"
-assert_eq c, [99 42 -1]
+assert_eq a "hi"
+assert_eq c [99 42 -1]
 
 # Reassigning a share with the same type will be reflected in the other shares
 c = [-1 -2 -3]
-assert_eq c, e
-assert_eq e, [-1 -2 -3]
+assert_eq c e
+assert_eq e [-1 -2 -3]
 
 # b remains untouched
-assert_eq b, [1 2 3]
+assert_eq b [1 2 3]
 
 # Shares can be used as function arguments
 a = []
 fill_n = |data n x|
   data = x for _ in 0..n
-fill_n (share a), 3, 7
-assert_eq a, [7 7 7]
+fill_n (share a) 3 7
+assert_eq a [7 7 7]
 
 # Shared lists can be used as for loop ranges
 b = x for x in a
-assert_eq b, [7 7 7]
+assert_eq b [7 7 7]
 
 # Maps can be shared too
 m = {foo: 42}
 n = share m
 n.foo /= 2
-assert_eq m.foo, 21
+assert_eq m.foo 21

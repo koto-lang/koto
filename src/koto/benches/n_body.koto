@@ -88,18 +88,18 @@ get_energy = |bodies nbody|
         for j in (i + 1)..nbody
             bj = bodies[j]
             d = bi.pos - bj.pos
-            distance = sqrt sum d * d
+            distance = sqrt (sum (d * d))
             e = e - (bi_mass * bj.mass) / distance
     e
 
 offset_momentum = |bodies nbody|
     pos = vec4 0
     for body in bodies
-        pos = pos + body.vel * body.mass # TODO += operator
+        pos += body.vel * body.mass
     bodies[0].vel = (pos * -1) / solar_mass # TODO - operator
 
 main = ||
-  n = list.get env.args, 0
+  n = list.get env.args 0
   if n == ()
     n = 100
   else
@@ -108,17 +108,17 @@ main = ||
   nbody = size bodies
   bodies = share bodies
 
-  offset_momentum bodies, nbody
+  offset_momentum bodies nbody
 
-  quiet = (list.get env.args, 1) == "quiet"
+  quiet = (list.get env.args 1) == "quiet"
 
-  energy = get_energy(bodies nbody)
+  energy = get_energy bodies nbody
   if not quiet
     print energy # TODO format to 9dp
 
   for _ in 0..n
-      advance(bodies nbody 0.01)
+      advance bodies nbody 0.01
 
-  energy = get_energy(bodies nbody)
+  energy = get_energy bodies nbody
   if not quiet
     print energy # TODO format to 9dp

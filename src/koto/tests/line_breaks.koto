@@ -2,29 +2,29 @@
 a = vec4 1,
   2, 3,
   4
-assert_eq a, vec4 1, 2, 3, 4
+assert_eq a (vec4 1, 2, 3, 4)
 b = vec4(
   1,
   2, 3,
   4, # a trailing comma can be used within parentheses
 )
-b = vec4(1, 2, 3, 4)
-assert_eq a, b
+b = (vec4 1, 2, 3, 4)
+assert_eq a b
 
 x = list.fold(
   [1 2 3]
   0
   |a b| a + b
 )
-assert_eq x, 6
+assert_eq x 6
 
 x = |
   long_arg # This is an argument that needs an explanation
   long_arg_2
 |
-  assert_eq long_arg, long_arg_2
+  assert_eq long_arg long_arg_2
 
-x 1, 1
+x 1 1
 
 x = {
   foo:
@@ -32,24 +32,24 @@ x = {
   bar:
     -1
 }
-assert_eq x.bar, -1
+assert_eq x.bar -1
 
 x = [
   42
   99
 ]
-assert_eq x[1], 99
+assert_eq x[1] 99
 
 
 ###### '\' can be used to break lines when implicit breaking isn't allowed
 a = 1 + \
     2 + 3 + \
     4
-assert_eq a, 10
+assert_eq a 10
 
 x = vec4 \
   0, 1, 2, 3
 assert_eq \
-  x,
+  x \
   vec4 0, 1 \
      , 2, 3
