@@ -14,15 +14,16 @@ assert_eq a, b
 x = list.fold(
   [1, 2, 3],
   0,
-  |a, b| a + b,
+  |a b| a + b,
 )
 assert_eq x, 6
 
 x = |
-  long_arg,
-  long_arg_2,
+  long_arg # This is an argument that needs an explanation
+  long_arg_2
 |
   assert_eq long_arg, long_arg_2
+
 x 1, 1
 
 x = {

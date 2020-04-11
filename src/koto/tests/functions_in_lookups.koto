@@ -2,7 +2,7 @@
 test_map =
   child_map:
     foo: 42
-    set_foo: |self, x| self.foo = x
+    set_foo: |self x| self.foo = x
   get_child_map: |self| share self.child_map # Note the share here
 
 a = [test_map, test_map]

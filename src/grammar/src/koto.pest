@@ -198,8 +198,7 @@ function_inline = !{ function_args ~ assignment_or_expression }
 function_args = {
   "|"
   ~ separator_line*
-  ~ (id ~ (comma_separator ~ id)* ~ comma_separator?)?
-  ~ separator_line?
+  ~ (id ~ separator_line*)*
   ~ "|"
 }
 

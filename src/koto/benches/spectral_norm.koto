@@ -6,11 +6,11 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
-A = |i, j|
+A = |i j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)
 
-Av = |x, y, n|
+Av = |x y n|
   for i in 0..n
     i1 = i + 1
     a = 0
@@ -18,7 +18,7 @@ Av = |x, y, n|
       a = a + x[j] * A(i1, j + 1)
     y[i] = a
 
-Atv = |x, y, n|
+Atv = |x y n|
   for i in 0..n
     i1 = i + 1
     a = 0
@@ -26,7 +26,7 @@ Atv = |x, y, n|
       a = a + x[j] * A(j + 1, i1)
     y[i] = a
 
-AtAv = |x, y, t, n|
+AtAv = |x y t n|
   Av x, t, n
   Atv t, y, n
 

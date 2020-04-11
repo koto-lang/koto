@@ -50,7 +50,7 @@ assert_eq z, [1, 2, 3]
 
 ###### list.fold
 z = [2, 3, 4]
-x = list.fold z, 1, |x, y| x * y
+x = list.fold z, 1, |x y| x * y
 assert_eq x, 24
 
 ###### list.is_sortable + sort_copy

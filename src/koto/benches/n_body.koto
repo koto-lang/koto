@@ -63,7 +63,7 @@ bodies = [share sun, share jupiter, share saturn, share uranus, share neptune]
 sqrt = math.sqrt # TODO use statement
 sum = math.sum
 
-advance = |bodies, nbodies, dt| # TODO 'share bodies'
+advance = |bodies nbodies dt| # TODO 'share bodies'
     for bi, i in bodies, 0..nbodies
         bi_pos = bi.pos
         bi_vel = bi.vel
@@ -79,7 +79,7 @@ advance = |bodies, nbodies, dt| # TODO 'share bodies'
         bi.vel = bi_vel
         bi.pos = bi.pos + dt * bi_vel
 
-get_energy = |bodies, nbody|
+get_energy = |bodies nbody|
     e = 0
     for bi, i in bodies, 0..nbody
         bi_vel = bi.vel
@@ -92,7 +92,7 @@ get_energy = |bodies, nbody|
             e = e - (bi_mass * bj.mass) / distance
     e
 
-offset_momentum = |bodies, nbody|
+offset_momentum = |bodies nbody|
     pos = vec4 0
     for body in bodies
         pos = pos + body.vel * body.mass # TODO += operator

@@ -44,7 +44,7 @@ make_o2 = ||
   make_o() +
     foo_2: 57
     get_foo_2: |self| self.foo_2
-    set_foo_2: |self, x| self.foo_2 = x
+    set_foo_2: |self x| self.foo_2 = x
     sum_foo: |self| self.foo + self.foo_2
 
 o2 = make_o2()

@@ -2,9 +2,9 @@ square = |x| x * x
 assert_eq 49, square 7
 assert_eq 100, square -10
 
-add = |x, y|
+add = |x y|
   x2 = x
-  do_add = |x, y|
+  do_add = |x y|
     x = x + y # Nested trailing comment
     return x
   result = do_add x, y
@@ -14,7 +14,7 @@ add = |x, y|
 assert_eq 3, add 1, 2
 
 # functions can call globally defined functions
-add2 = |x, y| add x, y
+add2 = |x y| add x, y
 assert_eq 0, add2 4, -4
 
 # functions can return multiple values

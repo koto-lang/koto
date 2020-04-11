@@ -17,7 +17,7 @@ square = |x| x * x
 c = square(x) for x in [1, 2, 3]
 assert_eq c, [1, 4, 9]
 
-filter = |xs, f| x for x in xs if f x
+filter = |xs f| x for x in xs if f x
 a = filter(0..20, |x| not x <= 15)
 assert_eq a, [16, 17, 18, 19]
 
