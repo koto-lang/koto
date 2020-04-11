@@ -247,10 +247,14 @@ vec4_with_parens = !{
   vec4
   ~ "("
   ~ separator_line*
-  ~ operation ~ (comma_separator ~ operation){, 3} ~ comma_separator?
+  ~ flow_term ~ (separator_line* ~ flow_term){, 3} ~ separator_line*
   ~ ")"
   }
-vec4_no_parens = !{ vec4 ~ operation ~ (comma_separator ~ operation){, 3} }
+vec4_no_parens = ${
+  vec4
+  ~ WHITESPACE+ ~ flow_term
+  ~ (WHITESPACE+ ~ flow_term){, 3}
+}
 
 boolean = { true_ | false_ }
 negate = { not_keyword ~ operation }
