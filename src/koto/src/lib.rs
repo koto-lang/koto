@@ -1,11 +1,12 @@
 pub use koto_parser::{
-    AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+    vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList,
+    ValueMap, ValueVec,
 };
-pub use koto_std::{builtin_error, get_builtin_instance};
+pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
 use std::{path::Path, rc::Rc};
 
 #[derive(Default)]

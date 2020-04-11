@@ -15,9 +15,11 @@ pub use runtime::Runtime;
 
 pub use builtin_value::BuiltinValue;
 pub use rc_cell::RcCell;
-pub use value::{type_as_string, Value};
+pub use value::{make_builtin_value, type_as_string, Value};
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};
+
+pub const BUILTIN_DATA_ID: &str = "_builtin_data";
 
 #[derive(Debug)]
 pub enum Error {

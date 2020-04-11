@@ -1,4 +1,5 @@
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::impl_downcast;
+pub use downcast_rs::Downcast;
 use std::fmt;
 
 pub trait BuiltinValue: fmt::Debug + fmt::Display + Downcast {

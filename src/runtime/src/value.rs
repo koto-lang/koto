@@ -248,3 +248,7 @@ pub fn type_as_string(value: &Value) -> String {
         While(_) => "While".to_string(),
     }
 }
+
+pub fn make_builtin_value<'a>(value: impl BuiltinValue) -> Value<'a> {
+    Value::BuiltinValue(Rc::new(RefCell::new(value)))
+}
