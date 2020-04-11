@@ -28,9 +28,9 @@ x 1, 1
 
 x = {
   foo:
-    42,
+    42
   bar:
-    -1,
+    -1
 }
 assert_eq x.bar, -1
 

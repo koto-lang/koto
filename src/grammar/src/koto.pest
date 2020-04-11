@@ -207,7 +207,7 @@ function_args = {
 map_inline = !{
   "{"
   ~ separator_line*
-  ~ (map_entry_inline ~ (comma_separator ~ map_entry_inline)* ~ comma_separator?)?
+  ~ (map_entry_inline ~ separator_line*)*
   ~ "}"
 }
 map_entry_inline = !{ id ~ ":" ~ separator_line* ~ operation }
