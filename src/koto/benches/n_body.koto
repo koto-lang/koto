@@ -58,7 +58,7 @@ neptune =
          -9.51592254519715870e-05 * days_per_year
   mass: 5.15138902046611451e-05 * solar_mass
 
-bodies = [share sun, share jupiter, share saturn, share uranus, share neptune]
+bodies = [(share sun), (share jupiter), (share saturn), (share uranus), (share neptune)]
 
 sqrt = math.sqrt # TODO use statement
 sum = math.sum
@@ -112,13 +112,13 @@ main = ||
 
   quiet = (list.get env.args, 1) == "quiet"
 
-  energy = get_energy(bodies, nbody)
+  energy = get_energy(bodies nbody)
   if not quiet
     print energy # TODO format to 9dp
 
   for _ in 0..n
-      advance(bodies, nbody, 0.01)
+      advance(bodies nbody 0.01)
 
-  energy = get_energy(bodies, nbody)
+  energy = get_energy(bodies nbody)
   if not quiet
     print energy # TODO format to 9dp

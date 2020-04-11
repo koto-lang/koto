@@ -33,7 +33,7 @@ if true
       1
     else
       (fib n - 1) + (fib n - 2)
-  assert_eq 13, fib 7
+  assert_eq 13, (fib 7)
 
 
 ####### return allows for early exit from functions

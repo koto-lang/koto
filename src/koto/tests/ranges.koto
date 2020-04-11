@@ -7,8 +7,8 @@ assert_eq r, [0, 1]
 r = 0..=2
 assert_eq r, [0, 1, 2]
 
-assert_eq 10, size [10..20]
-assert_eq 3, size [r]
+assert_eq 10, (size [10..20])
+assert_eq 3, (size [r])
 
 # Indexing lists with ranges produces sub-lists
 n = [0..10]
@@ -20,7 +20,7 @@ z = |n| n
 x = [(z 10)..=(z 20)]
 y = x[z(5)..(10 + 0)]
 assert_eq 15, y[0]
-assert_eq 5, size y
+assert_eq 5, (size y)
 
 # Leaving off either range boundary creates a From/To range
 n = [0..=10]
@@ -32,7 +32,7 @@ assert_eq n[11..11], []
 
 # Descending ranges can also be used
 r = 2..0
-assert_eq 2, size r
+assert_eq 2, (size r)
 assert_eq r, [2, 1]
 assert_eq [2..=0], [2, 1, 0]
 

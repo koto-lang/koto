@@ -15,7 +15,7 @@ Av = |x y n|
     i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A(i1, j + 1)
+      a = a + x[j] * A(i1 (j + 1))
     y[i] = a
 
 Atv = |x y n|
@@ -23,7 +23,7 @@ Atv = |x y n|
     i1 = i + 1
     a = 0
     for j in 0..n
-      a = a + x[j] * A(j + 1, i1)
+      a = a + x[j] * A((j + 1) i1)
     y[i] = a
 
 AtAv = |x y t n|

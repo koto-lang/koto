@@ -79,7 +79,7 @@ assert_eq b, [1, 2, 3]
 a = []
 fill_n = |data n x|
   data = x for _ in 0..n
-fill_n share a, 3, 7
+fill_n (share a), 3, 7
 assert_eq a, [7, 7, 7]
 
 # Shared lists can be used as for loop ranges

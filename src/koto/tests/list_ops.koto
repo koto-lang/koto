@@ -1,8 +1,8 @@
 ###### list.push + pop
 z = share [1]
-list.push(z, 2)
+list.push(z 2)
 assert_eq z, [1, 2]
-list.push(z, 3)
+list.push(z 3)
 assert_eq z, [1, 2, 3]
 assert_eq (list.pop z), 3
 assert_eq z, [1, 2]
@@ -55,13 +55,13 @@ assert_eq x, 24
 
 ###### list.is_sortable + sort_copy
 
-assert list.is_sortable [42, 10, 9]
-assert not list.is_sortable ["42", 10, 9]
-assert list.is_sortable ["42", "10", "9"]
+assert (list.is_sortable [42, 10, 9])
+assert not (list.is_sortable ["42", 10, 9])
+assert (list.is_sortable ["42", "10", "9"])
 
 
 ###### list.sort + sort_copy
-assert_eq [9, 10, 42], list.sort_copy [42, 10, 9]
+assert_eq [9, 10, 42], (list.sort_copy [42, 10, 9])
 
 z = share [3, 2, 1]
 list.sort z
