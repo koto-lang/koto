@@ -7,7 +7,7 @@ test_map =
 
 a = [test_map test_map]
 assert_eq 42 a[0].get_child_map().foo
-a[0].get_child_map().set_foo(-1)
+a[0].get_child_map().set_foo -1
 assert_eq -1 a[0].get_child_map().foo
 assert_eq -1 a[0].child_map.foo
 assert_eq 42 a[1].get_child_map().foo

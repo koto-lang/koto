@@ -11,13 +11,13 @@ add = |x y|
   # function arguments are locally scoped
   assert_eq x x2
   return result
-assert_eq 3 add(1 2)
+assert_eq 3 (add 1 2)
 
 # functions can call globally defined functions
 add2 = |x y| add x y
-assert_eq 0 add2(4 -4)
+assert_eq 0 (add2 4 -4)
 
 # functions can return multiple values
 f = |x| x - 1, x + 1
 a, b = f 0
-assert (a == -1 and b == 1)
+assert a == -1 and b == 1

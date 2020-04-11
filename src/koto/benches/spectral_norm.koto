@@ -42,5 +42,5 @@ main = ||
   for ui, vi in u, v
     vBv = vBv + ui * vi
     vv = vv + vi * vi
-  result = math.sqrt (vBv / vv)
+  result = math.sqrt vBv / vv
   # print result

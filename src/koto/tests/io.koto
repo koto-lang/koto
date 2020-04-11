@@ -16,7 +16,7 @@ contents = "<(^_^)<"
 file.write contents
 assert_eq (io.read_to_string path) contents
 io.remove_file path
-assert not (io.exists path)
+assert not io.exists path
 
 ###### io.temp_file
 temp = io.temp_file()
@@ -27,4 +27,4 @@ assert (io.exists temp_path)
 assert_eq (io.read_to_string temp_path) temp.read_to_string()
 # Temp files are deleted when they're no longer used
 temp = () # TODO with block, i.e. with temp = io.temp_file()...
-assert not (io.exists temp_path)
+assert not io.exists temp_path

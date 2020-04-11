@@ -7,7 +7,7 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredu
 -#
 
 fannkuch = |n|
-  assert (n >= 4)
+  assert n >= 4
   p = 0..=n
   s = p
   q = p

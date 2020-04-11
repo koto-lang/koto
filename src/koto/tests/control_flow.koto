@@ -1,7 +1,7 @@
 # Single line if statement
 is_zero = |x| x == 0
 if is_zero 0 then assert true
-assert (if is_zero 0 then true else false)
+assert if is_zero 0 then true else false
 a, b = if true then 10, 20 else 30, 40
 assert_eq b 20
 
@@ -32,7 +32,7 @@ if true
     else if n == 1
       1
     else
-      (fib (n - 1)) + (fib (n - 2))
+      (fib n - 1) + (fib n - 2)
   assert_eq 13 (fib 7)
 
 
@@ -46,7 +46,7 @@ match_digit = |n|
   for i in 0..10
     if i == n
       return match_digit_nested n
-x = match_digit(i) for i in 0..3
+x = (match_digit i) for i in 0..3
 assert_eq x [0 1 2]
 
 ###### return supports returning multiple values
