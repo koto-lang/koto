@@ -231,7 +231,7 @@ next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 list = !{
   "["
   ~ separator_line*
-  ~ (flow_term ~ (comma_separator ~ flow_term)* ~ comma_separator?)?
+  ~ (flow_term ~ separator_line*)*
   ~ "]"
 }
 

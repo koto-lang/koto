@@ -58,7 +58,7 @@ neptune =
          -9.51592254519715870e-05 * days_per_year
   mass: 5.15138902046611451e-05 * solar_mass
 
-bodies = [(share sun), (share jupiter), (share saturn), (share uranus), (share neptune)]
+bodies = [(share sun) (share jupiter) (share saturn) (share uranus) (share neptune)]
 
 sqrt = math.sqrt # TODO use statement
 sum = math.sum

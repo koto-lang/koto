@@ -1,3 +1,3 @@
 enumerate = |xs| i, x for i, x in 0..size(xs), xs
 for i in 0..100
-  [c, d] for c, d in enumerate 10..20
+  [c d] for c, d in enumerate 10..20

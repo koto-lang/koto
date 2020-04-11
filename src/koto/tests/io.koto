@@ -2,7 +2,7 @@
 path = env.script_dir + "/data/test.txt"
 assert (io.exists path)
 contents = io.read_to_string path
-assert_eq (string.lines contents), ["aaa", "bbb", "ccc"]
+assert_eq (string.lines contents), ["aaa" "bbb" "ccc"]
 
 ###### io.open
 file = io.open path

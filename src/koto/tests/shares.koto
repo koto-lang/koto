@@ -36,7 +36,7 @@ x = x
 assert_eq x, 2
 
 # Modifying a list makes a COW clone by default
-a = [1, 2, 3]
+a = [1 2 3]
 b = a
 assert_eq a, b
 a[1] = 42
@@ -60,31 +60,31 @@ e = share c
 assert_eq c, d
 assert_eq c[0], 99 # Indexing a share to a list works as expected
 assert_eq d, e
-assert_eq e, [99, 42, -1]
+assert_eq e, [99 42 -1]
 
 # Reassigning a share with a new type doesn't affect other shares
 a = "hi"
 assert_eq a, "hi"
-assert_eq c, [99, 42, -1]
+assert_eq c, [99 42 -1]
 
 # Reassigning a share with the same type will be reflected in the other shares
-c = [-1, -2, -3]
+c = [-1 -2 -3]
 assert_eq c, e
-assert_eq e, [-1, -2, -3]
+assert_eq e, [-1 -2 -3]
 
 # b remains untouched
-assert_eq b, [1, 2, 3]
+assert_eq b, [1 2 3]
 
 # Shares can be used as function arguments
 a = []
 fill_n = |data n x|
   data = x for _ in 0..n
 fill_n (share a), 3, 7
-assert_eq a, [7, 7, 7]
+assert_eq a, [7 7 7]
 
 # Shared lists can be used as for loop ranges
 b = x for x in a
-assert_eq b, [7, 7, 7]
+assert_eq b, [7 7 7]
 
 # Maps can be shared too
 m = {foo: 42}

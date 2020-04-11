@@ -1,8 +1,8 @@
 ###### Lists in maps
 x =
-  foo: [10, 11, 12]
+  foo: [10 11 12]
   bar:
-    baz: [-1, -2, -3]
+    baz: [-1 -2 -3]
 
 assert_eq x.foo[2], 12
 x.foo[2] = 42
@@ -21,7 +21,7 @@ make_foo = |x|
   set_foo: |self x| self.foo = x
 
 # Getting a value
-foos = [(make_foo 42), (make_foo 99)]
+foos = [(make_foo 42) (make_foo 99)]
 assert_eq foos[0].foo, 42
 assert_eq foos[1].foo, 99
 
