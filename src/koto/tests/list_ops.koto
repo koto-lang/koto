@@ -1,74 +1,74 @@
 ###### list.push + pop
 z = share [1]
-list.push(z, 2)
-assert_eq z, [1, 2]
-list.push(z, 3)
-assert_eq z, [1, 2, 3]
-assert_eq (list.pop z), 3
-assert_eq z, [1, 2]
+list.push z 2
+assert_eq z [1 2]
+list.push z 3
+assert_eq z [1 2 3]
+assert_eq (list.pop z) 3
+assert_eq z [1 2]
 list.pop z
 list.pop z
-assert_eq z, []
+assert_eq z []
 list.pop z
-assert_eq z, []
+assert_eq z []
 
 
 ###### list.remove + insert
-z = share [1, 2, 3]
-assert_eq (list.remove z, 1), 2
-assert_eq z, [1, 3]
-list.insert z, 1, 42
-assert_eq z, [1, 42, 3]
-list.insert z, 3, -1
-assert_eq z, [1, 42, 3, -1]
+z = share [1 2 3]
+assert_eq (list.remove z 1) 2
+assert_eq z [1 3]
+list.insert z 1 42
+assert_eq z [1 42 3]
+list.insert z 3 -1
+assert_eq z [1 42 3 -1]
 
 
 ###### list.get
 z = [0..10]
-assert_eq (list.get z, 5), 5
-assert_eq (list.get z, 15), ()
+assert_eq (list.get z 5) 5
+assert_eq (list.get z 15) ()
 
 
 ###### list.filter
 
 # Passing a value into list.filter will leave only matching elements in the list
-z = ["hello", 42, (vec4 0), "hello"]
-list.filter z, "hello"
-assert_eq z, ["hello", "hello"]
+z = ["hello" 42 (vec4 0) "hello"]
+list.filter z "hello"
+assert_eq z ["hello" "hello"]
 
 # Passing z predicate will leave elements in the list for which the predicate returns true
 z = [0..10]
-list.filter z, |n| n % 2 == 0
-assert_eq z, [0, 2, 4, 6, 8]
+list.filter z |n| n % 2 == 0
+assert_eq z [0 2 4 6 8]
 
 
 ###### list.transform
-z = ["1", "2", "3"]
-list.transform z, |x| number x
-assert_eq z, [1, 2, 3]
+z = ["1" "2" "3"]
+list.transform z |x| number x
+assert_eq z [1 2 3]
 
 
 ###### list.fold
-z = [2, 3, 4]
-x = list.fold z, 1, |x, y| x * y
-assert_eq x, 24
+z = [2 3 4]
+x = list.fold z 1 |x y| x * y
+assert_eq x 24
 
 ###### list.is_sortable + sort_copy
 
-assert list.is_sortable [42, 10, 9]
-assert not list.is_sortable ["42", 10, 9]
-assert list.is_sortable ["42", "10", "9"]
+assert (list.is_sortable [42 10 9])
+assert not list.is_sortable ["42" 10 9]
+assert (list.is_sortable ["42" "10" "9"])
 
 
 ###### list.sort + sort_copy
-assert_eq [9, 10, 42], list.sort_copy [42, 10, 9]
+assert_eq [9 10 42] (list.sort_copy [42 10 9])
 
-z = share [3, 2, 1]
+z = share [3 2 1]
 list.sort z
-assert_eq z, [1, 2, 3]
+assert_eq z [1 2 3]
 
 
 ###### list.fill
-a = share [1, 2, 3]
-list.fill a, 42
-assert_eq a, [42, 42, 42]
+a = share [1 2 3]
+list.fill a 42
+assert_eq a [42 42 42]

@@ -1,10 +1,10 @@
-assert_eq "Hello", "Hello"
-assert_ne "Hello", "hello"
-assert_eq "Hello" + ", " + "World!", "Hello, World!"
+assert_eq "Hello" "Hello"
+assert_ne "Hello" "hello"
+assert_eq ("Hello" + ", " + "World!") "Hello, World!"
 
-assert_eq 42.0, number "42"
-assert_eq -1.5, number "-1.5"
+assert_eq 42.0 (number "42")
+assert_eq -1.5 (number "-1.5")
 
 x = "^"
 x += "_" + "^"
-assert_eq x, "^_^"
+assert_eq x "^_^"

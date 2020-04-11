@@ -170,7 +170,12 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                         return builtin_error!("Assertion failed");
                     }
                 }
-                _ => return builtin_error!("assert only expects booleans as arguments"),
+                unexpected => {
+                    return builtin_error!(
+                        "assert only expects booleans as arguments, found '{}'",
+                        type_as_string(unexpected)
+                    )
+                }
             }
         }
         Ok(Empty)

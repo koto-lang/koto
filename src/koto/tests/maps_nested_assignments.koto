@@ -7,25 +7,25 @@ x =
 y = x
 z = x.bar
 
-assert_eq x.foo, 0
+assert_eq x.foo 0
 x.foo = "^_^"
-assert_eq x.foo, "^_^"
-assert_eq x.bar.baz, -1
-x.bar.baz = [1, 2, 3]
-assert_eq x.bar.baz, [1, 2, 3]
+assert_eq x.foo "^_^"
+assert_eq x.bar.baz -1
+x.bar.baz = [1 2 3]
+assert_eq x.bar.baz [1 2 3]
 
 # y and z haven't been modified
-assert_eq y, {foo: 0, bar: {baz: -1}}
-assert_eq z, {baz: -1}
+assert_eq y {foo: 0 bar: {baz: -1}}
+assert_eq z {baz: -1}
 
 # New entries can be added
 x.new = "O_o"
-assert_eq (list.sort_copy map.keys x), ["bar", "foo", "new"]
+assert_eq (list.sort_copy (map.keys x)) ["bar" "foo" "new"]
 x.bar.new = ">_<"
-assert_eq (list.sort_copy map.keys x.bar), ["baz", "new"]
+assert_eq (list.sort_copy (map.keys x.bar)) ["baz" "new"]
 
 # Maps can be nested deeply
 deep = {a: {b: {c: {d: {e: {f: 42}}}}}}
-assert_eq deep.a.b.c.d.e.f, 42
+assert_eq deep.a.b.c.d.e.f 42
 deep.a.b.c.d.e.f = 99
-assert_eq deep.a.b.c.d.e.f, 99
+assert_eq deep.a.b.c.d.e.f 99

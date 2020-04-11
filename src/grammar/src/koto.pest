@@ -67,7 +67,10 @@ assignment_operator = _{
 
 expression = _{
   ( return_expression
+  | copy_expression
+  | copy_id
   | share_expression
+  | share_id
   | function
   | if_statement
   | for_loop
@@ -75,7 +78,6 @@ expression = _{
   | break_
   | continue_
   | operation
-  | function_call
   | debug_expression
   )
   ~ comment?
@@ -93,7 +95,8 @@ operation = ${
 operations = !{ operation ~ (comma_separator ~ operation)* }
 operation_link = _{
   (NEWLINE* ~ WHITESPACE+ | empty_line* ~ WHITESPACE+)*
-  ~ op ~ WHITESPACE* ~ term
+  ~ op
+  ~ ((WHITESPACE+ ~ inline_term) | (WHITESPACE* ~ map))
 }
 
 op = _{
@@ -106,34 +109,34 @@ op = _{
 
 term = _{
   map
-  | function_inline
+  | inline_term
+}
+
+inline_term = _{
+  function_call
   | flow_term
-  | value_term
 }
 
 flow_term = _{
   if_inline
   | for_inline
+  | value_term
 }
 
 value_term = _{(
   empty
   | range
-  | function_call
   | negate
   | map_inline
+  | function_inline
   | list
   | string
   | number
   | boolean
   | lookup
   | id
-  | copy_expression
-  | copy_id
-  | share_expression
-  | share_id
   | vec4_expression
-  | ("(" ~ operation ~ ")")
+  | ("(" ~ expression ~ ")")
   )
   ~ comment?
 }
@@ -165,8 +168,8 @@ for_block = !{
 for_inline = !{
   value_terms
   ~ for_keyword ~ for_ids
-  ~ in_keyword ~ value_terms
-  ~ (if_keyword ~ operation)?
+  ~ in_keyword ~ expressions
+  ~ (if_keyword ~ expression)?
 }
 for_id = !{ id | placeholder }
 for_ids = { for_id ~ ("," ~ for_id)* }
@@ -178,13 +181,15 @@ while_loop = !{
 }
 
 function_call = _{ call_no_parens }
-call_no_parens = ${ lookup_or_id ~ WHITESPACE+ ~ operations }
+call_no_parens = ${
+  lookup_or_id
+  ~ ((WHITESPACE+ ~ value_term+){2, } | (WHITESPACE+ ~ operation))
+  }
 
 call_args = !{
   "("
-  ~ separator_line?
-  ~ (operation ~ (comma_separator ~ operation)* ~ comma_separator?)?
-  ~ separator_line?
+  ~ separator_line*
+  ~ (value_term ~ separator_line*)*
   ~ ")"
 }
 
@@ -198,15 +203,14 @@ function_inline = !{ function_args ~ assignment_or_expression }
 function_args = {
   "|"
   ~ separator_line*
-  ~ (id ~ (comma_separator ~ id)* ~ comma_separator?)?
-  ~ separator_line?
+  ~ (id ~ separator_line*)*
   ~ "|"
 }
 
 map_inline = !{
   "{"
   ~ separator_line*
-  ~ (map_entry_inline ~ (comma_separator ~ map_entry_inline)* ~ comma_separator?)?
+  ~ (map_entry_inline ~ separator_line*)*
   ~ "}"
 }
 map_entry_inline = !{ id ~ ":" ~ separator_line* ~ operation }
@@ -230,23 +234,27 @@ next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 list = !{
   "["
   ~ separator_line*
-  ~ (operation ~ (comma_separator ~ operation)* ~ comma_separator?)?
+  ~ (flow_term ~ separator_line*)*
   ~ "]"
 }
 
 range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | function_call | lookup | id | ("(" ~ operation ~ ")") }
+range_arg = _{ number | function_call | lookup | id | ("(" ~ expression ~ ")") }
 
 vec4_expression = _{ vec4_with_parens | vec4_no_parens }
 vec4_with_parens = !{
   vec4
   ~ "("
   ~ separator_line*
-  ~ operation ~ (comma_separator ~ operation){, 3} ~ comma_separator?
+  ~ flow_term ~ (separator_line* ~ flow_term){, 3} ~ separator_line*
   ~ ")"
   }
-vec4_no_parens = !{ vec4 ~ operation ~ (comma_separator ~ operation){, 3} }
+vec4_no_parens = ${
+  vec4
+  ~ WHITESPACE+ ~ flow_term
+  ~ (WHITESPACE+ ~ flow_term){, 3}
+}
 
 boolean = { true_ | false_ }
 negate = { not_keyword ~ operation }
@@ -359,7 +367,7 @@ until_keyword = @{ until ~ WHITESPACE+ }
 while_keyword = @{ while_ ~ WHITESPACE+ }
 
 comma_separator = _{ "," ~ separator_line* }
-separator_line = _{ inline_comment? ~ NEWLINE ~ (comment ~ NEWLINE)* }
+separator_line = _{ inline_comment? ~ (WHITESPACE+ | NEWLINE) ~ (comment ~ NEWLINE)* }
 
 WHITESPACE = _{ whitespace_char | ("\\" ~ whitespace_char* ~ NEWLINE) }
 whitespace_char = _{ " " | "\t" }

@@ -54,11 +54,11 @@ fannkuch = |n|
           return sum, max_flips
         s[i] = i
         # Rotate 1<-...<-i+1.
-        t = list.remove p, 1
-        list.insert p, (i + 1), t
+        t = list.remove p 1
+        list.insert p (i + 1) t
 
 main = ||
-  n = list.get env.args, 0
+  n = list.get env.args 0
   if n == ()
     n = 4
   else
@@ -66,6 +66,6 @@ main = ||
 
   sum, flips = fannkuch(n)
 
-  if (list.get env.args, 1) != "quiet"
+  if (list.get env.args 1) != "quiet"
     print sum
-    print "Pfannkuchen(", n, ") = ", flips
+    print "Pfannkuchen(" n ") = " flips

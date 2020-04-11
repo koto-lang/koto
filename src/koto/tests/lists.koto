@@ -1,46 +1,46 @@
-z = [10, 10 + 10, 30]
-assert_eq z[0], 10
-assert_eq z[0 + 1], 20
+z = [10 (10 + 10) 30]
+assert_eq z[0] 10
+assert_eq z[(0 + 1)] 20
 
-assert_eq z, z
-assert_ne z, []
+assert_eq z z
+assert_ne z []
 
-assert_eq z + z, [10, 20, 30, 10, 20, 30]
+assert_eq (z + z) [10 20 30 10 20 30]
 
-assert_eq 3, size z
+assert_eq 3 (size z)
 
-a, b, c = [10, 20, 30, 40]
+a, b, c = [10 20 30 40]
 assert a == 10 and b == 20 and c == 30
 
-a, b, c = [10, 20], [30, 40]
-assert_eq a, [10, 20]
-assert_eq b, [30, 40]
-assert_eq c, ()
+a, b, c = [10 20], [30 40]
+assert_eq a [10 20]
+assert_eq b [30 40]
+assert_eq c ()
 
 # Modifying a list
-a = [0, 1, 2]
+a = [0 1 2]
 b = a
 a[0] = 42
-assert_eq a, [42, 1, 2]
+assert_eq a [42 1 2]
 a[1], a[2] = -42, 99
-assert_eq a, [42, -42, 99]
+assert_eq a [42 -42 99]
 a[1..] = 0
-assert_eq a, [42, 0, 0]
+assert_eq a [42 0 0]
 a[1] += 2
-assert_eq a, [42, 2, 0]
+assert_eq a [42 2 0]
 # b remains unmodified
-assert_eq b, [0, 1, 2]
+assert_eq b [0 1 2]
 
 ###### Multidimensional lists
-b = [42, 42]
-a = [b, b, b]
-assert_eq a[1][1], 42
+b = [42 42]
+a = [b b b]
+assert_eq a[1][1] 42
 a[1][1] = -1
-assert_eq a[1][1], -1
+assert_eq a[1][1] -1
 
 ##### + operator
 x = [0]
 x = x + [1]
-assert_eq x, [0, 1]
-x += [2, 3]
-assert_eq x, [0, 1, 2, 3]
+assert_eq x [0 1]
+x += [2 3]
+assert_eq x [0 1 2 3]
