@@ -1,5 +1,6 @@
 mod io;
 mod list;
+mod map;
 mod math;
 
 pub use koto_runtime::BUILTIN_DATA_ID;
@@ -118,22 +119,8 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
 
     io::register(global);
     list::register(global);
+    map::register(global);
     math::register(global);
-
-    {
-        let mut map = ValueMap::new();
-
-        single_arg_fn!(map, "keys", Map, m, {
-            Ok(List(ValueList::with_data(
-                m.data()
-                    .keys()
-                    .map(|k| Str(Rc::new(k.as_str().to_string())))
-                    .collect::<ValueVec>(),
-            )))
-        });
-
-        global.add_value("map", Map(map));
-    }
 
     {
         let mut string = ValueMap::new();

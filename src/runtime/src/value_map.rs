@@ -9,6 +9,7 @@ use std::{
     cell::{Ref, RefMut},
     collections::hash_map::{Iter, Keys},
     hash::Hash,
+    iter::{FromIterator, IntoIterator},
 };
 
 #[derive(Clone, Debug, Default)]
@@ -85,23 +86,11 @@ impl<'a> ValueHashMap<'a> {
     pub fn iter(&self) -> Iter<'_, Id, Value<'a>> {
         self.0.iter()
     }
+}
 
-    pub fn make_element_unique(&mut self, name: &str) -> Option<Value<'a>> {
-        match self.0.get_mut(name) {
-            Some(value) => {
-                match value {
-                    Value::Map(entry) => {
-                        entry.make_unique();
-                    }
-                    Value::List(entry) => {
-                        entry.make_unique();
-                    }
-                    _ => {}
-                }
-                Some(value.clone())
-            }
-            None => None,
-        }
+impl<'a> FromIterator<(Id, Value<'a>)> for ValueHashMap<'a> {
+    fn from_iter<T: IntoIterator<Item = (Id, Value<'a>)>>(iter: T) -> ValueHashMap<'a> {
+        Self(FxHashMap::from_iter(iter))
     }
 }
 
@@ -169,16 +158,7 @@ impl<'a> ValueMap<'a> {
     }
 
     pub fn insert(&mut self, name: Id, value: Value<'a>) {
-        self.make_unique();
         self.data_mut().insert(name, value);
-    }
-
-    pub fn make_unique(&mut self) {
-        self.0.make_unique();
-    }
-
-    pub fn make_element_unique(&self, name: &str) -> Option<Value<'a>> {
-        self.data_mut().make_element_unique(name)
     }
 }
 
@@ -188,4 +168,3 @@ impl<'a> PartialEq for ValueMap<'a> {
     }
 }
 impl<'a> Eq for ValueMap<'a> {}
-

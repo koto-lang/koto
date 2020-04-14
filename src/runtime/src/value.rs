@@ -1,9 +1,11 @@
 use crate::{
-    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, Runtime,
-    RuntimeResult,
+    builtin_value::BuiltinValue,
+    value_list::{ValueList, ValueVec},
+    value_map::{ValueHashMap, ValueMap},
+    Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile, Function};
-use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -174,8 +176,15 @@ pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
     use Value::{List, Map};
 
     match value {
-        List(l) => List(ValueList::with_data(l.data().clone())),
-        Map(m) => Map(ValueMap::with_data(m.data().clone())),
+        List(l) => {
+            let result = l.data().iter().map(|v| copy_value(v)).collect::<ValueVec>();
+            List(ValueList::with_data(result))
+        }
+        Map(m) => {
+            let result =
+                ValueHashMap::from_iter(m.data().iter().map(|(k, v)| (k.clone(), copy_value(v))));
+            Map(ValueMap::with_data(result))
+        }
         _ => value.clone(),
     }
 }

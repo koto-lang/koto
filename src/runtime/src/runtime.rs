@@ -336,15 +336,15 @@ impl<'a> Runtime<'a> {
                         .0,
                 ),
                 LookupOrId::Lookup(lookup) => {
-                    self.lookup_value_or_error(&lookup.as_slice(), node)?.value
+                    copy_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.value)
                 }
             },
+            Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
             Node::Block(block) => self.evaluate_block_and_capture(&block)?,
             Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
                 ValueOrValues::Value(value) => value,
                 ValueOrValues::Values(values) => List(ValueList::with_data(values)),
             },
-            Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
             Node::Return => match self.control_flow {
                 ControlFlow::Function | ControlFlow::Loop => {
                     // TODO handle loop inside function
@@ -537,9 +537,9 @@ impl<'a> Runtime<'a> {
                                         .insert(self.id_from_constant(id_index), value.clone());
                                     return Ok(None);
                                 } else {
-                                    match map.make_element_unique(id) {
-                                        Some(value) => {
-                                            current_node = value;
+                                    match map.data().get(id).clone() {
+                                        Some(child_node) => {
+                                            current_node = child_node.clone();
                                         }
                                         None => {
                                             return runtime_error!(
@@ -588,7 +588,7 @@ impl<'a> Runtime<'a> {
                                                 list.data_mut()[i] = value.clone();
                                                 return Ok(None);
                                             } else {
-                                                current_node = list.make_element_unique(i);
+                                                current_node = list.data()[i].clone();
                                             }
                                         }
                                         None => {
