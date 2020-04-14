@@ -9,7 +9,6 @@ pub enum Node {
     Id(ConstantIndex),
     Lookup(Lookup),
     Copy(LookupOrId),
-    Share(LookupOrId),
     BoolTrue,
     BoolFalse,
     Number(ConstantIndex),
@@ -33,7 +32,6 @@ pub enum Node {
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
     CopyExpression(Box<AstNode>),
-    ShareExpression(Box<AstNode>),
     Negate(Box<AstNode>),
     Function(Rc<Function>),
     Call {

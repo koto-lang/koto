@@ -108,27 +108,6 @@ impl<'a> CallStack<'a> {
             None => None,
         }
     }
-
-    pub fn make_unique(&mut self, id: &str) -> Option<Value<'a>> {
-        if let Some(values) = self.frame_values_mut() {
-            for (value_id, value) in values.iter_mut() {
-                if value_id == id {
-                    match value {
-                        Value::Map(entry) => {
-                            entry.make_unique();
-                        }
-                        Value::List(entry) => {
-                            entry.make_unique();
-                        }
-                        _ => {}
-                    }
-                    return Some(value.clone());
-                }
-            }
-        }
-
-        None
-    }
 }
 
 #[cfg(test)]

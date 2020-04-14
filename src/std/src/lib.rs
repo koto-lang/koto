@@ -5,9 +5,8 @@ mod math;
 pub use koto_runtime::BUILTIN_DATA_ID;
 
 use koto_runtime::{
-    value,
-    value::{deref_value, type_as_string},
-    BuiltinValue, Error, Runtime, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    value, value::type_as_string, BuiltinValue, Error, Runtime, RuntimeResult, Value, ValueList,
+    ValueMap, ValueVec,
 };
 use std::rc::Rc;
 
@@ -38,7 +37,7 @@ macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
         $map_name.add_fn($fn_name, |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     $type($match_name) => $body
                     unexpected => {
                         $crate::builtin_error!(
@@ -99,17 +98,9 @@ macro_rules! get_builtin_instance {
         }
 
         match &$args[0] {
-            Value::Share(map_ref) => match &*map_ref.borrow() {
-                Value::Map(instance) => {
-                    $crate::visit_builtin_value(instance, |$match_name: &mut $builtin_type| $body)
-                }
-                unexpected => $crate::builtin_error!(
-                    "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
-                    $builtin_name,
-                    $fn_name,
-                    unexpected
-                ),
-            },
+            Value::Map(instance) => {
+                $crate::visit_builtin_value(instance, |$match_name: &mut $builtin_type| $body)
+            }
             unexpected => $crate::builtin_error!(
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                 $builtin_name,

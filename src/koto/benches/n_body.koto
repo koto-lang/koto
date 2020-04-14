@@ -58,12 +58,12 @@ neptune =
          (-9.51592254519715870e-05 * days_per_year)
   mass: 5.15138902046611451e-05 * solar_mass
 
-bodies = [(share sun) (share jupiter) (share saturn) (share uranus) (share neptune)]
+bodies = [sun jupiter saturn uranus neptune]
 
 sqrt = math.sqrt # TODO use statement
 sum = math.sum
 
-advance = |bodies nbodies dt| # TODO 'share bodies'
+advance = |bodies nbodies dt|
     for bi, i in bodies, 0..nbodies
         bi_pos = bi.pos
         bi_vel = bi.vel
@@ -106,7 +106,6 @@ main = ||
     n = number n
 
   nbody = size bodies
-  bodies = share bodies
 
   offset_momentum bodies nbody
 

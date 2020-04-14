@@ -19,7 +19,7 @@ assert_eq c ()
 
 # Modifying a list
 a = [0 1 2]
-b = a
+b = a # Assigning a list makes a new reference to the same data
 a[0] = 42
 assert_eq a [42 1 2]
 a[1], a[2] = -42, 99
@@ -28,8 +28,12 @@ a[1..] = 0
 assert_eq a [42 0 0]
 a[1] += 2
 assert_eq a [42 2 0]
-# b remains unmodified
-assert_eq b [0 1 2]
+# b still refers to the same underlying data
+assert_eq a b
+# assigning a new list to a doesn't affect b's binding
+a = [1 2 3]
+assert_eq a [1 2 3]
+assert_eq b [42 2 0]
 
 ###### Multidimensional lists
 b = [42 42]

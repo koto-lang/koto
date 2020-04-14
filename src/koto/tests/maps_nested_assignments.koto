@@ -4,8 +4,8 @@ x =
   foo: 0
   bar:
     baz: -1
-y = x
-z = x.bar
+y = copy x
+z = copy x.bar
 
 assert_eq x.foo 0
 x.foo = "^_^"

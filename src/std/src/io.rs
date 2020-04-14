@@ -1,8 +1,6 @@
 use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
-    value,
-    value::{deref_value, type_as_string},
-    BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
+    value, value::type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
 };
 use std::{
     fmt, fs,
@@ -122,7 +120,7 @@ pub fn register(global: &mut ValueHashMap) {
         let file_map = file_map.clone();
         move |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::File::open(&path) {
@@ -157,7 +155,7 @@ pub fn register(global: &mut ValueHashMap) {
         let file_map = file_map.clone();
         move |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::File::create(&path) {
@@ -234,7 +232,7 @@ pub fn register(global: &mut ValueHashMap) {
     io.add_fn("remove_file", {
         |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::remove_file(&path) {

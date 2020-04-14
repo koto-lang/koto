@@ -1,7 +1,5 @@
 use crate::{builtin_error, single_arg_fn};
-use koto_runtime::{
-    value, value::deref_value, Error, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,
-};
+use koto_runtime::{value, Error, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap};
 
 pub fn register(global: &mut ValueHashMap) {
     use Value::*;
@@ -23,21 +21,21 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("sort", |_, args: &[Value]| {
-        ref_list_op(args, 1, "sort", |list| {
+        list_op(args, 1, "sort", |list| {
             list.data_mut().sort();
             Ok(Value::Empty)
         })
     });
 
     list.add_fn("push", |_, args: &[Value]| {
-        ref_list_op(args, 2, "push", |list| {
+        list_op(args, 2, "push", |list| {
             list.data_mut().extend(args[1..].iter().cloned());
             Ok(Value::Empty)
         })
     });
 
     list.add_fn("pop", |_, args: &[Value]| {
-        ref_list_op(args, 1, "pop", |list| match list.data_mut().pop() {
+        list_op(args, 1, "pop", |list| match list.data_mut().pop() {
             Some(value) => Ok(value),
             None => Ok(Value::Empty),
         })
@@ -63,7 +61,7 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("remove", |_, args: &[Value]| {
-        ref_list_op(args, 2, "remove", |list| match &args[1] {
+        list_op(args, 2, "remove", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
                     return builtin_error!("list.remove: Negative indices aren't allowed");
@@ -88,7 +86,7 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("insert", |_, args: &[Value]| {
-        ref_list_op(args, 3, "insert", |list| match &args[1] {
+        list_op(args, 3, "insert", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
                     return builtin_error!("list.insert: Negative indices aren't allowed");
@@ -109,7 +107,7 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("fill", |_, args| {
-        ref_list_op(args, 2, "fill", |list| {
+        list_op(args, 2, "fill", |list| {
             let value = args[1].clone();
             for v in list.data_mut().iter_mut() {
                 *v = value.clone();
@@ -119,7 +117,7 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("filter", |runtime, args| {
-        ref_list_op(args, 2, "filter", |list| {
+        list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
                     if f.args.len() != 1 {
@@ -160,7 +158,7 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     list.add_fn("transform", |runtime, args| {
-        ref_list_op(args, 2, "transform", |list| match &args[1] {
+        list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
                 if f.args.len() != 1 {
                     return builtin_error!(
@@ -225,44 +223,12 @@ fn list_op<'a>(
         );
     }
 
-    match deref_value(&args[0]) {
+    match &args[0] {
         Value::List(list) => op(&list),
         unexpected => builtin_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
             value::type_as_string(&unexpected)
-        ),
-    }
-}
-
-fn ref_list_op<'a>(
-    args: &[Value<'a>],
-    arg_count: usize,
-    op_name: &str,
-    mut op: impl FnMut(&mut ValueList<'a>) -> RuntimeResult<'a>,
-) -> RuntimeResult<'a> {
-    if args.len() < arg_count {
-        return builtin_error!(
-            "list.{} expects {} arguments, found {}",
-            op_name,
-            arg_count,
-            args.len()
-        );
-    }
-
-    match &args[0] {
-        Value::Share(r) => match &mut *r.borrow_mut() {
-            Value::List(list) => op(list),
-            unexpected => builtin_error!(
-                "list.{} expects a shared list as its first argument, found {}",
-                op_name,
-                value::type_as_string(&unexpected)
-            ),
-        },
-        unexpected => builtin_error!(
-            "list.{} expects a shared list as its first argument, found {}",
-            op_name,
-            value::type_as_string(unexpected)
         ),
     }
 }

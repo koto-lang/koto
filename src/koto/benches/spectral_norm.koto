@@ -32,9 +32,9 @@ AtAv = |x y t n|
 
 main = ||
   N = number env.args[0]
-  u = share [1 for _ in 0..N] # TODO share list.repeat 1, N
-  v = share [0 for _ in 0..N]
-  t = share [0 for _ in 0..N]
+  u = [1 for _ in 0..N]
+  v = [0 for _ in 0..N]
+  t = [0 for _ in 0..N]
   for _ in 0..10
     AtAv u v t N
     AtAv v u t N
