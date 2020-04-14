@@ -50,7 +50,7 @@ make_o2 = ||
 o2 = make_o2()
 assert_eq o2.foo 42
 assert_eq o2.get_foo_2() 57
-o2.set_foo_2(58)
+o2.set_foo_2 58
 assert_eq o2.sum_foo() 100
 
 

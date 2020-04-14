@@ -1,6 +1,6 @@
 z = [10 (10 + 10) 30]
 assert_eq z[0] 10
-assert_eq z[(0 + 1)] 20
+assert_eq z[0 + 1] 20
 
 assert_eq z z
 assert_ne z []
