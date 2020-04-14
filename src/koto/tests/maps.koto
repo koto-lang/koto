@@ -24,7 +24,6 @@ assert_eq m.baz.child_foo 99
 # Adding values to a map
 m2 = m + { baz: 99 }
 assert_eq m2.baz 99
-assert_eq m2.baz.child_foo.wtf 99 # TODO fixme
 m2 += { extra: -1 }
 assert_eq m2.extra -1
 

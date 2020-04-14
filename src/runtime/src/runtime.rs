@@ -787,7 +787,13 @@ impl<'a> Runtime<'a> {
                         );
                     }
                 },
-                _ => break,
+                unexpected => {
+                    return runtime_error!(
+                        node,
+                        "Unexpected type encountered during lookup: '{}'",
+                        type_as_string(&unexpected)
+                    )
+                }
             }
         }
 
