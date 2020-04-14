@@ -1,11 +1,11 @@
 ###### Calling a setter on a child of a map in a list
-test_map =
+test_map = ||
   child_map:
     foo: 42
     set_foo: |self x| self.foo = x
-  get_child_map: |self| share self.child_map # Note the share here
+  get_child_map: |self| self.child_map
 
-a = [test_map test_map]
+a = [test_map() test_map()]
 assert_eq 42 a[0].get_child_map().foo
 a[0].get_child_map().set_foo -1
 assert_eq -1 a[0].get_child_map().foo

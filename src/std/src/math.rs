@@ -1,5 +1,5 @@
 use crate::single_arg_fn;
-use koto_runtime::{value, value::deref_value, Error, Value, ValueHashMap, ValueMap};
+use koto_runtime::{value, Error, Value, ValueHashMap, ValueMap};
 
 pub fn register(global: &mut ValueHashMap) {
     use Value::*;

@@ -10,25 +10,34 @@ assert_eq sum 861
 
 m =
   foo: 42
-  bar: |x| x * x
-  # This comment doesn't interrupt map declaration
+  # Functions can be initialized as map values
+  square: |x| x * x
+  # Child maps can be defined inline
   baz:
-    foo: 99
+    child_foo: 99
 
 # Access
 assert_eq m.foo 42
-assert_eq 81 (m.bar 9)
-assert_eq m.baz.foo 99
+assert_eq (m.square 9) 81
+assert_eq m.baz.child_foo 99
 
-# Addition
+# Adding values to a map
 m2 = m + { baz: 99 }
-assert ((m2.bar 2) == 4 and m2.baz == 99)
+assert_eq m2.baz 99
 m2 += { extra: -1 }
 assert_eq m2.extra -1
-m2.foo /= 2
-assert_eq m2.foo 21
 
-assert_eq (list.sort_copy (map.keys m)) ["bar" "baz" "foo"]
+# Modification of map values
+m.foo /= 2
+assert_eq m.foo 21
+assert_eq m2.foo 42
+
+m.baz.child_foo = -1
+assert_eq m.baz.child_foo -1
+
+# map.keys
+assert_eq (list.sort_copy (map.keys m)) ["baz" "foo" "square"]
+assert_eq (list.sort_copy (map.keys m2)) ["baz" "extra" "foo" "square"]
 
 
 ###### Maps as classes

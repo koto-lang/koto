@@ -242,18 +242,6 @@ impl KotoParser {
                 let expression = next_as_boxed_ast!(inner);
                 AstNode::new(span, Node::CopyExpression(expression))
             }
-            Rule::share_id => {
-                let mut inner = pair.into_inner();
-                inner.next(); // share
-                let lookup_or_id = next_as_lookup_or_id!(inner);
-                AstNode::new(span, Node::Share(lookup_or_id))
-            }
-            Rule::share_expression => {
-                let mut inner = pair.into_inner();
-                inner.next(); // share
-                let expression = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::ShareExpression(expression))
-            }
             Rule::return_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // return

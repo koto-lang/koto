@@ -1,8 +1,6 @@
 use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
-    value,
-    value::{deref_value, type_as_string},
-    BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
+    value, value::type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
 };
 use std::{
     fmt, fs,
@@ -31,7 +29,7 @@ pub fn register(global: &mut ValueHashMap) {
         }
     });
 
-    let file_map = {
+    let make_file_map = || {
         fn file_fn<'a>(
             fn_name: &str,
             args: &[Value<'a>],
@@ -119,15 +117,14 @@ pub fn register(global: &mut ValueHashMap) {
     };
 
     io.add_fn("open", {
-        let file_map = file_map.clone();
         move |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::File::open(&path) {
                             Ok(file) => {
-                                let mut file_map = file_map.clone();
+                                let mut file_map = make_file_map();
 
                                 file_map.set_builtin_value(File {
                                     file,
@@ -154,15 +151,14 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     io.add_fn("create", {
-        let file_map = file_map.clone();
         move |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::File::create(&path) {
                             Ok(file) => {
-                                let mut file_map = file_map.clone();
+                                let mut file_map = make_file_map();
 
                                 file_map.set_builtin_value(File {
                                     file,
@@ -202,7 +198,6 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     io.add_fn("temp_file", {
-        let file_map = file_map.clone();
         move |_, _| {
             let (temp_file, path) = match tempfile::NamedTempFile::new() {
                 Ok(file) => match file.keep() {
@@ -219,7 +214,7 @@ pub fn register(global: &mut ValueHashMap) {
                 }
             };
 
-            let mut file_map = file_map.clone();
+            let mut file_map = make_file_map();
 
             file_map.set_builtin_value(File {
                 file: temp_file,
@@ -234,7 +229,7 @@ pub fn register(global: &mut ValueHashMap) {
     io.add_fn("remove_file", {
         |_, args| {
             if args.len() == 1 {
-                match deref_value(&args[0]) {
+                match &args[0] {
                     Str(path) => {
                         let path = Path::new(path.as_ref());
                         match fs::remove_file(&path) {

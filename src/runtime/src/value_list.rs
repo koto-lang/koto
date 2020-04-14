@@ -26,7 +26,7 @@ impl<'a> ValueList<'a> {
         Self(RcCell::new(data.iter().cloned().collect::<ValueVec>()))
     }
 
-    pub fn len(&self) -> usize{
+    pub fn len(&self) -> usize {
         self.data().len()
     }
 
@@ -36,24 +36,6 @@ impl<'a> ValueList<'a> {
 
     pub fn data_mut(&self) -> RefMut<ValueVec<'a>> {
         self.0.borrow_mut()
-    }
-
-    pub fn make_unique(&mut self) {
-        self.0.make_unique()
-    }
-
-    pub fn make_element_unique(&self, index: usize) -> Value<'a> {
-        let value = &mut self.data_mut()[index];
-        match value {
-            Value::Map(element) => {
-                element.make_unique();
-            }
-            Value::List(element) => {
-                element.make_unique();
-            }
-            _ => {}
-        }
-        value.clone()
     }
 }
 

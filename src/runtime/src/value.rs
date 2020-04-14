@@ -1,9 +1,11 @@
 use crate::{
-    builtin_value::BuiltinValue, value_list::ValueList, value_map::ValueMap, RcCell, Runtime,
-    RuntimeResult,
+    builtin_value::BuiltinValue,
+    value_list::{ValueList, ValueVec},
+    value_map::{ValueHashMap, ValueMap},
+    Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile, Function};
-use std::{cell::RefCell, cmp::Ordering, fmt, ops::Deref, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -16,7 +18,6 @@ pub enum Value<'a> {
     List(ValueList<'a>),
     Map(ValueMap<'a>),
     Str(Rc<String>),
-    Share(RcCell<Value<'a>>),
     Function(Rc<Function>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
@@ -56,10 +57,6 @@ impl<'a> fmt::Display for Value<'a> {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Share(r) => {
-                let value = deref_value(&r.borrow());
-                write!(f, "Share: {}", value)
-            }
             Function(function) => {
                 let raw = Rc::into_raw(function.clone());
                 write!(f, "Function: {:?}", raw)
@@ -86,9 +83,6 @@ impl<'a> PartialEq for Value<'a> {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
-            (Share(a), Share(b)) => a == b,
-            (Share(a), _) => a.borrow().deref() == other,
-            (_, Share(b)) => self == b.borrow().deref(),
             (Function(a), Function(b)) => Rc::ptr_eq(a, b),
             (Empty, Empty) => true,
             _ => false,
@@ -178,54 +172,21 @@ impl<'a> fmt::Debug for BuiltinFunction<'a> {
     }
 }
 
-pub fn values_have_matching_type<'a>(a: &Value<'a>, b: &Value<'a>) -> bool {
-    use std::mem::discriminant;
-    use Value::Share;
-
-    match (a, b) {
-        (Share(a), Share(b)) => {
-            discriminant(a.borrow().deref()) == discriminant(b.borrow().deref())
-        }
-        (Share(a), _) => discriminant(a.borrow().deref()) == discriminant(b),
-        (_, Share(b)) => discriminant(a) == discriminant(b.borrow().deref()),
-        (_, _) => discriminant(a) == discriminant(b),
-    }
-}
-
 pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
-    use Value::{List, Map, Share};
+    use Value::{List, Map};
 
     match value {
-        List(l) => List(ValueList::with_data(l.data().clone())),
-        Map(m) => Map(ValueMap::with_data(m.data().clone())),
-        Share(r) => r.borrow().clone(),
+        List(l) => {
+            let result = l.data().iter().map(|v| copy_value(v)).collect::<ValueVec>();
+            List(ValueList::with_data(result))
+        }
+        Map(m) => {
+            let result =
+                ValueHashMap::from_iter(m.data().iter().map(|(k, v)| (k.clone(), copy_value(v))));
+            Map(ValueMap::with_data(result))
+        }
         _ => value.clone(),
     }
-}
-
-pub fn deref_value<'a>(value: &Value<'a>) -> Value<'a> {
-    use Value::Share;
-
-    match value {
-        Share(r) => r.borrow().clone(),
-        _ => value.clone(),
-    }
-}
-
-pub fn make_reference(mut value: Value) -> (Value, bool) {
-    // When making a reference out of a List or Map, we need to call make_unique to ensure that
-    // existing bindings to the internal data don't get modified by modifications to the reference
-    match &mut value {
-        Value::List(l) => {
-            l.make_unique();
-        }
-        Value::Map(m) => m.make_unique(),
-        Value::Share(_) => {
-            return (value, false);
-        }
-        _ => {}
-    }
-    (Value::Share(RcCell::new(value.clone())), true)
 }
 
 pub fn type_as_string(value: &Value) -> String {
@@ -240,7 +201,6 @@ pub fn type_as_string(value: &Value) -> String {
         IndexRange { .. } => "IndexRange".to_string(),
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
-        Share(value) => format!("Share({})", type_as_string(&deref_value(&value.borrow()))),
         Function(_) => "Function".to_string(),
         BuiltinFunction(_) => "BuiltinFunction".to_string(),
         BuiltinValue(value) => value.borrow().value_type(),

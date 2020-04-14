@@ -22,12 +22,6 @@ impl<T: ?Sized> RcCell<T> {
     }
 }
 
-impl<T: Clone> RcCell<T> {
-    pub fn make_unique(&mut self) {
-        Rc::make_mut(&mut self.0);
-    }
-}
-
 impl<T: ?Sized> Clone for RcCell<T> {
     #[inline]
     fn clone(&self) -> Self {

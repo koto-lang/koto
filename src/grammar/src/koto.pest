@@ -69,8 +69,6 @@ expression = _{
   ( return_expression
   | copy_expression
   | copy_id
-  | share_expression
-  | share_id
   | function
   | if_statement
   | for_loop
@@ -84,7 +82,6 @@ expression = _{
 }
 expressions = !{ expression ~ ("," ~ expression?)* }
 return_expression = !{ return_keyword ~ expressions | return_ }
-share_expression = !{ !share_id ~ share_keyword ~ expression }
 copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
 
 operation = ${
@@ -277,7 +274,6 @@ char = {
 
 assignment_id = !{ global_keyword? ~ id }
 copy_id = !{ copy_keyword ~ lookup_or_id }
-share_id = !{ share_keyword ~ lookup_or_id }
 lookup_or_id = _{ lookup | id }
 id = @{ single_id }
 single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
@@ -321,7 +317,6 @@ global = { "global" }
 if_ = { "if" }
 in_ = { "in" }
 not = { "not" }
-share = { "share" }
 return_ = { "return" }
 then = { "then" }
 true_ = { "true" }
@@ -343,7 +338,6 @@ keyword = _{
   | in_
   | not
   | or
-  | share
   | return_
   | then
   | true_
@@ -360,7 +354,6 @@ global_keyword = @{ global ~ WHITESPACE+ }
 if_keyword = @{ if_ ~ WHITESPACE+ }
 in_keyword = @{ in_ ~ WHITESPACE+ }
 not_keyword = @{ not ~ WHITESPACE+ }
-share_keyword = @{ share ~ WHITESPACE+ }
 return_keyword = @{ return_ ~ WHITESPACE+ }
 then_keyword = @{ then ~ WHITESPACE+ }
 until_keyword = @{ until ~ WHITESPACE+ }

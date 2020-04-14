@@ -9,9 +9,8 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredu
 fannkuch = |n|
   assert n >= 4
   p = 0..=n
-  s = p
-  q = p
-  p = share p
+  s = copy p
+  q = copy p
   sign = 1
   sum = 0
   max_flips = 0
