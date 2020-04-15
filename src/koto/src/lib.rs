@@ -3,8 +3,8 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueList,
-    ValueMap, ValueVec,
+    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueHashMap,
+    ValueList, ValueMap, ValueVec,
 };
 pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
 use std::{path::Path, rc::Rc};
@@ -30,6 +30,19 @@ impl<'a> Koto<'a> {
         result.runtime.global_mut().add_map("env", env);
 
         result
+    }
+
+    pub fn run_script(&mut self, script: &str) -> Result<Value<'a>, String> {
+        self.parse(script)?;
+
+        self.set_args(Vec::new());
+        self.run()?;
+
+        if let Some(main) = self.get_global_function("main") {
+            self.call_function(&main, &[])
+        } else {
+            Ok(Value::Empty)
+        }
     }
 
     pub fn run_script_with_args(
@@ -60,6 +73,10 @@ impl<'a> Koto<'a> {
             }
             Err(e) => Err(format!("Error while parsing script: {}", e)),
         }
+    }
+
+    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
+        self.runtime.global_mut()
     }
 
     pub fn set_args(&mut self, args: Vec<String>) {
@@ -127,6 +144,27 @@ impl<'a> Koto<'a> {
         match self.runtime.get_value(function_name) {
             Some((Value::Function(function), _)) => Some(function),
             _ => None,
+        }
+    }
+
+    pub fn call_function_by_name_with_args(
+        &mut self,
+        function_name: &str,
+        args: &[Value<'a>],
+    ) -> Result<Value<'a>, String> {
+        match self.get_global_function(function_name) {
+            Some(f) => match self.runtime.call_function(f.as_ref(), args) {
+                Ok(result) => Ok(result),
+                Err(e) => Err(match &e {
+                    Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                    Error::RuntimeError {
+                        message,
+                        start_pos,
+                        end_pos,
+                    } => self.format_runtime_error(&message, start_pos, end_pos),
+                }),
+            },
+            None => Err(format!("Runtime error: function '{}' not found", function_name)),
         }
     }
 
