@@ -130,7 +130,7 @@ value_term = _{(
   | string
   | number
   | boolean
-  | lookup
+  | negatable_lookup
   | id
   | vec4_expression
   | ("(" ~ expression ~ ")")
@@ -237,7 +237,7 @@ list = !{
 
 range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
-range_arg = _{ number | function_call | lookup | id | ("(" ~ expression ~ ")") }
+range_arg = _{ number | function_call | negatable_lookup | id | ("(" ~ expression ~ ")") }
 
 vec4_expression = _{ vec4_with_parens | vec4_no_parens }
 vec4_with_parens = !{
@@ -275,12 +275,17 @@ char = {
 assignment_id = !{ global_keyword? ~ id }
 copy_id = !{ copy_keyword ~ lookup_or_id }
 lookup_or_id = _{ lookup | id }
-id = @{ single_id }
-single_id = @{ !(keyword ~ !id_end) ~ id_start ~ id_end* }
+id = ${ negative? ~ single_id }
+single_id = @{
+  !(keyword ~ !id_end)
+  ~ id_start
+  ~ id_end*
+}
 id_start = @{ ASCII_ALPHA }
 id_end = @{ ASCII_ALPHANUMERIC | "_" }
 
-lookup = ${ (id | "(" ~ operation ~ ")") ~ lookup_node+ }
+negatable_lookup = ${ negative? ~ lookup }
+lookup = ${ (single_id | "(" ~ operation ~ ")") ~ lookup_node+ }
 lookup_node = _{ index | call_args | map_access }
 index = ${ "[" ~ operation ~ "]" }
 map_access = ${ ("." ~ id) }
@@ -298,6 +303,7 @@ less = { "<" }
 less_or_equal = { "<=" }
 and = { "and" }
 or = { "or" }
+negative = ${ "-" }
 
 assign = { "=" }
 assign_add = { "+=" }

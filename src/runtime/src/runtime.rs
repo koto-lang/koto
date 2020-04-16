@@ -370,10 +370,11 @@ impl<'a> Runtime<'a> {
                 let value = self.evaluate_and_capture(expression)?;
                 match value {
                     Bool(b) => Bool(!b),
+                    Number(n) => Number(-n),
                     unexpected => {
                         return runtime_error!(
                             node,
-                            "Expected Bool for not operator, found {}",
+                            "Expected negatable value, found {}",
                             unexpected
                         );
                     }

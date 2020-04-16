@@ -96,7 +96,7 @@ offset_momentum = |bodies nbody|
     pos = vec4 0
     for body in bodies
         pos += body.vel * body.mass
-    bodies[0].vel = (pos * -1) / solar_mass # TODO - operator
+    bodies[0].vel = -pos / solar_mass
 
 main = ||
   n = list.get env.args 0

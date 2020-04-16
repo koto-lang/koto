@@ -2,6 +2,10 @@ a, b, c, d, e = 1, 2, 3, 4, 5, 6, 7, 8,
 assert_eq c 3
 assert_eq e 5
 
+a = 1
+b = -a
+assert_eq a -b
+
 f = ||
   global x = 42
 f()

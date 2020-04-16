@@ -26,13 +26,13 @@ impl KotoParser {
                         | Operator::new(greater_or_equal, Left)
                         | Operator::new(less, Left)
                         | Operator::new(less_or_equal, Left),
-                    Operator::new(add, Left) | Operator::new(subtract, Left),
-                    Operator::new(multiply, Left)
+                        Operator::new(add, Left) | Operator::new(subtract, Left),
+                        Operator::new(multiply, Left)
                         | Operator::new(divide, Left)
                         | Operator::new(modulo, Left),
                 ],
                 vec![empty_line],
-            ),
+                ),
         }
     }
 
@@ -46,7 +46,7 @@ impl KotoParser {
         &self,
         pair: pest::iterators::Pair<Rule>,
         constants: &mut ConstantPool,
-    ) -> AstNode {
+        ) -> AstNode {
         use pest::iterators::Pair;
 
         macro_rules! next_as_boxed_ast {
@@ -59,32 +59,32 @@ impl KotoParser {
             ($lookup_pair:expr) => {{
                 Lookup(
                     $lookup_pair
-                        .into_inner()
-                        .map(|pair| match pair.as_rule() {
-                            Rule::id => {
-                                LookupNode::Id(add_constant_string(constants, pair.as_str()))
-                            }
-                            Rule::map_access => LookupNode::Id(add_constant_string(
+                    .into_inner()
+                    .map(|pair| match pair.as_rule() {
+                        Rule::single_id => {
+                            LookupNode::Id(add_constant_string(constants, pair.as_str()))
+                        }
+                        Rule::map_access => LookupNode::Id(add_constant_string(
                                 constants,
                                 pair.into_inner().next().unwrap().as_str(),
-                            )),
-                            Rule::index => {
-                                let mut inner = pair.into_inner();
-                                let expression = next_as_boxed_ast!(inner);
-                                LookupNode::Index(Index(expression))
-                            }
-                            Rule::call_args => {
-                                let args = pair
-                                    .into_inner()
-                                    .map(|pair| self.build_ast(pair, constants))
-                                    .collect::<Vec<_>>();
-                                LookupNode::Call(args)
-                            }
-                            unexpected => {
-                                panic!("Unexpected rule while making lookup node: {:?}", unexpected)
-                            }
-                        })
-                        .collect::<Vec<_>>(),
+                                )),
+                        Rule::index => {
+                            let mut inner = pair.into_inner();
+                            let expression = next_as_boxed_ast!(inner);
+                            LookupNode::Index(Index(expression))
+                        }
+                        Rule::call_args => {
+                            let args = pair
+                                .into_inner()
+                                .map(|pair| self.build_ast(pair, constants))
+                                .collect::<Vec<_>>();
+                            LookupNode::Call(args)
+                        }
+                        unexpected => {
+                            panic!("Unexpected rule while making lookup node: {:?}", unexpected)
+                        }
+                    })
+                .collect::<Vec<_>>(),
                 )
             }};
         }
@@ -222,11 +222,32 @@ impl KotoParser {
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Map(entries))
             }
-            Rule::lookup => {
-                let lookup = pair_as_lookup!(pair);
-                AstNode::new(span, Node::Lookup(lookup))
+            Rule::negatable_lookup => {
+                let mut inner = pair.into_inner();
+                if inner.peek().unwrap().as_rule() == Rule::negative {
+                    inner.next();
+                    AstNode::new(
+                        span.clone(),
+                        Node::Negate(Box::new(AstNode::new(
+                            span,
+                            Node::Lookup(next_as_lookup!(inner)),
+                        ))),
+                    )
+                } else {
+                    let lookup = next_as_lookup!(inner);
+                    AstNode::new(span, Node::Lookup(lookup))
+                }
             }
-            Rule::id => AstNode::new(
+            Rule::id => {
+                let mut inner = pair.into_inner();
+                if inner.peek().unwrap().as_rule() == Rule::negative {
+                    inner.next();
+                    AstNode::new(span, Node::Negate(next_as_boxed_ast!(inner)))
+                } else {
+                    self.build_ast(inner.next().unwrap(), constants)
+                }
+            }
+            Rule::single_id => AstNode::new(
                 span,
                 Node::Id(add_constant_string(constants, pair.as_str())),
             ),
@@ -380,7 +401,9 @@ impl KotoParser {
                                 scope,
                             }
                         }
-                        Rule::lookup => AssignTarget::Lookup(pair_as_lookup!(pair)),
+                        Rule::lookup => {
+                            AssignTarget::Lookup(pair_as_lookup!(pair))
+                        }
                         _ => unreachable!(),
                     })
                     .collect::<Vec<_>>();
