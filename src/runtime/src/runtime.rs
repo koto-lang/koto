@@ -11,6 +11,7 @@ use koto_parser::{
     Function, LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
 };
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use std::{fmt, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -130,7 +131,7 @@ impl<'a> Runtime<'a> {
 
     #[allow(dead_code)]
     fn runtime_indent(&self) -> String {
-        "  ".repeat(self.call_stack.frame())
+        "  ".repeat(self.call_stack.frame_count())
     }
 
     /// Evaluate a series of expressions
@@ -416,7 +417,7 @@ impl<'a> Runtime<'a> {
     fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
-        if self.call_stack.frame() == 0 || scope == Scope::Global {
+        if self.call_stack.frame_count() == 0 || scope == Scope::Global {
             match self.global.get_mut(id) {
                 Some(exists) => {
                     *exists = value;
@@ -431,7 +432,7 @@ impl<'a> Runtime<'a> {
                     *exists = value;
                 }
                 None => {
-                    self.call_stack.extend(id.clone(), value);
+                    self.call_stack.extend_frame(id.clone(), value);
                 }
             }
         }
@@ -439,7 +440,7 @@ impl<'a> Runtime<'a> {
 
     pub fn get_value(&self, id: &str) -> Option<(Value<'a>, Scope)> {
         runtime_trace!(self, "get_value: {}", id);
-        if self.call_stack.frame() > 0 {
+        if self.call_stack.frame_count() > 0 {
             if let Some(value) = self.call_stack.get(id) {
                 return Some((value.clone(), Scope::Local));
             }
@@ -469,7 +470,7 @@ impl<'a> Runtime<'a> {
             _ => unreachable!(),
         };
 
-        if self.call_stack.frame() > 0 {
+        if self.call_stack.frame_count() > 0 {
             if let Some(root) = self.call_stack.get(root_id.as_str()) {
                 let root = root.clone();
                 self.do_lookup(lookup, root, Some(value), node)?;
@@ -813,7 +814,7 @@ impl<'a> Runtime<'a> {
             _ => unreachable!(),
         };
 
-        if self.call_stack.frame() > 0 {
+        if self.call_stack.frame_count() > 0 {
             if let Some(root) = self.call_stack.get(root_id.as_str()).cloned() {
                 if let Some((found, parent)) = self.do_lookup(lookup, root, None, node)? {
                     return Ok(Some(LookupResult::new(found, parent, Scope::Local)));
@@ -1243,11 +1244,13 @@ impl<'a> Runtime<'a> {
             }
         );
 
+        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+
         let implicit_self = match lookup_or_id {
             LookupSliceOrId::Id(id_index) => {
                 // allow standalone functions to be able to call themselves
                 let id = self.id_from_constant(id_index);
-                self.call_stack.push(id, Value::Function(f.clone()));
+                call_frame.push((id, Value::Function(f.clone())));
                 false
             }
             LookupSliceOrId::LookupSlice(_) => {
@@ -1256,7 +1259,7 @@ impl<'a> Runtime<'a> {
                     Some(arg_index) => {
                         if self.get_constant_string(arg_index) == "self" {
                             let id = self.id_from_constant(arg_index);
-                            self.call_stack.push(id, parent.unwrap().value);
+                            call_frame.push((id, parent.unwrap().value));
                             true
                         } else {
                             false
@@ -1294,16 +1297,15 @@ impl<'a> Runtime<'a> {
             let arg_value = match self.evaluate_and_capture(arg) {
                 Ok(value) => value,
                 e @ Err(_) => {
-                    self.call_stack.cancel();
                     return e;
                 }
             };
 
             let id = self.id_from_constant(name_index);
-            self.call_stack.push(id, arg_value);
+            call_frame.push((id, arg_value));
         }
 
-        self.call_stack.commit();
+        self.call_stack.push_frame(&call_frame);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
 
@@ -1331,12 +1333,14 @@ impl<'a> Runtime<'a> {
             );
         }
 
+        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+
         for (name_index, arg) in f.args.iter().zip(args.iter()) {
             let id = self.id_from_constant(name_index);
-            self.call_stack.push(id, arg.clone());
+            call_frame.push((id, arg.clone()));
         }
 
-        self.call_stack.commit();
+        self.call_stack.push_frame(&call_frame);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
 

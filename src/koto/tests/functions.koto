@@ -17,8 +17,8 @@ assert_eq 3 (add 1 2)
 add2 = |x y| add x y
 assert_eq 0 (add2 4 -4)
 
-add3 = |x y| add2 x y
-assert_eq 42 (add3 21 21)
+# nested function calls behave correctly
+assert_eq 0 (add (add 1 1) (add -1 -1))
 
 # functions can return multiple values
 f = |x| x - 1, x + 1

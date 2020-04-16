@@ -4,7 +4,6 @@ use crate::{Id, Value};
 pub struct CallStack<'a> {
     values: Vec<(Id, Value<'a>)>,
     frame_size: Vec<usize>,
-    pending_frame_size: usize,
 }
 
 impl<'a> CallStack<'a> {
@@ -12,41 +11,24 @@ impl<'a> CallStack<'a> {
         Self {
             values: Vec::with_capacity(initial_capacity),
             frame_size: Vec::with_capacity(initial_capacity),
-            pending_frame_size: 0,
         }
     }
 
-    pub fn frame(&self) -> usize {
+    pub fn frame_count(&self) -> usize {
         self.frame_size.len()
     }
 
-    pub fn push(&mut self, id: Id, value: Value<'a>) {
-        self.values.push((id, value));
-        self.pending_frame_size += 1;
+    pub fn push_frame(&mut self, values: &[(Id, Value<'a>)]) {
+        self.values.extend_from_slice(values);
+        self.frame_size.push(values.len());
     }
 
-    pub fn extend(&mut self, id: Id, value: Value<'a>) {
-        assert_eq!(
-            self.pending_frame_size, 0,
-            "Extend called before commit or cancel"
-        );
+    pub fn extend_frame(&mut self, id: Id, value: Value<'a>) {
         self.values.push((id, value));
         *self
             .frame_size
             .last_mut()
-            .expect("Extend called before commiting a frame") += 1;
-    }
-
-    pub fn commit(&mut self) {
-        self.frame_size.push(self.pending_frame_size);
-        self.pending_frame_size = 0;
-    }
-
-    pub fn cancel(&mut self) {
-        for _ in 0..self.pending_frame_size {
-            self.values.pop();
-        }
-        self.pending_frame_size = 0;
+            .expect("Extend called before pushing a frame") += 1;
     }
 
     pub fn pop_frame(&mut self) {
@@ -60,7 +42,7 @@ impl<'a> CallStack<'a> {
     pub fn frame_values(&self) -> Option<&[(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
-                let values_start = self.values.len() - self.pending_frame_size - size;
+                let values_start = self.values.len() - size;
                 Some(&self.values[values_start..(values_start + size)])
             }
             None => None,
@@ -70,7 +52,7 @@ impl<'a> CallStack<'a> {
     fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value<'a>)]> {
         match self.frame_size.last() {
             Some(size) => {
-                let values_start = self.values.len() - self.pending_frame_size - size;
+                let values_start = self.values.len() - size;
                 Some(&mut self.values[values_start..(values_start + size)])
             }
             None => None,
@@ -120,48 +102,40 @@ mod tests {
 
         let mut stack = CallStack::with_capacity(32);
 
-        assert_eq!(stack.frame(), 0);
+        assert_eq!(stack.frame_count(), 0);
         assert_eq!(stack.get("foo"), None);
 
-        stack.push(Id::from_str("foo"), Number(42.0));
-        stack.push(Id::from_str("bar"), Number(99.0));
-        stack.commit();
+        stack.push_frame(&[
+            (Id::from_str("foo"), Number(42.0)),
+            (Id::from_str("bar"), Number(99.0)),
+        ]);
 
-        assert_eq!(stack.frame(), 1);
+        assert_eq!(stack.frame_count(), 1);
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         assert_eq!(stack.get("bar"), Some(&Number(99.0)));
 
-        stack.push(Id::from_str("baz"), Number(-1.0));
-        // We should be able to access the previous frame values while preparing the next
-        assert_eq!(stack.get("foo"), Some(&Number(42.0)));
-        stack.commit();
+        stack.push_frame(&[(Id::from_str("baz"), Number(-1.0))]);
 
-        assert_eq!(stack.frame(), 2);
+        assert_eq!(stack.frame_count(), 2);
         assert_eq!(stack.get("foo"), None);
         assert_eq!(stack.get("bar"), None);
         assert_eq!(stack.get("baz"), Some(&Number(-1.0)));
 
-        stack.extend(Id::from_str("qux"), Number(100.0));
+        stack.extend_frame(Id::from_str("qux"), Number(100.0));
         assert_eq!(stack.get("qux"), Some(&Number(100.0)));
 
         stack.pop_frame();
 
-        assert_eq!(stack.frame(), 1);
+        assert_eq!(stack.frame_count(), 1);
         assert_eq!(stack.get("foo"), Some(&Number(42.0)));
         *stack.get_mut("bar").unwrap() = Number(7.0);
         assert_eq!(stack.get("bar"), Some(&Number(7.0)));
         assert_eq!(stack.get("baz"), None);
         assert_eq!(stack.get("qux"), None);
 
-        stack.push(Id::from_str("baz"), Number(-1.0));
-
-        stack.cancel();
-        assert_eq!(stack.frame(), 1);
-        assert_eq!(stack.get("baz"), None);
-
         stack.pop_frame();
 
-        assert_eq!(stack.frame(), 0);
+        assert_eq!(stack.frame_count(), 0);
         assert_eq!(stack.get("foo"), None);
         assert_eq!(stack.get("bar"), None);
         assert_eq!(stack.get("baz"), None);
