@@ -102,6 +102,7 @@ pub struct Block {}
 #[derive(Clone, Debug)]
 pub struct Function {
     pub args: Vec<ConstantIndex>,
+    pub captures: Vec<ConstantIndex>,
     pub body: Vec<AstNode>,
 }
 

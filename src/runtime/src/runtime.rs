@@ -1,14 +1,14 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{copy_value, type_as_string, BuiltinFunction, Value},
+    value::{copy_value, type_as_string, BuiltinFunction, RuntimeFunction, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
     Error, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, ConstantPool,
-    Function, LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
+    LookupNode, LookupOrId, LookupSliceOrId, Node, Scope,
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
@@ -83,6 +83,7 @@ pub struct Runtime<'a> {
     constants: ConstantPool,
     string_constants: FxHashMap<u32, Rc<String>>,
     global: ValueHashMap<'a>,
+    capture_map: Option<ValueMap<'a>>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
     script_path: Option<String>,
@@ -381,7 +382,21 @@ impl<'a> Runtime<'a> {
                     }
                 }
             }
-            Node::Function(f) => Function(f.clone()),
+            Node::Function(f) => {
+                let function = f.clone();
+                let captured = function
+                    .captures
+                    .iter()
+                    .map(|capture_index| {
+                        let id = self.id_from_constant(capture_index);
+                        Ok((id.clone(), self.get_value_or_error(id.as_str(), node)?.0))
+                    })
+                    .collect::<Result<ValueHashMap, Error>>()?;
+                Function(RuntimeFunction {
+                    function,
+                    captured: ValueMap::with_data(captured),
+                })
+            }
             Node::Call { function, args } => {
                 self.lookup_and_call_function(&function.as_slice(), args, node)?
             }
@@ -427,6 +442,13 @@ impl<'a> Runtime<'a> {
                 }
             }
         } else {
+            if let Some(capture_map) = &self.capture_map {
+                if let Some(exists) = capture_map.data_mut().get_mut(id.as_str()) {
+                    *exists = value;
+                    return;
+                }
+            }
+
             match self.call_stack.get_mut(id.as_str()) {
                 Some(exists) => {
                     *exists = value;
@@ -440,9 +462,16 @@ impl<'a> Runtime<'a> {
 
     pub fn get_value(&self, id: &str) -> Option<(Value<'a>, Scope)> {
         runtime_trace!(self, "get_value: {}", id);
+
         if self.call_stack.frame_count() > 0 {
             if let Some(value) = self.call_stack.get(id) {
                 return Some((value.clone(), Scope::Local));
+            }
+
+            if let Some(capture_map) = &self.capture_map {
+                if let Some(value) = capture_map.data().get(id) {
+                    return Some((value.clone(), Scope::Local));
+                }
             }
         }
 
@@ -471,7 +500,17 @@ impl<'a> Runtime<'a> {
         };
 
         if self.call_stack.frame_count() > 0 {
-            if let Some(root) = self.call_stack.get(root_id.as_str()) {
+            let maybe_root = {
+                if let Some(root) = self.call_stack.get(root_id.as_str()).cloned() {
+                    Some(root)
+                } else if let Some(capture_map) = &self.capture_map {
+                    capture_map.data().get(root_id.as_str()).cloned()
+                } else {
+                    None
+                }
+            };
+
+            if let Some(root) = maybe_root {
                 let root = root.clone();
                 self.do_lookup(lookup, root, Some(value), node)?;
                 return Ok(());
@@ -517,7 +556,7 @@ impl<'a> Runtime<'a> {
             // We want to keep track of the parent container for the next lookup node
             // If the current node is a function then we skip over it
             parent = match &current_node {
-                Function(_) | BuiltinFunction(_) => parent,
+                Function { .. } | BuiltinFunction(_) => parent,
                 _ => ValueAndLookupIndex::new(
                     current_node.clone(),
                     if temporary_value {
@@ -815,7 +854,17 @@ impl<'a> Runtime<'a> {
         };
 
         if self.call_stack.frame_count() > 0 {
-            if let Some(root) = self.call_stack.get(root_id.as_str()).cloned() {
+            let maybe_root = {
+                if let Some(root) = self.call_stack.get(root_id.as_str()).cloned() {
+                    Some(root)
+                } else if let Some(capture_map) = &self.capture_map {
+                    capture_map.data().get(root_id.as_str()).cloned()
+                } else {
+                    None
+                }
+            };
+
+            if let Some(root) = maybe_root {
                 if let Some((found, parent)) = self.do_lookup(lookup, root, None, node)? {
                     return Ok(Some(LookupResult::new(found, parent, Scope::Local)));
                 }
@@ -1227,7 +1276,7 @@ impl<'a> Runtime<'a> {
 
     fn evaluate_args_and_call_function(
         &mut self,
-        f: &Rc<Function>,
+        f: &RuntimeFunction<'a>,
         lookup_or_id: &LookupSliceOrId,
         parent: Option<ValueAndLookupIndex<'a>>,
         args: &[AstNode],
@@ -1255,7 +1304,7 @@ impl<'a> Runtime<'a> {
             }
             LookupSliceOrId::LookupSlice(_) => {
                 // implicit self for map functions
-                match f.args.first() {
+                match f.function.args.first() {
                     Some(arg_index) => {
                         if self.get_constant_string(arg_index) == "self" {
                             let id = self.id_from_constant(arg_index);
@@ -1270,7 +1319,9 @@ impl<'a> Runtime<'a> {
             }
         };
 
-        let arg_count = f.args.len();
+        let function_args = &f.function.args;
+
+        let arg_count = function_args.len();
         let expected_args = if implicit_self {
             arg_count - 1
         } else {
@@ -1284,12 +1335,11 @@ impl<'a> Runtime<'a> {
                 self.lookup_slice_or_id_to_string(lookup_or_id),
                 expected_args,
                 args.len(),
-                f.args
+                function_args
             );
         }
 
-        for (name_index, arg) in f
-            .args
+        for (name_index, arg) in function_args
             .iter()
             .skip(if implicit_self { 1 } else { 0 })
             .zip(args.iter())
@@ -1308,34 +1358,43 @@ impl<'a> Runtime<'a> {
         self.call_stack.push_frame(&call_frame);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
+        let cached_capture_map = self.capture_map.clone();
+        self.capture_map = Some(f.captured.clone());
 
-        let mut result = self.evaluate_block(&f.body);
+        let mut result = self.evaluate_block(&f.function.body);
 
         if let ControlFlow::ReturnValue(return_value) = &self.control_flow {
             result = Ok(return_value.clone());
         }
 
+        self.capture_map = cached_capture_map;
         self.control_flow = cached_control_flow;
         self.call_stack.pop_frame();
 
         result
     }
 
-    pub fn call_function(&mut self, f: &Function, args: &[Value<'a>]) -> RuntimeResult<'a> {
-        if f.args.len() != args.len() {
+    // TODO merge with evaluate_args_and_call_function
+    pub fn call_function(
+        &mut self,
+        f: &RuntimeFunction<'a>,
+        args: &[Value<'a>],
+    ) -> RuntimeResult<'a> {
+        if f.function.args.len() != args.len() {
             return runtime_error!(
-                f.body
+                f.function
+                    .body
                     .first()
                     .expect("A function must have at least one node in its body"),
                 "Mismatch in number of arguments when calling function, expected {}, found {}",
-                f.args.len(),
+                f.function.args.len(),
                 args.len()
             );
         }
 
         let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
 
-        for (name_index, arg) in f.args.iter().zip(args.iter()) {
+        for (name_index, arg) in f.function.args.iter().zip(args.iter()) {
             let id = self.id_from_constant(name_index);
             call_frame.push((id, arg.clone()));
         }
@@ -1343,13 +1402,16 @@ impl<'a> Runtime<'a> {
         self.call_stack.push_frame(&call_frame);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
+        let cached_capture_map = self.capture_map.clone();
+        self.capture_map = Some(f.captured.clone());
 
-        let mut result = self.evaluate_block(&f.body);
+        let mut result = self.evaluate_block(&f.function.body);
 
         if let ControlFlow::ReturnValue(return_value) = &self.control_flow {
             result = Ok(return_value.clone());
         }
 
+        self.capture_map = cached_capture_map;
         self.control_flow = cached_control_flow;
         self.call_stack.pop_frame();
 

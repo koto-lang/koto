@@ -120,11 +120,11 @@ pub fn register(global: &mut ValueHashMap) {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
-                    if f.args.len() != 1 {
+                    if f.function.args.len() != 1 {
                         return builtin_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
-                            f.args.len()
+                            f.function.args.len()
                         );
                     }
                     let mut write_index = 0;
@@ -160,11 +160,11 @@ pub fn register(global: &mut ValueHashMap) {
     list.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
-                if f.args.len() != 1 {
+                if f.function.args.len() != 1 {
                     return builtin_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
-                        f.args.len()
+                        f.function.args.len()
                     );
                 }
 
@@ -184,10 +184,10 @@ pub fn register(global: &mut ValueHashMap) {
     list.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args[2] {
             Function(f) => {
-                if f.args.len() != 2 {
+                if f.function.args.len() != 2 {
                     return builtin_error!(
                         "The function passed to list.fold must have two arguments, found '{}'",
-                        f.args.len()
+                        f.function.args.len()
                     );
                 }
 
