@@ -142,7 +142,7 @@ impl<'a> Koto<'a> {
 
     pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction<'a>> {
         match self.runtime.get_value(function_name) {
-            Some((Value::Function(function), _)) => Some(function),
+            Some(Value::Function(function)) => Some(function),
             _ => None,
         }
     }

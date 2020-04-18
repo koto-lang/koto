@@ -60,15 +60,13 @@ impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
 struct LookupResult<'a> {
     value: Value<'a>,
     parent: ValueAndLookupIndex<'a>,
-    _scope: Scope,
 }
 
 impl<'a> LookupResult<'a> {
-    fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>, _scope: Scope) -> Self {
+    fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>) -> Self {
         Self {
             value,
             parent,
-            _scope,
         }
     }
 }
@@ -327,16 +325,12 @@ impl<'a> Runtime<'a> {
             }
             Node::Lookup(lookup) => self.lookup_value_or_error(&lookup.as_slice(), node)?.value,
             Node::Id(id_index) => {
-                let (value, _scope) =
-                    self.get_value_or_error(self.get_constant_string(id_index), node)?;
-                value
+                self.get_value_or_error(self.get_constant_string(id_index), node)?
             }
             Node::Copy(lookup_or_id) => match lookup_or_id {
-                LookupOrId::Id(id_index) => copy_value(
-                    &self
-                        .get_value_or_error(self.get_constant_string(id_index), node)?
-                        .0,
-                ),
+                LookupOrId::Id(id_index) => {
+                    copy_value(&self.get_value_or_error(self.get_constant_string(id_index), node)?)
+                }
                 LookupOrId::Lookup(lookup) => {
                     copy_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.value)
                 }
@@ -390,7 +384,7 @@ impl<'a> Runtime<'a> {
                     .iter()
                     .map(|capture_index| {
                         let id = self.id_from_constant(capture_index);
-                        Ok((id.clone(), self.get_value_or_error(id.as_str(), node)?.0))
+                        Ok((id.clone(), self.get_value_or_error(id.as_str(), node)?))
                     })
                     .collect::<Result<ValueHashMap, Error>>()?;
                 Function(RuntimeFunction {
@@ -461,28 +455,28 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn get_value(&self, id: &str) -> Option<(Value<'a>, Scope)> {
+    pub fn get_value(&self, id: &str) -> Option<Value<'a>> {
         runtime_trace!(self, "get_value: {}", id);
 
         if self.call_stack.frame_count() > 0 {
             if let Some(value) = self.call_stack.get(id) {
-                return Some((value.clone(), Scope::Local));
+                return Some(value.clone());
             }
 
             if let Some(capture_map) = &self.capture_map {
                 if let Some(value) = capture_map.data().get(id) {
-                    return Some((value.clone(), Scope::Local));
+                    return Some(value.clone());
                 }
             }
         }
 
         match self.global.get(id) {
-            Some(value) => Some((value.clone(), Scope::Global)),
+            Some(value) => Some(value.clone()),
             None => None,
         }
     }
 
-    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<(Value<'a>, Scope), Error> {
+    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<Value<'a>, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -867,14 +861,14 @@ impl<'a> Runtime<'a> {
 
             if let Some(root) = maybe_root {
                 if let Some((found, parent)) = self.do_lookup(lookup, root, None, node)? {
-                    return Ok(Some(LookupResult::new(found, parent, Scope::Local)));
+                    return Ok(Some(LookupResult::new(found, parent)));
                 }
             }
         }
 
         match self.global.get(root_id.as_str()).cloned() {
             Some(root) => match self.do_lookup(lookup, root, None, node)? {
-                Some((found, parent)) => Ok(Some(LookupResult::new(found, parent, Scope::Global))),
+                Some((found, parent)) => Ok(Some(LookupResult::new(found, parent))),
                 None => Ok(None),
             },
             None => Ok(None),
@@ -1192,11 +1186,9 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "lookup_and_call_function - {}", function_id);
 
         let (maybe_function, maybe_parent) = match lookup_or_id {
-            LookupSliceOrId::Id(id_index) => (
-                self.get_value(self.get_constant_string(id_index))
-                    .map(|x| x.0),
-                None,
-            ),
+            LookupSliceOrId::Id(id_index) => {
+                (self.get_value(self.get_constant_string(id_index)), None)
+            }
             LookupSliceOrId::LookupSlice(lookup) => match self.lookup_value(&lookup, node)? {
                 Some(lookup_result) => (Some(lookup_result.value), Some(lookup_result.parent)),
                 None => (None, None),
