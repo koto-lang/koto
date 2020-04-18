@@ -3,8 +3,8 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueHashMap,
-    ValueList, ValueMap, ValueVec,
+    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeFunction, RuntimeResult, Value,
+    ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
 use std::{path::Path, rc::Rc};
@@ -140,40 +140,36 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn get_global_function(&self, function_name: &str) -> Option<Rc<Function>> {
+    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction<'a>> {
         match self.runtime.get_value(function_name) {
-            Some((Value::Function(function), _)) => Some(function),
+            Some(Value::Function(function)) => Some(function),
             _ => None,
         }
     }
 
-    pub fn call_function_by_name_with_args(
+    pub fn call_function_by_name(
         &mut self,
         function_name: &str,
         args: &[Value<'a>],
     ) -> Result<Value<'a>, String> {
         match self.get_global_function(function_name) {
-            Some(f) => match self.runtime.call_function(f.as_ref(), args) {
-                Ok(result) => Ok(result),
-                Err(e) => Err(match &e {
-                    Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
-                    Error::RuntimeError {
-                        message,
-                        start_pos,
-                        end_pos,
-                    } => self.format_runtime_error(&message, start_pos, end_pos),
-                }),
-            },
-            None => Err(format!("Runtime error: function '{}' not found", function_name)),
+            Some(f) => self.call_function(&f, args),
+            None => Err(format!(
+                "Runtime error: function '{}' not found",
+                function_name
+            )),
         }
     }
 
     pub fn call_function(
         &mut self,
-        function: &Function,
+        function: &RuntimeFunction<'a>,
         args: &[Value<'a>],
     ) -> Result<Value<'a>, String> {
-        match self.runtime.call_function(function, args) {
+        match self
+            .runtime
+            .call_function_with_evaluated_args(function, args)
+        {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
@@ -231,7 +227,7 @@ impl<'a> Koto<'a> {
 
             for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
                 excerpt += &format!(
-                    " {:>width$} | {}",
+                    " {:>width$} | {}\n",
                     line_number,
                     excerpt_line,
                     width = number_width

@@ -120,17 +120,17 @@ pub fn register(global: &mut ValueHashMap) {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
-                    if f.args.len() != 1 {
+                    if f.function.args.len() != 1 {
                         return builtin_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
-                            f.args.len()
+                            f.function.args.len()
                         );
                     }
                     let mut write_index = 0;
                     for read_index in 0..list.len() {
                         let value = list.data()[read_index].clone();
-                        match runtime.call_function(f, &[value.clone()])? {
+                        match runtime.call_function_with_evaluated_args(f, &[value.clone()])? {
                             Bool(result) => {
                                 if result {
                                     list.data_mut()[write_index] = value;
@@ -160,16 +160,16 @@ pub fn register(global: &mut ValueHashMap) {
     list.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
-                if f.args.len() != 1 {
+                if f.function.args.len() != 1 {
                     return builtin_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
-                        f.args.len()
+                        f.function.args.len()
                     );
                 }
 
                 for value in list.data_mut().iter_mut() {
-                    *value = runtime.call_function(f, &[value.clone()])?;
+                    *value = runtime.call_function_with_evaluated_args(f, &[value.clone()])?;
                 }
 
                 Ok(Value::Empty)
@@ -184,16 +184,17 @@ pub fn register(global: &mut ValueHashMap) {
     list.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args[2] {
             Function(f) => {
-                if f.args.len() != 2 {
+                if f.function.args.len() != 2 {
                     return builtin_error!(
                         "The function passed to list.fold must have two arguments, found '{}'",
-                        f.args.len()
+                        f.function.args.len()
                     );
                 }
 
                 let mut result = args[1].clone();
                 for value in list.data().iter() {
-                    result = runtime.call_function(f, &[result, value.clone()])?;
+                    result =
+                        runtime.call_function_with_evaluated_args(f, &[result, value.clone()])?;
                 }
 
                 Ok(result)

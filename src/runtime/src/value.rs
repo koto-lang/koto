@@ -4,7 +4,7 @@ use crate::{
     value_map::{ValueHashMap, ValueMap},
     Runtime, RuntimeResult,
 };
-use koto_parser::{vec4, AstFor, AstWhile, Function};
+use koto_parser::{vec4, AstFor, AstWhile};
 use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc};
 
 #[derive(Clone, Debug)]
@@ -18,7 +18,7 @@ pub enum Value<'a> {
     List(ValueList<'a>),
     Map(ValueMap<'a>),
     Str(Rc<String>),
-    Function(Rc<Function>),
+    Function(RuntimeFunction<'a>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
     For(Rc<AstFor>),
@@ -58,7 +58,7 @@ impl<'a> fmt::Display for Value<'a> {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Function(function) => {
-                let raw = Rc::into_raw(function.clone());
+                let raw = Rc::into_raw(function.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
             BuiltinFunction(function) => {
@@ -83,7 +83,7 @@ impl<'a> PartialEq for Value<'a> {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
-            (Function(a), Function(b)) => Rc::ptr_eq(a, b),
+            (Function(a), Function(b)) => a == b,
             (Empty, Empty) => true,
             _ => false,
         }
@@ -127,8 +127,21 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct RuntimeFunction<'a> {
+    pub function: Rc<koto_parser::Function>,
+    pub captured: ValueMap<'a>,
+}
+
+impl<'a> PartialEq for RuntimeFunction<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
+    }
+}
+
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
+// TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
 pub struct BuiltinFunction<'a> {
     pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
