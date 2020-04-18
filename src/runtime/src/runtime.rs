@@ -373,6 +373,7 @@ impl<'a> Runtime<'a> {
                 match value {
                     Bool(b) => Bool(!b),
                     Number(n) => Number(-n),
+                    Vec4(v) => Vec4(-v),
                     unexpected => {
                         return runtime_error!(
                             node,

@@ -10,3 +10,4 @@ x *= 2
 assert_eq x (vec4 10 12 14 16)
 x %= 5
 assert_eq x (vec4 0 2 4 1)
+assert_eq -x (vec4 0 -2 -4 -1)
