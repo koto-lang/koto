@@ -64,10 +64,7 @@ struct LookupResult<'a> {
 
 impl<'a> LookupResult<'a> {
     fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>) -> Self {
-        Self {
-            value,
-            parent,
-        }
+        Self { value, parent }
     }
 }
 
@@ -1348,27 +1345,10 @@ impl<'a> Runtime<'a> {
             call_frame.push((id, arg_value));
         }
 
-        self.call_stack.push_frame(&call_frame);
-        let cached_control_flow = self.control_flow.clone();
-        self.control_flow = ControlFlow::Function;
-        let cached_capture_map = self.capture_map.clone();
-        self.capture_map = Some(f.captured.clone());
-
-        let mut result = self.evaluate_block(&f.function.body);
-
-        if let ControlFlow::ReturnValue(return_value) = &self.control_flow {
-            result = Ok(return_value.clone());
-        }
-
-        self.capture_map = cached_capture_map;
-        self.control_flow = cached_control_flow;
-        self.call_stack.pop_frame();
-
-        result
+        self.call_function(f, &call_frame)
     }
 
-    // TODO merge with evaluate_args_and_call_function
-    pub fn call_function(
+    pub fn call_function_with_evaluated_args(
         &mut self,
         f: &RuntimeFunction<'a>,
         args: &[Value<'a>],
@@ -1392,7 +1372,15 @@ impl<'a> Runtime<'a> {
             call_frame.push((id, arg.clone()));
         }
 
-        self.call_stack.push_frame(&call_frame);
+        self.call_function(f, &call_frame)
+    }
+
+    pub fn call_function(
+        &mut self,
+        f: &RuntimeFunction<'a>,
+        args: &[(Id, Value<'a>)],
+    ) -> RuntimeResult<'a> {
+        self.call_stack.push_frame(&args);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
         let cached_capture_map = self.capture_map.clone();

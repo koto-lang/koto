@@ -147,23 +147,13 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn call_function_by_name_with_args(
+    pub fn call_function_by_name(
         &mut self,
         function_name: &str,
         args: &[Value<'a>],
     ) -> Result<Value<'a>, String> {
         match self.get_global_function(function_name) {
-            Some(f) => match self.runtime.call_function(&f, args) {
-                Ok(result) => Ok(result),
-                Err(e) => Err(match &e {
-                    Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
-                    Error::RuntimeError {
-                        message,
-                        start_pos,
-                        end_pos,
-                    } => self.format_runtime_error(&message, start_pos, end_pos),
-                }),
-            },
+            Some(f) => self.call_function(&f, args),
             None => Err(format!(
                 "Runtime error: function '{}' not found",
                 function_name
@@ -176,7 +166,10 @@ impl<'a> Koto<'a> {
         function: &RuntimeFunction<'a>,
         args: &[Value<'a>],
     ) -> Result<Value<'a>, String> {
-        match self.runtime.call_function(function, args) {
+        match self
+            .runtime
+            .call_function_with_evaluated_args(function, args)
+        {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),

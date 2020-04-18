@@ -130,7 +130,7 @@ pub fn register(global: &mut ValueHashMap) {
                     let mut write_index = 0;
                     for read_index in 0..list.len() {
                         let value = list.data()[read_index].clone();
-                        match runtime.call_function(f, &[value.clone()])? {
+                        match runtime.call_function_with_evaluated_args(f, &[value.clone()])? {
                             Bool(result) => {
                                 if result {
                                     list.data_mut()[write_index] = value;
@@ -169,7 +169,7 @@ pub fn register(global: &mut ValueHashMap) {
                 }
 
                 for value in list.data_mut().iter_mut() {
-                    *value = runtime.call_function(f, &[value.clone()])?;
+                    *value = runtime.call_function_with_evaluated_args(f, &[value.clone()])?;
                 }
 
                 Ok(Value::Empty)
@@ -193,7 +193,8 @@ pub fn register(global: &mut ValueHashMap) {
 
                 let mut result = args[1].clone();
                 for value in list.data().iter() {
-                    result = runtime.call_function(f, &[result, value.clone()])?;
+                    result =
+                        runtime.call_function_with_evaluated_args(f, &[result, value.clone()])?;
                 }
 
                 Ok(result)
