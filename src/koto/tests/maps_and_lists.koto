@@ -30,8 +30,8 @@ foos[0].foo = -1
 assert_eq foos[0].foo -1
 
 # Calling a function
-foos[0].set_foo(-42)
-foos[1].set_foo(-123)
+foos[0].set_foo -42
+foos[1].set_foo -123
 assert_eq foos[0].foo -42
 assert_eq foos[1].foo -123
 

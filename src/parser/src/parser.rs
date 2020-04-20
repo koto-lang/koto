@@ -408,7 +408,8 @@ impl KotoParser {
                 let operator = inner.next().unwrap().as_rule();
                 let rhs = next_as_boxed_ast!(inner);
                 macro_rules! make_assign_op {
-                    ($op:ident) => {
+                    ($op:ident) => {{
+                        add_assign_target_to_captures(function_ids, &target);
                         Box::new(AstNode::new(
                             span.clone(),
                             Node::Op {
@@ -417,7 +418,7 @@ impl KotoParser {
                                 rhs,
                             },
                         ))
-                    };
+                    }};
                 };
                 let expression = match operator {
                     Rule::assign => rhs,
@@ -827,6 +828,13 @@ fn add_assign_target_to_ids_assigned_in_function(
             }
             _ => panic!("Expected Id as first lookup node"),
         },
+    }
+}
+
+fn add_assign_target_to_captures(function_ids: &mut LocalFunctionIds, target: &AssignTarget) {
+    match target {
+        AssignTarget::Id { id_index, .. } => add_id_to_captures(function_ids, *id_index),
+        AssignTarget::Lookup(lookup) => add_lookup_to_captures(function_ids, lookup),
     }
 }
 

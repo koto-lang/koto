@@ -17,15 +17,12 @@ assert_eq (capture_test 1 2 3) 6
 # captured variables are mutable and share the function's lifetime
 counter = ||
   count = 0
-  return ||
-    result = count
-    count += 1
-    return result
+  return || count += 1
 
 c = counter()
 c2 = counter()
-assert_eq c() 0
 assert_eq c() 1
-assert_eq c2() 0
 assert_eq c() 2
 assert_eq c2() 1
+assert_eq c() 3
+assert_eq c2() 2
