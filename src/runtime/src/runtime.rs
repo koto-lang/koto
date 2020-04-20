@@ -12,7 +12,10 @@ use koto_parser::{
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow<'a> {
@@ -75,13 +78,14 @@ enum ValueOrValues<'a> {
 
 #[derive(Default)]
 pub struct Runtime<'a> {
-    constants: ConstantPool,
-    string_constants: FxHashMap<u32, Arc<String>>,
+    constants: Arc<ConstantPool>,
+    string_constants: Arc<RwLock<FxHashMap<u32, Arc<String>>>>,
     global: ValueMap<'a>,
+    script_path: Arc<Option<String>>,
+
     capture_map: Option<ValueMap<'a>>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
-    script_path: Option<String>,
 }
 
 #[cfg(feature = "trace")]
@@ -108,13 +112,22 @@ impl<'a> Runtime<'a> {
             global: ValueMap::with_capacity(32),
             control_flow: ControlFlow::None,
             call_stack: CallStack::with_capacity(32),
-            script_path: None,
+            ..Default::default()
+        }
+    }
+
+    pub fn spawn(&mut self) -> Self {
+        Self {
+            constants: self.constants.clone(),
+            string_constants: self.string_constants.clone(),
+            global: self.global.clone(),
+            script_path: self.script_path.clone(),
             ..Default::default()
         }
     }
 
     pub fn constants_mut(&mut self) -> &mut ConstantPool {
-        &mut self.constants
+        Arc::make_mut(&mut self.constants)
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
@@ -122,7 +135,7 @@ impl<'a> Runtime<'a> {
     }
 
     pub fn set_script_path(&mut self, path: Option<String>) {
-        self.script_path = path;
+        *Arc::make_mut(&mut self.script_path) = path;
     }
 
     #[allow(dead_code)]
@@ -1150,7 +1163,7 @@ impl<'a> Runtime<'a> {
         expressions: &[(ConstantIndex, AstNode)],
         node: &AstNode,
     ) -> RuntimeResult<'a> {
-        let prefix = match &self.script_path {
+        let prefix = match &self.script_path.as_ref() {
             Some(path) => format!("[{}: {}]", path, node.start_pos.line),
             None => format!("[{}]", node.start_pos.line),
         };
@@ -1864,15 +1877,25 @@ impl<'a> Runtime<'a> {
     }
 
     fn arc_string_from_constant(&mut self, constant_index: &u32) -> Arc<String> {
-        match self.string_constants.get(constant_index) {
-            Some(s) => s.clone(),
+        let maybe_string = self
+            .string_constants
+            .read()
+            .unwrap()
+            .get(constant_index)
+            .cloned();
+
+        match maybe_string {
+            Some(s) => s,
             None => {
                 let s = Arc::new(
                     self.constants
                         .get_string(*constant_index as usize)
                         .to_string(),
                 );
-                self.string_constants.insert(*constant_index, s.clone());
+                self.string_constants
+                    .write()
+                    .unwrap()
+                    .insert(*constant_index, s.clone());
                 s
             }
         }
@@ -1883,7 +1906,7 @@ impl<'a> Runtime<'a> {
     }
 
     pub fn str_to_id_index(&self, s: &str) -> Option<u32> {
-        for (k, v) in self.string_constants.iter() {
+        for (k, v) in self.string_constants.read().unwrap().iter() {
             if v.as_ref() == s {
                 return Some(*k);
             }

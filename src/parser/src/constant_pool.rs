@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, convert::TryInto};
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ConstantPool {
     data: Vec<u8>,
     strings: HashMap<String, usize>,
