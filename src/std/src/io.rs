@@ -47,25 +47,29 @@ pub fn register(global: &mut ValueHashMap) {
         });
 
         file_map.add_instance_fn("write", |_, args| {
-            file_fn("write", args, |file_handle| {
-                if args.len() < 2 {
-                    return builtin_error!("File.write: Expected argument");
-                }
-                let data = format!("{}", args[1]);
+            file_fn("write", args, |file_handle| match &args {
+                [_, value] => {
+                    let data = format!("{}", value);
 
-                match file_handle.file.write(data.as_bytes()) {
-                    Ok(_) => Ok(Value::Empty),
-                    Err(e) => builtin_error!("File.write: Error while writing to file: {}", e),
+                    match file_handle.file.write(data.as_bytes()) {
+                        Ok(_) => Ok(Value::Empty),
+                        Err(e) => builtin_error!("File.write: Error while writing to file: {}", e),
+                    }
                 }
+                _ => builtin_error!("File.write: Expected single value to write as argument"),
             })
         });
 
         file_map.add_instance_fn("write_line", |_, args| {
             file_fn("write_line", args, |file_handle| {
-                let line = if args.len() < 2 {
-                    "\n".to_string()
-                } else {
-                    format!("{}\n", args[1])
+                let line = match &args {
+                    [_] => "\n".to_string(),
+                    [_, value] => format!("{}\n", value),
+                    _ => {
+                        return builtin_error!(
+                            "File.write_line: Expected single value as argument"
+                        );
+                    }
                 };
                 match file_handle.file.write(line.as_bytes()) {
                     Ok(_) => Ok(Value::Empty),
@@ -95,8 +99,8 @@ pub fn register(global: &mut ValueHashMap) {
         });
 
         file_map.add_instance_fn("seek", |_, args| {
-            file_fn("seek", args, |file_handle| match args.get(1) {
-                Some(Number(n)) => {
+            file_fn("seek", args, |file_handle| match &args {
+                [_, Number(n)] => {
                     if *n < 0.0 {
                         return builtin_error!("File.seek: Negative seek positions not allowed");
                     }
@@ -105,11 +109,11 @@ pub fn register(global: &mut ValueHashMap) {
                         Err(e) => builtin_error!("File.seek: Error while seeking in file: {}", e),
                     }
                 }
-                Some(unexpected) => builtin_error!(
+                [_, unexpected] => builtin_error!(
                     "File.seek: Expected Number for seek position, found '{}'",
                     type_as_string(&unexpected)
                 ),
-                None => builtin_error!("File.seek: Expected seek position as second argument"),
+                _ => builtin_error!("File.seek: Expected seek position as second argument"),
             })
         });
 
@@ -117,73 +121,60 @@ pub fn register(global: &mut ValueHashMap) {
     };
 
     io.add_fn("open", {
-        move |_, args| {
-            if args.len() == 1 {
-                match &args[0] {
-                    Str(path) => {
-                        let path = Path::new(path.as_ref());
-                        match fs::File::open(&path) {
-                            Ok(file) => {
-                                let mut file_map = make_file_map();
+        move |_, args| match &args {
+            [Str(path)] => {
+                let path = Path::new(path.as_ref());
+                match fs::File::open(&path) {
+                    Ok(file) => {
+                        let mut file_map = make_file_map();
 
-                                file_map.set_builtin_value(File {
-                                    file,
-                                    path: path.to_path_buf(),
-                                    temporary: false,
-                                });
+                        file_map.set_builtin_value(File {
+                            file,
+                            path: path.to_path_buf(),
+                            temporary: false,
+                        });
 
-                                Ok(Map(file_map))
-                            }
-                            Err(e) => {
-                                return builtin_error!("io.open: Error while opening path: {}", e);
-                            }
-                        }
+                        Ok(Map(file_map))
                     }
-                    unexpected => builtin_error!(
-                        "io.open expects a String as its argument, found '{}'",
-                        type_as_string(&unexpected)
-                    ),
+                    Err(e) => {
+                        return builtin_error!("io.open: Error while opening path: {}", e);
+                    }
                 }
-            } else {
-                builtin_error!("io.open expects a single argument, found {}", args.len())
             }
+            [unexpected] => builtin_error!(
+                "io.open: Expected a String as argument, found '{}'",
+                type_as_string(&unexpected)
+            ),
+            _ => builtin_error!("io.open: Expected a String as argument"),
         }
     });
 
     io.add_fn("create", {
-        move |_, args| {
-            if args.len() == 1 {
-                match &args[0] {
-                    Str(path) => {
-                        let path = Path::new(path.as_ref());
-                        match fs::File::create(&path) {
-                            Ok(file) => {
-                                let mut file_map = make_file_map();
+        move |_, args| match &args {
+            [Str(path)] => {
+                let path = Path::new(path.as_ref());
+                match fs::File::create(&path) {
+                    Ok(file) => {
+                        let mut file_map = make_file_map();
 
-                                file_map.set_builtin_value(File {
-                                    file,
-                                    path: path.to_path_buf(),
-                                    temporary: false,
-                                });
+                        file_map.set_builtin_value(File {
+                            file,
+                            path: path.to_path_buf(),
+                            temporary: false,
+                        });
 
-                                Ok(Map(file_map))
-                            }
-                            Err(e) => {
-                                return builtin_error!(
-                                    "io.create: Error while creating file: {}",
-                                    e
-                                );
-                            }
-                        }
+                        Ok(Map(file_map))
                     }
-                    unexpected => builtin_error!(
-                        "io.create expects a String as its argument, found '{}'",
-                        type_as_string(&unexpected)
-                    ),
+                    Err(e) => {
+                        return builtin_error!("io.create: Error while creating file: {}", e);
+                    }
                 }
-            } else {
-                builtin_error!("io.create expects a single argument, found {}", args.len())
             }
+            [unexpected] => builtin_error!(
+                "io.create: Expected a String as argument, found '{}'",
+                type_as_string(&unexpected)
+            ),
+            _ => builtin_error!("io.create: Expected a String as argument"),
         }
     });
 
@@ -227,31 +218,23 @@ pub fn register(global: &mut ValueHashMap) {
     });
 
     io.add_fn("remove_file", {
-        |_, args| {
-            if args.len() == 1 {
-                match &args[0] {
-                    Str(path) => {
-                        let path = Path::new(path.as_ref());
-                        match fs::remove_file(&path) {
-                            Ok(_) => Ok(Value::Empty),
-                            Err(e) => builtin_error!(
-                                "io.remove_file: Error while removing file '{}': {}",
-                                path.to_string_lossy(),
-                                e
-                            ),
-                        }
-                    }
-                    unexpected => builtin_error!(
-                        "io.remove_file expects a String as its argument, found '{}'",
-                        type_as_string(&unexpected)
+        |_, args| match &args {
+            [Str(path)] => {
+                let path = Path::new(path.as_ref());
+                match fs::remove_file(&path) {
+                    Ok(_) => Ok(Value::Empty),
+                    Err(e) => builtin_error!(
+                        "io.remove_file: Error while removing file '{}': {}",
+                        path.to_string_lossy(),
+                        e
                     ),
                 }
-            } else {
-                builtin_error!(
-                    "io.remove_file expects a single argument, found {}",
-                    args.len()
-                )
             }
+            [unexpected] => builtin_error!(
+                "io.remove_file: Expected a String as argument, found '{}'",
+                type_as_string(&unexpected)
+            ),
+            _ => builtin_error!("io.remove_file: Expected a String as argument"),
         }
     });
 

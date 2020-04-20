@@ -150,7 +150,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
                 }
                 unexpected => {
                     return builtin_error!(
-                        "assert only expects booleans as arguments, found '{}'",
+                        "assert expects booleans as arguments, found '{}'",
                         type_as_string(unexpected)
                     )
                 }
@@ -159,109 +159,85 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         Ok(Empty)
     });
 
-    global.add_fn("assert_eq", |_, args| {
-        if args.len() != 2 {
-            builtin_error!("assert_eq expects two arguments, found {}", args.len())
-        } else if args[0] == args[1] {
-            Ok(Empty)
-        } else {
-            builtin_error!(
-                "Assertion failed, '{}' is not equal to '{}'",
-                args[0],
-                args[1]
-            )
-        }
-    });
-
-    global.add_fn("assert_ne", |_, args| {
-        if args.len() != 2 {
-            builtin_error!("assert_ne expects two arguments, found {}", args.len())
-        } else if args[0] != args[1] {
-            Ok(Empty)
-        } else {
-            builtin_error!(
-                "Assertion failed, '{}' should not be equal to '{}'",
-                args[0],
-                args[1]
-            )
-        }
-    });
-
-    global.add_fn("assert_near", |_, args| {
-        if args.len() != 3 {
-            builtin_error!("assert_eq expects three arguments, found {}", args.len())
-        } else {
-            match (&args[0], &args[1], &args[2]) {
-                (Number(a), Number(b), Number(allowed_diff)) => {
-                    if (a - b).abs() <= *allowed_diff {
-                        Ok(Empty)
-                    } else {
-                        builtin_error!(
-                            "Assertion failed, '{}' and '{}' are not within {} of each other",
-                            a,
-                            b,
-                            allowed_diff
-                        )
-                    }
-                }
-                (a, b, c) => builtin_error!(
-                    "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
-                    type_as_string(&a),
-                    type_as_string(&b),
-                    type_as_string(&c)
-                ),
+    global.add_fn("assert_eq", |_, args| match &args {
+        [a, b] => {
+            if a == b {
+                Ok(Empty)
+            } else {
+                builtin_error!(
+                    "Assertion failed, '{}' is not equal to '{}'",
+                    args[0],
+                    args[1]
+                )
             }
         }
+        _ => builtin_error!("assert_eq expects two arguments, found {}", args.len()),
     });
 
-    global.add_fn("size", |_, args| {
-        let mut arg_iter = args.iter();
-        let first_arg_value = match arg_iter.next() {
-            Some(arg) => arg,
-            None => {
-                return builtin_error!("Missing list as first argument for size");
+    global.add_fn("assert_ne", |_, args| match &args {
+        [a, b] => {
+            if a != b {
+                Ok(Empty)
+            } else {
+                builtin_error!(
+                    "Assertion failed, '{}' should not be equal to '{}'",
+                    args[0],
+                    args[1]
+                )
             }
-        };
-
-        match first_arg_value {
-            Empty => Ok(Number(0.0)),
-            List(list) => Ok(Number(list.data().len() as f64)),
-            Range { start, end } => {
-                println!("size: start: {} end: {}", start, end);
-
-                Ok(Number(if end >= start {
-                    end - start
-                } else {
-                    start - end
-                } as f64))
-            }
-            unexpected => builtin_error!(
-                "size is only supported for lists and ranges, found {}",
-                unexpected
-            ),
         }
+        _ => builtin_error!("assert_ne expects two arguments, found {}", args.len()),
     });
 
-    global.add_fn("number", |_, args| {
-        let mut arg_iter = args.iter();
-        let first_arg_value = match arg_iter.next() {
-            Some(arg) => arg,
-            None => {
-                return builtin_error!("Missing list as first argument for size");
+    global.add_fn("assert_near", |_, args| match &args {
+        [Number(a), Number(b), Number(allowed_diff)] => {
+            if (a - b).abs() <= *allowed_diff {
+                Ok(Empty)
+            } else {
+                builtin_error!(
+                    "Assertion failed, '{}' and '{}' are not within {} of each other",
+                    a,
+                    b,
+                    allowed_diff
+                )
             }
-        };
-
-        match first_arg_value {
-            Number(_) => Ok(first_arg_value.clone()),
-            Str(s) => match s.parse::<f64>() {
-                Ok(n) => Ok(Number(n)),
-                Err(_) => builtin_error!("Failed to convert '{}' into a Number", s),
-            },
-            unexpected => builtin_error!(
-                "number is only supported for numbers and strings, found {}",
-                unexpected
-            ),
         }
+        [a, b, c] => builtin_error!(
+            "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
+            type_as_string(&a),
+            type_as_string(&b),
+            type_as_string(&c)
+        ),
+        _ => builtin_error!("assert_eq expects three arguments, found {}", args.len()),
+    });
+
+    global.add_fn("size", |_, args| match &args {
+        [Empty] => Ok(Number(0.0)),
+        [List(list)] => Ok(Number(list.data().len() as f64)),
+        [Range { start, end }] => {
+            println!("size: start: {} end: {}", start, end);
+
+            Ok(Number(if end >= start {
+                end - start
+            } else {
+                start - end
+            } as f64))
+        }
+        [unexpected] => builtin_error!("size - '{}' is unsupported", unexpected),
+        _ => builtin_error!("size expects a single argument, found {}", args.len()),
+    });
+
+    global.add_fn("number", |_, args| match &args {
+        [n @ Number(_)] => Ok(n.clone()),
+        [Str(s)] => match s.parse::<f64>() {
+            Ok(n) => Ok(Number(n)),
+            Err(_) => builtin_error!("Failed to convert '{}' into a Number", s),
+        },
+        [unexpected] => builtin_error!(
+            "number is only supported for numbers and strings, found {}",
+            unexpected
+        ),
+        _ => builtin_error!("number expects a single argument, found {}", args.len()),
     });
 
     global.add_fn("print", |_, args| {
