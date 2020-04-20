@@ -3,10 +3,10 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeFunction, RuntimeResult, Value,
-    ValueHashMap, ValueList, ValueMap, ValueVec,
+    make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction, RuntimeResult,
+    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
-pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
+pub use koto_std::{external_error, get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
 
 #[derive(Default)]
@@ -130,7 +130,7 @@ impl Koto {
         match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
@@ -172,7 +172,7 @@ impl Koto {
         {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,

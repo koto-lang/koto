@@ -1,4 +1,4 @@
-use crate::{builtin_error, single_arg_fn};
+use crate::{external_error, single_arg_fn};
 use koto_runtime::{value, Error, RuntimeResult, Value, ValueList, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
@@ -16,7 +16,7 @@ pub fn register(global: &mut ValueMap) {
             result.sort();
             Ok(List(ValueList::with_data(result)))
         } else {
-            builtin_error!("list.sort_copy can only sort lists of numbers or strings")
+            external_error!("list.sort_copy can only sort lists of numbers or strings")
         }
     });
 
@@ -45,7 +45,7 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 2, "get", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
-                    return builtin_error!("list.get: Negative indices aren't allowed");
+                    return external_error!("list.get: Negative indices aren't allowed");
                 }
                 let index = *n as usize;
                 match list.data().get(index) {
@@ -53,7 +53,7 @@ pub fn register(global: &mut ValueMap) {
                     None => Ok(Value::Empty),
                 }
             }
-            unexpected => builtin_error!(
+            unexpected => external_error!(
                 "list.get expects a number as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
@@ -64,11 +64,11 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 2, "remove", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
-                    return builtin_error!("list.remove: Negative indices aren't allowed");
+                    return external_error!("list.remove: Negative indices aren't allowed");
                 }
                 let index = *n as usize;
                 if index >= list.data().len() {
-                    return builtin_error!(
+                    return external_error!(
                         "list.remove: Index out of bounds - \
                          the index is {} but the List only has {} elements",
                         index,
@@ -78,7 +78,7 @@ pub fn register(global: &mut ValueMap) {
 
                 Ok(list.data_mut().remove(index))
             }
-            unexpected => builtin_error!(
+            unexpected => external_error!(
                 "list.remove expects a number as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
@@ -89,17 +89,17 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 3, "insert", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
-                    return builtin_error!("list.insert: Negative indices aren't allowed");
+                    return external_error!("list.insert: Negative indices aren't allowed");
                 }
                 let index = *n as usize;
                 if index > list.data().len() {
-                    return builtin_error!("list.insert: Index out of bounds");
+                    return external_error!("list.insert: Index out of bounds");
                 }
 
                 list.data_mut().insert(index, args[2].clone());
                 Ok(Value::Empty)
             }
-            unexpected => builtin_error!(
+            unexpected => external_error!(
                 "list.insert expects a number as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
@@ -121,7 +121,7 @@ pub fn register(global: &mut ValueMap) {
             match &args[1] {
                 Function(f) => {
                     if f.function.args.len() != 1 {
-                        return builtin_error!(
+                        return external_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
                             f.function.args.len()
@@ -138,7 +138,7 @@ pub fn register(global: &mut ValueMap) {
                                 }
                             }
                             unexpected => {
-                                return builtin_error!(
+                                return external_error!(
                                     "list.filter expects a Bool to be returned from the \
                                      predicate, found '{}'",
                                     value::type_as_string(&unexpected)
@@ -161,7 +161,7 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
                 if f.function.args.len() != 1 {
-                    return builtin_error!(
+                    return external_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
                         f.function.args.len()
@@ -174,7 +174,7 @@ pub fn register(global: &mut ValueMap) {
 
                 Ok(Value::Empty)
             }
-            unexpected => builtin_error!(
+            unexpected => external_error!(
                 "list.transform expects a function as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
@@ -185,7 +185,7 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 3, "fold", |list| match &args[2] {
             Function(f) => {
                 if f.function.args.len() != 2 {
-                    return builtin_error!(
+                    return external_error!(
                         "The function passed to list.fold must have two arguments, found '{}'",
                         f.function.args.len()
                     );
@@ -199,7 +199,7 @@ pub fn register(global: &mut ValueMap) {
 
                 Ok(result)
             }
-            unexpected => builtin_error!(
+            unexpected => external_error!(
                 "list.transform expects a function as its second argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
@@ -216,7 +216,7 @@ fn list_op(
     mut op: impl FnMut(&ValueList) -> RuntimeResult,
 ) -> RuntimeResult {
     if args.len() < arg_count {
-        return builtin_error!(
+        return external_error!(
             "list.{} expects {} arguments, found {}",
             op_name,
             arg_count,
@@ -226,7 +226,7 @@ fn list_op(
 
     match &args[0] {
         Value::List(list) => op(&list),
-        unexpected => builtin_error!(
+        unexpected => external_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
             value::type_as_string(&unexpected)

@@ -1,5 +1,5 @@
-mod builtin_value;
 mod call_stack;
+mod external;
 mod id;
 mod runtime;
 pub mod value;
@@ -12,12 +12,12 @@ use koto_parser::LookupSlice;
 use id::Id;
 pub use runtime::Runtime;
 
-pub use builtin_value::BuiltinValue;
-pub use value::{make_builtin_value, type_as_string, RuntimeFunction, Value};
+pub use external::{ExternalFunction, ExternalValue};
+pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};
 
-pub const BUILTIN_DATA_ID: &str = "_builtin_data";
+pub const EXTERNAL_DATA_ID: &str = "_external_data";
 
 #[derive(Clone, Debug)]
 pub enum Error {
@@ -26,7 +26,7 @@ pub enum Error {
         start_pos: koto_parser::Position,
         end_pos: koto_parser::Position,
     },
-    BuiltinError {
+    ExternalError {
         message: String,
     },
 }

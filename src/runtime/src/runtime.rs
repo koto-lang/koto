@@ -1,10 +1,10 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{copy_value, type_as_string, BuiltinFunction, RuntimeFunction, Value},
+    value::{copy_value, type_as_string, RuntimeFunction, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
-    Error, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
+    Error, ExternalFunction, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, ConstantPool,
@@ -528,7 +528,7 @@ impl Runtime {
         value_to_set: Option<Value>,
         node: &AstNode,
     ) -> Result<Option<(Value, ValueAndLookupIndex)>, Error> {
-        use Value::{BuiltinFunction, Function, IndexRange, List, Map, Number, Range};
+        use Value::{ExternalFunction, Function, IndexRange, List, Map, Number, Range};
 
         runtime_trace!(
             self,
@@ -551,7 +551,7 @@ impl Runtime {
             // We want to keep track of the parent container for the next lookup node
             // If the current node is a function then we skip over it
             parent = match &current_node {
-                Function { .. } | BuiltinFunction(_) => parent,
+                Function { .. } | ExternalFunction(_) => parent,
                 _ => ValueAndLookupIndex::new(
                     current_node.clone(),
                     if temporary_value {
@@ -796,11 +796,11 @@ impl Runtime {
                         );
                     }
                 },
-                BuiltinFunction(function) => match lookup_node {
+                ExternalFunction(function) => match lookup_node {
                     LookupNode::Call(args) => {
                         temporary_value = true;
 
-                        current_node = self.call_builtin_function(
+                        current_node = self.call_external_function(
                             &function,
                             &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
                             Some(parent.clone()),
@@ -1197,8 +1197,8 @@ impl Runtime {
         };
 
         match maybe_function {
-            Some(BuiltinFunction(f)) => {
-                self.call_builtin_function(&f, lookup_or_id, maybe_parent, args, node)
+            Some(ExternalFunction(f)) => {
+                self.call_external_function(&f, lookup_or_id, maybe_parent, args, node)
             }
             Some(Function(f)) => {
                 self.evaluate_args_and_call_function(&f, lookup_or_id, maybe_parent, args, node)
@@ -1217,9 +1217,9 @@ impl Runtime {
         }
     }
 
-    fn call_builtin_function(
+    fn call_external_function(
         &mut self,
-        builtin: &BuiltinFunction,
+        external: &ExternalFunction,
         lookup_or_id: &LookupSliceOrId,
         parent: Option<ValueAndLookupIndex>,
         args: &[AstNode],
@@ -1227,24 +1227,24 @@ impl Runtime {
     ) -> RuntimeResult {
         runtime_trace!(
             self,
-            "call_builtin_function - {} - parent: {:?}",
+            "call_external_function - {} - parent: {:?}",
             lookup_or_id,
             parent
         );
 
         let evaluated_args = self.evaluate_expressions(args)?;
 
-        let builtin_function = builtin.function.as_ref();
+        let external_function = external.function.as_ref();
 
-        let builtin_result = if builtin.is_instance_function {
+        let external_result = if external.is_instance_function {
             match parent {
                 Some(parent) => match evaluated_args {
                     ValueOrValues::Value(value) => {
-                        (&*builtin_function)(self, &[parent.value, value])
+                        (&*external_function)(self, &[parent.value, value])
                     }
                     ValueOrValues::Values(mut values) => {
                         values.insert(0, parent.value);
-                        (&*builtin_function)(self, &values)
+                        (&*external_function)(self, &values)
                     }
                 },
                 None => {
@@ -1257,13 +1257,13 @@ impl Runtime {
             }
         } else {
             match evaluated_args {
-                ValueOrValues::Value(value) => (&*builtin_function)(self, &[value]),
-                ValueOrValues::Values(values) => (&*builtin_function)(self, &values),
+                ValueOrValues::Value(value) => (&*external_function)(self, &[value]),
+                ValueOrValues::Values(values) => (&*external_function)(self, &values),
             }
         };
 
-        match builtin_result {
-            Err(Error::BuiltinError { message }) => runtime_error!(node, message),
+        match external_result {
+            Err(Error::ExternalError { message }) => runtime_error!(node, message),
             other => other,
         }
     }

@@ -1,4 +1,4 @@
-use crate::{builtin_error, get_builtin_instance, single_arg_fn, type_as_string, BuiltinValue};
+use crate::{external_error, get_external_instance, single_arg_fn, type_as_string, ExternalValue};
 use koto_runtime::{value, Error, Value, ValueMap};
 use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
@@ -9,7 +9,7 @@ pub fn register(global: &mut ValueMap) {
 
     single_arg_fn!(thread, "sleep", Number, seconds, {
         if *seconds < 0.0 {
-            return builtin_error!("thread.sleep: negative durations aren't supported");
+            return external_error!("thread.sleep: negative durations aren't supported");
         }
 
         thread::sleep(Duration::from_secs(*seconds as u64));
@@ -32,11 +32,11 @@ pub fn register(global: &mut ValueMap) {
 
             Ok(Thread::make_thread_map(join_handle))
         }
-        [unexpected] => builtin_error!(
+        [unexpected] => external_error!(
             "thread.create: Expected function as argument, found '{}'",
             type_as_string(unexpected)
         ),
-        _ => builtin_error!("thread.create: Expected function as argument"),
+        _ => external_error!("thread.create: Expected function as argument"),
     });
 
     global.add_map("thread", thread);
@@ -52,17 +52,17 @@ impl Thread {
         let mut result = ValueMap::new();
 
         result.add_instance_fn("join", |_, args| {
-            get_builtin_instance!(args, "Thread", "join", Thread, thread, {
+            get_external_instance!(args, "Thread", "join", Thread, thread, {
                 let result = thread.join_handle.take().unwrap().join();
                 match result {
                     Ok(Ok(_)) => Ok(Value::Empty),
                     Ok(Err(koto_error)) => Err(koto_error.clone()),
-                    Err(_) => builtin_error!("thread.join: thread panicked"),
+                    Err(_) => external_error!("thread.join: thread panicked"),
                 }
             })
         });
 
-        result.set_builtin_value(Self {
+        result.set_external_value(Self {
             join_handle: Some(join_handle),
         });
 
@@ -70,7 +70,7 @@ impl Thread {
     }
 }
 
-impl BuiltinValue for Thread {
+impl ExternalValue for Thread {
     fn value_type(&self) -> String {
         "Thread".to_string()
     }

@@ -1,8 +1,7 @@
 use crate::{
-    builtin_value::BuiltinValue,
+    external::{ExternalFunction, ExternalValue},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
-    Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile};
 use std::{
@@ -24,8 +23,8 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
-    BuiltinFunction(BuiltinFunction),
-    BuiltinValue(Arc<RwLock<dyn BuiltinValue>>),
+    ExternalFunction(ExternalFunction),
+    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
     While(Arc<AstWhile>),
 }
@@ -66,11 +65,11 @@ impl fmt::Display for Value {
                 let raw = Arc::into_raw(fun.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
-            BuiltinFunction(function) => {
+            ExternalFunction(function) => {
                 let raw = Arc::into_raw(function.function.clone());
-                write!(f, "Builtin function: {:?}", raw)
+                write!(f, "External function: {:?}", raw)
             }
-            BuiltinValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
+            ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             For(_) => write!(f, "For loop"),
             While(_) => write!(f, "While loop"),
         }
@@ -144,52 +143,6 @@ impl PartialEq for RuntimeFunction {
     }
 }
 
-// Once Trait aliases are stabilized this can be simplified a bit,
-// see: https://github.com/rust-lang/rust/issues/55628
-// TODO: rename to ExternalFunction
-#[allow(clippy::type_complexity)]
-pub struct BuiltinFunction {
-    pub function: Arc<dyn Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
-    pub is_instance_function: bool,
-}
-
-impl BuiltinFunction {
-    pub fn new(
-        function: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
-        is_instance_function: bool,
-    ) -> Self {
-        Self {
-            function: Arc::new(function),
-            is_instance_function,
-        }
-    }
-}
-
-impl Clone for BuiltinFunction {
-    fn clone(&self) -> Self {
-        Self {
-            function: self.function.clone(),
-            is_instance_function: self.is_instance_function,
-        }
-    }
-}
-
-impl fmt::Debug for BuiltinFunction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Arc::into_raw(self.function.clone());
-        write!(
-            f,
-            "builtin {}function: {:?}",
-            if self.is_instance_function {
-                "instance "
-            } else {
-                ""
-            },
-            raw
-        )
-    }
-}
-
 pub fn copy_value(value: &Value) -> Value {
     use Value::{List, Map};
 
@@ -220,13 +173,13 @@ pub fn type_as_string(value: &Value) -> String {
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
         Function(_) => "Function".to_string(),
-        BuiltinFunction(_) => "BuiltinFunction".to_string(),
-        BuiltinValue(value) => value.read().unwrap().value_type(),
+        ExternalFunction(_) => "ExternalFunction".to_string(),
+        ExternalValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),
         While(_) => "While".to_string(),
     }
 }
 
-pub fn make_builtin_value(value: impl BuiltinValue) -> Value {
-    Value::BuiltinValue(Arc::new(RwLock::new(value)))
+pub fn make_external_value(value: impl ExternalValue) -> Value {
+    Value::ExternalValue(Arc::new(RwLock::new(value)))
 }

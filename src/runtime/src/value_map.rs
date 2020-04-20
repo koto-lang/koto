@@ -1,7 +1,7 @@
 use crate::{
-    builtin_value::BuiltinValue,
-    value::{make_builtin_value, BuiltinFunction},
-    Id, Runtime, RuntimeResult, Value, ValueList, BUILTIN_DATA_ID,
+    external::{ExternalFunction, ExternalValue},
+    value::make_external_value,
+    Id, Runtime, RuntimeResult, Value, ValueList, EXTERNAL_DATA_ID,
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -32,7 +32,7 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, false)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
     pub fn add_instance_fn(
@@ -40,7 +40,7 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, true)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
     pub fn add_list(&mut self, id: &str, list: ValueList) {
@@ -138,7 +138,7 @@ impl ValueMap {
         id: &str,
         f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, false)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
     pub fn add_instance_fn(
@@ -146,7 +146,7 @@ impl ValueMap {
         id: &str,
         f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, true)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
     pub fn add_list(&mut self, id: &str, list: ValueList) {
@@ -161,8 +161,8 @@ impl ValueMap {
         self.insert(Id::from_str(id), value);
     }
 
-    pub fn set_builtin_value(&mut self, data: impl BuiltinValue) {
-        self.add_value(BUILTIN_DATA_ID, make_builtin_value(data));
+    pub fn set_external_value(&mut self, data: impl ExternalValue) {
+        self.add_value(EXTERNAL_DATA_ID, make_external_value(data));
     }
 
     pub fn insert(&mut self, name: Id, value: Value) {

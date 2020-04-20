@@ -4,18 +4,18 @@ mod map;
 mod math;
 mod thread;
 
-pub use koto_runtime::BUILTIN_DATA_ID;
+pub use koto_runtime::EXTERNAL_DATA_ID;
 
 use koto_runtime::{
-    value, value::type_as_string, BuiltinValue, Error, Runtime, RuntimeResult, Value, ValueList,
+    value, value::type_as_string, Error, ExternalValue, Runtime, RuntimeResult, Value, ValueList,
     ValueMap, ValueVec,
 };
 use std::sync::Arc;
 
 #[macro_export]
-macro_rules! make_builtin_error {
+macro_rules! make_external_error {
     ($message:expr) => {{
-        let error = Error::BuiltinError { message: $message };
+        let error = Error::ExternalError { message: $message };
         #[cfg(panic_on_runtime_error)]
         {
             panic!();
@@ -25,12 +25,12 @@ macro_rules! make_builtin_error {
 }
 
 #[macro_export]
-macro_rules! builtin_error {
+macro_rules! external_error {
     ($error:expr) => {
-        Err($crate::make_builtin_error!(String::from($error)))
+        Err($crate::make_external_error!(String::from($error)))
     };
     ($error:expr, $($y:expr),+) => {
-        Err($crate::make_builtin_error!(format!($error, $($y),+)))
+        Err($crate::make_external_error!(format!($error, $($y),+)))
     };
 }
 
@@ -42,7 +42,7 @@ macro_rules! single_arg_fn {
                 match &args[0] {
                     $type($match_name) => $body
                     unexpected => {
-                        $crate::builtin_error!(
+                        $crate::external_error!(
                             "{}.{} only accepts a {} as its argument, found {}",
                             stringify!($map_name),
                             $fn_name,
@@ -52,7 +52,7 @@ macro_rules! single_arg_fn {
                     }
                 }
             } else {
-                $crate::builtin_error!("{}.{} expects a single argument, found {}",
+                $crate::external_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
@@ -63,51 +63,51 @@ macro_rules! single_arg_fn {
 }
 
 // TODO split out _mut version
-pub fn visit_builtin_value<'a, T>(
+pub fn visit_external_value<'a, T>(
     map: &ValueMap,
     mut f: impl FnMut(&mut T) -> RuntimeResult,
 ) -> RuntimeResult
 where
-    T: BuiltinValue,
+    T: ExternalValue,
 {
-    match map.data().get(BUILTIN_DATA_ID) {
-        Some(Value::BuiltinValue(maybe_builtin)) => {
-            let mut value = maybe_builtin.as_ref().write().unwrap();
+    match map.data().get(EXTERNAL_DATA_ID) {
+        Some(Value::ExternalValue(maybe_external)) => {
+            let mut value = maybe_external.as_ref().write().unwrap();
             match value.downcast_mut::<T>() {
-                Some(builtin) => f(builtin),
-                None => builtin_error!(
-                    "Invalid type for builtin value, found '{}'",
+                Some(external) => f(external),
+                None => external_error!(
+                    "Invalid type for external value, found '{}'",
                     value.value_type()
                 ),
             }
         }
-        _ => builtin_error!("Builtin value not found"),
+        _ => external_error!("External value not found"),
     }
 }
 
 #[macro_export]
-macro_rules! get_builtin_instance {
+macro_rules! get_external_instance {
     ($args: ident,
-     $builtin_name: expr,
+     $external_name: expr,
      $fn_name: expr,
-     $builtin_type: ident,
+     $external_type: ident,
      $match_name: ident,
      $body: block) => {{
         if $args.len() == 0 {
-            return builtin_error!(
+            return external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
-                $builtin_name,
+                $external_name,
                 $fn_name
             );
         }
 
         match &$args[0] {
             Value::Map(instance) => {
-                $crate::visit_builtin_value(instance, |$match_name: &mut $builtin_type| $body)
+                $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
             }
-            unexpected => $crate::builtin_error!(
+            unexpected => $crate::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
-                $builtin_name,
+                $external_name,
                 $fn_name,
                 unexpected
             ),
@@ -149,11 +149,11 @@ pub fn register(runtime: &mut Runtime) {
             match value {
                 Bool(b) => {
                     if !b {
-                        return builtin_error!("Assertion failed");
+                        return external_error!("Assertion failed");
                     }
                 }
                 unexpected => {
-                    return builtin_error!(
+                    return external_error!(
                         "assert expects booleans as arguments, found '{}'",
                         type_as_string(unexpected)
                     )
@@ -168,14 +168,14 @@ pub fn register(runtime: &mut Runtime) {
             if a == b {
                 Ok(Empty)
             } else {
-                builtin_error!(
+                external_error!(
                     "Assertion failed, '{}' is not equal to '{}'",
                     args[0],
                     args[1]
                 )
             }
         }
-        _ => builtin_error!("assert_eq expects two arguments, found {}", args.len()),
+        _ => external_error!("assert_eq expects two arguments, found {}", args.len()),
     });
 
     global.add_fn("assert_ne", |_, args| match &args {
@@ -183,14 +183,14 @@ pub fn register(runtime: &mut Runtime) {
             if a != b {
                 Ok(Empty)
             } else {
-                builtin_error!(
+                external_error!(
                     "Assertion failed, '{}' should not be equal to '{}'",
                     args[0],
                     args[1]
                 )
             }
         }
-        _ => builtin_error!("assert_ne expects two arguments, found {}", args.len()),
+        _ => external_error!("assert_ne expects two arguments, found {}", args.len()),
     });
 
     global.add_fn("assert_near", |_, args| match &args {
@@ -198,7 +198,7 @@ pub fn register(runtime: &mut Runtime) {
             if (a - b).abs() <= *allowed_diff {
                 Ok(Empty)
             } else {
-                builtin_error!(
+                external_error!(
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
@@ -206,13 +206,13 @@ pub fn register(runtime: &mut Runtime) {
                 )
             }
         }
-        [a, b, c] => builtin_error!(
+        [a, b, c] => external_error!(
             "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
             type_as_string(&a),
             type_as_string(&b),
             type_as_string(&c)
         ),
-        _ => builtin_error!("assert_eq expects three arguments, found {}", args.len()),
+        _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
     });
 
     global.add_fn("size", |_, args| match &args {
@@ -228,21 +228,21 @@ pub fn register(runtime: &mut Runtime) {
                 start - end
             } as f64))
         }
-        [unexpected] => builtin_error!("size - '{}' is unsupported", unexpected),
-        _ => builtin_error!("size expects a single argument, found {}", args.len()),
+        [unexpected] => external_error!("size - '{}' is unsupported", unexpected),
+        _ => external_error!("size expects a single argument, found {}", args.len()),
     });
 
     global.add_fn("number", |_, args| match &args {
         [n @ Number(_)] => Ok(n.clone()),
         [Str(s)] => match s.parse::<f64>() {
             Ok(n) => Ok(Number(n)),
-            Err(_) => builtin_error!("Failed to convert '{}' into a Number", s),
+            Err(_) => external_error!("Failed to convert '{}' into a Number", s),
         },
-        [unexpected] => builtin_error!(
+        [unexpected] => external_error!(
             "number is only supported for numbers and strings, found {}",
             unexpected
         ),
-        _ => builtin_error!("number expects a single argument, found {}", args.len()),
+        _ => external_error!("number expects a single argument, found {}", args.len()),
     });
 
     global.add_fn("print", |_, args| {
