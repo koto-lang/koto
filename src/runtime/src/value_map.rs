@@ -86,6 +86,10 @@ impl<'a> ValueHashMap<'a> {
     pub fn iter(&self) -> Iter<'_, Id, Value<'a>> {
         self.0.iter()
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl<'a> FromIterator<(Id, Value<'a>)> for ValueHashMap<'a> {

@@ -35,6 +35,10 @@ assert_eq m2.foo 42
 m.baz.child_foo = -1
 assert_eq m.baz.child_foo -1
 
+# size returns number of map entries
+assert_eq (size m) 3
+assert_eq (size m2) 4
+
 # map.keys
 assert_eq (list.sort_copy (map.keys m)) ["baz" "foo" "square"]
 assert_eq (list.sort_copy (map.keys m2)) ["baz" "extra" "foo" "square"]

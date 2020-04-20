@@ -214,6 +214,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
     global.add_fn("size", |_, args| match &args {
         [Empty] => Ok(Number(0.0)),
         [List(list)] => Ok(Number(list.data().len() as f64)),
+        [Map(map)] => Ok(Number(map.data().len() as f64)),
         [Range { start, end }] => {
             println!("size: start: {} end: {}", start, end);
 
