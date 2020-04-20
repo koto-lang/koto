@@ -12,7 +12,7 @@ use koto_parser::{
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::{fmt, rc::Rc};
+use std::{fmt, rc::Rc, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow<'a> {
@@ -76,7 +76,7 @@ enum ValueOrValues<'a> {
 #[derive(Default)]
 pub struct Runtime<'a> {
     constants: ConstantPool,
-    string_constants: FxHashMap<u32, Rc<String>>,
+    string_constants: FxHashMap<u32, Arc<String>>,
     global: ValueHashMap<'a>,
     capture_map: Option<ValueMap<'a>>,
     call_stack: CallStack<'a>,
@@ -293,7 +293,7 @@ impl<'a> Runtime<'a> {
                 Number(self.constants.get_f64(*constant_index as usize))
             }
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
-            Node::Str(constant_index) => Str(self.rc_string_from_constant(constant_index)),
+            Node::Str(constant_index) => Str(self.arc_string_from_constant(constant_index)),
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
@@ -922,7 +922,7 @@ impl<'a> Runtime<'a> {
                             for list_value in a.data().iter() {
                                 match arg_iter.next() {
                                     Some(arg) => {
-                                        let id = Id::new(self.rc_string_from_constant(arg));
+                                        let id = Id::new(self.arc_string_from_constant(arg));
                                         self.set_value(&id, list_value.clone(), Scope::Local)
                                     }
                                     None => break,
@@ -1755,7 +1755,7 @@ impl<'a> Runtime<'a> {
                 (Str(a), Str(b)) => match op {
                     AstOp::Add => {
                         let result = String::clone(a) + b.as_ref();
-                        Ok(Str(Rc::new(result)))
+                        Ok(Str(Arc::new(result)))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
@@ -1869,11 +1869,11 @@ impl<'a> Runtime<'a> {
         self.constants.get_string(*constant_index as usize)
     }
 
-    fn rc_string_from_constant(&mut self, constant_index: &u32) -> Rc<String> {
+    fn arc_string_from_constant(&mut self, constant_index: &u32) -> Arc<String> {
         match self.string_constants.get(constant_index) {
             Some(s) => s.clone(),
             None => {
-                let s = Rc::new(
+                let s = Arc::new(
                     self.constants
                         .get_string(*constant_index as usize)
                         .to_string(),
@@ -1885,7 +1885,7 @@ impl<'a> Runtime<'a> {
     }
 
     fn id_from_constant(&mut self, constant_index: &u32) -> Id {
-        Id::new(self.rc_string_from_constant(constant_index))
+        Id::new(self.arc_string_from_constant(constant_index))
     }
 
     pub fn str_to_id_index(&self, s: &str) -> Option<u32> {

@@ -7,7 +7,7 @@ pub use koto_runtime::{
     ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
-use std::{path::Path, rc::Rc};
+use std::{path::Path, sync::Arc};
 
 #[derive(Default)]
 pub struct Koto<'a> {
@@ -84,7 +84,7 @@ impl<'a> Koto<'a> {
 
         let koto_args = args
             .iter()
-            .map(|arg| Str(Rc::new(arg.to_string())))
+            .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
         match self.runtime.global_mut().get_mut("env").unwrap() {
@@ -103,13 +103,13 @@ impl<'a> Koto<'a> {
                 Path::new(&path)
                     .parent()
                     .map(|p| {
-                        Str(Rc::new(
+                        Str(Arc::new(
                             p.to_str().expect("invalid script path").to_string(),
                         ))
                     })
                     .or(Some(Empty))
                     .unwrap(),
-                Str(Rc::new(path.to_string())),
+                Str(Arc::new(path.to_string())),
             ),
             None => (Empty, Empty),
         };

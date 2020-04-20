@@ -5,7 +5,7 @@ use crate::{
     Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile};
-use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc};
+use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -17,7 +17,7 @@ pub enum Value<'a> {
     IndexRange { start: usize, end: Option<usize> },
     List(ValueList<'a>),
     Map(ValueMap<'a>),
-    Str(Rc<String>),
+    Str(Arc<String>),
     Function(RuntimeFunction<'a>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),

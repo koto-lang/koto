@@ -1,6 +1,6 @@
 use crate::single_arg_fn;
 use koto_runtime::{value, Error, Value, ValueHashMap, ValueList, ValueMap, ValueVec};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn register(global: &mut ValueHashMap) {
     use Value::*;
@@ -11,7 +11,7 @@ pub fn register(global: &mut ValueHashMap) {
         Ok(List(ValueList::with_data(
             m.data()
                 .keys()
-                .map(|k| Str(Rc::new(k.as_str().to_string())))
+                .map(|k| Str(Arc::new(k.as_str().to_string())))
                 .collect::<ValueVec>(),
         )))
     });

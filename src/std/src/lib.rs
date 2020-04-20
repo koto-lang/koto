@@ -9,7 +9,7 @@ use koto_runtime::{
     value, value::type_as_string, BuiltinValue, Error, Runtime, RuntimeResult, Value, ValueList,
     ValueMap, ValueVec,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[macro_export]
 macro_rules! make_builtin_error {
@@ -126,13 +126,13 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
         let mut string = ValueMap::new();
 
         single_arg_fn!(string, "escape", Str, s, {
-            Ok(Str(Rc::new(s.escape_default().to_string())))
+            Ok(Str(Arc::new(s.escape_default().to_string())))
         });
 
         single_arg_fn!(string, "lines", Str, s, {
             Ok(List(ValueList::with_data(
                 s.lines()
-                    .map(|line| Str(Rc::new(line.to_string())))
+                    .map(|line| Str(Arc::new(line.to_string())))
                     .collect::<ValueVec>(),
             )))
         });

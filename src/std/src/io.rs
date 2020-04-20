@@ -6,7 +6,7 @@ use std::{
     fmt, fs,
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    rc::Rc,
+    sync::Arc,
 };
 
 pub fn register(global: &mut ValueHashMap) {
@@ -21,7 +21,7 @@ pub fn register(global: &mut ValueHashMap) {
     single_arg_fn!(io, "read_to_string", Str, path, {
         {
             match fs::read_to_string(Path::new(path.as_ref())) {
-                Ok(result) => Ok(Str(Rc::new(result))),
+                Ok(result) => Ok(Str(Arc::new(result))),
                 Err(e) => {
                     builtin_error!("io.read_to_string: Unable to read file '{}': {}", path, e)
                 }
@@ -42,7 +42,7 @@ pub fn register(global: &mut ValueHashMap) {
 
         file_map.add_instance_fn("path", |_, args| {
             file_fn("path", args, |file_handle| {
-                Ok(Str(Rc::new(file_handle.path.to_string_lossy().to_string())))
+                Ok(Str(Arc::new(file_handle.path.to_string_lossy().to_string())))
             })
         });
 
@@ -84,7 +84,7 @@ pub fn register(global: &mut ValueHashMap) {
                     Ok(_) => {
                         let mut buffer = String::new();
                         match file_handle.file.read_to_string(&mut buffer) {
-                            Ok(_) => Ok(Str(Rc::new(buffer))),
+                            Ok(_) => Ok(Str(Arc::new(buffer))),
                             Err(e) => builtin_error!(
                                 "File.read_to_string: Error while reading data: {}",
                                 e
@@ -181,7 +181,7 @@ pub fn register(global: &mut ValueHashMap) {
     io.add_fn("temp_path", {
         |_, _| match tempfile::NamedTempFile::new() {
             Ok(file) => match file.keep() {
-                Ok((_temp_file, path)) => Ok(Str(Rc::new(path.to_string_lossy().to_string()))),
+                Ok((_temp_file, path)) => Ok(Str(Arc::new(path.to_string_lossy().to_string()))),
                 Err(e) => builtin_error!("io.temp_file: Error while making temp path: {}", e),
             },
             Err(e) => builtin_error!("io.temp_file: Error while making temp path: {}", e),
