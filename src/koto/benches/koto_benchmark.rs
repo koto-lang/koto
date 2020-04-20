@@ -49,7 +49,10 @@ pub fn koto_benchmark(c: &mut Criterion) {
         })
     });
     c.bench_function("spectral_norm", |b| {
-        let mut runner = BenchmarkRunner::new("spectral_norm.koto", vec!["4".to_string()]);
+        let mut runner = BenchmarkRunner::new(
+            "spectral_norm.koto",
+            vec!["4".to_string(), "quiet".to_string()],
+        );
         b.iter(|| {
             runner.run();
         })

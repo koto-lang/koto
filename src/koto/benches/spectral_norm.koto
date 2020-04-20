@@ -11,36 +11,46 @@ A = |i j|
   1.0 / (ij * (ij - 1) * 0.5 + i)
 
 Av = |x y n|
-  for i in 0..n
-    i1 = i + 1
-    a = 0
-    for j in 0..n
-      a = a + x[j] * (A i1 (j + 1))
-    y[i] = a
+  i = 0
+  list.transform y |n|
+      i += 1
+      j = 0
+      return list.fold x 0 |result n|
+          j += 1
+          return result + n * (A i j)
 
 Atv = |x y n|
-  for i in 0..n
-    i1 = i + 1
-    a = 0
-    for j in 0..n
-      a = a + x[j] * (A (j + 1) i1)
-    y[i] = a
+  i = 0
+  list.transform y |n|
+      i += 1
+      j = 0
+      return list.fold x 0 |result n|
+          j += 1
+          return result + n * (A j i)
 
 AtAv = |x y t n|
   Av x t n
   Atv t y n
 
 main = ||
-  N = number env.args[0]
-  u = [1 for _ in 0..N]
-  v = [0 for _ in 0..N]
-  t = [0 for _ in 0..N]
+  n = list.get env.args 0
+  if n == ()
+    n = 4
+  else
+    n = number n
+
+  quiet = (list.get env.args 1) == "quiet"
+
+  u = [1 for _ in 0..n]
+  v = [0 for _ in 0..n]
+  t = [0 for _ in 0..n]
   for _ in 0..10
-    AtAv u v t N
-    AtAv v u t N
+    AtAv u v t n
+    AtAv v u t n
   vBv, vv = 0, 0
   for ui, vi in u, v
     vBv = vBv + ui * vi
     vv = vv + vi * vi
   result = math.sqrt vBv / vv
-  # print result
+  if not quiet
+    print result
