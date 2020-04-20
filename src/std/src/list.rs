@@ -1,7 +1,7 @@
 use crate::{builtin_error, single_arg_fn};
-use koto_runtime::{value, Error, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap};
+use koto_runtime::{value, Error, RuntimeResult, Value, ValueList, ValueMap};
 
-pub fn register(global: &mut ValueHashMap) {
+pub fn register(global: &mut ValueMap) {
     use Value::*;
 
     let mut list = ValueMap::new();

@@ -1,7 +1,6 @@
 mod builtin_value;
 mod call_stack;
 mod id;
-mod rc_cell;
 mod runtime;
 pub mod value;
 mod value_iterator;
@@ -14,7 +13,6 @@ use id::Id;
 pub use runtime::Runtime;
 
 pub use builtin_value::BuiltinValue;
-pub use rc_cell::RcCell;
 pub use value::{make_builtin_value, type_as_string, RuntimeFunction, Value};
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};

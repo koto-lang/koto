@@ -75,7 +75,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
         self.runtime.global_mut()
     }
 
@@ -87,7 +87,7 @@ impl<'a> Koto<'a> {
             .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self.runtime.global_mut().get_mut("env").unwrap() {
+        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -116,7 +116,7 @@ impl<'a> Koto<'a> {
 
         self.runtime.set_script_path(path);
 
-        match self.runtime.global_mut().get_mut("env").unwrap() {
+        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => {
                 let mut map = map.data_mut();
                 map.add_value("script_dir", script_dir);

@@ -1,6 +1,6 @@
 use crate::{builtin_error, get_builtin_instance, single_arg_fn};
 use koto_runtime::{
-    value, value::type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueHashMap, ValueMap,
+    value, value::type_as_string, BuiltinValue, Error, RuntimeResult, Value, ValueMap,
 };
 use std::{
     fmt, fs,
@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-pub fn register(global: &mut ValueHashMap) {
+pub fn register(global: &mut ValueMap) {
     use Value::{Bool, Map, Number, Str};
 
     let mut io = ValueMap::new();

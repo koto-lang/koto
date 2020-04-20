@@ -77,7 +77,7 @@ enum ValueOrValues<'a> {
 pub struct Runtime<'a> {
     constants: ConstantPool,
     string_constants: FxHashMap<u32, Arc<String>>,
-    global: ValueHashMap<'a>,
+    global: ValueMap<'a>,
     capture_map: Option<ValueMap<'a>>,
     call_stack: CallStack<'a>,
     control_flow: ControlFlow<'a>,
@@ -105,7 +105,7 @@ macro_rules! runtime_trace {
 impl<'a> Runtime<'a> {
     pub fn new() -> Self {
         Self {
-            global: ValueHashMap::with_capacity(32),
+            global: ValueMap::with_capacity(32),
             control_flow: ControlFlow::None,
             call_stack: CallStack::with_capacity(32),
             script_path: None,
@@ -117,7 +117,7 @@ impl<'a> Runtime<'a> {
         &mut self.constants
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
         &mut self.global
     }
 
@@ -425,18 +425,11 @@ impl<'a> Runtime<'a> {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame_count() == 0 || scope == Scope::Global {
-            match self.global.get_mut(id) {
-                Some(exists) => {
-                    *exists = value;
-                }
-                None => {
-                    self.global.insert(id.clone(), value);
-                }
-            }
+            self.global.data_mut().insert(id.clone(), value);
         } else {
             if let Some(capture_map) = &self.capture_map {
-                if let Some(exists) = capture_map.data_mut().get_mut(id.as_str()) {
-                    *exists = value;
+                if capture_map.data().contains_key(id.as_str()) {
+                    capture_map.data_mut().insert(id.clone(), value);
                     return;
                 }
             }
@@ -467,7 +460,7 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.get(id) {
+        match self.global.data().get(id) {
             Some(value) => Some(value.clone()),
             None => None,
         }
@@ -509,8 +502,8 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        if let Some(root) = self.global.get(root_id.as_str()) {
-            let root = root.clone();
+        let maybe_root = self.global.data().get(root_id.as_str()).cloned();
+        if let Some(root) = maybe_root {
             self.do_lookup(lookup, root, Some(value), node)?;
             return Ok(());
         }
@@ -863,7 +856,8 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.get(root_id.as_str()).cloned() {
+        let maybe_root = self.global.data().get(root_id.as_str()).cloned();
+        match maybe_root {
             Some(root) => match self.do_lookup(lookup, root, None, node)? {
                 Some((found, parent)) => Ok(Some(LookupResult::new(found, parent))),
                 None => Ok(None),

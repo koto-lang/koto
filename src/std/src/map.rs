@@ -1,8 +1,8 @@
 use crate::single_arg_fn;
-use koto_runtime::{value, Error, Value, ValueHashMap, ValueList, ValueMap, ValueVec};
+use koto_runtime::{value, Error, Value, ValueList, ValueMap, ValueVec};
 use std::sync::Arc;
 
-pub fn register(global: &mut ValueHashMap) {
+pub fn register(global: &mut ValueMap) {
     use Value::*;
 
     let mut map = ValueMap::new();

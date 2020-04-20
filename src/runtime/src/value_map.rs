@@ -1,15 +1,15 @@
 use crate::{
     builtin_value::BuiltinValue,
     value::{make_builtin_value, BuiltinFunction},
-    Id, RcCell, Runtime, RuntimeResult, Value, ValueList, BUILTIN_DATA_ID,
+    Id, Runtime, RuntimeResult, Value, ValueList, BUILTIN_DATA_ID,
 };
 use rustc_hash::FxHashMap;
 use std::{
     borrow::Borrow,
-    cell::{Ref, RefMut},
     collections::hash_map::{Iter, Keys},
     hash::Hash,
     iter::{FromIterator, IntoIterator},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 #[derive(Clone, Debug, Default)]
@@ -79,6 +79,10 @@ impl<'a> ValueHashMap<'a> {
         self.0.get_mut(id)
     }
 
+    pub fn contains_key(&self, id: &str) -> bool {
+        self.0.contains_key(id)
+    }
+
     pub fn keys(&self) -> Keys<'_, Id, Value<'a>> {
         self.0.keys()
     }
@@ -105,28 +109,28 @@ impl<'a> PartialEq for ValueHashMap<'a> {
 }
 impl<'a> Eq for ValueHashMap<'a> {}
 
-#[derive(Clone, Debug)]
-pub struct ValueMap<'a>(RcCell<ValueHashMap<'a>>);
+#[derive(Clone, Debug, Default)]
+pub struct ValueMap<'a>(Arc<RwLock<ValueHashMap<'a>>>);
 
 impl<'a> ValueMap<'a> {
     pub fn new() -> Self {
-        Self(RcCell::new(ValueHashMap::default()))
+        Self(Arc::new(RwLock::new(ValueHashMap::default())))
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(RcCell::new(ValueHashMap::with_capacity(capacity)))
+        Self(Arc::new(RwLock::new(ValueHashMap::with_capacity(capacity))))
     }
 
     pub fn with_data(data: ValueHashMap<'a>) -> Self {
-        Self(RcCell::new(data))
+        Self(Arc::new(RwLock::new(data)))
     }
 
-    pub fn data(&self) -> Ref<ValueHashMap<'a>> {
-        self.0.borrow()
+    pub fn data(&self) -> RwLockReadGuard<ValueHashMap<'a>> {
+        self.0.read().unwrap()
     }
 
-    pub fn data_mut(&self) -> RefMut<ValueHashMap<'a>> {
-        self.0.borrow_mut()
+    pub fn data_mut(&self) -> RwLockWriteGuard<ValueHashMap<'a>> {
+        self.0.write().unwrap()
     }
 
     pub fn add_fn(
