@@ -182,16 +182,16 @@ pub fn register(global: &mut ValueMap) {
     });
 
     list.add_fn("fold", |runtime, args| {
-        list_op(args, 3, "fold", |list| match &args[2] {
-            Function(f) => {
+        list_op(args, 3, "fold", |list| match &args {
+            [_, result, Function(f)] => {
                 if f.function.args.len() != 2 {
                     return external_error!(
-                        "The function passed to list.fold must have two arguments, found '{}'",
+                        "list.fold: The fold function must have two arguments, found '{}'",
                         f.function.args.len()
                     );
                 }
 
-                let mut result = args[1].clone();
+                let mut result = result.clone();
                 for value in list.data().iter() {
                     result =
                         runtime.call_function_with_evaluated_args(f, &[result, value.clone()])?;
@@ -199,10 +199,11 @@ pub fn register(global: &mut ValueMap) {
 
                 Ok(result)
             }
-            unexpected => external_error!(
-                "list.transform expects a function as its second argument, found '{}'",
+            [_, _, unexpected] => external_error!(
+                "list.fold: Expected Function as third argument, found '{}'",
                 value::type_as_string(&unexpected)
             ),
+            _ => external_error!("list.fold: Expected initial value and function as arguments"),
         })
     });
 
