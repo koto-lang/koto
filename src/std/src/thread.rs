@@ -1,9 +1,9 @@
-use crate::{builtin_error, single_arg_fn};
+use crate::{builtin_error, get_builtin_instance, single_arg_fn, type_as_string, BuiltinValue};
 use koto_runtime::{value, Error, Value, ValueMap};
-use std::{thread, time::Duration};
+use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
 pub fn register(global: &mut ValueMap) {
-    use Value::{Empty, Number};
+    use Value::{Empty, Function, Number};
 
     let mut thread = ValueMap::new();
 
@@ -17,5 +17,67 @@ pub fn register(global: &mut ValueMap) {
         Ok(Empty)
     });
 
+    thread.add_fn("create", |runtime, args| match &args {
+        [Function(f)] => {
+            let join_handle = thread::spawn({
+                let mut thread_runtime = runtime.create_shared_runtime();
+                let f = f.clone();
+                move || {
+                    match thread_runtime.call_function(&f, &[]) {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(e),
+                    }
+                }
+            });
+
+            Ok(Thread::make_thread_map(join_handle))
+        }
+        [unexpected] => builtin_error!(
+            "thread.create: Expected function as argument, found '{}'",
+            type_as_string(unexpected)
+        ),
+        _ => builtin_error!("thread.create: Expected function as argument"),
+    });
+
     global.add_map("thread", thread);
+}
+
+#[derive(Debug)]
+struct Thread {
+    join_handle: Option<JoinHandle<Result<(), Error>>>,
+}
+
+impl Thread {
+    fn make_thread_map(join_handle: JoinHandle<Result<(), Error>>) -> Value {
+        let mut result = ValueMap::new();
+
+        result.add_instance_fn("join", |_, args| {
+            get_builtin_instance!(args, "Thread", "join", Thread, thread, {
+                let result = thread.join_handle.take().unwrap().join();
+                match result {
+                    Ok(Ok(_)) => Ok(Value::Empty),
+                    Ok(Err(koto_error)) => Err(koto_error.clone()),
+                    Err(_) => builtin_error!("thread.join: thread panicked"),
+                }
+            })
+        });
+
+        result.set_builtin_value(Self {
+            join_handle: Some(join_handle),
+        });
+
+        Value::Map(result)
+    }
+}
+
+impl BuiltinValue for Thread {
+    fn value_type(&self) -> String {
+        "Thread".to_string()
+    }
+}
+
+impl fmt::Display for Thread {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Thread")
+    }
 }

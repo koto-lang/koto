@@ -149,9 +149,7 @@ impl PartialEq for RuntimeFunction {
 // TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
 pub struct BuiltinFunction {
-    pub function: Arc<
-        RwLock<dyn Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
-    >,
+    pub function: Arc<dyn Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
     pub is_instance_function: bool,
 }
 
@@ -161,7 +159,7 @@ impl BuiltinFunction {
         is_instance_function: bool,
     ) -> Self {
         Self {
-            function: Arc::new(RwLock::new(function)),
+            function: Arc::new(function),
             is_instance_function,
         }
     }

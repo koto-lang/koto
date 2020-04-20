@@ -76,13 +76,6 @@ enum ValueOrValues {
     Values(ValueVec),
 }
 
-pub struct SharedContext {
-    global: ValueMap,
-    constants: Arc<ConstantPool>,
-    string_constants: Arc<RwLock<FxHashMap<u32, Arc<String>>>>,
-    script_path: Arc<Option<String>>,
-}
-
 #[derive(Default)]
 pub struct Runtime {
     global: ValueMap,
@@ -123,22 +116,13 @@ impl Runtime {
         }
     }
 
-    pub fn with_shared_context(context: SharedContext) -> Self {
+    pub fn create_shared_runtime(&mut self) -> Self {
         Self {
-            constants: context.constants.clone(),
-            string_constants: context.string_constants.clone(),
-            global: context.global.clone(),
-            script_path: context.script_path.clone(),
-            ..Default::default()
-        }
-    }
-
-    pub fn get_shared_context(&mut self) -> SharedContext {
-        SharedContext {
             constants: self.constants.clone(),
             string_constants: self.string_constants.clone(),
             global: self.global.clone(),
             script_path: self.script_path.clone(),
+            ..Default::default()
         }
     }
 
@@ -1250,7 +1234,7 @@ impl Runtime {
 
         let evaluated_args = self.evaluate_expressions(args)?;
 
-        let builtin_function = builtin.function.read().unwrap();
+        let builtin_function = builtin.function.as_ref();
 
         let builtin_result = if builtin.is_instance_function {
             match parent {
