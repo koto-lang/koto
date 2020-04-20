@@ -131,7 +131,7 @@ impl KotoParser {
 
         let span = pair.as_span();
         match pair.as_rule() {
-            Rule::next_expression => {
+            Rule::next_expressions => {
                 self.build_ast(pair.into_inner().next().unwrap(), constants, function_ids)
             }
             Rule::program | Rule::child_block => {
@@ -665,7 +665,7 @@ impl KotoParser {
                     })),
                 )
             }
-            Rule::while_loop => {
+            Rule::while_block => {
                 let mut inner = pair.into_inner();
                 let negate_condition = match inner.next().unwrap().as_rule() {
                     Rule::while_keyword => false,
@@ -674,6 +674,24 @@ impl KotoParser {
                 };
                 let condition = next_as_boxed_ast!(inner);
                 let body = next_as_boxed_ast!(inner);
+                AstNode::new(
+                    span,
+                    Node::While(Arc::new(AstWhile {
+                        condition,
+                        body,
+                        negate_condition,
+                    })),
+                )
+            }
+            Rule::while_inline => {
+                let mut inner = pair.into_inner();
+                let body = next_as_boxed_ast!(inner);
+                let negate_condition = match inner.next().unwrap().as_rule() {
+                    Rule::while_keyword => false,
+                    Rule::until_keyword => true,
+                    _ => unreachable!(),
+                };
+                let condition = next_as_boxed_ast!(inner);
                 AstNode::new(
                     span,
                     Node::While(Arc::new(AstWhile {

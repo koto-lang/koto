@@ -7,7 +7,7 @@ program = @{
 
 block = @{
   empty_line*
-  ~ assignment_or_expression ~ (next_assignment_or_expression)*
+  ~ expressions ~ (next_expressions)*
 }
 child_block = @{
   empty_line*
@@ -19,16 +19,16 @@ child_block = @{
 expression_block = @{
   empty_line*
   ~ push_indentation
-  ~ expression
+  ~ expressions
   ~ (WHITESPACE* ~ ",")?
-  ~ next_expression*
+  ~ next_expressions*
   ~ DROP
 }
-next_expression = @{
+next_expressions = @{
   NEWLINE
   ~ empty_line*
   ~ indentation
-  ~ expression
+  ~ expressions
   ~ (WHITESPACE* ~ ",")?
 }
 
@@ -36,13 +36,25 @@ push_indentation = @{ indentation ~ PUSH(indent) }
 indentation = @{ PEEK_ALL }
 indent = _{ WHITESPACE+ }
 
-assignment_or_expression = _{ (assignment | expressions) ~ comment? }
-next_assignment_or_expression = @{
-  NEWLINE
-  ~ empty_line*
-  ~ indentation
-  ~ assignment_or_expression
+expressions = !{ expression ~ ("," ~ expression?)* }
+expression = _{
+  ( assignment
+  | return_expression
+  | copy_expression
+  | copy_id
+  | function
+  | if_statement
+  | for_loop
+  | while_block
+  | break_
+  | continue_
+  | operation
+  | debug_expression
+  )
+  ~ comment?
 }
+return_expression = !{ return_keyword ~ expressions | return_ }
+copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
 
 assignment = _{ single_assignment | multiple_assignment }
 single_assignment = !{
@@ -64,25 +76,6 @@ assignment_operator = _{
   | assign_divide
   | assign_modulo
 }
-
-expression = _{
-  ( return_expression
-  | copy_expression
-  | copy_id
-  | function
-  | if_statement
-  | for_loop
-  | while_loop
-  | break_
-  | continue_
-  | operation
-  | debug_expression
-  )
-  ~ comment?
-}
-expressions = !{ expression ~ ("," ~ expression?)* }
-return_expression = !{ return_keyword ~ expressions | return_ }
-copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
 
 operation = ${
    (term ~ operation_link+)
@@ -117,6 +110,7 @@ inline_term = _{
 flow_term = _{
   if_inline
   | for_inline
+  | while_inline
   | value_term
 }
 
@@ -172,9 +166,14 @@ for_id = !{ id | placeholder }
 for_ids = { for_id ~ ("," ~ for_id)* }
 placeholder = { "_" }
 
-while_loop = !{
+while_block = !{
   (while_keyword | until_keyword) ~ operation
   ~ child_block
+}
+
+while_inline = !{
+  value_terms
+  ~ (while_keyword | until_keyword) ~ operation
 }
 
 function_call = _{ call_no_parens }
@@ -196,7 +195,7 @@ debug_no_parens = ${ debug ~ WHITESPACE+ ~ operations }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
-function_inline = !{ function_args ~ assignment_or_expression }
+function_inline = !{ function_args ~ expressions }
 function_args = {
   "|"
   ~ separator_line*
