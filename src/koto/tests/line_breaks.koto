@@ -17,6 +17,11 @@ x = list.fold(
 )
 assert_eq x 6
 
+x = list.fold [1 2 3] 0 |a b|
+  a + b
+
+assert_eq x 6
+
 x = |
   long_arg # This is an argument that needs an explanation
   long_arg_2

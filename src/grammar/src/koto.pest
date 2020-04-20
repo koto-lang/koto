@@ -125,7 +125,7 @@ value_term = _{(
   | range
   | negate
   | map_inline
-  | function_inline
+  | function
   | list
   | string
   | number
