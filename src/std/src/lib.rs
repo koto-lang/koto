@@ -2,6 +2,7 @@ mod io;
 mod list;
 mod map;
 mod math;
+mod thread;
 
 pub use koto_runtime::BUILTIN_DATA_ID;
 
@@ -123,6 +124,7 @@ pub fn register<'a>(runtime: &mut Runtime<'a>) {
     list::register(global);
     map::register(global);
     math::register(global);
+    thread::register(global);
 
     {
         let mut string = ValueMap::new();
