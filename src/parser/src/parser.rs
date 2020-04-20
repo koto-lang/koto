@@ -1,6 +1,6 @@
 use crate::{lookup::*, node::*, prec_climber::PrecClimber, AstNode, ConstantPool, LookupNode};
 use pest::Parser;
-use std::{collections::HashSet, convert::TryFrom, iter::FromIterator, rc::Rc};
+use std::{collections::HashSet, convert::TryFrom, iter::FromIterator, rc::Rc, sync::Arc};
 
 use koto_grammar::Rule;
 
@@ -612,7 +612,7 @@ impl KotoParser {
                 let body = next_as_boxed_ast!(inner);
                 AstNode::new(
                     span,
-                    Node::For(Rc::new(AstFor {
+                    Node::For(Arc::new(AstFor {
                         args,
                         ranges,
                         condition,
@@ -657,7 +657,7 @@ impl KotoParser {
                 };
                 AstNode::new(
                     span,
-                    Node::For(Rc::new(AstFor {
+                    Node::For(Arc::new(AstFor {
                         args,
                         ranges,
                         condition,
@@ -676,7 +676,7 @@ impl KotoParser {
                 let body = next_as_boxed_ast!(inner);
                 AstNode::new(
                     span,
-                    Node::While(Rc::new(AstWhile {
+                    Node::While(Arc::new(AstWhile {
                         condition,
                         body,
                         negate_condition,

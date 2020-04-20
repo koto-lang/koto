@@ -21,8 +21,8 @@ pub enum Value<'a> {
     Function(RuntimeFunction<'a>),
     BuiltinFunction(BuiltinFunction<'a>),
     BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
-    For(Rc<AstFor>),
-    While(Rc<AstWhile>),
+    For(Arc<AstFor>),
+    While(Arc<AstWhile>),
 }
 
 impl<'a> fmt::Display for Value<'a> {

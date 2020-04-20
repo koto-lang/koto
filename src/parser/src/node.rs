@@ -1,5 +1,5 @@
 use crate::{AstNode, Lookup, LookupSlice};
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 pub type ConstantIndex = u32;
 
@@ -55,8 +55,8 @@ pub enum Node {
         rhs: Box<AstNode>,
     },
     If(AstIf),
-    For(Rc<AstFor>),
-    While(Rc<AstWhile>),
+    For(Arc<AstFor>),
+    While(Arc<AstWhile>),
     Break,
     Continue,
     Return,

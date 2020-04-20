@@ -12,7 +12,7 @@ use koto_parser::{
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::{fmt, rc::Rc, sync::Arc};
+use std::{fmt, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow<'a> {
@@ -885,7 +885,7 @@ impl<'a> Runtime<'a> {
 
     fn run_for_loop(
         &mut self,
-        for_loop: &Rc<AstFor>,
+        for_loop: &Arc<AstFor>,
         node: &AstNode,
         capture: bool,
     ) -> RuntimeResult<'a> {
@@ -1093,7 +1093,7 @@ impl<'a> Runtime<'a> {
 
     fn run_while_loop(
         &mut self,
-        while_loop: &Rc<AstWhile>,
+        while_loop: &Arc<AstWhile>,
         node: &AstNode,
         capture: bool,
     ) -> RuntimeResult<'a> {
