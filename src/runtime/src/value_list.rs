@@ -1,45 +1,47 @@
-use crate::{RcCell, Value};
+use crate::Value;
 use std::{
-    cell::{Ref, RefMut},
     fmt,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-pub type ValueVec<'a> = smallvec::SmallVec<[Value<'a>; 4]>;
+pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 #[derive(Clone, Debug)]
-pub struct ValueList<'a>(RcCell<ValueVec<'a>>);
+pub struct ValueList(Arc<RwLock<ValueVec>>);
 
-impl<'a> ValueList<'a> {
+impl ValueList {
     pub fn new() -> Self {
-        Self(RcCell::new(ValueVec::new()))
+        Self(Arc::new(RwLock::new(ValueVec::new())))
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(RcCell::new(ValueVec::with_capacity(capacity)))
+        Self(Arc::new(RwLock::new(ValueVec::with_capacity(capacity))))
     }
 
-    pub fn with_data(data: ValueVec<'a>) -> Self {
-        Self(RcCell::new(data))
+    pub fn with_data(data: ValueVec) -> Self {
+        Self(Arc::new(RwLock::new(data)))
     }
 
-    pub fn from_slice(data: &[Value<'a>]) -> Self {
-        Self(RcCell::new(data.iter().cloned().collect::<ValueVec>()))
+    pub fn from_slice(data: &[Value]) -> Self {
+        Self(Arc::new(RwLock::new(
+            data.iter().cloned().collect::<ValueVec>(),
+        )))
     }
 
     pub fn len(&self) -> usize {
         self.data().len()
     }
 
-    pub fn data(&self) -> Ref<ValueVec<'a>> {
-        self.0.borrow()
+    pub fn data(&self) -> RwLockReadGuard<ValueVec> {
+        self.0.read().unwrap()
     }
 
-    pub fn data_mut(&self) -> RefMut<ValueVec<'a>> {
-        self.0.borrow_mut()
+    pub fn data_mut(&self) -> RwLockWriteGuard<ValueVec> {
+        self.0.write().unwrap()
     }
 }
 
-impl<'a> fmt::Display for ValueList<'a> {
+impl fmt::Display for ValueList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
         for (i, value) in self.data().iter().enumerate() {
@@ -52,8 +54,8 @@ impl<'a> fmt::Display for ValueList<'a> {
     }
 }
 
-impl<'a> PartialEq for ValueList<'a> {
+impl PartialEq for ValueList {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        *self.data() == *other.data()
     }
 }

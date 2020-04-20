@@ -2,11 +2,11 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use koto::Koto;
 use std::{env::current_dir, fs::read_to_string};
 
-struct BenchmarkRunner<'a> {
-    koto: Koto<'a>,
+struct BenchmarkRunner {
+    koto: Koto,
 }
 
-impl<'a> BenchmarkRunner<'a> {
+impl BenchmarkRunner {
     fn new(script_path: &str, args: Vec<String>) -> Self {
         let mut path = current_dir().unwrap().canonicalize().unwrap();
         path.push("benches");
@@ -49,7 +49,10 @@ pub fn koto_benchmark(c: &mut Criterion) {
         })
     });
     c.bench_function("spectral_norm", |b| {
-        let mut runner = BenchmarkRunner::new("spectral_norm.koto", vec!["4".to_string()]);
+        let mut runner = BenchmarkRunner::new(
+            "spectral_norm.koto",
+            vec!["4".to_string(), "quiet".to_string()],
+        );
         b.iter(|| {
             runner.run();
         })

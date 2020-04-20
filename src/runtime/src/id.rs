@@ -1,15 +1,15 @@
-use std::{borrow::Borrow, fmt, hash::Hash, rc::Rc};
+use std::{borrow::Borrow, fmt, hash::Hash, sync::Arc};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Id(Rc<String>);
+pub struct Id(Arc<String>);
 
 impl Id {
-    pub fn new(id: Rc<String>) -> Self {
+    pub fn new(id: Arc<String>) -> Self {
         Self(id)
     }
 
     pub fn from_str(id: &str) -> Self {
-        Self::new(Rc::new(id.to_string()))
+        Self::new(Arc::new(id.to_string()))
     }
 
     pub fn as_str(&self) -> &str {
@@ -23,8 +23,8 @@ impl Borrow<str> for Id {
     }
 }
 
-impl Borrow<Rc<String>> for Id {
-    fn borrow(&self) -> &Rc<String> {
+impl Borrow<Arc<String>> for Id {
+    fn borrow(&self) -> &Arc<String> {
         &self.0
     }
 }

@@ -6,7 +6,7 @@ syntax keyword kotoTodos contained TODO FIXME NOTE
 syntax keyword kotoKeywords copy debug global not return self vec4
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating break continue for in until while
-syntax keyword kotoBuiltins env io list map math number print push size string
+syntax keyword kotoStdLib env io list map math number print push size string thread
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 
@@ -42,7 +42,7 @@ highlight default link kotoTodos Todo
 highlight default link kotoKeywords Keyword
 highlight default link kotoConditionals Conditional
 highlight default link kotoRepeating Repeat
-highlight default link kotoBuiltins Function
+highlight default link kotoStdLib Function
 highlight default link kotoAsserts Macro
 highlight default link kotoCapture Type
 highlight default link kotoOperator Operator

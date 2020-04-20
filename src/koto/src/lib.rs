@@ -3,21 +3,21 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    make_builtin_value, type_as_string, BuiltinValue, Error, RuntimeFunction, RuntimeResult, Value,
-    ValueHashMap, ValueList, ValueMap, ValueVec,
+    make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction, RuntimeResult,
+    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
-pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
-use std::{path::Path, rc::Rc};
+pub use koto_std::{external_error, get_external_instance, visit_external_value};
+use std::{path::Path, sync::Arc};
 
 #[derive(Default)]
-pub struct Koto<'a> {
+pub struct Koto {
     script: String,
     parser: Parser,
     ast: AstNode,
-    runtime: Runtime<'a>,
+    runtime: Runtime,
 }
 
-impl<'a> Koto<'a> {
+impl Koto {
     pub fn new() -> Self {
         let mut result = Self::default();
 
@@ -32,7 +32,7 @@ impl<'a> Koto<'a> {
         result
     }
 
-    pub fn run_script(&mut self, script: &str) -> Result<Value<'a>, String> {
+    pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
         self.parse(script)?;
 
         self.set_args(Vec::new());
@@ -49,7 +49,7 @@ impl<'a> Koto<'a> {
         &mut self,
         script: &str,
         args: Vec<String>,
-    ) -> Result<Value<'a>, String> {
+    ) -> Result<Value, String> {
         self.parse(script)?;
 
         self.set_args(args);
@@ -75,7 +75,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap {
         self.runtime.global_mut()
     }
 
@@ -84,10 +84,10 @@ impl<'a> Koto<'a> {
 
         let koto_args = args
             .iter()
-            .map(|arg| Str(Rc::new(arg.to_string())))
+            .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self.runtime.global_mut().get_mut("env").unwrap() {
+        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -103,20 +103,20 @@ impl<'a> Koto<'a> {
                 Path::new(&path)
                     .parent()
                     .map(|p| {
-                        Str(Rc::new(
+                        Str(Arc::new(
                             p.to_str().expect("invalid script path").to_string(),
                         ))
                     })
                     .or(Some(Empty))
                     .unwrap(),
-                Str(Rc::new(path.to_string())),
+                Str(Arc::new(path.to_string())),
             ),
             None => (Empty, Empty),
         };
 
         self.runtime.set_script_path(path);
 
-        match self.runtime.global_mut().get_mut("env").unwrap() {
+        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => {
                 let mut map = map.data_mut();
                 map.add_value("script_dir", script_dir);
@@ -126,11 +126,11 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn run(&mut self) -> Result<Value<'a>, String> {
+    pub fn run(&mut self) -> Result<Value, String> {
         match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
@@ -140,7 +140,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction<'a>> {
+    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction> {
         match self.runtime.get_value(function_name) {
             Some(Value::Function(function)) => Some(function),
             _ => None,
@@ -150,8 +150,8 @@ impl<'a> Koto<'a> {
     pub fn call_function_by_name(
         &mut self,
         function_name: &str,
-        args: &[Value<'a>],
-    ) -> Result<Value<'a>, String> {
+        args: &[Value],
+    ) -> Result<Value, String> {
         match self.get_global_function(function_name) {
             Some(f) => self.call_function(&f, args),
             None => Err(format!(
@@ -163,16 +163,16 @@ impl<'a> Koto<'a> {
 
     pub fn call_function(
         &mut self,
-        function: &RuntimeFunction<'a>,
-        args: &[Value<'a>],
-    ) -> Result<Value<'a>, String> {
+        function: &RuntimeFunction,
+        args: &[Value],
+    ) -> Result<Value, String> {
         match self
             .runtime
             .call_function_with_evaluated_args(function, args)
         {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::BuiltinError { message } => format!("Builtin error: {}\n", message,),
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,

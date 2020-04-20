@@ -1,21 +1,21 @@
 use crate::{
-    builtin_value::BuiltinValue,
-    value::{make_builtin_value, BuiltinFunction},
-    Id, RcCell, Runtime, RuntimeResult, Value, ValueList, BUILTIN_DATA_ID,
+    external::{ExternalFunction, ExternalValue},
+    value::make_external_value,
+    Id, Runtime, RuntimeResult, Value, ValueList, EXTERNAL_DATA_ID,
 };
 use rustc_hash::FxHashMap;
 use std::{
     borrow::Borrow,
-    cell::{Ref, RefMut},
     collections::hash_map::{Iter, Keys},
     hash::Hash,
     iter::{FromIterator, IntoIterator},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 #[derive(Clone, Debug, Default)]
-pub struct ValueHashMap<'a>(FxHashMap<Id, Value<'a>>);
+pub struct ValueHashMap(FxHashMap<Id, Value>);
 
-impl<'a> ValueHashMap<'a> {
+impl ValueHashMap {
     pub fn new() -> Self {
         Self(FxHashMap::default())
     }
@@ -30,40 +30,40 @@ impl<'a> ValueHashMap<'a> {
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, false)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, true)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
-    pub fn add_list(&mut self, id: &str, list: ValueList<'a>) {
+    pub fn add_list(&mut self, id: &str, list: ValueList) {
         self.add_value(id, Value::List(list));
     }
 
-    pub fn add_map(&mut self, id: &str, map: ValueMap<'a>) {
+    pub fn add_map(&mut self, id: &str, map: ValueMap) {
         self.add_value(id, Value::Map(map));
     }
 
-    pub fn add_value(&mut self, id: &str, value: Value<'a>) {
+    pub fn add_value(&mut self, id: &str, value: Value) {
         self.insert(Id::from_str(id), value);
     }
 
-    pub fn insert(&mut self, id: Id, value: Value<'a>) {
+    pub fn insert(&mut self, id: Id, value: Value) {
         self.0.insert(id, value);
     }
 
-    pub fn extend(&mut self, other: &ValueHashMap<'a>) {
+    pub fn extend(&mut self, other: &ValueHashMap) {
         self.0.extend(other.0.clone().into_iter());
     }
 
-    pub fn get<K: ?Sized>(&self, id: &K) -> Option<&Value<'a>>
+    pub fn get<K: ?Sized>(&self, id: &K) -> Option<&Value>
     where
         Id: Borrow<K>,
         K: Hash + Eq,
@@ -71,7 +71,7 @@ impl<'a> ValueHashMap<'a> {
         self.0.get(id)
     }
 
-    pub fn get_mut<K: ?Sized>(&mut self, id: &K) -> Option<&mut Value<'a>>
+    pub fn get_mut<K: ?Sized>(&mut self, id: &K) -> Option<&mut Value>
     where
         Id: Borrow<K>,
         K: Hash + Eq,
@@ -79,92 +79,100 @@ impl<'a> ValueHashMap<'a> {
         self.0.get_mut(id)
     }
 
-    pub fn keys(&self) -> Keys<'_, Id, Value<'a>> {
+    pub fn contains_key(&self, id: &str) -> bool {
+        self.0.contains_key(id)
+    }
+
+    pub fn keys(&self) -> Keys<'_, Id, Value> {
         self.0.keys()
     }
 
-    pub fn iter(&self) -> Iter<'_, Id, Value<'a>> {
+    pub fn iter(&self) -> Iter<'_, Id, Value> {
         self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
-impl<'a> FromIterator<(Id, Value<'a>)> for ValueHashMap<'a> {
-    fn from_iter<T: IntoIterator<Item = (Id, Value<'a>)>>(iter: T) -> ValueHashMap<'a> {
+impl FromIterator<(Id, Value)> for ValueHashMap {
+    fn from_iter<T: IntoIterator<Item = (Id, Value)>>(iter: T) -> ValueHashMap {
         Self(FxHashMap::from_iter(iter))
     }
 }
 
-impl<'a> PartialEq for ValueHashMap<'a> {
+impl PartialEq for ValueHashMap {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
-impl<'a> Eq for ValueHashMap<'a> {}
+impl Eq for ValueHashMap {}
 
-#[derive(Clone, Debug)]
-pub struct ValueMap<'a>(RcCell<ValueHashMap<'a>>);
+#[derive(Clone, Debug, Default)]
+pub struct ValueMap(Arc<RwLock<ValueHashMap>>);
 
-impl<'a> ValueMap<'a> {
+impl ValueMap {
     pub fn new() -> Self {
-        Self(RcCell::new(ValueHashMap::default()))
+        Self(Arc::new(RwLock::new(ValueHashMap::default())))
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(RcCell::new(ValueHashMap::with_capacity(capacity)))
+        Self(Arc::new(RwLock::new(ValueHashMap::with_capacity(capacity))))
     }
 
-    pub fn with_data(data: ValueHashMap<'a>) -> Self {
-        Self(RcCell::new(data))
+    pub fn with_data(data: ValueHashMap) -> Self {
+        Self(Arc::new(RwLock::new(data)))
     }
 
-    pub fn data(&self) -> Ref<ValueHashMap<'a>> {
-        self.0.borrow()
+    pub fn data(&self) -> RwLockReadGuard<ValueHashMap> {
+        self.0.read().unwrap()
     }
 
-    pub fn data_mut(&self) -> RefMut<ValueHashMap<'a>> {
-        self.0.borrow_mut()
+    pub fn data_mut(&self) -> RwLockWriteGuard<ValueHashMap> {
+        self.0.write().unwrap()
     }
 
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, false)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::BuiltinFunction(BuiltinFunction::new(f, true)));
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
-    pub fn add_list(&mut self, id: &str, list: ValueList<'a>) {
+    pub fn add_list(&mut self, id: &str, list: ValueList) {
         self.add_value(id, Value::List(list));
     }
 
-    pub fn add_map(&mut self, id: &str, map: ValueMap<'a>) {
+    pub fn add_map(&mut self, id: &str, map: ValueMap) {
         self.add_value(id, Value::Map(map));
     }
 
-    pub fn add_value(&mut self, id: &str, value: Value<'a>) {
+    pub fn add_value(&mut self, id: &str, value: Value) {
         self.insert(Id::from_str(id), value);
     }
 
-    pub fn set_builtin_value(&mut self, data: impl BuiltinValue) {
-        self.add_value(BUILTIN_DATA_ID, make_builtin_value(data));
+    pub fn set_external_value(&mut self, data: impl ExternalValue) {
+        self.add_value(EXTERNAL_DATA_ID, make_external_value(data));
     }
 
-    pub fn insert(&mut self, name: Id, value: Value<'a>) {
+    pub fn insert(&mut self, name: Id, value: Value) {
         self.data_mut().insert(name, value);
     }
 }
 
-impl<'a> PartialEq for ValueMap<'a> {
+impl PartialEq for ValueMap {
     fn eq(&self, other: &Self) -> bool {
         *self.data() == *other.data()
     }
 }
-impl<'a> Eq for ValueMap<'a> {}
+impl Eq for ValueMap {}

@@ -1,31 +1,35 @@
 use crate::{
-    builtin_value::BuiltinValue,
+    external::{ExternalFunction, ExternalValue},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
-    Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile};
-use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc};
+use std::{
+    cmp::Ordering,
+    fmt,
+    iter::FromIterator,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Clone, Debug)]
-pub enum Value<'a> {
+pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
-    List(ValueList<'a>),
-    Map(ValueMap<'a>),
-    Str(Rc<String>),
-    Function(RuntimeFunction<'a>),
-    BuiltinFunction(BuiltinFunction<'a>),
-    BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
-    For(Rc<AstFor>),
-    While(Rc<AstWhile>),
+    List(ValueList),
+    Map(ValueMap),
+    Str(Arc<String>),
+    Function(RuntimeFunction),
+    ExternalFunction(ExternalFunction),
+    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+    For(Arc<AstFor>),
+    While(Arc<AstWhile>),
 }
 
-impl<'a> fmt::Display for Value<'a> {
+impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
@@ -57,22 +61,22 @@ impl<'a> fmt::Display for Value<'a> {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Function(function) => {
-                let raw = Rc::into_raw(function.function.clone());
+            Function(fun) => {
+                let raw = Arc::into_raw(fun.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
-            BuiltinFunction(function) => {
-                let raw = Rc::into_raw(function.function.clone());
-                write!(f, "Builtin function: {:?}", raw)
+            ExternalFunction(function) => {
+                let raw = Arc::into_raw(function.function.clone());
+                write!(f, "External function: {:?}", raw)
             }
-            BuiltinValue(ref value) => f.write_str(&value.borrow().to_string()),
+            ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             For(_) => write!(f, "For loop"),
             While(_) => write!(f, "While loop"),
         }
     }
 }
 
-impl<'a> PartialEq for Value<'a> {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;
 
@@ -89,9 +93,9 @@ impl<'a> PartialEq for Value<'a> {
         }
     }
 }
-impl<'a> Eq for Value<'a> {}
+impl Eq for Value {}
 
-impl<'a> PartialOrd for Value<'a> {
+impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         use Value::*;
 
@@ -104,7 +108,7 @@ impl<'a> PartialOrd for Value<'a> {
     }
 }
 
-impl<'a> Ord for Value<'a> {
+impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         use Value::*;
 
@@ -121,71 +125,25 @@ impl<'a> Ord for Value<'a> {
     }
 }
 
-impl<'a> From<bool> for Value<'a> {
+impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct RuntimeFunction<'a> {
-    pub function: Rc<koto_parser::Function>,
-    pub captured: ValueMap<'a>,
+pub struct RuntimeFunction {
+    pub function: Arc<koto_parser::Function>,
+    pub captured: ValueMap,
 }
 
-impl<'a> PartialEq for RuntimeFunction<'a> {
+impl PartialEq for RuntimeFunction {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
+        Arc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
     }
 }
 
-// Once Trait aliases are stabilized this can be simplified a bit,
-// see: https://github.com/rust-lang/rust/issues/55628
-// TODO: rename to ExternalFunction
-#[allow(clippy::type_complexity)]
-pub struct BuiltinFunction<'a> {
-    pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
-    pub is_instance_function: bool,
-}
-
-impl<'a> BuiltinFunction<'a> {
-    pub fn new(
-        function: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
-        is_instance_function: bool,
-    ) -> Self {
-        Self {
-            function: Rc::new(RefCell::new(function)),
-            is_instance_function,
-        }
-    }
-}
-
-impl<'a> Clone for BuiltinFunction<'a> {
-    fn clone(&self) -> Self {
-        Self {
-            function: self.function.clone(),
-            is_instance_function: self.is_instance_function,
-        }
-    }
-}
-
-impl<'a> fmt::Debug for BuiltinFunction<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.function.clone());
-        write!(
-            f,
-            "builtin {}function: {:?}",
-            if self.is_instance_function {
-                "instance "
-            } else {
-                ""
-            },
-            raw
-        )
-    }
-}
-
-pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
+pub fn copy_value(value: &Value) -> Value {
     use Value::{List, Map};
 
     match value {
@@ -215,13 +173,13 @@ pub fn type_as_string(value: &Value) -> String {
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
         Function(_) => "Function".to_string(),
-        BuiltinFunction(_) => "BuiltinFunction".to_string(),
-        BuiltinValue(value) => value.borrow().value_type(),
+        ExternalFunction(_) => "ExternalFunction".to_string(),
+        ExternalValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),
         While(_) => "While".to_string(),
     }
 }
 
-pub fn make_builtin_value<'a>(value: impl BuiltinValue) -> Value<'a> {
-    Value::BuiltinValue(Rc::new(RefCell::new(value)))
+pub fn make_external_value(value: impl ExternalValue) -> Value {
+    Value::ExternalValue(Arc::new(RwLock::new(value)))
 }

@@ -1,10 +1,10 @@
 use crate::{
     call_stack::CallStack,
     runtime_error,
-    value::{copy_value, type_as_string, BuiltinFunction, RuntimeFunction, Value},
+    value::{copy_value, type_as_string, RuntimeFunction, Value},
     value_iterator::{MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
-    Error, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
+    Error, ExternalFunction, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
 use koto_parser::{
     vec4, AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, ConstantPool,
@@ -12,33 +12,33 @@ use koto_parser::{
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::{fmt, rc::Rc};
+use std::{fmt, sync::Arc};
 
 #[derive(Clone, Debug)]
-pub enum ControlFlow<'a> {
+pub enum ControlFlow {
     None,
     Function,
     Return,
-    ReturnValue(Value<'a>),
+    ReturnValue(Value),
     Loop,
     Break,
     Continue,
 }
 
-impl<'a> Default for ControlFlow<'a> {
+impl Default for ControlFlow {
     fn default() -> Self {
         Self::None
     }
 }
 
 #[derive(Clone, Debug)]
-struct ValueAndLookupIndex<'a> {
-    value: Value<'a>,
+struct ValueAndLookupIndex {
+    value: Value,
     lookup_index: Option<usize>,
 }
 
-impl<'a> ValueAndLookupIndex<'a> {
-    fn new(value: Value<'a>, lookup_index: Option<usize>) -> Self {
+impl ValueAndLookupIndex {
+    fn new(value: Value, lookup_index: Option<usize>) -> Self {
         Self {
             value,
             lookup_index,
@@ -46,7 +46,7 @@ impl<'a> ValueAndLookupIndex<'a> {
     }
 }
 
-impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
+impl fmt::Display for ValueAndLookupIndex {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -57,31 +57,32 @@ impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
 }
 
 #[derive(Debug)]
-struct LookupResult<'a> {
-    value: Value<'a>,
-    parent: ValueAndLookupIndex<'a>,
+struct LookupResult {
+    value: Value,
+    parent: ValueAndLookupIndex,
 }
 
-impl<'a> LookupResult<'a> {
-    fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>) -> Self {
+impl LookupResult {
+    fn new(value: Value, parent: ValueAndLookupIndex) -> Self {
         Self { value, parent }
     }
 }
 
-enum ValueOrValues<'a> {
-    Value(Value<'a>),
-    Values(ValueVec<'a>),
+enum ValueOrValues {
+    Value(Value),
+    Values(ValueVec),
 }
 
 #[derive(Default)]
-pub struct Runtime<'a> {
-    constants: ConstantPool,
-    string_constants: FxHashMap<u32, Rc<String>>,
-    global: ValueHashMap<'a>,
-    capture_map: Option<ValueMap<'a>>,
-    call_stack: CallStack<'a>,
-    control_flow: ControlFlow<'a>,
-    script_path: Option<String>,
+pub struct Runtime {
+    global: ValueMap,
+    constants: Arc<ConstantPool>,
+    script_path: Arc<Option<String>>,
+
+    string_constants: FxHashMap<u32, Arc<String>>,
+    capture_map: Option<ValueMap>,
+    call_stack: CallStack,
+    control_flow: ControlFlow,
 }
 
 #[cfg(feature = "trace")]
@@ -102,27 +103,35 @@ macro_rules! runtime_trace {
     ($self:expr, $message:expr, $($vals:expr),+) => {};
 }
 
-impl<'a> Runtime<'a> {
+impl Runtime {
     pub fn new() -> Self {
         Self {
-            global: ValueHashMap::with_capacity(32),
+            global: ValueMap::with_capacity(32),
             control_flow: ControlFlow::None,
             call_stack: CallStack::with_capacity(32),
-            script_path: None,
+            ..Default::default()
+        }
+    }
+
+    pub fn create_shared_runtime(&mut self) -> Self {
+        Self {
+            constants: self.constants.clone(),
+            global: self.global.clone(),
+            script_path: self.script_path.clone(),
             ..Default::default()
         }
     }
 
     pub fn constants_mut(&mut self) -> &mut ConstantPool {
-        &mut self.constants
+        Arc::make_mut(&mut self.constants)
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueHashMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap {
         &mut self.global
     }
 
     pub fn set_script_path(&mut self, path: Option<String>) {
-        self.script_path = path;
+        *Arc::make_mut(&mut self.script_path) = path;
     }
 
     #[allow(dead_code)]
@@ -131,7 +140,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions
-    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
@@ -149,7 +158,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and return the final result
-    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block_and_capture - {}", block.len());
@@ -177,10 +186,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and capture their results in a list
-    fn evaluate_expressions(
-        &mut self,
-        expressions: &[AstNode],
-    ) -> Result<ValueOrValues<'a>, Error> {
+    fn evaluate_expressions(&mut self, expressions: &[AstNode]) -> Result<ValueOrValues, Error> {
         runtime_trace!(self, "evaluate_expressions: {}", expressions.len());
 
         if expressions.len() == 1 {
@@ -204,7 +210,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate an expression and capture multiple return values in a List
-    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult<'a> {
+    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_capture: {}", expression.node);
@@ -240,7 +246,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         expression: &AstNode,
         capture: bool,
-    ) -> Result<ValueOrValues<'a>, Error> {
+    ) -> Result<ValueOrValues, Error> {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_expand - {}", expression.node);
@@ -280,7 +286,7 @@ impl<'a> Runtime<'a> {
         Ok(ValueOrValues::Value(result))
     }
 
-    pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
+    pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult {
         runtime_trace!(self, "evaluate: {}", node.node);
 
         use Value::*;
@@ -293,7 +299,7 @@ impl<'a> Runtime<'a> {
                 Number(self.constants.get_f64(*constant_index as usize))
             }
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
-            Node::Str(constant_index) => Str(self.rc_string_from_constant(constant_index)),
+            Node::Str(constant_index) => Str(self.arc_string_from_constant(constant_index)),
             Node::List(elements) => match self.evaluate_expressions(elements)? {
                 ValueOrValues::Value(value) => match value {
                     List(_) => value,
@@ -421,22 +427,15 @@ impl<'a> Runtime<'a> {
         Ok(result)
     }
 
-    fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
+    fn set_value(&mut self, id: &Id, value: Value, scope: Scope) {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame_count() == 0 || scope == Scope::Global {
-            match self.global.get_mut(id) {
-                Some(exists) => {
-                    *exists = value;
-                }
-                None => {
-                    self.global.insert(id.clone(), value);
-                }
-            }
+            self.global.data_mut().insert(id.clone(), value);
         } else {
             if let Some(capture_map) = &self.capture_map {
-                if let Some(exists) = capture_map.data_mut().get_mut(id.as_str()) {
-                    *exists = value;
+                if capture_map.data().contains_key(id.as_str()) {
+                    capture_map.data_mut().insert(id.clone(), value);
                     return;
                 }
             }
@@ -452,7 +451,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn get_value(&self, id: &str) -> Option<Value<'a>> {
+    pub fn get_value(&self, id: &str) -> Option<Value> {
         runtime_trace!(self, "get_value: {}", id);
 
         if self.call_stack.frame_count() > 0 {
@@ -467,13 +466,13 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.get(id) {
+        match self.global.data().get(id) {
             Some(value) => Some(value.clone()),
             None => None,
         }
     }
 
-    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<Value, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -483,7 +482,7 @@ impl<'a> Runtime<'a> {
     fn set_value_from_lookup(
         &mut self,
         lookup: &LookupSlice,
-        value: Value<'a>,
+        value: Value,
         node: &AstNode,
     ) -> Result<(), Error> {
         let root_id = match &lookup.0[0] {
@@ -509,8 +508,8 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        if let Some(root) = self.global.get(root_id.as_str()) {
-            let root = root.clone();
+        let maybe_root = self.global.data().get(root_id.as_str()).cloned();
+        if let Some(root) = maybe_root {
             self.do_lookup(lookup, root, Some(value), node)?;
             return Ok(());
         }
@@ -521,11 +520,11 @@ impl<'a> Runtime<'a> {
     fn do_lookup(
         &mut self,
         lookup: &LookupSlice,
-        root: Value<'a>,
-        value_to_set: Option<Value<'a>>,
+        root: Value,
+        value_to_set: Option<Value>,
         node: &AstNode,
-    ) -> Result<Option<(Value<'a>, ValueAndLookupIndex<'a>)>, Error> {
-        use Value::{BuiltinFunction, Function, IndexRange, List, Map, Number, Range};
+    ) -> Result<Option<(Value, ValueAndLookupIndex)>, Error> {
+        use Value::{ExternalFunction, Function, IndexRange, List, Map, Number, Range};
 
         runtime_trace!(
             self,
@@ -548,7 +547,7 @@ impl<'a> Runtime<'a> {
             // We want to keep track of the parent container for the next lookup node
             // If the current node is a function then we skip over it
             parent = match &current_node {
-                Function { .. } | BuiltinFunction(_) => parent,
+                Function { .. } | ExternalFunction(_) => parent,
                 _ => ValueAndLookupIndex::new(
                     current_node.clone(),
                     if temporary_value {
@@ -793,11 +792,11 @@ impl<'a> Runtime<'a> {
                         );
                     }
                 },
-                BuiltinFunction(function) => match lookup_node {
+                ExternalFunction(function) => match lookup_node {
                     LookupNode::Call(args) => {
                         temporary_value = true;
 
-                        current_node = self.call_builtin_function(
+                        current_node = self.call_external_function(
                             &function,
                             &LookupSliceOrId::LookupSlice(lookup.first_n(lookup_index)),
                             Some(parent.clone()),
@@ -837,7 +836,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         lookup: &LookupSlice,
         node: &AstNode,
-    ) -> Result<Option<LookupResult<'a>>, Error> {
+    ) -> Result<Option<LookupResult>, Error> {
         runtime_trace!(self, "lookup_value: {}", lookup);
 
         let root_id = match &lookup.0[0] {
@@ -863,7 +862,8 @@ impl<'a> Runtime<'a> {
             }
         }
 
-        match self.global.get(root_id.as_str()).cloned() {
+        let maybe_root = self.global.data().get(root_id.as_str()).cloned();
+        match maybe_root {
             Some(root) => match self.do_lookup(lookup, root, None, node)? {
                 Some((found, parent)) => Ok(Some(LookupResult::new(found, parent))),
                 None => Ok(None),
@@ -876,7 +876,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         id: &LookupSlice,
         node: &AstNode,
-    ) -> Result<LookupResult<'a>, Error> {
+    ) -> Result<LookupResult, Error> {
         match self.lookup_value(id, node)? {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", self.lookup_slice_to_string(id)),
@@ -885,10 +885,10 @@ impl<'a> Runtime<'a> {
 
     fn run_for_loop(
         &mut self,
-        for_loop: &Rc<AstFor>,
+        for_loop: &Arc<AstFor>,
         node: &AstNode,
         capture: bool,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
@@ -922,7 +922,7 @@ impl<'a> Runtime<'a> {
                             for list_value in a.data().iter() {
                                 match arg_iter.next() {
                                     Some(arg) => {
-                                        let id = Id::new(self.rc_string_from_constant(arg));
+                                        let id = Id::new(self.arc_string_from_constant(arg));
                                         self.set_value(&id, list_value.clone(), Scope::Local)
                                     }
                                     None => break,
@@ -1093,10 +1093,10 @@ impl<'a> Runtime<'a> {
 
     fn run_while_loop(
         &mut self,
-        while_loop: &Rc<AstWhile>,
+        while_loop: &Arc<AstWhile>,
         node: &AstNode,
         capture: bool,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Bool, Empty, List};
 
         runtime_trace!(self, "run_while_loop");
@@ -1155,8 +1155,8 @@ impl<'a> Runtime<'a> {
         &mut self,
         expressions: &[(ConstantIndex, AstNode)],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
-        let prefix = match &self.script_path {
+    ) -> RuntimeResult {
+        let prefix = match &self.script_path.as_ref() {
             Some(path) => format!("[{}: {}]", path, node.start_pos.line),
             None => format!("[{}]", node.start_pos.line),
         };
@@ -1177,7 +1177,7 @@ impl<'a> Runtime<'a> {
         lookup_or_id: &LookupSliceOrId,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::*;
 
         runtime_trace!(self, "lookup_and_call_function - {}", function_id);
@@ -1193,8 +1193,8 @@ impl<'a> Runtime<'a> {
         };
 
         match maybe_function {
-            Some(BuiltinFunction(f)) => {
-                self.call_builtin_function(&f, lookup_or_id, maybe_parent, args, node)
+            Some(ExternalFunction(f)) => {
+                self.call_external_function(&f, lookup_or_id, maybe_parent, args, node)
             }
             Some(Function(f)) => {
                 self.evaluate_args_and_call_function(&f, lookup_or_id, maybe_parent, args, node)
@@ -1213,34 +1213,34 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn call_builtin_function(
+    fn call_external_function(
         &mut self,
-        builtin: &BuiltinFunction<'a>,
+        external: &ExternalFunction,
         lookup_or_id: &LookupSliceOrId,
-        parent: Option<ValueAndLookupIndex<'a>>,
+        parent: Option<ValueAndLookupIndex>,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(
             self,
-            "call_builtin_function - {} - parent: {:?}",
+            "call_external_function - {} - parent: {:?}",
             lookup_or_id,
             parent
         );
 
         let evaluated_args = self.evaluate_expressions(args)?;
 
-        let mut builtin_function = builtin.function.borrow_mut();
+        let external_function = external.function.as_ref();
 
-        let builtin_result = if builtin.is_instance_function {
+        let external_result = if external.is_instance_function {
             match parent {
                 Some(parent) => match evaluated_args {
                     ValueOrValues::Value(value) => {
-                        (&mut *builtin_function)(self, &[parent.value, value])
+                        (&*external_function)(self, &[parent.value, value])
                     }
                     ValueOrValues::Values(mut values) => {
                         values.insert(0, parent.value);
-                        (&mut *builtin_function)(self, &values)
+                        (&*external_function)(self, &values)
                     }
                 },
                 None => {
@@ -1253,25 +1253,25 @@ impl<'a> Runtime<'a> {
             }
         } else {
             match evaluated_args {
-                ValueOrValues::Value(value) => (&mut *builtin_function)(self, &[value]),
-                ValueOrValues::Values(values) => (&mut *builtin_function)(self, &values),
+                ValueOrValues::Value(value) => (&*external_function)(self, &[value]),
+                ValueOrValues::Values(values) => (&*external_function)(self, &values),
             }
         };
 
-        match builtin_result {
-            Err(Error::BuiltinError { message }) => runtime_error!(node, message),
+        match external_result {
+            Err(Error::ExternalError { message }) => runtime_error!(node, message),
             other => other,
         }
     }
 
     fn evaluate_args_and_call_function(
         &mut self,
-        f: &RuntimeFunction<'a>,
+        f: &RuntimeFunction,
         lookup_or_id: &LookupSliceOrId,
-        parent: Option<ValueAndLookupIndex<'a>>,
+        parent: Option<ValueAndLookupIndex>,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(
             self,
             "evaluate_args_and_call_function - {} - parent: {}",
@@ -1283,7 +1283,7 @@ impl<'a> Runtime<'a> {
             }
         );
 
-        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+        let mut call_frame: SmallVec<[(Id, Value); 8]> = SmallVec::new();
 
         let implicit_self = match lookup_or_id {
             LookupSliceOrId::Id(id_index) => {
@@ -1350,9 +1350,9 @@ impl<'a> Runtime<'a> {
 
     pub fn call_function_with_evaluated_args(
         &mut self,
-        f: &RuntimeFunction<'a>,
-        args: &[Value<'a>],
-    ) -> RuntimeResult<'a> {
+        f: &RuntimeFunction,
+        args: &[Value],
+    ) -> RuntimeResult {
         if f.function.args.len() != args.len() {
             return runtime_error!(
                 f.function
@@ -1365,7 +1365,7 @@ impl<'a> Runtime<'a> {
             );
         }
 
-        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+        let mut call_frame: SmallVec<[(Id, Value); 8]> = SmallVec::new();
 
         for (name_index, arg) in f.function.args.iter().zip(args.iter()) {
             let id = self.id_from_constant(name_index);
@@ -1375,11 +1375,7 @@ impl<'a> Runtime<'a> {
         self.call_function(f, &call_frame)
     }
 
-    pub fn call_function(
-        &mut self,
-        f: &RuntimeFunction<'a>,
-        args: &[(Id, Value<'a>)],
-    ) -> RuntimeResult<'a> {
+    pub fn call_function(&mut self, f: &RuntimeFunction, args: &[(Id, Value)]) -> RuntimeResult {
         self.call_stack.push_frame(&args);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
@@ -1404,7 +1400,7 @@ impl<'a> Runtime<'a> {
         target: &AssignTarget,
         expression: &AstNode,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         let value = self.evaluate_and_capture(expression)?;
 
         match target {
@@ -1425,7 +1421,7 @@ impl<'a> Runtime<'a> {
         targets: &[AssignTarget],
         expressions: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Empty, List};
 
         macro_rules! set_value {
@@ -1513,7 +1509,7 @@ impl<'a> Runtime<'a> {
         end: &AstNode,
         inclusive: bool,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Number, Range};
 
         let start = self.evaluate(start)?;
@@ -1556,7 +1552,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         start_expression: &Box<AstNode>,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{IndexRange, Number};
 
         let evaluated_start = match self.evaluate(start_expression)? {
@@ -1591,7 +1587,7 @@ impl<'a> Runtime<'a> {
         end_expression: &Box<AstNode>,
         inclusive: bool,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{IndexRange, Number};
 
         let evaluated_end = match self.evaluate(end_expression)? {
@@ -1631,7 +1627,7 @@ impl<'a> Runtime<'a> {
         lhs: &AstNode,
         rhs: &AstNode,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(self, "binary_op: {:?}", op);
 
         use Value::*;
@@ -1755,7 +1751,7 @@ impl<'a> Runtime<'a> {
                 (Str(a), Str(b)) => match op {
                     AstOp::Add => {
                         let result = String::clone(a) + b.as_ref();
-                        Ok(Str(Rc::new(result)))
+                        Ok(Str(Arc::new(result)))
                     }
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
@@ -1764,7 +1760,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn do_if_statement(&mut self, if_statement: &AstIf, node: &AstNode) -> RuntimeResult<'a> {
+    fn do_if_statement(&mut self, if_statement: &AstIf, node: &AstNode) -> RuntimeResult {
         use Value::{Bool, Empty};
 
         let AstIf {
@@ -1810,7 +1806,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn make_vec4(&mut self, expressions: &[AstNode], node: &AstNode) -> RuntimeResult<'a> {
+    fn make_vec4(&mut self, expressions: &[AstNode], node: &AstNode) -> RuntimeResult {
         use Value::{List, Number, Vec4};
 
         let v = match expressions {
@@ -1869,11 +1865,13 @@ impl<'a> Runtime<'a> {
         self.constants.get_string(*constant_index as usize)
     }
 
-    fn rc_string_from_constant(&mut self, constant_index: &u32) -> Rc<String> {
-        match self.string_constants.get(constant_index) {
-            Some(s) => s.clone(),
+    fn arc_string_from_constant(&mut self, constant_index: &u32) -> Arc<String> {
+        let maybe_string = self.string_constants.get(constant_index).cloned();
+
+        match maybe_string {
+            Some(s) => s,
             None => {
-                let s = Rc::new(
+                let s = Arc::new(
                     self.constants
                         .get_string(*constant_index as usize)
                         .to_string(),
@@ -1885,7 +1883,7 @@ impl<'a> Runtime<'a> {
     }
 
     fn id_from_constant(&mut self, constant_index: &u32) -> Id {
-        Id::new(self.rc_string_from_constant(constant_index))
+        Id::new(self.arc_string_from_constant(constant_index))
     }
 
     pub fn str_to_id_index(&self, s: &str) -> Option<u32> {

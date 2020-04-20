@@ -1,21 +1,21 @@
 use crate::{Value, ValueVec};
 use smallvec::SmallVec;
 
-pub(super) struct ValueIterator<'a> {
-    value: Value<'a>,
+pub(super) struct ValueIterator {
+    value: Value,
     index: isize,
 }
 
-impl<'a> ValueIterator<'a> {
-    pub fn new(value: Value<'a>) -> Self {
+impl ValueIterator {
+    pub fn new(value: Value) -> Self {
         Self { value, index: 0 }
     }
 }
 
-impl<'a> Iterator for ValueIterator<'a> {
-    type Item = Value<'a>;
+impl Iterator for ValueIterator {
+    type Item = Value;
 
-    fn next(&mut self) -> Option<Value<'a>> {
+    fn next(&mut self) -> Option<Value> {
         use Value::*;
 
         let result = match &self.value {
@@ -44,18 +44,18 @@ impl<'a> Iterator for ValueIterator<'a> {
     }
 }
 
-pub(super) struct MultiRangeValueIterator<'a> {
-    pub iterators: SmallVec<[ValueIterator<'a>; 4]>,
+pub(super) struct MultiRangeValueIterator {
+    pub iterators: SmallVec<[ValueIterator; 4]>,
 }
 
-impl<'a> MultiRangeValueIterator<'a> {
+impl MultiRangeValueIterator {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             iterators: SmallVec::with_capacity(capacity),
         }
     }
 
-    pub fn get_next_values(&mut self, output: &mut ValueVec<'a>) -> bool {
+    pub fn get_next_values(&mut self, output: &mut ValueVec) -> bool {
         output.clear();
 
         for iter in self.iterators.iter_mut() {

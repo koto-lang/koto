@@ -1,12 +1,12 @@
 use crate::{Id, Value};
 
 #[derive(Default)]
-pub struct CallStack<'a> {
-    values: Vec<(Id, Value<'a>)>,
+pub struct CallStack {
+    values: Vec<(Id, Value)>,
     frame_size: Vec<usize>,
 }
 
-impl<'a> CallStack<'a> {
+impl CallStack {
     pub fn with_capacity(initial_capacity: usize) -> Self {
         Self {
             values: Vec::with_capacity(initial_capacity),
@@ -18,12 +18,12 @@ impl<'a> CallStack<'a> {
         self.frame_size.len()
     }
 
-    pub fn push_frame(&mut self, values: &[(Id, Value<'a>)]) {
+    pub fn push_frame(&mut self, values: &[(Id, Value)]) {
         self.values.extend_from_slice(values);
         self.frame_size.push(values.len());
     }
 
-    pub fn extend_frame(&mut self, id: Id, value: Value<'a>) {
+    pub fn extend_frame(&mut self, id: Id, value: Value) {
         self.values.push((id, value));
         *self
             .frame_size
@@ -39,7 +39,7 @@ impl<'a> CallStack<'a> {
         }
     }
 
-    pub fn frame_values(&self) -> Option<&[(Id, Value<'a>)]> {
+    pub fn frame_values(&self) -> Option<&[(Id, Value)]> {
         match self.frame_size.last() {
             Some(size) => {
                 let values_start = self.values.len() - size;
@@ -49,7 +49,7 @@ impl<'a> CallStack<'a> {
         }
     }
 
-    fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value<'a>)]> {
+    fn frame_values_mut(&mut self) -> Option<&mut [(Id, Value)]> {
         match self.frame_size.last() {
             Some(size) => {
                 let values_start = self.values.len() - size;
@@ -59,7 +59,7 @@ impl<'a> CallStack<'a> {
         }
     }
 
-    pub fn get(&self, id: &str) -> Option<&Value<'a>> {
+    pub fn get(&self, id: &str) -> Option<&Value> {
         match self.frame_values() {
             Some(values) => values.iter().find_map(
                 |(value_id, value)| {
@@ -74,7 +74,7 @@ impl<'a> CallStack<'a> {
         }
     }
 
-    pub fn get_mut(&mut self, id: &str) -> Option<&mut Value<'a>> {
+    pub fn get_mut(&mut self, id: &str) -> Option<&mut Value> {
         match self.frame_values_mut() {
             Some(values) => {
                 values.iter_mut().find_map(
