@@ -12,10 +12,7 @@ use koto_parser::{
 };
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::{
-    fmt,
-    sync::{Arc, RwLock},
-};
+use std::{fmt, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow {
@@ -80,9 +77,9 @@ enum ValueOrValues {
 pub struct Runtime {
     global: ValueMap,
     constants: Arc<ConstantPool>,
-    string_constants: Arc<RwLock<FxHashMap<u32, Arc<String>>>>,
     script_path: Arc<Option<String>>,
 
+    string_constants: FxHashMap<u32, Arc<String>>,
     capture_map: Option<ValueMap>,
     call_stack: CallStack,
     control_flow: ControlFlow,
@@ -119,7 +116,6 @@ impl Runtime {
     pub fn create_shared_runtime(&mut self) -> Self {
         Self {
             constants: self.constants.clone(),
-            string_constants: self.string_constants.clone(),
             global: self.global.clone(),
             script_path: self.script_path.clone(),
             ..Default::default()
@@ -1870,12 +1866,7 @@ impl Runtime {
     }
 
     fn arc_string_from_constant(&mut self, constant_index: &u32) -> Arc<String> {
-        let maybe_string = self
-            .string_constants
-            .read()
-            .unwrap()
-            .get(constant_index)
-            .cloned();
+        let maybe_string = self.string_constants.get(constant_index).cloned();
 
         match maybe_string {
             Some(s) => s,
@@ -1885,10 +1876,7 @@ impl Runtime {
                         .get_string(*constant_index as usize)
                         .to_string(),
                 );
-                self.string_constants
-                    .write()
-                    .unwrap()
-                    .insert(*constant_index, s.clone());
+                self.string_constants.insert(*constant_index, s.clone());
                 s
             }
         }
@@ -1899,7 +1887,7 @@ impl Runtime {
     }
 
     pub fn str_to_id_index(&self, s: &str) -> Option<u32> {
-        for (k, v) in self.string_constants.read().unwrap().iter() {
+        for (k, v) in self.string_constants.iter() {
             if v.as_ref() == s {
                 return Some(*k);
             }
