@@ -1230,7 +1230,7 @@ impl<'a> Runtime<'a> {
 
         let evaluated_args = self.evaluate_expressions(args)?;
 
-        let mut builtin_function = builtin.function.borrow_mut();
+        let mut builtin_function = builtin.function.lock().unwrap();
 
         let builtin_result = if builtin.is_instance_function {
             match parent {

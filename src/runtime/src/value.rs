@@ -5,7 +5,12 @@ use crate::{
     Runtime, RuntimeResult,
 };
 use koto_parser::{vec4, AstFor, AstWhile};
-use std::{cell::RefCell, cmp::Ordering, fmt, iter::FromIterator, rc::Rc, sync::Arc};
+use std::{
+    cmp::Ordering,
+    fmt,
+    iter::FromIterator,
+    sync::{Arc, RwLock, Mutex},
+};
 
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
@@ -20,7 +25,7 @@ pub enum Value<'a> {
     Str(Arc<String>),
     Function(RuntimeFunction<'a>),
     BuiltinFunction(BuiltinFunction<'a>),
-    BuiltinValue(Rc<RefCell<dyn BuiltinValue>>),
+    BuiltinValue(Arc<RwLock<dyn BuiltinValue>>),
     For(Arc<AstFor>),
     While(Arc<AstWhile>),
 }
@@ -62,10 +67,10 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, "Function: {:?}", raw)
             }
             BuiltinFunction(function) => {
-                let raw = Rc::into_raw(function.function.clone());
+                let raw = Arc::into_raw(function.function.clone());
                 write!(f, "Builtin function: {:?}", raw)
             }
-            BuiltinValue(ref value) => f.write_str(&value.borrow().to_string()),
+            BuiltinValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             For(_) => write!(f, "For loop"),
             While(_) => write!(f, "While loop"),
         }
@@ -144,7 +149,7 @@ impl<'a> PartialEq for RuntimeFunction<'a> {
 // TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
 pub struct BuiltinFunction<'a> {
-    pub function: Rc<RefCell<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
+    pub function: Arc<Mutex<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
     pub is_instance_function: bool,
 }
 
@@ -154,7 +159,7 @@ impl<'a> BuiltinFunction<'a> {
         is_instance_function: bool,
     ) -> Self {
         Self {
-            function: Rc::new(RefCell::new(function)),
+            function: Arc::new(Mutex::new(function)),
             is_instance_function,
         }
     }
@@ -171,7 +176,7 @@ impl<'a> Clone for BuiltinFunction<'a> {
 
 impl<'a> fmt::Debug for BuiltinFunction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Rc::into_raw(self.function.clone());
+        let raw = Arc::into_raw(self.function.clone());
         write!(
             f,
             "builtin {}function: {:?}",
@@ -216,12 +221,12 @@ pub fn type_as_string(value: &Value) -> String {
         Str(_) => "String".to_string(),
         Function(_) => "Function".to_string(),
         BuiltinFunction(_) => "BuiltinFunction".to_string(),
-        BuiltinValue(value) => value.borrow().value_type(),
+        BuiltinValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),
         While(_) => "While".to_string(),
     }
 }
 
 pub fn make_builtin_value<'a>(value: impl BuiltinValue) -> Value<'a> {
-    Value::BuiltinValue(Rc::new(RefCell::new(value)))
+    Value::BuiltinValue(Arc::new(RwLock::new(value)))
 }

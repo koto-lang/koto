@@ -61,6 +61,7 @@ macro_rules! single_arg_fn {
     }
 }
 
+// TODO split out _mut version
 pub fn visit_builtin_value<'a, T>(
     map: &ValueMap<'a>,
     mut f: impl FnMut(&mut T) -> RuntimeResult<'a>,
@@ -70,11 +71,12 @@ where
 {
     match map.data().get(BUILTIN_DATA_ID) {
         Some(Value::BuiltinValue(maybe_builtin)) => {
-            match maybe_builtin.as_ref().borrow_mut().downcast_mut::<T>() {
+            let mut value = maybe_builtin.as_ref().write().unwrap();
+            match value.downcast_mut::<T>() {
                 Some(builtin) => f(builtin),
                 None => builtin_error!(
                     "Invalid type for builtin value, found '{}'",
-                    maybe_builtin.borrow().value_type()
+                    value.value_type()
                 ),
             }
         }
