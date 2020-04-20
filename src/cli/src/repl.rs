@@ -10,15 +10,15 @@ use termion::{
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-pub struct Repl<'a> {
-    koto: Koto<'a>,
+pub struct Repl {
+    koto: Koto,
     input_history: Vec<String>,
     history_position: Option<usize>,
     input: String,
     cursor: Option<usize>,
 }
 
-impl<'a> Repl<'a> {
+impl Repl {
     pub fn new() -> Self {
         Self {
             koto: Koto::new(),

@@ -4,12 +4,12 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-pub type ValueVec<'a> = smallvec::SmallVec<[Value<'a>; 4]>;
+pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 #[derive(Clone, Debug)]
-pub struct ValueList<'a>(Arc<RwLock<ValueVec<'a>>>);
+pub struct ValueList(Arc<RwLock<ValueVec>>);
 
-impl<'a> ValueList<'a> {
+impl ValueList {
     pub fn new() -> Self {
         Self(Arc::new(RwLock::new(ValueVec::new())))
     }
@@ -18,11 +18,11 @@ impl<'a> ValueList<'a> {
         Self(Arc::new(RwLock::new(ValueVec::with_capacity(capacity))))
     }
 
-    pub fn with_data(data: ValueVec<'a>) -> Self {
+    pub fn with_data(data: ValueVec) -> Self {
         Self(Arc::new(RwLock::new(data)))
     }
 
-    pub fn from_slice(data: &[Value<'a>]) -> Self {
+    pub fn from_slice(data: &[Value]) -> Self {
         Self(Arc::new(RwLock::new(
             data.iter().cloned().collect::<ValueVec>(),
         )))
@@ -32,16 +32,16 @@ impl<'a> ValueList<'a> {
         self.data().len()
     }
 
-    pub fn data(&self) -> RwLockReadGuard<ValueVec<'a>> {
+    pub fn data(&self) -> RwLockReadGuard<ValueVec> {
         self.0.read().unwrap()
     }
 
-    pub fn data_mut(&self) -> RwLockWriteGuard<ValueVec<'a>> {
+    pub fn data_mut(&self) -> RwLockWriteGuard<ValueVec> {
         self.0.write().unwrap()
     }
 }
 
-impl<'a> fmt::Display for ValueList<'a> {
+impl fmt::Display for ValueList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
         for (i, value) in self.data().iter().enumerate() {
@@ -54,7 +54,7 @@ impl<'a> fmt::Display for ValueList<'a> {
     }
 }
 
-impl<'a> PartialEq for ValueList<'a> {
+impl PartialEq for ValueList {
     fn eq(&self, other: &Self) -> bool {
         *self.data() == *other.data()
     }

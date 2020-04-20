@@ -9,28 +9,28 @@ use std::{
     cmp::Ordering,
     fmt,
     iter::FromIterator,
-    sync::{Arc, RwLock, Mutex},
+    sync::{Arc, RwLock},
 };
 
 #[derive(Clone, Debug)]
-pub enum Value<'a> {
+pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
     Range { start: isize, end: isize },
     IndexRange { start: usize, end: Option<usize> },
-    List(ValueList<'a>),
-    Map(ValueMap<'a>),
+    List(ValueList),
+    Map(ValueMap),
     Str(Arc<String>),
-    Function(RuntimeFunction<'a>),
-    BuiltinFunction(BuiltinFunction<'a>),
+    Function(RuntimeFunction),
+    BuiltinFunction(BuiltinFunction),
     BuiltinValue(Arc<RwLock<dyn BuiltinValue>>),
     For(Arc<AstFor>),
     While(Arc<AstWhile>),
 }
 
-impl<'a> fmt::Display for Value<'a> {
+impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
@@ -77,7 +77,7 @@ impl<'a> fmt::Display for Value<'a> {
     }
 }
 
-impl<'a> PartialEq for Value<'a> {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;
 
@@ -94,9 +94,9 @@ impl<'a> PartialEq for Value<'a> {
         }
     }
 }
-impl<'a> Eq for Value<'a> {}
+impl Eq for Value {}
 
-impl<'a> PartialOrd for Value<'a> {
+impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         use Value::*;
 
@@ -109,7 +109,7 @@ impl<'a> PartialOrd for Value<'a> {
     }
 }
 
-impl<'a> Ord for Value<'a> {
+impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         use Value::*;
 
@@ -126,19 +126,19 @@ impl<'a> Ord for Value<'a> {
     }
 }
 
-impl<'a> From<bool> for Value<'a> {
+impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct RuntimeFunction<'a> {
+pub struct RuntimeFunction {
     pub function: Arc<koto_parser::Function>,
-    pub captured: ValueMap<'a>,
+    pub captured: ValueMap,
 }
 
-impl<'a> PartialEq for RuntimeFunction<'a> {
+impl PartialEq for RuntimeFunction {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
     }
@@ -148,24 +148,26 @@ impl<'a> PartialEq for RuntimeFunction<'a> {
 // see: https://github.com/rust-lang/rust/issues/55628
 // TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
-pub struct BuiltinFunction<'a> {
-    pub function: Arc<Mutex<dyn FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a>>,
+pub struct BuiltinFunction {
+    pub function: Arc<
+        RwLock<dyn Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
+    >,
     pub is_instance_function: bool,
 }
 
-impl<'a> BuiltinFunction<'a> {
+impl BuiltinFunction {
     pub fn new(
-        function: impl FnMut(&mut Runtime<'a>, &[Value<'a>]) -> RuntimeResult<'a> + 'a,
+        function: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {
-            function: Arc::new(Mutex::new(function)),
+            function: Arc::new(RwLock::new(function)),
             is_instance_function,
         }
     }
 }
 
-impl<'a> Clone for BuiltinFunction<'a> {
+impl Clone for BuiltinFunction {
     fn clone(&self) -> Self {
         Self {
             function: self.function.clone(),
@@ -174,7 +176,7 @@ impl<'a> Clone for BuiltinFunction<'a> {
     }
 }
 
-impl<'a> fmt::Debug for BuiltinFunction<'a> {
+impl fmt::Debug for BuiltinFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let raw = Arc::into_raw(self.function.clone());
         write!(
@@ -190,7 +192,7 @@ impl<'a> fmt::Debug for BuiltinFunction<'a> {
     }
 }
 
-pub fn copy_value<'a>(value: &Value<'a>) -> Value<'a> {
+pub fn copy_value(value: &Value) -> Value {
     use Value::{List, Map};
 
     match value {
@@ -227,6 +229,6 @@ pub fn type_as_string(value: &Value) -> String {
     }
 }
 
-pub fn make_builtin_value<'a>(value: impl BuiltinValue) -> Value<'a> {
+pub fn make_builtin_value(value: impl BuiltinValue) -> Value {
     Value::BuiltinValue(Arc::new(RwLock::new(value)))
 }

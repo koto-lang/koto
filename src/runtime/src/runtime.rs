@@ -18,30 +18,30 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub enum ControlFlow<'a> {
+pub enum ControlFlow {
     None,
     Function,
     Return,
-    ReturnValue(Value<'a>),
+    ReturnValue(Value),
     Loop,
     Break,
     Continue,
 }
 
-impl<'a> Default for ControlFlow<'a> {
+impl Default for ControlFlow {
     fn default() -> Self {
         Self::None
     }
 }
 
 #[derive(Clone, Debug)]
-struct ValueAndLookupIndex<'a> {
-    value: Value<'a>,
+struct ValueAndLookupIndex {
+    value: Value,
     lookup_index: Option<usize>,
 }
 
-impl<'a> ValueAndLookupIndex<'a> {
-    fn new(value: Value<'a>, lookup_index: Option<usize>) -> Self {
+impl ValueAndLookupIndex {
+    fn new(value: Value, lookup_index: Option<usize>) -> Self {
         Self {
             value,
             lookup_index,
@@ -49,7 +49,7 @@ impl<'a> ValueAndLookupIndex<'a> {
     }
 }
 
-impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
+impl fmt::Display for ValueAndLookupIndex {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -60,32 +60,39 @@ impl<'a> fmt::Display for ValueAndLookupIndex<'a> {
 }
 
 #[derive(Debug)]
-struct LookupResult<'a> {
-    value: Value<'a>,
-    parent: ValueAndLookupIndex<'a>,
+struct LookupResult {
+    value: Value,
+    parent: ValueAndLookupIndex,
 }
 
-impl<'a> LookupResult<'a> {
-    fn new(value: Value<'a>, parent: ValueAndLookupIndex<'a>) -> Self {
+impl LookupResult {
+    fn new(value: Value, parent: ValueAndLookupIndex) -> Self {
         Self { value, parent }
     }
 }
 
-enum ValueOrValues<'a> {
-    Value(Value<'a>),
-    Values(ValueVec<'a>),
+enum ValueOrValues {
+    Value(Value),
+    Values(ValueVec),
+}
+
+pub struct SharedContext {
+    global: ValueMap,
+    constants: Arc<ConstantPool>,
+    string_constants: Arc<RwLock<FxHashMap<u32, Arc<String>>>>,
+    script_path: Arc<Option<String>>,
 }
 
 #[derive(Default)]
-pub struct Runtime<'a> {
+pub struct Runtime {
+    global: ValueMap,
     constants: Arc<ConstantPool>,
     string_constants: Arc<RwLock<FxHashMap<u32, Arc<String>>>>,
-    global: ValueMap<'a>,
     script_path: Arc<Option<String>>,
 
-    capture_map: Option<ValueMap<'a>>,
-    call_stack: CallStack<'a>,
-    control_flow: ControlFlow<'a>,
+    capture_map: Option<ValueMap>,
+    call_stack: CallStack,
+    control_flow: ControlFlow,
 }
 
 #[cfg(feature = "trace")]
@@ -106,7 +113,7 @@ macro_rules! runtime_trace {
     ($self:expr, $message:expr, $($vals:expr),+) => {};
 }
 
-impl<'a> Runtime<'a> {
+impl Runtime {
     pub fn new() -> Self {
         Self {
             global: ValueMap::with_capacity(32),
@@ -116,13 +123,22 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn spawn(&mut self) -> Self {
+    pub fn with_shared_context(context: SharedContext) -> Self {
         Self {
+            constants: context.constants.clone(),
+            string_constants: context.string_constants.clone(),
+            global: context.global.clone(),
+            script_path: context.script_path.clone(),
+            ..Default::default()
+        }
+    }
+
+    pub fn get_shared_context(&mut self) -> SharedContext {
+        SharedContext {
             constants: self.constants.clone(),
             string_constants: self.string_constants.clone(),
             global: self.global.clone(),
             script_path: self.script_path.clone(),
-            ..Default::default()
         }
     }
 
@@ -130,7 +146,7 @@ impl<'a> Runtime<'a> {
         Arc::make_mut(&mut self.constants)
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap {
         &mut self.global
     }
 
@@ -144,7 +160,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions
-    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
@@ -162,7 +178,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and return the final result
-    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult<'a> {
+    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult {
         use ControlFlow::*;
 
         runtime_trace!(self, "evaluate_block_and_capture - {}", block.len());
@@ -190,10 +206,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate a series of expressions and capture their results in a list
-    fn evaluate_expressions(
-        &mut self,
-        expressions: &[AstNode],
-    ) -> Result<ValueOrValues<'a>, Error> {
+    fn evaluate_expressions(&mut self, expressions: &[AstNode]) -> Result<ValueOrValues, Error> {
         runtime_trace!(self, "evaluate_expressions: {}", expressions.len());
 
         if expressions.len() == 1 {
@@ -217,7 +230,7 @@ impl<'a> Runtime<'a> {
     }
 
     /// Evaluate an expression and capture multiple return values in a List
-    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult<'a> {
+    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_capture: {}", expression.node);
@@ -253,7 +266,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         expression: &AstNode,
         capture: bool,
-    ) -> Result<ValueOrValues<'a>, Error> {
+    ) -> Result<ValueOrValues, Error> {
         use Value::*;
 
         runtime_trace!(self, "evaluate_and_expand - {}", expression.node);
@@ -293,7 +306,7 @@ impl<'a> Runtime<'a> {
         Ok(ValueOrValues::Value(result))
     }
 
-    pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult<'a> {
+    pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult {
         runtime_trace!(self, "evaluate: {}", node.node);
 
         use Value::*;
@@ -434,7 +447,7 @@ impl<'a> Runtime<'a> {
         Ok(result)
     }
 
-    fn set_value(&mut self, id: &Id, value: Value<'a>, scope: Scope) {
+    fn set_value(&mut self, id: &Id, value: Value, scope: Scope) {
         runtime_trace!(self, "set_value - {}: {} - {:?}", id, value, scope);
 
         if self.call_stack.frame_count() == 0 || scope == Scope::Global {
@@ -458,7 +471,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn get_value(&self, id: &str) -> Option<Value<'a>> {
+    pub fn get_value(&self, id: &str) -> Option<Value> {
         runtime_trace!(self, "get_value: {}", id);
 
         if self.call_stack.frame_count() > 0 {
@@ -479,7 +492,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<Value<'a>, Error> {
+    fn get_value_or_error(&self, id: &str, node: &AstNode) -> Result<Value, Error> {
         match self.get_value(id) {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", id),
@@ -489,7 +502,7 @@ impl<'a> Runtime<'a> {
     fn set_value_from_lookup(
         &mut self,
         lookup: &LookupSlice,
-        value: Value<'a>,
+        value: Value,
         node: &AstNode,
     ) -> Result<(), Error> {
         let root_id = match &lookup.0[0] {
@@ -527,10 +540,10 @@ impl<'a> Runtime<'a> {
     fn do_lookup(
         &mut self,
         lookup: &LookupSlice,
-        root: Value<'a>,
-        value_to_set: Option<Value<'a>>,
+        root: Value,
+        value_to_set: Option<Value>,
         node: &AstNode,
-    ) -> Result<Option<(Value<'a>, ValueAndLookupIndex<'a>)>, Error> {
+    ) -> Result<Option<(Value, ValueAndLookupIndex)>, Error> {
         use Value::{BuiltinFunction, Function, IndexRange, List, Map, Number, Range};
 
         runtime_trace!(
@@ -843,7 +856,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         lookup: &LookupSlice,
         node: &AstNode,
-    ) -> Result<Option<LookupResult<'a>>, Error> {
+    ) -> Result<Option<LookupResult>, Error> {
         runtime_trace!(self, "lookup_value: {}", lookup);
 
         let root_id = match &lookup.0[0] {
@@ -883,7 +896,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         id: &LookupSlice,
         node: &AstNode,
-    ) -> Result<LookupResult<'a>, Error> {
+    ) -> Result<LookupResult, Error> {
         match self.lookup_value(id, node)? {
             Some(v) => Ok(v),
             None => runtime_error!(node, "'{}' not found", self.lookup_slice_to_string(id)),
@@ -895,7 +908,7 @@ impl<'a> Runtime<'a> {
         for_loop: &Arc<AstFor>,
         node: &AstNode,
         capture: bool,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
@@ -1103,7 +1116,7 @@ impl<'a> Runtime<'a> {
         while_loop: &Arc<AstWhile>,
         node: &AstNode,
         capture: bool,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Bool, Empty, List};
 
         runtime_trace!(self, "run_while_loop");
@@ -1162,7 +1175,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         expressions: &[(ConstantIndex, AstNode)],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         let prefix = match &self.script_path.as_ref() {
             Some(path) => format!("[{}: {}]", path, node.start_pos.line),
             None => format!("[{}]", node.start_pos.line),
@@ -1184,7 +1197,7 @@ impl<'a> Runtime<'a> {
         lookup_or_id: &LookupSliceOrId,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::*;
 
         runtime_trace!(self, "lookup_and_call_function - {}", function_id);
@@ -1222,12 +1235,12 @@ impl<'a> Runtime<'a> {
 
     fn call_builtin_function(
         &mut self,
-        builtin: &BuiltinFunction<'a>,
+        builtin: &BuiltinFunction,
         lookup_or_id: &LookupSliceOrId,
-        parent: Option<ValueAndLookupIndex<'a>>,
+        parent: Option<ValueAndLookupIndex>,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(
             self,
             "call_builtin_function - {} - parent: {:?}",
@@ -1237,17 +1250,17 @@ impl<'a> Runtime<'a> {
 
         let evaluated_args = self.evaluate_expressions(args)?;
 
-        let mut builtin_function = builtin.function.lock().unwrap();
+        let builtin_function = builtin.function.read().unwrap();
 
         let builtin_result = if builtin.is_instance_function {
             match parent {
                 Some(parent) => match evaluated_args {
                     ValueOrValues::Value(value) => {
-                        (&mut *builtin_function)(self, &[parent.value, value])
+                        (&*builtin_function)(self, &[parent.value, value])
                     }
                     ValueOrValues::Values(mut values) => {
                         values.insert(0, parent.value);
-                        (&mut *builtin_function)(self, &values)
+                        (&*builtin_function)(self, &values)
                     }
                 },
                 None => {
@@ -1260,8 +1273,8 @@ impl<'a> Runtime<'a> {
             }
         } else {
             match evaluated_args {
-                ValueOrValues::Value(value) => (&mut *builtin_function)(self, &[value]),
-                ValueOrValues::Values(values) => (&mut *builtin_function)(self, &values),
+                ValueOrValues::Value(value) => (&*builtin_function)(self, &[value]),
+                ValueOrValues::Values(values) => (&*builtin_function)(self, &values),
             }
         };
 
@@ -1273,12 +1286,12 @@ impl<'a> Runtime<'a> {
 
     fn evaluate_args_and_call_function(
         &mut self,
-        f: &RuntimeFunction<'a>,
+        f: &RuntimeFunction,
         lookup_or_id: &LookupSliceOrId,
-        parent: Option<ValueAndLookupIndex<'a>>,
+        parent: Option<ValueAndLookupIndex>,
         args: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(
             self,
             "evaluate_args_and_call_function - {} - parent: {}",
@@ -1290,7 +1303,7 @@ impl<'a> Runtime<'a> {
             }
         );
 
-        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+        let mut call_frame: SmallVec<[(Id, Value); 8]> = SmallVec::new();
 
         let implicit_self = match lookup_or_id {
             LookupSliceOrId::Id(id_index) => {
@@ -1357,9 +1370,9 @@ impl<'a> Runtime<'a> {
 
     pub fn call_function_with_evaluated_args(
         &mut self,
-        f: &RuntimeFunction<'a>,
-        args: &[Value<'a>],
-    ) -> RuntimeResult<'a> {
+        f: &RuntimeFunction,
+        args: &[Value],
+    ) -> RuntimeResult {
         if f.function.args.len() != args.len() {
             return runtime_error!(
                 f.function
@@ -1372,7 +1385,7 @@ impl<'a> Runtime<'a> {
             );
         }
 
-        let mut call_frame: SmallVec<[(Id, Value<'a>); 8]> = SmallVec::new();
+        let mut call_frame: SmallVec<[(Id, Value); 8]> = SmallVec::new();
 
         for (name_index, arg) in f.function.args.iter().zip(args.iter()) {
             let id = self.id_from_constant(name_index);
@@ -1382,11 +1395,7 @@ impl<'a> Runtime<'a> {
         self.call_function(f, &call_frame)
     }
 
-    pub fn call_function(
-        &mut self,
-        f: &RuntimeFunction<'a>,
-        args: &[(Id, Value<'a>)],
-    ) -> RuntimeResult<'a> {
+    pub fn call_function(&mut self, f: &RuntimeFunction, args: &[(Id, Value)]) -> RuntimeResult {
         self.call_stack.push_frame(&args);
         let cached_control_flow = self.control_flow.clone();
         self.control_flow = ControlFlow::Function;
@@ -1411,7 +1420,7 @@ impl<'a> Runtime<'a> {
         target: &AssignTarget,
         expression: &AstNode,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         let value = self.evaluate_and_capture(expression)?;
 
         match target {
@@ -1432,7 +1441,7 @@ impl<'a> Runtime<'a> {
         targets: &[AssignTarget],
         expressions: &[AstNode],
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Empty, List};
 
         macro_rules! set_value {
@@ -1520,7 +1529,7 @@ impl<'a> Runtime<'a> {
         end: &AstNode,
         inclusive: bool,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{Number, Range};
 
         let start = self.evaluate(start)?;
@@ -1563,7 +1572,7 @@ impl<'a> Runtime<'a> {
         &mut self,
         start_expression: &Box<AstNode>,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{IndexRange, Number};
 
         let evaluated_start = match self.evaluate(start_expression)? {
@@ -1598,7 +1607,7 @@ impl<'a> Runtime<'a> {
         end_expression: &Box<AstNode>,
         inclusive: bool,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         use Value::{IndexRange, Number};
 
         let evaluated_end = match self.evaluate(end_expression)? {
@@ -1638,7 +1647,7 @@ impl<'a> Runtime<'a> {
         lhs: &AstNode,
         rhs: &AstNode,
         node: &AstNode,
-    ) -> RuntimeResult<'a> {
+    ) -> RuntimeResult {
         runtime_trace!(self, "binary_op: {:?}", op);
 
         use Value::*;
@@ -1771,7 +1780,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn do_if_statement(&mut self, if_statement: &AstIf, node: &AstNode) -> RuntimeResult<'a> {
+    fn do_if_statement(&mut self, if_statement: &AstIf, node: &AstNode) -> RuntimeResult {
         use Value::{Bool, Empty};
 
         let AstIf {
@@ -1817,7 +1826,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    fn make_vec4(&mut self, expressions: &[AstNode], node: &AstNode) -> RuntimeResult<'a> {
+    fn make_vec4(&mut self, expressions: &[AstNode], node: &AstNode) -> RuntimeResult {
         use Value::{List, Number, Vec4};
 
         let v = match expressions {

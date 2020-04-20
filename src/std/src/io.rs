@@ -30,11 +30,11 @@ pub fn register(global: &mut ValueMap) {
     });
 
     let make_file_map = || {
-        fn file_fn<'a>(
+        fn file_fn(
             fn_name: &str,
-            args: &[Value<'a>],
-            mut file_op: impl FnMut(&mut File) -> RuntimeResult<'a>,
-        ) -> RuntimeResult<'a> {
+            args: &[Value],
+            mut file_op: impl FnMut(&mut File) -> RuntimeResult,
+        ) -> RuntimeResult {
             get_builtin_instance!(args, "File", fn_name, File, file_ref, { file_op(file_ref) })
         }
 

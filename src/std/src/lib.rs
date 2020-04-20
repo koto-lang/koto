@@ -64,9 +64,9 @@ macro_rules! single_arg_fn {
 
 // TODO split out _mut version
 pub fn visit_builtin_value<'a, T>(
-    map: &ValueMap<'a>,
-    mut f: impl FnMut(&mut T) -> RuntimeResult<'a>,
-) -> RuntimeResult<'a>
+    map: &ValueMap,
+    mut f: impl FnMut(&mut T) -> RuntimeResult,
+) -> RuntimeResult
 where
     T: BuiltinValue,
 {
@@ -115,7 +115,7 @@ macro_rules! get_builtin_instance {
     }};
 }
 
-pub fn register<'a>(runtime: &mut Runtime<'a>) {
+pub fn register(runtime: &mut Runtime) {
     use Value::*;
 
     let global = runtime.global_mut();

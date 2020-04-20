@@ -19,7 +19,7 @@ pub use value_map::{ValueHashMap, ValueMap};
 
 pub const BUILTIN_DATA_ID: &str = "_builtin_data";
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Error {
     RuntimeError {
         message: String,
@@ -31,7 +31,7 @@ pub enum Error {
     },
 }
 
-pub type RuntimeResult<'a> = Result<Value<'a>, Error>;
+pub type RuntimeResult = Result<Value, Error>;
 
 #[macro_export]
 macro_rules! make_runtime_error {

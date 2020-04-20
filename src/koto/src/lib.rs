@@ -10,14 +10,14 @@ pub use koto_std::{builtin_error, get_builtin_instance, visit_builtin_value};
 use std::{path::Path, sync::Arc};
 
 #[derive(Default)]
-pub struct Koto<'a> {
+pub struct Koto {
     script: String,
     parser: Parser,
     ast: AstNode,
-    runtime: Runtime<'a>,
+    runtime: Runtime,
 }
 
-impl<'a> Koto<'a> {
+impl Koto {
     pub fn new() -> Self {
         let mut result = Self::default();
 
@@ -32,7 +32,7 @@ impl<'a> Koto<'a> {
         result
     }
 
-    pub fn run_script(&mut self, script: &str) -> Result<Value<'a>, String> {
+    pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
         self.parse(script)?;
 
         self.set_args(Vec::new());
@@ -49,7 +49,7 @@ impl<'a> Koto<'a> {
         &mut self,
         script: &str,
         args: Vec<String>,
-    ) -> Result<Value<'a>, String> {
+    ) -> Result<Value, String> {
         self.parse(script)?;
 
         self.set_args(args);
@@ -75,7 +75,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap<'a> {
+    pub fn global_mut(&mut self) -> &mut ValueMap {
         self.runtime.global_mut()
     }
 
@@ -126,7 +126,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn run(&mut self) -> Result<Value<'a>, String> {
+    pub fn run(&mut self) -> Result<Value, String> {
         match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
@@ -140,7 +140,7 @@ impl<'a> Koto<'a> {
         }
     }
 
-    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction<'a>> {
+    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction> {
         match self.runtime.get_value(function_name) {
             Some(Value::Function(function)) => Some(function),
             _ => None,
@@ -150,8 +150,8 @@ impl<'a> Koto<'a> {
     pub fn call_function_by_name(
         &mut self,
         function_name: &str,
-        args: &[Value<'a>],
-    ) -> Result<Value<'a>, String> {
+        args: &[Value],
+    ) -> Result<Value, String> {
         match self.get_global_function(function_name) {
             Some(f) => self.call_function(&f, args),
             None => Err(format!(
@@ -163,9 +163,9 @@ impl<'a> Koto<'a> {
 
     pub fn call_function(
         &mut self,
-        function: &RuntimeFunction<'a>,
-        args: &[Value<'a>],
-    ) -> Result<Value<'a>, String> {
+        function: &RuntimeFunction,
+        args: &[Value],
+    ) -> Result<Value, String> {
         match self
             .runtime
             .call_function_with_evaluated_args(function, args)

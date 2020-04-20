@@ -209,12 +209,12 @@ pub fn register(global: &mut ValueMap) {
     global.add_value("list", Map(list));
 }
 
-fn list_op<'a>(
-    args: &[Value<'a>],
+fn list_op(
+    args: &[Value],
     arg_count: usize,
     op_name: &str,
-    mut op: impl FnMut(&ValueList<'a>) -> RuntimeResult<'a>,
-) -> RuntimeResult<'a> {
+    mut op: impl FnMut(&ValueList) -> RuntimeResult,
+) -> RuntimeResult {
     if args.len() < arg_count {
         return builtin_error!(
             "list.{} expects {} arguments, found {}",

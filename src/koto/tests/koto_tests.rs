@@ -47,5 +47,6 @@ koto_test!(maps_nested_assignments);
 koto_test!(math);
 koto_test!(ranges);
 koto_test!(strings);
+koto_test!(threads);
 koto_test!(vec4_new);
 koto_test!(vec4_ops);
