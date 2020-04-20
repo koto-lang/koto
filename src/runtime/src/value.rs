@@ -57,8 +57,8 @@ impl<'a> fmt::Display for Value<'a> {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Function(function) => {
-                let raw = Rc::into_raw(function.function.clone());
+            Function(fun) => {
+                let raw = Arc::into_raw(fun.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
             BuiltinFunction(function) => {
@@ -129,13 +129,13 @@ impl<'a> From<bool> for Value<'a> {
 
 #[derive(Clone, Debug)]
 pub struct RuntimeFunction<'a> {
-    pub function: Rc<koto_parser::Function>,
+    pub function: Arc<koto_parser::Function>,
     pub captured: ValueMap<'a>,
 }
 
 impl<'a> PartialEq for RuntimeFunction<'a> {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
+        Arc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
     }
 }
 

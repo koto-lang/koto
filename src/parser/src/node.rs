@@ -1,5 +1,5 @@
 use crate::{AstNode, Lookup, LookupSlice};
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 pub type ConstantIndex = u32;
 
@@ -33,7 +33,7 @@ pub enum Node {
     Expressions(Vec<AstNode>),
     CopyExpression(Box<AstNode>),
     Negate(Box<AstNode>),
-    Function(Rc<Function>),
+    Function(Arc<Function>),
     Call {
         function: LookupOrId,
         args: Vec<AstNode>,
