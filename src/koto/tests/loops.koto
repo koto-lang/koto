@@ -14,29 +14,19 @@ assert_eq count 3
 
 # List comprehensions - for loop assignment captures values in a list
 square = |x| x * x
-c = square(x) for x in [1 2 3]
+c = [square(x) for x in [1 2 3]]
 assert_eq c [1 4 9]
 
-filter = |xs f| x for x in xs if f x
-a = filter 0..20 |x| not x <= 15
+filter = |xs f| [x for x in xs if f x]
+a = filter [0..20] |x| not x <= 15
 assert_eq a [16 17 18 19]
 
-# comprehensions work with for blocks
-z = for x in [7 8 9]
-  x * x
-assert_eq z [49 64 81]
-
-z = for x in 1..=3
-  for y in x..(x + 3)
-    y
-assert_eq z [[1 2 3] [2 3 4] [3 4 5]]
-
 # Iterating works over multiple ranges
-enumerate = |xs| i, x for i, x in 0..size(xs), xs
+enumerate = |xs| [i, x for i, x in 0..size(xs), xs]
 
-z = c for c in enumerate 100..103
+z = [c for c in enumerate 100..103]
 assert_eq z [[0 100] [1 101] [2 102]]
-z2 = c, d for c, d in enumerate 100..103
+z2 = [c, d for c, d in enumerate 100..103]
 assert_eq z z2
 
 ###### While loops
@@ -69,7 +59,7 @@ assert_eq x [101..=105]
 ###### Break and continue
 count = 0
 while true
-  count = count + 1
+  count += 1
   if count < 10
     continue
   else
@@ -84,5 +74,5 @@ for i in 0..100
   else if i == 5
     break
   else
-    count = count + 1
+    count += 1
 assert_eq count 2 # 2 odd numbers less than 5

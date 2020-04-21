@@ -17,7 +17,8 @@ use std::{fmt, sync::Arc};
 #[derive(Clone, Debug)]
 pub enum ControlFlow {
     None,
-    Function,
+    FunctionBody,
+    ListBuilding,
     Return,
     ReturnValue(Value),
     Loop,
@@ -66,11 +67,6 @@ impl LookupResult {
     fn new(value: Value, parent: ValueAndLookupIndex) -> Self {
         Self { value, parent }
     }
-}
-
-enum ValueOrValues {
-    Value(Value),
-    Values(ValueVec),
 }
 
 #[derive(Default)]
@@ -141,149 +137,34 @@ impl Runtime {
 
     /// Evaluate a series of expressions
     pub fn evaluate_block(&mut self, block: &[AstNode]) -> RuntimeResult {
-        use ControlFlow::*;
+        use {ControlFlow::*, Value::Empty};
 
         runtime_trace!(self, "evaluate_block - {}", block.len());
 
+        let mut result = Empty;
+
         for expression in block.iter() {
-            self.evaluate_and_expand(expression, false)?;
+            result = self.evaluate(expression)?;
+
             match &self.control_flow {
+                ReturnValue(return_value) => return Ok(return_value.clone()),
                 Return | Break | Continue => return Ok(Value::Empty),
-                ReturnValue(result) => return Ok(result.clone()),
                 _ => {}
             }
         }
 
-        Ok(Value::Empty)
-    }
-
-    /// Evaluate a series of expressions and return the final result
-    pub fn evaluate_block_and_capture(&mut self, block: &[AstNode]) -> RuntimeResult {
-        use ControlFlow::*;
-
-        runtime_trace!(self, "evaluate_block_and_capture - {}", block.len());
-
-        for (i, expression) in block.iter().enumerate() {
-            if i < block.len() - 1 {
-                self.evaluate_and_expand(expression, false)?;
-                match &self.control_flow {
-                    Return | Break | Continue => return Ok(Value::Empty),
-                    ReturnValue(result) => return Ok(result.clone()),
-                    _ => {}
-                }
-            } else {
-                let result = self.evaluate_and_capture(expression)?;
-
-                return Ok(match &self.control_flow {
-                    Return | Break | Continue => Value::Empty,
-                    ReturnValue(result) => result.clone(),
-                    _ => result,
-                });
-            }
-        }
-
-        Ok(Value::Empty)
+        Ok(result)
     }
 
     /// Evaluate a series of expressions and capture their results in a list
-    fn evaluate_expressions(&mut self, expressions: &[AstNode]) -> Result<ValueOrValues, Error> {
-        runtime_trace!(self, "evaluate_expressions: {}", expressions.len());
+    fn evaluate_expressions(&mut self, expressions: &[AstNode]) -> Result<ValueVec, Error> {
+        let mut result = ValueVec::with_capacity(expressions.len());
 
-        if expressions.len() == 1 {
-            Ok(ValueOrValues::Value(
-                self.evaluate_and_capture(&expressions[0])?,
-            ))
-        } else {
-            let results = expressions
-                .iter()
-                .map(|expression| {
-                    Ok(if is_single_value_node(&expression.node) {
-                        self.evaluate(expression)?
-                    } else {
-                        self.evaluate_and_capture(expression)?
-                    })
-                })
-                .collect::<Result<ValueVec, Error>>()?;
-
-            Ok(ValueOrValues::Values(results))
+        for expression in expressions.iter() {
+            result.push(self.evaluate(expression)?);
         }
-    }
 
-    /// Evaluate an expression and capture multiple return values in a List
-    fn evaluate_and_capture(&mut self, expression: &AstNode) -> RuntimeResult {
-        use Value::*;
-
-        runtime_trace!(self, "evaluate_and_capture: {}", expression.node);
-
-        if is_single_value_node(&expression.node) {
-            self.evaluate(expression)
-        } else {
-            match self.evaluate_and_expand(expression, true)? {
-                ValueOrValues::Value(value) => Ok(value),
-                ValueOrValues::Values(values) => {
-                    let list = values
-                        .iter()
-                        .cloned()
-                        .map(|value| match value {
-                            For(_) | Range { .. } => runtime_error!(
-                                expression,
-                                "Invalid value found in list capture: '{}'",
-                                value
-                            ),
-                            _ => Ok(value),
-                        })
-                        .collect::<Result<ValueVec, Error>>()?;
-                    Ok(List(ValueList::with_data(list)))
-                }
-            }
-        }
-    }
-
-    /// Evaluates a single expression, and expands single return values
-    ///
-    /// A single For loop or Range in first position will be expanded
-    fn evaluate_and_expand(
-        &mut self,
-        expression: &AstNode,
-        capture: bool,
-    ) -> Result<ValueOrValues, Error> {
-        use Value::*;
-
-        runtime_trace!(self, "evaluate_and_expand - {}", expression.node);
-
-        let value = self.evaluate(expression)?;
-
-        let expand_value = match value {
-            For(_) | While(_) | Range { .. } => true,
-            _ => false,
-        };
-
-        let result = if expand_value {
-            match value {
-                For(for_loop) => self.run_for_loop(&for_loop, expression, capture)?,
-                While(while_loop) => self.run_while_loop(&while_loop, expression, capture)?,
-                Range { start, end } => {
-                    if capture {
-                        let expanded = if end >= start {
-                            (start..end).map(|n| Number(n as f64)).collect::<ValueVec>()
-                        } else {
-                            (end..start)
-                                .rev()
-                                .map(|n| Number(n as f64))
-                                .collect::<ValueVec>()
-                        };
-                        List(ValueList::with_data(expanded))
-                    } else {
-                        Empty
-                    }
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            value
-        };
-
-        Ok(ValueOrValues::Value(result))
+        Ok(result)
     }
 
     pub fn evaluate(&mut self, node: &AstNode) -> RuntimeResult {
@@ -300,13 +181,30 @@ impl Runtime {
             }
             Node::Vec4(expressions) => self.make_vec4(expressions, node)?,
             Node::Str(constant_index) => Str(self.arc_string_from_constant(constant_index)),
-            Node::List(elements) => match self.evaluate_expressions(elements)? {
-                ValueOrValues::Value(value) => match value {
-                    List(_) => value,
-                    _ => List(ValueList::from_slice(&[value])),
-                },
-                ValueOrValues::Values(values) => List(ValueList::with_data(values)),
-            },
+            Node::List(elements) => {
+                let cached_control_flow = self.control_flow.clone();
+                self.control_flow = ControlFlow::ListBuilding;
+                let elements = self.evaluate_expressions(elements)?;
+                let result = match elements.as_slice() {
+                    [list @ List(_)] => list.clone(),
+                    [Range { start, end }] => {
+                        let expanded = if end >= start {
+                            (*start..*end)
+                                .map(|n| Number(n as f64))
+                                .collect::<ValueVec>()
+                        } else {
+                            (*end..*start)
+                                .rev()
+                                .map(|n| Number(n as f64))
+                                .collect::<ValueVec>()
+                        };
+                        List(ValueList::with_data(expanded))
+                    }
+                    _ => List(ValueList::with_data(elements)),
+                };
+                self.control_flow = cached_control_flow;
+                result
+            }
             Node::Range {
                 start,
                 end,
@@ -321,7 +219,7 @@ impl Runtime {
             Node::Map(entries) => {
                 let mut map = ValueHashMap::with_capacity(entries.len());
                 for (id_index, node) in entries.iter() {
-                    let value = self.evaluate_and_capture(node)?;
+                    let value = self.evaluate(node)?;
                     map.insert(self.id_from_constant(id_index), value);
                 }
                 Map(ValueMap::with_data(map))
@@ -338,14 +236,13 @@ impl Runtime {
                     copy_value(&self.lookup_value_or_error(&lookup.as_slice(), node)?.value)
                 }
             },
-            Node::CopyExpression(expression) => copy_value(&self.evaluate_and_capture(expression)?),
-            Node::Block(block) => self.evaluate_block_and_capture(&block)?,
-            Node::Expressions(expressions) => match self.evaluate_expressions(expressions)? {
-                ValueOrValues::Value(value) => value,
-                ValueOrValues::Values(values) => List(ValueList::with_data(values)),
-            },
+            Node::CopyExpression(expression) => copy_value(&self.evaluate(expression)?),
+            Node::Block(block) => self.evaluate_block(&block)?,
+            Node::Expressions(expressions) => List(ValueList::with_data(
+                self.evaluate_expressions(expressions)?,
+            )),
             Node::Return => match self.control_flow {
-                ControlFlow::Function | ControlFlow::Loop => {
+                ControlFlow::FunctionBody | ControlFlow::Loop => {
                     // TODO handle loop inside function
                     self.control_flow = ControlFlow::Return;
                     Value::Empty
@@ -355,9 +252,9 @@ impl Runtime {
                 }
             },
             Node::ReturnExpression(expression) => match self.control_flow {
-                ControlFlow::Function | ControlFlow::Loop => {
+                ControlFlow::FunctionBody | ControlFlow::Loop => {
                     // TODO handle loop inside function
-                    let value = self.evaluate_and_capture(expression)?;
+                    let value = self.evaluate(expression)?;
                     self.control_flow = ControlFlow::ReturnValue(value.clone());
                     Value::Empty
                 }
@@ -366,7 +263,7 @@ impl Runtime {
                 }
             },
             Node::Negate(expression) => {
-                let value = self.evaluate_and_capture(expression)?;
+                let value = self.evaluate(expression)?;
                 match value {
                     Bool(b) => Bool(!b),
                     Number(n) => Number(-n),
@@ -406,8 +303,8 @@ impl Runtime {
             } => self.assign_values(targets, expressions, node)?,
             Node::Op { op, lhs, rhs } => self.binary_op(op, lhs, rhs, node)?,
             Node::If(if_statement) => self.do_if_statement(if_statement, node)?,
-            Node::For(for_statement) => For(for_statement.clone()),
-            Node::While(while_loop) => While(while_loop.clone()),
+            Node::For(for_loop) => self.run_for_loop(for_loop, node)?,
+            Node::While(while_loop) => self.run_while_loop(while_loop, node)?,
             Node::Break => {
                 if !matches!(self.control_flow, ControlFlow::Loop) {
                     return runtime_error!(node, "'break' found outside of loop");
@@ -883,17 +780,13 @@ impl Runtime {
         }
     }
 
-    fn run_for_loop(
-        &mut self,
-        for_loop: &Arc<AstFor>,
-        node: &AstNode,
-        capture: bool,
-    ) -> RuntimeResult {
+    fn run_for_loop(&mut self, for_loop: &Arc<AstFor>, node: &AstNode) -> RuntimeResult {
         runtime_trace!(self, "run_for_loop");
         use Value::*;
 
         let f = &for_loop;
 
+        let capture = matches!(self.control_flow, ControlFlow::ListBuilding);
         let mut captured = ValueVec::new();
 
         if f.ranges.len() == 1 {
@@ -966,7 +859,7 @@ impl Runtime {
                 let cached_control_flow = self.control_flow.clone();
                 self.control_flow = ControlFlow::Loop;
 
-                let result = self.evaluate_and_capture(&f.body)?;
+                let result = self.evaluate(&f.body)?;
 
                 match self.control_flow {
                     ControlFlow::Return | ControlFlow::ReturnValue(_) => return Ok(Empty),
@@ -1061,7 +954,7 @@ impl Runtime {
                 let cached_control_flow = self.control_flow.clone();
                 self.control_flow = ControlFlow::Loop;
 
-                let result = self.evaluate_and_capture(&f.body)?;
+                let result = self.evaluate(&f.body)?;
 
                 match self.control_flow {
                     ControlFlow::Return | ControlFlow::ReturnValue(_) => return Ok(Empty),
@@ -1091,17 +984,14 @@ impl Runtime {
         })
     }
 
-    fn run_while_loop(
-        &mut self,
-        while_loop: &Arc<AstWhile>,
-        node: &AstNode,
-        capture: bool,
-    ) -> RuntimeResult {
+    fn run_while_loop(&mut self, while_loop: &Arc<AstWhile>, node: &AstNode) -> RuntimeResult {
         use Value::{Bool, Empty, List};
 
         runtime_trace!(self, "run_while_loop");
 
+        let capture = matches!(self.control_flow, ControlFlow::ListBuilding);
         let mut captured = ValueVec::new();
+
         loop {
             match self.evaluate(&while_loop.condition)? {
                 Bool(condition_result) => {
@@ -1109,7 +999,7 @@ impl Runtime {
                         let cached_control_flow = self.control_flow.clone();
                         self.control_flow = ControlFlow::Loop;
 
-                        let result = self.evaluate_and_capture(&while_loop.body)?;
+                        let result = self.evaluate(&while_loop.body)?;
 
                         use ControlFlow::*;
                         match self.control_flow {
@@ -1161,7 +1051,7 @@ impl Runtime {
             None => format!("[{}]", node.start_pos.line),
         };
         for (debug_text_id, expression) in expressions.iter() {
-            let value = self.evaluate_and_capture(expression)?;
+            let value = self.evaluate(expression)?;
             println!(
                 "{} {}: {}",
                 prefix,
@@ -1228,21 +1118,16 @@ impl Runtime {
             parent
         );
 
-        let evaluated_args = self.evaluate_expressions(args)?;
+        let mut evaluated_args = self.evaluate_expressions(args)?;
 
         let external_function = external.function.as_ref();
 
         let external_result = if external.is_instance_function {
             match parent {
-                Some(parent) => match evaluated_args {
-                    ValueOrValues::Value(value) => {
-                        (&*external_function)(self, &[parent.value, value])
-                    }
-                    ValueOrValues::Values(mut values) => {
-                        values.insert(0, parent.value);
-                        (&*external_function)(self, &values)
-                    }
-                },
+                Some(parent) => {
+                    evaluated_args.insert(0, parent.value);
+                    (&*external_function)(self, evaluated_args.as_slice())
+                }
                 None => {
                     return runtime_error!(
                         node,
@@ -1252,10 +1137,7 @@ impl Runtime {
                 }
             }
         } else {
-            match evaluated_args {
-                ValueOrValues::Value(value) => (&*external_function)(self, &[value]),
-                ValueOrValues::Values(values) => (&*external_function)(self, &values),
-            }
+            (&*external_function)(self, evaluated_args.as_slice())
         };
 
         match external_result {
@@ -1334,7 +1216,7 @@ impl Runtime {
             .skip(if implicit_self { 1 } else { 0 })
             .zip(args.iter())
         {
-            let arg_value = match self.evaluate_and_capture(arg) {
+            let arg_value = match self.evaluate(arg) {
                 Ok(value) => value,
                 e @ Err(_) => {
                     return e;
@@ -1378,7 +1260,7 @@ impl Runtime {
     pub fn call_function(&mut self, f: &RuntimeFunction, args: &[(Id, Value)]) -> RuntimeResult {
         self.call_stack.push_frame(&args);
         let cached_control_flow = self.control_flow.clone();
-        self.control_flow = ControlFlow::Function;
+        self.control_flow = ControlFlow::FunctionBody;
         let cached_capture_map = self.capture_map.clone();
         self.capture_map = Some(f.captured.clone());
 
@@ -1401,7 +1283,7 @@ impl Runtime {
         expression: &AstNode,
         node: &AstNode,
     ) -> RuntimeResult {
-        let value = self.evaluate_and_capture(expression)?;
+        let value = self.evaluate(expression)?;
 
         match target {
             AssignTarget::Id { id_index, scope } => {
@@ -1439,7 +1321,7 @@ impl Runtime {
         };
 
         if expressions.len() == 1 {
-            let value = self.evaluate_and_capture(&expressions[0])?;
+            let value = self.evaluate(&expressions[0])?;
 
             match &value {
                 List(l) => {
@@ -1471,7 +1353,7 @@ impl Runtime {
             let mut results = ValueVec::new();
 
             for expression in expressions.iter() {
-                let value = self.evaluate_and_capture(expression)?;
+                let value = self.evaluate(expression)?;
                 results.push(value);
             }
 
@@ -1642,13 +1524,13 @@ impl Runtime {
             )
         };
 
-        let lhs_value = self.evaluate_and_capture(lhs)?;
+        let lhs_value = self.evaluate(lhs)?;
 
         match op {
             AstOp::And => {
                 return if let Bool(a) = lhs_value {
                     if a {
-                        match self.evaluate_and_capture(rhs)? {
+                        match self.evaluate(rhs)? {
                             Bool(b) => Ok(Bool(b)),
                             rhs_value => binary_op_error(lhs_value, rhs_value),
                         }
@@ -1666,7 +1548,7 @@ impl Runtime {
             AstOp::Or => {
                 return if let Bool(a) = lhs_value {
                     if !a {
-                        match self.evaluate_and_capture(rhs)? {
+                        match self.evaluate(rhs)? {
                             Bool(b) => Ok(Bool(b)),
                             rhs_value => binary_op_error(lhs_value, rhs_value),
                         }
@@ -1684,7 +1566,7 @@ impl Runtime {
             _ => {}
         }
 
-        let rhs_value = self.evaluate_and_capture(rhs)?;
+        let rhs_value = self.evaluate(rhs)?;
 
         runtime_trace!(self, "{:?} - lhs: {} rhs: {}", op, &lhs_value, &rhs_value);
 
@@ -1810,7 +1692,7 @@ impl Runtime {
         use Value::{List, Number, Vec4};
 
         let v = match expressions {
-            [expression] => match &self.evaluate_and_capture(expression)? {
+            [expression] => match &self.evaluate(expression)? {
                 Number(n) => {
                     let n = *n as f32;
                     vec4::Vec4(n, n, n, n)
@@ -1931,13 +1813,5 @@ impl Runtime {
             LookupSliceOrId::Id(id_index) => self.get_constant_string(id_index).to_string(),
             LookupSliceOrId::LookupSlice(lookup_slice) => self.lookup_slice_to_string(lookup_slice),
         }
-    }
-}
-
-fn is_single_value_node(node: &Node) -> bool {
-    use Node::*;
-    match node {
-        For(_) | While(_) | Range { .. } | RangeFrom { .. } | RangeTo { .. } | RangeFull => false,
-        _ => true,
     }
 }

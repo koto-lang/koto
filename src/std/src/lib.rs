@@ -220,13 +220,12 @@ pub fn register(runtime: &mut Runtime) {
         [List(list)] => Ok(Number(list.data().len() as f64)),
         [Map(map)] => Ok(Number(map.data().len() as f64)),
         [Range { start, end }] => {
-            println!("size: start: {} end: {}", start, end);
-
-            Ok(Number(if end >= start {
+            let result = if end >= start {
                 end - start
             } else {
                 start - end
-            } as f64))
+            };
+            Ok(Number(result as f64))
         }
         [unexpected] => external_error!("size - '{}' is unsupported", unexpected),
         _ => external_error!("size expects a single argument, found {}", args.len()),

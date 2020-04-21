@@ -180,6 +180,7 @@ function_call = _{ call_no_parens }
 call_no_parens = ${
   lookup_or_id
   ~ ((WHITESPACE+ ~ value_term+){2, } | (WHITESPACE+ ~ operation))
+  ~ !(WHITESPACE* ~ ":")
   }
 
 call_args = !{
