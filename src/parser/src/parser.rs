@@ -150,7 +150,7 @@ impl KotoParser {
                 if expressions.len() == 1 {
                     expressions.first().unwrap().clone()
                 } else {
-                    AstNode::new(span, Node::List(expressions))
+                    AstNode::new(span, Node::Expressions(expressions))
                 }
             }
             Rule::empty => AstNode::new(span, Node::Empty),
