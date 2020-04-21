@@ -66,7 +66,7 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("n_body", |b| {
         let mut runner =
-            BenchmarkRunner::new("n_body.koto", vec!["1000".to_string(), "quiet".to_string()]);
+            BenchmarkRunner::new("n_body.koto", vec!["100".to_string(), "quiet".to_string()]);
         b.iter(|| {
             runner.run();
         })

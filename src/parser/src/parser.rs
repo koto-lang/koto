@@ -131,7 +131,7 @@ impl KotoParser {
 
         let span = pair.as_span();
         match pair.as_rule() {
-            Rule::next_expression => {
+            Rule::next_expressions => {
                 self.build_ast(pair.into_inner().next().unwrap(), constants, function_ids)
             }
             Rule::program | Rule::child_block => {
@@ -150,7 +150,7 @@ impl KotoParser {
                 if expressions.len() == 1 {
                     expressions.first().unwrap().clone()
                 } else {
-                    AstNode::new(span, Node::List(expressions))
+                    AstNode::new(span, Node::Expressions(expressions))
                 }
             }
             Rule::empty => AstNode::new(span, Node::Empty),
@@ -330,15 +330,6 @@ impl KotoParser {
                 let body: Vec<AstNode> = inner
                     .map(|pair| self.build_ast(pair, constants, &mut nested_function_ids))
                     .collect();
-
-                let body = if body.len() == 1 {
-                    vec![AstNode::new(
-                        span.clone(),
-                        Node::ReturnExpression(Box::new(body.first().unwrap().clone())),
-                    )]
-                } else {
-                    body
-                };
 
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.
@@ -665,7 +656,7 @@ impl KotoParser {
                     })),
                 )
             }
-            Rule::while_loop => {
+            Rule::while_block => {
                 let mut inner = pair.into_inner();
                 let negate_condition = match inner.next().unwrap().as_rule() {
                     Rule::while_keyword => false,
@@ -674,6 +665,24 @@ impl KotoParser {
                 };
                 let condition = next_as_boxed_ast!(inner);
                 let body = next_as_boxed_ast!(inner);
+                AstNode::new(
+                    span,
+                    Node::While(Arc::new(AstWhile {
+                        condition,
+                        body,
+                        negate_condition,
+                    })),
+                )
+            }
+            Rule::while_inline => {
+                let mut inner = pair.into_inner();
+                let body = next_as_boxed_ast!(inner);
+                let negate_condition = match inner.next().unwrap().as_rule() {
+                    Rule::while_keyword => false,
+                    Rule::until_keyword => true,
+                    _ => unreachable!(),
+                };
+                let condition = next_as_boxed_ast!(inner);
                 AstNode::new(
                     span,
                     Node::While(Arc::new(AstWhile {

@@ -46,7 +46,8 @@ match_digit = |n|
   for i in 0..10
     if i == n
       return match_digit_nested n
-x = (match_digit i) for i in 0..3
+
+x = [(match_digit i) for i in 0..3]
 assert_eq x [0 1 2]
 
 ###### return supports returning multiple values

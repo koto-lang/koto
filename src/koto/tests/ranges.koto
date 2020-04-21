@@ -1,14 +1,14 @@
-# Assigning a range to a value creates a list
+# Assigning a range to a value
 r = 0..2
-# Passing the range to a function will cause it to be captured in a list
-assert_eq r [0 1]
+# Ranges can be compared
+assert_eq r 0..2
 
 # Ranges are exclusive by default, ..= creates an inclusive range
 r = 0..=2
-assert_eq r [0 1 2]
+assert_eq [r] [0 1 2]
 
 assert_eq 10 (size [10..20])
-assert_eq 3 (size [r])
+assert_eq 3 (size r)
 
 # Indexing lists with ranges produces sub-lists
 n = [0..10]
@@ -33,8 +33,8 @@ assert_eq n[11..11] []
 # Descending ranges can also be used
 r = 2..0
 assert_eq 2 (size r)
-assert_eq r [2 1]
+assert_eq [r] [2 1]
 assert_eq [2..=0] [2 1 0]
 
-a = x for x in 4..=1
+a = [x for x in 4..=1]
 assert_eq a [4 3 2 1]

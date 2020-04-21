@@ -1,5 +1,5 @@
 # variables are captured during function creation
-multipliers = (|n| n * i) for i in 1..=4
+multipliers = [(|n| n * i) for i in 1..=4]
 assert_eq [2 4 6 8] [(multiplier 2) for multiplier in multipliers]
 
 

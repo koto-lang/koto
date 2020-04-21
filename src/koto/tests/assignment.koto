@@ -6,6 +6,14 @@ a = 1
 b = -a
 assert_eq a -b
 
+# Assignments return the assigned value
+assert_eq (a = 42) 42
+
+# Assignments can be chained
+a = b = -1
+assert_eq a -1
+assert_eq b -1
+
 f = ||
   global x = 42
 f()

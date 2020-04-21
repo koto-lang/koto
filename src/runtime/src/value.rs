@@ -87,6 +87,26 @@ impl PartialEq for Value {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
+            (
+                Range {
+                    start: start_a,
+                    end: end_a,
+                },
+                Range {
+                    start: start_b,
+                    end: end_b,
+                },
+            ) => start_a == start_b && end_a == end_b,
+            (
+                IndexRange {
+                    start: start_a,
+                    end: end_a,
+                },
+                IndexRange {
+                    start: start_b,
+                    end: end_b,
+                },
+            ) => start_a == start_b && end_a == end_b,
             (Function(a), Function(b)) => a == b,
             (Empty, Empty) => true,
             _ => false,

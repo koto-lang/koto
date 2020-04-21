@@ -30,13 +30,13 @@ x = |
 
 x 1 1
 
-x = {
+m = {
   foo:
     42
   bar:
     -1
 }
-assert_eq x.bar -1
+assert_eq m.bar -1
 
 x = [
   42
