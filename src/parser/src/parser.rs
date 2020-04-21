@@ -331,15 +331,6 @@ impl KotoParser {
                     .map(|pair| self.build_ast(pair, constants, &mut nested_function_ids))
                     .collect();
 
-                let body = if body.len() == 1 {
-                    vec![AstNode::new(
-                        span.clone(),
-                        Node::ReturnExpression(Box::new(body.first().unwrap().clone())),
-                    )]
-                } else {
-                    body
-                };
-
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.
                 let missing_captures = nested_function_ids
