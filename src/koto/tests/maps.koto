@@ -1,4 +1,4 @@
-o = { min: 0 max: || 42 }
+o = {min: 0, max: || 42}
 assert_eq 42 o.max()
 o2 = o
 assert_eq o o2
@@ -69,9 +69,9 @@ assert_eq o2.sum_foo() 100
 
 ###### Maps captured from for loops and control flow
 
-a = [{foo: x bar: y} for x, y in 1..=3, 4..=6]
+a = [{foo: x, bar: y} for x, y in 1..=3, 4..=6]
 
-assert_eq a [{foo: 1 bar: 4} {foo: 2 bar: 5} {foo: 3 bar: 6}]
+assert_eq a [{foo: 1, bar: 4} {foo: 2, bar: 5} {foo: 3, bar: 6}]
 
 make_map = |n|
   if n >= 0

@@ -207,7 +207,7 @@ function_args = {
 map_inline = !{
   "{"
   ~ separator_line*
-  ~ (map_entry_inline ~ separator_line*)*
+  ~ (map_entry_inline ~ (comma_separator ~ map_entry_inline)* ~ comma_separator?)?
   ~ "}"
 }
 map_entry_inline = !{ id ~ ":" ~ separator_line* ~ operation }
@@ -365,7 +365,7 @@ then_keyword = @{ then ~ WHITESPACE+ }
 until_keyword = @{ until ~ WHITESPACE+ }
 while_keyword = @{ while_ ~ WHITESPACE+ }
 
-comma_separator = _{ "," ~ separator_line* }
+comma_separator = _{ ("," ~ separator_line*) | separator_line* }
 separator_line = _{ inline_comment? ~ (WHITESPACE+ | NEWLINE) ~ (comment ~ NEWLINE)* }
 
 WHITESPACE = _{ whitespace_char | ("\\" ~ whitespace_char* ~ NEWLINE) }
