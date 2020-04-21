@@ -237,6 +237,7 @@ impl Runtime {
                 }
             },
             Node::CopyExpression(expression) => copy_value(&self.evaluate(expression)?),
+            Node::MainBlock { body, .. } => self.evaluate_block(&body)?,
             Node::Block(block) => self.evaluate_block(&block)?,
             Node::Expressions(expressions) => List(ValueList::with_data(
                 self.evaluate_expressions(expressions)?,

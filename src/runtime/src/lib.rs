@@ -6,6 +6,7 @@ pub mod value;
 mod value_iterator;
 mod value_list;
 mod value_map;
+mod vm;
 
 use koto_parser::LookupSlice;
 
@@ -16,6 +17,7 @@ pub use external::{ExternalFunction, ExternalValue};
 pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};
+pub use vm::Vm;
 
 pub const EXTERNAL_DATA_ID: &str = "_external_data";
 
@@ -36,7 +38,7 @@ pub type RuntimeResult = Result<Value, Error>;
 #[macro_export]
 macro_rules! make_runtime_error {
     ($node:expr, $message:expr) => {{
-        let error = Error::RuntimeError {
+        let error = $crate::Error::RuntimeError {
             message: $message,
             start_pos: $node.start_pos,
             end_pos: $node.end_pos,

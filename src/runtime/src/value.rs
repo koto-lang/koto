@@ -29,6 +29,12 @@ pub enum Value {
     While(Arc<AstWhile>),
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Value::Empty
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
