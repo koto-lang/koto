@@ -24,6 +24,8 @@ enum Instruction {
     Multiply(u8, u8, u8),
     Less(u8, u8, u8),
     Greater(u8, u8, u8),
+    Equal(u8, u8, u8),
+    NotEqual(u8, u8, u8),
     Jump(usize),
     JumpIf(u8, usize, bool),
 }
@@ -66,6 +68,16 @@ impl fmt::Display for Instruction {
             Greater(register, lhs, rhs) => write!(
                 f,
                 "Greater\tregister: {}\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            Equal(register, lhs, rhs) => write!(
+                f,
+                "Equal\tregister: {}\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            NotEqual(register, lhs, rhs) => write!(
+                f,
+                "NotEqual\tregister: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Jump(offset) => write!(f, "Jump\t\toffset: {}", offset),
@@ -176,6 +188,8 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::Multiply => Some(Multiply(get_byte!(), get_byte!(), get_byte!())),
             Op::Less => Some(Less(get_byte!(), get_byte!(), get_byte!())),
             Op::Greater => Some(Greater(get_byte!(), get_byte!(), get_byte!())),
+            Op::Equal => Some(Equal(get_byte!(), get_byte!(), get_byte!())),
+            Op::NotEqual => Some(NotEqual(get_byte!(), get_byte!(), get_byte!())),
             Op::Jump => Some(Jump(get_u16!() as usize)),
             Op::JumpTrue => Some(JumpIf(get_byte!(), get_u16!() as usize, true)),
             Op::JumpFalse => Some(JumpIf(get_byte!(), get_u16!() as usize, false)),
@@ -281,6 +295,18 @@ impl Vm {
                             return binary_op_error(instruction, lhs, rhs);
                         }
                     };
+                    self.set_register(result_register, result);
+                }
+                Equal(result_register, lhs_register, rhs_register) => {
+                    let lhs = self.load_register(lhs_register);
+                    let rhs = self.load_register(rhs_register);
+                    let result = (lhs == rhs).into();
+                    self.set_register(result_register, result);
+                }
+                NotEqual(result_register, lhs_register, rhs_register) => {
+                    let lhs = self.load_register(lhs_register);
+                    let rhs = self.load_register(rhs_register);
+                    let result = (lhs != rhs).into();
                     self.set_register(result_register, result);
                 }
                 Jump(offset) => {
@@ -427,6 +453,10 @@ else
 ";
         let result = run_script(script);
         assert_eq!(result, Value::Number(-1.0));
+
+        let script = "1 + 1 == 2 and 2 + 2 != 5";
+        let result = run_script(script);
+        assert_eq!(result, Value::Bool(true));
     }
 
     // #[test]

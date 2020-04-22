@@ -575,7 +575,7 @@ impl KotoParser {
                         }
                     },
                 );
-                self.post_process_operation_tree(operation_tree, 0, constants)
+                self.post_process_operation_tree(operation_tree, 0, constants, local_ids)
             }
             Rule::if_inline => {
                 let mut inner = pair.into_inner();
@@ -766,6 +766,7 @@ impl KotoParser {
         tree: AstNode,
         temp_value_counter: usize,
         constants: &mut ConstantPool,
+        local_ids: &mut LocalIds,
     ) -> AstNode {
         // To support chained comparisons:
         //   if the node is an op
@@ -826,6 +827,8 @@ impl KotoParser {
                                 _ => unreachable!(),
                             };
 
+                            local_ids.ids_assigned_in_scope.insert(chained_temp_value);
+
                             // rewrite the rhs to perform the node's comparison,
                             // reading from the temp value on its lhs
                             let rhs = Box::new(AstNode {
@@ -858,11 +861,13 @@ impl KotoParser {
                             *lhs,
                             temp_value_counter + 1,
                             constants,
+                            local_ids,
                         )),
                         rhs: Box::new(self.post_process_operation_tree(
                             *rhs,
                             temp_value_counter + 1,
                             constants,
+                            local_ids,
                         )),
                     },
                     ..tree

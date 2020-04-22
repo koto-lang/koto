@@ -20,6 +20,8 @@ pub enum Op {
     Multiply,       // target, lhs, rhs
     Less,           // target, lhs, rhs
     Greater,        // target, lhs, rhs
+    Equal,          // target, lhs, rhs
+    NotEqual,       // target, lhs, rhs
     Jump,           // offset[2]
     JumpTrue,       // register, offset[2]
     JumpFalse,      // register, offset[2]

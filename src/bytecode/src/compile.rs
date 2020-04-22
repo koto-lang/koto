@@ -2,70 +2,58 @@ use crate::{Bytecode, Op};
 
 use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, ConstantIndex, Node};
 
-const BYTE_MAX: u32 = std::u8::MAX as u32;
+const BYTE_MAX: u8 = std::u8::MAX;
 
 #[derive(Clone)]
-enum Register {
-    Inactive,
-    Active,
-    Local,
-}
-
-#[derive(Clone, Default)]
 struct Frame {
-    registers: Vec<Register>,
     register_stack: Vec<u8>,
-    local_registers: Vec<(ConstantIndex, u8)>,
+    local_registers: Vec<ConstantIndex>,
+    temporary_base: u8,
+    temporary_count: u8,
 }
 
 impl Frame {
-    fn new() -> Self {
+    fn new(local_count: u8) -> Self {
         Self {
-            ..Default::default()
+            register_stack: Vec::with_capacity(local_count as usize),
+            local_registers: Vec::with_capacity(local_count as usize),
+            temporary_base: local_count,
+            temporary_count: 0,
         }
     }
 
     fn get_register(&mut self) -> Result<u8, String> {
-        let register = match self
-            .registers
-            .iter()
-            .position(|assigned| matches!(assigned, Register::Inactive))
-        {
-            Some(inactive) => {
-                self.registers[inactive] = Register::Active;
-                inactive
-            }
-            None => {
-                self.registers.push(Register::Active);
-                let new_register = self.registers.len() - 1;
-                if new_register > BYTE_MAX as usize {
-                    return Err("Reached maximum number of registers".to_string());
-                }
-                new_register
-            }
-        } as u8;
+        let new_register = self.temporary_base + self.temporary_count;
+        self.temporary_count += 1;
 
-        self.register_stack.push(register);
-        Ok(register)
+        if new_register > BYTE_MAX {
+            Err("Reached maximum number of registers".to_string())
+        } else {
+            self.register_stack.push(new_register);
+            Ok(new_register)
+        }
     }
 
     fn get_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
         let local_register = match self
             .local_registers
             .iter()
-            .find(|(index, _)| local == *index)
+            .position(|constant_index| local == *constant_index)
         {
-            Some((_, assigned)) => {
-                self.register_stack.push(*assigned);
-                *assigned
-            }
+            Some(assigned) => assigned,
             None => {
-                let new_register = self.get_register()?;
-                self.registers[new_register as usize] = Register::Local;
-                self.local_registers.push((local, new_register));
-                new_register
+                self.local_registers.push(local);
+                let new_local_register = self.local_registers.len() - 1;
+
+                if new_local_register > self.temporary_base as usize {
+                    return Err("get_local_register: Locals overflowed".to_string());
+                }
+
+                new_local_register
             }
-        };
+        } as u8;
+
+        self.register_stack.push(local_register);
 
         Ok(local_register)
     }
@@ -74,15 +62,16 @@ impl Frame {
         let register = match self.register_stack.pop() {
             Some(register) => register,
             None => {
-                panic!("pop_register: Empty register stack".to_string());
-                // return Err("pop_register: Empty register stack".to_string());
+                return Err("pop_register: Empty register stack".to_string());
             }
         };
 
-        match &mut self.registers[register as usize] {
-            r @ Register::Active => *r = Register::Inactive,
-            Register::Local => {}
-            _ => unreachable!(),
+        if register >= self.temporary_base {
+            if self.temporary_count == 0 {
+                return Err("pop_register: Unexpected temporary register".to_string());
+            }
+
+            self.temporary_count -= 1;
         }
 
         Ok(register)
@@ -118,8 +107,8 @@ impl Compiler {
         Ok(&self.bytes)
     }
 
-    fn compile_frame(&mut self, expressions: &[AstNode]) -> Result<(), String> {
-        self.frame_stack.push(Frame::new());
+    fn compile_frame(&mut self, local_count: u8, expressions: &[AstNode]) -> Result<(), String> {
+        self.frame_stack.push(Frame::new(local_count));
 
         self.compile_expressions(expressions)?;
 
@@ -182,7 +171,7 @@ impl Compiler {
             Node::Number(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
-                if constant <= BYTE_MAX {
+                if constant <= BYTE_MAX as u32 {
                     self.push(&[LoadNumber.into(), target, constant as u8]);
                 } else {
                     self.push(&[LoadNumberLong.into(), target]);
@@ -192,15 +181,15 @@ impl Compiler {
             Node::Str(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
-                if constant <= BYTE_MAX {
+                if constant <= BYTE_MAX as u32 {
                     self.push(&[LoadString.into(), target, constant as u8]);
                 } else {
                     self.push(&[LoadStringLong.into(), target]);
                     self.push(&constant.to_le_bytes());
                 }
             }
-            Node::MainBlock { body, .. } => {
-                self.compile_frame(body)?;
+            Node::MainBlock { body, local_count } => {
+                self.compile_frame(*local_count as u8, body)?;
             }
             Node::Block(expressions) => {
                 self.compile_expressions(expressions)?;
@@ -227,6 +216,8 @@ impl Compiler {
                     AstOp::Multiply => Multiply,
                     AstOp::Less => Less,
                     AstOp::Greater => Greater,
+                    AstOp::Equal => Equal,
+                    AstOp::NotEqual => NotEqual,
                     AstOp::And | AstOp::Or => {
                         self.compile_node(&lhs)?;
                         let lhs_register = self.frame_mut().pop_register()?;
@@ -241,7 +232,7 @@ impl Compiler {
 
                         return Ok(());
                     }
-                    _ => unimplemented!("missing AstOp"),
+                    unexpected => unimplemented!("Missing AstOp: {:?}", unexpected),
                 };
 
                 self.compile_node(&lhs)?;
