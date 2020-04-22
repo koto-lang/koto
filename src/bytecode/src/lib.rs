@@ -7,24 +7,24 @@ pub type Bytecode = Vec<u8>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Op {
-    Move,           // target, source
-    SetEmpty,       // target
-    SetTrue,        // target
-    SetFalse,       // target
-    Return,         // target
-    LoadNumber,     // target, constant
-    LoadNumberLong, // target, constant[4]
-    LoadString,     // target, constant
-    LoadStringLong, // target, constant[4]
-    LoadGlobal,     // target, constant
-    LoadGlobalLong, // target, constant[4]
-    MakeFunction,   // target, arg count, size[2]
-    Add,            // target, lhs, rhs
-    Multiply,       // target, lhs, rhs
-    Less,           // target, lhs, rhs
-    Greater,        // target, lhs, rhs
-    Equal,          // target, lhs, rhs
-    NotEqual,       // target, lhs, rhs
+    Copy,           // register, source
+    SetEmpty,       // register
+    SetTrue,        // register
+    SetFalse,       // register
+    Return,         // register
+    LoadNumber,     // register, constant
+    LoadNumberLong, // register, constant[4]
+    LoadString,     // register, constant
+    LoadStringLong, // register, constant[4]
+    LoadGlobal,     // register, constant
+    LoadGlobalLong, // register, constant[4]
+    MakeFunction,   // register, arg count, size[2]
+    Add,            // register, lhs, rhs
+    Multiply,       // register, lhs, rhs
+    Less,           // register, lhs, rhs
+    Greater,        // register, lhs, rhs
+    Equal,          // register, lhs, rhs
+    NotEqual,       // register, lhs, rhs
     Jump,           // offset[2]
     JumpTrue,       // register, offset[2]
     JumpFalse,      // register, offset[2]

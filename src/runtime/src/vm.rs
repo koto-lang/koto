@@ -12,94 +12,160 @@ use std::{
 
 #[derive(Debug)]
 enum Instruction {
-    Error(String),
-    Move(u8, u8),
-    SetEmpty(u8),
-    SetTrue(u8),
-    SetFalse(u8),
-    Return(u8),
-    LoadNumber(u8, usize),
-    LoadString(u8, usize),
-    LoadGlobal(u8, usize),
-    MakeFunction(u8, u8, usize),
-    Add(u8, u8, u8),
-    Multiply(u8, u8, u8),
-    Less(u8, u8, u8),
-    Greater(u8, u8, u8),
-    Equal(u8, u8, u8),
-    NotEqual(u8, u8, u8),
-    Jump(usize),
-    JumpIf(u8, usize, bool),
-    Call(u8, u8, u8),
+    Error {
+        message: String,
+    },
+    Copy {
+        target: u8,
+        source: u8,
+    },
+    SetEmpty {
+        register: u8,
+    },
+    SetTrue {
+        register: u8,
+    },
+    SetFalse {
+        register: u8,
+    },
+    Return {
+        register: u8,
+    },
+    LoadNumber {
+        register: u8,
+        constant: usize,
+    },
+    LoadString {
+        register: u8,
+        constant: usize,
+    },
+    LoadGlobal {
+        register: u8,
+        constant: usize,
+    },
+    MakeFunction {
+        register: u8,
+        arg_count: u8,
+        size: usize,
+    },
+    Add {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Multiply {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Less {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Greater {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Equal {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    NotEqual {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Jump {
+        offset: usize,
+    },
+    JumpIf {
+        register: u8,
+        offset: usize,
+        jump_condition: bool,
+    },
+    Call {
+        register: u8,
+        arg_register: u8,
+        arg_count: u8,
+    },
 }
 
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error(_) => unreachable!(),
-            Move(target, source) => write!(f, "Move\t\ttarget: {}\tsource: {}", target, source),
-            SetEmpty(register) => write!(f, "SetEmpty\treg: {}", register),
-            SetTrue(register) => write!(f, "SetTrue\treg: {}", register),
-            SetFalse(register) => write!(f, "SetFalse\treg: {}", register),
-            Return(register) => write!(f, "Return\t\treg: {}", register),
-            LoadNumber(register, constant) => write!(
-                f,
-                "LoadNumber\treg: {}\t\tconstant: {}",
-                register, constant
-            ),
-            LoadString(register, constant) => write!(
-                f,
-                "LoadString\treg: {}\t\tconstant: {}",
-                register, constant
-            ),
-            LoadGlobal(register, constant) => write!(
-                f,
-                "LoadGlobal\treg: {}\t\tconstant: {}",
-                register, constant
-            ),
-            MakeFunction(register, arg_count, size) => write!(
+            Error { .. } => unreachable!(),
+            Copy { target, source } => write!(f, "Copy\t\ttarget: {}\tsource: {}", target, source),
+            SetEmpty { register } => write!(f, "SetEmpty\treg: {}", register),
+            SetTrue { register } => write!(f, "SetTrue\treg: {}", register),
+            SetFalse { register } => write!(f, "SetFalse\treg: {}", register),
+            Return { register } => write!(f, "Return\t\treg: {}", register),
+            LoadNumber { register, constant } => {
+                write!(f, "LoadNumber\treg: {}\t\tconstant: {}", register, constant)
+            }
+            LoadString { register, constant } => {
+                write!(f, "LoadString\treg: {}\t\tconstant: {}", register, constant)
+            }
+            LoadGlobal { register, constant } => {
+                write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
+            }
+            MakeFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
                 f,
                 "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
                 register, arg_count, size
             ),
-            Add(register, lhs, rhs) => write!(
+            Add { register, lhs, rhs } => write!(
                 f,
                 "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            Multiply(register, lhs, rhs) => write!(
+            Multiply { register, lhs, rhs } => write!(
                 f,
                 "Multiply\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            Less(register, lhs, rhs) => write!(
+            Less { register, lhs, rhs } => write!(
                 f,
                 "Less\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            Greater(register, lhs, rhs) => write!(
+            Greater { register, lhs, rhs } => write!(
                 f,
                 "Greater\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            Equal(register, lhs, rhs) => write!(
+            Equal { register, lhs, rhs } => write!(
                 f,
                 "Equal\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            NotEqual(register, lhs, rhs) => write!(
+            NotEqual { register, lhs, rhs } => write!(
                 f,
                 "NotEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
-            Jump(offset) => write!(f, "Jump\t\toffset: {}", offset),
-            JumpIf(register, offset, jump_condition) => write!(
+            Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
+            JumpIf {
+                register,
+                offset,
+                jump_condition,
+            } => write!(
                 f,
                 "JumpIf\t\treg: {}\t\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
-            Call(register, arg_register, arg_count) => write!(
+            Call {
+                register,
+                arg_register,
+                arg_count,
+            } => write!(
                 f,
                 "Call\t\treg: {}\t\targ_reg: {}\targs: {}",
                 register, arg_register, arg_count
@@ -145,7 +211,9 @@ impl<'a> Iterator for InstructionReader<'a> {
                         *byte
                     }
                     None => {
-                        return Some(Error(format!("Expected byte at position {}", self.ip)));
+                        return Some(Error {
+                            message: format!("Expected byte at position {}", self.ip),
+                        });
                     }
                 }
             }};
@@ -159,7 +227,9 @@ impl<'a> Iterator for InstructionReader<'a> {
                         u16::from_le_bytes(u16_bytes.try_into().unwrap())
                     }
                     None => {
-                        return Some(Error(format!("Expected 2 bytes at position {}", self.ip)));
+                        return Some(Error {
+                            message: format!("Expected 2 bytes at position {}", self.ip),
+                        });
                     }
                 }
             }};
@@ -173,7 +243,9 @@ impl<'a> Iterator for InstructionReader<'a> {
                         u32::from_le_bytes(u32_bytes.try_into().unwrap())
                     }
                     None => {
-                        return Some(Error(format!("Expected 4 bytes at position {}", self.ip)));
+                        return Some(Error {
+                            message: format!("Expected 4 bytes at position {}", self.ip),
+                        });
                     }
                 }
             }};
@@ -187,38 +259,111 @@ impl<'a> Iterator for InstructionReader<'a> {
         let op = match Op::try_from(byte) {
             Ok(op) => op,
             Err(_) => {
-                return Some(Error(format!(
-                    "Unexpected opcode {} found at instruction {}",
-                    byte, self.ip
-                )));
+                return Some(Error {
+                    message: format!(
+                        "Unexpected opcode {} found at instruction {}",
+                        byte, self.ip
+                    ),
+                });
             }
         };
 
         self.ip += 1;
 
         match op {
-            Op::Move => Some(Move(get_byte!(), get_byte!())),
-            Op::SetEmpty => Some(SetEmpty(get_byte!())),
-            Op::SetTrue => Some(SetTrue(get_byte!())),
-            Op::SetFalse => Some(SetFalse(get_byte!())),
-            Op::Return => Some(Return(get_byte!())),
-            Op::LoadNumber => Some(LoadNumber(get_byte!(), get_byte!() as usize)),
-            Op::LoadNumberLong => Some(LoadNumber(get_byte!(), get_u32!() as usize)),
-            Op::LoadString => Some(LoadString(get_byte!(), get_byte!() as usize)),
-            Op::LoadStringLong => Some(LoadString(get_byte!(), get_u32!() as usize)),
-            Op::LoadGlobal => Some(LoadGlobal(get_byte!(), get_byte!() as usize)),
-            Op::LoadGlobalLong => Some(LoadGlobal(get_byte!(), get_u32!() as usize)),
-            Op::MakeFunction => Some(MakeFunction(get_byte!(), get_byte!(), get_u16!() as usize)),
-            Op::Add => Some(Add(get_byte!(), get_byte!(), get_byte!())),
-            Op::Multiply => Some(Multiply(get_byte!(), get_byte!(), get_byte!())),
-            Op::Less => Some(Less(get_byte!(), get_byte!(), get_byte!())),
-            Op::Greater => Some(Greater(get_byte!(), get_byte!(), get_byte!())),
-            Op::Equal => Some(Equal(get_byte!(), get_byte!(), get_byte!())),
-            Op::NotEqual => Some(NotEqual(get_byte!(), get_byte!(), get_byte!())),
-            Op::Jump => Some(Jump(get_u16!() as usize)),
-            Op::JumpTrue => Some(JumpIf(get_byte!(), get_u16!() as usize, true)),
-            Op::JumpFalse => Some(JumpIf(get_byte!(), get_u16!() as usize, false)),
-            Op::Call => Some(Call(get_byte!(), get_byte!(), get_byte!())),
+            Op::Copy => Some(Copy {
+                target: get_byte!(),
+                source: get_byte!(),
+            }),
+            Op::SetEmpty => Some(SetEmpty {
+                register: get_byte!(),
+            }),
+            Op::SetTrue => Some(SetTrue {
+                register: get_byte!(),
+            }),
+            Op::SetFalse => Some(SetFalse {
+                register: get_byte!(),
+            }),
+            Op::Return => Some(Return {
+                register: get_byte!(),
+            }),
+            Op::LoadNumber => Some(LoadNumber {
+                register: get_byte!(),
+                constant: get_byte!() as usize,
+            }),
+            Op::LoadNumberLong => Some(LoadNumber {
+                register: get_byte!(),
+                constant: get_u32!() as usize,
+            }),
+            Op::LoadString => Some(LoadString {
+                register: get_byte!(),
+                constant: get_byte!() as usize,
+            }),
+            Op::LoadStringLong => Some(LoadString {
+                register: get_byte!(),
+                constant: get_u32!() as usize,
+            }),
+            Op::LoadGlobal => Some(LoadGlobal {
+                register: get_byte!(),
+                constant: get_byte!() as usize,
+            }),
+            Op::LoadGlobalLong => Some(LoadGlobal {
+                register: get_byte!(),
+                constant: get_u32!() as usize,
+            }),
+            Op::MakeFunction => Some(MakeFunction {
+                register: get_byte!(),
+                arg_count: get_byte!(),
+                size: get_u16!() as usize,
+            }),
+            Op::Add => Some(Add {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Multiply => Some(Multiply {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Less => Some(Less {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Greater => Some(Greater {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Equal => Some(Equal {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::NotEqual => Some(NotEqual {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Jump => Some(Jump {
+                offset: get_u16!() as usize,
+            }),
+            Op::JumpTrue => Some(JumpIf {
+                register: get_byte!(),
+                offset: get_u16!() as usize,
+                jump_condition: true,
+            }),
+            Op::JumpFalse => Some(JumpIf {
+                register: get_byte!(),
+                offset: get_u16!() as usize,
+                jump_condition: false,
+            }),
+            Op::Call => Some(Call {
+                register: get_byte!(),
+                arg_register: get_byte!(),
+                arg_count: get_byte!(),
+            }),
         }
     }
 }
@@ -280,17 +425,17 @@ impl Vm {
 
         while let Some(instruction) = instruction_reader.next() {
             match instruction {
-                Error(error) => {
-                    return runtime_error!(AstNode::default(), "{}", error);
+                Error { message } => {
+                    return runtime_error!(AstNode::default(), "{}", message);
                 }
-                Move(target, source_register) => {
-                    let source = self.load_register(source_register);
-                    self.set_register(target, source);
+                Copy { target, source } => {
+                    let source_value = self.load_register(source);
+                    self.set_register(target, source_value);
                 }
-                SetEmpty(register) => self.set_register(register, Empty),
-                SetTrue(register) => self.set_register(register, Bool(true)),
-                SetFalse(register) => self.set_register(register, Bool(false)),
-                Return(register) => {
+                SetEmpty { register } => self.set_register(register, Empty),
+                SetTrue { register } => self.set_register(register, Bool(true)),
+                SetFalse { register } => self.set_register(register, Bool(false)),
+                Return { register } => {
                     self.frame_mut().result = self.load_register(register);
 
                     let return_ip = self.frame().return_ip;
@@ -302,14 +447,14 @@ impl Vm {
                         instruction_reader.set_position(return_ip);
                     }
                 }
-                LoadNumber(register, constant) => {
+                LoadNumber { register, constant } => {
                     self.set_register(register, Number(self.constants.get_f64(constant as usize)))
                 }
-                LoadString(register, constant) => {
+                LoadString { register, constant } => {
                     let string = self.arc_string_from_constant(constant);
                     self.set_register(register, Str(string))
                 }
-                LoadGlobal(register, constant) => {
+                LoadGlobal { register, constant } => {
                     let global_name = self.get_constant_string(constant as usize);
                     let global = self.global.data().get(global_name).cloned();
                     match global {
@@ -323,7 +468,11 @@ impl Vm {
                         }
                     }
                 }
-                MakeFunction(register, arg_count, size) => {
+                MakeFunction {
+                    register,
+                    arg_count,
+                    size,
+                } => {
                     let function = VmFunction {
                         ip: instruction_reader.ip,
                         arg_count,
@@ -331,66 +480,70 @@ impl Vm {
                     instruction_reader.jump(size);
                     self.set_register(register, function);
                 }
-                Add(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = match (&lhs, &rhs) {
+                Add { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a + b),
                         _ => {
-                            return binary_op_error(instruction, lhs, rhs);
+                            return binary_op_error(instruction, lhs_value, rhs_value);
                         }
                     };
-                    self.set_register(result_register, result);
+                    self.set_register(register, result);
                 }
-                Multiply(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = match (&lhs, &rhs) {
+                Multiply { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a * b),
                         _ => {
-                            return binary_op_error(instruction, lhs, rhs);
+                            return binary_op_error(instruction, lhs_value, rhs_value);
                         }
                     };
-                    self.set_register(result_register, result);
+                    self.set_register(register, result);
                 }
-                Less(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = match (&lhs, &rhs) {
+                Less { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a < b),
                         _ => {
-                            return binary_op_error(instruction, lhs, rhs);
+                            return binary_op_error(instruction, lhs_value, rhs_value);
                         }
                     };
-                    self.set_register(result_register, result);
+                    self.set_register(register, result);
                 }
-                Greater(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = match (&lhs, &rhs) {
+                Greater { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a > b),
                         _ => {
-                            return binary_op_error(instruction, lhs, rhs);
+                            return binary_op_error(instruction, lhs_value, rhs_value);
                         }
                     };
-                    self.set_register(result_register, result);
+                    self.set_register(register, result);
                 }
-                Equal(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = (lhs == rhs).into();
-                    self.set_register(result_register, result);
+                Equal { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = (lhs_value == rhs_value).into();
+                    self.set_register(register, result);
                 }
-                NotEqual(result_register, lhs_register, rhs_register) => {
-                    let lhs = self.load_register(lhs_register);
-                    let rhs = self.load_register(rhs_register);
-                    let result = (lhs != rhs).into();
-                    self.set_register(result_register, result);
+                NotEqual { register, lhs, rhs } => {
+                    let lhs_value = self.load_register(lhs);
+                    let rhs_value = self.load_register(rhs);
+                    let result = (lhs_value != rhs_value).into();
+                    self.set_register(register, result);
                 }
-                Jump(offset) => {
+                Jump { offset } => {
                     instruction_reader.jump(offset);
                 }
-                JumpIf(register, offset, jump_condition) => match self.load_register(register) {
+                JumpIf {
+                    register,
+                    offset,
+                    jump_condition,
+                } => match self.load_register(register) {
                     Bool(b) => {
                         if b == jump_condition {
                             instruction_reader.jump(offset);
@@ -404,12 +557,16 @@ impl Vm {
                         );
                     }
                 },
-                Call(register, arg_register, call_arg_count) => {
+                Call {
+                    register,
+                    arg_register,
+                    arg_count,
+                } => {
                     let function = self.load_register(register);
                     match function {
                         ExternalFunction(f) => {
                             let function = f.function.as_ref();
-                            let args = self.register_slice(arg_register, call_arg_count);
+                            let args = self.register_slice(arg_register, arg_count);
                             let result = (&*function)(&mut Runtime::default(), args);
                             match result {
                                 Ok(value) => {
@@ -424,12 +581,12 @@ impl Vm {
                             ip: function_ip,
                             arg_count: function_arg_count,
                         } => {
-                            if function_arg_count != call_arg_count {
+                            if function_arg_count != arg_count {
                                 return runtime_error!(
                                     AstNode::default(),
                                     "Function expects {} arguments, found {}",
                                     function_arg_count,
-                                    call_arg_count
+                                    arg_count
                                 );
                             }
 

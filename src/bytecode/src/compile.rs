@@ -156,7 +156,7 @@ impl Compiler {
         if let Some(result_register) = result_register {
             let register = self.frame_mut().get_register()?;
             if register != result_register {
-                self.push(&[Move.into(), register, result_register]);
+                self.push(&[Copy.into(), register, result_register]);
             }
         } else {
             let register = self.frame_mut().get_register()?;
@@ -280,7 +280,7 @@ impl Compiler {
                     if *frame.peek_register().unwrap() < frame.temporary_base {
                         let source = frame.pop_register()?;
                         let target = frame.get_register()?;
-                        self.push(&[Move.into(), target, source]);
+                        self.push(&[Copy.into(), target, source]);
                     }
                 }
 
@@ -304,7 +304,7 @@ impl Compiler {
                 };
                 let target = self.frame_mut().get_local_register(*target_id)?;
                 if target != source {
-                    self.push(&[Move.into(), target, source]);
+                    self.push(&[Copy.into(), target, source]);
                 }
             }
             Node::Op { op, lhs, rhs } => {
