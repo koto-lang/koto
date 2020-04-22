@@ -136,7 +136,7 @@ impl Compiler {
         self.compile_expressions(expressions)?;
 
         let result_register = self.frame_mut().pop_register()?;
-        self.push(&[Op::Return.into(), result_register]);
+        self.push_bytes(&[Op::Return.into(), result_register]);
 
         self.frame_stack.pop();
 
@@ -156,11 +156,11 @@ impl Compiler {
         if let Some(result_register) = result_register {
             let register = self.frame_mut().get_register()?;
             if register != result_register {
-                self.push(&[Copy.into(), register, result_register]);
+                self.push_bytes(&[Copy.into(), register, result_register]);
             }
         } else {
             let register = self.frame_mut().get_register()?;
-            self.push(&[SetEmpty.into(), register]);
+            self.push_bytes(&[SetEmpty.into(), register]);
         }
 
         Ok(())
@@ -180,7 +180,7 @@ impl Compiler {
         match &node.node {
             Node::Empty => {
                 let target = self.frame_mut().get_register()?;
-                self.push(&[SetEmpty.into(), target]);
+                self.push_op(SetEmpty, &[target]);
             }
             Node::Id(index) => {
                 if self.frame().is_local(*index) {
@@ -191,30 +191,30 @@ impl Compiler {
             }
             Node::BoolTrue => {
                 let target = self.frame_mut().get_register()?;
-                self.push(&[SetTrue.into(), target]);
+                self.push_op(SetTrue, &[target]);
             }
             Node::BoolFalse => {
                 let target = self.frame_mut().get_register()?;
-                self.push(&[SetFalse.into(), target]);
+                self.push_op(SetFalse, &[target]);
             }
             Node::Number(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
                 if constant <= BYTE_MAX as u32 {
-                    self.push(&[LoadNumber.into(), target, constant as u8]);
+                    self.push_op(LoadNumber, &[target, constant as u8]);
                 } else {
-                    self.push(&[LoadNumberLong.into(), target]);
-                    self.push(&constant.to_le_bytes());
+                    self.push_op(LoadNumberLong, &[target]);
+                    self.push_bytes(&constant.to_le_bytes());
                 }
             }
             Node::Str(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
                 if constant <= BYTE_MAX as u32 {
-                    self.push(&[LoadString.into(), target, constant as u8]);
+                    self.push_op(LoadString, &[target, constant as u8]);
                 } else {
-                    self.push(&[LoadStringLong.into(), target]);
-                    self.push(&constant.to_le_bytes());
+                    self.push_op(LoadStringLong, &[target]);
+                    self.push_bytes(&constant.to_le_bytes());
                 }
             }
             Node::MainBlock { body, local_count } => {
@@ -234,7 +234,7 @@ impl Compiler {
                         ));
                     }
                 };
-                self.push(&[MakeFunction.into(), target, arg_count]);
+                self.push_op(MakeFunction, &[target, arg_count]);
                 let function_size_ip = self.push_offset_placeholder();
 
                 let local_count = match u8::try_from(function.local_count) {
@@ -280,16 +280,14 @@ impl Compiler {
                     if *frame.peek_register().unwrap() < frame.temporary_base {
                         let source = frame.pop_register()?;
                         let target = frame.get_register()?;
-                        self.push(&[Copy.into(), target, source]);
+                        self.push_op(Copy, &[target, source]);
                     }
                 }
 
-                self.push(&[
-                    Call.into(),
-                    function_register,
-                    first_arg_register,
-                    args.len() as u8,
-                ]);
+                self.push_op(
+                    Call,
+                    &[function_register, first_arg_register, args.len() as u8],
+                );
 
                 // The return value gets placed in the function call register
                 // TODO multiple return values
@@ -304,7 +302,7 @@ impl Compiler {
                 };
                 let target = self.frame_mut().get_local_register(*target_id)?;
                 if target != source {
-                    self.push(&[Copy.into(), target, source]);
+                    self.push_op(Copy, &[target, source]);
                 }
             }
             Node::Op { op, lhs, rhs } => {
@@ -324,7 +322,7 @@ impl Compiler {
                             JumpTrue
                         };
 
-                        self.push(&[jump_op.into(), lhs_register]);
+                        self.push_op(jump_op, &[lhs_register]);
                         self.compile_node_with_jump_offset(&rhs)?;
 
                         return Ok(());
@@ -339,71 +337,79 @@ impl Compiler {
                 let rhs_register = frame.pop_register()?;
                 let lhs_register = frame.pop_register()?;
                 let target = frame.get_register()?;
-                self.push(&[op.into(), target, lhs_register, rhs_register]);
+                self.push_op(op, &[target, lhs_register, rhs_register]);
             }
-            Node::If(AstIf {
-                condition,
-                then_node,
-                else_if_condition,
-                else_if_node,
-                else_node,
-            }) => {
-                self.compile_node(&condition)?;
-                let condition_register = self.frame_mut().pop_register()?;
-
-                self.push(&[JumpFalse.into(), condition_register]);
-                let if_jump_ip = self.push_offset_placeholder();
-
-                let stack_count = self.frame().register_stack.len();
-                self.compile_node(&then_node)?;
-                self.frame_mut().truncate_register_stack(stack_count)?;
-
-                let then_jump_ip = {
-                    if else_if_node.is_some() || else_node.is_some() {
-                        self.push(&[Jump.into()]);
-                        Some(self.push_offset_placeholder())
-                    } else {
-                        None
-                    }
-                };
-
-                self.update_offset_placeholder(if_jump_ip);
-
-                let else_if_jump_ip = if let Some(condition) = else_if_condition {
-                    // TODO combine condition and node in ast
-                    let else_if_node = else_if_node.as_ref().unwrap();
-
-                    self.compile_node(&condition)?;
-                    let condition_register = self.frame_mut().pop_register()?;
-                    self.push(&[JumpFalse.into(), condition_register]);
-
-                    let stack_count = self.frame().register_stack.len();
-                    self.compile_node_with_jump_offset(&else_if_node)?;
-                    self.frame_mut().truncate_register_stack(stack_count)?;
-
-                    if else_node.is_some() {
-                        self.push(&[Jump.into()]);
-                        Some(self.push_offset_placeholder())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if let Some(else_node) = else_node {
-                    self.compile_node(else_node)?;
-                }
-
-                if let Some(then_jump_ip) = then_jump_ip {
-                    self.update_offset_placeholder(then_jump_ip);
-                }
-
-                if let Some(else_if_jump_ip) = else_if_jump_ip {
-                    self.update_offset_placeholder(else_if_jump_ip);
-                }
-            }
+            Node::If(ast_if) => self.compile_if(ast_if)?,
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
+        }
+
+        Ok(())
+    }
+
+    fn compile_if(&mut self, ast_if: &AstIf) -> Result<(), String> {
+        use Op::*;
+
+        let AstIf {
+            condition,
+            then_node,
+            else_if_condition,
+            else_if_node,
+            else_node,
+        } = ast_if;
+
+        self.compile_node(&condition)?;
+        let condition_register = self.frame_mut().pop_register()?;
+
+        self.push_op(JumpFalse, &[condition_register]);
+        let if_jump_ip = self.push_offset_placeholder();
+
+        let stack_count = self.frame().register_stack.len();
+        self.compile_node(&then_node)?;
+        self.frame_mut().truncate_register_stack(stack_count)?;
+
+        let then_jump_ip = {
+            if else_if_node.is_some() || else_node.is_some() {
+                self.push_op(Jump, &[]);
+                Some(self.push_offset_placeholder())
+            } else {
+                None
+            }
+        };
+
+        self.update_offset_placeholder(if_jump_ip);
+
+        let else_if_jump_ip = if let Some(condition) = else_if_condition {
+            // TODO combine condition and node in ast
+            let else_if_node = else_if_node.as_ref().unwrap();
+
+            self.compile_node(&condition)?;
+            let condition_register = self.frame_mut().pop_register()?;
+            self.push_op(JumpFalse, &[condition_register]);
+
+            let stack_count = self.frame().register_stack.len();
+            self.compile_node_with_jump_offset(&else_if_node)?;
+            self.frame_mut().truncate_register_stack(stack_count)?;
+
+            if else_node.is_some() {
+                self.push_op(Jump, &[]);
+                Some(self.push_offset_placeholder())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(else_node) = else_node {
+            self.compile_node(else_node)?;
+        }
+
+        if let Some(then_jump_ip) = then_jump_ip {
+            self.update_offset_placeholder(then_jump_ip);
+        }
+
+        if let Some(else_if_jump_ip) = else_if_jump_ip {
+            self.update_offset_placeholder(else_if_jump_ip);
         }
 
         Ok(())
@@ -414,10 +420,10 @@ impl Compiler {
 
         let register = self.frame_mut().get_register()?;
         if index <= BYTE_MAX as u32 {
-            self.push(&[LoadGlobal.into(), register, index as u8]);
+            self.push_bytes(&[LoadGlobal.into(), register, index as u8]);
         } else {
-            self.push(&[LoadGlobalLong.into(), register]);
-            self.push(&index.to_le_bytes());
+            self.push_bytes(&[LoadGlobalLong.into(), register]);
+            self.push_bytes(&index.to_le_bytes());
         }
         Ok(register)
     }
@@ -431,7 +437,7 @@ impl Compiler {
 
     fn push_offset_placeholder(&mut self) -> usize {
         let offset_ip = self.bytes.len();
-        self.push(&[0, 0]);
+        self.push_bytes(&[0, 0]);
         offset_ip
     }
 
@@ -442,7 +448,12 @@ impl Compiler {
         self.bytes[offset_ip + 1] = offset_bytes[1];
     }
 
-    fn push(&mut self, bytes: &[u8]) {
+    fn push_op(&mut self, op: Op, bytes: &[u8]) {
+        self.bytes.push(op.into());
+        self.bytes.extend_from_slice(bytes);
+    }
+
+    fn push_bytes(&mut self, bytes: &[u8]) {
         self.bytes.extend_from_slice(bytes);
     }
 }
