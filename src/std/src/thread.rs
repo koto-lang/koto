@@ -1,5 +1,5 @@
-use crate::{external_error, get_external_instance, single_arg_fn, type_as_string, ExternalValue};
-use koto_runtime::{value, Error, Value, ValueMap};
+use crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue};
+use koto_runtime::{external_error, value, Error, Value, ValueMap};
 use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
 pub fn register(global: &mut ValueMap) {
@@ -22,11 +22,9 @@ pub fn register(global: &mut ValueMap) {
             let join_handle = thread::spawn({
                 let mut thread_runtime = runtime.create_shared_runtime();
                 let f = f.clone();
-                move || {
-                    match thread_runtime.call_function(&f, &[]) {
-                        Ok(_) => Ok(()),
-                        Err(e) => Err(e),
-                    }
+                move || match thread_runtime.call_function(&f, &[]) {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
                 }
             });
 

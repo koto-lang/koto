@@ -1,6 +1,7 @@
-use crate::{external_error, get_external_instance, single_arg_fn};
+use crate::{get_external_instance, single_arg_fn};
 use koto_runtime::{
-    value, value::type_as_string, ExternalValue, Error, RuntimeResult, Value, ValueMap,
+    external_error, value, value::type_as_string, ExternalValue, RuntimeResult, Value,
+    ValueMap,
 };
 use std::{
     fmt, fs,
@@ -42,7 +43,9 @@ pub fn register(global: &mut ValueMap) {
 
         file_map.add_instance_fn("path", |_, args| {
             file_fn("path", args, |file_handle| {
-                Ok(Str(Arc::new(file_handle.path.to_string_lossy().to_string())))
+                Ok(Str(Arc::new(
+                    file_handle.path.to_string_lossy().to_string(),
+                )))
             })
         });
 
@@ -73,7 +76,9 @@ pub fn register(global: &mut ValueMap) {
                 };
                 match file_handle.file.write(line.as_bytes()) {
                     Ok(_) => Ok(Value::Empty),
-                    Err(e) => external_error!("File.write_line: Error while writing to file: {}", e),
+                    Err(e) => {
+                        external_error!("File.write_line: Error while writing to file: {}", e)
+                    }
                 }
             })
         });

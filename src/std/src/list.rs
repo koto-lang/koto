@@ -1,5 +1,5 @@
-use crate::{external_error, single_arg_fn};
-use koto_runtime::{value, Error, RuntimeResult, Value, ValueList, ValueMap};
+use crate::single_arg_fn;
+use koto_runtime::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;

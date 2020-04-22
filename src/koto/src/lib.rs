@@ -3,10 +3,10 @@ pub use koto_parser::{
 };
 use koto_runtime::Runtime;
 pub use koto_runtime::{
-    make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction, RuntimeResult,
-    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
+    RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
-pub use koto_std::{external_error, get_external_instance, visit_external_value};
+pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
 
 #[derive(Default)]

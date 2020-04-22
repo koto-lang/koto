@@ -7,32 +7,10 @@ mod thread;
 pub use koto_runtime::EXTERNAL_DATA_ID;
 
 use koto_runtime::{
-    value, value::type_as_string, Error, ExternalValue, Runtime, RuntimeResult, Value, ValueList,
-    ValueMap, ValueVec,
+    external_error, value, value::type_as_string, ExternalValue, Runtime, RuntimeResult, Value,
+    ValueList, ValueMap, ValueVec,
 };
 use std::sync::Arc;
-
-#[macro_export]
-macro_rules! make_external_error {
-    ($message:expr) => {{
-        let error = Error::ExternalError { message: $message };
-        #[cfg(panic_on_runtime_error)]
-        {
-            panic!();
-        }
-        error
-    }};
-}
-
-#[macro_export]
-macro_rules! external_error {
-    ($error:expr) => {
-        Err($crate::make_external_error!(String::from($error)))
-    };
-    ($error:expr, $($y:expr),+) => {
-        Err($crate::make_external_error!(format!($error, $($y),+)))
-    };
-}
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -42,7 +20,7 @@ macro_rules! single_arg_fn {
                 match &args[0] {
                     $type($match_name) => $body
                     unexpected => {
-                        $crate::external_error!(
+                        koto_runtime::external_error!(
                             "{}.{} only accepts a {} as its argument, found {}",
                             stringify!($map_name),
                             $fn_name,
@@ -52,7 +30,7 @@ macro_rules! single_arg_fn {
                     }
                 }
             } else {
-                $crate::external_error!("{}.{} expects a single argument, found {}",
+                koto_runtime::external_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
                     args.len()
@@ -94,7 +72,7 @@ macro_rules! get_external_instance {
      $match_name: ident,
      $body: block) => {{
         if $args.len() == 0 {
-            return external_error!(
+            return koto_runtime::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
                 $fn_name
@@ -105,7 +83,7 @@ macro_rules! get_external_instance {
             Value::Map(instance) => {
                 $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
             }
-            unexpected => $crate::external_error!(
+            unexpected => koto_runtime::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                 $external_name,
                 $fn_name,

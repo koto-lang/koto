@@ -54,9 +54,32 @@ macro_rules! make_runtime_error {
 #[macro_export]
 macro_rules! runtime_error {
     ($node:expr, $error:expr) => {
-        Err(crate::make_runtime_error!($node, String::from($error)))
+        Err($crate::make_runtime_error!($node, String::from($error)))
     };
     ($node:expr, $error:expr, $($y:expr),+) => {
-        Err(crate::make_runtime_error!($node, format!($error, $($y),+)))
+        Err($crate::make_runtime_error!($node, format!($error, $($y),+)))
     };
 }
+
+#[macro_export]
+macro_rules! make_external_error {
+    ($message:expr) => {{
+        let error = $crate::Error::ExternalError { message: $message };
+        #[cfg(panic_on_runtime_error)]
+        {
+            panic!();
+        }
+        error
+    }};
+}
+
+#[macro_export]
+macro_rules! external_error {
+    ($error:expr) => {
+        Err($crate::make_external_error!(String::from($error)))
+    };
+    ($error:expr, $($y:expr),+) => {
+        Err($crate::make_external_error!(format!($error, $($y),+)))
+    };
+}
+
