@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{runtime_error, type_as_string, RuntimeResult, Value, ValueMap};
+use crate::{runtime_error, type_as_string, Runtime, RuntimeResult, Value, ValueMap};
 use koto_bytecode::{Bytecode, Op};
 use koto_parser::{AstNode, ConstantPool};
 use rustc_hash::FxHashMap;
@@ -29,6 +29,7 @@ enum Instruction {
     NotEqual(u8, u8, u8),
     Jump(usize),
     JumpIf(u8, usize, bool),
+    Call(u8, u8, u8),
 }
 
 impl fmt::Display for Instruction {
@@ -91,6 +92,11 @@ impl fmt::Display for Instruction {
                 f,
                 "JumpIf\t\tregister: {}\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
+            ),
+            Call(register, arg_register, arg_count) => write!(
+                f,
+                "Equal\tregister: {}\targ_register: {}\t\targs: {}",
+                register, arg_register, arg_count
             ),
         }
     }
@@ -201,6 +207,7 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::Jump => Some(Jump(get_u16!() as usize)),
             Op::JumpTrue => Some(JumpIf(get_byte!(), get_u16!() as usize, true)),
             Op::JumpFalse => Some(JumpIf(get_byte!(), get_u16!() as usize, false)),
+            Op::Call => Some(Call(get_byte!(), get_byte!(), get_byte!())),
         }
     }
 }
@@ -349,6 +356,32 @@ impl Vm {
                         );
                     }
                 },
+                Call(register, arg_register, arg_count) => {
+                    let function = self.load_register(register);
+                    match function {
+                        ExternalFunction(f) => {
+                            let function = f.function.as_ref();
+                            let args = self.register_slice(arg_register, arg_count);
+                            let result = (&*function)(&mut Runtime::default(), args);
+                            match result {
+                                Ok(value) => {
+                                    self.set_register(register, value);
+                                }
+                                error @ Err(_) => {
+                                    return error;
+                                }
+                            }
+                        }
+                        Function(_f) => unimplemented!(),
+                        unexpected => {
+                            return runtime_error!(
+                                AstNode::default(),
+                                "Expected Function, found '{}'",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -362,6 +395,11 @@ impl Vm {
 
     fn load_register(&self, index: u8) -> Value {
         self.stack[self.base + index as usize].clone()
+    }
+
+    fn register_slice(&self, index: u8, count: u8) -> &[Value] {
+        let base = self.base + index as usize;
+        &self.stack[base..base + count as usize]
     }
 
     fn get_constant_string(&self, constant_index: usize) -> &str {
@@ -395,6 +433,7 @@ fn binary_op_error(op: Instruction, lhs: Value, rhs: Value) -> RuntimeResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::external_error;
     use koto_bytecode::compile::Compiler;
     use koto_parser::KotoParser;
 
@@ -414,6 +453,25 @@ mod tests {
         };
 
         vm.global.add_value("test_global", Value::Number(42.0));
+        vm.global.add_fn("assert", |_, args| {
+            use Value::*;
+            for value in args.iter() {
+                match value {
+                    Bool(b) => {
+                        if !b {
+                            return external_error!("Assertion failed");
+                        }
+                    }
+                    unexpected => {
+                        return external_error!(
+                            "assert expects booleans as arguments, found '{}'",
+                            type_as_string(unexpected)
+                        )
+                    }
+                }
+            }
+            Ok(Empty)
+        });
 
         match vm.run(&bytecode) {
             Ok(result) => {
@@ -494,12 +552,23 @@ else
         let script = "a = test_global";
         let result = run_script(script);
         assert_eq!(result, Value::Number(42.0));
+
+        let script = "assert 1 + 1 == 2";
+        let result = run_script(script);
+        assert_eq!(result, Value::Empty);
+
+        let script = "assert (1 + 1 == 2) (2 < 3)";
+        let result = run_script(script);
+        assert_eq!(result, Value::Empty);
     }
 
     // #[test]
     // fn functions() {
-    //     let script = "assert 1 + 1 == 2";
+    //     let script = "
+// square = |x| x * x
+// square 8
+// ";
     //     let result = run_script(script);
-    //     assert_eq!(result, Value::Empty);
+    //     assert_eq!(result, Value::Number(64.0));
     // }
 }

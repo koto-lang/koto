@@ -90,6 +90,10 @@ impl Frame {
 
         Ok(())
     }
+
+    fn next_temporary_register(&self) -> u8 {
+        self.temporary_count + self.temporary_base
+    }
 }
 
 #[derive(Default)]
@@ -204,8 +208,8 @@ impl Compiler {
             Node::Block(expressions) => {
                 self.compile_expressions(expressions)?;
             }
-            Node::Call { function, args: _args } => {
-                let _function_register = match function {
+            Node::Call { function, args } => {
+                let function_register = match function {
                     LookupOrId::Id(id) => {
                         let id = *id;
                         if self.frame().is_local(id) {
@@ -216,7 +220,29 @@ impl Compiler {
                     }
                     _ => unimplemented!(),
                 };
-                unimplemented!();
+
+                let stack_count = self.frame().register_stack.len();
+
+                let first_arg_register = if !args.is_empty() {
+                    self.frame().next_temporary_register()
+                } else {
+                    0
+                };
+
+                for arg in args.iter() {
+                    self.compile_node(&arg)?;
+                }
+
+                self.push(&[
+                    Call.into(),
+                    function_register,
+                    first_arg_register,
+                    args.len() as u8,
+                ]);
+
+                // The return value gets place in the function register
+                // TODO multiple return values
+                self.frame_mut().truncate_register_stack(stack_count)?;
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
