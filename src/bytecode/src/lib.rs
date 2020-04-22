@@ -16,6 +16,8 @@ pub enum Op {
     LoadNumberLong, // target, constant[4]
     LoadString,     // target, constant
     LoadStringLong, // target, constant[4]
+    LoadGlobal,     // target, constant
+    LoadGlobalLong, // target, constant[4]
     Add,            // target, lhs, rhs
     Multiply,       // target, lhs, rhs
     Less,           // target, lhs, rhs

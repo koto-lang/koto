@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{runtime_error, type_as_string, RuntimeResult, Value};
+use crate::{runtime_error, type_as_string, RuntimeResult, Value, ValueMap};
 use koto_bytecode::{Bytecode, Op};
 use koto_parser::{AstNode, ConstantPool};
 use rustc_hash::FxHashMap;
@@ -20,6 +20,7 @@ enum Instruction {
     Return(u8),
     LoadNumber(u8, usize),
     LoadString(u8, usize),
+    LoadGlobal(u8, usize),
     Add(u8, u8, u8),
     Multiply(u8, u8, u8),
     Less(u8, u8, u8),
@@ -48,6 +49,11 @@ impl fmt::Display for Instruction {
             LoadString(register, constant) => write!(
                 f,
                 "LoadString\tregister: {}\tconstant: {}",
+                register, constant
+            ),
+            LoadGlobal(register, constant) => write!(
+                f,
+                "LoadGlobal\tregister: {}\tconstant: {}",
                 register, constant
             ),
             Add(register, lhs, rhs) => write!(
@@ -184,6 +190,8 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::LoadNumberLong => Some(LoadNumber(get_byte!(), get_u32!() as usize)),
             Op::LoadString => Some(LoadString(get_byte!(), get_byte!() as usize)),
             Op::LoadStringLong => Some(LoadString(get_byte!(), get_u32!() as usize)),
+            Op::LoadGlobal => Some(LoadGlobal(get_byte!(), get_byte!() as usize)),
+            Op::LoadGlobalLong => Some(LoadGlobal(get_byte!(), get_u32!() as usize)),
             Op::Add => Some(Add(get_byte!(), get_byte!(), get_byte!())),
             Op::Multiply => Some(Multiply(get_byte!(), get_byte!(), get_byte!())),
             Op::Less => Some(Less(get_byte!(), get_byte!(), get_byte!())),
@@ -210,6 +218,7 @@ fn bytecode_to_string(bytecode: &Bytecode) -> String {
 
 #[derive(Default)]
 pub struct Vm {
+    global: ValueMap,
     constants: ConstantPool,
     string_constants: FxHashMap<usize, Arc<String>>,
     stack: Vec<Value>,
@@ -252,6 +261,20 @@ impl Vm {
                 LoadString(register, constant) => {
                     let string = self.arc_string_from_constant(constant);
                     self.set_register(register, Str(string))
+                }
+                LoadGlobal(register, constant) => {
+                    let global_name = self.get_constant_string(constant as usize);
+                    let global = self.global.data().get(global_name).cloned();
+                    match global {
+                        Some(value) => self.set_register(register, value),
+                        None => {
+                            return runtime_error!(
+                                AstNode::default(),
+                                "'{}' not found",
+                                global_name
+                            );
+                        }
+                    }
                 }
                 Add(result_register, lhs_register, rhs_register) => {
                     let lhs = self.load_register(lhs_register);
@@ -341,6 +364,10 @@ impl Vm {
         self.stack[self.base + index as usize].clone()
     }
 
+    fn get_constant_string(&self, constant_index: usize) -> &str {
+        self.constants.get_string(constant_index)
+    }
+
     fn arc_string_from_constant(&mut self, constant_index: usize) -> Arc<String> {
         let maybe_string = self.string_constants.get(&constant_index).cloned();
 
@@ -373,6 +400,7 @@ mod tests {
 
     fn run_script(script: &str) -> Value {
         let mut vm = Vm::new();
+
         let parser = KotoParser::new();
         let mut compiler = Compiler::new();
 
@@ -384,6 +412,8 @@ mod tests {
             Ok(bytecode) => bytecode,
             Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),
         };
+
+        vm.global.add_value("test_global", Value::Number(42.0));
 
         match vm.run(&bytecode) {
             Ok(result) => {
@@ -457,6 +487,13 @@ else
         let script = "1 + 1 == 2 and 2 + 2 != 5";
         let result = run_script(script);
         assert_eq!(result, Value::Bool(true));
+    }
+
+    #[test]
+    fn global() {
+        let script = "a = test_global";
+        let result = run_script(script);
+        assert_eq!(result, Value::Number(42.0));
     }
 
     // #[test]

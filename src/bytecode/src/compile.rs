@@ -1,6 +1,6 @@
 use crate::{Bytecode, Op};
 
-use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, ConstantIndex, Node};
+use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, ConstantIndex, LookupOrId, Node};
 
 const BYTE_MAX: u8 = std::u8::MAX;
 
@@ -32,6 +32,12 @@ impl Frame {
             self.register_stack.push(new_register);
             Ok(new_register)
         }
+    }
+
+    fn is_local(&self, index: ConstantIndex) -> bool {
+        self.local_registers
+            .iter()
+            .any(|constant_index| index == *constant_index)
     }
 
     fn get_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
@@ -158,7 +164,11 @@ impl Compiler {
                 self.push(&[SetEmpty.into(), target]);
             }
             Node::Id(index) => {
-                self.frame_mut().get_local_register(*index)?;
+                if self.frame().is_local(*index) {
+                    self.frame_mut().get_local_register(*index)?;
+                } else {
+                    self.load_global(*index)?;
+                }
             }
             Node::BoolTrue => {
                 let target = self.frame_mut().get_register()?;
@@ -194,9 +204,19 @@ impl Compiler {
             Node::Block(expressions) => {
                 self.compile_expressions(expressions)?;
             }
-            Node::Call { function, args } => {
-                let _function = function;
-                let _args = args;
+            Node::Call { function, args: _args } => {
+                let _function_register = match function {
+                    LookupOrId::Id(id) => {
+                        let id = *id;
+                        if self.frame().is_local(id) {
+                            self.frame_mut().get_local_register(id)?
+                        } else {
+                            self.load_global(id)?
+                        }
+                    }
+                    _ => unimplemented!(),
+                };
+                unimplemented!();
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
@@ -310,6 +330,19 @@ impl Compiler {
         }
 
         Ok(())
+    }
+
+    fn load_global(&mut self, index: ConstantIndex) -> Result<u8, String> {
+        use Op::*;
+
+        let register = self.frame_mut().get_register()?;
+        if index <= BYTE_MAX as u32 {
+            self.push(&[LoadGlobal.into(), register, index as u8]);
+        } else {
+            self.push(&[LoadGlobalLong.into(), register]);
+            self.push(&index.to_le_bytes());
+        }
+        Ok(register)
     }
 
     fn compile_node_with_jump_offset(&mut self, node: &AstNode) -> Result<(), String> {
