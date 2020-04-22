@@ -21,6 +21,7 @@ enum Instruction {
     LoadNumber(u8, usize),
     LoadString(u8, usize),
     LoadGlobal(u8, usize),
+    MakeFunction(u8, u8, usize),
     Add(u8, u8, u8),
     Multiply(u8, u8, u8),
     Less(u8, u8, u8),
@@ -38,64 +39,69 @@ impl fmt::Display for Instruction {
         match self {
             Error(_) => unreachable!(),
             Move(target, source) => write!(f, "Move\t\ttarget: {}\tsource: {}", target, source),
-            SetEmpty(register) => write!(f, "SetEmpty\tregister: {}", register),
-            SetTrue(register) => write!(f, "SetTrue\tregister: {}", register),
-            SetFalse(register) => write!(f, "SetFalse\tregister: {}", register),
-            Return(register) => write!(f, "Return\t\tregister: {}", register),
+            SetEmpty(register) => write!(f, "SetEmpty\treg: {}", register),
+            SetTrue(register) => write!(f, "SetTrue\treg: {}", register),
+            SetFalse(register) => write!(f, "SetFalse\treg: {}", register),
+            Return(register) => write!(f, "Return\t\treg: {}", register),
             LoadNumber(register, constant) => write!(
                 f,
-                "LoadNumber\tregister: {}\tconstant: {}",
+                "LoadNumber\treg: {}\t\tconstant: {}",
                 register, constant
             ),
             LoadString(register, constant) => write!(
                 f,
-                "LoadString\tregister: {}\tconstant: {}",
+                "LoadString\treg: {}\t\tconstant: {}",
                 register, constant
             ),
             LoadGlobal(register, constant) => write!(
                 f,
-                "LoadGlobal\tregister: {}\tconstant: {}",
+                "LoadGlobal\treg: {}\t\tconstant: {}",
                 register, constant
+            ),
+            MakeFunction(register, arg_count, size) => write!(
+                f,
+                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
+                register, arg_count, size
             ),
             Add(register, lhs, rhs) => write!(
                 f,
-                "Add\tregister: {}\tlhs: {}\t\trhs: {}",
+                "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Multiply(register, lhs, rhs) => write!(
                 f,
-                "Multiply\tregister: {}\tlhs: {}\t\trhs: {}",
+                "Multiply\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Less(register, lhs, rhs) => write!(
                 f,
-                "Less\t\tregister: {}\tlhs: {}\t\trhs: {}",
+                "Less\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Greater(register, lhs, rhs) => write!(
                 f,
-                "Greater\tregister: {}\tlhs: {}\t\trhs: {}",
+                "Greater\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Equal(register, lhs, rhs) => write!(
                 f,
-                "Equal\tregister: {}\tlhs: {}\t\trhs: {}",
+                "Equal\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             NotEqual(register, lhs, rhs) => write!(
                 f,
-                "NotEqual\tregister: {}\tlhs: {}\t\trhs: {}",
+                "NotEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Jump(offset) => write!(f, "Jump\t\toffset: {}", offset),
             JumpIf(register, offset, jump_condition) => write!(
                 f,
-                "JumpIf\t\tregister: {}\toffset: {}\tcondition: {}",
+                "JumpIf\t\treg: {}\t\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
             Call(register, arg_register, arg_count) => write!(
                 f,
-                "Equal\tregister: {}\targ_register: {}\t\targs: {}",
+                "Call\t\treg: {}\t\targ_reg: {}\targs: {}",
                 register, arg_register, arg_count
             ),
         }
@@ -118,6 +124,10 @@ impl<'a> InstructionReader<'a> {
 
     pub fn position(&self) -> usize {
         self.ip
+    }
+
+    pub fn set_position(&mut self, ip: usize) {
+        self.ip = ip
     }
 }
 
@@ -198,6 +208,7 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::LoadStringLong => Some(LoadString(get_byte!(), get_u32!() as usize)),
             Op::LoadGlobal => Some(LoadGlobal(get_byte!(), get_byte!() as usize)),
             Op::LoadGlobalLong => Some(LoadGlobal(get_byte!(), get_u32!() as usize)),
+            Op::MakeFunction => Some(MakeFunction(get_byte!(), get_byte!(), get_u16!() as usize)),
             Op::Add => Some(Add(get_byte!(), get_byte!(), get_byte!())),
             Op::Multiply => Some(Multiply(get_byte!(), get_byte!(), get_byte!())),
             Op::Less => Some(Less(get_byte!(), get_byte!(), get_byte!())),
@@ -223,20 +234,36 @@ fn bytecode_to_string(bytecode: &Bytecode) -> String {
     result
 }
 
+#[derive(Debug, Default)]
+struct Frame {
+    base: usize,
+    return_ip: usize,
+    result: Value,
+}
+
+impl Frame {
+    fn new(base: usize, return_ip: usize) -> Self {
+        Self {
+            base,
+            return_ip,
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Vm {
     global: ValueMap,
     constants: ConstantPool,
     string_constants: FxHashMap<usize, Arc<String>>,
-    stack: Vec<Value>,
-    base: usize,
-    result: Value,
+    value_stack: Vec<Value>,
+    call_stack: Vec<Frame>,
 }
 
 impl Vm {
     pub fn new() -> Self {
         Self {
-            stack: Vec::with_capacity(32),
+            value_stack: Vec::with_capacity(32),
             ..Default::default()
         }
     }
@@ -244,12 +271,14 @@ impl Vm {
     pub fn run(&mut self, bytecode: &Bytecode) -> RuntimeResult {
         use {Instruction::*, Value::*};
 
-        self.base = 0;
-        self.stack.resize(64, Value::Empty);
+        self.value_stack.clear();
+        self.call_stack.clear();
+        self.call_stack.push(Frame::default());
+        let mut result = Empty;
 
-        let mut byte_reader = InstructionReader::new(bytecode);
+        let mut instruction_reader = InstructionReader::new(bytecode);
 
-        while let Some(instruction) = byte_reader.next() {
+        while let Some(instruction) = instruction_reader.next() {
             match instruction {
                 Error(error) => {
                     return runtime_error!(AstNode::default(), "{}", error);
@@ -261,7 +290,18 @@ impl Vm {
                 SetEmpty(register) => self.set_register(register, Empty),
                 SetTrue(register) => self.set_register(register, Bool(true)),
                 SetFalse(register) => self.set_register(register, Bool(false)),
-                Return(register) => self.result = self.load_register(register),
+                Return(register) => {
+                    self.frame_mut().result = self.load_register(register);
+
+                    let return_ip = self.frame().return_ip;
+                    result = self.pop_frame()?;
+
+                    if self.call_stack.is_empty() {
+                        break;
+                    } else {
+                        instruction_reader.set_position(return_ip);
+                    }
+                }
                 LoadNumber(register, constant) => {
                     self.set_register(register, Number(self.constants.get_f64(constant as usize)))
                 }
@@ -282,6 +322,14 @@ impl Vm {
                             );
                         }
                     }
+                }
+                MakeFunction(register, arg_count, size) => {
+                    let function = VmFunction {
+                        ip: instruction_reader.ip,
+                        arg_count,
+                    };
+                    instruction_reader.jump(size);
+                    self.set_register(register, function);
                 }
                 Add(result_register, lhs_register, rhs_register) => {
                     let lhs = self.load_register(lhs_register);
@@ -340,12 +388,12 @@ impl Vm {
                     self.set_register(result_register, result);
                 }
                 Jump(offset) => {
-                    byte_reader.jump(offset);
+                    instruction_reader.jump(offset);
                 }
                 JumpIf(register, offset, jump_condition) => match self.load_register(register) {
                     Bool(b) => {
                         if b == jump_condition {
-                            byte_reader.jump(offset);
+                            instruction_reader.jump(offset);
                         }
                     }
                     unexpected => {
@@ -356,23 +404,39 @@ impl Vm {
                         );
                     }
                 },
-                Call(register, arg_register, arg_count) => {
+                Call(register, arg_register, call_arg_count) => {
                     let function = self.load_register(register);
                     match function {
                         ExternalFunction(f) => {
                             let function = f.function.as_ref();
-                            let args = self.register_slice(arg_register, arg_count);
+                            let args = self.register_slice(arg_register, call_arg_count);
                             let result = (&*function)(&mut Runtime::default(), args);
                             match result {
                                 Ok(value) => {
-                                    self.set_register(register, value);
+                                    self.set_register(arg_register, value);
                                 }
                                 error @ Err(_) => {
                                     return error;
                                 }
                             }
                         }
-                        Function(_f) => unimplemented!(),
+                        VmFunction {
+                            ip: function_ip,
+                            arg_count: function_arg_count,
+                        } => {
+                            if function_arg_count != call_arg_count {
+                                return runtime_error!(
+                                    AstNode::default(),
+                                    "Function expects {} arguments, found {}",
+                                    function_arg_count,
+                                    call_arg_count
+                                );
+                            }
+
+                            self.push_frame(instruction_reader.ip, arg_register);
+
+                            instruction_reader.set_position(function_ip);
+                        }
                         unexpected => {
                             return runtime_error!(
                                 AstNode::default(),
@@ -385,21 +449,61 @@ impl Vm {
             }
         }
 
-        Ok(self.result.clone())
+        Ok(result)
     }
 
-    fn set_register(&mut self, index: u8, value: Value) {
-        self.result = value.clone(); //temp
-        self.stack[self.base + index as usize] = value;
+    fn frame(&self) -> &Frame {
+        self.call_stack.last().unwrap()
     }
 
-    fn load_register(&self, index: u8) -> Value {
-        self.stack[self.base + index as usize].clone()
+    fn frame_mut(&mut self) -> &mut Frame {
+        self.call_stack.last_mut().unwrap()
     }
 
-    fn register_slice(&self, index: u8, count: u8) -> &[Value] {
-        let base = self.base + index as usize;
-        &self.stack[base..base + count as usize]
+    fn push_frame(&mut self, return_ip: usize, arg_register: u8) {
+        let frame_base = self.register_index(arg_register);
+        self.call_stack.push(Frame::new(frame_base, return_ip));
+    }
+
+    fn pop_frame(&mut self) -> RuntimeResult {
+        let frame = match self.call_stack.pop() {
+            Some(frame) => frame,
+            None => {
+                return runtime_error!(AstNode::default(), "pop_frame: Empty call stack");
+            }
+        };
+
+        let return_value = frame.result.clone();
+
+        if !self.call_stack.is_empty() {
+            self.value_stack.truncate(frame.base);
+            self.value_stack.push(return_value.clone());
+        }
+
+        Ok(return_value)
+    }
+
+    fn register_index(&self, register: u8) -> usize {
+        self.frame().base + register as usize
+    }
+
+    fn set_register(&mut self, register: u8, value: Value) {
+        let index = self.register_index(register);
+
+        if index >= self.value_stack.len() {
+            self.value_stack.resize(index + 1, Value::Empty);
+        }
+
+        self.value_stack[index] = value;
+    }
+
+    fn load_register(&self, register: u8) -> Value {
+        self.value_stack[self.register_index(register)].clone()
+    }
+
+    fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+        let start = self.register_index(register);
+        &self.value_stack[start..start + count as usize]
     }
 
     fn get_constant_string(&self, constant_index: usize) -> &str {
@@ -438,6 +542,8 @@ mod tests {
     use koto_parser::KotoParser;
 
     fn run_script(script: &str) -> Value {
+        eprintln!("{}", script);
+
         let mut vm = Vm::new();
 
         let parser = KotoParser::new();
@@ -451,6 +557,8 @@ mod tests {
             Ok(bytecode) => bytecode,
             Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),
         };
+
+        eprintln!("{}", bytecode_to_string(&bytecode));
 
         vm.global.add_value("test_global", Value::Number(42.0));
         vm.global.add_fn("assert", |_, args| {
@@ -478,8 +586,6 @@ mod tests {
                 return result;
             }
             Err(e) => {
-                eprintln!("{}", script);
-                eprintln!("{}", bytecode_to_string(&bytecode));
                 panic!(format!("Error while running script: {:?}", e));
             }
         }
@@ -562,13 +668,31 @@ else
         assert_eq!(result, Value::Empty);
     }
 
-    // #[test]
-    // fn functions() {
-    //     let script = "
-// square = |x| x * x
-// square 8
-// ";
-    //     let result = run_script(script);
-    //     assert_eq!(result, Value::Number(64.0));
-    // }
+    #[test]
+    fn functions() {
+        let script = "
+square = |x| x * x
+square 8
+";
+        let result = run_script(script);
+        assert_eq!(result, Value::Number(64.0));
+
+        let script = "
+add = |a b|
+  a + b
+add 5 6
+";
+        let result = run_script(script);
+        assert_eq!(result, Value::Number(11.0));
+
+        let script = "
+add = |a b|
+  add2 = |x y|
+    x + y
+  add2 a b
+add 10 20
+";
+        let result = run_script(script);
+        assert_eq!(result, Value::Number(30.0));
+    }
 }

@@ -18,6 +18,7 @@ pub enum Op {
     LoadStringLong, // target, constant[4]
     LoadGlobal,     // target, constant
     LoadGlobalLong, // target, constant[4]
+    MakeFunction,   // target, arg count, size[2]
     Add,            // target, lhs, rhs
     Multiply,       // target, lhs, rhs
     Less,           // target, lhs, rhs

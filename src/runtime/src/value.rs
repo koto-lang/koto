@@ -23,6 +23,7 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
+    VmFunction { ip: usize, arg_count: u8 },
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
@@ -71,6 +72,7 @@ impl fmt::Display for Value {
                 let raw = Arc::into_raw(fun.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
+            VmFunction { ip, .. } => write!(f, "VmFunction: {}", ip),
             ExternalFunction(function) => {
                 let raw = Arc::into_raw(function.function.clone());
                 write!(f, "External function: {:?}", raw)
@@ -199,6 +201,7 @@ pub fn type_as_string(value: &Value) -> String {
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
         Function(_) => "Function".to_string(),
+        VmFunction { .. } => "VmFunction".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),

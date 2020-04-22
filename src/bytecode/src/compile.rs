@@ -1,10 +1,11 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, ConstantIndex, LookupOrId, Node};
+use std::convert::TryFrom;
 
 const BYTE_MAX: u8 = std::u8::MAX;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Frame {
     register_stack: Vec<u8>,
     local_registers: Vec<ConstantIndex>,
@@ -13,10 +14,13 @@ struct Frame {
 }
 
 impl Frame {
-    fn new(local_count: u8) -> Self {
+    fn new(local_count: u8, args: &[ConstantIndex]) -> Self {
+        let mut local_registers = Vec::with_capacity(local_count as usize);
+        local_registers.extend_from_slice(args);
+
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
-            local_registers: Vec::with_capacity(local_count as usize),
+            local_registers,
             temporary_base: local_count,
             temporary_count: 0,
         }
@@ -83,6 +87,10 @@ impl Frame {
         Ok(register)
     }
 
+    fn peek_register(&self) -> Option<&u8> {
+        self.register_stack.last()
+    }
+
     fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), String> {
         while self.register_stack.len() > stack_count {
             self.pop_register()?;
@@ -117,13 +125,20 @@ impl Compiler {
         Ok(&self.bytes)
     }
 
-    fn compile_frame(&mut self, local_count: u8, expressions: &[AstNode]) -> Result<(), String> {
-        self.frame_stack.push(Frame::new(local_count));
+    fn compile_frame(
+        &mut self,
+        local_count: u8,
+        expressions: &[AstNode],
+        args: &[ConstantIndex],
+    ) -> Result<(), String> {
+        self.frame_stack.push(Frame::new(local_count, args));
 
         self.compile_expressions(expressions)?;
 
         let result_register = self.frame_mut().pop_register()?;
         self.push(&[Op::Return.into(), result_register]);
+
+        self.frame_stack.pop();
 
         Ok(())
     }
@@ -203,10 +218,37 @@ impl Compiler {
                 }
             }
             Node::MainBlock { body, local_count } => {
-                self.compile_frame(*local_count as u8, body)?;
+                self.compile_frame(*local_count as u8, body, &[])?;
             }
             Node::Block(expressions) => {
                 self.compile_expressions(expressions)?;
+            }
+            Node::Function(function) => {
+                let target = self.frame_mut().get_register()?;
+                let arg_count = match u8::try_from(function.args.len()) {
+                    Ok(x) => x,
+                    Err(_) => {
+                        return Err(format!(
+                            "Function has too many arguments: {}",
+                            function.args.len()
+                        ));
+                    }
+                };
+                self.push(&[MakeFunction.into(), target, arg_count]);
+                let function_size_ip = self.push_offset_placeholder();
+
+                let local_count = match u8::try_from(function.local_count) {
+                    Ok(x) => x,
+                    Err(_) => {
+                        return Err(format!(
+                            "Function has too many locals: {}",
+                            function.args.len()
+                        ));
+                    }
+                };
+
+                self.compile_frame(local_count, &function.body, &function.args)?;
+                self.update_offset_placeholder(function_size_ip);
             }
             Node::Call { function, args } => {
                 let function_register = match function {
@@ -231,6 +273,15 @@ impl Compiler {
 
                 for arg in args.iter() {
                     self.compile_node(&arg)?;
+
+                    // If the arg value is in a local register, then it needs to be copied to
+                    // an argument register
+                    let frame = self.frame_mut();
+                    if *frame.peek_register().unwrap() < frame.temporary_base {
+                        let source = frame.pop_register()?;
+                        let target = frame.get_register()?;
+                        self.push(&[Move.into(), target, source]);
+                    }
                 }
 
                 self.push(&[
@@ -240,9 +291,9 @@ impl Compiler {
                     args.len() as u8,
                 ]);
 
-                // The return value gets place in the function register
+                // The return value gets placed in the function call register
                 // TODO multiple return values
-                self.frame_mut().truncate_register_stack(stack_count)?;
+                self.frame_mut().truncate_register_stack(stack_count + 1)?;
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
