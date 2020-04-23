@@ -1,6 +1,6 @@
 use crate::{Bytecode, Op};
 
-use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, ConstantIndex, LookupOrId, Node};
+use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, LookupOrId, Node};
 use std::convert::TryFrom;
 
 const BYTE_MAX: u8 = std::u8::MAX;
@@ -179,8 +179,7 @@ impl Compiler {
 
         match &node.node {
             Node::Empty => {
-                let target = self.frame_mut().get_register()?;
-                self.push_op(SetEmpty, &[target]);
+                self.push_empty()?;
             }
             Node::Id(index) => {
                 if self.frame().is_local(*index) {
@@ -340,6 +339,7 @@ impl Compiler {
                 self.push_op(op, &[target, lhs_register, rhs_register]);
             }
             Node::If(ast_if) => self.compile_if(ast_if)?,
+            Node::While(ast_while) => self.compile_while(ast_while)?,
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
         }
 
@@ -415,6 +415,36 @@ impl Compiler {
         Ok(())
     }
 
+    fn compile_while(&mut self, ast_while: &AstWhile) -> Result<(), String> {
+        use Op::*;
+
+        let AstWhile {
+            condition,
+            body,
+            negate_condition,
+        } = ast_while;
+
+        let while_jump_ip = self.bytes.len();
+
+        self.compile_node(&condition)?;
+        let condition_register = self.frame_mut().pop_register()?;
+        let op = if *negate_condition {
+            JumpTrue
+        } else {
+            JumpFalse
+        };
+        self.push_op(op, &[condition_register]);
+        let condition_jump_ip = self.push_offset_placeholder();
+
+        self.compile_node(&body)?;
+        self.push_jump_back(while_jump_ip);
+
+        self.update_offset_placeholder(condition_jump_ip);
+        self.push_empty()?;
+
+        Ok(())
+    }
+
     fn load_global(&mut self, index: ConstantIndex) -> Result<u8, String> {
         use Op::*;
 
@@ -433,6 +463,17 @@ impl Compiler {
         self.compile_node(&node)?;
         self.update_offset_placeholder(offset_ip);
         Ok(())
+    }
+
+    fn push_empty(&mut self) -> Result<(), String> {
+        let target = self.frame_mut().get_register()?;
+        self.push_op(Op::SetEmpty, &[target]);
+        Ok(())
+    }
+
+    fn push_jump_back(&mut self, target_ip: usize) {
+        let offset = self.bytes.len() - target_ip + 3; // 3 for the jump instruction
+        self.push_op(Op::JumpBack, &(offset as u16).to_le_bytes())
     }
 
     fn push_offset_placeholder(&mut self) -> usize {

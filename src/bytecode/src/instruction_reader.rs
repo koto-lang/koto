@@ -75,6 +75,9 @@ pub enum Instruction {
     Jump {
         offset: usize,
     },
+    JumpBack {
+        offset: usize,
+    },
     JumpIf {
         register: u8,
         offset: usize,
@@ -146,6 +149,7 @@ impl fmt::Display for Instruction {
                 register, lhs, rhs
             ),
             Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
+            JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
             JumpIf {
                 register,
                 offset,
@@ -184,6 +188,10 @@ impl<'a> InstructionReader<'a> {
 
     pub fn jump(&mut self, offset: usize) {
         self.ip += offset;
+    }
+
+    pub fn jump_back(&mut self, offset: usize) {
+        self.ip -= offset;
     }
 
     pub fn jump_to(&mut self, ip: usize) {
@@ -341,6 +349,9 @@ impl<'a> Iterator for InstructionReader<'a> {
                 rhs: get_byte!(),
             }),
             Op::Jump => Some(Jump {
+                offset: get_u16!() as usize,
+            }),
+            Op::JumpBack => Some(JumpBack {
                 offset: get_u16!() as usize,
             }),
             Op::JumpTrue => Some(JumpIf {

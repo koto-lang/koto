@@ -30,6 +30,7 @@ pub enum Op {
     Equal,          // register, lhs, rhs
     NotEqual,       // register, lhs, rhs
     Jump,           // offset[2]
+    JumpBack,       // offset[2]
     JumpTrue,       // register, offset[2]
     JumpFalse,      // register, offset[2]
     Call,           // function register, arg register, arg count

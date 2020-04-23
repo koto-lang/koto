@@ -182,6 +182,9 @@ impl Vm {
                 Jump { offset } => {
                     reader.jump(offset);
                 }
+                JumpBack { offset } => {
+                    reader.jump_back(offset);
+                }
                 JumpIf {
                     register,
                     offset,
@@ -515,6 +518,28 @@ add = |a b|
   add2 a b
 add 10 20";
             test_script(script, Value::Number(30.0));
+        }
+    }
+
+    mod loops {
+        use super::*;
+
+        #[test]
+        fn while_loop() {
+            let script = "
+count = 0
+(count += 1) while count < 10
+count";
+            test_script(script, Value::Number(10.0));
+        }
+
+        #[test]
+        fn until_loop() {
+            let script = "
+count = 10
+(count += 1) until count == 20
+count";
+            test_script(script, Value::Number(20.0));
         }
     }
 }
