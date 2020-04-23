@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use crate::{runtime_error, type_as_string, Runtime, RuntimeResult, Value, ValueMap};
+use crate::{type_as_string, vm_error, Runtime, RuntimeResult, Value, ValueMap};
 use koto_bytecode::{Bytecode, Op};
-use koto_parser::{AstNode, ConstantPool};
+use koto_parser::ConstantPool;
 use rustc_hash::FxHashMap;
 use std::{
     convert::{TryFrom, TryInto},
@@ -180,19 +180,15 @@ struct InstructionReader<'a> {
 }
 
 impl<'a> InstructionReader<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
+    fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, ip: 0 }
     }
 
-    pub fn jump(&mut self, offset: usize) {
+    fn jump(&mut self, offset: usize) {
         self.ip += offset;
     }
 
-    pub fn position(&self) -> usize {
-        self.ip
-    }
-
-    pub fn set_position(&mut self, ip: usize) {
+    fn jump_to(&mut self, ip: usize) {
         self.ip = ip
     }
 }
@@ -370,12 +366,14 @@ impl<'a> Iterator for InstructionReader<'a> {
 
 fn bytecode_to_string(bytecode: &Bytecode) -> String {
     let mut result = String::new();
-    let mut instruction_reader = InstructionReader::new(bytecode);
-    let mut position = instruction_reader.position();
-    while let Some(instruction) = instruction_reader.next() {
-        result += &format!("{}\t{}\n", position, &instruction.to_string());
-        position = instruction_reader.position();
+    let mut reader = InstructionReader::new(bytecode);
+    let mut ip = reader.ip;
+
+    while let Some(instruction) = reader.next() {
+        result += &format!("{}\t{}\n", ip, &instruction.to_string());
+        ip = reader.ip;
     }
+
     result
 }
 
@@ -421,12 +419,12 @@ impl Vm {
         self.call_stack.push(Frame::default());
         let mut result = Empty;
 
-        let mut instruction_reader = InstructionReader::new(bytecode);
+        let mut reader = InstructionReader::new(bytecode);
 
-        while let Some(instruction) = instruction_reader.next() {
+        while let Some(instruction) = reader.next() {
             match instruction {
                 Error { message } => {
-                    return runtime_error!(AstNode::default(), "{}", message);
+                    return vm_error!(reader.ip, "{}", message);
                 }
                 Copy { target, source } => {
                     let source_value = self.load_register(source);
@@ -444,7 +442,7 @@ impl Vm {
                     if self.call_stack.is_empty() {
                         break;
                     } else {
-                        instruction_reader.set_position(return_ip);
+                        reader.jump_to(return_ip);
                     }
                 }
                 LoadNumber { register, constant } => {
@@ -460,11 +458,7 @@ impl Vm {
                     match global {
                         Some(value) => self.set_register(register, value),
                         None => {
-                            return runtime_error!(
-                                AstNode::default(),
-                                "'{}' not found",
-                                global_name
-                            );
+                            return vm_error!(reader.ip, "'{}' not found", global_name);
                         }
                     }
                 }
@@ -474,10 +468,10 @@ impl Vm {
                     size,
                 } => {
                     let function = VmFunction {
-                        ip: instruction_reader.ip,
+                        ip: reader.ip,
                         arg_count,
                     };
-                    instruction_reader.jump(size);
+                    reader.jump(size);
                     self.set_register(register, function);
                 }
                 Add { register, lhs, rhs } => {
@@ -486,7 +480,7 @@ impl Vm {
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a + b),
                         _ => {
-                            return binary_op_error(instruction, lhs_value, rhs_value);
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
                     };
                     self.set_register(register, result);
@@ -497,7 +491,7 @@ impl Vm {
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a * b),
                         _ => {
-                            return binary_op_error(instruction, lhs_value, rhs_value);
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
                     };
                     self.set_register(register, result);
@@ -508,7 +502,7 @@ impl Vm {
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a < b),
                         _ => {
-                            return binary_op_error(instruction, lhs_value, rhs_value);
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
                     };
                     self.set_register(register, result);
@@ -519,7 +513,7 @@ impl Vm {
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a > b),
                         _ => {
-                            return binary_op_error(instruction, lhs_value, rhs_value);
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
                     };
                     self.set_register(register, result);
@@ -537,7 +531,7 @@ impl Vm {
                     self.set_register(register, result);
                 }
                 Jump { offset } => {
-                    instruction_reader.jump(offset);
+                    reader.jump(offset);
                 }
                 JumpIf {
                     register,
@@ -546,14 +540,14 @@ impl Vm {
                 } => match self.load_register(register) {
                     Bool(b) => {
                         if b == jump_condition {
-                            instruction_reader.jump(offset);
+                            reader.jump(offset);
                         }
                     }
                     unexpected => {
-                        return runtime_error!(
-                            AstNode::default(),
+                        return vm_error!(
+                            reader.ip,
                             "Expected Bool, found '{}'",
-                            type_as_string(&unexpected)
+                            type_as_string(&unexpected),
                         );
                     }
                 },
@@ -582,23 +576,23 @@ impl Vm {
                             arg_count: function_arg_count,
                         } => {
                             if function_arg_count != arg_count {
-                                return runtime_error!(
-                                    AstNode::default(),
+                                return vm_error!(
+                                    reader.ip,
                                     "Function expects {} arguments, found {}",
                                     function_arg_count,
-                                    arg_count
+                                    arg_count,
                                 );
                             }
 
-                            self.push_frame(instruction_reader.ip, arg_register);
+                            self.push_frame(reader.ip, arg_register);
 
-                            instruction_reader.set_position(function_ip);
+                            reader.jump_to(function_ip);
                         }
                         unexpected => {
-                            return runtime_error!(
-                                AstNode::default(),
+                            return vm_error!(
+                                reader.ip,
                                 "Expected Function, found '{}'",
-                                type_as_string(&unexpected)
+                                type_as_string(&unexpected),
                             )
                         }
                     }
@@ -626,7 +620,7 @@ impl Vm {
         let frame = match self.call_stack.pop() {
             Some(frame) => frame,
             None => {
-                return runtime_error!(AstNode::default(), "pop_frame: Empty call stack");
+                return vm_error!(0, "pop_frame: Empty call stack");
             }
         };
 
@@ -681,13 +675,13 @@ impl Vm {
     }
 }
 
-fn binary_op_error(op: Instruction, lhs: Value, rhs: Value) -> RuntimeResult {
-    runtime_error!(
-        AstNode::default(), // TODO
+fn binary_op_error(op: Instruction, lhs: Value, rhs: Value, ip: usize) -> RuntimeResult {
+    vm_error!(
+        ip,
         "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
         op,
         lhs,
-        rhs
+        rhs,
     )
 }
 

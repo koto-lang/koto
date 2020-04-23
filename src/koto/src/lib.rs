@@ -130,12 +130,15 @@ impl Koto {
         match self.runtime.evaluate(&self.ast) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(message, start_pos, end_pos),
+                Error::VmRuntimeError { message, .. } => {
+                    format!("VM Runtime error: {}\n", message,) // TODO
+                }
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
         }
     }
@@ -172,12 +175,15 @@ impl Koto {
         {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(&message, start_pos, end_pos),
+                Error::VmRuntimeError { message, .. } => {
+                    format!("VM Runtime error: {}\n", message,) // TODO
+                }
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
         }
     }

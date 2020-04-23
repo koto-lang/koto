@@ -28,6 +28,10 @@ pub enum Error {
         start_pos: koto_parser::Position,
         end_pos: koto_parser::Position,
     },
+    VmRuntimeError {
+        message: String,
+        instruction: usize,
+    },
     ExternalError {
         message: String,
     },
@@ -62,6 +66,31 @@ macro_rules! runtime_error {
 }
 
 #[macro_export]
+macro_rules! make_vm_error {
+    ($ip:expr, $message:expr) => {{
+        let error = $crate::Error::VmRuntimeError {
+            message: $message,
+            instruction: $ip,
+        };
+        #[cfg(panic_on_runtime_error)]
+        {
+            panic!();
+        }
+        error
+    }};
+}
+
+#[macro_export]
+macro_rules! vm_error {
+    ($ip:expr, $error:expr) => {
+        Err($crate::make_vm_error!($ip, String::from($error)))
+    };
+    ($ip:expr, $error:expr, $($y:expr),+ $(,)?) => {
+        Err($crate::make_vm_error!($ip, format!($error, $($y),+)))
+    };
+}
+
+#[macro_export]
 macro_rules! make_external_error {
     ($message:expr) => {{
         let error = $crate::Error::ExternalError { message: $message };
@@ -82,4 +111,3 @@ macro_rules! external_error {
         Err($crate::make_external_error!(format!($error, $($y),+)))
     };
 }
-
