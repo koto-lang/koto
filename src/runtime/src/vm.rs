@@ -724,7 +724,7 @@ mod tests {
                     unexpected => {
                         return external_error!(
                             "assert expects booleans as arguments, found '{}'",
-                            type_as_string(unexpected)
+                            type_as_string(unexpected),
                         )
                     }
                 }

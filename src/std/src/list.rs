@@ -55,7 +55,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.get expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -72,7 +72,7 @@ pub fn register(global: &mut ValueMap) {
                         "list.remove: Index out of bounds - \
                          the index is {} but the List only has {} elements",
                         index,
-                        list.data().len()
+                        list.data().len(),
                     );
                 }
 
@@ -80,7 +80,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.remove expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -101,7 +101,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.insert expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -124,7 +124,7 @@ pub fn register(global: &mut ValueMap) {
                         return external_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
-                            f.function.args.len()
+                            f.function.args.len(),
                         );
                     }
                     let mut write_index = 0;
@@ -141,7 +141,7 @@ pub fn register(global: &mut ValueMap) {
                                 return external_error!(
                                     "list.filter expects a Bool to be returned from the \
                                      predicate, found '{}'",
-                                    value::type_as_string(&unexpected)
+                                    value::type_as_string(&unexpected),
                                 );
                             }
                         }
@@ -164,7 +164,7 @@ pub fn register(global: &mut ValueMap) {
                     return external_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
-                        f.function.args.len()
+                        f.function.args.len(),
                     );
                 }
 
@@ -176,7 +176,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.transform expects a function as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -187,7 +187,7 @@ pub fn register(global: &mut ValueMap) {
                 if f.function.args.len() != 2 {
                     return external_error!(
                         "list.fold: The fold function must have two arguments, found '{}'",
-                        f.function.args.len()
+                        f.function.args.len(),
                     );
                 }
 
@@ -201,7 +201,7 @@ pub fn register(global: &mut ValueMap) {
             }
             [_, _, unexpected] => external_error!(
                 "list.fold: Expected Function as third argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
             _ => external_error!("list.fold: Expected initial value and function as arguments"),
         })
@@ -221,7 +221,7 @@ fn list_op(
             "list.{} expects {} arguments, found {}",
             op_name,
             arg_count,
-            args.len()
+            args.len(),
         );
     }
 
@@ -230,7 +230,7 @@ fn list_op(
         unexpected => external_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
-            value::type_as_string(&unexpected)
+            value::type_as_string(&unexpected),
         ),
     }
 }

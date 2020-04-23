@@ -25,7 +25,7 @@ macro_rules! single_arg_fn {
                             stringify!($map_name),
                             $fn_name,
                             stringify!($type),
-                            value::type_as_string(&unexpected)
+                            value::type_as_string(&unexpected),
                         )
                     }
                 }
@@ -33,7 +33,7 @@ macro_rules! single_arg_fn {
                 koto_runtime::external_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
-                    args.len()
+                    args.len(),
                 )
             }
         });
@@ -55,7 +55,7 @@ where
                 Some(external) => f(external),
                 None => external_error!(
                     "Invalid type for external value, found '{}'",
-                    value.value_type()
+                    value.value_type(),
                 ),
             }
         }
@@ -75,7 +75,7 @@ macro_rules! get_external_instance {
             return koto_runtime::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
-                $fn_name
+                $fn_name,
             );
         }
 
@@ -87,7 +87,7 @@ macro_rules! get_external_instance {
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                 $external_name,
                 $fn_name,
-                unexpected
+                unexpected,
             ),
         }
     }};
@@ -133,7 +133,7 @@ pub fn register(runtime: &mut Runtime) {
                 unexpected => {
                     return external_error!(
                         "assert expects booleans as arguments, found '{}'",
-                        type_as_string(unexpected)
+                        type_as_string(unexpected),
                     )
                 }
             }
@@ -149,7 +149,7 @@ pub fn register(runtime: &mut Runtime) {
                 external_error!(
                     "Assertion failed, '{}' is not equal to '{}'",
                     args[0],
-                    args[1]
+                    args[1],
                 )
             }
         }
@@ -164,7 +164,7 @@ pub fn register(runtime: &mut Runtime) {
                 external_error!(
                     "Assertion failed, '{}' should not be equal to '{}'",
                     args[0],
-                    args[1]
+                    args[1],
                 )
             }
         }
@@ -180,7 +180,7 @@ pub fn register(runtime: &mut Runtime) {
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
-                    allowed_diff
+                    allowed_diff,
                 )
             }
         }
@@ -188,7 +188,7 @@ pub fn register(runtime: &mut Runtime) {
             "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
             type_as_string(&a),
             type_as_string(&b),
-            type_as_string(&c)
+            type_as_string(&c),
         ),
         _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
     });
@@ -217,7 +217,7 @@ pub fn register(runtime: &mut Runtime) {
         },
         [unexpected] => external_error!(
             "number is only supported for numbers and strings, found {}",
-            unexpected
+            unexpected,
         ),
         _ => external_error!("number expects a single argument, found {}", args.len()),
     });

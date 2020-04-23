@@ -92,7 +92,7 @@ pub fn register(global: &mut ValueMap) {
                             Ok(_) => Ok(Str(Arc::new(buffer))),
                             Err(e) => external_error!(
                                 "File.read_to_string: Error while reading data: {}",
-                                e
+                                e,
                             ),
                         }
                     }
@@ -116,7 +116,7 @@ pub fn register(global: &mut ValueMap) {
                 }
                 [_, unexpected] => external_error!(
                     "File.seek: Expected Number for seek position, found '{}'",
-                    type_as_string(&unexpected)
+                    type_as_string(&unexpected),
                 ),
                 _ => external_error!("File.seek: Expected seek position as second argument"),
             })
@@ -148,7 +148,7 @@ pub fn register(global: &mut ValueMap) {
             }
             [unexpected] => external_error!(
                 "io.open: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected)
+                type_as_string(&unexpected),
             ),
             _ => external_error!("io.open: Expected a String as argument"),
         }
@@ -177,7 +177,7 @@ pub fn register(global: &mut ValueMap) {
             }
             [unexpected] => external_error!(
                 "io.create: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected)
+                type_as_string(&unexpected),
             ),
             _ => external_error!("io.create: Expected a String as argument"),
         }
@@ -201,7 +201,7 @@ pub fn register(global: &mut ValueMap) {
                     Err(e) => {
                         return external_error!(
                             "io.temp_file: Error while creating temp file: {}",
-                            e
+                            e,
                         );
                     }
                 },
@@ -231,13 +231,13 @@ pub fn register(global: &mut ValueMap) {
                     Err(e) => external_error!(
                         "io.remove_file: Error while removing file '{}': {}",
                         path.to_string_lossy(),
-                        e
+                        e,
                     ),
                 }
             }
             [unexpected] => external_error!(
                 "io.remove_file: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected)
+                type_as_string(&unexpected),
             ),
             _ => external_error!("io.remove_file: Expected a String as argument"),
         }

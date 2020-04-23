@@ -32,7 +32,7 @@ pub fn register(global: &mut ValueMap) {
         }
         [unexpected] => external_error!(
             "thread.create: Expected function as argument, found '{}'",
-            type_as_string(unexpected)
+            type_as_string(unexpected),
         ),
         _ => external_error!("thread.create: Expected function as argument"),
     });

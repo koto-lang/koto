@@ -107,7 +107,7 @@ macro_rules! external_error {
     ($error:expr) => {
         Err($crate::make_external_error!(String::from($error)))
     };
-    ($error:expr, $($y:expr),+) => {
+    ($error:expr, $($y:expr),+ $(,)?) => {
         Err($crate::make_external_error!(format!($error, $($y),+)))
     };
 }
