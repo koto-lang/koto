@@ -1,6 +1,10 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-pub mod compile;
+mod compile;
+mod instruction_reader;
+
+pub use compile::*;
+pub use instruction_reader::*;
 
 pub type Bytecode = Vec<u8>;
 
@@ -29,4 +33,17 @@ pub enum Op {
     JumpTrue,       // register, offset[2]
     JumpFalse,      // register, offset[2]
     Call,           // function register, arg register, arg count
+}
+
+pub fn bytecode_to_string(bytecode: &Bytecode) -> String {
+    let mut result = String::new();
+    let mut reader = InstructionReader::new(bytecode);
+    let mut ip = reader.position();
+
+    while let Some(instruction) = reader.next() {
+        result += &format!("{}\t{}\n", ip, &instruction.to_string());
+        ip = reader.position();
+    }
+
+    result
 }
