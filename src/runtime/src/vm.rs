@@ -341,9 +341,7 @@ mod tests {
     use koto_bytecode::{bytecode_to_string, Compiler};
     use koto_parser::KotoParser;
 
-    fn run_script(script: &str) -> Value {
-        eprintln!("{}", script);
-
+    fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
 
         let parser = KotoParser::new();
@@ -357,8 +355,6 @@ mod tests {
             Ok(bytecode) => bytecode,
             Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),
         };
-
-        eprintln!("{}", bytecode_to_string(&bytecode));
 
         vm.global.add_value("test_global", Value::Number(42.0));
         vm.global.add_fn("assert", |_, args| {
@@ -383,116 +379,142 @@ mod tests {
 
         match vm.run(&bytecode) {
             Ok(result) => {
-                return result;
+                if result != expected_output {
+                    eprintln!("{}", script);
+                    eprintln!("{}", bytecode_to_string(&bytecode));
+                }
+                assert_eq!(result, expected_output);
             }
             Err(e) => {
+                eprintln!("{}", script);
+                eprintln!("{}", bytecode_to_string(&bytecode));
                 panic!(format!("Error while running script: {:?}", e));
             }
         }
     }
 
-    #[test]
-    fn basic() {
-        let script = "()";
-        let result = run_script(script);
-        assert_eq!(result, Value::Empty);
+    mod literals {
+        use super::*;
 
-        let script = "true";
-        let result = run_script(script);
-        assert_eq!(result, Value::Bool(true));
+        #[test]
+        fn empty() {
+            test_script("()", Value::Empty);
+        }
 
-        let script = "false";
-        let result = run_script(script);
-        assert_eq!(result, Value::Bool(false));
+        #[test]
+        fn bool_true() {
+            test_script("true", Value::Bool(true));
+        }
 
-        let script = "24.0";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(24.0));
+        #[test]
+        fn bool_false() {
+            test_script("false", Value::Bool(false));
+        }
 
-        let script = "\"Hello\"";
-        let result = run_script(script);
-        assert_eq!(result, Value::Str(Arc::new("Hello".to_string())));
+        #[test]
+        fn number() {
+            test_script("24.0", Value::Number(24.0));
+        }
+
+        #[test]
+        fn string() {
+            test_script("\"Hello\"", Value::Str(Arc::new("Hello".to_string())));
+        }
     }
 
-    #[test]
-    fn arithmetic() {
-        let script = "1 + 2 * 3 + 4";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(11.0));
-    }
+    mod operators {
+        use super::*;
 
-    #[test]
-    fn assignment() {
-        let script = "
+        #[test]
+        fn arithmetic() {
+            test_script("1 + 2 * 3 + 4", Value::Number(11.0));
+        }
+
+        #[test]
+        fn assignment() {
+            let script = "
 a = 1 * 3
-a + 1
-";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(4.0));
+a + 1";
+            test_script(script, Value::Number(4.0));
+        }
+
+        #[test]
+        fn comparison() {
+            test_script(
+                "false or 1 < 2 < 3 and 3 > 2 > 1 or false",
+                Value::Bool(true),
+            );
+        }
+
+        #[test]
+        fn equality() {
+            test_script("1 + 1 == 2 and 2 + 2 != 5", Value::Bool(true));
+        }
     }
 
-    #[test]
-    fn logic() {
-        let script = "false or 1 < 2 < 3 and 3 > 2 > 1 or false";
-        let result = run_script(script);
-        assert_eq!(result, Value::Bool(true));
+    mod control_flow {
+        use super::*;
 
-        let script = "
+        #[test]
+        fn if_else_if() {
+            let script = "
 if 5 < 4
   42
 else if 1 < 2
   -1
 else
-  99
-";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(-1.0));
-
-        let script = "1 + 1 == 2 and 2 + 2 != 5";
-        let result = run_script(script);
-        assert_eq!(result, Value::Bool(true));
+  99";
+            test_script(script, Value::Number(-1.0));
+        }
     }
 
-    #[test]
-    fn global() {
-        let script = "a = test_global";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(42.0));
+    mod globals {
+        use super::*;
 
-        let script = "assert 1 + 1 == 2";
-        let result = run_script(script);
-        assert_eq!(result, Value::Empty);
+        #[test]
+        fn load_value() {
+            test_script("a = test_global", Value::Number(42.0));
+        }
 
-        let script = "assert (1 + 1 == 2) (2 < 3)";
-        let result = run_script(script);
-        assert_eq!(result, Value::Empty);
+        #[test]
+        fn function() {
+            test_script("assert 1 + 1 == 2", Value::Empty);
+        }
+
+        #[test]
+        fn function_two_args() {
+            test_script("assert (1 + 1 == 2) (2 < 3)", Value::Empty);
+        }
     }
 
-    #[test]
-    fn functions() {
-        let script = "
+    mod functions {
+        use super::*;
+
+        #[test]
+        fn single_arg() {
+            let script = "
 square = |x| x * x
-square 8
-";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(64.0));
+square 8";
+            test_script(script, Value::Number(64.0));
+        }
 
-        let script = "
+        #[test]
+        fn two_args() {
+            let script = "
 add = |a b|
   a + b
-add 5 6
-";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(11.0));
+add 5 6";
+            test_script(script, Value::Number(11.0));
+        }
 
-        let script = "
+        #[test]
+        fn nested() {
+            let script = "
 add = |a b|
-  add2 = |x y|
-    x + y
+  add2 = |x y| x + y
   add2 a b
-add 10 20
-";
-        let result = run_script(script);
-        assert_eq!(result, Value::Number(30.0));
+add 10 20";
+            test_script(script, Value::Number(30.0));
+        }
     }
 }
