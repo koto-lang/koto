@@ -3,8 +3,6 @@ use crate::{Bytecode, Op};
 use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, LookupOrId, Node};
 use std::convert::TryFrom;
 
-const BYTE_MAX: u8 = std::u8::MAX;
-
 #[derive(Clone, Debug)]
 struct Frame {
     register_stack: Vec<u8>,
@@ -30,7 +28,7 @@ impl Frame {
         let new_register = self.temporary_base + self.temporary_count;
         self.temporary_count += 1;
 
-        if new_register > BYTE_MAX {
+        if new_register > u8::MAX {
             Err("Reached maximum number of registers".to_string())
         } else {
             self.register_stack.push(new_register);
@@ -199,7 +197,7 @@ impl Compiler {
             Node::Number(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
-                if constant <= BYTE_MAX as u32 {
+                if constant <= u8::MAX as u32 {
                     self.push_op(LoadNumber, &[target, constant as u8]);
                 } else {
                     self.push_op(LoadNumberLong, &[target]);
@@ -209,7 +207,7 @@ impl Compiler {
             Node::Str(constant) => {
                 let target = self.frame_mut().get_register()?;
                 let constant = *constant;
-                if constant <= BYTE_MAX as u32 {
+                if constant <= u8::MAX as u32 {
                     self.push_op(LoadString, &[target, constant as u8]);
                 } else {
                     self.push_op(LoadStringLong, &[target]);
@@ -449,7 +447,7 @@ impl Compiler {
         use Op::*;
 
         let register = self.frame_mut().get_register()?;
-        if index <= BYTE_MAX as u32 {
+        if index <= u8::MAX as u32 {
             self.push_bytes(&[LoadGlobal.into(), register, index as u8]);
         } else {
             self.push_bytes(&[LoadGlobalLong.into(), register]);
