@@ -396,6 +396,92 @@ impl Vm {
                         }
                     };
                 }
+                ListIndex {
+                    register,
+                    list,
+                    index,
+                } => {
+                    let list_value = self.get_register(list).clone();
+                    let index_value = self.get_register(index).clone();
+
+                    match list_value {
+                        List(l) => match index_value {
+                            Number(n) => {
+                                if n < 0.0 {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Negative list indices aren't allowed (found '{}')",
+                                        n
+                                    );
+                                }
+                                self.set_register(register, l.data()[n as usize].clone());
+                            }
+                            Range(IntRange { start, end }) => {
+                                let ustart = start as usize;
+                                let uend = end as usize;
+
+                                if start < 0 || end < 0 {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Indexing with negative indices isn't supported, \
+                                         start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                } else if start > end {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Indexing with a descending range isn't supported, \
+                                         start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                } else if ustart > l.len() || uend > l.len() {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Index out of bounds, \
+                                         List has a length of {} - start: {}, end: {}",
+                                        l.len(),
+                                        start,
+                                        end
+                                    );
+                                } else {
+                                    // match &value_to_set {
+                                    //     Some(value) => {
+                                    //         let mut list_data = list.data_mut();
+                                    //         for i in ustart..uend {
+                                    //             list_data[i] = value.clone();
+                                    //         }
+                                    //         return Ok(None);
+                                    //     }
+                                    //     None => {
+
+                                    // TODO Avoid allocating new vec,
+                                    // introduce 'slice' value type
+                                    self.set_register(
+                                        register,
+                                        List(ValueList::from_slice(&l.data()[ustart..uend])),
+                                    )
+                                }
+                            }
+                            IndexRange { .. } => unimplemented!("ListIndex IndexRange"),
+                            unexpected => {
+                                return vm_error!(
+                                    reader.position(),
+                                    "Expected Number or Range, found '{}'",
+                                    type_as_string(&unexpected),
+                                )
+                            }
+                        },
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected List, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    };
+                }
                 MapInsert {
                     register,
                     key,
@@ -814,6 +900,26 @@ sum = 0
 (sum += a) for a in [10 20 30 40]
 sum";
             test_script(script, Number(100.0));
+        }
+    }
+
+    mod lookups {
+        use super::*;
+
+        #[test]
+        fn list_access_element() {
+            let script = "
+a = [1 2 3]
+a[1]";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn list_access_range() {
+            let script = "
+a = [10 20 30]
+a[1..3]";
+            test_script(script, value_list(&[20, 30]));
         }
     }
 }

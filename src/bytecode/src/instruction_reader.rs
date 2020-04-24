@@ -124,6 +124,11 @@ pub enum Instruction {
         register: u8,
         value: u8,
     },
+    ListIndex {
+        register: u8,
+        list: u8,
+        index: u8,
+    },
     MapInsert {
         register: u8,
         key: u8,
@@ -259,6 +264,15 @@ impl fmt::Display for Instruction {
             ListPush { register, value } => {
                 write!(f, "ListPush\treg: {}\t\tvalue: {}", register, value)
             }
+            ListIndex {
+                register,
+                list,
+                index,
+            } => write!(
+                f,
+                "ListInsert\treg: {}\t\tlist: {}\t\tindex: {}",
+                register, list, index
+            ),
             MapInsert {
                 register,
                 key,
@@ -512,6 +526,11 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::ListPush => Some(ListPush {
                 register: get_byte!(),
                 value: get_byte!(),
+            }),
+            Op::ListIndex => Some(ListIndex {
+                register: get_byte!(),
+                list: get_byte!(),
+                index: get_byte!(),
             }),
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),

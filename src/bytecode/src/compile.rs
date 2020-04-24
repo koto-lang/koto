@@ -1,7 +1,8 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{
-    AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, LookupOrId, Node,
+    AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, Lookup, LookupNode,
+    LookupOrId, Node,
 };
 use std::convert::TryFrom;
 
@@ -173,13 +174,8 @@ impl Compiler {
             Node::Empty => {
                 self.push_empty()?;
             }
-            Node::Id(index) => {
-                if self.frame().is_local(*index) {
-                    self.frame_mut().get_local_register(*index)?;
-                } else {
-                    self.load_global(*index)?;
-                }
-            }
+            Node::Id(index) => self.compile_load_id(*index)?,
+            Node::Lookup(lookup) => self.compile_lookup(lookup)?,
             Node::BoolTrue => {
                 let target = self.frame_mut().get_register()?;
                 self.push_op(SetTrue, &[target]);
@@ -384,6 +380,45 @@ impl Compiler {
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
         }
 
+        Ok(())
+    }
+
+    fn compile_load_id(&mut self, id: ConstantIndex) -> Result<(), String> {
+        if self.frame().is_local(id) {
+            self.frame_mut().get_local_register(id)?;
+        } else {
+            self.load_global(id)?;
+        }
+        Ok(())
+    }
+
+    fn compile_lookup(&mut self, lookup: &Lookup) -> Result<(), String> {
+        use Op::*;
+
+        let mut root = true;
+
+        for lookup_node in lookup.0.iter() {
+            match lookup_node {
+                LookupNode::Id(id) => {
+                    if root {
+                        self.compile_load_id(*id)?;
+                    } else {
+                        unimplemented!("lookup nested id");
+                    }
+                }
+                LookupNode::Index(index_node) => {
+                    self.compile_node(&index_node.0)?;
+                    let index_register = self.frame_mut().pop_register()?;
+                    let list_register = self.frame_mut().pop_register()?;
+                    let result_register = self.frame_mut().get_register()?;
+                    self.push_op(ListIndex, &[result_register, list_register, index_register]);
+                }
+                LookupNode::Call(_) => {
+                    unimplemented!("Lookup.Call");
+                }
+            }
+            root = false;
+        }
         Ok(())
     }
 
