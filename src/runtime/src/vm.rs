@@ -376,7 +376,13 @@ impl Vm {
                     let value = self.get_register(value).clone();
 
                     match self.get_register_mut(register) {
-                        List(list) => list.data_mut().push(value),
+                        List(list) => match value {
+                            Range(range) => {
+                                list.data_mut()
+                                    .extend(ValueIterator2::new(Iterable::Range(range)));
+                            }
+                            _ => list.data_mut().push(value),
+                        },
                         unexpected => {
                             return vm_error!(
                                 reader.position(),
@@ -384,7 +390,7 @@ impl Vm {
                                 type_as_string(&unexpected),
                             )
                         }
-                    }
+                    };
                 }
             }
         }
@@ -605,6 +611,16 @@ mod tests {
 a = 1
 [a a a]";
             test_script(script, value_list(&[1, 1, 1]));
+        }
+
+        #[test]
+        fn list_from_range() {
+            test_script("[3..0]", value_list(&[3, 2, 1]));
+        }
+
+        #[test]
+        fn list_from_multiple_ranges() {
+            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
         }
     }
 
