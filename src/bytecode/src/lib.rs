@@ -24,6 +24,8 @@ pub enum Op {
     LoadGlobalLong, // register, constant[4]
     MakeList,       // register, size hint
     MakeListLong,   // register, size hint[4]
+    MakeMap,        // register, size hint
+    MakeMapLong,    // register, size hint[4]
     MakeIterator,   // register, range
     MakeFunction,   // register, arg count, size[2]
     RangeExclusive, // register, start, end
@@ -41,7 +43,8 @@ pub enum Op {
     JumpBackFalse,  // offset[2]
     Call,           // function, arg, arg count
     IteratorNext,   // output, iterator, jump offset[2]
-    PushToList,     // list, value
+    ListPush,       // list, value
+    MapInsert,      // map, key, value
 }
 
 pub fn bytecode_to_string(bytecode: &Bytecode) -> String {

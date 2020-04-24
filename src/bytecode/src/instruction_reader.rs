@@ -41,6 +41,10 @@ pub enum Instruction {
         register: u8,
         size_hint: usize,
     },
+    MakeMap {
+        register: u8,
+        size_hint: usize,
+    },
     RangeExclusive {
         register: u8,
         start: u8,
@@ -116,8 +120,13 @@ pub enum Instruction {
         iterator: u8,
         jump_offset: usize,
     },
-    PushToList {
+    ListPush {
         register: u8,
+        value: u8,
+    },
+    MapInsert {
+        register: u8,
+        key: u8,
         value: u8,
     },
 }
@@ -145,6 +154,10 @@ impl fmt::Display for Instruction {
                 register,
                 size_hint,
             } => write!(f, "MakeList\treg: {}\t\tsize_hint: {}", register, size_hint),
+            MakeMap {
+                register,
+                size_hint,
+            } => write!(f, "MakeMap\treg: {}\t\tsize_hint: {}", register, size_hint),
             RangeExclusive {
                 register,
                 start,
@@ -243,9 +256,18 @@ impl fmt::Display for Instruction {
                 "IteratorNext\treg: {}\t\titerator: {}\tjump offset: {}",
                 register, iterator, jump_offset
             ),
-            PushToList { register, value } => {
-                write!(f, "PushToList\treg: {}\t\tvalue: {}", register, value)
+            ListPush { register, value } => {
+                write!(f, "ListPush\treg: {}\t\tvalue: {}", register, value)
             }
+            MapInsert {
+                register,
+                key,
+                value,
+            } => write!(
+                f,
+                "MapInsert\treg: {}\t\tkey: {}\t\tvalue: {}",
+                register, key, value
+            ),
         }
     }
 }
@@ -399,6 +421,14 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 size_hint: get_u32!() as usize,
             }),
+            Op::MakeMap => Some(MakeMap {
+                register: get_byte!(),
+                size_hint: get_byte!() as usize,
+            }),
+            Op::MakeMapLong => Some(MakeMap {
+                register: get_byte!(),
+                size_hint: get_u32!() as usize,
+            }),
             Op::RangeExclusive => Some(RangeExclusive {
                 register: get_byte!(),
                 start: get_byte!(),
@@ -479,8 +509,13 @@ impl<'a> Iterator for InstructionReader<'a> {
                 iterator: get_byte!(),
                 jump_offset: get_u16!() as usize,
             }),
-            Op::PushToList => Some(PushToList {
+            Op::ListPush => Some(ListPush {
                 register: get_byte!(),
+                value: get_byte!(),
+            }),
+            Op::MapInsert => Some(MapInsert {
+                register: get_byte!(),
+                key: get_byte!(),
                 value: get_byte!(),
             }),
         }

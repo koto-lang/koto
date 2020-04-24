@@ -3,7 +3,7 @@
 use crate::{
     type_as_string,
     value_iterator::{IntRange, Iterable, ValueIterator2},
-    vm_error, Runtime, RuntimeResult, Value, ValueList, ValueMap,
+    vm_error, Id, Runtime, RuntimeResult, Value, ValueList, ValueMap,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
 use koto_parser::ConstantPool;
@@ -100,6 +100,12 @@ impl Vm {
                 } => {
                     self.set_register(register, List(ValueList::with_capacity(size_hint)));
                 }
+                MakeMap {
+                    register,
+                    size_hint,
+                } => {
+                    self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
+                }
                 RangeExclusive {
                     register,
                     start,
@@ -159,9 +165,7 @@ impl Vm {
                         Range(int_range) => {
                             Iterator(ValueIterator2::new(Iterable::Range(*int_range)))
                         }
-                        List(list) => {
-                            Iterator(ValueIterator2::new(Iterable::List(list.clone())))
-                        }
+                        List(list) => Iterator(ValueIterator2::new(Iterable::List(list.clone()))),
                         Map(_) => {
                             unimplemented!("MakeIterator - List");
                         }
@@ -372,7 +376,7 @@ impl Vm {
                         None => reader.jump(jump_offset),
                     };
                 }
-                PushToList { register, value } => {
+                ListPush { register, value } => {
                     let value = self.get_register(value).clone();
 
                     match self.get_register_mut(register) {
@@ -387,6 +391,36 @@ impl Vm {
                             return vm_error!(
                                 reader.position(),
                                 "Expected List, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    };
+                }
+                MapInsert {
+                    register,
+                    key,
+                    value,
+                } => {
+                    let key = self.get_register(key).clone();
+                    let value = self.get_register(value).clone();
+
+                    match self.get_register_mut(register) {
+                        Map(map) => match key {
+                            Str(id_string) => {
+                                map.data_mut().insert(Id::new(id_string), value);
+                            }
+                            unexpected => {
+                                return vm_error!(
+                                    reader.position(),
+                                    "Expected String for Map key, found '{}'",
+                                    type_as_string(&unexpected),
+                                );
+                            }
+                        },
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected Map, found '{}'",
                                 type_as_string(&unexpected),
                             )
                         }
@@ -488,7 +522,7 @@ fn binary_op_error(op: Instruction, lhs: &Value, rhs: &Value, ip: usize) -> Runt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{external_error, Value::*};
+    use crate::{external_error, Value::*, ValueHashMap};
     use koto_bytecode::{bytecode_to_string, Compiler};
     use koto_parser::KotoParser;
 
@@ -621,6 +655,23 @@ a = 1
         #[test]
         fn list_from_multiple_ranges() {
             test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
+        }
+
+        #[test]
+        fn map_empty() {
+            test_script("{}", Map(ValueMap::new()));
+        }
+
+        #[test]
+        fn map_from_literals() {
+            let mut result_data = ValueHashMap::new();
+            result_data.insert(Id::from_str("foo"), Number(42.0));
+            result_data.insert(Id::from_str("bar"), Str(Arc::new("baz".to_string())));
+
+            test_script(
+                "{foo: 42, bar: \"baz\"}",
+                Map(ValueMap::with_data(result_data)),
+            );
         }
     }
 
@@ -764,6 +815,5 @@ sum = 0
 sum";
             test_script(script, Number(100.0));
         }
-
     }
 }

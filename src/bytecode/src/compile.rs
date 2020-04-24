@@ -199,14 +199,7 @@ impl Compiler {
                 }
             }
             Node::Str(constant) => {
-                let target = self.frame_mut().get_register()?;
-                let constant = *constant;
-                if constant <= u8::MAX as u32 {
-                    self.push_op(LoadString, &[target, constant as u8]);
-                } else {
-                    self.push_op(LoadStringLong, &[target]);
-                    self.push_bytes(&constant.to_le_bytes());
-                }
+                self.load_string(*constant)?;
             }
             Node::List(elements) => {
                 let list_register = self.frame_mut().get_register()?;
@@ -223,7 +216,26 @@ impl Compiler {
                 for element_node in elements.iter() {
                     self.compile_node(element_node)?;
                     let element = self.frame_mut().pop_register()?;
-                    self.push_op(PushToList, &[list_register, element]);
+                    self.push_op(ListPush, &[list_register, element]);
+                }
+            }
+            Node::Map(entries) => {
+                let map_register = self.frame_mut().get_register()?;
+
+                let size_hint = entries.len();
+                if size_hint <= u8::MAX as usize {
+                    self.push_op(MakeMap, &[map_register, size_hint as u8]);
+                } else {
+                    self.push_op(MakeMapLong, &[map_register]);
+                    self.push_bytes(&size_hint.to_le_bytes());
+                }
+
+                for (key, value_node) in entries.iter() {
+                    self.load_string(*key)?;
+                    self.compile_node(value_node)?;
+                    let value_register = self.frame_mut().pop_register()?;
+                    let key_register = self.frame_mut().pop_register()?;
+                    self.push_op(MapInsert, &[map_register, key_register, value_register]);
                 }
             }
             Node::Range {
@@ -552,6 +564,20 @@ impl Compiler {
             self.push_bytes(&index.to_le_bytes());
         }
         Ok(register)
+    }
+
+    fn load_string(&mut self, index: ConstantIndex) -> Result<u8, String> {
+        use Op::*;
+
+        let target = self.frame_mut().get_register()?;
+        if index <= u8::MAX as u32 {
+            self.push_op(LoadString, &[target, index as u8]);
+        } else {
+            self.push_op(LoadStringLong, &[target]);
+            self.push_bytes(&index.to_le_bytes());
+        }
+
+        Ok(target)
     }
 
     fn compile_node_with_jump_offset(&mut self, node: &AstNode) -> Result<(), String> {
