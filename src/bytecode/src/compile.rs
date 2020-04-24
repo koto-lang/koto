@@ -298,35 +298,7 @@ impl Compiler {
                     _ => unimplemented!(),
                 };
 
-                let stack_count = self.frame().register_stack.len();
-
-                let first_arg_register = if !args.is_empty() {
-                    self.frame().next_temporary_register()
-                } else {
-                    0
-                };
-
-                for arg in args.iter() {
-                    self.compile_node(&arg)?;
-
-                    // If the arg value is in a local register, then it needs to be copied to
-                    // an argument register
-                    let frame = self.frame_mut();
-                    if *frame.peek_register().unwrap() < frame.temporary_base {
-                        let source = frame.pop_register()?;
-                        let target = frame.get_register()?;
-                        self.push_op(Copy, &[target, source]);
-                    }
-                }
-
-                self.push_op(
-                    Call,
-                    &[function_register, first_arg_register, args.len() as u8],
-                );
-
-                // The return value gets placed in the function call register
-                // TODO multiple return values
-                self.frame_mut().truncate_register_stack(stack_count + 1)?;
+                self.compile_call(function_register, args)?;
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
@@ -417,12 +389,46 @@ impl Compiler {
                     let result_register = self.frame_mut().get_register()?;
                     self.push_op(ListIndex, &[result_register, list_register, index_register]);
                 }
-                LookupNode::Call(_) => {
-                    unimplemented!("Lookup.Call");
+                LookupNode::Call(args) => {
+                    let function_register = *self.frame_mut().peek_register().unwrap();
+                    self.compile_call(function_register, &args)?;
                 }
             }
             root = false;
         }
+        Ok(())
+    }
+
+    fn compile_call(&mut self, function_register: u8, args: &[AstNode]) -> Result<(), String> {
+        use Op::*;
+
+        let stack_count = self.frame().register_stack.len();
+
+        let frame_base = if args.is_empty() {
+            self.frame_mut().get_register()?
+        } else {
+            self.frame().next_temporary_register()
+        };
+
+        for arg in args.iter() {
+            self.compile_node(&arg)?;
+
+            // If the arg value is in a local register, then it needs to be copied to
+            // an argument register
+            let frame = self.frame_mut();
+            if *frame.peek_register().unwrap() < frame.temporary_base {
+                let source = frame.pop_register()?;
+                let target = frame.get_register()?;
+                self.push_op(Copy, &[target, source]);
+            }
+        }
+
+        self.push_op(Call, &[function_register, frame_base, args.len() as u8]);
+
+        // The return value gets placed in the frame base register
+        // TODO multiple return values
+        self.frame_mut().truncate_register_stack(stack_count + 1)?;
+
         Ok(())
     }
 

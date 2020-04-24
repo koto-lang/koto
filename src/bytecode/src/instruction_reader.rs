@@ -146,7 +146,7 @@ impl fmt::Display for Instruction {
         use Instruction::*;
         match self {
             Error { .. } => unreachable!(),
-            Copy { target, source } => write!(f, "Copy\t\ttarget: {}\tsource: {}", target, source),
+            Copy { target, source } => write!(f, "Copy\t\treg: {}\t\tsource: {}", target, source),
             SetEmpty { register } => write!(f, "SetEmpty\treg: {}", register),
             SetTrue { register } => write!(f, "SetTrue\treg: {}", register),
             SetFalse { register } => write!(f, "SetFalse\treg: {}", register),
@@ -167,7 +167,7 @@ impl fmt::Display for Instruction {
             MakeMap {
                 register,
                 size_hint,
-            } => write!(f, "MakeMap\treg: {}\t\tsize_hint: {}", register, size_hint),
+            } => write!(f, "MakeMap\t\treg: {}\t\tsize_hint: {}", register, size_hint),
             RangeExclusive {
                 register,
                 start,

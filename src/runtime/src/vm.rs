@@ -862,6 +862,14 @@ else
         use super::*;
 
         #[test]
+        fn no_args() {
+            let script = "
+f = || 42
+f()";
+            test_script(script, Number(42.0));
+        }
+
+        #[test]
         fn single_arg() {
             let script = "
 square = |x| x * x
@@ -980,6 +988,14 @@ m = {foo: 99}
 l = [m m m]
 l[2].foo";
             test_script(script, Number(99.0));
+        }
+
+        #[test]
+        fn function_call() {
+            let script = "
+m = {get_map: || { foo: -1 }}
+m.get_map().foo";
+            test_script(script, Number(-1.0));
         }
     }
 }
