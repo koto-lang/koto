@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use crate::{type_as_string, vm_error, Runtime, RuntimeResult, Value, ValueMap};
+use crate::{
+    type_as_string,
+    value_iterator::{IntRange, Iterable, ValueIterator2},
+    vm_error, Runtime, RuntimeResult, Value, ValueMap,
+};
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
 use koto_parser::ConstantPool;
 use rustc_hash::FxHashMap;
@@ -56,14 +60,13 @@ impl Vm {
                     return vm_error!(reader.position(), "{}", message);
                 }
                 Copy { target, source } => {
-                    let source_value = self.load_register(source);
-                    self.set_register(target, source_value);
+                    self.set_register(target, self.get_register(source).clone());
                 }
                 SetEmpty { register } => self.set_register(register, Empty),
                 SetTrue { register } => self.set_register(register, Bool(true)),
                 SetFalse { register } => self.set_register(register, Bool(false)),
                 Return { register } => {
-                    self.frame_mut().result = self.load_register(register);
+                    self.frame_mut().result = self.get_register(register).clone();
 
                     let return_ip = self.frame().return_ip;
                     result = self.pop_frame()?;
@@ -108,16 +111,16 @@ impl Vm {
                     start,
                     end,
                 } => {
-                    let range = match (self.load_register(start), self.load_register(end)) {
+                    let range = match (self.get_register(start), self.get_register(end)) {
                         (Number(start), Number(end)) => {
                             let (start, end) = if start <= end {
-                                (start as isize, end as isize)
+                                (*start as isize, *end as isize)
                             } else {
                                 // descending ranges will be evaluated with (end..start).rev()
-                                (start as isize + 1, end as isize + 1)
+                                (*start as isize + 1, *end as isize + 1)
                             };
 
-                            Range { start, end }
+                            Range(IntRange { start, end })
                         }
                         unexpected => {
                             return vm_error!(
@@ -128,7 +131,6 @@ impl Vm {
                             )
                         }
                     };
-
                     self.set_register(register, range);
                 }
                 MakeRangeInclusive {
@@ -136,16 +138,16 @@ impl Vm {
                     start,
                     end,
                 } => {
-                    let range = match (self.load_register(start), self.load_register(end)) {
+                    let range = match (self.get_register(start), self.get_register(end)) {
                         (Number(start), Number(end)) => {
                             let (start, end) = if start <= end {
-                                (start as isize, end as isize + 1)
+                                (*start as isize, *end as isize + 1)
                             } else {
                                 // descending ranges will be evaluated with (end..start).rev()
-                                (start as isize + 1, end as isize)
+                                (*start as isize + 1, *end as isize)
                             };
 
-                            Range { start, end }
+                            Range(IntRange { start, end })
                         }
                         unexpected => {
                             return vm_error!(
@@ -156,12 +158,32 @@ impl Vm {
                             )
                         }
                     };
-
                     self.set_register(register, range);
                 }
+                MakeIterator { register, range } => {
+                    let iterator = match self.get_register(range) {
+                        Range(int_range) => {
+                            Iterator(ValueIterator2::new(Iterable::Range(*int_range)))
+                        }
+                        List(_) => {
+                            unimplemented!("MakeIterator - List");
+                        }
+                        Map(_) => {
+                            unimplemented!("MakeIterator - List");
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected iterable value while making iterator, found '{}'",
+                                type_as_string(&unexpected)
+                            );
+                        }
+                    };
+                    self.set_register(register, iterator);
+                }
                 Add { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a + b),
                         _ => {
@@ -176,8 +198,8 @@ impl Vm {
                     self.set_register(register, result);
                 }
                 Multiply { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Number(a * b),
                         _ => {
@@ -192,8 +214,8 @@ impl Vm {
                     self.set_register(register, result);
                 }
                 Less { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a < b),
                         _ => {
@@ -208,8 +230,8 @@ impl Vm {
                     self.set_register(register, result);
                 }
                 Greater { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a > b),
                         _ => {
@@ -224,31 +246,49 @@ impl Vm {
                     self.set_register(register, result);
                 }
                 Equal { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = (lhs_value == rhs_value).into();
                     self.set_register(register, result);
                 }
                 NotEqual { register, lhs, rhs } => {
-                    let lhs_value = self.load_register(lhs);
-                    let rhs_value = self.load_register(rhs);
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
                     let result = (lhs_value != rhs_value).into();
                     self.set_register(register, result);
                 }
                 Jump { offset } => {
                     reader.jump(offset);
                 }
-                JumpBack { offset } => {
-                    reader.jump_back(offset);
-                }
                 JumpIf {
                     register,
                     offset,
                     jump_condition,
-                } => match self.load_register(register) {
+                } => match self.get_register(register) {
                     Bool(b) => {
-                        if b == jump_condition {
+                        if *b == jump_condition {
                             reader.jump(offset);
+                        }
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            reader.position(),
+                            "Expected Bool, found '{}'",
+                            type_as_string(&unexpected),
+                        );
+                    }
+                },
+                JumpBack { offset } => {
+                    reader.jump_back(offset);
+                }
+                JumpBackIf {
+                    register,
+                    offset,
+                    jump_condition,
+                } => match self.get_register(register) {
+                    Bool(b) => {
+                        if *b == jump_condition {
+                            reader.jump_back(offset);
                         }
                     }
                     unexpected => {
@@ -264,7 +304,7 @@ impl Vm {
                     arg_register,
                     arg_count,
                 } => {
-                    let function = self.load_register(register);
+                    let function = self.get_register(register).clone();
                     match function {
                         ExternalFunction(f) => {
                             let function = f.function.as_ref();
@@ -304,6 +344,27 @@ impl Vm {
                             )
                         }
                     }
+                }
+                IteratorNext {
+                    register,
+                    iterator,
+                    jump_offset,
+                } => {
+                    let result = match self.get_register_mut(iterator) {
+                        Iterator(iterator) => iterator.next(),
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected Iterator, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    };
+
+                    match result {
+                        Some(value) => self.set_register(register, value),
+                        None => reader.jump(jump_offset),
+                    };
                 }
             }
         }
@@ -356,8 +417,13 @@ impl Vm {
         self.value_stack[index] = value;
     }
 
-    fn load_register(&self, register: u8) -> Value {
-        self.value_stack[self.register_index(register)].clone()
+    fn get_register(&self, register: u8) -> &Value {
+        &self.value_stack[self.register_index(register)]
+    }
+
+    fn get_register_mut(&mut self, register: u8) -> &mut Value {
+        let index = self.register_index(register);
+        &mut self.value_stack[index]
     }
 
     fn register_slice(&self, register: u8, count: u8) -> &[Value] {
@@ -383,7 +449,7 @@ impl Vm {
     }
 }
 
-fn binary_op_error(op: Instruction, lhs: Value, rhs: Value, ip: usize) -> RuntimeResult {
+fn binary_op_error(op: Instruction, lhs: &Value, rhs: &Value, ip: usize) -> RuntimeResult {
     vm_error!(
         ip,
         "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
@@ -482,14 +548,14 @@ mod tests {
 
         #[test]
         fn range() {
-            test_script("0..10", Value::Range { start: 0, end: 10 });
-            test_script("0..-10", Value::Range { start: 1, end: -9 });
+            test_script("0..10", Value::Range(IntRange { start: 0, end: 10 }));
+            test_script("0..-10", Value::Range(IntRange { start: 1, end: -9 }));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", Value::Range { start: 10, end: 21 });
-            test_script("4..=0", Value::Range { start: 5, end: 0 });
+            test_script("10..=20", Value::Range(IntRange { start: 10, end: 21 }));
+            test_script("4..=0", Value::Range(IntRange { start: 5, end: 0 }));
         }
     }
 
@@ -608,6 +674,24 @@ count = 10
 (count += 1) until count == 20
 count";
             test_script(script, Value::Number(20.0));
+        }
+
+        #[test]
+        fn for_loop() {
+            let script = "
+count = 32
+(count += 1) for _ in 0..10
+count";
+            test_script(script, Value::Number(42.0));
+        }
+
+        #[test]
+        fn for_loop_conditional() {
+            let script = "
+count = 0
+(count += 1) for i in 0..10 if i > 4
+count";
+            test_script(script, Value::Number(5.0));
         }
     }
 }

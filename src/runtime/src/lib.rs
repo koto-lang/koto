@@ -15,6 +15,7 @@ pub use runtime::Runtime;
 
 pub use external::{ExternalFunction, ExternalValue};
 pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
+pub use value_iterator::IntRange;
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};
 pub use vm::Vm;

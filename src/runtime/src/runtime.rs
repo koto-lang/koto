@@ -2,7 +2,7 @@ use crate::{
     call_stack::CallStack,
     runtime_error,
     value::{copy_value, type_as_string, RuntimeFunction, Value},
-    value_iterator::{MultiRangeValueIterator, ValueIterator},
+    value_iterator::{IntRange, MultiRangeValueIterator, ValueIterator},
     value_list::ValueVec,
     Error, ExternalFunction, Id, LookupSlice, RuntimeResult, ValueHashMap, ValueList, ValueMap,
 };
@@ -187,7 +187,7 @@ impl Runtime {
                 let elements = self.evaluate_expressions(elements)?;
                 let result = match elements.as_slice() {
                     [list @ List(_)] => list.clone(),
-                    [Range { start, end }] => {
+                    [Range(IntRange { start, end })] => {
                         let expanded = if end >= start {
                             (*start..*end)
                                 .map(|n| Number(n as f64))
@@ -536,7 +536,7 @@ impl Runtime {
                                     );
                                 }
                             }
-                            Range { start, end } => {
+                            Range(IntRange { start, end }) => {
                                 let ustart = start as usize;
                                 let uend = end as usize;
 
@@ -1418,7 +1418,7 @@ impl Runtime {
                     }
                 };
 
-                Ok(Range { start, end })
+                Ok(Range(IntRange { start, end }))
             }
             unexpected => {
                 return runtime_error!(

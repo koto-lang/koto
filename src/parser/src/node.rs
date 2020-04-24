@@ -155,7 +155,7 @@ pub struct Function {
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
-    pub args: Vec<ConstantIndex>,
+    pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
     pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
     pub body: Box<AstNode>,

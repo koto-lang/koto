@@ -1,5 +1,6 @@
 use crate::{
     external::{ExternalFunction, ExternalValue},
+    value_iterator::{IntRange, ValueIterator2},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
 };
@@ -17,7 +18,7 @@ pub enum Value {
     Bool(bool),
     Number(f64),
     Vec4(vec4::Vec4),
-    Range { start: isize, end: isize },
+    Range(IntRange),
     IndexRange { start: usize, end: Option<usize> },
     List(ValueList),
     Map(ValueMap),
@@ -28,6 +29,7 @@ pub enum Value {
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
     While(Arc<AstWhile>),
+    Iterator(ValueIterator2),
 }
 
 impl Default for Value {
@@ -61,7 +63,7 @@ impl fmt::Display for Value {
                 }
                 write!(f, " }}")
             }
-            Range { start, end } => write!(f, "[{}..{}]", start, end),
+            Range(IntRange { start, end }) => write!(f, "[{}..{}]", start, end),
             IndexRange { start, end } => write!(
                 f,
                 "[{}..{}]",
@@ -80,6 +82,7 @@ impl fmt::Display for Value {
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             For(_) => write!(f, "For loop"),
             While(_) => write!(f, "While loop"),
+            Iterator(_) => write!(f, "Iterator"),
         }
     }
 }
@@ -96,14 +99,14 @@ impl PartialEq for Value {
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
             (
-                Range {
+                Range(IntRange {
                     start: start_a,
                     end: end_a,
-                },
-                Range {
+                }),
+                Range(IntRange {
                     start: start_b,
                     end: end_b,
-                },
+                }),
             ) => start_a == start_b && end_a == end_b,
             (
                 IndexRange {
@@ -206,6 +209,7 @@ pub fn type_as_string(value: &Value) -> String {
         ExternalValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),
         While(_) => "While".to_string(),
+        Iterator(_) => "Iterator".to_string(),
     }
 }
 

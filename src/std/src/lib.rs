@@ -7,8 +7,8 @@ mod thread;
 pub use koto_runtime::EXTERNAL_DATA_ID;
 
 use koto_runtime::{
-    external_error, value, value::type_as_string, ExternalValue, Runtime, RuntimeResult, Value,
-    ValueList, ValueMap, ValueVec,
+    external_error, value, value::type_as_string, ExternalValue, IntRange, Runtime, RuntimeResult,
+    Value, ValueList, ValueMap, ValueVec,
 };
 use std::sync::Arc;
 
@@ -197,7 +197,7 @@ pub fn register(runtime: &mut Runtime) {
         [Empty] => Ok(Number(0.0)),
         [List(list)] => Ok(Number(list.data().len() as f64)),
         [Map(map)] => Ok(Number(map.data().len() as f64)),
-        [Range { start, end }] => {
+        [Range(IntRange { start, end })] => {
             let result = if end >= start {
                 end - start
             } else {

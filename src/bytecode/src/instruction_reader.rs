@@ -37,6 +37,11 @@ pub enum Instruction {
         register: u8,
         constant: usize,
     },
+    MakeFunction {
+        register: u8,
+        arg_count: u8,
+        size: usize,
+    },
     MakeRange {
         register: u8,
         start: u8,
@@ -47,10 +52,9 @@ pub enum Instruction {
         start: u8,
         end: u8,
     },
-    MakeFunction {
+    MakeIterator {
         register: u8,
-        arg_count: u8,
-        size: usize,
+        range: u8,
     },
     Add {
         register: u8,
@@ -85,10 +89,15 @@ pub enum Instruction {
     Jump {
         offset: usize,
     },
+    JumpIf {
+        register: u8,
+        offset: usize,
+        jump_condition: bool,
+    },
     JumpBack {
         offset: usize,
     },
-    JumpIf {
+    JumpBackIf {
         register: u8,
         offset: usize,
         jump_condition: bool,
@@ -97,6 +106,11 @@ pub enum Instruction {
         register: u8,
         arg_register: u8,
         arg_count: u8,
+    },
+    IteratorNext {
+        register: u8,
+        iterator: u8,
+        jump_offset: usize,
     },
 }
 
@@ -119,13 +133,22 @@ impl fmt::Display for Instruction {
             LoadGlobal { register, constant } => {
                 write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
             }
+            MakeFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
+                f,
+                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
+                register, arg_count, size
+            ),
             MakeRange {
                 register,
                 start,
                 end,
             } => write!(
                 f,
-                "MakeRange\t\treg: {}\t\tstart: {}\t\tend: {}",
+                "MakeRange\treg: {}\t\tstart: {}\tend: {}",
                 register, start, end
             ),
             MakeRangeInclusive {
@@ -137,15 +160,9 @@ impl fmt::Display for Instruction {
                 "MakeRangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
                 register, start, end
             ),
-            MakeFunction {
-                register,
-                arg_count,
-                size,
-            } => write!(
-                f,
-                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
-                register, arg_count, size
-            ),
+            MakeIterator { register, range } => {
+                write!(f, "MakeIterator\treg: {}\t\trange: {}", register, range)
+            }
             Add { register, lhs, rhs } => write!(
                 f,
                 "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
@@ -177,7 +194,6 @@ impl fmt::Display for Instruction {
                 register, lhs, rhs
             ),
             Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
-            JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
             JumpIf {
                 register,
                 offset,
@@ -185,6 +201,16 @@ impl fmt::Display for Instruction {
             } => write!(
                 f,
                 "JumpIf\t\treg: {}\t\toffset: {}\tcondition: {}",
+                register, offset, jump_condition
+            ),
+            JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
+            JumpBackIf {
+                register,
+                offset,
+                jump_condition,
+            } => write!(
+                f,
+                "JumpBackIf\t\treg: {}\t\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
             Call {
@@ -195,6 +221,15 @@ impl fmt::Display for Instruction {
                 f,
                 "Call\t\treg: {}\t\targ_reg: {}\targs: {}",
                 register, arg_register, arg_count
+            ),
+            IteratorNext {
+                register,
+                iterator,
+                jump_offset,
+            } => write!(
+                f,
+                "IteratorNext\treg: {}\t\titerator: {}\tjump offset: {}",
+                register, iterator, jump_offset
             ),
         }
     }
@@ -346,6 +381,10 @@ impl<'a> Iterator for InstructionReader<'a> {
                 arg_count: get_byte!(),
                 size: get_u16!() as usize,
             }),
+            Op::MakeIterator => Some(MakeIterator {
+                register: get_byte!(),
+                range: get_byte!(),
+            }),
             Op::MakeRange => Some(MakeRange {
                 register: get_byte!(),
                 start: get_byte!(),
@@ -389,9 +428,6 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::Jump => Some(Jump {
                 offset: get_u16!() as usize,
             }),
-            Op::JumpBack => Some(JumpBack {
-                offset: get_u16!() as usize,
-            }),
             Op::JumpTrue => Some(JumpIf {
                 register: get_byte!(),
                 offset: get_u16!() as usize,
@@ -402,10 +438,23 @@ impl<'a> Iterator for InstructionReader<'a> {
                 offset: get_u16!() as usize,
                 jump_condition: false,
             }),
+            Op::JumpBack => Some(JumpBack {
+                offset: get_u16!() as usize,
+            }),
+            Op::JumpBackFalse => Some(JumpBackIf {
+                register: get_byte!(),
+                offset: get_u16!() as usize,
+                jump_condition: false,
+            }),
             Op::Call => Some(Call {
                 register: get_byte!(),
                 arg_register: get_byte!(),
                 arg_count: get_byte!(),
+            }),
+            Op::IteratorNext => Some(IteratorNext {
+                register: get_byte!(),
+                iterator: get_byte!(),
+                jump_offset: get_u16!() as usize,
             }),
         }
     }

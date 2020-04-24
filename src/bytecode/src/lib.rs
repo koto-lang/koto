@@ -25,6 +25,7 @@ pub enum Op {
     MakeRange,          // register, start, end
     MakeRangeInclusive, // register, start, end
     MakeFunction,       // register, arg count, size[2]
+    MakeIterator,       // register, range
     Add,                // register, lhs, rhs
     Multiply,           // register, lhs, rhs
     Less,               // register, lhs, rhs
@@ -32,10 +33,12 @@ pub enum Op {
     Equal,              // register, lhs, rhs
     NotEqual,           // register, lhs, rhs
     Jump,               // offset[2]
-    JumpBack,           // offset[2]
     JumpTrue,           // register, offset[2]
     JumpFalse,          // register, offset[2]
+    JumpBack,           // offset[2]
+    JumpBackFalse,      // offset[2]
     Call,               // function register, arg register, arg count
+    IteratorNext,       // register, iterator, jump offset[2]
 }
 
 pub fn bytecode_to_string(bytecode: &Bytecode) -> String {

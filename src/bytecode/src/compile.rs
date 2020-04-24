@@ -1,6 +1,8 @@
 use crate::{Bytecode, Op};
 
-use koto_parser::{AssignTarget, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, LookupOrId, Node};
+use koto_parser::{
+    AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, LookupOrId, Node,
+};
 use std::convert::TryFrom;
 
 #[derive(Clone, Debug)]
@@ -164,14 +166,6 @@ impl Compiler {
         Ok(())
     }
 
-    fn frame(&self) -> &Frame {
-        self.frame_stack.last().expect("Frame stack is empty")
-    }
-
-    fn frame_mut(&mut self) -> &mut Frame {
-        self.frame_stack.last_mut().expect("Frame stack is empty")
-    }
-
     fn compile_node(&mut self, node: &AstNode) -> Result<(), String> {
         use Op::*;
 
@@ -214,13 +208,21 @@ impl Compiler {
                     self.push_bytes(&constant.to_le_bytes());
                 }
             }
-            Node::Range{start, end, inclusive} => {
+            Node::Range {
+                start,
+                end,
+                inclusive,
+            } => {
                 self.compile_node(start)?;
                 self.compile_node(end)?;
                 let end_register = self.frame_mut().pop_register()?;
                 let start_register = self.frame_mut().pop_register()?;
 
-                let op = if *inclusive { MakeRangeInclusive } else { MakeRange };
+                let op = if *inclusive {
+                    MakeRangeInclusive
+                } else {
+                    MakeRange
+                };
                 let target = self.frame_mut().get_register()?;
                 self.push_op(op, &[target, start_register, end_register]);
             }
@@ -347,6 +349,7 @@ impl Compiler {
                 self.push_op(op, &[target, lhs_register, rhs_register]);
             }
             Node::If(ast_if) => self.compile_if(ast_if)?,
+            Node::For(ast_for) => self.compile_for(ast_for)?,
             Node::While(ast_while) => self.compile_while(ast_while)?,
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
         }
@@ -423,6 +426,73 @@ impl Compiler {
         Ok(())
     }
 
+    fn compile_for(&mut self, ast_for: &AstFor) -> Result<(), String> {
+        use Op::*;
+
+        let AstFor {
+            args,
+            ranges,
+            condition,
+            body,
+        } = &ast_for;
+
+        //   make iterator, iterator_register
+        //   make local registers for for args
+        // loop_start:
+        //   iterator_next_or_jump iterator_register arg_register jump -> end
+        //   if condition
+        //     condition_body
+        //     if body result false jump -> loop_start
+        //   loop body
+        //   jump -> loop_start
+        // end:
+
+        let iterator_register = match ranges.as_slice() {
+            [range] => {
+                self.compile_node(range)?;
+                let range_register = self.frame_mut().pop_register()?;
+                let iterator_register = self.frame_mut().get_register()?;
+                self.push_op(MakeIterator, &[iterator_register, range_register]);
+                iterator_register
+            }
+            [_ranges, ..] => {
+                unimplemented!("TODO: multi-range for loop");
+            }
+            _ => {
+                return Err(format!("compile_for: Missing range"));
+            }
+        };
+
+        let arg_register = match args.as_slice() {
+            &[arg] => self.frame_mut().get_local_register(arg)?,
+            &[_args, ..] => {
+                unimplemented!("TODO: multi-arg for loop");
+            }
+            _ => {
+                return Err(format!("compile_for: Missing argument"));
+            }
+        };
+
+        let loop_start_ip = self.bytes.len();
+
+        self.push_op(IteratorNext, &[arg_register, iterator_register]);
+        let jump_to_loop_end = self.push_offset_placeholder();
+
+        if let Some(condition) = condition {
+            self.compile_node(condition)?;
+            let condition_register = self.frame_mut().pop_register()?;
+            self.push_jump_back_op(JumpBackFalse, &[condition_register], loop_start_ip);
+        }
+
+        self.compile_node(body)?;
+
+        self.push_jump_back_op(JumpBack, &[], loop_start_ip);
+        self.update_offset_placeholder(jump_to_loop_end);
+
+        self.push_empty()?;
+        Ok(())
+    }
+
     fn compile_while(&mut self, ast_while: &AstWhile) -> Result<(), String> {
         use Op::*;
 
@@ -445,7 +515,7 @@ impl Compiler {
         let condition_jump_ip = self.push_offset_placeholder();
 
         self.compile_node(&body)?;
-        self.push_jump_back(while_jump_ip);
+        self.push_jump_back_op(JumpBack, &[], while_jump_ip);
 
         self.update_offset_placeholder(condition_jump_ip);
         self.push_empty()?;
@@ -479,9 +549,10 @@ impl Compiler {
         Ok(())
     }
 
-    fn push_jump_back(&mut self, target_ip: usize) {
-        let offset = self.bytes.len() - target_ip + 3; // 3 for the jump instruction
-        self.push_op(Op::JumpBack, &(offset as u16).to_le_bytes())
+    fn push_jump_back_op(&mut self, op: Op, bytes: &[u8], target_ip: usize) {
+        let offset = self.bytes.len() + 3 + bytes.len() - target_ip;
+        self.push_op(op, bytes);
+        self.push_bytes(&(offset as u16).to_le_bytes());
     }
 
     fn push_offset_placeholder(&mut self) -> usize {
@@ -504,5 +575,13 @@ impl Compiler {
 
     fn push_bytes(&mut self, bytes: &[u8]) {
         self.bytes.extend_from_slice(bytes);
+    }
+
+    fn frame(&self) -> &Frame {
+        self.frame_stack.last().expect("Frame stack is empty")
+    }
+
+    fn frame_mut(&mut self) -> &mut Frame {
+        self.frame_stack.last_mut().expect("Frame stack is empty")
     }
 }
