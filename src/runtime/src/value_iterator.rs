@@ -1,4 +1,4 @@
-use crate::{Value, ValueVec};
+use crate::{Value, ValueList, ValueVec};
 use smallvec::SmallVec;
 
 #[derive(Clone, Copy, Debug)]
@@ -10,6 +10,7 @@ pub struct IntRange {
 #[derive(Clone, Debug)]
 pub enum Iterable {
     Range(IntRange),
+    List(ValueList),
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +52,11 @@ impl Iterator for ValueIterator2 {
                         None
                     }
                 }
+            }
+            Iterable::List(list) => {
+                let result = list.data().get(self.index).cloned();
+                self.index += 1;
+                result
             }
         }
     }

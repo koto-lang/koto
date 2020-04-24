@@ -211,6 +211,7 @@ impl Compiler {
             Node::List(elements) => {
                 let list_register = self.frame_mut().get_register()?;
 
+                // TODO take ranges into account when determining size hint
                 let size_hint = elements.len();
                 if size_hint <= u8::MAX as usize {
                     self.push_op(MakeList, &[list_register, size_hint as u8]);

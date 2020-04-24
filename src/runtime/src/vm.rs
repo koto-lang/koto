@@ -159,8 +159,8 @@ impl Vm {
                         Range(int_range) => {
                             Iterator(ValueIterator2::new(Iterable::Range(*int_range)))
                         }
-                        List(_) => {
-                            unimplemented!("MakeIterator - List");
+                        List(list) => {
+                            Iterator(ValueIterator2::new(Iterable::List(list.clone())))
                         }
                         Map(_) => {
                             unimplemented!("MakeIterator - List");
@@ -755,5 +755,15 @@ count = 0
 count";
             test_script(script, Number(5.0));
         }
+
+        #[test]
+        fn for_loop_list() {
+            let script = "
+sum = 0
+(sum += a) for a in [10 20 30 40]
+sum";
+            test_script(script, Number(100.0));
+        }
+
     }
 }
