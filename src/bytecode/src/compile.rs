@@ -208,6 +208,23 @@ impl Compiler {
                     self.push_bytes(&constant.to_le_bytes());
                 }
             }
+            Node::List(elements) => {
+                let list_register = self.frame_mut().get_register()?;
+
+                let size_hint = elements.len();
+                if size_hint <= u8::MAX as usize {
+                    self.push_op(MakeList, &[list_register, size_hint as u8]);
+                } else {
+                    self.push_op(MakeListLong, &[list_register]);
+                    self.push_bytes(&size_hint.to_le_bytes());
+                }
+
+                for element_node in elements.iter() {
+                    self.compile_node(element_node)?;
+                    let element = self.frame_mut().pop_register()?;
+                    self.push_op(PushToList, &[list_register, element]);
+                }
+            }
             Node::Range {
                 start,
                 end,

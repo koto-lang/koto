@@ -37,10 +37,9 @@ pub enum Instruction {
         register: u8,
         constant: usize,
     },
-    MakeFunction {
+    MakeList {
         register: u8,
-        arg_count: u8,
-        size: usize,
+        size_hint: usize,
     },
     MakeRange {
         register: u8,
@@ -55,6 +54,11 @@ pub enum Instruction {
     MakeIterator {
         register: u8,
         range: u8,
+    },
+    MakeFunction {
+        register: u8,
+        arg_count: u8,
+        size: usize,
     },
     Add {
         register: u8,
@@ -112,6 +116,10 @@ pub enum Instruction {
         iterator: u8,
         jump_offset: usize,
     },
+    PushToList {
+        register: u8,
+        value: u8,
+    },
 }
 
 impl fmt::Display for Instruction {
@@ -133,15 +141,10 @@ impl fmt::Display for Instruction {
             LoadGlobal { register, constant } => {
                 write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
             }
-            MakeFunction {
+            MakeList {
                 register,
-                arg_count,
-                size,
-            } => write!(
-                f,
-                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
-                register, arg_count, size
-            ),
+                size_hint,
+            } => write!(f, "MakeList\treg: {}\t\tsize_hint: {}", register, size_hint),
             MakeRange {
                 register,
                 start,
@@ -163,6 +166,15 @@ impl fmt::Display for Instruction {
             MakeIterator { register, range } => {
                 write!(f, "MakeIterator\treg: {}\t\trange: {}", register, range)
             }
+            MakeFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
+                f,
+                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
+                register, arg_count, size
+            ),
             Add { register, lhs, rhs } => write!(
                 f,
                 "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
@@ -231,6 +243,9 @@ impl fmt::Display for Instruction {
                 "IteratorNext\treg: {}\t\titerator: {}\tjump offset: {}",
                 register, iterator, jump_offset
             ),
+            PushToList { register, value } => {
+                write!(f, "PushToList\treg: {}\t\tvalue: {}", register, value)
+            }
         }
     }
 }
@@ -376,14 +391,13 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 constant: get_u32!() as usize,
             }),
-            Op::MakeFunction => Some(MakeFunction {
+            Op::MakeList => Some(MakeList {
                 register: get_byte!(),
-                arg_count: get_byte!(),
-                size: get_u16!() as usize,
+                size_hint: get_byte!() as usize,
             }),
-            Op::MakeIterator => Some(MakeIterator {
+            Op::MakeListLong => Some(MakeList {
                 register: get_byte!(),
-                range: get_byte!(),
+                size_hint: get_u32!() as usize,
             }),
             Op::MakeRange => Some(MakeRange {
                 register: get_byte!(),
@@ -394,6 +408,15 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 start: get_byte!(),
                 end: get_byte!(),
+            }),
+            Op::MakeIterator => Some(MakeIterator {
+                register: get_byte!(),
+                range: get_byte!(),
+            }),
+            Op::MakeFunction => Some(MakeFunction {
+                register: get_byte!(),
+                arg_count: get_byte!(),
+                size: get_u16!() as usize,
             }),
             Op::Add => Some(Add {
                 register: get_byte!(),
@@ -455,6 +478,10 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 iterator: get_byte!(),
                 jump_offset: get_u16!() as usize,
+            }),
+            Op::PushToList => Some(PushToList {
+                register: get_byte!(),
+                value: get_byte!(),
             }),
         }
     }

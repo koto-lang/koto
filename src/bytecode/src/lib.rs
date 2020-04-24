@@ -11,7 +11,7 @@ pub type Bytecode = Vec<u8>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Op {
-    Copy,               // register, source
+    Copy,               // target, source
     SetEmpty,           // register
     SetTrue,            // register
     SetFalse,           // register
@@ -22,23 +22,26 @@ pub enum Op {
     LoadStringLong,     // register, constant[4]
     LoadGlobal,         // register, constant
     LoadGlobalLong,     // register, constant[4]
+    MakeList,           // register, size hint
+    MakeListLong,       // register, size hint[4]
     MakeRange,          // register, start, end
     MakeRangeInclusive, // register, start, end
-    MakeFunction,       // register, arg count, size[2]
     MakeIterator,       // register, range
-    Add,                // register, lhs, rhs
-    Multiply,           // register, lhs, rhs
-    Less,               // register, lhs, rhs
-    Greater,            // register, lhs, rhs
-    Equal,              // register, lhs, rhs
-    NotEqual,           // register, lhs, rhs
+    MakeFunction,       // register, arg count, size[2]
+    Add,                // result, lhs, rhs
+    Multiply,           // result, lhs, rhs
+    Less,               // result, lhs, rhs
+    Greater,            // result, lhs, rhs
+    Equal,              // result, lhs, rhs
+    NotEqual,           // result, lhs, rhs
     Jump,               // offset[2]
-    JumpTrue,           // register, offset[2]
-    JumpFalse,          // register, offset[2]
+    JumpTrue,           // condition, offset[2]
+    JumpFalse,          // condition, offset[2]
     JumpBack,           // offset[2]
     JumpBackFalse,      // offset[2]
-    Call,               // function register, arg register, arg count
-    IteratorNext,       // register, iterator, jump offset[2]
+    Call,               // function, arg, arg count
+    IteratorNext,       // output, iterator, jump offset[2]
+    PushToList,         // list, value
 }
 
 pub fn bytecode_to_string(bytecode: &Bytecode) -> String {

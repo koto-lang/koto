@@ -3,7 +3,7 @@
 use crate::{
     type_as_string,
     value_iterator::{IntRange, Iterable, ValueIterator2},
-    vm_error, Runtime, RuntimeResult, Value, ValueMap,
+    vm_error, Runtime, RuntimeResult, Value, ValueList, ValueMap,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
 use koto_parser::ConstantPool;
@@ -94,17 +94,11 @@ impl Vm {
                         }
                     }
                 }
-                MakeFunction {
+                MakeList {
                     register,
-                    arg_count,
-                    size,
+                    size_hint,
                 } => {
-                    let function = VmFunction {
-                        ip: reader.position(),
-                        arg_count,
-                    };
-                    reader.jump(size);
-                    self.set_register(register, function);
+                    self.set_register(register, List(ValueList::with_capacity(size_hint)));
                 }
                 MakeRange {
                     register,
@@ -180,6 +174,18 @@ impl Vm {
                         }
                     };
                     self.set_register(register, iterator);
+                }
+                MakeFunction {
+                    register,
+                    arg_count,
+                    size,
+                } => {
+                    let function = VmFunction {
+                        ip: reader.position(),
+                        arg_count,
+                    };
+                    reader.jump(size);
+                    self.set_register(register, function);
                 }
                 Add { register, lhs, rhs } => {
                     let lhs_value = self.get_register(lhs);
@@ -366,6 +372,20 @@ impl Vm {
                         None => reader.jump(jump_offset),
                     };
                 }
+                PushToList { register, value } => {
+                    let value = self.get_register(value).clone();
+
+                    match self.get_register_mut(register) {
+                        List(list) => list.data_mut().push(value),
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected List, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -462,7 +482,7 @@ fn binary_op_error(op: Instruction, lhs: &Value, rhs: &Value, ip: usize) -> Runt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::external_error;
+    use crate::{external_error, Value::*};
     use koto_bytecode::{bytecode_to_string, Compiler};
     use koto_parser::KotoParser;
 
@@ -481,9 +501,8 @@ mod tests {
             Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),
         };
 
-        vm.global.add_value("test_global", Value::Number(42.0));
+        vm.global.add_value("test_global", Number(42.0));
         vm.global.add_fn("assert", |_, args| {
-            use Value::*;
             for value in args.iter() {
                 match value {
                     Bool(b) => {
@@ -518,44 +537,74 @@ mod tests {
         }
     }
 
+    fn value_list<T>(values: &[T]) -> Value
+    where
+        T: Copy,
+        f64: From<T>,
+    {
+        let values = values
+            .iter()
+            .map(|n| Number(f64::from(*n)))
+            .collect::<Vec<_>>();
+        List(ValueList::from_slice(&values))
+    }
+
     mod values {
         use super::*;
 
         #[test]
         fn empty() {
-            test_script("()", Value::Empty);
+            test_script("()", Empty);
         }
 
         #[test]
         fn bool_true() {
-            test_script("true", Value::Bool(true));
+            test_script("true", Bool(true));
         }
 
         #[test]
         fn bool_false() {
-            test_script("false", Value::Bool(false));
+            test_script("false", Bool(false));
         }
 
         #[test]
         fn number() {
-            test_script("24.0", Value::Number(24.0));
+            test_script("24.0", Number(24.0));
         }
 
         #[test]
         fn string() {
-            test_script("\"Hello\"", Value::Str(Arc::new("Hello".to_string())));
+            test_script("\"Hello\"", Str(Arc::new("Hello".to_string())));
         }
 
         #[test]
         fn range() {
-            test_script("0..10", Value::Range(IntRange { start: 0, end: 10 }));
-            test_script("0..-10", Value::Range(IntRange { start: 1, end: -9 }));
+            test_script("0..10", Range(IntRange { start: 0, end: 10 }));
+            test_script("0..-10", Range(IntRange { start: 1, end: -9 }));
         }
 
         #[test]
         fn range_inclusive() {
-            test_script("10..=20", Value::Range(IntRange { start: 10, end: 21 }));
-            test_script("4..=0", Value::Range(IntRange { start: 5, end: 0 }));
+            test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
+            test_script("4..=0", Range(IntRange { start: 5, end: 0 }));
+        }
+
+        #[test]
+        fn list_empty() {
+            test_script("[]", List(ValueList::new()));
+        }
+
+        #[test]
+        fn list_literals() {
+            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn list_from_ids() {
+            let script = "
+a = 1
+[a a a]";
+            test_script(script, value_list(&[1, 1, 1]));
         }
     }
 
@@ -564,7 +613,7 @@ mod tests {
 
         #[test]
         fn arithmetic() {
-            test_script("1 + 2 * 3 + 4", Value::Number(11.0));
+            test_script("1 + 2 * 3 + 4", Number(11.0));
         }
 
         #[test]
@@ -572,20 +621,17 @@ mod tests {
             let script = "
 a = 1 * 3
 a + 1";
-            test_script(script, Value::Number(4.0));
+            test_script(script, Number(4.0));
         }
 
         #[test]
         fn comparison() {
-            test_script(
-                "false or 1 < 2 < 3 and 3 > 2 > 1 or false",
-                Value::Bool(true),
-            );
+            test_script("false or 1 < 2 < 3 and 3 > 2 > 1 or false", Bool(true));
         }
 
         #[test]
         fn equality() {
-            test_script("1 + 1 == 2 and 2 + 2 != 5", Value::Bool(true));
+            test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
         }
     }
 
@@ -601,7 +647,7 @@ else if 1 < 2
   -1
 else
   99";
-            test_script(script, Value::Number(-1.0));
+            test_script(script, Number(-1.0));
         }
     }
 
@@ -610,17 +656,17 @@ else
 
         #[test]
         fn load_value() {
-            test_script("a = test_global", Value::Number(42.0));
+            test_script("a = test_global", Number(42.0));
         }
 
         #[test]
         fn function() {
-            test_script("assert 1 + 1 == 2", Value::Empty);
+            test_script("assert 1 + 1 == 2", Empty);
         }
 
         #[test]
         fn function_two_args() {
-            test_script("assert (1 + 1 == 2) (2 < 3)", Value::Empty);
+            test_script("assert (1 + 1 == 2) (2 < 3)", Empty);
         }
     }
 
@@ -632,7 +678,7 @@ else
             let script = "
 square = |x| x * x
 square 8";
-            test_script(script, Value::Number(64.0));
+            test_script(script, Number(64.0));
         }
 
         #[test]
@@ -641,7 +687,7 @@ square 8";
 add = |a b|
   a + b
 add 5 6";
-            test_script(script, Value::Number(11.0));
+            test_script(script, Number(11.0));
         }
 
         #[test]
@@ -651,7 +697,7 @@ add = |a b|
   add2 = |x y| x + y
   add2 a b
 add 10 20";
-            test_script(script, Value::Number(30.0));
+            test_script(script, Number(30.0));
         }
     }
 
@@ -664,7 +710,7 @@ add 10 20";
 count = 0
 (count += 1) while count < 10
 count";
-            test_script(script, Value::Number(10.0));
+            test_script(script, Number(10.0));
         }
 
         #[test]
@@ -673,7 +719,7 @@ count";
 count = 10
 (count += 1) until count == 20
 count";
-            test_script(script, Value::Number(20.0));
+            test_script(script, Number(20.0));
         }
 
         #[test]
@@ -682,7 +728,7 @@ count";
 count = 32
 (count += 1) for _ in 0..10
 count";
-            test_script(script, Value::Number(42.0));
+            test_script(script, Number(42.0));
         }
 
         #[test]
@@ -691,7 +737,7 @@ count";
 count = 0
 (count += 1) for i in 0..10 if i > 4
 count";
-            test_script(script, Value::Number(5.0));
+            test_script(script, Number(5.0));
         }
     }
 }
