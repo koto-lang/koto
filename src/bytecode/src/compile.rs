@@ -403,7 +403,11 @@ impl Compiler {
                     if root {
                         self.compile_load_id(*id)?;
                     } else {
-                        unimplemented!("lookup nested id");
+                        self.load_string(*id)?;
+                        let key_register = self.frame_mut().pop_register()?;
+                        let map_register = self.frame_mut().pop_register()?;
+                        let result_register = self.frame_mut().get_register()?;
+                        self.push_op(MapAccess, &[result_register, map_register, key_register]);
                     }
                 }
                 LookupNode::Index(index_node) => {

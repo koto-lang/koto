@@ -46,6 +46,7 @@ pub enum Op {
     ListPush,       // list, value
     ListIndex,      // register, list, index
     MapInsert,      // map, key, value
+    MapAccess,      // register, map, key
 }
 
 pub fn bytecode_to_string(bytecode: &Bytecode) -> String {

@@ -90,7 +90,7 @@ impl Vm {
                     match global {
                         Some(value) => self.set_register(register, value),
                         None => {
-                            return vm_error!(reader.position(), "'{}' not found", global_name);
+                            return vm_error!(reader.position(), "global '{}' not found", global_name);
                         }
                     }
                 }
@@ -495,6 +495,41 @@ impl Vm {
                             Str(id_string) => {
                                 map.data_mut().insert(Id::new(id_string), value);
                             }
+                            unexpected => {
+                                return vm_error!(
+                                    reader.position(),
+                                    "Expected String for Map key, found '{}'",
+                                    type_as_string(&unexpected),
+                                );
+                            }
+                        },
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected Map, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    };
+                }
+                MapAccess { register, map, key } => {
+                    let map_value = self.get_register(map).clone();
+                    let key_value = self.get_register(key).clone();
+
+                    match map_value {
+                        Map(map) => match key_value {
+                            Str(id_string) => match map.data().get(&id_string) {
+                                Some(value) => {
+                                    self.set_register(register, value.clone());
+                                }
+                                None => {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Map entry '{}' not found",
+                                        id_string,
+                                    );
+                                }
+                            },
                             unexpected => {
                                 return vm_error!(
                                     reader.position(),
@@ -920,6 +955,31 @@ a[1]";
 a = [10 20 30]
 a[1..3]";
             test_script(script, value_list(&[20, 30]));
+        }
+
+        #[test]
+        fn map_access() {
+            let script = "
+m = {foo: -1}
+m.foo";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn list_in_map() {
+            let script = "
+m = {x: [100 200]}
+m.x[1]";
+            test_script(script, Number(200.0));
+        }
+
+        #[test]
+        fn map_in_list() {
+            let script = "
+m = {foo: 99}
+l = [m m m]
+l[2].foo";
+            test_script(script, Number(99.0));
         }
     }
 }

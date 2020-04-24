@@ -134,6 +134,11 @@ pub enum Instruction {
         key: u8,
         value: u8,
     },
+    MapAccess {
+        register: u8,
+        map: u8,
+        key: u8,
+    },
 }
 
 impl fmt::Display for Instruction {
@@ -281,6 +286,11 @@ impl fmt::Display for Instruction {
                 f,
                 "MapInsert\treg: {}\t\tkey: {}\t\tvalue: {}",
                 register, key, value
+            ),
+            MapAccess { register, map, key } => write!(
+                f,
+                "MapAccess\treg: {}\t\tmap: {}\t\tkey: {}",
+                register, map, key
             ),
         }
     }
@@ -536,6 +546,11 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 key: get_byte!(),
                 value: get_byte!(),
+            }),
+            Op::MapAccess => Some(MapAccess {
+                register: get_byte!(),
+                map: get_byte!(),
+                key: get_byte!(),
             }),
         }
     }
