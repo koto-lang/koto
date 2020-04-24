@@ -214,6 +214,16 @@ impl Compiler {
                     self.push_bytes(&constant.to_le_bytes());
                 }
             }
+            Node::Range{start, end, inclusive} => {
+                self.compile_node(start)?;
+                self.compile_node(end)?;
+                let end_register = self.frame_mut().pop_register()?;
+                let start_register = self.frame_mut().pop_register()?;
+
+                let op = if *inclusive { MakeRangeInclusive } else { MakeRange };
+                let target = self.frame_mut().get_register()?;
+                self.push_op(op, &[target, start_register, end_register]);
+            }
             Node::MainBlock { body, local_count } => {
                 self.compile_frame(*local_count as u8, body, &[])?;
             }

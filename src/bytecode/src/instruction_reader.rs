@@ -37,6 +37,16 @@ pub enum Instruction {
         register: u8,
         constant: usize,
     },
+    MakeRange {
+        register: u8,
+        start: u8,
+        end: u8,
+    },
+    MakeRangeInclusive {
+        register: u8,
+        start: u8,
+        end: u8,
+    },
     MakeFunction {
         register: u8,
         arg_count: u8,
@@ -109,6 +119,24 @@ impl fmt::Display for Instruction {
             LoadGlobal { register, constant } => {
                 write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
             }
+            MakeRange {
+                register,
+                start,
+                end,
+            } => write!(
+                f,
+                "MakeRange\t\treg: {}\t\tstart: {}\t\tend: {}",
+                register, start, end
+            ),
+            MakeRangeInclusive {
+                register,
+                start,
+                end,
+            } => write!(
+                f,
+                "MakeRangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
+                register, start, end
+            ),
             MakeFunction {
                 register,
                 arg_count,
@@ -317,6 +345,16 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 size: get_u16!() as usize,
+            }),
+            Op::MakeRange => Some(MakeRange {
+                register: get_byte!(),
+                start: get_byte!(),
+                end: get_byte!(),
+            }),
+            Op::MakeRangeInclusive => Some(MakeRangeInclusive {
+                register: get_byte!(),
+                start: get_byte!(),
+                end: get_byte!(),
             }),
             Op::Add => Some(Add {
                 register: get_byte!(),

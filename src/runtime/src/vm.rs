@@ -103,6 +103,62 @@ impl Vm {
                     reader.jump(size);
                     self.set_register(register, function);
                 }
+                MakeRange {
+                    register,
+                    start,
+                    end,
+                } => {
+                    let range = match (self.load_register(start), self.load_register(end)) {
+                        (Number(start), Number(end)) => {
+                            let (start, end) = if start <= end {
+                                (start as isize, end as isize)
+                            } else {
+                                // descending ranges will be evaluated with (end..start).rev()
+                                (start as isize + 1, end as isize + 1)
+                            };
+
+                            Range { start, end }
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected numbers for range bounds, found start: {}, end: {}",
+                                type_as_string(&unexpected.0),
+                                type_as_string(&unexpected.1)
+                            )
+                        }
+                    };
+
+                    self.set_register(register, range);
+                }
+                MakeRangeInclusive {
+                    register,
+                    start,
+                    end,
+                } => {
+                    let range = match (self.load_register(start), self.load_register(end)) {
+                        (Number(start), Number(end)) => {
+                            let (start, end) = if start <= end {
+                                (start as isize, end as isize + 1)
+                            } else {
+                                // descending ranges will be evaluated with (end..start).rev()
+                                (start as isize + 1, end as isize)
+                            };
+
+                            Range { start, end }
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected numbers for range bounds, found start: {}, end: {}",
+                                type_as_string(&unexpected.0),
+                                type_as_string(&unexpected.1)
+                            )
+                        }
+                    };
+
+                    self.set_register(register, range);
+                }
                 Add { register, lhs, rhs } => {
                     let lhs_value = self.load_register(lhs);
                     let rhs_value = self.load_register(rhs);
@@ -396,7 +452,7 @@ mod tests {
         }
     }
 
-    mod literals {
+    mod values {
         use super::*;
 
         #[test]
@@ -422,6 +478,18 @@ mod tests {
         #[test]
         fn string() {
             test_script("\"Hello\"", Value::Str(Arc::new("Hello".to_string())));
+        }
+
+        #[test]
+        fn range() {
+            test_script("0..10", Value::Range { start: 0, end: 10 });
+            test_script("0..-10", Value::Range { start: 1, end: -9 });
+        }
+
+        #[test]
+        fn range_inclusive() {
+            test_script("10..=20", Value::Range { start: 10, end: 21 });
+            test_script("4..=0", Value::Range { start: 5, end: 0 });
         }
     }
 
