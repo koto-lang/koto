@@ -236,9 +236,9 @@ impl Compiler {
                 let start_register = self.frame_mut().pop_register()?;
 
                 let op = if *inclusive {
-                    MakeRangeInclusive
+                    RangeInclusive
                 } else {
-                    MakeRange
+                    RangeExclusive
                 };
                 let target = self.frame_mut().get_register()?;
                 self.push_op(op, &[target, start_register, end_register]);

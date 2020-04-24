@@ -100,7 +100,7 @@ impl Vm {
                 } => {
                     self.set_register(register, List(ValueList::with_capacity(size_hint)));
                 }
-                MakeRange {
+                RangeExclusive {
                     register,
                     start,
                     end,
@@ -127,7 +127,7 @@ impl Vm {
                     };
                     self.set_register(register, range);
                 }
-                MakeRangeInclusive {
+                RangeInclusive {
                     register,
                     start,
                     end,

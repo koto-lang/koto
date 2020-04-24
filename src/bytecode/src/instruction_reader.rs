@@ -41,12 +41,12 @@ pub enum Instruction {
         register: u8,
         size_hint: usize,
     },
-    MakeRange {
+    RangeExclusive {
         register: u8,
         start: u8,
         end: u8,
     },
-    MakeRangeInclusive {
+    RangeInclusive {
         register: u8,
         start: u8,
         end: u8,
@@ -145,22 +145,22 @@ impl fmt::Display for Instruction {
                 register,
                 size_hint,
             } => write!(f, "MakeList\treg: {}\t\tsize_hint: {}", register, size_hint),
-            MakeRange {
+            RangeExclusive {
                 register,
                 start,
                 end,
             } => write!(
                 f,
-                "MakeRange\treg: {}\t\tstart: {}\tend: {}",
+                "RangeExclusive\treg: {}\t\tstart: {}\tend: {}",
                 register, start, end
             ),
-            MakeRangeInclusive {
+            RangeInclusive {
                 register,
                 start,
                 end,
             } => write!(
                 f,
-                "MakeRangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
+                "RangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
                 register, start, end
             ),
             MakeIterator { register, range } => {
@@ -399,12 +399,12 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 size_hint: get_u32!() as usize,
             }),
-            Op::MakeRange => Some(MakeRange {
+            Op::RangeExclusive => Some(RangeExclusive {
                 register: get_byte!(),
                 start: get_byte!(),
                 end: get_byte!(),
             }),
-            Op::MakeRangeInclusive => Some(MakeRangeInclusive {
+            Op::RangeInclusive => Some(RangeInclusive {
                 register: get_byte!(),
                 start: get_byte!(),
                 end: get_byte!(),
