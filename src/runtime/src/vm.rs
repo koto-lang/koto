@@ -90,7 +90,11 @@ impl Vm {
                     match global {
                         Some(value) => self.set_register(register, value),
                         None => {
-                            return vm_error!(reader.position(), "global '{}' not found", global_name);
+                            return vm_error!(
+                                reader.position(),
+                                "global '{}' not found",
+                                global_name
+                            );
                         }
                     }
                 }
@@ -386,6 +390,80 @@ impl Vm {
                                     .extend(ValueIterator2::new(Iterable::Range(range)));
                             }
                             _ => list.data_mut().push(value),
+                        },
+                        unexpected => {
+                            return vm_error!(
+                                reader.position(),
+                                "Expected List, found '{}'",
+                                type_as_string(&unexpected),
+                            )
+                        }
+                    };
+                }
+                ListUpdate {
+                    list,
+                    index,
+                    value: value_register,
+                } => {
+                    let index_value = self.get_register(index).clone();
+                    let value = self.get_register(value_register).clone();
+
+                    match self.get_register_mut(list) {
+                        List(list) => match index_value {
+                            Number(index) => match list.data_mut().get_mut(index as usize) {
+                                Some(element) => *element = value,
+                                None => {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Index '{}' not in List",
+                                        index
+                                    );
+                                }
+                            },
+                            Range(IntRange { start, end }) => {
+                                let ustart = start as usize;
+                                let uend = end as usize;
+
+                                if start < 0 || end < 0 {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Indexing with negative indices isn't supported, \
+                                         start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                } else if start > end {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Indexing with a descending range isn't supported, \
+                                         start: {}, end: {}",
+                                        start,
+                                        end
+                                    );
+                                } else if ustart > list.len() || uend > list.len() {
+                                    return vm_error!(
+                                        reader.position(),
+                                        "Index out of bounds, \
+                                         List has a length of {} - start: {}, end: {}",
+                                        list.len(),
+                                        start,
+                                        end
+                                    );
+                                } else {
+                                    let mut list_data = list.data_mut();
+                                    for i in ustart..uend {
+                                        list_data[i] = value.clone();
+                                    }
+                                }
+                            }
+                            IndexRange { .. } => unimplemented!(),
+                            unexpected => {
+                                return vm_error!(
+                                    reader.position(),
+                                    "Unexpected type for List index: '{}'",
+                                    type_as_string(&unexpected)
+                                );
+                            }
                         },
                         unexpected => {
                             return vm_error!(
@@ -710,7 +788,7 @@ mod tests {
         List(ValueList::from_slice(&values))
     }
 
-    mod values {
+    mod literals {
         use super::*;
 
         #[test]
@@ -748,51 +826,6 @@ mod tests {
         fn range_inclusive() {
             test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
             test_script("4..=0", Range(IntRange { start: 5, end: 0 }));
-        }
-
-        #[test]
-        fn list_empty() {
-            test_script("[]", List(ValueList::new()));
-        }
-
-        #[test]
-        fn list_literals() {
-            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
-        }
-
-        #[test]
-        fn list_from_ids() {
-            let script = "
-a = 1
-[a a a]";
-            test_script(script, value_list(&[1, 1, 1]));
-        }
-
-        #[test]
-        fn list_from_range() {
-            test_script("[3..0]", value_list(&[3, 2, 1]));
-        }
-
-        #[test]
-        fn list_from_multiple_ranges() {
-            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
-        }
-
-        #[test]
-        fn map_empty() {
-            test_script("{}", Map(ValueMap::new()));
-        }
-
-        #[test]
-        fn map_from_literals() {
-            let mut result_data = ValueHashMap::new();
-            result_data.insert(Id::from_str("foo"), Number(42.0));
-            result_data.insert(Id::from_str("bar"), Str(Arc::new("baz".to_string())));
-
-            test_script(
-                "{foo: 42, bar: \"baz\"}",
-                Map(ValueMap::with_data(result_data)),
-            );
         }
     }
 
@@ -946,11 +979,39 @@ sum";
         }
     }
 
-    mod lookups {
+    mod lists {
         use super::*;
 
         #[test]
-        fn list_access_element() {
+        fn empty() {
+            test_script("[]", List(ValueList::new()));
+        }
+
+        #[test]
+        fn literals() {
+            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn from_ids() {
+            let script = "
+a = 1
+[a a a]";
+            test_script(script, value_list(&[1, 1, 1]));
+        }
+
+        #[test]
+        fn from_range() {
+            test_script("[3..0]", value_list(&[3, 2, 1]));
+        }
+
+        #[test]
+        fn from_multiple_ranges() {
+            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
+        }
+
+        #[test]
+        fn access_element() {
             let script = "
 a = [1 2 3]
 a[1]";
@@ -958,7 +1019,7 @@ a[1]";
         }
 
         #[test]
-        fn list_access_range() {
+        fn access_range() {
             let script = "
 a = [10 20 30]
 a[1..3]";
@@ -966,12 +1027,74 @@ a[1..3]";
         }
 
         #[test]
-        fn map_access() {
+        fn assign_element() {
+            let script = "
+a = [1 2 3]
+x = 2
+a[x] = -1
+a";
+            test_script(script, value_list(&[1, 2, -1]));
+        }
+
+        #[test]
+        fn assign_range() {
+            let script = "
+a = [1 2 3 4 5]
+a[1..=3] = 0
+a";
+            test_script(script, value_list(&[1, 0, 0, 0, 5]));
+        }
+    }
+
+    mod maps {
+        use super::*;
+
+        #[test]
+        fn empty() {
+            test_script("{}", Map(ValueMap::new()));
+        }
+
+        #[test]
+        fn from_literals() {
+            let mut result_data = ValueHashMap::new();
+            result_data.insert(Id::from_str("foo"), Number(42.0));
+            result_data.insert(Id::from_str("bar"), Str(Arc::new("baz".to_string())));
+
+            test_script(
+                "{foo: 42, bar: \"baz\"}",
+                Map(ValueMap::with_data(result_data)),
+            );
+        }
+
+        #[test]
+        fn access() {
             let script = "
 m = {foo: -1}
 m.foo";
             test_script(script, Number(-1.0));
         }
+
+        #[test]
+        fn insert() {
+            let script = "
+m = {}
+m.foo = 42
+m.foo";
+            test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn update() {
+            let script = "
+m = {bar: -1}
+m.bar = 99
+m.bar";
+            test_script(script, Number(99.0));
+        }
+    }
+
+    mod lookups {
+        use super::*;
 
         #[test]
         fn list_in_map() {
@@ -987,6 +1110,26 @@ m.x[1]";
 m = {foo: 99}
 l = [m m m]
 l[2].foo";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
+        fn assign_to_map_in_list() {
+            let script = "
+m = {bar: 0}
+l = [m m m]
+l[1].bar = -1
+l[1].bar";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn assign_to_list_in_map_in_list() {
+            let script = "
+m = {foo: [1 2 3]}
+l = [m m m]
+l[2].foo[0] = 99
+l[2].foo[0]";
             test_script(script, Number(99.0));
         }
 

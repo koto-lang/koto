@@ -44,6 +44,7 @@ pub enum Op {
     Call,           // function, arg, arg count
     IteratorNext,   // output, iterator, jump offset[2]
     ListPush,       // list, value
+    ListUpdate,     // list, index, value
     ListIndex,      // register, list, index
     MapInsert,      // map, key, value
     MapAccess,      // register, map, key

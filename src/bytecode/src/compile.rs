@@ -175,7 +175,7 @@ impl Compiler {
                 self.push_empty()?;
             }
             Node::Id(index) => self.compile_load_id(*index)?,
-            Node::Lookup(lookup) => self.compile_lookup(lookup)?,
+            Node::Lookup(lookup) => self.compile_lookup(lookup, None)?,
             Node::BoolTrue => {
                 let target = self.frame_mut().get_register()?;
                 self.push_op(SetTrue, &[target]);
@@ -302,15 +302,19 @@ impl Compiler {
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
-                let source = self.frame_mut().pop_register()?;
-                let target_id = match target {
-                    AssignTarget::Id { id_index, .. } => id_index,
-                    AssignTarget::Lookup(_lookup) => unimplemented!(),
+                match target {
+                    AssignTarget::Id { id_index, .. } => {
+                        let source = self.frame_mut().pop_register()?;
+                        let register = self.frame_mut().get_local_register(*id_index)?;
+                        if register != source {
+                            self.push_op(Copy, &[register, source]);
+                        }
+                    }
+                    AssignTarget::Lookup(lookup) => {
+                        let source = *self.frame_mut().peek_register().unwrap();
+                        self.compile_lookup(lookup, Some(source))?;
+                    }
                 };
-                let target = self.frame_mut().get_local_register(*target_id)?;
-                if target != source {
-                    self.push_op(Copy, &[target, source]);
-                }
             }
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
@@ -364,38 +368,63 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_lookup(&mut self, lookup: &Lookup) -> Result<(), String> {
+    fn compile_lookup(&mut self, lookup: &Lookup, set_value: Option<u8>) -> Result<(), String> {
         use Op::*;
 
-        let mut root = true;
+        let lookup_len = lookup.0.len();
+        if lookup_len < 2 {
+            return Err(format!(
+                "compile_lookup: lookup requires at least 2 elements, found {}",
+                lookup_len
+            ));
+        }
 
-        for lookup_node in lookup.0.iter() {
+        for (i, lookup_node) in lookup.0.iter().enumerate() {
             match lookup_node {
                 LookupNode::Id(id) => {
-                    if root {
+                    if i == 0 {
                         self.compile_load_id(*id)?;
                     } else {
                         self.load_string(*id)?;
                         let key_register = self.frame_mut().pop_register()?;
                         let map_register = self.frame_mut().pop_register()?;
-                        let result_register = self.frame_mut().get_register()?;
-                        self.push_op(MapAccess, &[result_register, map_register, key_register]);
+
+                        if set_value.is_some() && i == lookup_len - 1 {
+                            self.push_op(
+                                MapInsert,
+                                &[map_register, key_register, set_value.unwrap()],
+                            );
+                        } else {
+                            let result_register = self.frame_mut().get_register()?;
+                            self.push_op(MapAccess, &[result_register, map_register, key_register]);
+                        }
                     }
                 }
                 LookupNode::Index(index_node) => {
                     self.compile_node(&index_node.0)?;
                     let index_register = self.frame_mut().pop_register()?;
                     let list_register = self.frame_mut().pop_register()?;
-                    let result_register = self.frame_mut().get_register()?;
-                    self.push_op(ListIndex, &[result_register, list_register, index_register]);
+                    if set_value.is_some() && i == lookup_len - 1 {
+                        self.push_op(
+                            ListUpdate,
+                            &[list_register, index_register, set_value.unwrap()],
+                        );
+                    } else {
+                        let result_register = self.frame_mut().get_register()?;
+                        self.push_op(ListIndex, &[result_register, list_register, index_register]);
+                    }
                 }
                 LookupNode::Call(args) => {
+                    if set_value.is_some() && i == lookup_len - 1 {
+                        return Err("Assigning to temporary value".to_string());
+                    }
+
                     let function_register = *self.frame_mut().peek_register().unwrap();
                     self.compile_call(function_register, &args)?;
                 }
             }
-            root = false;
         }
+
         Ok(())
     }
 

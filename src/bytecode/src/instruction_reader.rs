@@ -124,6 +124,11 @@ pub enum Instruction {
         register: u8,
         value: u8,
     },
+    ListUpdate {
+        list: u8,
+        index: u8,
+        value: u8,
+    },
     ListIndex {
         register: u8,
         list: u8,
@@ -167,7 +172,11 @@ impl fmt::Display for Instruction {
             MakeMap {
                 register,
                 size_hint,
-            } => write!(f, "MakeMap\t\treg: {}\t\tsize_hint: {}", register, size_hint),
+            } => write!(
+                f,
+                "MakeMap\t\treg: {}\t\tsize_hint: {}",
+                register, size_hint
+            ),
             RangeExclusive {
                 register,
                 start,
@@ -269,6 +278,11 @@ impl fmt::Display for Instruction {
             ListPush { register, value } => {
                 write!(f, "ListPush\treg: {}\t\tvalue: {}", register, value)
             }
+            ListUpdate { list, index, value } => write!(
+                f,
+                "ListUpdate\tlist: {}\t\tindex: {}\t\tvalue: {}",
+                list, index, value
+            ),
             ListIndex {
                 register,
                 list,
@@ -535,6 +549,11 @@ impl<'a> Iterator for InstructionReader<'a> {
             }),
             Op::ListPush => Some(ListPush {
                 register: get_byte!(),
+                value: get_byte!(),
+            }),
+            Op::ListUpdate => Some(ListUpdate {
+                list: get_byte!(),
+                index: get_byte!(),
                 value: get_byte!(),
             }),
             Op::ListIndex => Some(ListIndex {
