@@ -151,6 +151,7 @@ pub struct Function {
     pub captures: Vec<ConstantIndex>,
     pub local_count: usize,
     pub body: Vec<AstNode>,
+    pub is_instance_function: bool,
 }
 
 #[derive(Clone, Debug)]

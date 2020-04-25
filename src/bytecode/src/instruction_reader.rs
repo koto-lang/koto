@@ -59,7 +59,12 @@ pub enum Instruction {
         register: u8,
         range: u8,
     },
-    MakeFunction {
+    Function {
+        register: u8,
+        arg_count: u8,
+        size: usize,
+    },
+    InstanceFunction {
         register: u8,
         arg_count: u8,
         size: usize,
@@ -112,6 +117,12 @@ pub enum Instruction {
     },
     Call {
         register: u8,
+        arg_register: u8,
+        arg_count: u8,
+    },
+    CallChild {
+        register: u8,
+        parent: u8,
         arg_register: u8,
         arg_count: u8,
     },
@@ -198,13 +209,22 @@ impl fmt::Display for Instruction {
             MakeIterator { register, range } => {
                 write!(f, "MakeIterator\treg: {}\t\trange: {}", register, range)
             }
-            MakeFunction {
+            Function {
                 register,
                 arg_count,
                 size,
             } => write!(
                 f,
-                "MakeFunction\treg: {}\t\targ_count: {}\tsize: {}",
+                "Function\treg: {}\t\targ_count: {}\tsize: {}",
+                register, arg_count, size
+            ),
+            InstanceFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
+                f,
+                "InstanceFunction\treg: {}\t\targ_count: {}\tsize: {}",
                 register, arg_count, size
             ),
             Add { register, lhs, rhs } => write!(
@@ -266,6 +286,16 @@ impl fmt::Display for Instruction {
                 "Call\t\treg: {}\t\targ_reg: {}\targs: {}",
                 register, arg_register, arg_count
             ),
+            CallChild {
+                register,
+                parent,
+                arg_register,
+                arg_count,
+            } => write!(
+                f,
+                "CallChild\treg: {}\t\tparent: {}\targ_reg: {}\targs: {}",
+                register, parent, arg_register, arg_count
+            ),
             IteratorNext {
                 register,
                 iterator,
@@ -312,28 +342,12 @@ impl fmt::Display for Instruction {
 
 pub struct InstructionReader<'a> {
     bytes: &'a [u8],
-    ip: usize,
+    pub ip: usize,
 }
 
 impl<'a> InstructionReader<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, ip: 0 }
-    }
-
-    pub fn position(&self) -> usize {
-        self.ip
-    }
-
-    pub fn jump(&mut self, offset: usize) {
-        self.ip += offset;
-    }
-
-    pub fn jump_back(&mut self, offset: usize) {
-        self.ip -= offset;
-    }
-
-    pub fn jump_to(&mut self, ip: usize) {
-        self.ip = ip
     }
 }
 
@@ -481,7 +495,12 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 range: get_byte!(),
             }),
-            Op::MakeFunction => Some(MakeFunction {
+            Op::Function => Some(Function {
+                register: get_byte!(),
+                arg_count: get_byte!(),
+                size: get_u16!() as usize,
+            }),
+            Op::InstanceFunction => Some(InstanceFunction {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 size: get_u16!() as usize,
@@ -539,6 +558,12 @@ impl<'a> Iterator for InstructionReader<'a> {
             }),
             Op::Call => Some(Call {
                 register: get_byte!(),
+                arg_register: get_byte!(),
+                arg_count: get_byte!(),
+            }),
+            Op::CallChild => Some(CallChild {
+                register: get_byte!(),
+                parent: get_byte!(),
                 arg_register: get_byte!(),
                 arg_count: get_byte!(),
             }),

@@ -88,8 +88,18 @@ impl Frame {
         Ok(register)
     }
 
-    fn peek_register(&self) -> Option<&u8> {
-        self.register_stack.last()
+    fn peek_register(&self) -> Result<u8, String> {
+        self.register_stack
+            .last()
+            .cloned()
+            .ok_or_else(|| "peek_register: Empty register stack".to_string())
+    }
+
+    fn peek_register_n(&self, n: usize) -> Result<u8, String> {
+        self.register_stack
+            .get(self.register_stack.len() - 1 - n)
+            .cloned()
+            .ok_or_else(|| "peek_register_n: Non enough registers in the stack".to_string())
     }
 
     fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), String> {
@@ -269,7 +279,13 @@ impl Compiler {
                         ));
                     }
                 };
-                self.push_op(MakeFunction, &[target, arg_count]);
+
+                if function.is_instance_function {
+                    self.push_op(InstanceFunction, &[target, arg_count - 1]);
+                } else {
+                    self.push_op(Function, &[target, arg_count]);
+                }
+
                 let function_size_ip = self.push_offset_placeholder();
 
                 let local_count = match u8::try_from(function.local_count) {
@@ -286,19 +302,23 @@ impl Compiler {
                 self.update_offset_placeholder(function_size_ip);
             }
             Node::Call { function, args } => {
-                let function_register = match function {
+                match function {
                     LookupOrId::Id(id) => {
                         let id = *id;
-                        if self.frame().is_local(id) {
+                        let function_register = if self.frame().is_local(id) {
                             self.frame_mut().get_local_register(id)?
                         } else {
                             self.load_global(id)?
-                        }
+                        };
+                        self.compile_call(function_register, args, None)?;
                     }
-                    _ => unimplemented!(),
+                    LookupOrId::Lookup(function_lookup) => {
+                        // TODO find a way to avoid the lookup cloning here
+                        let mut call_lookup = function_lookup.clone();
+                        call_lookup.0.push(LookupNode::Call(args.clone()));
+                        self.compile_lookup(&call_lookup, None)?
+                    }
                 };
-
-                self.compile_call(function_register, args)?;
             }
             Node::Assign { target, expression } => {
                 self.compile_node(expression)?;
@@ -311,7 +331,7 @@ impl Compiler {
                         }
                     }
                     AssignTarget::Lookup(lookup) => {
-                        let source = *self.frame_mut().peek_register().unwrap();
+                        let source = self.frame_mut().peek_register()?;
                         self.compile_lookup(lookup, Some(source))?;
                     }
                 };
@@ -379,6 +399,9 @@ impl Compiler {
             ));
         }
 
+        let result_register = self.frame_mut().get_register()?;
+        let stack_count = self.frame().register_stack.len();
+
         for (i, lookup_node) in lookup.0.iter().enumerate() {
             match lookup_node {
                 LookupNode::Id(id) => {
@@ -387,7 +410,7 @@ impl Compiler {
                     } else {
                         self.load_string(*id)?;
                         let key_register = self.frame_mut().pop_register()?;
-                        let map_register = self.frame_mut().pop_register()?;
+                        let map_register = self.frame_mut().peek_register()?;
 
                         if set_value.is_some() && i == lookup_len - 1 {
                             self.push_op(
@@ -419,16 +442,34 @@ impl Compiler {
                         return Err("Assigning to temporary value".to_string());
                     }
 
-                    let function_register = *self.frame_mut().peek_register().unwrap();
-                    self.compile_call(function_register, &args)?;
+                    let parent_register = if i > 1 {
+                        Some(self.frame_mut().peek_register_n(1)?)
+                    } else {
+                        None
+                    };
+
+                    let function_register = self.frame_mut().peek_register()?;
+                    self.compile_call(function_register, &args, parent_register)?;
                 }
             }
         }
 
+        let lookup_result_register = self.frame_mut().pop_register()?;
+        if lookup_result_register != result_register {
+            self.push_op(Copy, &[result_register, lookup_result_register]);
+        }
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
+
         Ok(())
     }
 
-    fn compile_call(&mut self, function_register: u8, args: &[AstNode]) -> Result<(), String> {
+    fn compile_call(
+        &mut self,
+        function_register: u8,
+        args: &[AstNode],
+        parent: Option<u8>,
+    ) -> Result<(), String> {
         use Op::*;
 
         let stack_count = self.frame().register_stack.len();
@@ -445,14 +486,29 @@ impl Compiler {
             // If the arg value is in a local register, then it needs to be copied to
             // an argument register
             let frame = self.frame_mut();
-            if *frame.peek_register().unwrap() < frame.temporary_base {
+            if frame.peek_register()? < frame.temporary_base {
                 let source = frame.pop_register()?;
                 let target = frame.get_register()?;
                 self.push_op(Copy, &[target, source]);
             }
         }
 
-        self.push_op(Call, &[function_register, frame_base, args.len() as u8]);
+        match parent {
+            Some(parent_register) => {
+                self.push_op(
+                    CallChild,
+                    &[
+                        function_register,
+                        parent_register,
+                        frame_base,
+                        args.len() as u8,
+                    ],
+                );
+            }
+            None => {
+                self.push_op(Call, &[function_register, frame_base, args.len() as u8]);
+            }
+        }
 
         // The return value gets placed in the frame base register
         // TODO multiple return values

@@ -377,10 +377,16 @@ impl KotoParser {
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();
                 let mut capture = inner.next().unwrap().into_inner();
+
                 let args = capture
                     .by_ref()
                     .map(|pair| add_constant_string(constants, pair.as_str()))
                     .collect::<Vec<_>>();
+
+                let is_instance_function = match args.as_slice() {
+                    [first, ..] => constants.get_string(*first as usize) == "self",
+                    _ => false,
+                };
 
                 let mut nested_local_ids = LocalIds::default();
                 nested_local_ids.ids_in_parent_scope = local_ids.all_available_ids();
@@ -407,6 +413,7 @@ impl KotoParser {
                         captures: Vec::from_iter(nested_local_ids.captures),
                         local_count,
                         body,
+                        is_instance_function
                     })),
                 )
             }

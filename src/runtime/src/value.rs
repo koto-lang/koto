@@ -24,7 +24,7 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
-    VmFunction { ip: usize, arg_count: u8 },
+    VmFunction { ip: usize, arg_count: u8, is_instance_function: bool },
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
