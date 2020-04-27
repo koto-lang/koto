@@ -45,6 +45,11 @@ pub enum Instruction {
         register: u8,
         size_hint: usize,
     },
+    MakeVec4 {
+        register: u8,
+        count: u8,
+        element_register: u8,
+    },
     RangeExclusive {
         register: u8,
         start: u8,
@@ -222,6 +227,15 @@ impl fmt::Display for Instruction {
                 "MakeMap\t\treg: {}\t\tsize_hint: {}",
                 register, size_hint
             ),
+            MakeVec4 {
+                register,
+                count,
+                element_register,
+            } => write!(
+                f,
+                "MakeVec4\treg: {}\t\tcount: {}\telement reg: {}",
+                register, count, element_register
+            ),
             RangeExclusive {
                 register,
                 start,
@@ -281,7 +295,7 @@ impl fmt::Display for Instruction {
             ),
             Divide { register, lhs, rhs } => write!(
                 f,
-                "Divide\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Divide\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Modulo { register, lhs, rhs } => write!(
@@ -551,6 +565,11 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::MakeMapLong => Some(MakeMap {
                 register: get_byte!(),
                 size_hint: get_u32!() as usize,
+            }),
+            Op::MakeVec4 => Some(MakeVec4 {
+                register: get_byte!(),
+                count: get_byte!(),
+                element_register: get_byte!(),
             }),
             Op::RangeExclusive => Some(RangeExclusive {
                 register: get_byte!(),

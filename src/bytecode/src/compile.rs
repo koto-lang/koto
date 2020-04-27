@@ -113,7 +113,7 @@ impl Frame {
 
     fn peek_register_n(&self, n: usize) -> Result<u8, String> {
         self.register_stack
-            .get(self.register_stack.len() - 1 - n)
+            .get(self.register_stack.len() - n)
             .cloned()
             .ok_or_else(|| "peek_register_n: Non enough registers in the stack".to_string())
     }
@@ -226,6 +226,9 @@ impl Compiler {
             }
             Node::Str(constant) => {
                 self.load_string(*constant)?;
+            }
+            Node::Vec4(elements) => {
+                self.compile_make_vec4(&elements)?;
             }
             Node::List(elements) => {
                 self.compile_make_list(&elements)?;
@@ -514,6 +517,31 @@ impl Compiler {
         Ok(())
     }
 
+    fn compile_make_vec4(&mut self, elements: &[AstNode]) -> Result<(), String> {
+        use Op::*;
+
+        let vec4_register = self.frame_mut().push_register()?;
+        let stack_count = self.frame().register_stack.len();
+
+        for element in elements.iter() {
+            self.compile_node(element)?;
+            if self.frame().peek_register()? < self.frame().temporary_base {
+                let source = self.frame_mut().pop_register()?;
+                let target = self.frame_mut().push_register()?;
+                self.push_op(Copy, &[target, source]);
+            }
+        }
+
+        let first_element_register = self.frame().peek_register_n(elements.len())?;
+        self.push_op(
+            MakeVec4,
+            &[vec4_register, elements.len() as u8, first_element_register],
+        );
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
+        Ok(())
+    }
+
     fn compile_make_list(&mut self, elements: &[AstNode]) -> Result<(), String> {
         use Op::*;
 
@@ -592,7 +620,7 @@ impl Compiler {
                     }
 
                     let parent_register = if i > 1 {
-                        Some(self.frame_mut().peek_register_n(1)?)
+                        Some(self.frame_mut().peek_register_n(2)?)
                     } else {
                         None
                     };

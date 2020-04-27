@@ -1596,7 +1596,7 @@ impl Runtime {
                     _ => binary_op_error(lhs_value, rhs_value),
                 },
                 (Number(a), Vec4(b)) => match op {
-                    AstOp::Add => Ok(Vec4(*a + *b)),
+                    AstOp::Add => Ok(Vec4(a + b)),
                     AstOp::Subtract => Ok(Vec4(*a - *b)),
                     AstOp::Multiply => Ok(Vec4(*a * *b)),
                     AstOp::Divide => Ok(Vec4(*a / *b)),
