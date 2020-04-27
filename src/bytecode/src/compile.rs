@@ -144,7 +144,7 @@ impl Compiler {
     ) -> Result<(), String> {
         self.frame_stack.push(Frame::new(local_count, args));
 
-        self.compile_expressions(expressions)?;
+        self.compile_block(expressions)?;
 
         let result_register = self.frame_mut().pop_register()?;
         self.push_bytes(&[Op::Return.into(), result_register]);
@@ -154,24 +154,20 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_expressions(&mut self, expressions: &[AstNode]) -> Result<(), String> {
+    fn compile_block(&mut self, expressions: &[AstNode]) -> Result<(), String> {
         use Op::*;
 
-        let mut result_register = None;
-
-        for expression in expressions.iter() {
-            self.compile_node(expression)?;
-            result_register = Some(self.frame_mut().pop_register()?);
-        }
-
-        if let Some(result_register) = result_register {
-            let register = self.frame_mut().get_register()?;
-            if register != result_register {
-                self.push_bytes(&[Copy.into(), register, result_register]);
-            }
-        } else {
+        if expressions.is_empty() {
             let register = self.frame_mut().get_register()?;
             self.push_bytes(&[SetEmpty.into(), register]);
+        } else {
+            for (i, expression) in expressions.iter().enumerate() {
+                self.compile_node(expression)?;
+                // Keep the last expression's result on the stack
+                if i < expressions.len() - 1 {
+                    self.frame_mut().pop_register()?;
+                }
+            }
         }
 
         Ok(())
@@ -208,22 +204,7 @@ impl Compiler {
                 self.load_string(*constant)?;
             }
             Node::List(elements) => {
-                let list_register = self.frame_mut().get_register()?;
-
-                // TODO take ranges into account when determining size hint
-                let size_hint = elements.len();
-                if size_hint <= u8::MAX as usize {
-                    self.push_op(MakeList, &[list_register, size_hint as u8]);
-                } else {
-                    self.push_op(MakeListLong, &[list_register]);
-                    self.push_bytes(&size_hint.to_le_bytes());
-                }
-
-                for element_node in elements.iter() {
-                    self.compile_node(element_node)?;
-                    let element = self.frame_mut().pop_register()?;
-                    self.push_op(ListPush, &[list_register, element]);
-                }
+                self.compile_make_list(&elements)?;
             }
             Node::Map(entries) => {
                 let map_register = self.frame_mut().get_register()?;
@@ -266,7 +247,12 @@ impl Compiler {
                 self.compile_frame(*local_count as u8, body, &[])?;
             }
             Node::Block(expressions) => {
-                self.compile_expressions(expressions)?;
+                self.compile_block(expressions)?;
+            }
+            Node::Expressions(expressions) => {
+                // For now, capture the results of multiple expressions in a list.
+                // Later, find situations where the list capture can be avoided.
+                self.compile_make_list(&expressions)?;
             }
             Node::Function(function) => {
                 let target = self.frame_mut().get_register()?;
@@ -385,6 +371,29 @@ impl Compiler {
         } else {
             self.load_global(id)?;
         }
+        Ok(())
+    }
+
+    fn compile_make_list(&mut self, elements: &[AstNode]) -> Result<(), String> {
+        use Op::*;
+
+        let list_register = self.frame_mut().get_register()?;
+
+        // TODO take ranges into account when determining size hint
+        let size_hint = elements.len();
+        if size_hint <= u8::MAX as usize {
+            self.push_op(MakeList, &[list_register, size_hint as u8]);
+        } else {
+            self.push_op(MakeListLong, &[list_register]);
+            self.push_bytes(&size_hint.to_le_bytes());
+        }
+
+        for element_node in elements.iter() {
+            self.compile_node(element_node)?;
+            let element = self.frame_mut().pop_register()?;
+            self.push_op(ListPush, &[list_register, element]);
+        }
+
         Ok(())
     }
 

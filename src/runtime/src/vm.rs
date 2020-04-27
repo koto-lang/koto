@@ -891,14 +891,6 @@ mod tests {
         }
 
         #[test]
-        fn assignment() {
-            let script = "
-a = 1 * 3
-a + 1";
-            test_script(script, Number(4.0));
-        }
-
-        #[test]
         fn comparison() {
             test_script("false or 1 < 2 < 3 and 3 > 2 > 1 or false", Bool(true));
         }
@@ -906,6 +898,93 @@ a + 1";
         #[test]
         fn equality() {
             test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
+        }
+
+        #[test]
+        fn assignment() {
+            let script = "
+a = 1 * 3
+a + 1";
+            test_script(script, Number(4.0));
+        }
+    }
+
+    mod lists {
+        use super::*;
+
+        #[test]
+        fn empty() {
+            test_script("[]", List(ValueList::new()));
+        }
+
+        #[test]
+        fn literals() {
+            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn from_ids() {
+            let script = "
+a = 1
+[a a a]";
+            test_script(script, value_list(&[1, 1, 1]));
+        }
+
+        #[test]
+        fn from_range() {
+            test_script("[3..0]", value_list(&[3, 2, 1]));
+        }
+
+        #[test]
+        fn from_multiple_ranges() {
+            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
+        }
+
+        #[test]
+        fn access_element() {
+            let script = "
+a = [1 2 3]
+a[1]";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn access_range() {
+            let script = "
+a = [10 20 30]
+a[1..3]";
+            test_script(script, value_list(&[20, 30]));
+        }
+
+        #[test]
+        fn assign_element() {
+            let script = "
+a = [1 2 3]
+x = 2
+a[x] = -1
+a";
+            test_script(script, value_list(&[1, 2, -1]));
+        }
+
+        #[test]
+        fn assign_range() {
+            let script = "
+a = [1 2 3 4 5]
+a[1..=3] = 0
+a";
+            test_script(script, value_list(&[1, 0, 0, 0, 5]));
+        }
+    }
+
+    mod multi_assignment {
+        use super::*;
+
+        #[test]
+        fn assign_2_to_1() {
+            let script = "
+a = 1, 2
+a";
+            test_script(script, value_list(&[1, 2]));
         }
     }
 
@@ -930,7 +1009,7 @@ else
 
         #[test]
         fn load_value() {
-            test_script("a = test_global", Number(42.0));
+            test_script("test_global", Number(42.0));
         }
 
         #[test]
@@ -1029,73 +1108,6 @@ sum = 0
 (sum += a) for a in [10 20 30 40]
 sum";
             test_script(script, Number(100.0));
-        }
-    }
-
-    mod lists {
-        use super::*;
-
-        #[test]
-        fn empty() {
-            test_script("[]", List(ValueList::new()));
-        }
-
-        #[test]
-        fn literals() {
-            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
-        }
-
-        #[test]
-        fn from_ids() {
-            let script = "
-a = 1
-[a a a]";
-            test_script(script, value_list(&[1, 1, 1]));
-        }
-
-        #[test]
-        fn from_range() {
-            test_script("[3..0]", value_list(&[3, 2, 1]));
-        }
-
-        #[test]
-        fn from_multiple_ranges() {
-            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
-        }
-
-        #[test]
-        fn access_element() {
-            let script = "
-a = [1 2 3]
-a[1]";
-            test_script(script, Number(2.0));
-        }
-
-        #[test]
-        fn access_range() {
-            let script = "
-a = [10 20 30]
-a[1..3]";
-            test_script(script, value_list(&[20, 30]));
-        }
-
-        #[test]
-        fn assign_element() {
-            let script = "
-a = [1 2 3]
-x = 2
-a[x] = -1
-a";
-            test_script(script, value_list(&[1, 2, -1]));
-        }
-
-        #[test]
-        fn assign_range() {
-            let script = "
-a = [1 2 3 4 5]
-a[1..=3] = 0
-a";
-            test_script(script, value_list(&[1, 0, 0, 0, 5]));
         }
     }
 
