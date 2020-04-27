@@ -666,7 +666,6 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
         self.compile_node(&then_node)?;
-        self.frame_mut().truncate_register_stack(stack_count)?;
 
         let then_jump_ip = {
             if else_if_node.is_some() || else_node.is_some() {
@@ -687,9 +686,9 @@ impl Compiler {
             let condition_register = self.frame_mut().pop_register()?;
             self.push_op(JumpFalse, &[condition_register]);
 
-            let stack_count = self.frame().register_stack.len();
-            self.compile_node_with_jump_offset(&else_if_node)?;
+            // re-use registers from if block
             self.frame_mut().truncate_register_stack(stack_count)?;
+            self.compile_node_with_jump_offset(&else_if_node)?;
 
             if else_node.is_some() {
                 self.push_op(Jump, &[]);
@@ -702,7 +701,11 @@ impl Compiler {
         };
 
         if let Some(else_node) = else_node {
+            // re-use registers from if/else if blocks
+            self.frame_mut().truncate_register_stack(stack_count)?;
             self.compile_node(else_node)?;
+        } else {
+            self.push_empty()?;
         }
 
         if let Some(then_jump_ip) = then_jump_ip {

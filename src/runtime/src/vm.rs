@@ -1077,18 +1077,29 @@ a, b, c";
         }
     }
 
-    mod control_flow {
+    mod if_expressions {
         use super::*;
+
+        #[test]
+        fn if_no_else() {
+            let script = "
+x = if 5 < 4
+  42
+x
+";
+            test_script(script, Empty);
+        }
 
         #[test]
         fn if_else_if() {
             let script = "
-if 5 < 4
+x = if 5 < 4
   42
 else if 1 < 2
   -1
 else
-  99";
+  99
+x";
             test_script(script, Number(-1.0));
         }
     }
