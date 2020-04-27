@@ -858,7 +858,7 @@ mod tests {
         }
     }
 
-    fn value_list<T>(values: &[T]) -> Value
+    fn number_list<T>(values: &[T]) -> Value
     where
         T: Copy,
         f64: From<T>,
@@ -867,6 +867,10 @@ mod tests {
             .iter()
             .map(|n| Number(f64::from(*n)))
             .collect::<Vec<_>>();
+        value_list(&values)
+    }
+
+    fn value_list(values: &[Value]) -> Value {
         List(ValueList::from_slice(&values))
     }
 
@@ -948,7 +952,7 @@ a + 1";
 
         #[test]
         fn literals() {
-            test_script("[1 2 3 4]", value_list(&[1, 2, 3, 4]));
+            test_script("[1 2 3 4]", number_list(&[1, 2, 3, 4]));
         }
 
         #[test]
@@ -956,17 +960,17 @@ a + 1";
             let script = "
 a = 1
 [a a a]";
-            test_script(script, value_list(&[1, 1, 1]));
+            test_script(script, number_list(&[1, 1, 1]));
         }
 
         #[test]
         fn from_range() {
-            test_script("[3..0]", value_list(&[3, 2, 1]));
+            test_script("[3..0]", number_list(&[3, 2, 1]));
         }
 
         #[test]
         fn from_multiple_ranges() {
-            test_script("[0..3 3..=0]", value_list(&[0, 1, 2, 3, 2, 1, 0]));
+            test_script("[0..3 3..=0]", number_list(&[0, 1, 2, 3, 2, 1, 0]));
         }
 
         #[test]
@@ -982,7 +986,7 @@ a[1]";
             let script = "
 a = [10 20 30]
 a[1..3]";
-            test_script(script, value_list(&[20, 30]));
+            test_script(script, number_list(&[20, 30]));
         }
 
         #[test]
@@ -992,7 +996,7 @@ a = [1 2 3]
 x = 2
 a[x] = -1
 a";
-            test_script(script, value_list(&[1, 2, -1]));
+            test_script(script, number_list(&[1, 2, -1]));
         }
 
         #[test]
@@ -1001,7 +1005,7 @@ a";
 a = [1 2 3 4 5]
 a[1..=3] = 0
 a";
-            test_script(script, value_list(&[1, 0, 0, 0, 5]));
+            test_script(script, number_list(&[1, 0, 0, 0, 5]));
         }
     }
 
@@ -1013,15 +1017,15 @@ a";
             let script = "
 a = 1, 2
 a";
-            test_script(script, value_list(&[1, 2]));
+            test_script(script, number_list(&[1, 2]));
         }
 
         #[test]
         fn assign_1_to_2() {
             let script = "
 a, b = -1
-[a b]";
-            test_script(script, List(ValueList::from_slice(&[Number(-1.0), Empty])));
+a, b";
+            test_script(script, value_list(&[Number(-1.0), Empty]));
         }
 
         #[test]
@@ -1030,7 +1034,35 @@ a, b = -1
 x = [0 0]
 x[0], x[1] = 99
 x";
-            test_script(script, List(ValueList::from_slice(&[Number(99.0), Empty])));
+            test_script(script, value_list(&[Number(99.0), Empty]));
+        }
+
+        #[test]
+        fn assign_2_to_2_list_elements() {
+            let script = "
+x = [0 0]
+x[0], x[1] = -1, 42
+x";
+            test_script(script, number_list(&[-1, 42]));
+        }
+
+        #[test]
+        fn unpack_list() {
+            let script = "
+a, b, c = [7 8]
+a, b, c";
+            test_script(script, value_list(&[Number(7.0), Number(8.0), Empty]));
+        }
+
+        #[test]
+        fn multiple_lists() {
+            let script = "
+a, b, c = [1 2], [3 4]
+a, b, c";
+            test_script(
+                script,
+                value_list(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
+            );
         }
     }
 
@@ -1105,6 +1137,15 @@ add = |a b|
   add2 a b
 add 10 20";
             test_script(script, Number(30.0));
+        }
+
+        #[test]
+        fn multiple_return_values() {
+            let script = "
+f = |x| x - 1, x + 1
+a, b = f 0
+a, b";
+            test_script(script, number_list(&[-1, 1]));
         }
     }
 

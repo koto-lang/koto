@@ -27,7 +27,7 @@ impl Frame {
         }
     }
 
-    fn get_register(&mut self) -> Result<u8, String> {
+    fn push_register(&mut self) -> Result<u8, String> {
         let new_register = self.temporary_base + self.temporary_count;
         self.temporary_count += 1;
 
@@ -102,6 +102,14 @@ impl Frame {
             .ok_or_else(|| "peek_register_n: Non enough registers in the stack".to_string())
     }
 
+    fn clone_registers(&self, count: usize) -> Result<Vec<u8>, String> {
+        let first_register = self.register_stack.len() - count;
+        self.register_stack
+            .get(first_register..)
+            .map(|registers| registers.iter().cloned().collect::<Vec<_>>())
+            .ok_or_else(|| "clone_registers: Non enough registers in the stack".to_string())
+    }
+
     fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), String> {
         while self.register_stack.len() > stack_count {
             self.pop_register()?;
@@ -158,7 +166,7 @@ impl Compiler {
         use Op::*;
 
         if expressions.is_empty() {
-            let register = self.frame_mut().get_register()?;
+            let register = self.frame_mut().push_register()?;
             self.push_bytes(&[SetEmpty.into(), register]);
         } else {
             for (i, expression) in expressions.iter().enumerate() {
@@ -183,15 +191,15 @@ impl Compiler {
             Node::Id(index) => self.compile_load_id(*index)?,
             Node::Lookup(lookup) => self.compile_lookup(lookup, None)?,
             Node::BoolTrue => {
-                let target = self.frame_mut().get_register()?;
+                let target = self.frame_mut().push_register()?;
                 self.push_op(SetTrue, &[target]);
             }
             Node::BoolFalse => {
-                let target = self.frame_mut().get_register()?;
+                let target = self.frame_mut().push_register()?;
                 self.push_op(SetFalse, &[target]);
             }
             Node::Number(constant) => {
-                let target = self.frame_mut().get_register()?;
+                let target = self.frame_mut().push_register()?;
                 let constant = *constant;
                 if constant <= u8::MAX as u32 {
                     self.push_op(LoadNumber, &[target, constant as u8]);
@@ -207,7 +215,7 @@ impl Compiler {
                 self.compile_make_list(&elements)?;
             }
             Node::Map(entries) => {
-                let map_register = self.frame_mut().get_register()?;
+                let map_register = self.frame_mut().push_register()?;
 
                 let size_hint = entries.len();
                 if size_hint <= u8::MAX as usize {
@@ -240,7 +248,7 @@ impl Compiler {
                 } else {
                     RangeExclusive
                 };
-                let target = self.frame_mut().get_register()?;
+                let target = self.frame_mut().push_register()?;
                 self.push_op(op, &[target, start_register, end_register]);
             }
             Node::MainBlock { body, local_count } => {
@@ -255,7 +263,7 @@ impl Compiler {
                 self.compile_make_list(&expressions)?;
             }
             Node::Function(function) => {
-                let target = self.frame_mut().get_register()?;
+                let target = self.frame_mut().push_register()?;
                 let arg_count = match u8::try_from(function.args.len()) {
                     Ok(x) => x,
                     Err(_) => {
@@ -307,59 +315,13 @@ impl Compiler {
                 };
             }
             Node::Assign { target, expression } => {
-                self.compile_node(expression)?;
-                match target {
-                    AssignTarget::Id { id_index, .. } => {
-                        let source = self.frame_mut().pop_register()?;
-                        let register = self.frame_mut().get_local_register(*id_index)?;
-                        if register != source {
-                            self.push_op(Copy, &[register, source]);
-                        }
-                    }
-                    AssignTarget::Lookup(lookup) => {
-                        let source = self.frame_mut().peek_register()?;
-                        self.compile_lookup(lookup, Some(source))?;
-                    }
-                };
+                self.compile_assign(target, expression)?;
             }
             Node::MultiAssign {
                 targets,
                 expressions,
             } => {
-                assert!(targets.len() < u8::MAX as usize);
-                assert!(expressions.len() < u8::MAX as usize);
-
-                match expressions.as_slice() {
-                    [expression] => {
-                        self.compile_node(expression)?;
-                        let rhs_register = self.frame_mut().peek_register()?;
-
-                        for (i, target) in targets.iter().enumerate() {
-                            match target {
-                                AssignTarget::Id { id_index, .. } => {
-                                    let register =
-                                        self.frame_mut().get_local_register(*id_index)?;
-                                    self.push_op(
-                                        ExpressionIndex,
-                                        &[register, rhs_register, i as u8],
-                                    );
-                                }
-                                AssignTarget::Lookup(lookup) => {
-                                    let register = self.frame_mut().get_register()?;
-                                    self.push_op(
-                                        ExpressionIndex,
-                                        &[register, rhs_register, i as u8],
-                                    );
-                                    self.compile_lookup(lookup, Some(register))?;
-                                    self.frame_mut().pop_register()?;
-                                }
-                            };
-                        }
-                    }
-                    _ => {
-                        unimplemented!();
-                    }
-                }
+                self.compile_multi_assign(targets, expressions)?;
             }
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
@@ -392,13 +354,109 @@ impl Compiler {
                 let frame = self.frame_mut();
                 let rhs_register = frame.pop_register()?;
                 let lhs_register = frame.pop_register()?;
-                let target = frame.get_register()?;
+                let target = frame.push_register()?;
                 self.push_op(op, &[target, lhs_register, rhs_register]);
             }
             Node::If(ast_if) => self.compile_if(ast_if)?,
             Node::For(ast_for) => self.compile_for(ast_for)?,
             Node::While(ast_while) => self.compile_while(ast_while)?,
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
+        }
+
+        Ok(())
+    }
+
+    fn compile_assign(
+        &mut self,
+        target: &AssignTarget,
+        expression: &AstNode,
+    ) -> Result<(), String> {
+        self.compile_node(expression)?;
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                let source = self.frame_mut().pop_register()?;
+                let register = self.frame_mut().get_local_register(*id_index)?;
+                if register != source {
+                    self.push_op(Op::Copy, &[register, source]);
+                }
+            }
+            AssignTarget::Lookup(lookup) => {
+                let source = self.frame_mut().peek_register()?;
+                self.compile_lookup(lookup, Some(source))?;
+            }
+        };
+        Ok(())
+    }
+
+    fn compile_multi_assign(
+        &mut self,
+        targets: &[AssignTarget],
+        expressions: &[AstNode],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        assert!(targets.len() < u8::MAX as usize);
+        assert!(expressions.len() < u8::MAX as usize);
+
+        match expressions {
+            [] => {
+                return Err("compile_multi_assign: Missing expression".to_string());
+            }
+            [expression] => {
+                self.compile_node(expression)?;
+
+                let rhs_register = self.frame_mut().peek_register()?;
+
+                for (i, target) in targets.iter().enumerate() {
+                    match target {
+                        AssignTarget::Id { id_index, .. } => {
+                            let register = self.frame_mut().get_local_register(*id_index)?;
+                            self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                        }
+                        AssignTarget::Lookup(lookup) => {
+                            let register = self.frame_mut().push_register()?;
+                            self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                            self.compile_lookup(lookup, Some(register))?;
+                            self.frame_mut().pop_register()?;
+                        }
+                    };
+                }
+            }
+            _ => {
+                for expression in expressions.iter() {
+                    self.compile_node(expression)?;
+                }
+
+                let expression_registers = self.frame().clone_registers(expressions.len())?;
+
+                for (i, target) in targets.iter().enumerate() {
+                    match target {
+                        AssignTarget::Id { id_index, .. } => {
+                            let register = self.frame_mut().get_local_register(*id_index)?;
+                            match expression_registers.get(i) {
+                                Some(expression_register) => {
+                                    self.push_op(Copy, &[register, *expression_register]);
+                                }
+                                None => {
+                                    self.push_op(SetEmpty, &[register]);
+                                }
+                            }
+                            self.frame_mut().pop_register()?;
+                        }
+                        AssignTarget::Lookup(lookup) => match expression_registers.get(i) {
+                            Some(expression_register) => {
+                                self.compile_lookup(lookup, Some(*expression_register))?;
+                            }
+                            None => {
+                                let register = self.frame_mut().push_register()?;
+                                self.push_op(SetEmpty, &[register]);
+                                self.compile_lookup(lookup, Some(register))?;
+                                self.frame_mut().pop_register()?;
+                            }
+                        },
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -416,7 +474,7 @@ impl Compiler {
     fn compile_make_list(&mut self, elements: &[AstNode]) -> Result<(), String> {
         use Op::*;
 
-        let list_register = self.frame_mut().get_register()?;
+        let list_register = self.frame_mut().push_register()?;
 
         // TODO take ranges into account when determining size hint
         let size_hint = elements.len();
@@ -447,7 +505,7 @@ impl Compiler {
             ));
         }
 
-        let result_register = self.frame_mut().get_register()?;
+        let result_register = self.frame_mut().push_register()?;
         let stack_count = self.frame().register_stack.len();
 
         for (i, lookup_node) in lookup.0.iter().enumerate() {
@@ -466,7 +524,7 @@ impl Compiler {
                                 &[map_register, key_register, set_value.unwrap()],
                             );
                         } else {
-                            let result_register = self.frame_mut().get_register()?;
+                            let result_register = self.frame_mut().push_register()?;
                             self.push_op(MapAccess, &[result_register, map_register, key_register]);
                         }
                     }
@@ -481,7 +539,7 @@ impl Compiler {
                             &[list_register, index_register, set_value.unwrap()],
                         );
                     } else {
-                        let result_register = self.frame_mut().get_register()?;
+                        let result_register = self.frame_mut().push_register()?;
                         self.push_op(ListIndex, &[result_register, list_register, index_register]);
                     }
                 }
@@ -523,7 +581,7 @@ impl Compiler {
         let stack_count = self.frame().register_stack.len();
 
         let frame_base = if args.is_empty() {
-            self.frame_mut().get_register()?
+            self.frame_mut().push_register()?
         } else {
             self.frame().next_temporary_register()
         };
@@ -536,7 +594,7 @@ impl Compiler {
             let frame = self.frame_mut();
             if frame.peek_register()? < frame.temporary_base {
                 let source = frame.pop_register()?;
-                let target = frame.get_register()?;
+                let target = frame.push_register()?;
                 self.push_op(Copy, &[target, source]);
             }
         }
@@ -659,7 +717,7 @@ impl Compiler {
             [range] => {
                 self.compile_node(range)?;
                 let range_register = self.frame_mut().pop_register()?;
-                let iterator_register = self.frame_mut().get_register()?;
+                let iterator_register = self.frame_mut().push_register()?;
                 self.push_op(MakeIterator, &[iterator_register, range_register]);
                 iterator_register
             }
@@ -734,7 +792,7 @@ impl Compiler {
     fn load_global(&mut self, index: ConstantIndex) -> Result<u8, String> {
         use Op::*;
 
-        let register = self.frame_mut().get_register()?;
+        let register = self.frame_mut().push_register()?;
         if index <= u8::MAX as u32 {
             self.push_bytes(&[LoadGlobal.into(), register, index as u8]);
         } else {
@@ -747,7 +805,7 @@ impl Compiler {
     fn load_string(&mut self, index: ConstantIndex) -> Result<u8, String> {
         use Op::*;
 
-        let target = self.frame_mut().get_register()?;
+        let target = self.frame_mut().push_register()?;
         if index <= u8::MAX as u32 {
             self.push_op(LoadString, &[target, index as u8]);
         } else {
@@ -766,7 +824,7 @@ impl Compiler {
     }
 
     fn push_empty(&mut self) -> Result<(), String> {
-        let target = self.frame_mut().get_register()?;
+        let target = self.frame_mut().push_register()?;
         self.push_op(Op::SetEmpty, &[target]);
         Ok(())
     }
