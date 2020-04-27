@@ -1327,6 +1327,17 @@ f = ||
 f()";
             test_script(script, Number(5.0));
         }
+
+        #[test]
+        fn multiple_ranges() {
+            let script = "
+sum = 0
+for a, b in [1 2 3], [4 5 6]
+    sum += a + b
+sum
+";
+            test_script(script, Number(21.0));
+        }
     }
 
     mod maps {

@@ -750,37 +750,52 @@ impl Compiler {
         //   jump -> loop_start
         // end:
 
+        if args.len() != ranges.len() {
+            return Err(format!(
+                "compile_for: argument and range count mismatch: {} vs {}",
+                args.len(),
+                ranges.len()
+            ));
+        }
+
         let iterator_register = match ranges.as_slice() {
+            [] => {
+                return Err(format!("compile_for: Missing range"));
+            }
             [range] => {
                 self.compile_node(range)?;
                 let range_register = self.frame_mut().pop_register()?;
                 let iterator_register = self.frame_mut().push_register()?;
+
                 self.push_op(MakeIterator, &[iterator_register, range_register]);
+
                 iterator_register
             }
-            [_ranges, ..] => {
-                unimplemented!("TODO: multi-range for loop");
-            }
             _ => {
-                return Err(format!("compile_for: Missing range"));
-            }
-        };
+                let mut first_iterator_register = None;
+                for range in ranges.iter() {
+                    self.compile_node(range)?;
+                    let range_register = self.frame_mut().pop_register()?;
+                    let iterator_register = self.frame_mut().push_register()?;
 
-        let arg_register = match args.as_slice() {
-            &[arg] => self.frame_mut().get_local_register(arg)?,
-            &[_args, ..] => {
-                unimplemented!("TODO: multi-arg for loop");
-            }
-            _ => {
-                return Err(format!("compile_for: Missing argument"));
+                    self.push_op(MakeIterator, &[iterator_register, range_register]);
+
+                    if first_iterator_register.is_none() {
+                        first_iterator_register = Some(iterator_register);
+                    }
+                }
+                first_iterator_register.unwrap()
             }
         };
 
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
-        self.push_op(IteratorNext, &[arg_register, iterator_register]);
-        self.push_loop_jump_placeholder()?;
+        for (i, arg) in args.iter().enumerate() {
+            let arg_register = self.frame_mut().get_local_register(*arg)?;
+            self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
+            self.push_loop_jump_placeholder()?;
+        }
 
         if let Some(condition) = condition {
             self.compile_node(condition)?;
