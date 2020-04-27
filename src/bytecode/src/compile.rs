@@ -124,9 +124,25 @@ impl Frame {
 }
 
 #[derive(Default)]
+struct Loop {
+    start_ip: usize,
+    jump_placeholders: Vec<usize>,
+}
+
+impl Loop {
+    fn new(start_ip: usize) -> Self {
+        Self {
+            start_ip,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default)]
 pub struct Compiler {
     bytes: Bytecode,
     frame_stack: Vec<Frame>,
+    loop_stack: Vec<Loop>,
 }
 
 impl Compiler {
@@ -361,6 +377,13 @@ impl Compiler {
             Node::If(ast_if) => self.compile_if(ast_if)?,
             Node::For(ast_for) => self.compile_for(ast_for)?,
             Node::While(ast_while) => self.compile_while(ast_while)?,
+            Node::Break => {
+                self.push_op(Jump, &[]);
+                self.push_loop_jump_placeholder()?;
+            }
+            Node::Continue => {
+                self.push_jump_back_op(JumpBack, &[], self.current_loop()?.start_ip);
+            }
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
         }
 
@@ -741,9 +764,10 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
+        self.loop_stack.push(Loop::new(loop_start_ip));
 
         self.push_op(IteratorNext, &[arg_register, iterator_register]);
-        let jump_to_loop_end = self.push_offset_placeholder();
+        self.push_loop_jump_placeholder()?;
 
         if let Some(condition) = condition {
             self.compile_node(condition)?;
@@ -754,7 +778,15 @@ impl Compiler {
         self.compile_node(body)?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
-        self.update_offset_placeholder(jump_to_loop_end);
+
+        match self.loop_stack.pop() {
+            Some(loop_info) => {
+                for placeholder in loop_info.jump_placeholders.iter() {
+                    self.update_offset_placeholder(*placeholder);
+                }
+            }
+            None => return Err("Empty loop info stack".to_string()),
+        }
 
         self.push_empty()?;
         Ok(())
@@ -769,7 +801,8 @@ impl Compiler {
             negate_condition,
         } = ast_while;
 
-        let while_jump_ip = self.bytes.len();
+        let loop_start_ip = self.bytes.len();
+        self.loop_stack.push(Loop::new(loop_start_ip));
 
         self.compile_node(&condition)?;
         let condition_register = self.frame_mut().pop_register()?;
@@ -779,12 +812,20 @@ impl Compiler {
             JumpFalse
         };
         self.push_op(op, &[condition_register]);
-        let condition_jump_ip = self.push_offset_placeholder();
+        self.push_loop_jump_placeholder()?;
 
         self.compile_node(&body)?;
-        self.push_jump_back_op(JumpBack, &[], while_jump_ip);
+        self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
-        self.update_offset_placeholder(condition_jump_ip);
+        match self.loop_stack.pop() {
+            Some(loop_info) => {
+                for placeholder in loop_info.jump_placeholders.iter() {
+                    self.update_offset_placeholder(*placeholder);
+                }
+            }
+            None => return Err("Empty loop info stack".to_string()),
+        }
+
         self.push_empty()?;
 
         Ok(())
@@ -840,6 +881,23 @@ impl Compiler {
         let offset_ip = self.bytes.len();
         self.push_bytes(&[0, 0]);
         offset_ip
+    }
+
+    fn current_loop(&self) -> Result<&Loop, String> {
+        self.loop_stack
+            .last()
+            .ok_or_else(|| "Missing loop info".to_string())
+    }
+
+    fn push_loop_jump_placeholder(&mut self) -> Result<(), String> {
+        let placeholder = self.push_offset_placeholder();
+        match self.loop_stack.last_mut() {
+            Some(loop_info) => {
+                loop_info.jump_placeholders.push(placeholder);
+                Ok(())
+            }
+            None => Err("Missing loop info".to_string()),
+        }
     }
 
     fn update_offset_placeholder(&mut self, offset_ip: usize) {

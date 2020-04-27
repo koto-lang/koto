@@ -1040,7 +1040,7 @@ a, b";
         }
 
         #[test]
-        fn assign_1_to_2_list_elements() {
+        fn list_elements_1_to_2() {
             let script = "
 x = [0 0]
 x[0], x[1] = 99
@@ -1049,7 +1049,7 @@ x";
         }
 
         #[test]
-        fn assign_2_to_2_list_elements() {
+        fn list_elements_2_to_2() {
             let script = "
 x = [0 0]
 x[0], x[1] = -1, 42
@@ -1191,7 +1191,7 @@ count";
         }
 
         #[test]
-        fn for_loop_conditional() {
+        fn for_conditional() {
             let script = "
 count = 0
 (count += 1) for i in 0..10 if i > 4
@@ -1200,12 +1200,86 @@ count";
         }
 
         #[test]
-        fn for_loop_list() {
+        fn for_list() {
             let script = "
 sum = 0
 (sum += a) for a in [10 20 30 40]
 sum";
             test_script(script, Number(100.0));
+        }
+
+        #[test]
+        fn for_break() {
+            let script = "
+sum = 0
+for i in 1..10
+  if i == 5
+    break
+  sum += i
+sum";
+            test_script(script, Number(10.0));
+        }
+
+        #[test]
+        fn for_break_nested() {
+            let script = "
+sum = 0
+for i in [1 2 3]
+  for j in 0..5
+    if j == 2
+      break
+    sum += i
+sum";
+            test_script(script, Number(12.0));
+        }
+
+        #[test]
+        fn for_continue() {
+            let script = "
+sum = 0
+for i in 1..10
+  if i > 5
+    continue
+  sum += i
+sum";
+            test_script(script, Number(15.0));
+        }
+
+        #[test]
+        fn for_continue_nested() {
+            let script = "
+sum = 0
+for i in [2 4 6]
+  for j in 0..10
+    if j > 1
+      continue
+    sum += i
+sum";
+            test_script(script, Number(24.0));
+        }
+
+        #[test]
+        fn while_break() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 1000000
+  if i > 5
+    break
+  sum += 1
+sum";
+            test_script(script, Number(5.0));
+        }
+
+        #[test]
+        fn while_continue() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 10
+  if i > 6
+    continue
+  sum += 1
+sum";
+            test_script(script, Number(6.0));
         }
     }
 
