@@ -6,8 +6,24 @@ use koto_parser::{
 };
 use std::convert::TryFrom;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
+struct Loop {
+    start_ip: usize,
+    jump_placeholders: Vec<usize>,
+}
+
+impl Loop {
+    fn new(start_ip: usize) -> Self {
+        Self {
+            start_ip,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 struct Frame {
+    loop_stack: Vec<Loop>,
     register_stack: Vec<u8>,
     local_registers: Vec<ConstantIndex>,
     temporary_base: u8,
@@ -23,7 +39,7 @@ impl Frame {
             register_stack: Vec::with_capacity(local_count as usize),
             local_registers,
             temporary_base: local_count,
-            temporary_count: 0,
+            ..Default::default()
         }
     }
 
@@ -124,25 +140,9 @@ impl Frame {
 }
 
 #[derive(Default)]
-struct Loop {
-    start_ip: usize,
-    jump_placeholders: Vec<usize>,
-}
-
-impl Loop {
-    fn new(start_ip: usize) -> Self {
-        Self {
-            start_ip,
-            ..Default::default()
-        }
-    }
-}
-
-#[derive(Default)]
 pub struct Compiler {
     bytes: Bytecode,
     frame_stack: Vec<Frame>,
-    loop_stack: Vec<Loop>,
 }
 
 impl Compiler {
@@ -383,6 +383,16 @@ impl Compiler {
             }
             Node::Continue => {
                 self.push_jump_back_op(JumpBack, &[], self.current_loop()?.start_ip);
+            }
+            Node::Return => {
+                let register = self.frame_mut().push_register()?;
+                self.push_op(SetEmpty, &[register]);
+                self.push_op(Return, &[register]);
+            }
+            Node::ReturnExpression(expression) => {
+                self.compile_node(expression)?;
+                let result_register = self.frame_mut().peek_register()?;
+                self.push_op(Return, &[result_register]);
             }
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
         }
@@ -767,7 +777,7 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
-        self.loop_stack.push(Loop::new(loop_start_ip));
+        self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
         self.push_op(IteratorNext, &[arg_register, iterator_register]);
         self.push_loop_jump_placeholder()?;
@@ -782,7 +792,7 @@ impl Compiler {
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
-        match self.loop_stack.pop() {
+        match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
                     self.update_offset_placeholder(*placeholder);
@@ -805,7 +815,7 @@ impl Compiler {
         } = ast_while;
 
         let loop_start_ip = self.bytes.len();
-        self.loop_stack.push(Loop::new(loop_start_ip));
+        self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
         self.compile_node(&condition)?;
         let condition_register = self.frame_mut().pop_register()?;
@@ -820,7 +830,7 @@ impl Compiler {
         self.compile_node(&body)?;
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
-        match self.loop_stack.pop() {
+        match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
                     self.update_offset_placeholder(*placeholder);
@@ -887,14 +897,15 @@ impl Compiler {
     }
 
     fn current_loop(&self) -> Result<&Loop, String> {
-        self.loop_stack
+        self.frame()
+            .loop_stack
             .last()
             .ok_or_else(|| "Missing loop info".to_string())
     }
 
     fn push_loop_jump_placeholder(&mut self) -> Result<(), String> {
         let placeholder = self.push_offset_placeholder();
-        match self.loop_stack.last_mut() {
+        match self.frame_mut().loop_stack.last_mut() {
             Some(loop_info) => {
                 loop_info.jump_placeholders.push(placeholder);
                 Ok(())

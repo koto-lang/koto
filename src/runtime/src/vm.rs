@@ -1169,6 +1169,28 @@ a, b = f 0
 a, b";
             test_script(script, number_list(&[-1, 1]));
         }
+
+        #[test]
+        fn return_no_value() {
+            let script = "
+f = |x|
+  if x < 0
+    return
+  x
+f -42";
+            test_script(script, Empty);
+        }
+
+        #[test]
+        fn return_expression() {
+            let script = "
+f = |x|
+  if x < 0
+    return x * -1
+  x
+f -42";
+            test_script(script, Number(42.0));
+        }
     }
 
     mod loops {
@@ -1291,6 +1313,19 @@ while (i += 1) < 10
   sum += 1
 sum";
             test_script(script, Number(6.0));
+        }
+
+        #[test]
+        fn return_from_nested_loop() {
+            let script = "
+f = ||
+  for i in 0..100
+    for j in 0..100
+      if j == 5
+        return j
+  -1
+f()";
+            test_script(script, Number(5.0));
         }
     }
 
