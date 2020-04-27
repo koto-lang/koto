@@ -74,6 +74,11 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
+    Subtract {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
     Multiply {
         register: u8,
         lhs: u8,
@@ -235,6 +240,11 @@ impl fmt::Display for Instruction {
             Add { register, lhs, rhs } => write!(
                 f,
                 "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            Subtract { register, lhs, rhs } => write!(
+                f,
+                "Subtract\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Multiply { register, lhs, rhs } => write!(
@@ -520,6 +530,11 @@ impl<'a> Iterator for InstructionReader<'a> {
                 size: get_u16!() as usize,
             }),
             Op::Add => Some(Add {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Subtract => Some(Subtract {
                 register: get_byte!(),
                 lhs: get_byte!(),
                 rhs: get_byte!(),

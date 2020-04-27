@@ -216,6 +216,17 @@ impl Vm {
                     };
                     self.set_register(register, result);
                 }
+                Instruction::Subtract { register, lhs, rhs } => {
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
+                        (Number(a), Number(b)) => Number(a - b),
+                        _ => {
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
+                        }
+                    };
+                    self.set_register(register, result);
+                }
                 Instruction::Multiply { register, lhs, rhs } => {
                     let lhs_value = self.get_register(lhs);
                     let rhs_value = self.get_register(rhs);
@@ -920,7 +931,7 @@ mod tests {
 
         #[test]
         fn arithmetic() {
-            test_script("1 + 2 * 3 + 4", Number(11.0));
+            test_script("1 + 2 * 3 - 4", Number(3.0));
         }
 
         #[test]

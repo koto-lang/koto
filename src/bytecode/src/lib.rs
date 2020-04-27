@@ -32,6 +32,7 @@ pub enum Op {
     RangeExclusive,   // register, start, end
     RangeInclusive,   // register, start, end
     Add,              // result, lhs, rhs
+    Subtract,         // result, lhs, rhs
     Multiply,         // result, lhs, rhs
     Less,             // result, lhs, rhs
     Greater,          // result, lhs, rhs

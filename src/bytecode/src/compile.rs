@@ -326,6 +326,7 @@ impl Compiler {
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
                     AstOp::Add => Add,
+                    AstOp::Subtract => Subtract,
                     AstOp::Multiply => Multiply,
                     AstOp::Less => Less,
                     AstOp::Greater => Greater,
