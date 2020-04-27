@@ -238,6 +238,28 @@ impl Vm {
                     };
                     self.set_register(register, result);
                 }
+                Instruction::Divide { register, lhs, rhs } => {
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
+                        (Number(a), Number(b)) => Number(a / b),
+                        _ => {
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
+                        }
+                    };
+                    self.set_register(register, result);
+                }
+                Instruction::Modulo { register, lhs, rhs } => {
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
+                        (Number(a), Number(b)) => Number(a % b),
+                        _ => {
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
+                        }
+                    };
+                    self.set_register(register, result);
+                }
                 Instruction::Less { register, lhs, rhs } => {
                     let lhs_value = self.get_register(lhs);
                     let rhs_value = self.get_register(rhs);
@@ -249,11 +271,33 @@ impl Vm {
                     };
                     self.set_register(register, result);
                 }
+                Instruction::LessOrEqual { register, lhs, rhs } => {
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
+                        (Number(a), Number(b)) => Bool(a <= b),
+                        _ => {
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
+                        }
+                    };
+                    self.set_register(register, result);
+                }
                 Instruction::Greater { register, lhs, rhs } => {
                     let lhs_value = self.get_register(lhs);
                     let rhs_value = self.get_register(rhs);
                     let result = match (&lhs_value, &rhs_value) {
                         (Number(a), Number(b)) => Bool(a > b),
+                        _ => {
+                            return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
+                        }
+                    };
+                    self.set_register(register, result);
+                }
+                Instruction::GreaterOrEqual { register, lhs, rhs } => {
+                    let lhs_value = self.get_register(lhs);
+                    let rhs_value = self.get_register(rhs);
+                    let result = match (&lhs_value, &rhs_value) {
+                        (Number(a), Number(b)) => Bool(a >= b),
                         _ => {
                             return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
@@ -930,13 +974,21 @@ mod tests {
         use super::*;
 
         #[test]
-        fn arithmetic() {
-            test_script("1 + 2 * 3 - 4", Number(3.0));
+        fn add_multiply() {
+            test_script("1 + 2 * 3 + 4", Number(11.0));
+        }
+
+        #[test]
+        fn subtract_divide_modulo() {
+            test_script("(20 - 2) / 3 % 4", Number(2.0));
         }
 
         #[test]
         fn comparison() {
-            test_script("false or 1 < 2 < 3 and 3 > 2 > 1 or false", Bool(true));
+            test_script(
+                "false or 1 < 2 <= 2 <= 3 and 3 >= 2 >= 2 > 1 or false",
+                Bool(true),
+            );
         }
 
         #[test]

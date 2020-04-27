@@ -34,8 +34,12 @@ pub enum Op {
     Add,              // result, lhs, rhs
     Subtract,         // result, lhs, rhs
     Multiply,         // result, lhs, rhs
+    Divide,           // result, lhs, rhs
+    Modulo,           // result, lhs, rhs
     Less,             // result, lhs, rhs
+    LessOrEqual,      // result, lhs, rhs
     Greater,          // result, lhs, rhs
+    GreaterOrEqual,   // result, lhs, rhs
     Equal,            // result, lhs, rhs
     NotEqual,         // result, lhs, rhs
     Jump,             // offset[2]

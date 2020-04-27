@@ -84,12 +84,32 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
+    Divide {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    Modulo {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
     Less {
         register: u8,
         lhs: u8,
         rhs: u8,
     },
+    LessOrEqual {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
     Greater {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
+    GreaterOrEqual {
         register: u8,
         lhs: u8,
         rhs: u8,
@@ -252,14 +272,34 @@ impl fmt::Display for Instruction {
                 "Multiply\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
+            Divide { register, lhs, rhs } => write!(
+                f,
+                "Divide\treg: {}\t\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            Modulo { register, lhs, rhs } => write!(
+                f,
+                "Modulo\treg: {}\t\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
             Less { register, lhs, rhs } => write!(
                 f,
                 "Less\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
+            LessOrEqual { register, lhs, rhs } => write!(
+                f,
+                "LessOrEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
             Greater { register, lhs, rhs } => write!(
                 f,
                 "Greater\treg: {}\t\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            GreaterOrEqual { register, lhs, rhs } => write!(
+                f,
+                "GreaterOrEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Equal { register, lhs, rhs } => write!(
@@ -544,12 +584,32 @@ impl<'a> Iterator for InstructionReader<'a> {
                 lhs: get_byte!(),
                 rhs: get_byte!(),
             }),
+            Op::Divide => Some(Divide {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::Modulo => Some(Modulo {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
             Op::Less => Some(Less {
                 register: get_byte!(),
                 lhs: get_byte!(),
                 rhs: get_byte!(),
             }),
+            Op::LessOrEqual => Some(LessOrEqual {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
             Op::Greater => Some(Greater {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::GreaterOrEqual => Some(GreaterOrEqual {
                 register: get_byte!(),
                 lhs: get_byte!(),
                 rhs: get_byte!(),

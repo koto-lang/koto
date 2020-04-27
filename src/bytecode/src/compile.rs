@@ -344,8 +344,12 @@ impl Compiler {
                     AstOp::Add => Add,
                     AstOp::Subtract => Subtract,
                     AstOp::Multiply => Multiply,
+                    AstOp::Divide => Divide,
+                    AstOp::Modulo => Modulo,
                     AstOp::Less => Less,
+                    AstOp::LessOrEqual => LessOrEqual,
                     AstOp::Greater => Greater,
+                    AstOp::GreaterOrEqual => GreaterOrEqual,
                     AstOp::Equal => Equal,
                     AstOp::NotEqual => NotEqual,
                     AstOp::And | AstOp::Or => {
@@ -362,7 +366,6 @@ impl Compiler {
 
                         return Ok(());
                     }
-                    unexpected => unimplemented!("Missing AstOp: {:?}", unexpected),
                 };
 
                 self.compile_node(&lhs)?;
