@@ -24,6 +24,9 @@ a = 5
 assert 1 < a < 10
 assert not 1 < a > 10
 
+a = 1
+assert 1 == a == 1
+
 # Chained comparisons apply short-circuiting
 assert not 1 > a < assert false
 

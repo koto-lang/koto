@@ -787,10 +787,10 @@ impl KotoParser {
             Node::Op { op, lhs, rhs } => {
                 use AstOp::*;
                 let (op, lhs, rhs) = match op {
-                    Greater | GreaterOrEqual | Less | LessOrEqual => {
+                    Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
                         let chained_temp_value = match &lhs.node {
                             Node::Op { op, .. } => match op {
-                                Greater | GreaterOrEqual | Less | LessOrEqual => {
+                                Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
                                     let temp_value =
                                         format!("{}{}", TEMP_VAR_PREFIX, temp_value_counter);
 

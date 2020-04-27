@@ -1321,8 +1321,8 @@ sum";
 f = ||
   for i in 0..100
     for j in 0..100
-      if j == 5
-        return j
+      if i == j == 5
+        return i
   -1
 f()";
             test_script(script, Number(5.0));

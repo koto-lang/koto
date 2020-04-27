@@ -1,6 +1,9 @@
 koto_tests:
   cargo watch -x "test --test koto_tests"
 
+runtime_tests:
+  cargo watch -x "test --package koto_runtime"
+
 test:
   cargo test --all-targets --benches
 
