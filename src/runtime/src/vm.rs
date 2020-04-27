@@ -534,8 +534,12 @@ impl Vm {
                                         self.set_register(register, value.clone());
                                     }
                                     None => {
-                                        // TODO error or empty?
-                                        self.set_register(register, Empty);
+                                        return vm_error!(
+                                            reader.ip,
+                                            "List index out of bounds - index: {}, list size: {}",
+                                            n,
+                                            l.data().len()
+                                        )
                                     }
                                 }
                             }
@@ -569,16 +573,6 @@ impl Vm {
                                         end
                                     );
                                 } else {
-                                    // match &value_to_set {
-                                    //     Some(value) => {
-                                    //         let mut list_data = list.data_mut();
-                                    //         for i in ustart..uend {
-                                    //             list_data[i] = value.clone();
-                                    //         }
-                                    //         return Ok(None);
-                                    //     }
-                                    //     None => {
-
                                     // TODO Avoid allocating new vec,
                                     // introduce 'slice' value type
                                     self.set_register(
