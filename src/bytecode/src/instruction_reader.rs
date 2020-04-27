@@ -69,6 +69,10 @@ pub enum Instruction {
         arg_count: u8,
         size: usize,
     },
+    Negate {
+        register: u8,
+        source: u8,
+    },
     Add {
         register: u8,
         lhs: u8,
@@ -257,6 +261,9 @@ impl fmt::Display for Instruction {
                 "InstanceFunction\treg: {}\t\targ_count: {}\tsize: {}",
                 register, arg_count, size
             ),
+            Negate { register, source } => {
+                write!(f, "Negate\t\treg: {}\t\tsource: {}", register, source)
+            }
             Add { register, lhs, rhs } => write!(
                 f,
                 "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
@@ -568,6 +575,10 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 size: get_u16!() as usize,
+            }),
+            Op::Negate => Some(Negate {
+                register: get_byte!(),
+                source: get_byte!(),
             }),
             Op::Add => Some(Add {
                 register: get_byte!(),

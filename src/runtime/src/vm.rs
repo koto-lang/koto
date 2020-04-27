@@ -205,6 +205,19 @@ impl Vm {
                     reader.ip += size;
                     self.set_register(register, function);
                 }
+                Instruction::Negate { register, source } => {
+                    let result = match &self.get_register(source) {
+                        Bool(b) => Bool(!b),
+                        unexpected => {
+                            return vm_error!(
+                                reader.ip,
+                                "Negate: expected Bool, found '{}'",
+                                type_as_string(unexpected)
+                            );
+                        }
+                    };
+                    self.set_register(register, result);
+                }
                 Instruction::Add { register, lhs, rhs } => {
                     let lhs_value = self.get_register(lhs);
                     let rhs_value = self.get_register(rhs);
@@ -988,6 +1001,16 @@ mod tests {
         #[test]
         fn equality() {
             test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
+        }
+
+        #[test]
+        fn not_bool() {
+            test_script("not false", Bool(true));
+        }
+
+        #[test]
+        fn not_expression() {
+            test_script("not 1 + 1 == 2", Bool(false));
         }
 
         #[test]

@@ -31,6 +31,7 @@ pub enum Op {
     InstanceFunction, // register, arg count, size[2]
     RangeExclusive,   // register, start, end
     RangeInclusive,   // register, start, end
+    Negate,           // register, source
     Add,              // result, lhs, rhs
     Subtract,         // result, lhs, rhs
     Multiply,         // result, lhs, rhs

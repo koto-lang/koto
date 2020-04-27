@@ -278,6 +278,12 @@ impl Compiler {
                 // Later, find situations where the list capture can be avoided.
                 self.compile_make_list(&expressions)?;
             }
+            Node::Negate(expression) => {
+                self.compile_node(expression)?;
+                let source = self.frame_mut().pop_register()?;
+                let register = self.frame_mut().push_register()?;
+                self.push_op(Negate, &[register, source]);
+            }
             Node::Function(function) => {
                 let target = self.frame_mut().push_register()?;
                 let arg_count = match u8::try_from(function.args.len()) {
