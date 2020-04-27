@@ -345,6 +345,27 @@ impl Vm {
                         None => reader.ip += jump_offset,
                     };
                 }
+                Instruction::ExpressionIndex {
+                    register,
+                    expression,
+                    index,
+                } => {
+                    let expression_value = self.get_register(expression).clone();
+
+                    match expression_value {
+                        List(l) => {
+                            let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
+                            self.set_register(register, value);
+                        }
+                        other => {
+                            if index == 0 {
+                                self.set_register(register, other);
+                            } else {
+                                self.set_register(register, Empty);
+                            }
+                        }
+                    };
+                }
                 Instruction::ListPush { register, value } => {
                     let value = self.get_register(value).clone();
 
@@ -453,7 +474,15 @@ impl Vm {
                                         n
                                     );
                                 }
-                                self.set_register(register, l.data()[n as usize].clone());
+                                match l.data().get(n as usize) {
+                                    Some(value) => {
+                                        self.set_register(register, value.clone());
+                                    }
+                                    None => {
+                                        // TODO error or empty?
+                                        self.set_register(register, Empty);
+                                    }
+                                }
                             }
                             Range(IntRange { start, end }) => {
                                 let ustart = start as usize;
@@ -985,6 +1014,23 @@ a";
 a = 1, 2
 a";
             test_script(script, value_list(&[1, 2]));
+        }
+
+        #[test]
+        fn assign_1_to_2() {
+            let script = "
+a, b = -1
+[a b]";
+            test_script(script, List(ValueList::from_slice(&[Number(-1.0), Empty])));
+        }
+
+        #[test]
+        fn assign_1_to_2_list_elements() {
+            let script = "
+x = [0 0]
+x[0], x[1] = 99
+x";
+            test_script(script, List(ValueList::from_slice(&[Number(99.0), Empty])));
         }
     }
 

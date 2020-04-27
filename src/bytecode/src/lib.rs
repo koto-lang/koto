@@ -45,6 +45,7 @@ pub enum Op {
     Call,             // function, arg, arg count
     CallChild,        // function, parent, arg, arg count
     IteratorNext,     // output, iterator, jump offset[2]
+    ExpressionIndex,  // register, multi_expression, index
     ListPush,         // list, value
     ListUpdate,       // list, index, value
     ListIndex,        // register, list, index

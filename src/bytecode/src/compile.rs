@@ -322,6 +322,45 @@ impl Compiler {
                     }
                 };
             }
+            Node::MultiAssign {
+                targets,
+                expressions,
+            } => {
+                assert!(targets.len() < u8::MAX as usize);
+                assert!(expressions.len() < u8::MAX as usize);
+
+                match expressions.as_slice() {
+                    [expression] => {
+                        self.compile_node(expression)?;
+                        let rhs_register = self.frame_mut().peek_register()?;
+
+                        for (i, target) in targets.iter().enumerate() {
+                            match target {
+                                AssignTarget::Id { id_index, .. } => {
+                                    let register =
+                                        self.frame_mut().get_local_register(*id_index)?;
+                                    self.push_op(
+                                        ExpressionIndex,
+                                        &[register, rhs_register, i as u8],
+                                    );
+                                }
+                                AssignTarget::Lookup(lookup) => {
+                                    let register = self.frame_mut().get_register()?;
+                                    self.push_op(
+                                        ExpressionIndex,
+                                        &[register, rhs_register, i as u8],
+                                    );
+                                    self.compile_lookup(lookup, Some(register))?;
+                                    self.frame_mut().pop_register()?;
+                                }
+                            };
+                        }
+                    }
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+            }
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
                     AstOp::Add => Add,
