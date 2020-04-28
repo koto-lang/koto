@@ -364,6 +364,20 @@ impl Vm {
                         (Number(a), Vec4(b)) => Vec4(a + b),
                         (Vec4(a), Vec4(b)) => Vec4(a + b),
                         (Vec4(a), Number(b)) => Vec4(a + b),
+                        (List(a), List(b)) => {
+                            let mut result = ValueVec::new();
+                            result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                            List(ValueList::with_data(result))
+                        }
+                        (Map(a), Map(b)) => {
+                            let mut result = a.data().clone();
+                            result.extend(&b.data());
+                            Map(ValueMap::with_data(result))
+                        }
+                        (Str(a), Str(b)) => {
+                            let result = String::clone(a) + b.as_ref();
+                            Str(Arc::new(result))
+                        }
                         _ => {
                             return binary_op_error(instruction, lhs_value, rhs_value, reader.ip);
                         }
@@ -1094,6 +1108,10 @@ mod tests {
         Vec4(koto_parser::vec4::Vec4(a, b, c, d))
     }
 
+    fn string(s: &str) -> Value {
+        Str(Arc::new(s.to_string()))
+    }
+
     mod literals {
         use super::*;
 
@@ -1244,6 +1262,11 @@ a = [1 2 3 4 5]
 a[1..=3] = 0
 a";
             test_script(script, number_list(&[1, 0, 0, 0, 5]));
+        }
+
+        #[test]
+        fn addition() {
+            test_script("[1 2 3] + [4 5]", number_list(&[1, 2, 3, 4, 5]));
         }
     }
 
@@ -1683,6 +1706,14 @@ o.set_foo 10 20
 o.foo";
             test_script(script, Number(30.0));
         }
+
+        #[test]
+        fn addition() {
+            let script = "
+m = {foo: -1, bar: 42} + {foo: 99}
+[m.foo m.bar]";
+            test_script(script, number_list(&[99, 42]));
+        }
     }
 
     mod lookups {
@@ -1816,6 +1847,15 @@ x = 0
                 "(vec4 15 25 35 45) % (vec4 10) % 4",
                 vec4(1.0, 1.0, 1.0, 1.0),
             );
+        }
+    }
+
+    mod strings {
+        use super::*;
+
+        #[test]
+        fn addition() {
+            test_script("\"Hello, \" + \"World!\"", string("Hello, World!"));
         }
     }
 }
