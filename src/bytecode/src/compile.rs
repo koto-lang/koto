@@ -26,18 +26,20 @@ struct Frame {
     loop_stack: Vec<Loop>,
     register_stack: Vec<u8>,
     local_registers: Vec<ConstantIndex>,
+    captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
 }
 
 impl Frame {
-    fn new(local_count: u8, args: &[ConstantIndex]) -> Self {
+    fn new(local_count: u8, args: &[ConstantIndex], captures: &[ConstantIndex]) -> Self {
         let mut local_registers = Vec::with_capacity(local_count as usize);
         local_registers.extend_from_slice(args);
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
             local_registers,
+            captures: captures.to_vec(),
             temporary_base: local_count,
             ..Default::default()
         }
@@ -59,6 +61,13 @@ impl Frame {
         self.local_registers
             .iter()
             .any(|constant_index| index == *constant_index)
+    }
+
+    fn capture_slot(&self, index: ConstantIndex) -> Option<u8> {
+        self.captures
+            .iter()
+            .position(|constant_index| index == *constant_index)
+            .map(|position| position as u8)
     }
 
     fn get_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
@@ -154,47 +163,8 @@ impl Compiler {
 
     pub fn compile_ast(&mut self, ast: &AstNode) -> Result<&Bytecode, String> {
         // dbg!(ast);
-
         self.compile_node(ast)?;
-
         Ok(&self.bytes)
-    }
-
-    fn compile_frame(
-        &mut self,
-        local_count: u8,
-        expressions: &[AstNode],
-        args: &[ConstantIndex],
-    ) -> Result<(), String> {
-        self.frame_stack.push(Frame::new(local_count, args));
-
-        self.compile_block(expressions)?;
-
-        let result_register = self.frame_mut().pop_register()?;
-        self.push_bytes(&[Op::Return.into(), result_register]);
-
-        self.frame_stack.pop();
-
-        Ok(())
-    }
-
-    fn compile_block(&mut self, expressions: &[AstNode]) -> Result<(), String> {
-        use Op::*;
-
-        if expressions.is_empty() {
-            let register = self.frame_mut().push_register()?;
-            self.push_bytes(&[SetEmpty.into(), register]);
-        } else {
-            for (i, expression) in expressions.iter().enumerate() {
-                self.compile_node(expression)?;
-                // Keep the last expression's result on the stack
-                if i < expressions.len() - 1 {
-                    self.frame_mut().pop_register()?;
-                }
-            }
-        }
-
-        Ok(())
     }
 
     fn compile_node(&mut self, node: &AstNode) -> Result<(), String> {
@@ -204,7 +174,9 @@ impl Compiler {
             Node::Empty => {
                 self.push_empty()?;
             }
-            Node::Id(index) => self.compile_load_id(*index)?,
+            Node::Id(index) => {
+                self.compile_load_id(*index)?;
+            }
             Node::Lookup(lookup) => self.compile_lookup(lookup, None)?,
             Node::BoolTrue => {
                 let target = self.frame_mut().push_register()?;
@@ -271,7 +243,7 @@ impl Compiler {
                 self.push_op(op, &[target, start_register, end_register]);
             }
             Node::MainBlock { body, local_count } => {
-                self.compile_frame(*local_count as u8, body, &[])?;
+                self.compile_frame(*local_count as u8, body, &[], &[])?;
             }
             Node::Block(expressions) => {
                 self.compile_block(expressions)?;
@@ -287,48 +259,48 @@ impl Compiler {
                 let register = self.frame_mut().push_register()?;
                 self.push_op(Negate, &[register, source]);
             }
-            Node::Function(function) => {
-                let target = self.frame_mut().push_register()?;
-                let arg_count = match u8::try_from(function.args.len()) {
+            Node::Function(f) => {
+                let function_register = self.frame_mut().push_register()?;
+                let arg_count = match u8::try_from(f.args.len()) {
                     Ok(x) => x,
                     Err(_) => {
-                        return Err(format!(
-                            "Function has too many arguments: {}",
-                            function.args.len()
-                        ));
+                        return Err(format!("Function has too many arguments: {}", f.args.len()));
                     }
                 };
 
-                if function.is_instance_function {
-                    self.push_op(InstanceFunction, &[target, arg_count - 1]);
+                let capture_count = f.captures.len() as u8;
+
+                if f.is_instance_function {
+                    self.push_op(
+                        InstanceFunction,
+                        &[function_register, arg_count - 1, capture_count],
+                    );
                 } else {
-                    self.push_op(Function, &[target, arg_count]);
+                    self.push_op(Function, &[function_register, arg_count, capture_count]);
                 }
 
                 let function_size_ip = self.push_offset_placeholder();
 
-                let local_count = match u8::try_from(function.local_count) {
+                let local_count = match u8::try_from(f.local_count) {
                     Ok(x) => x,
                     Err(_) => {
-                        return Err(format!(
-                            "Function has too many locals: {}",
-                            function.args.len()
-                        ));
+                        return Err(format!("Function has too many locals: {}", f.args.len()));
                     }
                 };
 
-                self.compile_frame(local_count, &function.body, &function.args)?;
+                self.compile_frame(local_count, &f.body, &f.args, &f.captures)?;
                 self.update_offset_placeholder(function_size_ip);
+
+                for (i, capture) in f.captures.iter().enumerate() {
+                    self.compile_load_id(*capture)?;
+                    let capture_register = self.frame_mut().pop_register()?;
+                    self.push_op(Capture, &[function_register, i as u8, capture_register]);
+                }
             }
             Node::Call { function, args } => {
                 match function {
                     LookupOrId::Id(id) => {
-                        let id = *id;
-                        let function_register = if self.frame().is_local(id) {
-                            self.frame_mut().get_local_register(id)?
-                        } else {
-                            self.load_global(id)?
-                        };
+                        let function_register = self.compile_load_id(*id)?;
                         self.compile_call(function_register, args, None)?;
                     }
                     LookupOrId::Lookup(function_lookup) => {
@@ -407,6 +379,44 @@ impl Compiler {
                 self.push_op(Return, &[result_register]);
             }
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
+        }
+
+        Ok(())
+    }
+
+    fn compile_frame(
+        &mut self,
+        local_count: u8,
+        expressions: &[AstNode],
+        args: &[ConstantIndex],
+        captures: &[ConstantIndex],
+    ) -> Result<(), String> {
+        self.frame_stack.push(Frame::new(local_count, args, captures));
+
+        self.compile_block(expressions)?;
+
+        let result_register = self.frame_mut().pop_register()?;
+        self.push_bytes(&[Op::Return.into(), result_register]);
+
+        self.frame_stack.pop();
+
+        Ok(())
+    }
+
+    fn compile_block(&mut self, expressions: &[AstNode]) -> Result<(), String> {
+        use Op::*;
+
+        if expressions.is_empty() {
+            let register = self.frame_mut().push_register()?;
+            self.push_bytes(&[SetEmpty.into(), register]);
+        } else {
+            for (i, expression) in expressions.iter().enumerate() {
+                self.compile_node(expression)?;
+                // Keep the last expression's result on the stack
+                if i < expressions.len() - 1 {
+                    self.frame_mut().pop_register()?;
+                }
+            }
         }
 
         Ok(())
@@ -508,13 +518,30 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_load_id(&mut self, id: ConstantIndex) -> Result<(), String> {
-        if self.frame().is_local(id) {
-            self.frame_mut().get_local_register(id)?;
+    fn compile_load_id(&mut self, id: ConstantIndex) -> Result<u8, String> {
+        use Op::*;
+
+        let register = if self.frame().is_local(id) {
+            // local
+            self.frame_mut().get_local_register(id)?
+        } else if let Some(capture_slot) = self.frame().capture_slot(id) {
+            // capture
+            let register = self.frame_mut().push_register()?;
+            self.push_op(LoadCapture, &[register, capture_slot]);
+            register
         } else {
-            self.load_global(id)?;
-        }
-        Ok(())
+            // global
+            let register = self.frame_mut().push_register()?;
+            if id <= u8::MAX as u32 {
+                self.push_op(LoadGlobal, &[register, id as u8]);
+            } else {
+                self.push_op(LoadGlobalLong, &[register]);
+                self.push_bytes(&id.to_le_bytes());
+            }
+            register
+        };
+
+        Ok(register)
     }
 
     fn compile_make_vec4(&mut self, elements: &[AstNode]) -> Result<(), String> {
@@ -894,19 +921,6 @@ impl Compiler {
         self.push_empty()?;
 
         Ok(())
-    }
-
-    fn load_global(&mut self, index: ConstantIndex) -> Result<u8, String> {
-        use Op::*;
-
-        let register = self.frame_mut().push_register()?;
-        if index <= u8::MAX as u32 {
-            self.push_bytes(&[LoadGlobal.into(), register, index as u8]);
-        } else {
-            self.push_bytes(&[LoadGlobalLong.into(), register]);
-            self.push_bytes(&index.to_le_bytes());
-        }
-        Ok(register)
     }
 
     fn load_string(&mut self, index: ConstantIndex) -> Result<u8, String> {

@@ -28,8 +28,10 @@ pub enum Op {
     MakeMapLong,      // register, size hint[4]
     MakeVec4,         // register, element count, first element
     MakeIterator,     // register, range
-    Function,         // register, arg count, size[2]
-    InstanceFunction, // register, arg count, size[2]
+    Function,         // register, arg count, capture count, size[2]
+    InstanceFunction, // register, arg count, capture count, size[2]
+    Capture,          // function, target, source
+    LoadCapture,      // register, capture
     RangeExclusive,   // register, start, end
     RangeInclusive,   // register, start, end
     Negate,           // register, source

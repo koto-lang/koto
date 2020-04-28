@@ -2,8 +2,9 @@
 
 use crate::{
     type_as_string,
+    value::VmRuntimeFunction,
     value_iterator::{IntRange, Iterable, ValueIterator2},
-    vm_error, Id, Runtime, RuntimeResult, Value, ValueList, ValueMap,
+    vm_error, Id, Runtime, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
 use koto_parser::{vec4, ConstantPool};
@@ -13,16 +14,26 @@ use std::sync::Arc;
 #[derive(Debug, Default)]
 struct Frame {
     base: usize,
+    captures: Option<ValueList>,
     return_ip: usize,
     result: Value,
 }
 
 impl Frame {
-    fn new(base: usize, return_ip: usize) -> Self {
+    fn new(base: usize, return_ip: usize, captures: ValueList) -> Self {
         Self {
             base,
+            captures: Some(captures),
             return_ip,
             ..Default::default()
+        }
+    }
+
+    fn get_capture(&self, capture: u8) -> Option<Value> {
+        if let Some(captures) = &self.captures {
+            captures.data().get(capture as usize).cloned()
+        } else {
+            None
         }
     }
 }
@@ -238,28 +249,71 @@ impl Vm {
                 Instruction::Function {
                     register,
                     arg_count,
+                    capture_count,
                     size,
                 } => {
-                    let function = VmFunction {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+
+                    let function = VmFunction(VmRuntimeFunction {
                         ip: reader.ip,
                         arg_count,
+                        captures: ValueList::with_data(captures),
                         is_instance_function: false,
-                    };
+                    });
                     reader.ip += size;
                     self.set_register(register, function);
                 }
                 Instruction::InstanceFunction {
                     register,
                     arg_count,
+                    capture_count,
                     size,
                 } => {
-                    let function = VmFunction {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+
+                    let function = VmFunction(VmRuntimeFunction {
                         ip: reader.ip,
                         arg_count,
+                        captures: ValueList::with_data(captures),
                         is_instance_function: true,
-                    };
+                    });
                     reader.ip += size;
                     self.set_register(register, function);
+                }
+                Instruction::Capture {
+                    function,
+                    target,
+                    source,
+                } => match self.get_register(function) {
+                    VmFunction(f) => {
+                        f.captures.data_mut()[target as usize] = self.get_register(source).clone();
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            reader.ip,
+                            "Capture: expected Function, found '{}'",
+                            type_as_string(unexpected)
+                        )
+                    }
+                },
+                Instruction::LoadCapture { register, capture } => {
+                    match self.frame().get_capture(capture) {
+                        Some(value) => {
+                            self.set_register(register, value);
+                        }
+                        None => {
+                            if self.call_stack.len() == 1 {
+                                return vm_error!(
+                                    reader.ip,
+                                    "LoadCapture: attempting to capture outside of function"
+                                );
+                            } else {
+                                return vm_error!(reader.ip, "LoadCapture: invalid capture index");
+                            }
+                        }
+                    }
                 }
                 Instruction::Negate { register, source } => {
                     let result = match &self.get_register(source) {
@@ -794,11 +848,12 @@ impl Vm {
                     }
                 }
             }
-            VmFunction {
+            VmFunction(VmRuntimeFunction {
                 ip: function_ip,
                 arg_count: function_arg_count,
+                captures,
                 is_instance_function,
-            } => {
+            }) => {
                 if is_instance_function {
                     if let Some(parent_register) = parent_register {
                         self.insert_register(
@@ -819,7 +874,7 @@ impl Vm {
                     );
                 }
 
-                self.push_frame(reader.ip, arg_register);
+                self.push_frame(reader.ip, arg_register, captures.clone());
 
                 reader.ip = function_ip;
             }
@@ -834,6 +889,7 @@ impl Vm {
 
         Ok(Empty)
     }
+
     fn frame(&self) -> &Frame {
         self.call_stack.last().unwrap()
     }
@@ -842,9 +898,10 @@ impl Vm {
         self.call_stack.last_mut().unwrap()
     }
 
-    fn push_frame(&mut self, return_ip: usize, arg_register: u8) {
+    fn push_frame(&mut self, return_ip: usize, arg_register: u8, captures: ValueList) {
         let frame_base = self.register_index(arg_register);
-        self.call_stack.push(Frame::new(frame_base, return_ip));
+        self.call_stack
+            .push(Frame::new(frame_base, return_ip, captures));
     }
 
     fn pop_frame(&mut self) -> RuntimeResult {
@@ -973,6 +1030,8 @@ mod tests {
             Ok(Empty)
         });
 
+        eprintln!("{}", script);
+        eprintln!("{}", bytecode_to_string(&bytecode));
         match vm.run(&bytecode) {
             Ok(result) => {
                 if result != expected_output {
@@ -1333,6 +1392,30 @@ f = |x|
 f -42";
             test_script(script, Number(42.0));
         }
+
+        #[test]
+        fn captured_value() {
+            let script = "
+f = |x|
+  inner = || x * x
+  inner()
+f 3";
+            test_script(script, Number(9.0));
+        }
+
+        #[test]
+        fn captured_values_nested() {
+            let script = "
+capture_test = |a b c|
+  inner = ||
+    inner2 = |x|
+      x + b + c
+    inner2 a
+  b, c = (), () # inner and inner2 have captured their own copies of b and c
+  inner()
+capture_test 1 2 3";
+            test_script(script, Number(6.0));
+        }
     }
 
     mod loops {
@@ -1642,12 +1725,18 @@ m.get_map().foo";
 
         #[test]
         fn subtract_divide() {
-            test_script("((vec4 10 20 30 40) - (vec4 2)) / 2.0", vec4(4.0, 9.0, 14.0, 19.0));
+            test_script(
+                "((vec4 10 20 30 40) - (vec4 2)) / 2.0",
+                vec4(4.0, 9.0, 14.0, 19.0),
+            );
         }
 
         #[test]
         fn modulo() {
-            test_script("(vec4 15 25 35 45) % (vec4 10) % 4", vec4(1.0, 1.0, 1.0, 1.0));
+            test_script(
+                "(vec4 15 25 35 45) % (vec4 10) % 4",
+                vec4(1.0, 1.0, 1.0, 1.0),
+            );
         }
     }
 }

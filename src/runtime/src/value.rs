@@ -24,7 +24,7 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
-    VmFunction { ip: usize, arg_count: u8, is_instance_function: bool },
+    VmFunction(VmRuntimeFunction),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
@@ -74,7 +74,7 @@ impl fmt::Display for Value {
                 let raw = Arc::into_raw(fun.function.clone());
                 write!(f, "Function: {:?}", raw)
             }
-            VmFunction { ip, .. } => write!(f, "VmFunction: {}", ip),
+            VmFunction(function)=> write!(f, "VmFunction: {}", function.ip),
             ExternalFunction(function) => {
                 let raw = Arc::into_raw(function.function.clone());
                 write!(f, "External function: {:?}", raw)
@@ -160,6 +160,14 @@ impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct VmRuntimeFunction {
+    pub ip: usize,
+    pub arg_count: u8,
+    pub is_instance_function: bool,
+    pub captures: ValueList,
 }
 
 #[derive(Clone, Debug)]

@@ -67,12 +67,23 @@ pub enum Instruction {
     Function {
         register: u8,
         arg_count: u8,
+        capture_count: u8,
         size: usize,
     },
     InstanceFunction {
         register: u8,
         arg_count: u8,
+        capture_count: u8,
         size: usize,
+    },
+    Capture {
+        function: u8,
+        target: u8,
+        source: u8,
+    },
+    LoadCapture {
+        register: u8,
+        capture: u8,
     },
     Negate {
         register: u8,
@@ -203,7 +214,7 @@ impl fmt::Display for Instruction {
             Error { .. } => unreachable!(),
             Copy { target, source } => write!(f, "Copy\t\treg: {}\t\tsource: {}", target, source),
             SetEmpty { register } => write!(f, "SetEmpty\treg: {}", register),
-            SetTrue { register } => write!(f, "SetTrue\treg: {}", register),
+            SetTrue { register } => write!(f, "SetTrue\t\treg: {}", register),
             SetFalse { register } => write!(f, "SetFalse\treg: {}", register),
             Return { register } => write!(f, "Return\t\treg: {}", register),
             LoadNumber { register, constant } => {
@@ -260,20 +271,36 @@ impl fmt::Display for Instruction {
             Function {
                 register,
                 arg_count,
+                capture_count,
                 size,
             } => write!(
                 f,
-                "Function\treg: {}\t\targ_count: {}\tsize: {}",
-                register, arg_count, size
+                "Function\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
+                register, arg_count, capture_count, size
             ),
             InstanceFunction {
                 register,
                 arg_count,
+                capture_count,
                 size,
             } => write!(
                 f,
-                "InstanceFunction\treg: {}\t\targ_count: {}\tsize: {}",
-                register, arg_count, size
+                "InstanceFunction\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
+                register, arg_count, capture_count, size
+            ),
+            Capture {
+                function,
+                target,
+                source,
+            } => write!(
+                f,
+                "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
+                function, target, source
+            ),
+            LoadCapture { register, capture } => write!(
+                f,
+                "LoadCapture\treg: {}\t\tcapture: {}",
+                register, capture
             ),
             Negate { register, source } => {
                 write!(f, "Negate\t\treg: {}\t\tsource: {}", register, source)
@@ -588,12 +615,23 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::Function => Some(Function {
                 register: get_byte!(),
                 arg_count: get_byte!(),
+                capture_count: get_byte!(),
                 size: get_u16!() as usize,
             }),
             Op::InstanceFunction => Some(InstanceFunction {
                 register: get_byte!(),
                 arg_count: get_byte!(),
+                capture_count: get_byte!(),
                 size: get_u16!() as usize,
+            }),
+            Op::Capture => Some(Capture {
+                function: get_byte!(),
+                target: get_byte!(),
+                source: get_byte!(),
+            }),
+            Op::LoadCapture => Some(LoadCapture {
+                register: get_byte!(),
+                capture: get_byte!(),
             }),
             Op::Negate => Some(Negate {
                 register: get_byte!(),
