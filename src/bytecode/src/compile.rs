@@ -178,6 +178,12 @@ impl Compiler {
                 self.compile_load_id(*index)?;
             }
             Node::Lookup(lookup) => self.compile_lookup(lookup, None)?,
+            Node::Copy(lookup_or_id) => {
+                self.compile_lookup_or_id(lookup_or_id)?;
+                let source = self.frame_mut().pop_register()?;
+                let register = self.frame_mut().push_register()?;
+                self.push_op(DeepCopy, &[register, source]);
+            }
             Node::BoolTrue => {
                 let target = self.frame_mut().push_register()?;
                 self.push_op(SetTrue, &[target]);
@@ -252,6 +258,12 @@ impl Compiler {
                 // For now, capture the results of multiple expressions in a list.
                 // Later, find situations where the list capture can be avoided.
                 self.compile_make_list(&expressions)?;
+            }
+            Node::CopyExpression(expression) => {
+                self.compile_node(expression)?;
+                let source = self.frame_mut().pop_register()?;
+                let register = self.frame_mut().push_register()?;
+                self.push_op(DeepCopy, &[register, source]);
             }
             Node::Negate(expression) => {
                 self.compile_node(expression)?;
@@ -628,6 +640,18 @@ impl Compiler {
             }
         }
 
+        Ok(())
+    }
+
+    fn compile_lookup_or_id(&mut self, lookup_or_id: &LookupOrId) -> Result<(), String> {
+        match lookup_or_id {
+            LookupOrId::Id(id) => {
+                self.compile_load_id(*id)?;
+            }
+            LookupOrId::Lookup(lookup) => {
+                self.compile_lookup(lookup, None)?;
+            }
+        }
         Ok(())
     }
 

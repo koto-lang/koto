@@ -13,6 +13,10 @@ pub enum Instruction {
         target: u8,
         source: u8,
     },
+    DeepCopy {
+        target: u8,
+        source: u8,
+    },
     SetEmpty {
         register: u8,
     },
@@ -217,6 +221,9 @@ impl fmt::Display for Instruction {
         match self {
             Error { .. } => unreachable!(),
             Copy { target, source } => write!(f, "Copy\t\treg: {}\t\tsource: {}", target, source),
+            DeepCopy { target, source } => {
+                write!(f, "DeepCopy\treg: {}\t\tsource: {}", target, source)
+            }
             SetEmpty { register } => write!(f, "SetEmpty\treg: {}", register),
             SetTrue { register } => write!(f, "SetTrue\t\treg: {}", register),
             SetFalse { register } => write!(f, "SetFalse\treg: {}", register),
@@ -301,16 +308,12 @@ impl fmt::Display for Instruction {
                 "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
                 function, target, source
             ),
-            LoadCapture { register, capture } => write!(
-                f,
-                "LoadCapture\treg: {}\t\tcapture: {}",
-                register, capture
-            ),
-            SetCapture { capture, source } => write!(
-                f,
-                "SetCapture\tcapture: {}\tsource {}",
-                capture, source
-            ),
+            LoadCapture { register, capture } => {
+                write!(f, "LoadCapture\treg: {}\t\tcapture: {}", register, capture)
+            }
+            SetCapture { capture, source } => {
+                write!(f, "SetCapture\tcapture: {}\tsource {}", capture, source)
+            }
             Negate { register, source } => {
                 write!(f, "Negate\t\treg: {}\t\tsource: {}", register, source)
             }
@@ -431,7 +434,7 @@ impl fmt::Display for Instruction {
             }
             ListUpdate { list, index, value } => write!(
                 f,
-                "ListUpdate\tlist: {}\t\tindex: {}\t\tvalue: {}",
+                "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
                 list, index, value
             ),
             ListIndex {
@@ -547,6 +550,10 @@ impl<'a> Iterator for InstructionReader<'a> {
 
         match op {
             Op::Copy => Some(Copy {
+                target: get_byte!(),
+                source: get_byte!(),
+            }),
+            Op::DeepCopy => Some(DeepCopy {
                 target: get_byte!(),
                 source: get_byte!(),
             }),

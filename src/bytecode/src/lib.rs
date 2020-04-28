@@ -12,6 +12,7 @@ pub type Bytecode = Vec<u8>;
 #[repr(u8)]
 pub enum Op {
     Copy,             // target, source
+    DeepCopy,         // target, source
     SetEmpty,         // register
     SetTrue,          // register
     SetFalse,         // register

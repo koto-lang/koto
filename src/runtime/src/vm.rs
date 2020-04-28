@@ -2,7 +2,7 @@
 
 use crate::{
     type_as_string,
-    value::VmRuntimeFunction,
+    value::{copy_value, VmRuntimeFunction},
     value_iterator::{IntRange, Iterable, ValueIterator2},
     vm_error, Id, Runtime, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
@@ -82,6 +82,9 @@ impl Vm {
                 }
                 Instruction::Copy { target, source } => {
                     self.set_register(target, self.get_register(source).clone());
+                }
+                Instruction::DeepCopy { target, source } => {
+                    self.set_register(target, copy_value(self.get_register(source)));
                 }
                 Instruction::SetEmpty { register } => self.set_register(register, Empty),
                 Instruction::SetTrue { register } => self.set_register(register, Bool(true)),
@@ -1268,6 +1271,26 @@ a";
         fn addition() {
             test_script("[1 2 3] + [4 5]", number_list(&[1, 2, 3, 4, 5]));
         }
+
+        #[test]
+        fn shared_data_by_default() {
+            let script = "
+l = [1 2 3]
+l2 = l
+l[1] = -1
+l2[1]";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn copy() {
+            let script = "
+l = [1 2 3]
+l2 = copy l
+l[1] = -1
+l2[1]";
+            test_script(script, Number(2.0));
+        }
     }
 
     mod multi_assignment {
@@ -1714,6 +1737,26 @@ m = {foo: -1, bar: 42} + {foo: 99}
 [m.foo m.bar]";
             test_script(script, number_list(&[99, 42]));
         }
+
+        #[test]
+        fn shared_data_by_default() {
+            let script = "
+m = {foo: 42}
+m2 = m
+m.foo = -1
+m2.foo";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn copy() {
+            let script = "
+m = {foo: 42}
+m2 = copy m
+m.foo = -1
+m2.foo";
+            test_script(script, Number(42.0));
+        }
     }
 
     mod lookups {
@@ -1762,6 +1805,26 @@ l[2].foo[0]";
 m = {get_map: || { foo: -1 }}
 m.get_map().foo";
             test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn copy_nested() {
+            let script = "
+m = {foo: {bar: -1}}
+m2 = copy m.foo
+m.foo.bar = 99
+m2.bar";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn copy_from_expression() {
+            let script = "
+m = {foo: {bar: 88}, get_foo: |self| self.foo}
+m2 = copy (m.get_foo())
+m.get_foo().bar = 99
+m2.bar";
+            test_script(script, Number(88.0));
         }
     }
 
