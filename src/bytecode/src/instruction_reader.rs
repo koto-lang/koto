@@ -85,6 +85,10 @@ pub enum Instruction {
         register: u8,
         capture: u8,
     },
+    SetCapture {
+        capture: u8,
+        source: u8,
+    },
     Negate {
         register: u8,
         source: u8,
@@ -301,6 +305,11 @@ impl fmt::Display for Instruction {
                 f,
                 "LoadCapture\treg: {}\t\tcapture: {}",
                 register, capture
+            ),
+            SetCapture { capture, source } => write!(
+                f,
+                "SetCapture\tcapture: {}\tsource {}",
+                capture, source
             ),
             Negate { register, source } => {
                 write!(f, "Negate\t\treg: {}\t\tsource: {}", register, source)
@@ -632,6 +641,10 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::LoadCapture => Some(LoadCapture {
                 register: get_byte!(),
                 capture: get_byte!(),
+            }),
+            Op::SetCapture => Some(SetCapture {
+                capture: get_byte!(),
+                source: get_byte!(),
             }),
             Op::Negate => Some(Negate {
                 register: get_byte!(),

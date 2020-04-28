@@ -391,7 +391,8 @@ impl Compiler {
         args: &[ConstantIndex],
         captures: &[ConstantIndex],
     ) -> Result<(), String> {
-        self.frame_stack.push(Frame::new(local_count, args, captures));
+        self.frame_stack
+            .push(Frame::new(local_count, args, captures));
 
         self.compile_block(expressions)?;
 
@@ -427,13 +428,21 @@ impl Compiler {
         target: &AssignTarget,
         expression: &AstNode,
     ) -> Result<(), String> {
+        use Op::*;
+
         self.compile_node(expression)?;
+
         match target {
             AssignTarget::Id { id_index, .. } => {
-                let source = self.frame_mut().pop_register()?;
-                let register = self.frame_mut().get_local_register(*id_index)?;
-                if register != source {
-                    self.push_op(Op::Copy, &[register, source]);
+                if let Some(capture) = self.frame().capture_slot(*id_index) {
+                    let source = self.frame_mut().peek_register()?;
+                    self.push_op(SetCapture, &[capture, source]);
+                } else {
+                    let source = self.frame_mut().pop_register()?;
+                    let register = self.frame_mut().get_local_register(*id_index)?;
+                    if register != source {
+                        self.push_op(Copy, &[register, source]);
+                    }
                 }
             }
             AssignTarget::Lookup(lookup) => {
@@ -466,8 +475,14 @@ impl Compiler {
                 for (i, target) in targets.iter().enumerate() {
                     match target {
                         AssignTarget::Id { id_index, .. } => {
-                            let register = self.frame_mut().get_local_register(*id_index)?;
-                            self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                            if let Some(capture) = self.frame().capture_slot(*id_index) {
+                                let register = self.frame_mut().push_register()?;
+                                self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                                self.push_op(SetCapture, &[capture, register]);
+                            } else {
+                                let register = self.frame_mut().get_local_register(*id_index)?;
+                                self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                            }
                         }
                         AssignTarget::Lookup(lookup) => {
                             let register = self.frame_mut().push_register()?;
@@ -488,16 +503,30 @@ impl Compiler {
                 for (i, target) in targets.iter().enumerate() {
                     match target {
                         AssignTarget::Id { id_index, .. } => {
-                            let register = self.frame_mut().get_local_register(*id_index)?;
-                            match expression_registers.get(i) {
-                                Some(expression_register) => {
-                                    self.push_op(Copy, &[register, *expression_register]);
+                            if let Some(capture) = self.frame().capture_slot(*id_index) {
+                                let register = self.frame_mut().push_register()?;
+                                match expression_registers.get(i) {
+                                    Some(expression_register) => {
+                                        self.push_op(Copy, &[register, *expression_register]);
+                                    }
+                                    None => {
+                                        self.push_op(SetEmpty, &[register]);
+                                    }
                                 }
-                                None => {
-                                    self.push_op(SetEmpty, &[register]);
+                                self.push_op(SetCapture, &[capture, register]);
+                                self.frame_mut().pop_register()?;
+                            } else {
+                                let register = self.frame_mut().get_local_register(*id_index)?;
+                                match expression_registers.get(i) {
+                                    Some(expression_register) => {
+                                        self.push_op(Copy, &[register, *expression_register]);
+                                    }
+                                    None => {
+                                        self.push_op(SetEmpty, &[register]);
+                                    }
                                 }
+                                self.frame_mut().pop_register()?;
                             }
-                            self.frame_mut().pop_register()?;
                         }
                         AssignTarget::Lookup(lookup) => match expression_registers.get(i) {
                             Some(expression_register) => {

@@ -32,6 +32,7 @@ pub enum Op {
     InstanceFunction, // register, arg count, capture count, size[2]
     Capture,          // function, target, source
     LoadCapture,      // register, capture
+    SetCapture,       // capture, source
     RangeExclusive,   // register, start, end
     RangeInclusive,   // register, start, end
     Negate,           // register, source

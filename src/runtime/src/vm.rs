@@ -36,6 +36,16 @@ impl Frame {
             None
         }
     }
+
+    fn set_capture(&self, capture_index: u8, value: Value) -> bool {
+        if let Some(captures) = &self.captures {
+            if let Some(capture) = captures.data_mut().get_mut(capture_index as usize) {
+                *capture = value;
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Default)]
@@ -313,6 +323,24 @@ impl Vm {
                                 return vm_error!(reader.ip, "LoadCapture: invalid capture index");
                             }
                         }
+                    }
+                }
+                Instruction::SetCapture { capture, source } => {
+                    if self.call_stack.len() == 1 {
+                        return vm_error!(
+                            reader.ip,
+                            "SetCapture: attempting to set a capture outside of a function"
+                        );
+                    }
+
+                    let value = self.get_register(source).clone();
+
+                    if !self.frame_mut().set_capture(capture, value) {
+                        return vm_error!(
+                            reader.ip,
+                            "SetCapture: invalid capture index: {} ",
+                            capture
+                        );
                     }
                 }
                 Instruction::Negate { register, source } => {
@@ -1404,7 +1432,7 @@ f 3";
         }
 
         #[test]
-        fn captured_values_nested() {
+        fn nested_captured_values() {
             let script = "
 capture_test = |a b c|
   inner = ||
@@ -1415,6 +1443,34 @@ capture_test = |a b c|
   inner()
 capture_test 1 2 3";
             test_script(script, Number(6.0));
+        }
+
+        #[test]
+        fn modifying_a_captured_value() {
+            let script = "
+make_counter = ||
+  count = 0
+  return || count += 1
+c = make_counter()
+c2 = make_counter()
+assert c() == 1
+assert c() == 2
+assert c2() == 1
+assert c() == 3
+c2()";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn multi_assignment_of_captured_values() {
+            let script = "
+f = |x|
+  inner = ||
+    x[0], x[1] = x[0] + 1, x[1] + 1
+  inner()
+  x
+f [1 2]";
+            test_script(script, number_list(&[2, 3]));
         }
     }
 
