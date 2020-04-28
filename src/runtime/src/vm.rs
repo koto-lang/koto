@@ -1696,7 +1696,20 @@ x
         }
 
         #[test]
-        fn if_else_if() {
+        fn if_else_if_result_from_if() {
+            let script = "
+x = if 5 > 4
+  42
+else if 1 < 2
+  -1
+else
+  99
+x";
+            test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn if_else_if_result_from_else_if() {
             let script = "
 x = if 5 < 4
   42
@@ -1706,6 +1719,19 @@ else
   99
 x";
             test_script(script, Number(-1.0));
+        }
+
+        #[test]
+        fn if_else_if_result_from_else() {
+            let script = "
+x = if 5 < 4
+  42
+else if 2 < 1
+  -1
+else
+  99
+x";
+            test_script(script, Number(99.0));
         }
     }
 
@@ -1775,6 +1801,34 @@ add 10 (add 20 30)";
         }
 
         #[test]
+        fn recursive_call() {
+            let script = "
+f = |n|
+  if n == 0
+    0
+  else
+    f n - 1
+f 4
+";
+            test_script(script, Number(0.0));
+        }
+
+        #[test]
+        fn recursive_call_fib() {
+            let script = "
+fib = |n|
+  if n <= 0
+    0
+  else if n == 1
+    1
+  else
+    (fib n - 1) + (fib n - 2)
+fib 4
+";
+            test_script(script, Number(3.0));
+        }
+
+        #[test]
         fn multiple_return_values() {
             let script = "
 f = |x| x - 1, x + 1
@@ -1813,6 +1867,18 @@ f = |x|
   inner()
 f 3";
             test_script(script, Number(9.0));
+        }
+
+        #[test]
+        fn capture_via_mutation() {
+            let script = "
+data = [1 2 3]
+f = ||
+  data[1] = 99
+  data = () # reassignment doesn't affect the original copy of data
+f()
+data[1]";
+            test_script(script, Number(99.0));
         }
 
         #[test]

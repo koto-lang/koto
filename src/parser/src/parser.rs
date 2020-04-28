@@ -14,6 +14,12 @@ struct LocalIds {
     ids_in_parent_scope: HashSet<ConstantIndex>,
     // IDs that have been assigned within the current scope.
     ids_assigned_in_scope: HashSet<ConstantIndex>,
+    // IDs that are currently being assigned to in the current scope.
+    // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
+    // of 'being assigned' values in child functions.
+    // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
+    // scope then it isn't made available to child functions.
+    ids_being_assigned_in_scope: HashSet<ConstantIndex>,
     // Captures are IDs and lookup roots, that are accessed within the current scope,
     // which haven't yet been assigned in the current scope,
     // but are available in the parent scope.
@@ -22,10 +28,13 @@ struct LocalIds {
 
 impl LocalIds {
     fn all_available_ids(&self) -> HashSet<ConstantIndex> {
-        self.ids_assigned_in_scope
+        let mut result = self
+            .ids_assigned_in_scope
             .union(&self.ids_in_parent_scope)
             .cloned()
-            .collect()
+            .collect::<HashSet<_>>();
+        result.extend(self.ids_being_assigned_in_scope.iter());
+        result
     }
 
     fn local_count(&self) -> usize {
@@ -40,8 +49,36 @@ impl LocalIds {
                 self.ids_assigned_in_scope.insert(*id_index);
             }
             AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
-                &[LookupNode::Id(id_index), ..] => {
-                    self.ids_assigned_in_scope.insert(id_index);
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_assigned_in_scope.insert(*id_index);
+                }
+                _ => panic!("Expected Id as first lookup node"),
+            },
+        }
+    }
+
+    fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                self.ids_being_assigned_in_scope.insert(*id_index);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_being_assigned_in_scope.insert(*id_index);
+                }
+                _ => panic!("Expected Id as first lookup node"),
+            },
+        }
+    }
+
+    fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                self.ids_being_assigned_in_scope.remove(id_index);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_being_assigned_in_scope.remove(id_index);
                 }
                 _ => panic!("Expected Id as first lookup node"),
             },
@@ -413,7 +450,7 @@ impl KotoParser {
                         captures: Vec::from_iter(nested_local_ids.captures),
                         local_count,
                         body,
-                        is_instance_function
+                        is_instance_function,
                     })),
                 )
             }
@@ -466,11 +503,15 @@ impl KotoParser {
                     Rule::lookup => AssignTarget::Lookup(next_as_lookup!(inner)),
                     _ => unreachable!(),
                 };
+
                 let operator = inner.next().unwrap().as_rule();
+
+                local_ids.add_assign_target_to_captures(&target);
+                local_ids.add_assign_target_to_ids_being_assigned_in_scope(&target);
+
                 let rhs = next_as_boxed_ast!(inner);
                 macro_rules! make_assign_op {
                     ($op:ident) => {{
-                        local_ids.add_assign_target_to_captures(&target);
                         Box::new(AstNode::new(
                             span.clone(),
                             Node::Op {
@@ -481,6 +522,7 @@ impl KotoParser {
                         ))
                     }};
                 };
+
                 let expression = match operator {
                     Rule::assign => rhs,
                     Rule::assign_add => make_assign_op!(Add),
@@ -491,6 +533,9 @@ impl KotoParser {
                     _ => unreachable!(),
                 };
 
+                // TODO only set as assigned locally when in local scope
+                // Add the target to the assigned list
+                local_ids.remove_assign_target_from_ids_being_assigned_in_scope(&target);
                 local_ids.add_assign_target_to_ids_assigned_in_scope(&target);
 
                 AstNode::new(span, Node::Assign { target, expression })
@@ -525,6 +570,10 @@ impl KotoParser {
                     })
                     .collect::<Vec<_>>();
 
+                for target in targets.iter() {
+                    local_ids.add_assign_target_to_ids_being_assigned_in_scope(target);
+                }
+
                 let expressions = inner
                     .next()
                     .unwrap()
@@ -533,6 +582,7 @@ impl KotoParser {
                     .collect::<Vec<_>>();
 
                 for target in targets.iter() {
+                    local_ids.remove_assign_target_from_ids_being_assigned_in_scope(target);
                     local_ids.add_assign_target_to_ids_assigned_in_scope(target);
                 }
 

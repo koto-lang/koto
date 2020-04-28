@@ -135,8 +135,14 @@ impl Koto {
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(message, start_pos, end_pos),
-                Error::VmRuntimeError { message, .. } => {
-                    format!("VM Runtime error: {}\n", message,) // TODO
+                Error::VmRuntimeError {
+                    message,
+                    instruction,
+                } => {
+                    format!(
+                        "VM Runtime error at instruction {}: {}\n",
+                        instruction, message
+                    ) // TODO
                 }
                 Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),

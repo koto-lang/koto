@@ -45,18 +45,6 @@ impl Frame {
         }
     }
 
-    fn push_register(&mut self) -> Result<u8, String> {
-        let new_register = self.temporary_base + self.temporary_count;
-        self.temporary_count += 1;
-
-        if new_register > u8::MAX {
-            Err("Reached maximum number of registers".to_string())
-        } else {
-            self.register_stack.push(new_register);
-            Ok(new_register)
-        }
-    }
-
     fn is_local(&self, index: ConstantIndex) -> bool {
         self.local_registers
             .iter()
@@ -70,6 +58,18 @@ impl Frame {
             .map(|position| position as u8)
     }
 
+    fn push_register(&mut self) -> Result<u8, String> {
+        let new_register = self.temporary_base + self.temporary_count;
+        self.temporary_count += 1;
+
+        if new_register > u8::MAX {
+            Err("Reached maximum number of registers".to_string())
+        } else {
+            self.register_stack.push(new_register);
+            Ok(new_register)
+        }
+    }
+
     fn get_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
         let local_register = match self
             .local_registers
@@ -79,25 +79,33 @@ impl Frame {
             Some(assigned) => assigned,
             None => {
                 self.local_registers.push(local);
+
                 let new_local_register = self.local_registers.len() - 1;
 
                 if new_local_register > self.temporary_base as usize {
-                    return Err("get_local_register: Locals overflowed".to_string());
+                    return Err("declare_local_register: Locals overflowed".to_string());
                 }
 
                 new_local_register
             }
         } as u8;
 
-        self.register_stack.push(local_register);
+        Ok(local_register)
+    }
 
+    fn push_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
+        let local_register = self.get_local_register(local)?;
+        self.register_stack.push(local_register);
         Ok(local_register)
     }
 
     fn pop_register(&mut self) -> Result<u8, String> {
         let register = match self.register_stack.pop() {
             Some(register) => register,
-            None => return Err("pop_register: Empty register stack".to_string()),
+            None => {
+                panic!();
+                // return Err("pop_register: Empty register stack".to_string());
+            }
         };
 
         if register >= self.temporary_base {
@@ -120,17 +128,9 @@ impl Frame {
 
     fn peek_register_n(&self, n: usize) -> Result<u8, String> {
         self.register_stack
-            .get(self.register_stack.len() - n)
+            .get(self.register_stack.len() - n - 1)
             .cloned()
             .ok_or_else(|| "peek_register_n: Non enough registers in the stack".to_string())
-    }
-
-    fn clone_registers(&self, count: usize) -> Result<Vec<u8>, String> {
-        let first_register = self.register_stack.len() - count;
-        self.register_stack
-            .get(first_register..)
-            .map(|registers| registers.iter().cloned().collect::<Vec<_>>())
-            .ok_or_else(|| "clone_registers: Non enough registers in the stack".to_string())
     }
 
     fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), String> {
@@ -163,71 +163,71 @@ impl Compiler {
         // dbg!(ast);
         assert!(self.frame_stack.is_empty());
         self.bytes.clear();
-        self.compile_node(ast)?;
+        self.compile_node(0, ast)?;
         Ok(&self.bytes)
     }
 
-    fn compile_node(&mut self, node: &AstNode) -> Result<(), String> {
+    fn compile_node(&mut self, result_register: u8, node: &AstNode) -> Result<(), String> {
         use Op::*;
 
         match &node.node {
             Node::Empty => {
-                self.push_empty()?;
+                self.push_op(SetEmpty, &[result_register]);
             }
             Node::Id(index) => {
-                self.compile_load_id(*index)?;
+                self.compile_load_id(result_register, *index)?;
             }
-            Node::Lookup(lookup) => self.compile_lookup(lookup, None)?,
+            Node::Lookup(lookup) => self.compile_lookup(Some(result_register), lookup, None)?,
             Node::Copy(lookup_or_id) => {
-                self.compile_lookup_or_id(lookup_or_id)?;
-                let source = self.frame_mut().pop_register()?;
-                let register = self.frame_mut().push_register()?;
-                self.push_op(DeepCopy, &[register, source]);
+                let source_register = self.push_register()?;
+                self.compile_lookup_or_id(source_register, lookup_or_id)?;
+                self.push_op(DeepCopy, &[result_register, source_register]);
+                self.pop_register()?;
             }
             Node::BoolTrue => {
-                let target = self.frame_mut().push_register()?;
-                self.push_op(SetTrue, &[target]);
+                self.push_op(SetTrue, &[result_register]);
             }
             Node::BoolFalse => {
-                let target = self.frame_mut().push_register()?;
-                self.push_op(SetFalse, &[target]);
+                self.push_op(SetFalse, &[result_register]);
             }
             Node::Number(constant) => {
-                let target = self.frame_mut().push_register()?;
                 let constant = *constant;
                 if constant <= u8::MAX as u32 {
-                    self.push_op(LoadNumber, &[target, constant as u8]);
+                    self.push_op(LoadNumber, &[result_register, constant as u8]);
                 } else {
-                    self.push_op(LoadNumberLong, &[target]);
+                    self.push_op(LoadNumberLong, &[result_register]);
                     self.push_bytes(&constant.to_le_bytes());
                 }
             }
             Node::Str(constant) => {
-                self.load_string(*constant)?;
+                self.load_string(result_register, *constant);
             }
             Node::Vec4(elements) => {
-                self.compile_make_vec4(&elements)?;
+                self.compile_make_vec4(result_register, &elements)?;
             }
             Node::List(elements) => {
-                self.compile_make_list(&elements)?;
+                self.compile_make_list(result_register, &elements)?;
             }
             Node::Map(entries) => {
-                let map_register = self.frame_mut().push_register()?;
-
                 let size_hint = entries.len();
                 if size_hint <= u8::MAX as usize {
-                    self.push_op(MakeMap, &[map_register, size_hint as u8]);
+                    self.push_op(MakeMap, &[result_register, size_hint as u8]);
                 } else {
-                    self.push_op(MakeMapLong, &[map_register]);
+                    self.push_op(MakeMapLong, &[result_register]);
                     self.push_bytes(&size_hint.to_le_bytes());
                 }
 
                 for (key, value_node) in entries.iter() {
-                    self.load_string(*key)?;
-                    self.compile_node(value_node)?;
-                    let value_register = self.frame_mut().pop_register()?;
-                    let key_register = self.frame_mut().pop_register()?;
-                    self.push_op(MapInsert, &[map_register, key_register, value_register]);
+                    let key_register = self.push_register()?;
+                    self.load_string(key_register, *key);
+
+                    let value_register = self.push_register()?;
+                    self.compile_node(value_register, value_node)?;
+
+                    self.push_op(MapInsert, &[result_register, key_register, value_register]);
+
+                    self.pop_register()?;
+                    self.pop_register()?;
                 }
             }
             Node::Range {
@@ -235,62 +235,70 @@ impl Compiler {
                 end,
                 inclusive,
             } => {
-                self.compile_node(start)?;
-                self.compile_node(end)?;
-                let end_register = self.frame_mut().pop_register()?;
-                let start_register = self.frame_mut().pop_register()?;
+                let start_register = self.push_register()?;
+                self.compile_node(start_register, start)?;
+
+                let end_register = self.push_register()?;
+                self.compile_node(end_register, end)?;
 
                 let op = if *inclusive { RangeInclusive } else { Range };
-                let target = self.frame_mut().push_register()?;
-                self.push_op(op, &[target, start_register, end_register]);
+                self.push_op(op, &[result_register, start_register, end_register]);
+
+                self.pop_register()?;
+                self.pop_register()?;
             }
             Node::RangeFrom { start } => {
-                self.compile_node(start)?;
-                let start_register = self.frame_mut().pop_register()?;
-                let target = self.frame_mut().push_register()?;
-                self.push_op(RangeFrom, &[target, start_register]);
+                let start_register = self.push_register()?;
+
+                self.compile_node(start_register, start)?;
+                self.push_op(RangeFrom, &[result_register, start_register]);
+
+                self.pop_register()?;
             }
             Node::RangeTo { end, inclusive } => {
-                self.compile_node(end)?;
-                let end_register = self.frame_mut().pop_register()?;
+                let end_register = self.push_register()?;
+                self.compile_node(end_register, end)?;
 
                 let op = if *inclusive {
                     RangeToInclusive
                 } else {
                     RangeTo
                 };
-                let target = self.frame_mut().push_register()?;
-                self.push_op(op, &[target, end_register]);
+                self.push_op(op, &[result_register, end_register]);
+
+                self.pop_register()?;
             }
             Node::RangeFull => {
-                let target = self.frame_mut().push_register()?;
-                self.push_op(RangeFull, &[target]);
+                self.push_op(RangeFull, &[result_register]);
             }
             Node::MainBlock { body, local_count } => {
                 self.compile_frame(*local_count as u8, body, &[], &[])?;
             }
             Node::Block(expressions) => {
-                self.compile_block(expressions)?;
+                self.compile_block(result_register, expressions)?;
             }
             Node::Expressions(expressions) => {
                 // For now, capture the results of multiple expressions in a list.
                 // Later, find situations where the list capture can be avoided.
-                self.compile_make_list(&expressions)?;
+                self.compile_make_list(result_register, &expressions)?;
             }
             Node::CopyExpression(expression) => {
-                self.compile_node(expression)?;
-                let source = self.frame_mut().pop_register()?;
-                let register = self.frame_mut().push_register()?;
-                self.push_op(DeepCopy, &[register, source]);
+                let source_register = self.push_register()?;
+                self.compile_node(source_register, expression)?;
+
+                self.push_op(DeepCopy, &[result_register, source_register]);
+
+                self.pop_register()?;
             }
             Node::Negate(expression) => {
-                self.compile_node(expression)?;
-                let source = self.frame_mut().pop_register()?;
-                let register = self.frame_mut().push_register()?;
-                self.push_op(Negate, &[register, source]);
+                let source_register = self.push_register()?;
+                self.compile_node(source_register, expression)?;
+
+                self.push_op(Negate, &[result_register, source_register]);
+
+                self.pop_register()?;
             }
             Node::Function(f) => {
-                let function_register = self.frame_mut().push_register()?;
                 let arg_count = match u8::try_from(f.args.len()) {
                     Ok(x) => x,
                     Err(_) => {
@@ -303,10 +311,10 @@ impl Compiler {
                 if f.is_instance_function {
                     self.push_op(
                         InstanceFunction,
-                        &[function_register, arg_count - 1, capture_count],
+                        &[result_register, arg_count - 1, capture_count],
                     );
                 } else {
-                    self.push_op(Function, &[function_register, arg_count, capture_count]);
+                    self.push_op(Function, &[result_register, arg_count, capture_count]);
                 }
 
                 let function_size_ip = self.push_offset_placeholder();
@@ -322,39 +330,38 @@ impl Compiler {
                 self.update_offset_placeholder(function_size_ip);
 
                 for (i, capture) in f.captures.iter().enumerate() {
-                    self.compile_load_id(*capture)?;
-                    let capture_register = self.frame_mut().pop_register()?;
-                    self.push_op(Capture, &[function_register, i as u8, capture_register]);
+                    let capture_register = self.push_register()?;
+                    self.compile_load_id(capture_register, *capture)?;
+
+                    self.push_op(Capture, &[result_register, i as u8, capture_register]);
+
+                    self.pop_register()?;
                 }
             }
             Node::Call { function, args } => {
                 match function {
                     LookupOrId::Id(id) => {
-                        let function_register = self.compile_load_id(*id)?;
-                        self.compile_call(function_register, args, None)?;
-                        // We want to keep the function result register on the stack,
-                        // but we don't want to keep the function register
-                        let result_register = self.frame_mut().pop_register()?;
-                        self.frame_mut().pop_register()?; // pop function register
-                        let target_register = self.frame_mut().push_register()?;
-                        self.push_op(Copy, &[target_register, result_register]);
+                        let function_register = self.push_register()?;
+                        self.compile_load_id(function_register, *id)?;
+                        self.compile_call(result_register, function_register, args, None)?;
+                        self.pop_register()?;
                     }
                     LookupOrId::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
                         let mut call_lookup = function_lookup.clone();
                         call_lookup.0.push(LookupNode::Call(args.clone()));
-                        self.compile_lookup(&call_lookup, None)?
+                        self.compile_lookup(Some(result_register), &call_lookup, None)?
                     }
                 };
             }
             Node::Assign { target, expression } => {
-                self.compile_assign(target, expression)?;
+                self.compile_assign(Some(result_register), target, expression)?;
             }
             Node::MultiAssign {
                 targets,
                 expressions,
             } => {
-                self.compile_multi_assign(targets, expressions)?;
+                self.compile_multi_assign(result_register, targets, expressions)?;
             }
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
@@ -370,33 +377,36 @@ impl Compiler {
                     AstOp::Equal => Equal,
                     AstOp::NotEqual => NotEqual,
                     AstOp::And | AstOp::Or => {
-                        self.compile_node(&lhs)?;
-                        let lhs_register = self.frame_mut().pop_register()?;
+                        self.compile_node(result_register, &lhs)?;
+
                         let jump_op = if matches!(op, AstOp::And) {
                             JumpFalse
                         } else {
                             JumpTrue
                         };
+                        self.push_op(jump_op, &[result_register]);
 
-                        self.push_op(jump_op, &[lhs_register]);
-                        self.compile_node_with_jump_offset(&rhs)?;
+                        // If the lhs causes a jump then that's the result,
+                        // otherwise the rhs is the result
+                        self.compile_node_with_jump_offset(result_register, &rhs)?;
 
                         return Ok(());
                     }
                 };
 
-                self.compile_node(&lhs)?;
-                self.compile_node(&rhs)?;
+                let lhs_register = self.push_register()?;
+                let rhs_register = self.push_register()?;
+                self.compile_node(lhs_register, &lhs)?;
+                self.compile_node(rhs_register, &rhs)?;
 
-                let frame = self.frame_mut();
-                let rhs_register = frame.pop_register()?;
-                let lhs_register = frame.pop_register()?;
-                let target = frame.push_register()?;
-                self.push_op(op, &[target, lhs_register, rhs_register]);
+                self.push_op(op, &[result_register, lhs_register, rhs_register]);
+
+                self.pop_register()?; // rhs
+                self.pop_register()?; // lhs
             }
-            Node::If(ast_if) => self.compile_if(ast_if)?,
-            Node::For(ast_for) => self.compile_for(ast_for, None)?,
-            Node::While(ast_while) => self.compile_while(ast_while, None)?,
+            Node::If(ast_if) => self.compile_if(result_register, ast_if)?,
+            Node::For(ast_for) => self.compile_for(result_register, ast_for, None)?,
+            Node::While(ast_while) => self.compile_while(result_register, ast_while, None)?,
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -405,13 +415,11 @@ impl Compiler {
                 self.push_jump_back_op(JumpBack, &[], self.current_loop()?.start_ip);
             }
             Node::Return => {
-                let register = self.frame_mut().push_register()?;
-                self.push_op(SetEmpty, &[register]);
-                self.push_op(Return, &[register]);
+                self.push_op(SetEmpty, &[result_register]);
+                self.push_op(Return, &[result_register]);
             }
             Node::ReturnExpression(expression) => {
-                self.compile_node(expression)?;
-                let result_register = self.frame_mut().peek_register()?;
+                self.compile_node(result_register, expression)?;
                 self.push_op(Return, &[result_register]);
             }
             unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
@@ -430,78 +438,109 @@ impl Compiler {
         self.frame_stack
             .push(Frame::new(local_count, args, captures));
 
-        self.compile_block(expressions)?;
-
-        let result_register = self.frame_mut().pop_register()?;
-        self.push_bytes(&[Op::Return.into(), result_register]);
+        let result_register = self.push_register()?;
+        self.compile_block(result_register, expressions)?;
+        self.push_op(Op::Return, &[result_register]);
 
         self.frame_stack.pop();
 
         Ok(())
     }
 
-    fn compile_block(&mut self, expressions: &[AstNode]) -> Result<(), String> {
+    fn compile_block(
+        &mut self,
+        result_register: u8,
+        expressions: &[AstNode],
+    ) -> Result<(), String> {
         use Op::*;
 
         if expressions.is_empty() {
-            let register = self.frame_mut().push_register()?;
-            self.push_bytes(&[SetEmpty.into(), register]);
+            self.push_op(SetEmpty, &[result_register]);
         } else {
-            for (i, expression) in expressions.iter().enumerate() {
-                self.compile_node(expression)?;
-                // Keep the last expression's result on the stack
-                if i < expressions.len() - 1 {
-                    self.frame_mut().pop_register()?;
-                }
+            for expression in expressions.iter() {
+                self.compile_node(result_register, expression)?;
             }
         }
 
         Ok(())
     }
 
+    fn local_register_for_assign_target(
+        &mut self,
+        target: &AssignTarget,
+    ) -> Result<Option<u8>, String> {
+        let result = match target {
+            AssignTarget::Id { id_index, scope } => match *scope {
+                Scope::Local => {
+                    if self.frame().capture_slot(*id_index).is_some() {
+                        None
+                    } else {
+                        Some(self.frame_mut().get_local_register(*id_index)?)
+                    }
+                }
+                Scope::Global => None,
+            },
+            _ => None,
+        };
+
+        Ok(result)
+    }
+
     fn compile_assign(
         &mut self,
+        result_register: Option<u8>,
         target: &AssignTarget,
         expression: &AstNode,
     ) -> Result<(), String> {
         use Op::*;
 
-        self.compile_node(expression)?;
+        let local_assign_register = self.local_register_for_assign_target(target)?;
+        let assign_register = match local_assign_register {
+            Some(local) => local,
+            None => self.push_register()?,
+        };
+        self.compile_node(assign_register, expression)?;
 
         match target {
-            AssignTarget::Id { id_index, scope } => match scope {
-                Scope::Local => {
-                    if let Some(capture) = self.frame().capture_slot(*id_index) {
-                        let source = self.frame_mut().peek_register()?;
-                        self.push_op(SetCapture, &[capture, source]);
-                    } else {
-                        let source = self.frame_mut().pop_register()?;
-                        let register = self.frame_mut().get_local_register(*id_index)?;
-                        if register != source {
-                            self.push_op(Copy, &[register, source]);
+            AssignTarget::Id { id_index, scope } => {
+                match scope {
+                    Scope::Local => {
+                        if let Some(capture) = self.frame().capture_slot(*id_index) {
+                            self.push_op(SetCapture, &[capture, assign_register]);
+                        }
+                    }
+                    Scope::Global => {
+                        if *id_index <= u8::MAX as u32 {
+                            self.push_op(SetGlobal, &[*id_index as u8, assign_register]);
+                        } else {
+                            self.push_op(SetGlobalLong, &id_index.to_le_bytes());
+                            self.push_bytes(&[assign_register]);
                         }
                     }
                 }
-                Scope::Global => {
-                    let source = self.frame_mut().peek_register()?;
-                    if *id_index <= u8::MAX as u32 {
-                        self.push_op(SetGlobal, &[*id_index as u8, source]);
-                    } else {
-                        self.push_op(SetGlobalLong, &id_index.to_le_bytes());
-                        self.push_bytes(&[source]);
+
+                if let Some(result_register) = result_register {
+                    if result_register != assign_register {
+                        self.push_op(Copy, &[result_register, assign_register]);
                     }
                 }
-            },
+            }
+
             AssignTarget::Lookup(lookup) => {
-                let source = self.frame_mut().peek_register()?;
-                self.compile_lookup(lookup, Some(source))?;
+                self.compile_lookup(result_register, lookup, Some(assign_register))?;
             }
         };
+
+        if local_assign_register.is_none() {
+            self.pop_register()?;
+        }
+
         Ok(())
     }
 
     fn compile_multi_assign(
         &mut self,
+        _result_register: u8,
         targets: &[AssignTarget],
         expressions: &[AstNode],
     ) -> Result<(), String> {
@@ -515,78 +554,84 @@ impl Compiler {
                 return Err("compile_multi_assign: Missing expression".to_string());
             }
             [expression] => {
-                self.compile_node(expression)?;
-
-                let rhs_register = self.frame_mut().peek_register()?;
+                let rhs_register = self.push_register()?;
+                self.compile_node(rhs_register, expression)?;
 
                 for (i, target) in targets.iter().enumerate() {
                     match target {
                         AssignTarget::Id { id_index, .. } => {
-                            if let Some(capture) = self.frame().capture_slot(*id_index) {
-                                let register = self.frame_mut().push_register()?;
-                                self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
-                                self.push_op(SetCapture, &[capture, register]);
+                            if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
+                                let capture_register = self.push_register()?;
+
+                                self.push_op(
+                                    ExpressionIndex,
+                                    &[capture_register, rhs_register, i as u8],
+                                );
+                                self.push_op(SetCapture, &[capture_slot, capture_register]);
+
+                                self.pop_register()?;
                             } else {
-                                let register = self.frame_mut().get_local_register(*id_index)?;
-                                self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                                let local_register =
+                                    self.frame_mut().push_local_register(*id_index)?;
+
+                                self.push_op(
+                                    ExpressionIndex,
+                                    &[local_register, rhs_register, i as u8],
+                                );
+
+                                self.pop_register()?;
                             }
                         }
                         AssignTarget::Lookup(lookup) => {
-                            let register = self.frame_mut().push_register()?;
+                            let register = self.push_register()?;
+
                             self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
-                            self.compile_lookup(lookup, Some(register))?;
-                            self.frame_mut().pop_register()?;
+                            self.compile_lookup(None, lookup, Some(register))?;
+
+                            self.pop_register()?;
                         }
                     };
                 }
+
+                self.pop_register()?; // rhs_register
             }
             _ => {
-                for expression in expressions.iter() {
-                    self.compile_node(expression)?;
-                }
+                let mut i = 0;
 
-                let expression_registers = self.frame().clone_registers(expressions.len())?;
-
-                for (i, target) in targets.iter().enumerate() {
-                    match target {
-                        AssignTarget::Id { id_index, .. } => {
-                            if let Some(capture) = self.frame().capture_slot(*id_index) {
-                                let register = self.frame_mut().push_register()?;
-                                match expression_registers.get(i) {
-                                    Some(expression_register) => {
-                                        self.push_op(Copy, &[register, *expression_register]);
-                                    }
-                                    None => {
-                                        self.push_op(SetEmpty, &[register]);
-                                    }
-                                }
-                                self.push_op(SetCapture, &[capture, register]);
-                                self.frame_mut().pop_register()?;
-                            } else {
-                                let register = self.frame_mut().get_local_register(*id_index)?;
-                                match expression_registers.get(i) {
-                                    Some(expression_register) => {
-                                        self.push_op(Copy, &[register, *expression_register]);
-                                    }
-                                    None => {
-                                        self.push_op(SetEmpty, &[register]);
-                                    }
-                                }
-                                self.frame_mut().pop_register()?;
-                            }
+                for target in targets.iter() {
+                    match expressions.get(i) {
+                        Some(expression) => {
+                            self.compile_assign(None, target, expression)?;
                         }
-                        AssignTarget::Lookup(lookup) => match expression_registers.get(i) {
-                            Some(expression_register) => {
-                                self.compile_lookup(lookup, Some(*expression_register))?;
+                        None => match target {
+                            AssignTarget::Id { id_index, .. } => {
+                                if let Some(capture) = self.frame().capture_slot(*id_index) {
+                                    let register = self.push_register()?;
+                                    self.push_op(SetEmpty, &[register]);
+                                    self.push_op(SetCapture, &[capture, register]);
+                                    self.pop_register()?;
+                                } else {
+                                    let local_register =
+                                        self.frame_mut().get_local_register(*id_index)?;
+                                    self.push_op(SetEmpty, &[local_register]);
+                                }
                             }
-                            None => {
-                                let register = self.frame_mut().push_register()?;
+                            AssignTarget::Lookup(lookup) => {
+                                let register = self.push_register()?;
                                 self.push_op(SetEmpty, &[register]);
-                                self.compile_lookup(lookup, Some(register))?;
-                                self.frame_mut().pop_register()?;
+                                self.compile_lookup(None, lookup, Some(register))?;
+                                self.pop_register()?;
                             }
                         },
                     }
+
+                    i += 1;
+                }
+
+                while i < expressions.len() {
+                    let temp_register = self.push_register()?;
+                    self.compile_node(temp_register, &expressions[i])?;
+                    i += 1;
                 }
             }
         }
@@ -594,103 +639,129 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_load_id(&mut self, id: ConstantIndex) -> Result<u8, String> {
+    fn compile_load_id(&mut self, result_register: u8, id: ConstantIndex) -> Result<(), String> {
         use Op::*;
 
-        let register = if self.frame().is_local(id) {
+        if self.frame().is_local(id) {
             // local
-            self.frame_mut().get_local_register(id)?
+            let local_register = self.frame_mut().get_local_register(id)?;
+            if local_register != result_register {
+                self.push_op(Copy, &[result_register, local_register]);
+            }
         } else if let Some(capture_slot) = self.frame().capture_slot(id) {
             // capture
-            let register = self.frame_mut().push_register()?;
-            self.push_op(LoadCapture, &[register, capture_slot]);
-            register
+            self.push_op(LoadCapture, &[result_register, capture_slot]);
         } else {
             // global
-            let register = self.frame_mut().push_register()?;
             if id <= u8::MAX as u32 {
-                self.push_op(LoadGlobal, &[register, id as u8]);
+                self.push_op(LoadGlobal, &[result_register, id as u8]);
             } else {
-                self.push_op(LoadGlobalLong, &[register]);
+                self.push_op(LoadGlobalLong, &[result_register]);
                 self.push_bytes(&id.to_le_bytes());
-            }
-            register
-        };
-
-        Ok(register)
-    }
-
-    fn compile_make_vec4(&mut self, elements: &[AstNode]) -> Result<(), String> {
-        use Op::*;
-
-        let vec4_register = self.frame_mut().push_register()?;
-        let stack_count = self.frame().register_stack.len();
-
-        for element in elements.iter() {
-            self.compile_node(element)?;
-            if self.frame().peek_register()? < self.frame().temporary_base {
-                let source = self.frame_mut().pop_register()?;
-                let target = self.frame_mut().push_register()?;
-                self.push_op(Copy, &[target, source]);
             }
         }
 
-        let first_element_register = self.frame().peek_register_n(elements.len())?;
+        Ok(())
+    }
+
+    fn compile_make_vec4(
+        &mut self,
+        result_register: u8,
+        elements: &[AstNode],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if elements.len() < 1 || elements.len() > 4 {
+            return Err(format!(
+                "compile_make_vec4: unexpected number of elements: {}",
+                elements.len()
+            ));
+        }
+
+        let stack_count = self.frame().register_stack.len();
+
+        for element_node in elements.iter() {
+            let element_register = self.push_register()?;
+            self.compile_node(element_register, element_node)?;
+            // if self.frame().peek_register()? < self.frame().temporary_base {
+            //     let source = self.pop_register()?;
+            //     let target = self.push_register()?;
+            //     self.push_op(Copy, &[target, source]);
+            // }
+        }
+
+        let first_element_register = self.frame().peek_register_n(elements.len() - 1)?;
         self.push_op(
             MakeVec4,
-            &[vec4_register, elements.len() as u8, first_element_register],
+            &[
+                result_register,
+                elements.len() as u8,
+                first_element_register,
+            ],
         );
 
         self.frame_mut().truncate_register_stack(stack_count)?;
         Ok(())
     }
 
-    fn compile_make_list(&mut self, elements: &[AstNode]) -> Result<(), String> {
+    fn compile_make_list(
+        &mut self,
+        result_register: u8,
+        elements: &[AstNode],
+    ) -> Result<(), String> {
         use Op::*;
-
-        let list_register = self.frame_mut().push_register()?;
 
         // TODO take ranges into account when determining size hint
         let size_hint = elements.len();
         if size_hint <= u8::MAX as usize {
-            self.push_op(MakeList, &[list_register, size_hint as u8]);
+            self.push_op(MakeList, &[result_register, size_hint as u8]);
         } else {
-            self.push_op(MakeListLong, &[list_register]);
+            self.push_op(MakeListLong, &[result_register]);
             self.push_bytes(&size_hint.to_le_bytes());
         }
 
+        let element_register = self.push_register()?;
         for element_node in elements.iter() {
             match &element_node.node {
                 Node::For(for_loop) => {
-                    self.compile_for(&for_loop, Some(list_register))?;
+                    self.compile_for(element_register, &for_loop, Some(result_register))?;
                 }
                 Node::While(while_loop) => {
-                    self.compile_while(&while_loop, Some(list_register))?;
+                    self.compile_while(element_register, &while_loop, Some(result_register))?;
                 }
                 _ => {
-                    self.compile_node(element_node)?;
-                    let element = self.frame_mut().pop_register()?;
-                    self.push_op(ListPush, &[list_register, element]);
+                    self.compile_node(element_register, element_node)?;
+                    self.push_op(ListPush, &[result_register, element_register]);
                 }
             }
         }
+        self.pop_register()?;
 
         Ok(())
     }
 
-    fn compile_lookup_or_id(&mut self, lookup_or_id: &LookupOrId) -> Result<(), String> {
+    fn compile_lookup_or_id(
+        &mut self,
+        result_register: u8,
+        lookup_or_id: &LookupOrId,
+    ) -> Result<(), String> {
         match lookup_or_id {
             LookupOrId::Id(id) => {
-                self.compile_load_id(*id)?;
+                self.compile_load_id(result_register, *id)?;
             }
             LookupOrId::Lookup(lookup) => {
-                self.compile_lookup(lookup, None)?;
+                self.compile_lookup(Some(result_register), lookup, None)?;
             }
         }
         Ok(())
     }
 
-    fn compile_lookup(&mut self, lookup: &Lookup, set_value: Option<u8>) -> Result<(), String> {
+    fn compile_lookup(
+        &mut self,
+        result_register: Option<u8>,
+        lookup: &Lookup,
+        set_value: Option<u8>,
+    ) -> Result<(), String> {
         use Op::*;
 
         let lookup_len = lookup.0.len();
@@ -701,42 +772,47 @@ impl Compiler {
             ));
         }
 
-        let result_register = self.frame_mut().push_register()?;
         let stack_count = self.frame().register_stack.len();
 
         for (i, lookup_node) in lookup.0.iter().enumerate() {
+            // Push a register for each lookup node.
+            // This produces a lookup chain, allowing lookup operations to access parent containers
+            let node_register = self.push_register()?;
+
             match lookup_node {
                 LookupNode::Id(id) => {
                     if i == 0 {
-                        self.compile_load_id(*id)?;
+                        // Root
+                        self.compile_load_id(node_register, *id)?;
                     } else {
-                        self.load_string(*id)?;
-                        let key_register = self.frame_mut().pop_register()?;
-                        let map_register = self.frame_mut().peek_register()?;
+                        // Map key
+
+                        // The map key can be stored temporarily in the node register
+                        let key_register = node_register;
+                        self.load_string(key_register, *id);
+                        let map_register = self.frame_mut().peek_register_n(1)?;
 
                         if set_value.is_some() && i == lookup_len - 1 {
                             self.push_op(
                                 MapInsert,
-                                &[map_register, key_register, set_value.unwrap()],
+                                &[map_register, node_register, set_value.unwrap()],
                             );
                         } else {
-                            let result_register = self.frame_mut().push_register()?;
-                            self.push_op(MapAccess, &[result_register, map_register, key_register]);
+                            self.push_op(MapAccess, &[node_register, map_register, key_register]);
                         }
                     }
                 }
                 LookupNode::Index(index_node) => {
-                    self.compile_node(&index_node.0)?;
-                    let index_register = self.frame_mut().pop_register()?;
-                    let list_register = self.frame_mut().pop_register()?;
+                    let index_register = node_register;
+                    self.compile_node(index_register, &index_node.0)?;
+                    let list_register = self.frame_mut().peek_register_n(1)?;
                     if set_value.is_some() && i == lookup_len - 1 {
                         self.push_op(
                             ListUpdate,
                             &[list_register, index_register, set_value.unwrap()],
                         );
                     } else {
-                        let result_register = self.frame_mut().push_register()?;
-                        self.push_op(ListIndex, &[result_register, list_register, index_register]);
+                        self.push_op(ListIndex, &[node_register, list_register, index_register]);
                     }
                 }
                 LookupNode::Call(args) => {
@@ -750,15 +826,26 @@ impl Compiler {
                         None
                     };
 
-                    let function_register = self.frame_mut().peek_register()?;
-                    self.compile_call(function_register, &args, parent_register)?;
+                    let function_register = self.frame_mut().peek_register_n(1)?;
+                    self.compile_call(node_register, function_register, &args, parent_register)?;
                 }
             }
         }
 
-        let lookup_result_register = self.frame_mut().pop_register()?;
-        if lookup_result_register != result_register {
-            self.push_op(Copy, &[result_register, lookup_result_register]);
+        if let Some(result_register) = result_register {
+            match set_value {
+                Some(value_register) => {
+                    if value_register != result_register {
+                        self.push_op(Copy, &[result_register, value_register]);
+                    }
+                }
+                None => {
+                    let lookup_result_register = self.frame_mut().peek_register()?;
+                    if lookup_result_register != result_register {
+                        self.push_op(Copy, &[result_register, lookup_result_register]);
+                    }
+                }
+            }
         }
 
         self.frame_mut().truncate_register_stack(stack_count)?;
@@ -768,6 +855,7 @@ impl Compiler {
 
     fn compile_call(
         &mut self,
+        result_register: u8,
         function_register: u8,
         args: &[AstNode],
         parent: Option<u8>,
@@ -777,22 +865,14 @@ impl Compiler {
         let stack_count = self.frame().register_stack.len();
 
         let frame_base = if args.is_empty() {
-            self.frame_mut().push_register()?
+            self.push_register()?
         } else {
             self.frame().next_temporary_register()
         };
 
         for arg in args.iter() {
-            self.compile_node(&arg)?;
-
-            // If the arg value is in a local register, then it needs to be copied to
-            // an argument register
-            let frame = self.frame_mut();
-            if frame.peek_register()? < frame.temporary_base {
-                let source = frame.pop_register()?;
-                let target = frame.push_register()?;
-                self.push_op(Copy, &[target, source]);
-            }
+            let arg_register = self.push_register()?;
+            self.compile_node(arg_register, &arg)?;
         }
 
         match parent {
@@ -814,12 +894,16 @@ impl Compiler {
 
         // The return value gets placed in the frame base register
         // TODO multiple return values
-        self.frame_mut().truncate_register_stack(stack_count + 1)?;
+        if result_register != frame_base {
+            self.push_op(Copy, &[result_register, frame_base]);
+        }
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
 
         Ok(())
     }
 
-    fn compile_if(&mut self, ast_if: &AstIf) -> Result<(), String> {
+    fn compile_if(&mut self, result_register: u8, ast_if: &AstIf) -> Result<(), String> {
         use Op::*;
 
         let AstIf {
@@ -830,14 +914,14 @@ impl Compiler {
             else_node,
         } = ast_if;
 
-        self.compile_node(&condition)?;
-        let condition_register = self.frame_mut().pop_register()?;
-
+        let condition_register = self.push_register()?;
+        self.compile_node(condition_register, &condition)?;
         self.push_op(JumpFalse, &[condition_register]);
         let if_jump_ip = self.push_offset_placeholder();
+        self.pop_register()?;
 
-        let stack_count = self.frame().register_stack.len();
-        self.compile_node(&then_node)?;
+        // let stack_count = self.frame().register_stack.len();
+        self.compile_node(result_register, &then_node)?;
 
         let then_jump_ip = {
             if else_if_node.is_some() || else_node.is_some() {
@@ -854,30 +938,37 @@ impl Compiler {
             // TODO combine condition and node in ast
             let else_if_node = else_if_node.as_ref().unwrap();
 
-            self.compile_node(&condition)?;
-            let condition_register = self.frame_mut().pop_register()?;
+            let condition_register = self.push_register()?;
+            self.compile_node(condition_register, &condition)?;
+
             self.push_op(JumpFalse, &[condition_register]);
+            let then_jump_ip = self.push_offset_placeholder();
 
-            // re-use registers from if block
-            self.frame_mut().truncate_register_stack(stack_count)?;
-            self.compile_node_with_jump_offset(&else_if_node)?;
+            self.pop_register()?; // condition register
 
-            if else_node.is_some() {
+            // re-use registers from if block - TODO, still necessary with result registers?
+            // self.frame_mut().truncate_register_stack(stack_count)?;
+            self.compile_node(result_register, &else_if_node)?;
+
+            let else_if_jump_ip = if else_node.is_some() {
                 self.push_op(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
                 None
-            }
+            };
+            self.update_offset_placeholder(then_jump_ip);
+
+            else_if_jump_ip
         } else {
             None
         };
 
         if let Some(else_node) = else_node {
-            // re-use registers from if/else if blocks
-            self.frame_mut().truncate_register_stack(stack_count)?;
-            self.compile_node(else_node)?;
+            // re-use registers from if/else if blocks - TODO, still necessary?
+            // self.frame_mut().truncate_register_stack(stack_count)?;
+            self.compile_node(result_register, else_node)?;
         } else {
-            self.push_empty()?;
+            self.push_op(SetEmpty, &[result_register]);
         }
 
         if let Some(then_jump_ip) = then_jump_ip {
@@ -891,7 +982,12 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_for(&mut self, ast_for: &AstFor, expand_register: Option<u8>) -> Result<(), String> {
+    fn compile_for(
+        &mut self,
+        result_register: u8,
+        ast_for: &AstFor,
+        expand_register: Option<u8>,
+    ) -> Result<(), String> {
         use Op::*;
 
         let AstFor {
@@ -926,23 +1022,25 @@ impl Compiler {
             [] => {
                 return Err(format!("compile_for: Missing range"));
             }
-            [range] => {
-                self.compile_node(range)?;
-                let range_register = self.frame_mut().pop_register()?;
-                let iterator_register = self.frame_mut().push_register()?;
+            [range_node] => {
+                let iterator_register = self.push_register()?;
+                let range_register = self.push_register()?;
+                self.compile_node(range_register, range_node)?;
 
                 self.push_op(MakeIterator, &[iterator_register, range_register]);
+                self.pop_register()?; // range register
 
                 iterator_register
             }
             _ => {
                 let mut first_iterator_register = None;
-                for range in ranges.iter() {
-                    self.compile_node(range)?;
-                    let range_register = self.frame_mut().pop_register()?;
-                    let iterator_register = self.frame_mut().push_register()?;
+                for range_node in ranges.iter() {
+                    let iterator_register = self.push_register()?;
+                    let range_register = self.push_register()?;
+                    self.compile_node(range_register, range_node)?;
 
                     self.push_op(MakeIterator, &[iterator_register, range_register]);
+                    self.pop_register()?; // range register
 
                     if first_iterator_register.is_none() {
                         first_iterator_register = Some(iterator_register);
@@ -957,22 +1055,21 @@ impl Compiler {
 
         for (i, arg) in args.iter().enumerate() {
             let arg_register = self.frame_mut().get_local_register(*arg)?;
-            self.frame_mut().pop_register()?;
             self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
             self.push_loop_jump_placeholder()?;
         }
 
         if let Some(condition) = condition {
-            self.compile_node(condition)?;
-            let condition_register = self.frame_mut().pop_register()?;
+            let condition_register = self.push_register()?;
+            self.compile_node(condition_register, condition)?;
             self.push_jump_back_op(JumpBackFalse, &[condition_register], loop_start_ip);
+            self.pop_register()?;
         }
 
-        self.compile_node(body)?;
+        self.compile_node(result_register, body)?;
 
         if let Some(active_list) = expand_register {
-            let register = self.frame_mut().pop_register()?;
-            self.push_op(ListPush, &[active_list, register]);
+            self.push_op(ListPush, &[active_list, result_register]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -988,16 +1085,12 @@ impl Compiler {
 
         self.frame_mut().truncate_register_stack(stack_count)?;
 
-        if expand_register.is_none() {
-            // If the for loop isn't in a comprehension then a result is needed, so use Empty
-            self.push_empty()?;
-        }
-
         Ok(())
     }
 
     fn compile_while(
         &mut self,
+        result_register: u8,
         ast_while: &AstWhile,
         expand_register: Option<u8>,
     ) -> Result<(), String> {
@@ -1012,8 +1105,8 @@ impl Compiler {
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
-        self.compile_node(&condition)?;
-        let condition_register = self.frame_mut().pop_register()?;
+        let condition_register = self.push_register()?;
+        self.compile_node(condition_register, &condition)?;
         let op = if *negate_condition {
             JumpTrue
         } else {
@@ -1021,12 +1114,12 @@ impl Compiler {
         };
         self.push_op(op, &[condition_register]);
         self.push_loop_jump_placeholder()?;
+        self.pop_register()?; // condition register
 
-        self.compile_node(&body)?;
+        self.compile_node(result_register, &body)?;
 
         if let Some(active_list) = expand_register {
-            let register = self.frame_mut().pop_register()?;
-            self.push_op(ListPush, &[active_list, register]);
+            self.push_op(ListPush, &[active_list, result_register]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -1040,38 +1133,28 @@ impl Compiler {
             None => return Err("Empty loop info stack".to_string()),
         }
 
-        if expand_register.is_none() {
-            // If the while loop isn't in a comprehension then a result is needed, so use Empty
-            self.push_empty()?;
-        }
-
         Ok(())
     }
 
-    fn load_string(&mut self, index: ConstantIndex) -> Result<u8, String> {
+    fn load_string(&mut self, result_register: u8, index: ConstantIndex) {
         use Op::*;
 
-        let target = self.frame_mut().push_register()?;
         if index <= u8::MAX as u32 {
-            self.push_op(LoadString, &[target, index as u8]);
+            self.push_op(LoadString, &[result_register, index as u8]);
         } else {
-            self.push_op(LoadStringLong, &[target]);
+            self.push_op(LoadStringLong, &[result_register]);
             self.push_bytes(&index.to_le_bytes());
         }
-
-        Ok(target)
     }
 
-    fn compile_node_with_jump_offset(&mut self, node: &AstNode) -> Result<(), String> {
+    fn compile_node_with_jump_offset(
+        &mut self,
+        result_register: u8,
+        node: &AstNode,
+    ) -> Result<(), String> {
         let offset_ip = self.push_offset_placeholder();
-        self.compile_node(&node)?;
+        self.compile_node(result_register, &node)?;
         self.update_offset_placeholder(offset_ip);
-        Ok(())
-    }
-
-    fn push_empty(&mut self) -> Result<(), String> {
-        let target = self.frame_mut().push_register()?;
-        self.push_op(Op::SetEmpty, &[target]);
         Ok(())
     }
 
@@ -1127,5 +1210,13 @@ impl Compiler {
 
     fn frame_mut(&mut self) -> &mut Frame {
         self.frame_stack.last_mut().expect("Frame stack is empty")
+    }
+
+    fn push_register(&mut self) -> Result<u8, String> {
+        self.frame_mut().push_register()
+    }
+
+    fn pop_register(&mut self) -> Result<u8, String> {
+        self.frame_mut().pop_register()
     }
 }
