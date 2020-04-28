@@ -1058,8 +1058,6 @@ mod tests {
             Ok(Empty)
         });
 
-        eprintln!("{}", script);
-        eprintln!("{}", bytecode_to_string(&bytecode));
         match vm.run(&bytecode) {
             Ok(result) => {
                 if result != expected_output {
@@ -1733,6 +1731,31 @@ l[2].foo[0]";
 m = {get_map: || { foo: -1 }}
 m.get_map().foo";
             test_script(script, Number(-1.0));
+        }
+    }
+
+    mod list_comprehensions {
+        use super::*;
+
+        #[test]
+        fn for_loop() {
+            test_script("[x for x in 0..5]", number_list(&[0, 1, 2, 3, 4]));
+        }
+
+        #[test]
+        fn conditional_for() {
+            let script = "
+f = |x| x * x
+[f(x) for x in [2 3 4] if x % 2 == 0]";
+            test_script(script, number_list(&[4, 16]));
+        }
+
+        #[test]
+        fn while_loop() {
+            let script = "
+x = 0
+[(x += 1) while x < 3]";
+            test_script(script, number_list(&[1, 2, 3]));
         }
     }
 

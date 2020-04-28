@@ -359,8 +359,8 @@ impl Compiler {
                 self.push_op(op, &[target, lhs_register, rhs_register]);
             }
             Node::If(ast_if) => self.compile_if(ast_if)?,
-            Node::For(ast_for) => self.compile_for(ast_for)?,
-            Node::While(ast_while) => self.compile_while(ast_while)?,
+            Node::For(ast_for) => self.compile_for(ast_for, None)?,
+            Node::While(ast_while) => self.compile_while(ast_while, None)?,
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -613,9 +613,19 @@ impl Compiler {
         }
 
         for element_node in elements.iter() {
-            self.compile_node(element_node)?;
-            let element = self.frame_mut().pop_register()?;
-            self.push_op(ListPush, &[list_register, element]);
+            match &element_node.node {
+                Node::For(for_loop) => {
+                    self.compile_for(&for_loop, Some(list_register))?;
+                }
+                Node::While(while_loop) => {
+                    self.compile_while(&while_loop, Some(list_register))?;
+                }
+                _ => {
+                    self.compile_node(element_node)?;
+                    let element = self.frame_mut().pop_register()?;
+                    self.push_op(ListPush, &[list_register, element]);
+                }
+            }
         }
 
         Ok(())
@@ -822,7 +832,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_for(&mut self, ast_for: &AstFor) -> Result<(), String> {
+    fn compile_for(&mut self, ast_for: &AstFor, expand_register: Option<u8>) -> Result<(), String> {
         use Op::*;
 
         let AstFor {
@@ -850,6 +860,8 @@ impl Compiler {
                 ranges.len()
             ));
         }
+
+        let stack_count = self.frame().register_stack.len();
 
         let iterator_register = match ranges.as_slice() {
             [] => {
@@ -886,6 +898,7 @@ impl Compiler {
 
         for (i, arg) in args.iter().enumerate() {
             let arg_register = self.frame_mut().get_local_register(*arg)?;
+            self.frame_mut().pop_register()?;
             self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
             self.push_loop_jump_placeholder()?;
         }
@@ -898,6 +911,11 @@ impl Compiler {
 
         self.compile_node(body)?;
 
+        if let Some(active_list) = expand_register {
+            let register = self.frame_mut().pop_register()?;
+            self.push_op(ListPush, &[active_list, register]);
+        }
+
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
         match self.frame_mut().loop_stack.pop() {
@@ -909,11 +927,21 @@ impl Compiler {
             None => return Err("Empty loop info stack".to_string()),
         }
 
-        self.push_empty()?;
+        self.frame_mut().truncate_register_stack(stack_count)?;
+
+        if expand_register.is_none() {
+            // If the for loop isn't in a comprehension then a result is needed, so use Empty
+            self.push_empty()?;
+        }
+
         Ok(())
     }
 
-    fn compile_while(&mut self, ast_while: &AstWhile) -> Result<(), String> {
+    fn compile_while(
+        &mut self,
+        ast_while: &AstWhile,
+        expand_register: Option<u8>,
+    ) -> Result<(), String> {
         use Op::*;
 
         let AstWhile {
@@ -936,6 +964,12 @@ impl Compiler {
         self.push_loop_jump_placeholder()?;
 
         self.compile_node(&body)?;
+
+        if let Some(active_list) = expand_register {
+            let register = self.frame_mut().pop_register()?;
+            self.push_op(ListPush, &[active_list, register]);
+        }
+
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
         match self.frame_mut().loop_stack.pop() {
@@ -947,7 +981,10 @@ impl Compiler {
             None => return Err("Empty loop info stack".to_string()),
         }
 
-        self.push_empty()?;
+        if expand_register.is_none() {
+            // If the while loop isn't in a comprehension then a result is needed, so use Empty
+            self.push_empty()?;
+        }
 
         Ok(())
     }
