@@ -303,7 +303,7 @@ impl fmt::Display for Instruction {
                 write!(f, "RangeToIncl\treg: {}\t\tend: {}", register, end)
             }
             RangeFrom { register, start } => {
-                write!(f, "RangeTo\treg: {}\t\tstart: {}", register, start)
+                write!(f, "RangeFrom\treg: {}\t\tstart: {}", register, start)
             }
             RangeFull { register } => write!(f, "RangeFull\treg: {}", register),
             MakeIterator { register, range } => {

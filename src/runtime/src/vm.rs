@@ -1757,13 +1757,21 @@ add 5 6";
         }
 
         #[test]
-        fn nested() {
+        fn nested_function() {
             let script = "
 add = |a b|
   add2 = |x y| x + y
   add2 a b
 add 10 20";
             test_script(script, Number(30.0));
+        }
+
+        #[test]
+        fn nested_calls() {
+            let script = "
+add = |a b| a + b
+add 10 (add 20 30)";
+            test_script(script, Number(60.0));
         }
 
         #[test]
@@ -1857,6 +1865,15 @@ f = ||
 f()
 x";
             test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn multi_assignment_of_function_results() {
+            let script = "
+f = |n| n
+a, b = f 1, f 2
+a";
+            test_script(script, Number(1.0));
         }
     }
 

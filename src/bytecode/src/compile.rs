@@ -97,9 +97,7 @@ impl Frame {
     fn pop_register(&mut self) -> Result<u8, String> {
         let register = match self.register_stack.pop() {
             Some(register) => register,
-            None => {
-                return Err("pop_register: Empty register stack".to_string());
-            }
+            None => return Err("pop_register: Empty register stack".to_string()),
         };
 
         if register >= self.temporary_base {
@@ -334,6 +332,12 @@ impl Compiler {
                     LookupOrId::Id(id) => {
                         let function_register = self.compile_load_id(*id)?;
                         self.compile_call(function_register, args, None)?;
+                        // We want to keep the function result register on the stack,
+                        // but we don't want to keep the function register
+                        let result_register = self.frame_mut().pop_register()?;
+                        self.frame_mut().pop_register()?; // pop function register
+                        let target_register = self.frame_mut().push_register()?;
+                        self.push_op(Copy, &[target_register, result_register]);
                     }
                     LookupOrId::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
