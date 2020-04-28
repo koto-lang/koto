@@ -519,10 +519,12 @@ impl Vm {
             Instruction::Negate { register, source } => {
                 let result = match &self.get_register(source) {
                     Bool(b) => Bool(!b),
+                    Number(n) => Number(-n),
+                    Vec4(v) => Vec4(-v),
                     unexpected => {
                         return vm_error!(
                             instruction_ip,
-                            "Negate: expected Bool, found '{}'",
+                            "Negate: expected negatable value, found '{}'",
                             type_as_string(unexpected)
                         );
                     }
@@ -1445,6 +1447,14 @@ a = 1 * 3
 a + 1";
             test_script(script, Number(4.0));
         }
+
+        #[test]
+        fn negation() {
+            let script = "
+a = 99
+-a";
+            test_script(script, Number(-99.0));
+        }
     }
 
     mod lists {
@@ -2242,6 +2252,14 @@ x = 0
                 "(vec4 15 25 35 45) % (vec4 10) % 4",
                 vec4(1.0, 1.0, 1.0, 1.0),
             );
+        }
+
+        #[test]
+        fn negation() {
+            let script = "
+x = vec4 1 2 3 4
+-x";
+            test_script(script, vec4(-1.0, -2.0, -3.0, -4.0));
         }
     }
 

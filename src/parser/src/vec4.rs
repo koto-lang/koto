@@ -37,6 +37,14 @@ impl ops::Neg for Vec4 {
     }
 }
 
+impl ops::Neg for &Vec4 {
+    type Output = Vec4;
+
+    fn neg(self) -> Self::Output {
+        Vec4(-self.0, -self.1, -self.2, -self.3)
+    }
+}
+
 macro_rules! vec4_op {
     ($trait:ident, $fn:ident, $op:tt) => {
         impl ops::$trait for Vec4 {
