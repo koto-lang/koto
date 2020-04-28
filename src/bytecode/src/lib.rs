@@ -36,8 +36,12 @@ pub enum Op {
     Capture,          // function, target, source
     LoadCapture,      // register, capture
     SetCapture,       // capture, source
-    RangeExclusive,   // register, start, end
+    Range,            // register, start, end
     RangeInclusive,   // register, start, end
+    RangeTo,          // register, end
+    RangeToInclusive, // register, end
+    RangeFrom,        // register, start
+    RangeFull,        // register
     Negate,           // register, source
     Add,              // result, lhs, rhs
     Subtract,         // result, lhs, rhs

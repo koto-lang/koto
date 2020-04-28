@@ -58,7 +58,7 @@ pub enum Instruction {
         count: u8,
         element_register: u8,
     },
-    RangeExclusive {
+    Range {
         register: u8,
         start: u8,
         end: u8,
@@ -67,6 +67,21 @@ pub enum Instruction {
         register: u8,
         start: u8,
         end: u8,
+    },
+    RangeTo {
+        register: u8,
+        end: u8,
+    },
+    RangeToInclusive {
+        register: u8,
+        end: u8,
+    },
+    RangeFrom {
+        register: u8,
+        start: u8,
+    },
+    RangeFull {
+        register: u8,
     },
     MakeIterator {
         register: u8,
@@ -265,13 +280,13 @@ impl fmt::Display for Instruction {
                 "MakeVec4\treg: {}\t\tcount: {}\telement reg: {}",
                 register, count, element_register
             ),
-            RangeExclusive {
+            Range {
                 register,
                 start,
                 end,
             } => write!(
                 f,
-                "RangeExclusive\treg: {}\t\tstart: {}\tend: {}",
+                "Range\t\treg: {}\t\tstart: {}\tend: {}",
                 register, start, end
             ),
             RangeInclusive {
@@ -283,6 +298,14 @@ impl fmt::Display for Instruction {
                 "RangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
                 register, start, end
             ),
+            RangeTo { register, end } => write!(f, "RangeTo\treg: {}\t\tend: {}", register, end),
+            RangeToInclusive { register, end } => {
+                write!(f, "RangeToInclusive\treg: {}\t\tend: {}", register, end)
+            }
+            RangeFrom { register, start } => {
+                write!(f, "RangeTo\treg: {}\t\tstart: {}", register, start)
+            }
+            RangeFull { register } => write!(f, "RangeFull\treg: {}", register),
             MakeIterator { register, range } => {
                 write!(f, "MakeIterator\treg: {}\t\trange: {}", register, range)
             }
@@ -629,7 +652,7 @@ impl<'a> Iterator for InstructionReader<'a> {
                 count: get_byte!(),
                 element_register: get_byte!(),
             }),
-            Op::RangeExclusive => Some(RangeExclusive {
+            Op::Range => Some(Range {
                 register: get_byte!(),
                 start: get_byte!(),
                 end: get_byte!(),
@@ -638,6 +661,21 @@ impl<'a> Iterator for InstructionReader<'a> {
                 register: get_byte!(),
                 start: get_byte!(),
                 end: get_byte!(),
+            }),
+            Op::RangeTo => Some(RangeTo {
+                register: get_byte!(),
+                end: get_byte!(),
+            }),
+            Op::RangeToInclusive => Some(RangeToInclusive {
+                register: get_byte!(),
+                end: get_byte!(),
+            }),
+            Op::RangeFrom => Some(RangeFrom {
+                register: get_byte!(),
+                start: get_byte!(),
+            }),
+            Op::RangeFull => Some(RangeFull {
+                register: get_byte!(),
             }),
             Op::MakeIterator => Some(MakeIterator {
                 register: get_byte!(),

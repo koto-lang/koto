@@ -192,7 +192,7 @@ impl Vm {
                     };
                     self.set_register(register, Vec4(result));
                 }
-                Instruction::RangeExclusive {
+                Instruction::Range {
                     register,
                     start,
                     end,
@@ -245,6 +245,90 @@ impl Vm {
                         }
                     };
                     self.set_register(register, range);
+                }
+                Instruction::RangeTo { register, end } => {
+                    let range = match self.get_register(end) {
+                        Number(end) => {
+                            if *end < 0.0 {
+                                return vm_error!(
+                                    reader.ip,
+                                    "RangeTo: negative numbers not allowed, found '{}'",
+                                    end
+                                );
+                            }
+                            IndexRange {
+                                start: 0,
+                                end: Some(*end as usize),
+                            }
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                reader.ip,
+                                "RangeTo: Expected numbers for range bounds, found end: {}",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                    };
+                    self.set_register(register, range);
+                }
+                Instruction::RangeToInclusive { register, end } => {
+                    let range = match self.get_register(end) {
+                        Number(end) => {
+                            if *end < 0.0 {
+                                return vm_error!(
+                                    reader.ip,
+                                    "RangeToInclusive: negative numbers not allowed, found '{}'",
+                                    end
+                                );
+                            }
+                            IndexRange {
+                                start: 0,
+                                end: Some(*end as usize + 1),
+                            }
+                        }
+                        unexpected => {
+                            return vm_error!(
+                            reader.ip,
+                            "RangeToInclusive: Expected numbers for range bounds, found end: {}",
+                            type_as_string(&unexpected)
+                        )
+                        }
+                    };
+                    self.set_register(register, range);
+                }
+                Instruction::RangeFrom { register, start } => {
+                    let range = match self.get_register(start) {
+                        Number(start) => {
+                            if *start < 0.0 {
+                                return vm_error!(
+                                    reader.ip,
+                                    "RangeFrom: negative numbers not allowed, found '{}'",
+                                    start
+                                );
+                            }
+                            IndexRange {
+                                start: *start as usize,
+                                end: None,
+                            }
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                reader.ip,
+                                "RangeFrom: Expected numbers for range bounds, found end: {}",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                    };
+                    self.set_register(register, range);
+                }
+                Instruction::RangeFull { register } => {
+                    self.set_register(
+                        register,
+                        IndexRange {
+                            start: 0,
+                            end: None,
+                        },
+                    );
                 }
                 Instruction::MakeIterator { register, range } => {
                     let iterator = match self.get_register(range) {
@@ -639,58 +723,90 @@ impl Vm {
                     let value = self.get_register(value_register).clone();
 
                     match self.get_register_mut(list) {
-                        List(list) => match index_value {
-                            Number(index) => match list.data_mut().get_mut(index as usize) {
-                                Some(element) => *element = value,
-                                None => {
-                                    return vm_error!(reader.ip, "Index '{}' not in List", index);
-                                }
-                            },
-                            Range(IntRange { start, end }) => {
-                                let ustart = start as usize;
-                                let uend = end as usize;
+                        List(list) => {
+                            let list_len = list.len();
+                            match index_value {
+                                Number(index) => match list.data_mut().get_mut(index as usize) {
+                                    Some(element) => *element = value,
+                                    None => {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Index '{}' not in List",
+                                            index
+                                        );
+                                    }
+                                },
+                                Range(IntRange { start, end }) => {
+                                    let ustart = start as usize;
+                                    let uend = end as usize;
 
-                                if start < 0 || end < 0 {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Indexing with negative indices isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > end {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Indexing with a descending range isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if ustart > list.len() || uend > list.len() {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Index out of bounds, \
-                                         List has a length of {} - start: {}, end: {}",
-                                        list.len(),
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    let mut list_data = list.data_mut();
-                                    for i in ustart..uend {
-                                        list_data[i] = value.clone();
+                                    if start < 0 || end < 0 {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with negative indices isn't supported, \
+                                             start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if start > end {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with a descending range isn't supported, \
+                                             start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if ustart > list_len || uend > list_len {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Index out of bounds, \
+                                             List has a length of {} - start: {}, end: {}",
+                                            list_len,
+                                            start,
+                                            end
+                                        );
+                                    } else {
+                                        let mut list_data = list.data_mut();
+                                        for i in ustart..uend {
+                                            list_data[i] = value.clone();
+                                        }
                                     }
                                 }
+                                IndexRange { start, end } => {
+                                    let end = end.unwrap_or(list_len);
+                                    if start > end {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with a descending range isn't supported, \
+                                             start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if start > list_len || end > list_len {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Index out of bounds, \
+                                             List has a length of {} - start: {}, end: {}",
+                                            list_len,
+                                            start,
+                                            end
+                                        );
+                                    } else {
+                                        let mut list_data = list.data_mut();
+                                        for i in start..end {
+                                            list_data[i] = value.clone();
+                                        }
+                                    }
+                                }
+                                unexpected => {
+                                    return vm_error!(
+                                        reader.ip,
+                                        "Unexpected type for List index: '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
                             }
-                            IndexRange { .. } => unimplemented!(),
-                            unexpected => {
-                                return vm_error!(
-                                    reader.ip,
-                                    "Unexpected type for List index: '{}'",
-                                    type_as_string(&unexpected)
-                                );
-                            }
-                        },
+                        }
                         unexpected => {
                             return vm_error!(
                                 reader.ip,
@@ -709,76 +825,105 @@ impl Vm {
                     let index_value = self.get_register(index).clone();
 
                     match list_value {
-                        List(l) => match index_value {
-                            Number(n) => {
-                                if n < 0.0 {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Negative list indices aren't allowed (found '{}')",
-                                        n
-                                    );
-                                }
-                                match l.data().get(n as usize) {
-                                    Some(value) => {
-                                        self.set_register(register, value.clone());
-                                    }
-                                    None => {
+                        List(l) => {
+                            let list_len = l.len();
+
+                            match index_value {
+                                Number(n) => {
+                                    if n < 0.0 {
                                         return vm_error!(
+                                            reader.ip,
+                                            "Negative list indices aren't allowed (found '{}')",
+                                            n
+                                        );
+                                    }
+                                    match l.data().get(n as usize) {
+                                        Some(value) => {
+                                            self.set_register(register, value.clone());
+                                        }
+                                        None => {
+                                            return vm_error!(
                                             reader.ip,
                                             "List index out of bounds - index: {}, list size: {}",
                                             n,
-                                            l.data().len()
+                                            list_len
+                                            )
+                                        }
+                                    }
+                                }
+                                Range(IntRange { start, end }) => {
+                                    let ustart = start as usize;
+                                    let uend = end as usize;
+
+                                    if start < 0 || end < 0 {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with negative indices isn't supported, \
+                                            start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if start > end {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with a descending range isn't supported, \
+                                            start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if ustart > list_len || uend > list_len {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Index out of bounds, \
+                                            List has a length of {} - start: {}, end: {}",
+                                            list_len,
+                                            start,
+                                            end
+                                        );
+                                    } else {
+                                        // TODO Avoid allocating new vec,
+                                        // introduce 'slice' value type
+                                        self.set_register(
+                                            register,
+                                            List(ValueList::from_slice(&l.data()[ustart..uend])),
                                         )
                                     }
                                 }
-                            }
-                            Range(IntRange { start, end }) => {
-                                let ustart = start as usize;
-                                let uend = end as usize;
-
-                                if start < 0 || end < 0 {
+                                IndexRange { start, end } => {
+                                    let end = end.unwrap_or(list_len);
+                                    if start > end {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Indexing with a descending range isn't supported, \
+                                            start: {}, end: {}",
+                                            start,
+                                            end
+                                        );
+                                    } else if start > list_len || end > list_len {
+                                        return vm_error!(
+                                            reader.ip,
+                                            "Index out of bounds, \
+                                            List has a length of {} - start: {}, end: {}",
+                                            list_len,
+                                            start,
+                                            end
+                                        );
+                                    } else {
+                                        self.set_register(
+                                            register,
+                                            List(ValueList::from_slice(&l.data()[start..end])),
+                                        )
+                                    }
+                                }
+                                unexpected => {
                                     return vm_error!(
                                         reader.ip,
-                                        "Indexing with negative indices isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > end {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Indexing with a descending range isn't supported, \
-                                         start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if ustart > l.len() || uend > l.len() {
-                                    return vm_error!(
-                                        reader.ip,
-                                        "Index out of bounds, \
-                                         List has a length of {} - start: {}, end: {}",
-                                        l.len(),
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    // TODO Avoid allocating new vec,
-                                    // introduce 'slice' value type
-                                    self.set_register(
-                                        register,
-                                        List(ValueList::from_slice(&l.data()[ustart..uend])),
+                                        "Expected Number or Range, found '{}'",
+                                        type_as_string(&unexpected),
                                     )
                                 }
                             }
-                            IndexRange { .. } => unimplemented!("ListIndex IndexRange"),
-                            unexpected => {
-                                return vm_error!(
-                                    reader.ip,
-                                    "Expected Number or Range, found '{}'",
-                                    type_as_string(&unexpected),
-                                )
-                            }
-                        },
+                        }
                         unexpected => {
                             return vm_error!(
                                 reader.ip,
@@ -1249,9 +1394,49 @@ a[1]";
         #[test]
         fn access_range() {
             let script = "
-a = [10 20 30]
+a = [10 20 30 40 50]
 a[1..3]";
             test_script(script, number_list(&[20, 30]));
+        }
+
+        #[test]
+        fn access_range_inclusive() {
+            let script = "
+a = [10 20 30 40 50]
+a[1..=3]";
+            test_script(script, number_list(&[20, 30, 40]));
+        }
+
+        #[test]
+        fn access_range_to() {
+            let script = "
+a = [10 20 30 40 50]
+a[..2]";
+            test_script(script, number_list(&[10, 20]));
+        }
+
+        #[test]
+        fn access_range_to_inclusive() {
+            let script = "
+a = [10 20 30 40 50]
+a[..=2]";
+            test_script(script, number_list(&[10, 20, 30]));
+        }
+
+        #[test]
+        fn access_range_from() {
+            let script = "
+a = [10 20 30 40 50]
+a[2..]";
+            test_script(script, number_list(&[30, 40, 50]));
+        }
+
+        #[test]
+        fn access_range_full() {
+            let script = "
+a = [10 20 30 40 50]
+a[..]";
+            test_script(script, number_list(&[10, 20, 30, 40, 50]));
         }
 
         #[test]
@@ -1271,6 +1456,42 @@ a = [1 2 3 4 5]
 a[1..=3] = 0
 a";
             test_script(script, number_list(&[1, 0, 0, 0, 5]));
+        }
+
+        #[test]
+        fn assign_range_to() {
+            let script = "
+a = [1 2 3 4 5]
+a[..3] = 0
+a";
+            test_script(script, number_list(&[0, 0, 0, 4, 5]));
+        }
+
+        #[test]
+        fn assign_range_to_inclusive() {
+            let script = "
+a = [1 2 3 4 5]
+a[..=3] = 8
+a";
+            test_script(script, number_list(&[8, 8, 8, 8, 5]));
+        }
+
+        #[test]
+        fn assign_range_from() {
+            let script = "
+a = [1 2 3 4 5]
+a[2..] = 9
+a";
+            test_script(script, number_list(&[1, 2, 9, 9, 9]));
+        }
+
+        #[test]
+        fn assign_range_full() {
+            let script = "
+a = [1 2 3 4 5]
+a[..] = 9
+a";
+            test_script(script, number_list(&[9, 9, 9, 9, 9]));
         }
 
         #[test]

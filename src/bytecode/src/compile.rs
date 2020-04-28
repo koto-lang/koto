@@ -240,13 +240,31 @@ impl Compiler {
                 let end_register = self.frame_mut().pop_register()?;
                 let start_register = self.frame_mut().pop_register()?;
 
-                let op = if *inclusive {
-                    RangeInclusive
-                } else {
-                    RangeExclusive
-                };
+                let op = if *inclusive { RangeInclusive } else { Range };
                 let target = self.frame_mut().push_register()?;
                 self.push_op(op, &[target, start_register, end_register]);
+            }
+            Node::RangeFrom { start } => {
+                self.compile_node(start)?;
+                let start_register = self.frame_mut().pop_register()?;
+                let target = self.frame_mut().push_register()?;
+                self.push_op(RangeFrom, &[target, start_register]);
+            }
+            Node::RangeTo { end, inclusive } => {
+                self.compile_node(end)?;
+                let end_register = self.frame_mut().pop_register()?;
+
+                let op = if *inclusive {
+                    RangeToInclusive
+                } else {
+                    RangeTo
+                };
+                let target = self.frame_mut().push_register()?;
+                self.push_op(op, &[target, end_register]);
+            }
+            Node::RangeFull => {
+                let target = self.frame_mut().push_register()?;
+                self.push_op(RangeFull, &[target]);
             }
             Node::MainBlock { body, local_count } => {
                 self.compile_frame(*local_count as u8, body, &[], &[])?;
