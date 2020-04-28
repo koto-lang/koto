@@ -163,6 +163,8 @@ impl Compiler {
 
     pub fn compile_ast(&mut self, ast: &AstNode) -> Result<&Bytecode, String> {
         // dbg!(ast);
+        assert!(self.frame_stack.is_empty());
+        self.bytes.clear();
         self.compile_node(ast)?;
         Ok(&self.bytes)
     }

@@ -1,4 +1,4 @@
-use crate::Op;
+use crate::{Bytecode, Op};
 use std::{
     convert::{TryFrom, TryInto},
     fmt,
@@ -295,12 +295,12 @@ impl fmt::Display for Instruction {
                 end,
             } => write!(
                 f,
-                "RangeInclusive\treg: {}\t\tstart: {}\t\tend: {}",
+                "RangeInclusive\treg: {}\t\tstart: {}\tend: {}",
                 register, start, end
             ),
-            RangeTo { register, end } => write!(f, "RangeTo\treg: {}\t\tend: {}", register, end),
+            RangeTo { register, end } => write!(f, "RangeTo\t\treg: {}\t\tend: {}", register, end),
             RangeToInclusive { register, end } => {
-                write!(f, "RangeToInclusive\treg: {}\t\tend: {}", register, end)
+                write!(f, "RangeToIncl\treg: {}\t\tend: {}", register, end)
             }
             RangeFrom { register, start } => {
                 write!(f, "RangeTo\treg: {}\t\tstart: {}", register, start)
@@ -326,7 +326,7 @@ impl fmt::Display for Instruction {
                 size,
             } => write!(
                 f,
-                "InstanceFunction\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
+                "InstanceFn\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
                 register, arg_count, capture_count, size
             ),
             Capture {
@@ -369,7 +369,7 @@ impl fmt::Display for Instruction {
             ),
             Modulo { register, lhs, rhs } => write!(
                 f,
-                "Modulo\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Modulo\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Less { register, lhs, rhs } => write!(
@@ -384,7 +384,7 @@ impl fmt::Display for Instruction {
             ),
             Greater { register, lhs, rhs } => write!(
                 f,
-                "Greater\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Greater\t\treg: {}\t\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             GreaterOrEqual { register, lhs, rhs } => write!(
@@ -494,18 +494,23 @@ impl fmt::Display for Instruction {
     }
 }
 
-pub struct InstructionReader<'a> {
-    bytes: &'a [u8],
+// TODO owning/non-owning readers
+#[derive(Default)]
+pub struct InstructionReader {
+    pub bytes: Bytecode,
     pub ip: usize,
 }
 
-impl<'a> InstructionReader<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, ip: 0 }
+impl InstructionReader {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self {
+            bytes: bytes.to_vec(),
+            ip: 0,
+        }
     }
 }
 
-impl<'a> Iterator for InstructionReader<'a> {
+impl Iterator for InstructionReader {
     type Item = Instruction;
 
     fn next(&mut self) -> Option<Self::Item> {
