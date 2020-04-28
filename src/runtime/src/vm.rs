@@ -102,21 +102,27 @@ impl Vm {
                     }
                 }
                 Instruction::LoadNumber { register, constant } => {
-                    self.set_register(register, Number(self.constants.get_f64(constant as usize)))
+                    self.set_register(register, Number(self.constants.get_f64(constant)))
                 }
                 Instruction::LoadString { register, constant } => {
                     let string = self.arc_string_from_constant(constant);
                     self.set_register(register, Str(string))
                 }
                 Instruction::LoadGlobal { register, constant } => {
-                    let global_name = self.get_constant_string(constant as usize);
+                    let global_name = self.get_constant_string(constant);
                     let global = self.global.data().get(global_name).cloned();
                     match global {
                         Some(value) => self.set_register(register, value),
                         None => {
-                            return vm_error!(reader.ip, "global '{}' not found", global_name);
+                            return vm_error!(reader.ip, "LoadGlobal: '{}' not found", global_name);
                         }
                     }
+                }
+                Instruction::SetGlobal { global, source } => {
+                    let global_name = self.get_constant_string(global);
+                    self.global
+                        .data_mut()
+                        .insert(Id::from_str(global_name), self.get_register(source).clone());
                 }
                 Instruction::MakeList {
                     register,
@@ -1515,6 +1521,16 @@ f = |x|
   x
 f [1 2]";
             test_script(script, number_list(&[2, 3]));
+        }
+
+        #[test]
+        fn global_assignment() {
+            let script = "
+f = ||
+  global x = 42
+f()
+x";
+            test_script(script, Number(42.0));
         }
     }
 

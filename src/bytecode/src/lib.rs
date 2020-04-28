@@ -23,6 +23,8 @@ pub enum Op {
     LoadStringLong,   // register, constant[4]
     LoadGlobal,       // register, constant
     LoadGlobalLong,   // register, constant[4]
+    SetGlobal,        // global, source
+    SetGlobalLong,    // global[4], source
     MakeList,         // register, size hint
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint

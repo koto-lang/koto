@@ -41,6 +41,10 @@ pub enum Instruction {
         register: u8,
         constant: usize,
     },
+    SetGlobal {
+        global: usize,
+        source: u8,
+    },
     MakeList {
         register: u8,
         size_hint: usize,
@@ -236,6 +240,9 @@ impl fmt::Display for Instruction {
             }
             LoadGlobal { register, constant } => {
                 write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
+            }
+            SetGlobal { global, source } => {
+                write!(f, "SetGlobal\tglobal: {}\t\tsource: {}", global, source)
             }
             MakeList {
                 register,
@@ -592,6 +599,14 @@ impl<'a> Iterator for InstructionReader<'a> {
             Op::LoadGlobalLong => Some(LoadGlobal {
                 register: get_byte!(),
                 constant: get_u32!() as usize,
+            }),
+            Op::SetGlobal => Some(SetGlobal {
+                global: get_byte!() as usize,
+                source: get_byte!(),
+            }),
+            Op::SetGlobalLong => Some(SetGlobal {
+                global: get_u32!() as usize,
+                source: get_byte!(),
             }),
             Op::MakeList => Some(MakeList {
                 register: get_byte!(),

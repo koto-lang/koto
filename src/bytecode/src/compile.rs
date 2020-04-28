@@ -2,7 +2,7 @@ use crate::{Bytecode, Op};
 
 use koto_parser::{
     AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, Lookup, LookupNode,
-    LookupOrId, Node,
+    LookupOrId, Node, Scope,
 };
 use std::convert::TryFrom;
 
@@ -445,18 +445,29 @@ impl Compiler {
         self.compile_node(expression)?;
 
         match target {
-            AssignTarget::Id { id_index, .. } => {
-                if let Some(capture) = self.frame().capture_slot(*id_index) {
-                    let source = self.frame_mut().peek_register()?;
-                    self.push_op(SetCapture, &[capture, source]);
-                } else {
-                    let source = self.frame_mut().pop_register()?;
-                    let register = self.frame_mut().get_local_register(*id_index)?;
-                    if register != source {
-                        self.push_op(Copy, &[register, source]);
+            AssignTarget::Id { id_index, scope } => match scope {
+                Scope::Local => {
+                    if let Some(capture) = self.frame().capture_slot(*id_index) {
+                        let source = self.frame_mut().peek_register()?;
+                        self.push_op(SetCapture, &[capture, source]);
+                    } else {
+                        let source = self.frame_mut().pop_register()?;
+                        let register = self.frame_mut().get_local_register(*id_index)?;
+                        if register != source {
+                            self.push_op(Copy, &[register, source]);
+                        }
                     }
                 }
-            }
+                Scope::Global => {
+                    let source = self.frame_mut().peek_register()?;
+                    if *id_index <= u8::MAX as u32 {
+                        self.push_op(SetGlobal, &[*id_index as u8, source]);
+                    } else {
+                        self.push_op(SetGlobalLong, &id_index.to_le_bytes());
+                        self.push_bytes(&[source]);
+                    }
+                }
+            },
             AssignTarget::Lookup(lookup) => {
                 let source = self.frame_mut().peek_register()?;
                 self.compile_lookup(lookup, Some(source))?;
