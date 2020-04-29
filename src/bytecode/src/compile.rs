@@ -998,7 +998,7 @@ impl Compiler {
         } = &ast_for;
 
         //   make iterator, iterator_register
-        //   make local registers for for args
+        //   make local registers for args
         // loop_start:
         //   iterator_next_or_jump iterator_register arg_register jump -> end
         //   if condition
@@ -1008,12 +1008,14 @@ impl Compiler {
         //   jump -> loop_start
         // end:
 
-        if args.len() != ranges.len() {
-            return Err(format!(
-                "compile_for: argument and range count mismatch: {} vs {}",
-                args.len(),
-                ranges.len()
-            ));
+        if ranges.len() > 1 {
+            if args.len() != ranges.len() {
+                return Err(format!(
+                    "compile_for: argument and range count mismatch: {} vs {}",
+                    args.len(),
+                    ranges.len()
+                ));
+            }
         }
 
         let stack_count = self.frame().register_stack.len();
@@ -1053,10 +1055,25 @@ impl Compiler {
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
-        for (i, arg) in args.iter().enumerate() {
-            let arg_register = self.frame_mut().get_local_register(*arg)?;
-            self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
+        if args.len() > 1 && ranges.len() == 1 {
+            // e.g. for a, b, c in list_of_lists()
+            let temp_register = self.push_register()?;
+
+            self.push_op(IteratorNext, &[temp_register, iterator_register]);
             self.push_loop_jump_placeholder()?;
+
+            for (i, arg) in args.iter().enumerate() {
+                let arg_register = self.frame_mut().push_local_register(*arg)?;
+                self.push_op(ExpressionIndex, &[arg_register, temp_register, i as u8]);
+            }
+
+            self.pop_register()?; // temp_register
+        } else {
+            for (i, arg) in args.iter().enumerate() {
+                let arg_register = self.frame_mut().get_local_register(*arg)?;
+                self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
+                self.push_loop_jump_placeholder()?;
+            }
         }
 
         if let Some(condition) = condition {

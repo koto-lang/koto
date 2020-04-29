@@ -2079,7 +2079,18 @@ f()";
         }
 
         #[test]
-        fn multiple_ranges() {
+        fn multiple_ranges_2_to_1() {
+            let script = "
+sum = 0
+for a, b in [[1 2] [3 4]]
+    sum += a + b
+sum
+";
+            test_script(script, Number(10.0));
+        }
+
+        #[test]
+        fn multiple_ranges_2_to_2() {
             let script = "
 sum = 0
 for a, b in [1 2 3], [4 5 6]
