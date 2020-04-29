@@ -2204,6 +2204,25 @@ m = {foo: -1, bar: 42} + {foo: 99}
         }
 
         #[test]
+        fn equality() {
+            let script = "
+m = {foo: 42, bar: || 99}
+m2 = m
+m == m2";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn inequality() {
+            let script = "
+m = {foo: 42, bar: || 99}
+m2 = copy m
+m2.foo = 99
+m != m2";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
         fn shared_data_by_default() {
             let script = "
 m = {foo: 42}

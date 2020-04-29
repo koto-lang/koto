@@ -119,6 +119,7 @@ impl PartialEq for Value {
                 },
             ) => start_a == start_b && end_a == end_b,
             (Function(a), Function(b)) => a == b,
+            (VmFunction(a), VmFunction(b)) => a == b,
             (Empty, Empty) => true,
             _ => false,
         }
@@ -162,7 +163,7 @@ impl From<bool> for Value {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VmRuntimeFunction {
     pub ip: usize,
     pub arg_count: u8,
