@@ -1,20 +1,15 @@
-mod call_stack;
 mod external;
 mod id;
-mod runtime;
 pub mod value;
 mod value_iterator;
 mod value_list;
 mod value_map;
 mod vm;
 
-use koto_parser::LookupSlice;
-
 use id::Id;
-pub use runtime::Runtime;
 
 pub use external::{ExternalFunction, ExternalValue};
-pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
+pub use value::{make_external_value, type_as_string, VmRuntimeFunction, Value};
 pub use value_iterator::IntRange;
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};

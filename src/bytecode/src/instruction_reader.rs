@@ -495,7 +495,7 @@ impl fmt::Display for Instruction {
 }
 
 // TODO owning/non-owning readers
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct InstructionReader {
     pub bytes: Bytecode,
     pub ip: usize,

@@ -4,7 +4,7 @@ use crate::{
     type_as_string,
     value::{copy_value, VmRuntimeFunction},
     value_iterator::{IntRange, Iterable, ValueIterator2},
-    vm_error, Error, Id, Runtime, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
 use koto_parser::{vec4, ConstantPool};
@@ -21,12 +21,12 @@ pub enum ControlFlow {
 struct Frame {
     base: usize,
     captures: Option<ValueList>,
-    return_ip: usize,
+    return_ip: Option<usize>,
     result: Value,
 }
 
 impl Frame {
-    fn new(base: usize, return_ip: usize, captures: ValueList) -> Self {
+    fn new(base: usize, return_ip: Option<usize>, captures: ValueList) -> Self {
         Self {
             base,
             captures: Some(captures),
@@ -59,8 +59,8 @@ pub struct Vm {
     global: ValueMap,
     constants: Arc<ConstantPool>,
     script_path: Arc<Option<String>>,
-
     reader: InstructionReader,
+
     string_constants: FxHashMap<usize, Arc<String>>,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -70,6 +70,7 @@ impl Vm {
     pub fn new() -> Self {
         Self {
             value_stack: Vec::with_capacity(32),
+            call_stack: vec![Frame::default()],
             ..Default::default()
         }
     }
@@ -79,6 +80,8 @@ impl Vm {
             constants: self.constants.clone(),
             global: self.global.clone(),
             script_path: self.script_path.clone(),
+            reader: self.reader.clone(),
+            call_stack: vec![Frame::default()],
             ..Default::default()
         }
     }
@@ -110,21 +113,43 @@ impl Vm {
     pub fn reset(&mut self) {
         self.value_stack.clear();
         self.call_stack.clear();
+        self.call_stack.push(Frame::default());
     }
 
     pub fn run(&mut self) -> RuntimeResult {
-        self.call_stack.clear();
-        self.call_stack.push(Frame::default());
+        self.reset();
         self.execute_instructions()
     }
 
-    pub fn run_with_entry_point(&mut self, entry_point: &Value, args: &[Value]) -> RuntimeResult {
-        self.call_stack.clear();
-        self.call_stack.push(Frame::default());
-        self.value_stack.extend_from_slice(args);
-        self.call_function(entry_point, 0, args.len() as u8, None)?;
+    pub fn run_function(&mut self, function: &VmRuntimeFunction, args: &[Value]) -> RuntimeResult {
+        if function.is_instance_function {
+            return vm_error!(self.reader.ip, "Unexpected instance function");
+        }
 
-        self.execute_instructions()
+        if function.arg_count != args.len() as u8 {
+            return vm_error!(
+                self.reader.ip,
+                "Incorrect argument count, expected {}, found {}",
+                function.arg_count,
+                args.len(),
+            );
+        }
+
+        if self.call_stack.is_empty() {
+            self.call_stack.push(Frame::default());
+        }
+
+        let arg_register = (self.value_stack.len() - self.frame().base) as u8;
+        self.value_stack.extend_from_slice(args);
+
+        self.push_frame(None, arg_register, function.captures.clone());
+        let ip = self.reader.ip;
+        self.set_ip(function.ip);
+
+        let result = self.execute_instructions()?;
+        self.reader.ip = ip;
+
+        Ok(result)
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
@@ -173,10 +198,10 @@ impl Vm {
                 let return_ip = self.frame().return_ip;
                 let frame_result = self.pop_frame()?;
 
-                if self.call_stack.is_empty() {
+                if self.call_stack.is_empty() || return_ip.is_none() {
                     result = ControlFlow::ReturnValue(frame_result);
                 } else {
-                    self.set_ip(return_ip);
+                    self.set_ip(return_ip.unwrap());
                 }
             }
             Instruction::LoadNumber { register, constant } => {
@@ -1111,8 +1136,12 @@ impl Vm {
                     }
                 };
 
-                let args = self.register_slice(arg_register, call_arg_count);
-                let result = (&*function)(&mut Runtime::default(), args);
+                let mut args = ValueVec::new();
+                for arg_value in self.register_slice(arg_register, call_arg_count).iter() {
+                    args.push(arg_value.clone());
+                }
+
+                let result = (&*function)(self, &args);
                 match result {
                     Ok(value) => {
                         self.set_register(arg_register, value);
@@ -1148,7 +1177,7 @@ impl Vm {
                     );
                 }
 
-                self.push_frame(self.reader.ip, arg_register, captures.clone());
+                self.push_frame(Some(self.reader.ip), arg_register, captures.clone());
 
                 self.set_ip(*function_ip);
             }
@@ -1184,7 +1213,7 @@ impl Vm {
         self.call_stack.last_mut().unwrap()
     }
 
-    fn push_frame(&mut self, return_ip: usize, arg_register: u8, captures: ValueList) {
+    fn push_frame(&mut self, return_ip: Option<usize>, arg_register: u8, captures: ValueList) {
         let frame_base = self.register_index(arg_register);
         self.call_stack
             .push(Frame::new(frame_base, return_ip, captures));
@@ -1200,7 +1229,7 @@ impl Vm {
 
         let return_value = frame.result.clone();
 
-        if !self.call_stack.is_empty() {
+        if !self.call_stack.is_empty() && frame.return_ip.is_some() {
             self.value_stack.truncate(frame.base);
             self.value_stack.push(return_value.clone());
         }
