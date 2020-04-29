@@ -32,7 +32,7 @@ AtAv = |x y t n|
   Av x t n
   Atv t y n
 
-main = ||
+export main = ||
   n = list.get env.args 0
   if n == ()
     n = 4

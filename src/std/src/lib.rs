@@ -7,8 +7,8 @@ mod thread;
 pub use koto_runtime::EXTERNAL_DATA_ID;
 
 use koto_runtime::{
-    external_error, value, value::type_as_string, ExternalValue, IntRange, Runtime, RuntimeResult,
-    Value, ValueList, ValueMap, ValueVec,
+    external_error, value, value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value,
+    ValueList, ValueMap, ValueVec, Vm,
 };
 use std::sync::Arc;
 
@@ -93,7 +93,7 @@ macro_rules! get_external_instance {
     }};
 }
 
-pub fn register(runtime: &mut Runtime) {
+pub fn register(runtime: &mut Vm) {
     use Value::*;
 
     let global = runtime.global_mut();

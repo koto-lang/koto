@@ -3,7 +3,7 @@
 use crate::{
     type_as_string,
     value::{copy_value, VmRuntimeFunction},
-    value_iterator::{IntRange, Iterable, ValueIterator2},
+    value_iterator::{IntRange, Iterable, ValueIterator},
     vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
@@ -439,8 +439,8 @@ impl Vm {
             }
             Instruction::MakeIterator { register, range } => {
                 let iterator = match self.get_register(range) {
-                    Range(int_range) => Iterator(ValueIterator2::new(Iterable::Range(*int_range))),
-                    List(list) => Iterator(ValueIterator2::new(Iterable::List(list.clone()))),
+                    Range(int_range) => Iterator(ValueIterator::new(Iterable::Range(*int_range))),
+                    List(list) => Iterator(ValueIterator::new(Iterable::List(list.clone()))),
                     Map(_) => {
                         unimplemented!("MakeIterator - List");
                     }
@@ -804,7 +804,7 @@ impl Vm {
                     List(list) => match value {
                         Range(range) => {
                             list.data_mut()
-                                .extend(ValueIterator2::new(Iterable::Range(range)));
+                                .extend(ValueIterator::new(Iterable::Range(range)));
                         }
                         _ => list.data_mut().push(value),
                     },

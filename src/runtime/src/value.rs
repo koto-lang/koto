@@ -1,6 +1,6 @@
 use crate::{
     external::{ExternalFunction, ExternalValue},
-    value_iterator::{IntRange, ValueIterator2},
+    value_iterator::{IntRange, ValueIterator},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
 };
@@ -29,7 +29,7 @@ pub enum Value {
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
     While(Arc<AstWhile>),
-    Iterator(ValueIterator2),
+    Iterator(ValueIterator),
 }
 
 impl Default for Value {

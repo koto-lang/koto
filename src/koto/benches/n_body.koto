@@ -98,7 +98,7 @@ offset_momentum = |bodies nbody|
         pos += body.vel * body.mass
     bodies[0].vel = -pos / solar_mass
 
-main = ||
+export main = ||
   n = list.get env.args 0
   if n == ()
     n = 100

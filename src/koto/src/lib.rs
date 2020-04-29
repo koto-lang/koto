@@ -1,10 +1,11 @@
+pub use koto_bytecode::{bytecode_to_string, Compiler};
 pub use koto_parser::{
     vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
-use koto_runtime::Runtime;
+use koto_runtime::Vm;
 pub use koto_runtime::{
-    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
-    RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeResult,
+    Value, ValueHashMap, ValueList, ValueMap, ValueVec, VmRuntimeFunction,
 };
 pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
@@ -13,8 +14,9 @@ use std::{path::Path, sync::Arc};
 pub struct Koto {
     script: String,
     parser: Parser,
+    compiler: Compiler,
     ast: AstNode,
-    runtime: Runtime,
+    runtime: Vm,
 }
 
 impl Koto {
@@ -33,7 +35,7 @@ impl Koto {
     }
 
     pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
-        self.parse(script)?;
+        self.compile(script)?;
 
         self.set_args(Vec::new());
         self.run()?;
@@ -50,7 +52,7 @@ impl Koto {
         script: &str,
         args: Vec<String>,
     ) -> Result<Value, String> {
-        self.parse(script)?;
+        self.compile(script)?;
 
         self.set_args(args);
         self.run()?;
@@ -62,16 +64,28 @@ impl Koto {
         }
     }
 
-    pub fn parse(&mut self, script: &str) -> Result<(), String> {
-        let constants = self.runtime.constants_mut();
-        match self.parser.parse(&script, constants) {
+    pub fn compile(&mut self, script: &str) -> Result<(), String> {
+        match self.parser.parse(&script, self.runtime.constants_mut()) {
             Ok(ast) => {
                 self.ast = ast;
+                self.runtime.constants_mut().shrink_to_fit();
+            }
+            Err(e) => {
+                return Err(format!("Error while parsing script: {}", e));
+            }
+        }
+        match self.compiler.compile_ast(&self.ast) {
+            Ok(bytecode) => {
+                self.runtime.set_bytecode(bytecode);
+
+                // TODO make optional
+                // println!("{}", script);
+                // println!("{}", bytecode_to_string(bytecode));
+
                 self.script = script.to_string();
-                constants.shrink_to_fit();
                 Ok(())
             }
-            Err(e) => Err(format!("Error while parsing script: {}", e)),
+            Err(e) => Err(format!("Error while compiling script: {}", e)),
         }
     }
 
@@ -127,7 +141,7 @@ impl Koto {
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        match self.runtime.evaluate(&self.ast) {
+        match self.runtime.run() {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::RuntimeError {
@@ -144,14 +158,14 @@ impl Koto {
                         instruction, message
                     ) // TODO
                 }
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
+                Error::ExternalError { message } => format!("External error: {}\n", message),
             }),
         }
     }
 
-    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction> {
-        match self.runtime.get_value(function_name) {
-            Some(Value::Function(function)) => Some(function),
+    pub fn get_global_function(&self, id: &str) -> Option<VmRuntimeFunction> {
+        match self.runtime.get_global_value(id) {
+            Some(Value::VmFunction(function)) => Some(function),
             _ => None,
         }
     }
@@ -172,13 +186,10 @@ impl Koto {
 
     pub fn call_function(
         &mut self,
-        function: &RuntimeFunction,
+        function: &VmRuntimeFunction,
         args: &[Value],
     ) -> Result<Value, String> {
-        match self
-            .runtime
-            .call_function_with_evaluated_args(function, args)
-        {
+        match self.runtime.run_function(function, args) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::RuntimeError {
@@ -186,9 +197,10 @@ impl Koto {
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(&message, start_pos, end_pos),
-                Error::VmRuntimeError { message, .. } => {
-                    format!("VM Runtime error: {}\n", message,) // TODO
-                }
+                Error::VmRuntimeError {
+                    message,
+                    instruction,
+                } => format!("VM Runtime error at instruction {}: {}\n",instruction,  message),
                 Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
         }

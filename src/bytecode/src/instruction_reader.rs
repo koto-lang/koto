@@ -257,7 +257,7 @@ impl fmt::Display for Instruction {
                 write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
             }
             SetGlobal { global, source } => {
-                write!(f, "SetGlobal\tglobal: {}\t\tsource: {}", global, source)
+                write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
             }
             MakeList {
                 register,

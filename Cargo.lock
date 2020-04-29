@@ -313,6 +313,7 @@ name = "koto"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "koto_bytecode",
  "koto_parser",
  "koto_runtime",
  "koto_std",

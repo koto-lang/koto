@@ -119,18 +119,18 @@ pub fn register(global: &mut ValueMap) {
     list.add_fn("filter", |runtime, args| {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
-                Function(f) => {
-                    if f.function.args.len() != 1 {
+                VmFunction(f) => {
+                    if f.arg_count != 1 {
                         return external_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
-                            f.function.args.len(),
+                            f.arg_count,
                         );
                     }
                     let mut write_index = 0;
                     for read_index in 0..list.len() {
                         let value = list.data()[read_index].clone();
-                        match runtime.call_function_with_evaluated_args(f, &[value.clone()])? {
+                        match runtime.run_function(f, &[value.clone()])? {
                             Bool(result) => {
                                 if result {
                                     list.data_mut()[write_index] = value;
@@ -159,17 +159,17 @@ pub fn register(global: &mut ValueMap) {
 
     list.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
-            Function(f) => {
-                if f.function.args.len() != 1 {
+            VmFunction(f) => {
+                if f.arg_count != 1 {
                     return external_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
-                        f.function.args.len(),
+                        f.arg_count,
                     );
                 }
 
                 for value in list.data_mut().iter_mut() {
-                    *value = runtime.call_function_with_evaluated_args(f, &[value.clone()])?;
+                    *value = runtime.run_function(f, &[value.clone()])?;
                 }
 
                 Ok(Value::Empty)
@@ -183,18 +183,17 @@ pub fn register(global: &mut ValueMap) {
 
     list.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args {
-            [_, result, Function(f)] => {
-                if f.function.args.len() != 2 {
+            [_, result, VmFunction(f)] => {
+                if f.arg_count != 2 {
                     return external_error!(
                         "list.fold: The fold function must have two arguments, found '{}'",
-                        f.function.args.len(),
+                        f.arg_count,
                     );
                 }
 
                 let mut result = result.clone();
                 for value in list.data().iter() {
-                    result =
-                        runtime.call_function_with_evaluated_args(f, &[result, value.clone()])?;
+                    result = runtime.run_function(f, &[result, value.clone()])?;
                 }
 
                 Ok(result)

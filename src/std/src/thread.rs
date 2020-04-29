@@ -3,7 +3,7 @@ use koto_runtime::{external_error, value, Error, Value, ValueMap};
 use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
 pub fn register(global: &mut ValueMap) {
-    use Value::{Empty, Function, Number};
+    use Value::{Empty, VmFunction, Number};
 
     let mut thread = ValueMap::new();
 
@@ -18,11 +18,11 @@ pub fn register(global: &mut ValueMap) {
     });
 
     thread.add_fn("create", |runtime, args| match &args {
-        [Function(f)] => {
+        [VmFunction(f)] => {
             let join_handle = thread::spawn({
-                let mut thread_runtime = runtime.create_shared_runtime();
+                let mut thread_vm = runtime.spawn_shared_vm();
                 let f = f.clone();
-                move || match thread_runtime.call_function(&f, &[]) {
+                move || match thread_vm.run_function(&f, &[]) {
                     Ok(_) => Ok(()),
                     Err(e) => Err(e),
                 }
