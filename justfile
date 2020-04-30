@@ -11,4 +11,4 @@ test_benches:
   cargo test --benches
 
 temp:
-  cargo watch -x "run -- temp.koto"
+  cargo watch -x "run -- -b -S temp.koto"
