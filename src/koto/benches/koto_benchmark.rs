@@ -51,7 +51,7 @@ pub fn koto_benchmark(c: &mut Criterion) {
     c.bench_function("spectral_norm", |b| {
         let mut runner = BenchmarkRunner::new(
             "spectral_norm.koto",
-            vec!["4".to_string(), "quiet".to_string()],
+            vec!["2".to_string(), "quiet".to_string()],
         );
         b.iter(|| {
             runner.run();
@@ -66,7 +66,7 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("n_body", |b| {
         let mut runner =
-            BenchmarkRunner::new("n_body.koto", vec!["100".to_string(), "quiet".to_string()]);
+            BenchmarkRunner::new("n_body.koto", vec!["10".to_string(), "quiet".to_string()]);
         b.iter(|| {
             runner.run();
         })

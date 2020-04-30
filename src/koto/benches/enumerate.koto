@@ -1,3 +1,12 @@
 enumerate = |xs| [i, x for i, x in 0..size(xs), xs]
-for i in 0..100
-  [[c d] for c, d in enumerate 10..20]
+
+export main = ||
+  n = list.get env.args 0
+  if n == ()
+    n = 10
+  else
+    n = number n
+
+  a = []
+  for i in 0..n
+    a = [[c d] for c, d in enumerate 10..20]

@@ -5,4 +5,12 @@ fib = |n|
     1
   else
     (fib n - 1) + (fib n - 2)
-fib 10
+
+export main = ||
+  n = list.get env.args 0
+  if n == ()
+    n = 8
+  else
+    n = number n
+
+  fib n
