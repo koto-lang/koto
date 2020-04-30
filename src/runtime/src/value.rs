@@ -45,7 +45,7 @@ impl fmt::Display for Value {
             Empty => f.write_str("()"),
             Bool(b) => f.write_str(&b.to_string()),
             Number(n) => f.write_str(&n.to_string()),
-            Vec4(v) => write!(f, "({}, {}, {}, {})", v.0, v.1, v.2, v.3),
+            Vec4(v) => write!(f, "({} {} {} {})", v.0, v.1, v.2, v.3),
             Str(s) => f.write_str(&s),
             List(l) => f.write_str(&l.to_string()),
             Map(m) => {
