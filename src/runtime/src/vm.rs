@@ -54,12 +54,17 @@ impl Frame {
     }
 }
 
+pub struct DebugInfo {
+    pub source_map: koto_bytecode::DebugInfo,
+    pub script_path: Option<String>,
+}
+
 #[derive(Default)]
 pub struct Vm {
+    reader: InstructionReader,
     global: ValueMap,
     constants: Arc<ConstantPool>,
-    script_path: Arc<Option<String>>,
-    reader: InstructionReader,
+    debug_info: Option<Arc<DebugInfo>>,
 
     string_constants: FxHashMap<usize, Arc<String>>,
     value_stack: Vec<Value>,
@@ -79,7 +84,7 @@ impl Vm {
         Self {
             constants: self.constants.clone(),
             global: self.global.clone(),
-            script_path: self.script_path.clone(),
+            debug_info: self.debug_info.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
@@ -102,8 +107,8 @@ impl Vm {
         &mut self.global
     }
 
-    pub fn set_script_path(&mut self, path: Option<String>) {
-        *Arc::make_mut(&mut self.script_path) = path;
+    pub fn set_debug_info(&mut self, info: Arc<DebugInfo>) {
+        self.debug_info = Some(info.clone());
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
@@ -1101,6 +1106,29 @@ impl Vm {
                     }
                 };
             }
+            Instruction::Debug { register, constant } => {
+                let prefix = match &self.debug_info {
+                    Some(debug_info) => {
+                        match (
+                            debug_info.source_map.get_source_span(instruction_ip),
+                            &debug_info.script_path.as_ref(),
+                        ) {
+                            (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
+                            (Some(span), None) => format!("[{}] ", span.start.line),
+                            (None, Some(path)) => format!("[{}: #ERR] ", path),
+                            (None, None) => format!("[#ERR] "),
+                        }
+                    }
+                    None => String::new(),
+                };
+                let value = self.get_register(register);
+                println!(
+                    "{}{}: {}",
+                    prefix,
+                    self.get_constant_string(constant),
+                    value
+                );
+            }
         }
 
         Ok(result)
@@ -1326,7 +1354,7 @@ mod tests {
             Err(e) => panic!(format!("Error while parsing script: {}", e)),
         };
         match compiler.compile_ast(&ast) {
-            Ok(bytecode) => {
+            Ok((bytecode, _debug_info)) => {
                 vm.set_bytecode(bytecode);
             }
             Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),

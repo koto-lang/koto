@@ -4,8 +4,8 @@ pub use koto_parser::{
 };
 use koto_runtime::Vm;
 pub use koto_runtime::{
-    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
-    RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,
+    RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
@@ -19,6 +19,7 @@ pub struct Options {
 #[derive(Default)]
 pub struct Koto {
     script: String,
+    script_path: Option<String>,
     parser: Parser,
     compiler: Compiler,
     ast: AstNode,
@@ -88,8 +89,12 @@ impl Koto {
             }
         }
         match self.compiler.compile_ast(&self.ast) {
-            Ok(bytecode) => {
+            Ok((bytecode, debug_info)) => {
                 self.runtime.set_bytecode(bytecode);
+                self.runtime.set_debug_info(Arc::new(DebugInfo {
+                    source_map: debug_info.clone(),
+                    script_path: self.script_path.clone(),
+                }));
 
                 if self.options.show_script {
                     println!("{}", script);
@@ -144,7 +149,7 @@ impl Koto {
             None => (Empty, Empty),
         };
 
-        self.runtime.set_script_path(path);
+        self.script_path = path;
 
         match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => {

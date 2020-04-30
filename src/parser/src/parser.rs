@@ -466,18 +466,19 @@ impl KotoParser {
             Rule::debug_with_parens | Rule::debug_no_parens => {
                 let mut inner = pair.into_inner();
                 inner.next(); // debug
-                let expressions = inner
-                    .next()
-                    .unwrap()
-                    .into_inner()
-                    .map(|pair| {
-                        (
-                            add_constant_string(constants, pair.as_str()),
-                            self.build_ast(pair, constants, local_ids),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Debug { expressions })
+                inner = inner.next().unwrap().into_inner();
+                let expression_pair = inner.next().unwrap();
+
+                let expression_string = add_constant_string(constants, expression_pair.as_str());
+                let expression = Box::new(self.build_ast(expression_pair, constants, local_ids));
+
+                AstNode::new(
+                    span,
+                    Node::Debug {
+                        expression_string,
+                        expression,
+                    },
+                )
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();

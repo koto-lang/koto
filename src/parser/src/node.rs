@@ -42,9 +42,6 @@ pub enum Node {
         function: LookupOrId,
         args: Vec<AstNode>,
     },
-    Debug {
-        expressions: Vec<(ConstantIndex, AstNode)>,
-    },
     Assign {
         target: AssignTarget,
         expression: Box<AstNode>,
@@ -66,6 +63,10 @@ pub enum Node {
     Continue,
     Return,
     ReturnExpression(Box<AstNode>),
+    Debug {
+        expression_string: ConstantIndex,
+        expression: Box<AstNode>,
+    },
 }
 
 impl Default for Node {
@@ -100,7 +101,6 @@ impl fmt::Display for Node {
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             Call { .. } => write!(f, "Call"),
-            Debug { .. } => write!(f, "Debug"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
             Op { .. } => write!(f, "Op"),
@@ -111,6 +111,7 @@ impl fmt::Display for Node {
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
             ReturnExpression(_) => write!(f, "ReturnExpression"),
+            Debug { .. } => write!(f, "Debug"),
         }
     }
 }

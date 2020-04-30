@@ -13,7 +13,7 @@ pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
 pub use value_iterator::IntRange;
 pub use value_list::{ValueList, ValueVec};
 pub use value_map::{ValueHashMap, ValueMap};
-pub use vm::Vm;
+pub use vm::{DebugInfo, Vm};
 
 pub const EXTERNAL_DATA_ID: &str = "_external_data";
 

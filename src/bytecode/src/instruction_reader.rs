@@ -232,6 +232,10 @@ pub enum Instruction {
         map: u8,
         key: u8,
     },
+    Debug {
+        register: u8,
+        constant: usize,
+    },
 }
 
 impl fmt::Display for Instruction {
@@ -490,6 +494,9 @@ impl fmt::Display for Instruction {
                 "MapAccess\treg: {}\t\tmap: {}\t\tkey: {}",
                 register, map, key
             ),
+            Debug { register, constant } => {
+                write!(f, "Debug\t\treg: {}\t\tconstant: {}", register, constant)
+            }
         }
     }
 }
@@ -835,6 +842,10 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 map: get_byte!(),
                 key: get_byte!(),
+            }),
+            Op::Debug => Some(Debug {
+                register: get_byte!(),
+                constant: get_u32!() as usize,
             }),
         }
     }

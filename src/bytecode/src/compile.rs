@@ -12,7 +12,7 @@ pub struct SourceSpan {
     pub end: Position,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct DebugInfo {
     ip_to_source: Vec<(usize, SourceSpan)>,
 }
@@ -205,12 +205,12 @@ impl Compiler {
         &self.debug_info
     }
 
-    pub fn compile_ast(&mut self, ast: &AstNode) -> Result<&Bytecode, String> {
+    pub fn compile_ast(&mut self, ast: &AstNode) -> Result<(&Bytecode, &DebugInfo), String> {
         // dbg!(ast);
         assert!(self.frame_stack.is_empty());
         self.bytes.clear();
         self.compile_node(None, ast)?;
-        Ok(&self.bytes)
+        Ok((&self.bytes, &self.debug_info))
     }
 
     fn compile_node(&mut self, result_register: Option<u8>, node: &AstNode) -> Result<(), String> {
@@ -547,7 +547,16 @@ impl Compiler {
                     self.pop_register()?;
                 }
             }
-            unexpected => unimplemented!("compile_node: unsupported node: {}", unexpected),
+            Node::Debug {
+                expression_string,
+                expression,
+            } => {
+                let temp_register = self.push_register()?;
+                self.compile_node(Some(temp_register), &expression)?;
+                self.push_op(Debug, &[temp_register]);
+                self.push_bytes(&expression_string.to_le_bytes());
+                self.pop_register()?; // temp_register
+            }
         }
 
         Ok(())

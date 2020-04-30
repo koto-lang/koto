@@ -192,7 +192,7 @@ call_args = !{
 
 debug_expression = _{ debug_with_parens | debug_no_parens }
 debug_with_parens = ${ debug ~ call_args }
-debug_no_parens = ${ debug ~ WHITESPACE+ ~ operations }
+debug_no_parens = !{ debug_keyword ~ expression }
 
 function = _{ function_block | function_inline }
 function_block = !{ function_args ~ child_block }
@@ -353,6 +353,7 @@ keyword = _{
 }
 
 copy_keyword = @{ copy ~ WHITESPACE+ }
+debug_keyword = @{ debug ~ WHITESPACE+ }
 else_if_keyword = @{ else_ ~ WHITESPACE+ ~ if_ ~ WHITESPACE+ }
 else_keyword = @{ else_ ~ WHITESPACE+ }
 for_keyword = @{ for_ ~ WHITESPACE+ }
