@@ -4,11 +4,11 @@ mod map;
 mod math;
 mod thread;
 
-pub use koto_runtime::EXTERNAL_DATA_ID;
+pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
 
 use koto_runtime::{
-    external_error, value, value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value,
-    ValueList, ValueMap, ValueVec, Vm,
+    value, value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value, ValueList,
+    ValueMap, ValueVec, Vm,
 };
 use std::sync::Arc;
 
@@ -72,7 +72,7 @@ macro_rules! get_external_instance {
      $match_name: ident,
      $body: block) => {{
         if $args.len() == 0 {
-            return koto_runtime::external_error!(
+            return $crate::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
                 $fn_name,
@@ -83,7 +83,7 @@ macro_rules! get_external_instance {
             Value::Map(instance) => {
                 $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
             }
-            unexpected => koto_runtime::external_error!(
+            unexpected => $crate::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                 $external_name,
                 $fn_name,
