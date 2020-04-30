@@ -1346,10 +1346,10 @@ mod tests {
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
 
-        let parser = KotoParser::new();
+        let mut parser = KotoParser::new();
         let mut compiler = Compiler::new();
 
-        let ast = match parser.parse(&script, vm.constants_mut()) {
+        let ast = match parser.parse(&script, vm.constants_mut(), koto_parser::Options::default()) {
             Ok(ast) => ast,
             Err(e) => panic!(format!("Error while parsing script: {}", e)),
         };

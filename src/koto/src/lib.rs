@@ -14,6 +14,7 @@ use std::{path::Path, sync::Arc};
 pub struct Options {
     pub show_bytecode: bool,
     pub show_script: bool,
+    pub export_all_at_top_level: bool,
 }
 
 #[derive(Default)]
@@ -79,7 +80,14 @@ impl Koto {
     }
 
     pub fn compile(&mut self, script: &str) -> Result<(), String> {
-        match self.parser.parse(&script, self.runtime.constants_mut()) {
+        let options = koto_parser::Options {
+            export_all_top_level: self.options.export_all_at_top_level,
+        };
+
+        match self
+            .parser
+            .parse(&script, self.runtime.constants_mut(), options)
+        {
             Ok(ast) => {
                 self.ast = ast;
                 self.runtime.constants_mut().shrink_to_fit();

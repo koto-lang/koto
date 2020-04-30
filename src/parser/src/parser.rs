@@ -24,9 +24,18 @@ struct LocalIds {
     // which haven't yet been assigned in the current scope,
     // but are available in the parent scope.
     captures: HashSet<ConstantIndex>,
+    // True if the scope is at the top level
+    top_level: bool,
 }
 
 impl LocalIds {
+    fn top_level() -> Self {
+        Self {
+            top_level: true,
+            ..Default::default()
+        }
+    }
+
     fn all_available_ids(&self) -> HashSet<ConstantIndex> {
         let mut result = self
             .ids_assigned_in_scope
@@ -113,12 +122,18 @@ impl LocalIds {
     }
 }
 
-pub struct KotoParser {
-    climber: PrecClimber<Rule>,
+#[derive(Default)]
+pub struct Options {
+    pub export_all_top_level: bool,
 }
 
-impl KotoParser {
-    pub fn new() -> Self {
+pub struct KotoParser {
+    climber: PrecClimber<Rule>,
+    options: Options,
+}
+
+impl Default for KotoParser {
+    fn default() -> Self {
         use crate::prec_climber::{Assoc::*, Operator};
         use Rule::*;
 
@@ -138,13 +153,31 @@ impl KotoParser {
                 ],
                 vec![empty_line],
             ),
+            options: Default::default(),
         }
     }
+}
 
-    pub fn parse(&self, source: &str, constants: &mut ConstantPool) -> Result<AstNode, Error> {
+impl KotoParser {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn parse(
+        &mut self,
+        source: &str,
+        constants: &mut ConstantPool,
+        options: Options,
+    ) -> Result<AstNode, Error> {
+        self.options = options;
+
         let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
-        Ok(self.build_ast(parsed.next().unwrap(), constants, &mut LocalIds::default()))
+        Ok(self.build_ast(
+            parsed.next().unwrap(),
+            constants,
+            &mut LocalIds::top_level(),
+        ))
     }
 
     fn build_ast(
@@ -489,6 +522,8 @@ impl KotoParser {
                         let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                             inner.next();
                             Scope::Global
+                        } else if local_ids.top_level && self.options.export_all_top_level {
+                            Scope::Global
                         } else {
                             Scope::Local
                         };
@@ -553,6 +588,8 @@ impl KotoParser {
 
                             let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                                 inner.next();
+                                Scope::Global
+                            } else if local_ids.top_level && self.options.export_all_top_level {
                                 Scope::Global
                             } else {
                                 Scope::Local
@@ -933,12 +970,6 @@ impl KotoParser {
             }
             node => AstNode { node, ..tree },
         }
-    }
-}
-
-impl Default for KotoParser {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
