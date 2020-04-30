@@ -1,4 +1,4 @@
-use koto::Koto;
+use koto::{Koto, Options};
 use std::{
     fmt,
     io::{stdin, stdout, Write},
@@ -19,9 +19,11 @@ pub struct Repl {
 }
 
 impl Repl {
-    pub fn new() -> Self {
+    pub fn with_options(mut options: Options) -> Self {
+        options.export_all_at_top_level = true; // AKA 'REPL mode'
+
         Self {
-            koto: Koto::new(),
+            koto: Koto::with_options(options),
             input_history: Vec::new(),
             history_position: None,
             input: String::new(),
@@ -144,7 +146,7 @@ impl Repl {
                 '\n' => {
                     write!(stdout, "\r\n").unwrap();
                     stdout.suspend_raw_mode().unwrap();
-                    match self.koto.parse(&self.input) {
+                    match self.koto.compile(&self.input) {
                         Ok(_) => match self.koto.run() {
                             Ok(result) => println!("{}", result),
                             Err(error) => self.print_error(stdout, &error),

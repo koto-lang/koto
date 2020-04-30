@@ -1,5 +1,5 @@
-use crate::{external_error, get_external_instance, single_arg_fn, type_as_string, ExternalValue};
-use koto_runtime::{value, Error, Value, ValueMap};
+use crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue};
+use koto_runtime::{external_error, value, Error, Value, ValueMap};
 use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
 pub fn register(global: &mut ValueMap) {
@@ -20,13 +20,11 @@ pub fn register(global: &mut ValueMap) {
     thread.add_fn("create", |runtime, args| match &args {
         [Function(f)] => {
             let join_handle = thread::spawn({
-                let mut thread_runtime = runtime.create_shared_runtime();
+                let mut thread_vm = runtime.spawn_shared_vm();
                 let f = f.clone();
-                move || {
-                    match thread_runtime.call_function(&f, &[]) {
-                        Ok(_) => Ok(()),
-                        Err(e) => Err(e),
-                    }
+                move || match thread_vm.run_function(&f, &[]) {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
                 }
             });
 
@@ -34,7 +32,7 @@ pub fn register(global: &mut ValueMap) {
         }
         [unexpected] => external_error!(
             "thread.create: Expected function as argument, found '{}'",
-            type_as_string(unexpected)
+            type_as_string(unexpected),
         ),
         _ => external_error!("thread.create: Expected function as argument"),
     });

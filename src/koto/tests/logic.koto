@@ -24,13 +24,19 @@ a = 5
 assert 1 < a < 10
 assert not 1 < a > 10
 
+a = 1
+assert 1 == a == 1
+
 # Chained comparisons apply short-circuiting
 assert not 1 > a < assert false
 
 # Tokens in chained comparisons should only be evaluated once
-count = 0
-f = || global count += 1
+make_counter = ||
+  count = 0
+  || count += 1
+f = make_counter()
 assert 0 < f() < 2
+assert_eq f() 2
 
 # A fiddly example with several chained comparisons
 f = |x y z| if x < y < z > y > x then 0 else 1

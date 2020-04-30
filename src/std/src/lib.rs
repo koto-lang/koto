@@ -7,32 +7,10 @@ mod thread;
 pub use koto_runtime::EXTERNAL_DATA_ID;
 
 use koto_runtime::{
-    value, value::type_as_string, Error, ExternalValue, Runtime, RuntimeResult, Value, ValueList,
-    ValueMap, ValueVec,
+    external_error, value, value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value,
+    ValueList, ValueMap, ValueVec, Vm,
 };
 use std::sync::Arc;
-
-#[macro_export]
-macro_rules! make_external_error {
-    ($message:expr) => {{
-        let error = Error::ExternalError { message: $message };
-        #[cfg(panic_on_runtime_error)]
-        {
-            panic!();
-        }
-        error
-    }};
-}
-
-#[macro_export]
-macro_rules! external_error {
-    ($error:expr) => {
-        Err($crate::make_external_error!(String::from($error)))
-    };
-    ($error:expr, $($y:expr),+) => {
-        Err($crate::make_external_error!(format!($error, $($y),+)))
-    };
-}
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -42,20 +20,20 @@ macro_rules! single_arg_fn {
                 match &args[0] {
                     $type($match_name) => $body
                     unexpected => {
-                        $crate::external_error!(
+                        koto_runtime::external_error!(
                             "{}.{} only accepts a {} as its argument, found {}",
                             stringify!($map_name),
                             $fn_name,
                             stringify!($type),
-                            value::type_as_string(&unexpected)
+                            value::type_as_string(&unexpected),
                         )
                     }
                 }
             } else {
-                $crate::external_error!("{}.{} expects a single argument, found {}",
+                koto_runtime::external_error!("{}.{} expects a single argument, found {}",
                     stringify!($map_name),
                     $fn_name,
-                    args.len()
+                    args.len(),
                 )
             }
         });
@@ -77,7 +55,7 @@ where
                 Some(external) => f(external),
                 None => external_error!(
                     "Invalid type for external value, found '{}'",
-                    value.value_type()
+                    value.value_type(),
                 ),
             }
         }
@@ -94,10 +72,10 @@ macro_rules! get_external_instance {
      $match_name: ident,
      $body: block) => {{
         if $args.len() == 0 {
-            return external_error!(
+            return koto_runtime::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
-                $fn_name
+                $fn_name,
             );
         }
 
@@ -105,17 +83,17 @@ macro_rules! get_external_instance {
             Value::Map(instance) => {
                 $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
             }
-            unexpected => $crate::external_error!(
+            unexpected => koto_runtime::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
                 $external_name,
                 $fn_name,
-                unexpected
+                unexpected,
             ),
         }
     }};
 }
 
-pub fn register(runtime: &mut Runtime) {
+pub fn register(runtime: &mut Vm) {
     use Value::*;
 
     let global = runtime.global_mut();
@@ -155,7 +133,7 @@ pub fn register(runtime: &mut Runtime) {
                 unexpected => {
                     return external_error!(
                         "assert expects booleans as arguments, found '{}'",
-                        type_as_string(unexpected)
+                        type_as_string(unexpected),
                     )
                 }
             }
@@ -171,7 +149,7 @@ pub fn register(runtime: &mut Runtime) {
                 external_error!(
                     "Assertion failed, '{}' is not equal to '{}'",
                     args[0],
-                    args[1]
+                    args[1],
                 )
             }
         }
@@ -186,7 +164,7 @@ pub fn register(runtime: &mut Runtime) {
                 external_error!(
                     "Assertion failed, '{}' should not be equal to '{}'",
                     args[0],
-                    args[1]
+                    args[1],
                 )
             }
         }
@@ -202,7 +180,7 @@ pub fn register(runtime: &mut Runtime) {
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
-                    allowed_diff
+                    allowed_diff,
                 )
             }
         }
@@ -210,7 +188,7 @@ pub fn register(runtime: &mut Runtime) {
             "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
             type_as_string(&a),
             type_as_string(&b),
-            type_as_string(&c)
+            type_as_string(&c),
         ),
         _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
     });
@@ -219,7 +197,7 @@ pub fn register(runtime: &mut Runtime) {
         [Empty] => Ok(Number(0.0)),
         [List(list)] => Ok(Number(list.data().len() as f64)),
         [Map(map)] => Ok(Number(map.data().len() as f64)),
-        [Range { start, end }] => {
+        [Range(IntRange { start, end })] => {
             let result = if end >= start {
                 end - start
             } else {
@@ -239,7 +217,7 @@ pub fn register(runtime: &mut Runtime) {
         },
         [unexpected] => external_error!(
             "number is only supported for numbers and strings, found {}",
-            unexpected
+            unexpected,
         ),
         _ => external_error!("number expects a single argument, found {}", args.len()),
     });

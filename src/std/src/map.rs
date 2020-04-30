@@ -1,5 +1,5 @@
 use crate::single_arg_fn;
-use koto_runtime::{value, Error, Value, ValueList, ValueMap, ValueVec};
+use koto_runtime::{value, Value, ValueList, ValueMap, ValueVec};
 use std::sync::Arc;
 
 pub fn register(global: &mut ValueMap) {

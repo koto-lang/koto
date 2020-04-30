@@ -1,5 +1,5 @@
-use crate::{external_error, single_arg_fn};
-use koto_runtime::{value, Error, RuntimeResult, Value, ValueList, ValueMap};
+use crate::single_arg_fn;
+use koto_runtime::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
@@ -55,7 +55,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.get expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -72,7 +72,7 @@ pub fn register(global: &mut ValueMap) {
                         "list.remove: Index out of bounds - \
                          the index is {} but the List only has {} elements",
                         index,
-                        list.data().len()
+                        list.data().len(),
                     );
                 }
 
@@ -80,7 +80,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.remove expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -101,7 +101,7 @@ pub fn register(global: &mut ValueMap) {
             }
             unexpected => external_error!(
                 "list.insert expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -120,17 +120,17 @@ pub fn register(global: &mut ValueMap) {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
-                    if f.function.args.len() != 1 {
+                    if f.arg_count != 1 {
                         return external_error!(
                             "The function passed to list.filter must have a \
                                          single argument, found '{}'",
-                            f.function.args.len()
+                            f.arg_count,
                         );
                     }
                     let mut write_index = 0;
                     for read_index in 0..list.len() {
                         let value = list.data()[read_index].clone();
-                        match runtime.call_function_with_evaluated_args(f, &[value.clone()])? {
+                        match runtime.run_function(f, &[value.clone()])? {
                             Bool(result) => {
                                 if result {
                                     list.data_mut()[write_index] = value;
@@ -141,7 +141,7 @@ pub fn register(global: &mut ValueMap) {
                                 return external_error!(
                                     "list.filter expects a Bool to be returned from the \
                                      predicate, found '{}'",
-                                    value::type_as_string(&unexpected)
+                                    value::type_as_string(&unexpected),
                                 );
                             }
                         }
@@ -160,23 +160,23 @@ pub fn register(global: &mut ValueMap) {
     list.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
-                if f.function.args.len() != 1 {
+                if f.arg_count != 1 {
                     return external_error!(
                         "The function passed to list.transform must have a \
                                          single argument, found '{}'",
-                        f.function.args.len()
+                        f.arg_count,
                     );
                 }
 
                 for value in list.data_mut().iter_mut() {
-                    *value = runtime.call_function_with_evaluated_args(f, &[value.clone()])?;
+                    *value = runtime.run_function(f, &[value.clone()])?;
                 }
 
                 Ok(Value::Empty)
             }
             unexpected => external_error!(
                 "list.transform expects a function as its second argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
         })
     });
@@ -184,24 +184,23 @@ pub fn register(global: &mut ValueMap) {
     list.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args {
             [_, result, Function(f)] => {
-                if f.function.args.len() != 2 {
+                if f.arg_count != 2 {
                     return external_error!(
                         "list.fold: The fold function must have two arguments, found '{}'",
-                        f.function.args.len()
+                        f.arg_count,
                     );
                 }
 
                 let mut result = result.clone();
                 for value in list.data().iter() {
-                    result =
-                        runtime.call_function_with_evaluated_args(f, &[result, value.clone()])?;
+                    result = runtime.run_function(f, &[result, value.clone()])?;
                 }
 
                 Ok(result)
             }
             [_, _, unexpected] => external_error!(
                 "list.fold: Expected Function as third argument, found '{}'",
-                value::type_as_string(&unexpected)
+                value::type_as_string(&unexpected),
             ),
             _ => external_error!("list.fold: Expected initial value and function as arguments"),
         })
@@ -221,7 +220,7 @@ fn list_op(
             "list.{} expects {} arguments, found {}",
             op_name,
             arg_count,
-            args.len()
+            args.len(),
         );
     }
 
@@ -230,7 +229,7 @@ fn list_op(
         unexpected => external_error!(
             "list.{} expects a List as its first argument, found {}",
             op_name,
-            value::type_as_string(&unexpected)
+            value::type_as_string(&unexpected),
         ),
     }
 }

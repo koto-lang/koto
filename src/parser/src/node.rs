@@ -1,5 +1,5 @@
 use crate::{AstNode, Lookup, LookupSlice};
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 pub type ConstantIndex = u32;
 
@@ -29,6 +29,10 @@ pub enum Node {
     },
     RangeFull,
     Map(Vec<(ConstantIndex, AstNode)>),
+    MainBlock {
+        body: Vec<AstNode>,
+        local_count: usize,
+    },
     Block(Vec<AstNode>),
     Expressions(Vec<AstNode>),
     CopyExpression(Box<AstNode>),
@@ -37,9 +41,6 @@ pub enum Node {
     Call {
         function: LookupOrId,
         args: Vec<AstNode>,
-    },
-    Debug {
-        expressions: Vec<(ConstantIndex, AstNode)>,
     },
     Assign {
         target: AssignTarget,
@@ -50,6 +51,7 @@ pub enum Node {
         expressions: Vec<AstNode>,
     },
     Op {
+        // TODO rename -> BinaryOp
         op: AstOp,
         lhs: Box<AstNode>,
         rhs: Box<AstNode>,
@@ -61,6 +63,10 @@ pub enum Node {
     Continue,
     Return,
     ReturnExpression(Box<AstNode>),
+    Debug {
+        expression_string: ConstantIndex,
+        expression: Box<AstNode>,
+    },
 }
 
 impl Default for Node {
@@ -69,7 +75,48 @@ impl Default for Node {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Node::*;
+        match self {
+            Empty => write!(f, "Empty"),
+            Id(_) => write!(f, "Id"),
+            Lookup(_) => write!(f, "Lookup"),
+            Copy(_) => write!(f, "Copy"),
+            BoolTrue => write!(f, "BoolTrue"),
+            BoolFalse => write!(f, "BoolFalse"),
+            Number(_) => write!(f, "Number"),
+            Str(_) => write!(f, "Str"),
+            Vec4(_) => write!(f, "Vec4"),
+            List(_) => write!(f, "List"),
+            Range { .. } => write!(f, "Range"),
+            RangeFrom { .. } => write!(f, "RangeFrom"),
+            RangeTo { .. } => write!(f, "RangeTo"),
+            RangeFull => write!(f, "RangeFull"),
+            Map(_) => write!(f, "Map"),
+            MainBlock { .. } => write!(f, "MainBlock"),
+            Block(_) => write!(f, "Block"),
+            Expressions(_) => write!(f, "Expressions"),
+            CopyExpression(_) => write!(f, "CopyExpression"),
+            Negate(_) => write!(f, "Negate"),
+            Function(_) => write!(f, "Function"),
+            Call { .. } => write!(f, "Call"),
+            Assign { .. } => write!(f, "Assign"),
+            MultiAssign { .. } => write!(f, "MultiAssign"),
+            Op { .. } => write!(f, "Op"),
+            If(_) => write!(f, "If"),
+            For(_) => write!(f, "For"),
+            While(_) => write!(f, "While"),
+            Break => write!(f, "Break"),
+            Continue => write!(f, "Continue"),
+            Return => write!(f, "Return"),
+            ReturnExpression(_) => write!(f, "ReturnExpression"),
+            Debug { .. } => write!(f, "Debug"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
@@ -103,12 +150,14 @@ pub struct Block {}
 pub struct Function {
     pub args: Vec<ConstantIndex>,
     pub captures: Vec<ConstantIndex>,
+    pub local_count: usize,
     pub body: Vec<AstNode>,
+    pub is_instance_function: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
-    pub args: Vec<ConstantIndex>,
+    pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
     pub ranges: Vec<AstNode>,
     pub condition: Option<Box<AstNode>>,
     pub body: Box<AstNode>,

@@ -37,12 +37,46 @@ impl ops::Neg for Vec4 {
     }
 }
 
+impl ops::Neg for &Vec4 {
+    type Output = Vec4;
+
+    fn neg(self) -> Self::Output {
+        Vec4(-self.0, -self.1, -self.2, -self.3)
+    }
+}
+
 macro_rules! vec4_op {
     ($trait:ident, $fn:ident, $op:tt) => {
         impl ops::$trait for Vec4 {
             type Output = Vec4;
 
             fn $fn(self, other: Vec4) -> Vec4 {
+                Vec4(
+                    self.0 $op other.0,
+                    self.1 $op other.1,
+                    self.2 $op other.2,
+                    self.3 $op other.3,
+                )
+            }
+        }
+
+        impl ops::$trait<&Vec4> for Vec4 {
+            type Output = Vec4;
+
+            fn $fn(self, other: &Vec4) -> Vec4 {
+                Vec4(
+                    self.0 $op other.0,
+                    self.1 $op other.1,
+                    self.2 $op other.2,
+                    self.3 $op other.3,
+                )
+            }
+        }
+
+        impl ops::$trait<&Vec4> for &Vec4 {
+            type Output = Vec4;
+
+            fn $fn(self, other: &Vec4) -> Vec4 {
                 Vec4(
                     self.0 $op other.0,
                     self.1 $op other.1,
@@ -91,6 +125,19 @@ macro_rules! vec4_op {
             }
         }
 
+        impl ops::$trait<&f64> for &Vec4 {
+            type Output = Vec4;
+
+            fn $fn(self, other: &f64) -> Vec4 {
+                Vec4(
+                    self.0 $op *other as f32,
+                    self.1 $op *other as f32,
+                    self.2 $op *other as f32,
+                    self.3 $op *other as f32,
+                )
+            }
+        }
+
         impl ops::$trait<Vec4> for f64 {
             type Output = Vec4;
 
@@ -100,6 +147,19 @@ macro_rules! vec4_op {
                     self as f32 $op other.1,
                     self as f32 $op other.2,
                     self as f32 $op other.3,
+                )
+            }
+        }
+
+        impl ops::$trait<&Vec4> for &f64 {
+            type Output = Vec4;
+
+            fn $fn(self, other: &Vec4) -> Vec4 {
+                Vec4(
+                    *self as f32 $op other.0,
+                    *self as f32 $op other.1,
+                    *self as f32 $op other.2,
+                    *self as f32 $op other.3,
                 )
             }
         }

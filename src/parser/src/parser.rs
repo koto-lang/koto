@@ -9,23 +9,131 @@ type Error = pest::error::Error<Rule>;
 const TEMP_VAR_PREFIX: &str = "__";
 
 #[derive(Debug, Default)]
-struct LocalFunctionIds {
+struct LocalIds {
     // IDs that are available in the parent scope.
     ids_in_parent_scope: HashSet<ConstantIndex>,
-    // IDs that have been assigned within the scope of a function.
-    ids_assigned_in_function: HashSet<ConstantIndex>,
-    // Captures are IDs and lookup roots, that are accessed in a function,
-    // which haven't been yet assigned in the function,
+    // IDs that have been assigned within the current scope.
+    ids_assigned_in_scope: HashSet<ConstantIndex>,
+    // IDs that are currently being assigned to in the current scope.
+    // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
+    // of 'being assigned' values in child functions.
+    // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
+    // scope then it isn't made available to child functions.
+    ids_being_assigned_in_scope: HashSet<ConstantIndex>,
+    // Captures are IDs and lookup roots, that are accessed within the current scope,
+    // which haven't yet been assigned in the current scope,
     // but are available in the parent scope.
     captures: HashSet<ConstantIndex>,
+    // True if the scope is at the top level
+    top_level: bool,
+}
+
+impl LocalIds {
+    fn top_level() -> Self {
+        Self {
+            top_level: true,
+            ..Default::default()
+        }
+    }
+
+    fn all_available_ids(&self) -> HashSet<ConstantIndex> {
+        let mut result = self
+            .ids_assigned_in_scope
+            .union(&self.ids_in_parent_scope)
+            .cloned()
+            .collect::<HashSet<_>>();
+        result.extend(self.ids_being_assigned_in_scope.iter());
+        result
+    }
+
+    fn local_count(&self) -> usize {
+        self.ids_assigned_in_scope
+            .difference(&self.captures)
+            .count()
+    }
+
+    fn add_assign_target_to_ids_assigned_in_scope(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                self.ids_assigned_in_scope.insert(*id_index);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_assigned_in_scope.insert(*id_index);
+                }
+                _ => panic!("Expected Id as first lookup node"),
+            },
+        }
+    }
+
+    fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                self.ids_being_assigned_in_scope.insert(*id_index);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_being_assigned_in_scope.insert(*id_index);
+                }
+                _ => panic!("Expected Id as first lookup node"),
+            },
+        }
+    }
+
+    fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => {
+                self.ids_being_assigned_in_scope.remove(id_index);
+            }
+            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+                [LookupNode::Id(id_index), ..] => {
+                    self.ids_being_assigned_in_scope.remove(id_index);
+                }
+                _ => panic!("Expected Id as first lookup node"),
+            },
+        }
+    }
+
+    fn add_assign_target_to_captures(&mut self, target: &AssignTarget) {
+        match target {
+            AssignTarget::Id { id_index, .. } => self.add_id_to_captures(*id_index),
+            AssignTarget::Lookup(lookup) => self.add_lookup_to_captures(lookup),
+        }
+    }
+
+    fn add_lookup_or_id_to_captures(&mut self, lookup_or_id: &LookupOrId) {
+        match lookup_or_id {
+            LookupOrId::Id(id_index) => self.add_id_to_captures(*id_index),
+            LookupOrId::Lookup(lookup) => self.add_lookup_to_captures(lookup),
+        }
+    }
+
+    fn add_lookup_to_captures(&mut self, lookup: &Lookup) {
+        match lookup.as_slice().0 {
+            &[LookupNode::Id(id_index), ..] => self.add_id_to_captures(id_index),
+            _ => panic!("Expected Id as first lookup node"),
+        }
+    }
+
+    fn add_id_to_captures(&mut self, id: ConstantIndex) {
+        if !self.ids_assigned_in_scope.contains(&id) && self.ids_in_parent_scope.contains(&id) {
+            self.captures.insert(id);
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Options {
+    pub export_all_top_level: bool,
 }
 
 pub struct KotoParser {
     climber: PrecClimber<Rule>,
+    options: Options,
 }
 
-impl KotoParser {
-    pub fn new() -> Self {
+impl Default for KotoParser {
+    fn default() -> Self {
         use crate::prec_climber::{Assoc::*, Operator};
         use Rule::*;
 
@@ -45,16 +153,30 @@ impl KotoParser {
                 ],
                 vec![empty_line],
             ),
+            options: Default::default(),
         }
     }
+}
 
-    pub fn parse(&self, source: &str, constants: &mut ConstantPool) -> Result<AstNode, Error> {
+impl KotoParser {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn parse(
+        &mut self,
+        source: &str,
+        constants: &mut ConstantPool,
+        options: Options,
+    ) -> Result<AstNode, Error> {
+        self.options = options;
+
         let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
 
         Ok(self.build_ast(
             parsed.next().unwrap(),
             constants,
-            &mut LocalFunctionIds::default(),
+            &mut LocalIds::top_level(),
         ))
     }
 
@@ -62,13 +184,13 @@ impl KotoParser {
         &self,
         pair: pest::iterators::Pair<Rule>,
         constants: &mut ConstantPool,
-        function_ids: &mut LocalFunctionIds,
+        local_ids: &mut LocalIds,
     ) -> AstNode {
         use pest::iterators::Pair;
 
         macro_rules! next_as_boxed_ast {
             ($inner:expr) => {
-                Box::new(self.build_ast($inner.next().unwrap(), constants, function_ids))
+                Box::new(self.build_ast($inner.next().unwrap(), constants, local_ids))
             };
         }
 
@@ -93,7 +215,7 @@ impl KotoParser {
                             Rule::call_args => {
                                 let args = pair
                                     .into_inner()
-                                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                                    .map(|pair| self.build_ast(pair, constants, local_ids))
                                     .collect::<Vec<_>>();
                                 LookupNode::Call(args)
                             }
@@ -132,19 +254,33 @@ impl KotoParser {
         let span = pair.as_span();
         match pair.as_rule() {
             Rule::next_expressions => {
-                self.build_ast(pair.into_inner().next().unwrap(), constants, function_ids)
+                self.build_ast(pair.into_inner().next().unwrap(), constants, local_ids)
             }
-            Rule::program | Rule::child_block => {
+            Rule::program => {
+                let inner = pair.into_inner();
+
+                assert!(local_ids.ids_assigned_in_scope.is_empty());
+                assert!(local_ids.captures.is_empty());
+
+                let body: Vec<AstNode> = inner
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
+                    .collect();
+
+                let local_count = local_ids.local_count();
+
+                AstNode::new(span, Node::MainBlock { body, local_count })
+            }
+            Rule::child_block => {
                 let inner = pair.into_inner();
                 let block: Vec<AstNode> = inner
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect();
                 AstNode::new(span, Node::Block(block))
             }
             Rule::expressions | Rule::value_terms => {
                 let inner = pair.into_inner();
                 let expressions = inner
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
 
                 if expressions.len() == 1 {
@@ -184,7 +320,7 @@ impl KotoParser {
             Rule::list => {
                 let inner = pair.into_inner();
                 let elements = inner
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::List(elements))
             }
@@ -192,7 +328,7 @@ impl KotoParser {
                 let mut inner = pair.into_inner();
                 inner.next(); // vec4
                 let expressions = inner
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Vec4(expressions))
             }
@@ -241,7 +377,7 @@ impl KotoParser {
                     .map(|pair| {
                         let mut inner = pair.into_inner();
                         let id = add_constant_string(constants, inner.next().unwrap().as_str());
-                        let value = self.build_ast(inner.next().unwrap(), constants, function_ids);
+                        let value = self.build_ast(inner.next().unwrap(), constants, local_ids);
                         (id, value)
                     })
                     .collect::<Vec<_>>();
@@ -252,14 +388,14 @@ impl KotoParser {
                 if inner.peek().unwrap().as_rule() == Rule::negative {
                     inner.next();
                     let lookup = next_as_lookup!(inner);
-                    add_lookup_to_captures(function_ids, &lookup);
+                    local_ids.add_lookup_to_captures(&lookup);
                     AstNode::new(
                         span.clone(),
                         Node::Negate(Box::new(AstNode::new(span, Node::Lookup(lookup)))),
                     )
                 } else {
                     let lookup = next_as_lookup!(inner);
-                    add_lookup_to_captures(function_ids, &lookup);
+                    local_ids.add_lookup_to_captures(&lookup);
                     AstNode::new(span, Node::Lookup(lookup))
                 }
             }
@@ -269,19 +405,19 @@ impl KotoParser {
                     inner.next();
                     AstNode::new(span, Node::Negate(next_as_boxed_ast!(inner)))
                 } else {
-                    self.build_ast(inner.next().unwrap(), constants, function_ids)
+                    self.build_ast(inner.next().unwrap(), constants, local_ids)
                 }
             }
             Rule::single_id => {
                 let id_index = add_constant_string(constants, pair.as_str());
-                add_id_to_captures(function_ids, id_index);
+                local_ids.add_id_to_captures(id_index);
                 AstNode::new(span, Node::Id(id_index))
             }
             Rule::copy_id => {
                 let mut inner = pair.into_inner();
                 inner.next(); // copy
                 let lookup_or_id = next_as_lookup_or_id!(inner);
-                add_lookup_or_id_to_captures(function_ids, &lookup_or_id);
+                local_ids.add_lookup_or_id_to_captures(&lookup_or_id);
                 AstNode::new(span, Node::Copy(lookup_or_id))
             }
             Rule::copy_expression => {
@@ -311,66 +447,71 @@ impl KotoParser {
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();
                 let mut capture = inner.next().unwrap().into_inner();
+
                 let args = capture
                     .by_ref()
                     .map(|pair| add_constant_string(constants, pair.as_str()))
                     .collect::<Vec<_>>();
 
-                let mut nested_function_ids = LocalFunctionIds::default();
-                nested_function_ids.ids_in_parent_scope = function_ids
-                    .ids_assigned_in_function
-                    .union(&function_ids.ids_in_parent_scope)
-                    .cloned()
-                    .collect();
-                nested_function_ids
-                    .ids_assigned_in_function
-                    .extend(args.clone());
+                let is_instance_function = match args.as_slice() {
+                    [first, ..] => constants.get_string(*first as usize) == "self",
+                    _ => false,
+                };
+
+                let mut nested_local_ids = LocalIds::default();
+                nested_local_ids.ids_in_parent_scope = local_ids.all_available_ids();
+                nested_local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 // collect function body
                 let body: Vec<AstNode> = inner
-                    .map(|pair| self.build_ast(pair, constants, &mut nested_function_ids))
+                    .map(|pair| self.build_ast(pair, constants, &mut nested_local_ids))
                     .collect();
 
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.
-                let missing_captures = nested_function_ids
+                let missing_captures = nested_local_ids
                     .captures
-                    .difference(&function_ids.ids_assigned_in_function);
-                function_ids.captures.extend(missing_captures);
+                    .difference(&local_ids.ids_assigned_in_scope);
+                local_ids.captures.extend(missing_captures);
+
+                let local_count = nested_local_ids.local_count();
 
                 AstNode::new(
                     span,
                     Node::Function(Arc::new(self::Function {
                         args,
-                        captures: Vec::from_iter(nested_function_ids.captures),
+                        captures: Vec::from_iter(nested_local_ids.captures),
+                        local_count,
                         body,
+                        is_instance_function,
                     })),
                 )
             }
             Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
                 let function = next_as_lookup_or_id!(inner);
-                add_lookup_or_id_to_captures(function_ids, &function);
+                local_ids.add_lookup_or_id_to_captures(&function);
                 let args = inner
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::Call { function, args })
             }
             Rule::debug_with_parens | Rule::debug_no_parens => {
                 let mut inner = pair.into_inner();
                 inner.next(); // debug
-                let expressions = inner
-                    .next()
-                    .unwrap()
-                    .into_inner()
-                    .map(|pair| {
-                        (
-                            add_constant_string(constants, pair.as_str()),
-                            self.build_ast(pair, constants, function_ids),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Debug { expressions })
+                inner = inner.next().unwrap().into_inner();
+                let expression_pair = inner.next().unwrap();
+
+                let expression_string = add_constant_string(constants, expression_pair.as_str());
+                let expression = Box::new(self.build_ast(expression_pair, constants, local_ids));
+
+                AstNode::new(
+                    span,
+                    Node::Debug {
+                        expression_string,
+                        expression,
+                    },
+                )
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
@@ -378,8 +519,10 @@ impl KotoParser {
                     Rule::assignment_id => {
                         let mut inner = inner.next().unwrap().into_inner();
 
-                        let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
+                        let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                             inner.next();
+                            Scope::Global
+                        } else if local_ids.top_level && self.options.export_all_top_level {
                             Scope::Global
                         } else {
                             Scope::Local
@@ -396,11 +539,15 @@ impl KotoParser {
                     Rule::lookup => AssignTarget::Lookup(next_as_lookup!(inner)),
                     _ => unreachable!(),
                 };
+
                 let operator = inner.next().unwrap().as_rule();
+
+                local_ids.add_assign_target_to_captures(&target);
+                local_ids.add_assign_target_to_ids_being_assigned_in_scope(&target);
+
                 let rhs = next_as_boxed_ast!(inner);
                 macro_rules! make_assign_op {
                     ($op:ident) => {{
-                        add_assign_target_to_captures(function_ids, &target);
                         Box::new(AstNode::new(
                             span.clone(),
                             Node::Op {
@@ -411,6 +558,7 @@ impl KotoParser {
                         ))
                     }};
                 };
+
                 let expression = match operator {
                     Rule::assign => rhs,
                     Rule::assign_add => make_assign_op!(Add),
@@ -421,7 +569,10 @@ impl KotoParser {
                     _ => unreachable!(),
                 };
 
-                add_assign_target_to_ids_assigned_in_function(function_ids, &target);
+                // TODO only set as assigned locally when in local scope
+                // Add the target to the assigned list
+                local_ids.remove_assign_target_from_ids_being_assigned_in_scope(&target);
+                local_ids.add_assign_target_to_ids_assigned_in_scope(&target);
 
                 AstNode::new(span, Node::Assign { target, expression })
             }
@@ -435,8 +586,10 @@ impl KotoParser {
                         Rule::assignment_id => {
                             let mut inner = pair.into_inner();
 
-                            let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
+                            let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                                 inner.next();
+                                Scope::Global
+                            } else if local_ids.top_level && self.options.export_all_top_level {
                                 Scope::Global
                             } else {
                                 Scope::Local
@@ -455,15 +608,20 @@ impl KotoParser {
                     })
                     .collect::<Vec<_>>();
 
+                for target in targets.iter() {
+                    local_ids.add_assign_target_to_ids_being_assigned_in_scope(target);
+                }
+
                 let expressions = inner
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
 
                 for target in targets.iter() {
-                    add_assign_target_to_ids_assigned_in_function(function_ids, target);
+                    local_ids.remove_assign_target_from_ids_being_assigned_in_scope(target);
+                    local_ids.add_assign_target_to_ids_assigned_in_scope(target);
                 }
 
                 AstNode::new(
@@ -477,7 +635,7 @@ impl KotoParser {
             Rule::operation => {
                 let operation_tree = self.climber.climb(
                     pair.into_inner(),
-                    |pair: Pair<Rule>| self.build_ast(pair, constants, function_ids),
+                    |pair: Pair<Rule>| self.build_ast(pair, constants, local_ids),
                     |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
                         use AstOp::*;
 
@@ -512,7 +670,7 @@ impl KotoParser {
                         }
                     },
                 );
-                self.post_process_operation_tree(operation_tree, 0, constants)
+                self.post_process_operation_tree(operation_tree, 0, constants, local_ids)
             }
             Rule::if_inline => {
                 let mut inner = pair.into_inner();
@@ -584,14 +742,14 @@ impl KotoParser {
                     .into_inner()
                     .map(|pair| add_constant_string(constants, pair.as_str()))
                     .collect::<Vec<_>>();
-                function_ids.ids_assigned_in_function.extend(args.clone());
+                local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 inner.next(); // in
                 let ranges = inner
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
                 let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
                     inner.next();
@@ -625,7 +783,7 @@ impl KotoParser {
                     .into_inner()
                     .map(|pair| add_constant_string(constants, pair.as_str()))
                     .collect::<Vec<_>>();
-                function_ids.ids_assigned_in_function.extend(args.clone());
+                local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 let mut inner = pair.into_inner();
                 let body = next_as_boxed_ast!(inner);
@@ -638,7 +796,7 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, function_ids))
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
                 let condition = if inner.next().is_some() {
                     // if
@@ -703,6 +861,7 @@ impl KotoParser {
         tree: AstNode,
         temp_value_counter: usize,
         constants: &mut ConstantPool,
+        local_ids: &mut LocalIds,
     ) -> AstNode {
         // To support chained comparisons:
         //   if the node is an op
@@ -716,10 +875,10 @@ impl KotoParser {
             Node::Op { op, lhs, rhs } => {
                 use AstOp::*;
                 let (op, lhs, rhs) = match op {
-                    Greater | GreaterOrEqual | Less | LessOrEqual => {
+                    Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
                         let chained_temp_value = match &lhs.node {
                             Node::Op { op, .. } => match op {
-                                Greater | GreaterOrEqual | Less | LessOrEqual => {
+                                Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
                                     let temp_value =
                                         format!("{}{}", TEMP_VAR_PREFIX, temp_value_counter);
 
@@ -763,6 +922,8 @@ impl KotoParser {
                                 _ => unreachable!(),
                             };
 
+                            local_ids.ids_assigned_in_scope.insert(chained_temp_value);
+
                             // rewrite the rhs to perform the node's comparison,
                             // reading from the temp value on its lhs
                             let rhs = Box::new(AstNode {
@@ -795,11 +956,13 @@ impl KotoParser {
                             *lhs,
                             temp_value_counter + 1,
                             constants,
+                            local_ids,
                         )),
                         rhs: Box::new(self.post_process_operation_tree(
                             *rhs,
                             temp_value_counter + 1,
                             constants,
+                            local_ids,
                         )),
                     },
                     ..tree
@@ -810,61 +973,9 @@ impl KotoParser {
     }
 }
 
-impl Default for KotoParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 fn add_constant_string(constants: &mut ConstantPool, s: &str) -> u32 {
     match u32::try_from(constants.add_string(s)) {
         Ok(index) => index,
         Err(_) => panic!("The constant pool has overflowed"), // TODO Return an error
-    }
-}
-
-fn add_assign_target_to_ids_assigned_in_function(
-    function_ids: &mut LocalFunctionIds,
-    target: &AssignTarget,
-) {
-    match target {
-        AssignTarget::Id { id_index, .. } => {
-            function_ids.ids_assigned_in_function.insert(*id_index);
-        }
-        AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
-            &[LookupNode::Id(id_index), ..] => {
-                function_ids.ids_assigned_in_function.insert(id_index);
-            }
-            _ => panic!("Expected Id as first lookup node"),
-        },
-    }
-}
-
-fn add_assign_target_to_captures(function_ids: &mut LocalFunctionIds, target: &AssignTarget) {
-    match target {
-        AssignTarget::Id { id_index, .. } => add_id_to_captures(function_ids, *id_index),
-        AssignTarget::Lookup(lookup) => add_lookup_to_captures(function_ids, lookup),
-    }
-}
-
-fn add_lookup_or_id_to_captures(function_ids: &mut LocalFunctionIds, lookup_or_id: &LookupOrId) {
-    match lookup_or_id {
-        LookupOrId::Id(id_index) => add_id_to_captures(function_ids, *id_index),
-        LookupOrId::Lookup(lookup) => add_lookup_to_captures(function_ids, lookup),
-    }
-}
-
-fn add_lookup_to_captures(function_ids: &mut LocalFunctionIds, lookup: &Lookup) {
-    match lookup.as_slice().0 {
-        &[LookupNode::Id(id_index), ..] => add_id_to_captures(function_ids, id_index),
-        _ => panic!("Expected Id as first lookup node"),
-    }
-}
-
-fn add_id_to_captures(function_ids: &mut LocalFunctionIds, id: ConstantIndex) {
-    if !function_ids.ids_assigned_in_function.contains(&id)
-        && function_ids.ids_in_parent_scope.contains(&id)
-    {
-        function_ids.captures.insert(id);
     }
 }

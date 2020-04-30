@@ -1,4 +1,4 @@
-use crate::{Runtime, RuntimeResult, Value};
+use crate::{RuntimeResult, Value, Vm};
 use downcast_rs::impl_downcast;
 pub use downcast_rs::Downcast;
 use std::{fmt, sync::Arc};
@@ -14,13 +14,13 @@ impl_downcast!(ExternalValue);
 // TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
 pub struct ExternalFunction {
-    pub function: Arc<dyn Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
+    pub function: Arc<dyn Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
     pub is_instance_function: bool,
 }
 
 impl ExternalFunction {
     pub fn new(
-        function: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        function: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {

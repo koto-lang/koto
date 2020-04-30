@@ -9,20 +9,36 @@ fn main() {
     let matches = App::new("Koto")
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
+            Arg::with_name("show_script")
+                .short("S")
+                .long("show_script")
+                .help("Show the script before it's run"),
+        )
+        .arg(
+            Arg::with_name("show_bytecode")
+                .short("b")
+                .long("show_bytecode")
+                .help("Show the script's compiled bytecode"),
+        )
+        .arg(
             Arg::with_name("script")
                 .help("The koto script to run")
                 .index(1),
         )
         .arg(
             Arg::with_name("args")
-                .help("Arguments to pass into koto")
+                .help("Arguments to pass into the script")
                 .multiple(true)
                 .last(true),
         )
         .get_matches();
 
+    let mut options = koto::Options::default();
+    options.show_script = matches.is_present("show_script");
+    options.show_bytecode = matches.is_present("show_bytecode");
+
     if let Some(path) = matches.value_of("script") {
-        let mut koto = Koto::new();
+        let mut koto = Koto::with_options(options);
 
         let args = match matches.values_of("args") {
             Some(args) => args.map(|s| s.to_string()).collect::<Vec<_>>(),
@@ -38,7 +54,7 @@ fn main() {
             }
         }
     } else {
-        let mut repl = Repl::new();
+        let mut repl = Repl::with_options(options);
         repl.run();
     }
 }

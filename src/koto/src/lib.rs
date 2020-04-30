@@ -1,20 +1,31 @@
+pub use koto_bytecode::{bytecode_to_string, Compiler};
 pub use koto_parser::{
     vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
-use koto_runtime::Runtime;
+use koto_runtime::Vm;
 pub use koto_runtime::{
-    make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction, RuntimeResult,
-    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,
+    RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
-pub use koto_std::{external_error, get_external_instance, visit_external_value};
+pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
+
+#[derive(Copy, Clone, Default)]
+pub struct Options {
+    pub show_bytecode: bool,
+    pub show_script: bool,
+    pub export_all_at_top_level: bool,
+}
 
 #[derive(Default)]
 pub struct Koto {
     script: String,
+    script_path: Option<String>,
     parser: Parser,
+    compiler: Compiler,
     ast: AstNode,
-    runtime: Runtime,
+    runtime: Vm,
+    options: Options,
 }
 
 impl Koto {
@@ -32,8 +43,14 @@ impl Koto {
         result
     }
 
+    pub fn with_options(options: Options) -> Self {
+        let mut result = Self::new();
+        result.options = options;
+        result
+    }
+
     pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
-        self.parse(script)?;
+        self.compile(script)?;
 
         self.set_args(Vec::new());
         self.run()?;
@@ -50,7 +67,7 @@ impl Koto {
         script: &str,
         args: Vec<String>,
     ) -> Result<Value, String> {
-        self.parse(script)?;
+        self.compile(script)?;
 
         self.set_args(args);
         self.run()?;
@@ -62,16 +79,42 @@ impl Koto {
         }
     }
 
-    pub fn parse(&mut self, script: &str) -> Result<(), String> {
-        let constants = self.runtime.constants_mut();
-        match self.parser.parse(&script, constants) {
+    pub fn compile(&mut self, script: &str) -> Result<(), String> {
+        let options = koto_parser::Options {
+            export_all_top_level: self.options.export_all_at_top_level,
+        };
+
+        match self
+            .parser
+            .parse(&script, self.runtime.constants_mut(), options)
+        {
             Ok(ast) => {
                 self.ast = ast;
+                self.runtime.constants_mut().shrink_to_fit();
+            }
+            Err(e) => {
+                return Err(format!("Error while parsing script: {}", e));
+            }
+        }
+        match self.compiler.compile_ast(&self.ast) {
+            Ok((bytecode, debug_info)) => {
+                self.runtime.set_bytecode(bytecode);
+                self.runtime.set_debug_info(Arc::new(DebugInfo {
+                    source_map: debug_info.clone(),
+                    script_path: self.script_path.clone(),
+                }));
+
+                if self.options.show_script {
+                    println!("{}", script);
+                }
+                if self.options.show_bytecode {
+                    println!("{}", bytecode_to_string(bytecode));
+                }
+
                 self.script = script.to_string();
-                constants.shrink_to_fit();
                 Ok(())
             }
-            Err(e) => Err(format!("Error while parsing script: {}", e)),
+            Err(e) => Err(format!("Error while compiling script: {}", e)),
         }
     }
 
@@ -114,7 +157,7 @@ impl Koto {
             None => (Empty, Empty),
         };
 
-        self.runtime.set_script_path(path);
+        self.script_path = path;
 
         match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => {
@@ -127,21 +170,25 @@ impl Koto {
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        match self.runtime.evaluate(&self.ast) {
+        match self.runtime.run() {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(message, start_pos, end_pos),
+                Error::VmRuntimeError {
+                    message,
+                    instruction,
+                } => self.format_vm_error(message, *instruction),
+                Error::ExternalError { message } => format!("External error: {}\n", message),
             }),
         }
     }
 
-    pub fn get_global_function(&self, function_name: &str) -> Option<RuntimeFunction> {
-        match self.runtime.get_value(function_name) {
+    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
+        match self.runtime.get_global_value(id) {
             Some(Value::Function(function)) => Some(function),
             _ => None,
         }
@@ -166,19 +213,30 @@ impl Koto {
         function: &RuntimeFunction,
         args: &[Value],
     ) -> Result<Value, String> {
-        match self
-            .runtime
-            .call_function_with_evaluated_args(function, args)
-        {
+        match self.runtime.run_function(function, args) {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
                 Error::RuntimeError {
                     message,
                     start_pos,
                     end_pos,
                 } => self.format_runtime_error(&message, start_pos, end_pos),
+                Error::VmRuntimeError {
+                    message,
+                    instruction,
+                } => self.format_vm_error(message, *instruction),
+                Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
+        }
+    }
+
+    fn format_vm_error(&self, message: &str, instruction: usize) -> String {
+        match self.compiler.debug_info().get_source_span(instruction) {
+            Some(span) => self.format_runtime_error(message, &span.start, &span.end),
+            None => format!(
+                "Runtime error at instruction {}: {}\n",
+                instruction, message
+            ),
         }
     }
 

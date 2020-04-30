@@ -1,7 +1,7 @@
 use crate::{
     external::{ExternalFunction, ExternalValue},
     value::make_external_value,
-    Id, Runtime, RuntimeResult, Value, ValueList, EXTERNAL_DATA_ID,
+    Id, RuntimeResult, Value, ValueList, Vm, EXTERNAL_DATA_ID,
 };
 use rustc_hash::FxHashMap;
 use std::{
@@ -30,7 +30,7 @@ impl ValueHashMap {
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
@@ -38,7 +38,7 @@ impl ValueHashMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
@@ -136,7 +136,7 @@ impl ValueMap {
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
@@ -144,7 +144,7 @@ impl ValueMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Runtime, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
