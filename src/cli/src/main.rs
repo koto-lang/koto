@@ -9,16 +9,16 @@ fn main() {
     let matches = App::new("Koto")
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
-            Arg::with_name("show_script")
-                .short("S")
-                .long("show_script")
-                .help("Show the script before it's run"),
-        )
-        .arg(
             Arg::with_name("show_bytecode")
                 .short("b")
                 .long("show_bytecode")
                 .help("Show the script's compiled bytecode"),
+        )
+        .arg(
+            Arg::with_name("show_annotated")
+                .short("B")
+                .long("show_annotated")
+                .help("Show compiled bytecode annotated with source lines"),
         )
         .arg(
             Arg::with_name("script")
@@ -34,8 +34,8 @@ fn main() {
         .get_matches();
 
     let mut options = koto::Options::default();
-    options.show_script = matches.is_present("show_script");
     options.show_bytecode = matches.is_present("show_bytecode");
+    options.show_annotated = matches.is_present("show_annotated");
 
     if let Some(path) = matches.value_of("script") {
         let mut koto = Koto::with_options(options);

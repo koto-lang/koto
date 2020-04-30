@@ -1,4 +1,4 @@
-pub use koto_bytecode::{bytecode_to_string, Compiler};
+pub use koto_bytecode::{bytecode_to_string, Compiler, InstructionReader, SourceSpan};
 pub use koto_parser::{
     vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
@@ -12,8 +12,8 @@ use std::{path::Path, sync::Arc};
 
 #[derive(Copy, Clone, Default)]
 pub struct Options {
+    pub show_annotated: bool,
     pub show_bytecode: bool,
-    pub show_script: bool,
     pub export_all_at_top_level: bool,
 }
 
@@ -100,6 +100,7 @@ impl Koto {
                 return Err(format!("Error while parsing script: {}", e));
             }
         }
+
         match self.compiler.compile_ast(&self.ast) {
             Ok((bytecode, debug_info)) => {
                 self.runtime.set_bytecode(bytecode);
@@ -108,14 +109,14 @@ impl Koto {
                     script_path: self.script_path.clone(),
                 }));
 
-                if self.options.show_script {
-                    println!("{}", script);
-                }
-                if self.options.show_bytecode {
-                    println!("{}", bytecode_to_string(bytecode));
+                self.script = script.to_string();
+
+                if self.options.show_annotated {
+                    self.print_annotated_bytecode();
+                } else if self.options.show_bytecode {
+                    println!("{}", bytecode_to_string(self.runtime.bytecode()));
                 }
 
-                self.script = script.to_string();
                 Ok(())
             }
             Err(e) => Err(format!("Error while compiling script: {}", e)),
@@ -232,53 +233,55 @@ impl Koto {
         start_pos: &Position,
         end_pos: &Position,
     ) -> String {
-        let excerpt_lines = self
-            .script
-            .lines()
-            .skip(start_pos.line - 1)
-            .take(end_pos.line - start_pos.line + 1)
-            .collect::<Vec<_>>();
+        let (excerpt, padding) = {
+            let excerpt_lines = self
+                .script
+                .lines()
+                .skip(start_pos.line - 1)
+                .take(end_pos.line - start_pos.line + 1)
+                .collect::<Vec<_>>();
 
-        let line_numbers = (start_pos.line..=end_pos.line)
-            .map(|n| n.to_string())
-            .collect::<Vec<_>>();
+            let line_numbers = (start_pos.line..=end_pos.line)
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>();
 
-        let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
+            let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
 
-        let padding = format!("{}", " ".repeat(number_width + 2));
+            let padding = format!("{}", " ".repeat(number_width + 2));
 
-        let excerpt = if excerpt_lines.len() == 1 {
-            let mut excerpt = format!(
-                " {:>width$} | {}\n",
-                line_numbers.first().unwrap(),
-                excerpt_lines.first().unwrap(),
-                width = number_width
-            );
-
-            excerpt += &format!(
-                "{}|{}",
-                padding,
-                format!(
-                    "{}{}",
-                    " ".repeat(start_pos.column),
-                    "^".repeat(end_pos.column - start_pos.column)
-                ),
-            );
-
-            excerpt
-        } else {
-            let mut excerpt = String::new();
-
-            for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
-                excerpt += &format!(
+            if excerpt_lines.len() == 1 {
+                let mut excerpt = format!(
                     " {:>width$} | {}\n",
-                    line_number,
-                    excerpt_line,
+                    line_numbers.first().unwrap(),
+                    excerpt_lines.first().unwrap(),
                     width = number_width
                 );
-            }
 
-            excerpt
+                excerpt += &format!(
+                    "{}|{}",
+                    padding,
+                    format!(
+                        "{}{}",
+                        " ".repeat(start_pos.column),
+                        "^".repeat(end_pos.column - start_pos.column)
+                    ),
+                );
+
+                (excerpt, padding)
+            } else {
+                let mut excerpt = String::new();
+
+                for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
+                    excerpt += &format!(
+                        " {:>width$} | {}\n",
+                        line_number,
+                        excerpt_line,
+                        width = number_width
+                    );
+                }
+
+                (excerpt, padding)
+            }
         };
 
         format!(
@@ -289,5 +292,46 @@ impl Koto {
             excerpt = excerpt,
             message = message
         )
+    }
+
+    fn print_annotated_bytecode(&self) {
+        let lines = self.script.lines().collect::<Vec<_>>();
+
+        let mut reader = InstructionReader::new(self.runtime.bytecode());
+        let mut ip = reader.ip;
+        let mut span: Option<SourceSpan> = None;
+        let mut first = true;
+
+        while let Some(instruction) = reader.next() {
+            let instruction_span = self
+                .compiler
+                .debug_info()
+                .get_source_span(ip)
+                .expect("Missing source span");
+
+            let print_source_lines = if let Some(span) = span {
+                instruction_span.start.line != span.start.line
+            } else {
+                true
+            };
+
+            if print_source_lines {
+                let line = instruction_span.start.line;
+                let excerpt = format!("|{}| {}", line.to_string(), lines[line - 1],);
+
+                if !first {
+                    println!("");
+                }
+                first = false;
+
+                println!("{}", excerpt);
+                span = Some(instruction_span);
+            }
+
+            println!("{}\t{}", ip, &instruction.to_string());
+            ip = reader.ip;
+        }
+
+        println!("");
     }
 }
