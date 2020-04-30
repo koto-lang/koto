@@ -2,9 +2,49 @@ use crate::{Bytecode, Op};
 
 use koto_parser::{
     AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, Lookup, LookupNode,
-    LookupOrId, Node, Scope,
+    LookupOrId, Node, Position, Scope,
 };
 use std::convert::TryFrom;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SourceSpan {
+    pub start: Position,
+    pub end: Position,
+}
+
+#[derive(Default)]
+pub struct DebugInfo {
+    ip_to_source: Vec<(usize, SourceSpan)>,
+}
+
+impl DebugInfo {
+    fn push(&mut self, ip: usize, span: &SourceSpan) {
+        if let Some(entry) = self.ip_to_source.last() {
+            if entry.1 == *span {
+                // Don't add entries with matching spans, a search is performed in
+                // get_source_span which will find the correct span
+                // for intermediate ips.
+                return;
+            }
+        }
+        self.ip_to_source.push((ip, *span));
+    }
+
+    pub fn get_source_span(&self, ip: usize) -> Option<SourceSpan> {
+        // Find the last entry with an ip less than or equal to the input
+        // an upper_bound would nice here, but this isn't currently a performance sensitive function
+        // so a scan through the entries will do.
+        let mut result = None;
+        for entry in self.ip_to_source.iter() {
+            if entry.0 <= ip {
+                result = Some(entry.1.clone());
+            } else {
+                break;
+            }
+        }
+        result
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 struct Loop {
@@ -149,7 +189,9 @@ impl Frame {
 #[derive(Default)]
 pub struct Compiler {
     bytes: Bytecode,
+    debug_info: DebugInfo,
     frame_stack: Vec<Frame>,
+    current_span: SourceSpan,
 }
 
 impl Compiler {
@@ -157,6 +199,10 @@ impl Compiler {
         Self {
             ..Default::default()
         }
+    }
+
+    pub fn debug_info(&self) -> &DebugInfo {
+        &self.debug_info
     }
 
     pub fn compile_ast(&mut self, ast: &AstNode) -> Result<&Bytecode, String> {
@@ -169,6 +215,11 @@ impl Compiler {
 
     fn compile_node(&mut self, result_register: Option<u8>, node: &AstNode) -> Result<(), String> {
         use Op::*;
+
+        self.current_span = SourceSpan {
+            start: node.start_pos,
+            end: node.end_pos,
+        };
 
         match &node.node {
             Node::Empty => {
@@ -1346,6 +1397,8 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
+        self.debug_info.push(self.bytes.len(), &self.current_span);
+
         self.bytes.push(op.into());
         self.bytes.extend_from_slice(bytes);
     }

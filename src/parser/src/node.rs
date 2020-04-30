@@ -115,7 +115,7 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Position {
     pub line: usize,
     pub column: usize,

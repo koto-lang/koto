@@ -168,12 +168,7 @@ impl Koto {
                 Error::VmRuntimeError {
                     message,
                     instruction,
-                } => {
-                    format!(
-                        "VM Runtime error at instruction {}: {}\n",
-                        instruction, message
-                    ) // TODO
-                }
+                } => self.format_vm_error(message, *instruction),
                 Error::ExternalError { message } => format!("External error: {}\n", message),
             }),
         }
@@ -216,12 +211,19 @@ impl Koto {
                 Error::VmRuntimeError {
                     message,
                     instruction,
-                } => format!(
-                    "VM Runtime error at instruction {}: {}\n",
-                    instruction, message
-                ),
+                } => self.format_vm_error(message, *instruction),
                 Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
+        }
+    }
+
+    fn format_vm_error(&self, message: &str, instruction: usize) -> String {
+        match self.compiler.debug_info().get_source_span(instruction) {
+            Some(span) => self.format_runtime_error(message, &span.start, &span.end),
+            None => format!(
+                "Runtime error at instruction {}: {}\n",
+                instruction, message
+            ),
         }
     }
 
