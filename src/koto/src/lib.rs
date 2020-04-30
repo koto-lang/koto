@@ -4,8 +4,8 @@ pub use koto_parser::{
 };
 use koto_runtime::Vm;
 pub use koto_runtime::{
-    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeResult,
-    Value, ValueHashMap, ValueList, ValueMap, ValueVec, VmRuntimeFunction,
+    external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
+    RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
@@ -174,9 +174,9 @@ impl Koto {
         }
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<VmRuntimeFunction> {
+    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
         match self.runtime.get_global_value(id) {
-            Some(Value::VmFunction(function)) => Some(function),
+            Some(Value::Function(function)) => Some(function),
             _ => None,
         }
     }
@@ -197,7 +197,7 @@ impl Koto {
 
     pub fn call_function(
         &mut self,
-        function: &VmRuntimeFunction,
+        function: &RuntimeFunction,
         args: &[Value],
     ) -> Result<Value, String> {
         match self.runtime.run_function(function, args) {

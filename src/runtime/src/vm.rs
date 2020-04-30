@@ -2,7 +2,7 @@
 
 use crate::{
     type_as_string,
-    value::{copy_value, VmRuntimeFunction},
+    value::{copy_value, RuntimeFunction},
     value_iterator::{IntRange, Iterable, ValueIterator},
     vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
@@ -121,7 +121,7 @@ impl Vm {
         self.execute_instructions()
     }
 
-    pub fn run_function(&mut self, function: &VmRuntimeFunction, args: &[Value]) -> RuntimeResult {
+    pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
         if function.is_instance_function {
             return vm_error!(self.reader.ip, "Unexpected instance function");
         }
@@ -463,7 +463,7 @@ impl Vm {
                 let mut captures = ValueVec::new();
                 captures.resize(capture_count as usize, Empty);
 
-                let function = VmFunction(VmRuntimeFunction {
+                let function = Function(RuntimeFunction {
                     ip: self.reader.ip,
                     arg_count,
                     captures: ValueList::with_data(captures),
@@ -481,7 +481,7 @@ impl Vm {
                 let mut captures = ValueVec::new();
                 captures.resize(capture_count as usize, Empty);
 
-                let function = VmFunction(VmRuntimeFunction {
+                let function = Function(RuntimeFunction {
                     ip: self.reader.ip,
                     arg_count,
                     captures: ValueList::with_data(captures),
@@ -495,7 +495,7 @@ impl Vm {
                 target,
                 source,
             } => match self.get_register(function) {
-                VmFunction(f) => {
+                Function(f) => {
                     f.captures.data_mut()[target as usize] = self.get_register(source).clone();
                 }
                 unexpected => {
@@ -1151,7 +1151,7 @@ impl Vm {
                     }
                 }
             }
-            VmFunction(VmRuntimeFunction {
+            Function(RuntimeFunction {
                 ip: function_ip,
                 arg_count: function_arg_count,
                 captures,

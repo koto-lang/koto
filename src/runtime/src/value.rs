@@ -24,7 +24,6 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
-    VmFunction(VmRuntimeFunction),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     For(Arc<AstFor>),
@@ -70,11 +69,7 @@ impl fmt::Display for Value {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Function(fun) => {
-                let raw = Arc::into_raw(fun.function.clone());
-                write!(f, "Function: {:?}", raw)
-            }
-            VmFunction(function)=> write!(f, "VmFunction: {}", function.ip),
+            Function(function)=> write!(f, "Function: {}", function.ip),
             ExternalFunction(function) => {
                 let raw = Arc::into_raw(function.function.clone());
                 write!(f, "External function: {:?}", raw)
@@ -119,7 +114,6 @@ impl PartialEq for Value {
                 },
             ) => start_a == start_b && end_a == end_b,
             (Function(a), Function(b)) => a == b,
-            (VmFunction(a), VmFunction(b)) => a == b,
             (Empty, Empty) => true,
             _ => false,
         }
@@ -164,23 +158,11 @@ impl From<bool> for Value {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct VmRuntimeFunction {
+pub struct RuntimeFunction {
     pub ip: usize,
     pub arg_count: u8,
     pub is_instance_function: bool,
     pub captures: ValueList,
-}
-
-#[derive(Clone, Debug)]
-pub struct RuntimeFunction {
-    pub function: Arc<koto_parser::Function>,
-    pub captured: ValueMap,
-}
-
-impl PartialEq for RuntimeFunction {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.function, &other.function) && self.captured == other.captured
-    }
 }
 
 pub fn copy_value(value: &Value) -> Value {
@@ -212,8 +194,7 @@ pub fn type_as_string(value: &Value) -> String {
         IndexRange { .. } => "IndexRange".to_string(),
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
-        Function(_) => "Function".to_string(),
-        VmFunction { .. } => "VmFunction".to_string(),
+        Function { .. } => "Function".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         For(_) => "For".to_string(),

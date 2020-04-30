@@ -119,7 +119,7 @@ pub fn register(global: &mut ValueMap) {
     list.add_fn("filter", |runtime, args| {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
-                VmFunction(f) => {
+                Function(f) => {
                     if f.arg_count != 1 {
                         return external_error!(
                             "The function passed to list.filter must have a \
@@ -159,7 +159,7 @@ pub fn register(global: &mut ValueMap) {
 
     list.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
-            VmFunction(f) => {
+            Function(f) => {
                 if f.arg_count != 1 {
                     return external_error!(
                         "The function passed to list.transform must have a \
@@ -183,7 +183,7 @@ pub fn register(global: &mut ValueMap) {
 
     list.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args {
-            [_, result, VmFunction(f)] => {
+            [_, result, Function(f)] => {
                 if f.arg_count != 2 {
                     return external_error!(
                         "list.fold: The fold function must have two arguments, found '{}'",
