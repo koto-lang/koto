@@ -10,6 +10,12 @@ pub use koto_runtime::{
 pub use koto_std::{get_external_instance, visit_external_value};
 use std::{path::Path, sync::Arc};
 
+#[derive(Copy, Clone, Default)]
+pub struct Options {
+    pub show_bytecode: bool,
+    pub show_script: bool,
+}
+
 #[derive(Default)]
 pub struct Koto {
     script: String,
@@ -17,6 +23,7 @@ pub struct Koto {
     compiler: Compiler,
     ast: AstNode,
     runtime: Vm,
+    options: Options,
 }
 
 impl Koto {
@@ -31,6 +38,12 @@ impl Koto {
         env.add_list("args", ValueList::new());
         result.runtime.global_mut().add_map("env", env);
 
+        result
+    }
+
+    pub fn with_options(options: Options) -> Self {
+        let mut result = Self::new();
+        result.options = options;
         result
     }
 
@@ -78,9 +91,12 @@ impl Koto {
             Ok(bytecode) => {
                 self.runtime.set_bytecode(bytecode);
 
-                // TODO make optional
-                // println!("{}", script);
-                // println!("{}", bytecode_to_string(bytecode));
+                if self.options.show_script {
+                    println!("{}", script);
+                }
+                if self.options.show_bytecode {
+                    println!("{}", bytecode_to_string(bytecode));
+                }
 
                 self.script = script.to_string();
                 Ok(())
@@ -200,7 +216,10 @@ impl Koto {
                 Error::VmRuntimeError {
                     message,
                     instruction,
-                } => format!("VM Runtime error at instruction {}: {}\n",instruction,  message),
+                } => format!(
+                    "VM Runtime error at instruction {}: {}\n",
+                    instruction, message
+                ),
                 Error::ExternalError { message } => format!("External error: {}\n", message,),
             }),
         }
