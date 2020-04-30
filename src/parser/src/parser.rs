@@ -485,7 +485,7 @@ impl KotoParser {
                     Rule::assignment_id => {
                         let mut inner = inner.next().unwrap().into_inner();
 
-                        let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
+                        let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                             inner.next();
                             Scope::Global
                         } else {
@@ -550,7 +550,7 @@ impl KotoParser {
                         Rule::assignment_id => {
                             let mut inner = pair.into_inner();
 
-                            let scope = if inner.peek().unwrap().as_rule() == Rule::global_keyword {
+                            let scope = if inner.peek().unwrap().as_rule() == Rule::export_keyword {
                                 inner.next();
                                 Scope::Global
                             } else {

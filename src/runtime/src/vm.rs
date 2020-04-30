@@ -1953,10 +1953,10 @@ f [1 2]";
         }
 
         #[test]
-        fn global_assignment() {
+        fn export_assignment() {
             let script = "
 f = ||
-  global x = 42
+  export x = 42
 f()
 x";
             test_script(script, Number(42.0));

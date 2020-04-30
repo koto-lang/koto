@@ -272,7 +272,7 @@ char = {
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
-assignment_id = !{ global_keyword? ~ id }
+assignment_id = !{ export_keyword? ~ id }
 copy_id = !{ copy_keyword ~ lookup_or_id }
 lookup_or_id = _{ lookup | id }
 id = ${ negative? ~ single_id }
@@ -319,7 +319,7 @@ debug = { "debug" }
 else_ = { "else" }
 false_ = { "false" }
 for_ = { "for" }
-global = { "global" }
+export = { "export" }
 if_ = { "if" }
 in_ = { "in" }
 not = { "not" }
@@ -339,7 +339,7 @@ keyword = _{
   | else_
   | false_
   | for_
-  | global
+  | export
   | if_
   | in_
   | not
@@ -356,7 +356,7 @@ copy_keyword = @{ copy ~ WHITESPACE+ }
 else_if_keyword = @{ else_ ~ WHITESPACE+ ~ if_ ~ WHITESPACE+ }
 else_keyword = @{ else_ ~ WHITESPACE+ }
 for_keyword = @{ for_ ~ WHITESPACE+ }
-global_keyword = @{ global ~ WHITESPACE+ }
+export_keyword = @{ export ~ WHITESPACE+ }
 if_keyword = @{ if_ ~ WHITESPACE+ }
 in_keyword = @{ in_ ~ WHITESPACE+ }
 not_keyword = @{ not ~ WHITESPACE+ }
