@@ -50,32 +50,36 @@ impl Koto {
     }
 
     pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
-        self.compile(script)?;
-
-        self.set_args(Vec::new());
-        self.run()?;
-
-        if let Some(main) = self.get_global_function("main") {
-            self.call_function(&main, &[])
-        } else {
-            Ok(Value::Empty)
-        }
+        self.run_script_with_args(script, &[])
     }
 
-    pub fn run_script_with_args(
-        &mut self,
-        script: &str,
-        args: Vec<String>,
-    ) -> Result<Value, String> {
+    pub fn run_script_with_args(&mut self, script: &str, args: &[String]) -> Result<Value, String> {
         self.compile(script)?;
-
         self.set_args(args);
-        self.run()?;
+        self.run()
+    }
+
+    pub fn run(&mut self) -> Result<Value, String> {
+        let result = match self.runtime.run() {
+            Ok(result) => Ok(result),
+            Err(e) => Err(match &e {
+                Error::RuntimeError {
+                    message,
+                    start_pos,
+                    end_pos,
+                } => self.format_runtime_error(message, start_pos, end_pos),
+                Error::VmRuntimeError {
+                    message,
+                    instruction,
+                } => self.format_vm_error(message, *instruction),
+                Error::ExternalError { message } => format!("External error: {}\n", message),
+            }),
+        }?;
 
         if let Some(main) = self.get_global_function("main") {
             self.call_function(&main, &[])
         } else {
-            Ok(Value::Empty)
+            Ok(result)
         }
     }
 
@@ -122,7 +126,7 @@ impl Koto {
         self.runtime.global_mut()
     }
 
-    pub fn set_args(&mut self, args: Vec<String>) {
+    pub fn set_args(&mut self, args: &[String]) {
         use Value::{Map, Str};
 
         let koto_args = args
@@ -166,24 +170,6 @@ impl Koto {
                 map.add_value("script_path", script_path);
             }
             _ => unreachable!(),
-        }
-    }
-
-    pub fn run(&mut self) -> Result<Value, String> {
-        match self.runtime.run() {
-            Ok(result) => Ok(result),
-            Err(e) => Err(match &e {
-                Error::RuntimeError {
-                    message,
-                    start_pos,
-                    end_pos,
-                } => self.format_runtime_error(message, start_pos, end_pos),
-                Error::VmRuntimeError {
-                    message,
-                    instruction,
-                } => self.format_vm_error(message, *instruction),
-                Error::ExternalError { message } => format!("External error: {}\n", message),
-            }),
         }
     }
 

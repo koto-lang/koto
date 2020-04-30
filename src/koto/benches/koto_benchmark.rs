@@ -14,7 +14,7 @@ impl BenchmarkRunner {
         let script = read_to_string(path).expect("Unable to load path");
 
         let mut koto = Koto::new();
-        if let Err(error) = koto.run_script_with_args(&script, args) {
+        if let Err(error) = koto.run_script_with_args(&script, &args) {
             eprintln!("{}", error);
             assert!(false);
         }
