@@ -266,6 +266,10 @@ impl KotoParser {
                     .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect();
 
+                // the top level scope will have captures assigned to it due to the grandparenting
+                // logic, but there's nothing to capture at the top level so clear the list to
+                // ensure a correct local count.
+                local_ids.captures.clear();
                 let local_count = local_ids.local_count();
 
                 AstNode::new(span, Node::MainBlock { body, local_count })

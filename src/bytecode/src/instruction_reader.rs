@@ -468,7 +468,7 @@ impl fmt::Display for Instruction {
             }
             ListUpdate { list, index, value } => write!(
                 f,
-                "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
+                "ListUpdate\tlist: {}\tindex: {}\tvalue: {}",
                 list, index, value
             ),
             ListIndex {
@@ -477,7 +477,7 @@ impl fmt::Display for Instruction {
                 index,
             } => write!(
                 f,
-                "ListInsert\treg: {}\t\tlist: {}\t\tindex: {}",
+                "ListIndex\treg: {}\t\tlist: {}\t\tindex: {}",
                 register, list, index
             ),
             MapInsert {

@@ -1340,7 +1340,7 @@ fn binary_op_error(
 mod tests {
     use super::*;
     use crate::{external_error, Value::*, ValueHashMap};
-    use koto_bytecode::{bytecode_to_string, Compiler};
+    use koto_bytecode::{bytecode_to_string_annotated, Compiler};
     use koto_parser::KotoParser;
 
     fn test_script(script: &str, expected_output: Value) {
@@ -1380,17 +1380,24 @@ mod tests {
             Ok(Empty)
         });
 
+        let print_bytecode = |script: &str, bytecode, debug_info| {
+            eprintln!("{}\n", script);
+            let script_lines = script.lines().collect::<Vec<_>>();
+            eprintln!(
+                "{}",
+                bytecode_to_string_annotated(bytecode, &script_lines, debug_info)
+            );
+        };
+
         match vm.run() {
             Ok(result) => {
                 if result != expected_output {
-                    eprintln!("{}", script);
-                    eprintln!("{}", bytecode_to_string(vm.bytecode()));
+                    print_bytecode(script, vm.bytecode(), compiler.debug_info());
                 }
                 assert_eq!(result, expected_output);
             }
             Err(e) => {
-                eprintln!("{}", script);
-                eprintln!("{}", bytecode_to_string(vm.bytecode()));
+                print_bytecode(script, vm.bytecode(), compiler.debug_info());
                 panic!(format!("Error while running script: {:?}", e));
             }
         }
@@ -1883,6 +1890,15 @@ fib = |n|
 fib 4
 ";
             test_script(script, Number(3.0));
+        }
+
+        #[test]
+        fn recursive_call_via_multi_assign() {
+            let script = "
+f, g = (|n| if n == 0 then 1 else f n - 1), (|n| if n == 0 then 2 else g n - 1)
+f 4, g 4
+";
+            test_script(script, number_list(&[1, 2]));
         }
 
         #[test]

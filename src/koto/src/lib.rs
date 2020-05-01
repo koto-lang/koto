@@ -1,4 +1,6 @@
-pub use koto_bytecode::{bytecode_to_string, Compiler, InstructionReader, SourceSpan};
+pub use koto_bytecode::{
+    bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader, SourceSpan,
+};
 pub use koto_parser::{
     vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
@@ -112,7 +114,15 @@ impl Koto {
                 self.script = script.to_string();
 
                 if self.options.show_annotated {
-                    self.print_annotated_bytecode();
+                    let script_lines = self.script.lines().collect::<Vec<_>>();
+                    println!(
+                        "{}",
+                        bytecode_to_string_annotated(
+                            self.runtime.bytecode(),
+                            &script_lines,
+                            self.compiler.debug_info()
+                        )
+                    );
                 } else if self.options.show_bytecode {
                     println!("{}", bytecode_to_string(self.runtime.bytecode()));
                 }
@@ -292,46 +302,5 @@ impl Koto {
             excerpt = excerpt,
             message = message
         )
-    }
-
-    fn print_annotated_bytecode(&self) {
-        let lines = self.script.lines().collect::<Vec<_>>();
-
-        let mut reader = InstructionReader::new(self.runtime.bytecode());
-        let mut ip = reader.ip;
-        let mut span: Option<SourceSpan> = None;
-        let mut first = true;
-
-        while let Some(instruction) = reader.next() {
-            let instruction_span = self
-                .compiler
-                .debug_info()
-                .get_source_span(ip)
-                .expect("Missing source span");
-
-            let print_source_lines = if let Some(span) = span {
-                instruction_span.start.line != span.start.line
-            } else {
-                true
-            };
-
-            if print_source_lines {
-                let line = instruction_span.start.line;
-                let excerpt = format!("|{}| {}", line.to_string(), lines[line - 1],);
-
-                if !first {
-                    println!("");
-                }
-                first = false;
-
-                println!("{}", excerpt);
-                span = Some(instruction_span);
-            }
-
-            println!("{}\t{}", ip, &instruction.to_string());
-            ip = reader.ip;
-        }
-
-        println!("");
     }
 }

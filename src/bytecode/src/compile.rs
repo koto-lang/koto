@@ -4,6 +4,7 @@ use koto_parser::{
     AssignTarget, AstFor, AstIf, AstNode, AstOp, AstWhile, ConstantIndex, Lookup, LookupNode,
     LookupOrId, Node, Position, Scope,
 };
+use smallvec::SmallVec;
 use std::convert::TryFrom;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -61,11 +62,17 @@ impl Loop {
     }
 }
 
+#[derive(Clone, Debug)]
+enum LocalRegister {
+    Assigned(ConstantIndex),
+    Reserved(ConstantIndex),
+}
+
 #[derive(Clone, Debug, Default)]
 struct Frame {
     loop_stack: Vec<Loop>,
     register_stack: Vec<u8>,
-    local_registers: Vec<ConstantIndex>,
+    local_registers: Vec<LocalRegister>,
     captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
@@ -74,7 +81,7 @@ struct Frame {
 impl Frame {
     fn new(local_count: u8, args: &[ConstantIndex], captures: &[ConstantIndex]) -> Self {
         let mut local_registers = Vec::with_capacity(local_count as usize);
-        local_registers.extend_from_slice(args);
+        local_registers.extend(args.iter().map(|arg| LocalRegister::Assigned(*arg)));
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
@@ -83,12 +90,6 @@ impl Frame {
             temporary_base: local_count,
             ..Default::default()
         }
-    }
-
-    fn is_local(&self, index: ConstantIndex) -> bool {
-        self.local_registers
-            .iter()
-            .any(|constant_index| index == *constant_index)
     }
 
     fn capture_slot(&self, index: ConstantIndex) -> Option<u8> {
@@ -110,15 +111,71 @@ impl Frame {
         }
     }
 
-    fn get_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
-        let local_register = match self
-            .local_registers
+    fn get_local_register(&self, index: ConstantIndex) -> Option<u8> {
+        self.local_registers
             .iter()
-            .position(|constant_index| local == *constant_index)
-        {
+            .position(|local_register| {
+                let register_index = match local_register {
+                    LocalRegister::Assigned(register_index) => register_index,
+                    LocalRegister::Reserved(register_index) => register_index,
+                };
+                *register_index == index
+            })
+            .map(|position| position as u8)
+    }
+
+    fn get_local_assigned_register(&self, index: ConstantIndex) -> Option<u8> {
+        self.local_registers
+            .iter()
+            .position(|local_register| match local_register {
+                LocalRegister::Assigned(assigned_index) if *assigned_index == index => true,
+                _ => false,
+            })
+            .map(|position| position as u8)
+    }
+
+    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
+        match self.get_local_assigned_register(local) {
+            Some(assigned) => Ok(assigned),
+            None => {
+                self.local_registers.push(LocalRegister::Reserved(local));
+
+                let new_local_register = self.local_registers.len() - 1;
+
+                if new_local_register > self.temporary_base as usize {
+                    panic!();
+                    // return Err("reserve_local_register: Locals overflowed".to_string());
+                }
+
+                Ok(new_local_register as u8)
+            }
+        }
+    }
+
+    fn commit_local_register(&mut self, local_register: u8) -> Result<(), String> {
+        let local_register = local_register as usize;
+        let index = match self.local_registers.get_mut(local_register) {
+            Some(LocalRegister::Assigned(_)) => {
+                return Ok(());
+            }
+            Some(LocalRegister::Reserved(index)) => index,
+            None => {
+                return Err(format!(
+                    "commit_local_register: register {} hasn't been reserved",
+                    local_register
+                ));
+            }
+        };
+
+        self.local_registers[local_register] = LocalRegister::Assigned(*index);
+        Ok(())
+    }
+
+    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
+        let local_register = match self.get_local_assigned_register(local) {
             Some(assigned) => assigned,
             None => {
-                self.local_registers.push(local);
+                self.local_registers.push(LocalRegister::Assigned(local));
 
                 let new_local_register = self.local_registers.len() - 1;
 
@@ -126,16 +183,10 @@ impl Frame {
                     return Err("declare_local_register: Locals overflowed".to_string());
                 }
 
-                new_local_register
+                new_local_register as u8
             }
-        } as u8;
+        };
 
-        Ok(local_register)
-    }
-
-    fn push_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
-        let local_register = self.get_local_register(local)?;
-        self.register_stack.push(local_register);
         Ok(local_register)
     }
 
@@ -159,14 +210,7 @@ impl Frame {
         Ok(register)
     }
 
-    fn peek_register(&self) -> Result<u8, String> {
-        self.register_stack
-            .last()
-            .cloned()
-            .ok_or_else(|| "peek_register: Empty register stack".to_string())
-    }
-
-    fn peek_register_n(&self, n: usize) -> Result<u8, String> {
+    fn peek_register(&self, n: usize) -> Result<u8, String> {
         self.register_stack
             .get(self.register_stack.len() - n - 1)
             .cloned()
@@ -189,9 +233,9 @@ impl Frame {
 #[derive(Default)]
 pub struct Compiler {
     bytes: Bytecode,
-    debug_info: DebugInfo,
     frame_stack: Vec<Frame>,
-    current_span: SourceSpan,
+    debug_info: DebugInfo,
+    span_stack: Vec<SourceSpan>,
 }
 
 impl Compiler {
@@ -216,10 +260,10 @@ impl Compiler {
     fn compile_node(&mut self, result_register: Option<u8>, node: &AstNode) -> Result<(), String> {
         use Op::*;
 
-        self.current_span = SourceSpan {
+        self.span_stack.push(SourceSpan {
             start: node.start_pos,
             end: node.end_pos,
-        };
+        });
 
         match &node.node {
             Node::Empty => {
@@ -235,10 +279,26 @@ impl Compiler {
             Node::Lookup(lookup) => self.compile_lookup(result_register, lookup, None)?,
             Node::Copy(lookup_or_id) => {
                 if let Some(result_register) = result_register {
-                    let source_register = self.push_register()?;
-                    self.compile_lookup_or_id(source_register, lookup_or_id)?;
-                    self.push_op(DeepCopy, &[result_register, source_register]);
-                    self.pop_register()?;
+                    match lookup_or_id {
+                        LookupOrId::Id(id) => {
+                            if let Some(local_register) =
+                                self.frame().get_local_assigned_register(*id)
+                            {
+                                self.push_op(DeepCopy, &[result_register, local_register]);
+                            } else {
+                                let register = self.push_register()?;
+                                self.compile_load_non_local_id(register, *id)?;
+                                self.push_op(DeepCopy, &[result_register, register]);
+                                self.pop_register()?;
+                            }
+                        }
+                        LookupOrId::Lookup(lookup) => {
+                            let register = self.push_register()?;
+                            self.compile_lookup(Some(register), lookup, None)?;
+                            self.push_op(DeepCopy, &[result_register, register]);
+                            self.pop_register()?;
+                        }
+                    }
                 }
             }
             Node::BoolTrue => {
@@ -308,17 +368,27 @@ impl Compiler {
                 inclusive,
             } => {
                 if let Some(result_register) = result_register {
-                    let start_register = self.push_register()?;
-                    self.compile_node(Some(start_register), start)?;
+                    let (start_register, pop_start) =
+                        self.compile_node_or_get_local(Some(result_register), start)?;
 
-                    let end_register = self.push_register()?;
-                    self.compile_node(Some(end_register), end)?;
+                    let end_available_register = if start_register != result_register {
+                        Some(result_register)
+                    } else {
+                        None
+                    };
+
+                    let (end_register, pop_end) =
+                        self.compile_node_or_get_local(end_available_register, end)?;
 
                     let op = if *inclusive { RangeInclusive } else { Range };
                     self.push_op(op, &[result_register, start_register, end_register]);
 
-                    self.pop_register()?;
-                    self.pop_register()?;
+                    if pop_end {
+                        self.pop_register()?;
+                    }
+                    if pop_start {
+                        self.pop_register()?;
+                    }
                 } else {
                     self.compile_node(None, start)?;
                     self.compile_node(None, end)?;
@@ -429,22 +499,32 @@ impl Compiler {
                     self.update_offset_placeholder(function_size_ip);
 
                     for (i, capture) in f.captures.iter().enumerate() {
-                        let capture_register = self.push_register()?;
-                        self.compile_load_id(capture_register, *capture)?;
+                        if let Some(local_register) = self.frame().get_local_register(*capture) {
+                            self.push_op(Capture, &[result_register, i as u8, local_register]);
+                        } else {
+                            let capture_register = self.push_register()?;
+                            self.compile_load_non_local_id(capture_register, *capture)?;
 
-                        self.push_op(Capture, &[result_register, i as u8, capture_register]);
+                            self.push_op(Capture, &[result_register, i as u8, capture_register]);
 
-                        self.pop_register()?;
+                            self.pop_register()?;
+                        }
                     }
                 }
             }
             Node::Call { function, args } => {
                 match function {
                     LookupOrId::Id(id) => {
-                        let function_register = self.push_register()?;
-                        self.compile_load_id(function_register, *id)?;
-                        self.compile_call(result_register, function_register, args, None)?;
-                        self.pop_register()?;
+                        if let Some(function_register) =
+                            self.frame().get_local_assigned_register(*id)
+                        {
+                            self.compile_call(result_register, function_register, args, None)?;
+                        } else {
+                            let function_register = self.push_register()?;
+                            self.compile_load_non_local_id(function_register, *id)?;
+                            self.compile_call(result_register, function_register, args, None)?;
+                            self.pop_register()?;
+                        }
                     }
                     LookupOrId::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
@@ -503,17 +583,29 @@ impl Compiler {
                     }
                 };
 
-                let lhs_register = self.push_register()?;
-                let rhs_register = self.push_register()?;
-                self.compile_node(Some(lhs_register), &lhs)?;
-                self.compile_node(Some(rhs_register), &rhs)?;
+                let (lhs_register, pop_lhs) =
+                    self.compile_node_or_get_local(result_register, lhs)?;
 
+                // If the result register wasn't used for the lhs, then it's available for the rhs
+                let rhs_result_register = match result_register {
+                    Some(register) if lhs_register != register => Some(register),
+                    _ => None,
+                };
+
+                let (rhs_register, pop_rhs) =
+                    self.compile_node_or_get_local(rhs_result_register, rhs)?;
+
+                // We only need to do the actual op if there's a result register
                 if let Some(result_register) = result_register {
                     self.push_op(op, &[result_register, lhs_register, rhs_register]);
                 }
 
-                self.pop_register()?; // rhs
-                self.pop_register()?; // lhs
+                if pop_rhs {
+                    self.pop_register()?;
+                }
+                if pop_lhs {
+                    self.pop_register()?;
+                }
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if)?,
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for)?,
@@ -559,7 +651,35 @@ impl Compiler {
             }
         }
 
+        self.span_stack.pop();
+
         Ok(())
+    }
+
+    fn compile_node_or_get_local(
+        &mut self,
+        result_register: Option<u8>,
+        node: &AstNode,
+    ) -> Result<(u8, bool), String> {
+        if let Node::Id(id) = node.node {
+            if let Some(local_register) = self.frame().get_local_assigned_register(id) {
+                return Ok((local_register, false));
+            } else if let Some(register) = result_register {
+                self.compile_load_non_local_id(register, id)?;
+                Ok((register, false))
+            } else {
+                let register = self.push_register()?;
+                self.compile_load_non_local_id(register, id)?;
+                Ok((register, true))
+            }
+        } else if let Some(register) = result_register {
+            self.compile_node(Some(register), node)?;
+            Ok((register, false))
+        } else {
+            let register = self.push_register()?;
+            self.compile_node(Some(register), node)?;
+            Ok((register, true))
+        }
     }
 
     fn compile_frame(
@@ -619,7 +739,7 @@ impl Compiler {
                     if self.frame().capture_slot(*id_index).is_some() {
                         None
                     } else {
-                        Some(self.frame_mut().get_local_register(*id_index)?)
+                        Some(self.frame_mut().reserve_local_register(*id_index)?)
                     }
                 }
                 Scope::Global => None,
@@ -649,6 +769,13 @@ impl Compiler {
             AssignTarget::Id { id_index, scope } => {
                 match scope {
                     Scope::Local => {
+                        if local_assign_register.is_some() {
+                            // To ensure that global rhs ids with the same name as a local that's
+                            // currently being assigned can be loaded correctly, only commit the
+                            // reserved local as assigned after the rhs has been compiled.
+                            self.frame_mut().commit_local_register(assign_register)?;
+                        }
+
                         if let Some(capture) = self.frame().capture_slot(*id_index) {
                             self.push_op(SetCapture, &[capture, assign_register]);
                         }
@@ -716,14 +843,12 @@ impl Compiler {
                                 self.pop_register()?;
                             } else {
                                 let local_register =
-                                    self.frame_mut().push_local_register(*id_index)?;
+                                    self.frame_mut().assign_local_register(*id_index)?;
 
                                 self.push_op(
                                     ExpressionIndex,
                                     &[local_register, rhs_register, i as u8],
                                 );
-
-                                self.pop_register()?;
                             }
                         }
                         AssignTarget::Lookup(lookup) => {
@@ -772,7 +897,7 @@ impl Compiler {
                                         self.push_op(SetCapture, &[capture, temp_register]);
                                     } else {
                                         let local_register =
-                                            self.frame_mut().get_local_register(*id_index)?;
+                                            self.frame_mut().assign_local_register(*id_index)?;
                                         self.push_op(SetEmpty, &[local_register]);
                                     }
                                 }
@@ -808,13 +933,25 @@ impl Compiler {
     fn compile_load_id(&mut self, result_register: u8, id: ConstantIndex) -> Result<(), String> {
         use Op::*;
 
-        if self.frame().is_local(id) {
+        if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             // local
-            let local_register = self.frame_mut().get_local_register(id)?;
             if local_register != result_register {
                 self.push_op(Copy, &[result_register, local_register]);
             }
-        } else if let Some(capture_slot) = self.frame().capture_slot(id) {
+            Ok(())
+        } else {
+            self.compile_load_non_local_id(result_register, id)
+        }
+    }
+
+    fn compile_load_non_local_id(
+        &mut self,
+        result_register: u8,
+        id: ConstantIndex,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if let Some(capture_slot) = self.frame().capture_slot(id) {
             // capture
             self.push_op(LoadCapture, &[result_register, capture_slot]);
         } else {
@@ -852,7 +989,7 @@ impl Compiler {
                 self.compile_node(Some(element_register), element_node)?;
             }
 
-            let first_element_register = self.frame().peek_register_n(elements.len() - 1)?;
+            let first_element_register = self.frame().peek_register(elements.len() - 1)?;
             self.push_op(
                 MakeVec4,
                 &[
@@ -918,22 +1055,6 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_lookup_or_id(
-        &mut self,
-        result_register: u8,
-        lookup_or_id: &LookupOrId,
-    ) -> Result<(), String> {
-        match lookup_or_id {
-            LookupOrId::Id(id) => {
-                self.compile_load_id(result_register, *id)?;
-            }
-            LookupOrId::Lookup(lookup) => {
-                self.compile_lookup(Some(result_register), lookup, None)?;
-            }
-        }
-        Ok(())
-    }
-
     fn compile_lookup(
         &mut self,
         result_register: Option<u8>,
@@ -950,82 +1071,115 @@ impl Compiler {
             ));
         }
 
+        // Keep track of a register for each lookup node.
+        // This produces a lookup chain, allowing lookup operations to access parent containers.
+        let mut node_registers = SmallVec::<[u8; 4]>::new();
+
+        // At the end of the lookup we'll pop the whole stack,
+        // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.frame().register_stack.len();
 
         for (i, lookup_node) in lookup.0.iter().enumerate() {
-            // Push a register for each lookup node.
-            // This produces a lookup chain, allowing lookup operations to access parent containers
-            let node_register = self.push_register()?;
+            let is_last_node = i == lookup.0.len() - 1;
 
             match lookup_node {
                 LookupNode::Id(id) => {
                     if i == 0 {
-                        // Root
-                        self.compile_load_id(node_register, *id)?;
-                    } else {
-                        // Map key
+                        // Root node
 
-                        // The map key can be stored temporarily in the node register
-                        let key_register = node_register;
-                        self.load_string(key_register, *id);
-                        let map_register = self.frame_mut().peek_register_n(1)?;
-
-                        if set_value.is_some() && i == lookup_len - 1 {
-                            self.push_op(
-                                MapInsert,
-                                &[map_register, node_register, set_value.unwrap()],
-                            );
+                        if let Some(local_register) = self.frame().get_local_assigned_register(*id)
+                        {
+                            node_registers.push(local_register);
                         } else {
+                            let node_register = self.push_register()?;
+                            node_registers.push(node_register);
+                            self.compile_load_non_local_id(node_register, *id)?;
+                        }
+                    } else {
+                        // Map access
+
+                        // Don't worry about popping the temporary key register,
+                        // it gets removed at the end of the lookup.
+                        let key_register = self.push_register()?;
+
+                        self.load_string(key_register, *id);
+                        let map_register = *node_registers.last().unwrap();
+
+                        if is_last_node {
+                            if set_value.is_some() {
+                                self.push_op(
+                                    MapInsert,
+                                    &[map_register, key_register, set_value.unwrap()],
+                                );
+                            } else if let Some(result_register) = result_register {
+                                self.push_op(
+                                    MapAccess,
+                                    &[result_register, map_register, key_register],
+                                );
+                            }
+                        } else {
+                            let node_register = self.push_register()?;
+                            node_registers.push(node_register);
                             self.push_op(MapAccess, &[node_register, map_register, key_register]);
                         }
                     }
                 }
                 LookupNode::Index(index_node) => {
-                    let index_register = node_register;
-                    self.compile_node(Some(index_register), &index_node.0)?;
-                    let list_register = self.frame_mut().peek_register_n(1)?;
-                    if set_value.is_some() && i == lookup_len - 1 {
-                        self.push_op(
-                            ListUpdate,
-                            &[list_register, index_register, set_value.unwrap()],
-                        );
+                    // List index
+
+                    let (index_register, _) =
+                        self.compile_node_or_get_local(None, &index_node.0)?;
+                    let list_register = *node_registers.last().unwrap();
+
+                    if is_last_node {
+                        if set_value.is_some() {
+                            self.push_op(
+                                ListUpdate,
+                                &[list_register, index_register, set_value.unwrap()],
+                            );
+                        } else if let Some(result_register) = result_register {
+                            self.push_op(
+                                ListIndex,
+                                &[result_register, list_register, index_register],
+                            );
+                        }
                     } else {
+                        let node_register = self.push_register()?;
+                        node_registers.push(node_register);
                         self.push_op(ListIndex, &[node_register, list_register, index_register]);
                     }
                 }
                 LookupNode::Call(args) => {
-                    if set_value.is_some() && i == lookup_len - 1 {
+                    // Function call
+
+                    if is_last_node && set_value.is_some() {
                         return Err("Assigning to temporary value".to_string());
                     }
 
                     let parent_register = if i > 1 {
-                        Some(self.frame_mut().peek_register_n(2)?)
+                        Some(node_registers[node_registers.len() - 2])
                     } else {
                         None
                     };
 
-                    let function_register = self.frame_mut().peek_register_n(1)?;
-                    self.compile_call(
-                        Some(node_register),
-                        function_register,
-                        &args,
-                        parent_register,
-                    )?;
-                }
-            }
-        }
+                    let function_register = *node_registers.last().unwrap();
 
-        if let Some(result_register) = result_register {
-            match set_value {
-                Some(value_register) => {
-                    if value_register != result_register {
-                        self.push_op(Copy, &[result_register, value_register]);
-                    }
-                }
-                None => {
-                    let lookup_result_register = self.frame_mut().peek_register()?;
-                    if lookup_result_register != result_register {
-                        self.push_op(Copy, &[result_register, lookup_result_register]);
+                    if is_last_node {
+                        self.compile_call(
+                            result_register,
+                            function_register,
+                            &args,
+                            parent_register,
+                        )?;
+                    } else {
+                        let node_register = self.push_register()?;
+                        node_registers.push(node_register);
+                        self.compile_call(
+                            Some(node_register),
+                            function_register,
+                            &args,
+                            parent_register,
+                        )?;
                     }
                 }
             }
@@ -1248,14 +1402,14 @@ impl Compiler {
             self.push_loop_jump_placeholder()?;
 
             for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.frame_mut().push_local_register(*arg)?;
+                let arg_register = self.frame_mut().assign_local_register(*arg)?;
                 self.push_op(ExpressionIndex, &[arg_register, temp_register, i as u8]);
             }
 
             self.pop_register()?; // temp_register
         } else {
             for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.frame_mut().get_local_register(*arg)?;
+                let arg_register = self.frame_mut().assign_local_register(*arg)?;
                 self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
                 self.push_loop_jump_placeholder()?;
             }
@@ -1406,7 +1560,8 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
-        self.debug_info.push(self.bytes.len(), &self.current_span);
+        self.debug_info
+            .push(self.bytes.len(), &self.span_stack.last().unwrap());
 
         self.bytes.push(op.into());
         self.bytes.extend_from_slice(bytes);

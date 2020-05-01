@@ -325,6 +325,7 @@ version = "0.1.0"
 dependencies = [
  "koto_parser",
  "num_enum",
+ "smallvec",
 ]
 
 [[package]]

@@ -83,3 +83,41 @@ pub fn bytecode_to_string(bytecode: &Bytecode) -> String {
 
     result
 }
+
+pub fn bytecode_to_string_annotated(
+    bytecode: &Bytecode,
+    script_lines: &[&str],
+    debug_info: &DebugInfo,
+) -> String {
+    let mut result = String::new();
+    let mut reader = InstructionReader::new(bytecode);
+    let mut ip = reader.ip;
+    let mut span: Option<SourceSpan> = None;
+    let mut first = true;
+
+    while let Some(instruction) = reader.next() {
+        let instruction_span = debug_info.get_source_span(ip).expect("Missing source span");
+
+        let print_source_lines = if let Some(span) = span {
+            instruction_span.start.line != span.start.line
+        } else {
+            true
+        };
+
+        if print_source_lines {
+            if !first {
+                result += "\n";
+            }
+            first = false;
+
+            let line = instruction_span.start.line;
+            result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
+            span = Some(instruction_span);
+        }
+
+        result += &format!("{}\t{}\n", ip, &instruction.to_string());
+        ip = reader.ip;
+    }
+
+    result
+}

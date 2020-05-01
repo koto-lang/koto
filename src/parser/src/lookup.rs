@@ -1,5 +1,6 @@
 use crate::{AstNode, ConstantIndex};
 
+// TODO are the Index / Lookup types still useful?
 #[derive(Clone, Debug)]
 pub struct Index(pub Box<AstNode>);
 
