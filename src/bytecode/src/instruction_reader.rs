@@ -188,15 +188,17 @@ pub enum Instruction {
         jump_condition: bool,
     },
     Call {
-        register: u8,
+        result: u8,
+        function: u8,
         arg_register: u8,
         arg_count: u8,
     },
     CallChild {
-        register: u8,
-        parent: u8,
+        result: u8,
+        function: u8,
         arg_register: u8,
         arg_count: u8,
+        parent: u8,
     },
     IteratorNext {
         register: u8,
@@ -427,23 +429,25 @@ impl fmt::Display for Instruction {
                 register, offset, jump_condition
             ),
             Call {
-                register,
+                result,
+                function,
                 arg_register,
                 arg_count,
             } => write!(
                 f,
-                "Call\t\tfunction: {}\targ_reg: {}\targs: {}",
-                register, arg_register, arg_count
+                "Call\t\tresult: {}\tfunction: {}\targ_reg: {}\targs: {}",
+                result, function, arg_register, arg_count
             ),
             CallChild {
-                register,
+                result,
+                function,
                 parent,
                 arg_register,
                 arg_count,
             } => write!(
                 f,
-                "CallChild\tfunction: {}\tparent: {}\targ_reg: {}\targs: {}",
-                register, parent, arg_register, arg_count
+                "CallChild\tresult: {}\tfunction: {}\targ_reg: {}\targs: {}\t\tparent: {}",
+                result, function, arg_register, arg_count, parent
             ),
             IteratorNext {
                 register,
@@ -799,15 +803,17 @@ impl Iterator for InstructionReader {
                 jump_condition: false,
             }),
             Op::Call => Some(Call {
-                register: get_byte!(),
+                result: get_byte!(),
+                function: get_byte!(),
                 arg_register: get_byte!(),
                 arg_count: get_byte!(),
             }),
             Op::CallChild => Some(CallChild {
-                register: get_byte!(),
-                parent: get_byte!(),
+                result: get_byte!(),
+                function: get_byte!(),
                 arg_register: get_byte!(),
                 arg_count: get_byte!(),
+                parent: get_byte!(),
             }),
             Op::IteratorNext => Some(IteratorNext {
                 register: get_byte!(),

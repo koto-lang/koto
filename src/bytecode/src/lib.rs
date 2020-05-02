@@ -59,8 +59,8 @@ pub enum Op {
     JumpFalse,        // condition, offset[2]
     JumpBack,         // offset[2]
     JumpBackFalse,    // offset[2]
-    Call,             // function, arg, arg count
-    CallChild,        // function, parent, arg, arg count
+    Call,             // result, function, arg register, arg count
+    CallChild,        // result, function, arg register, arg count, parent
     IteratorNext,     // output, iterator, jump offset[2]
     ExpressionIndex,  // register, multi_expression, index
     ListPush,         // list, value

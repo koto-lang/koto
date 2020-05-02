@@ -1212,27 +1212,32 @@ impl Compiler {
             self.compile_node(Some(arg_register), &arg)?;
         }
 
+        let call_result_register = result_register.unwrap_or(frame_base);
+
         match parent {
             Some(parent_register) => {
                 self.push_op(
                     CallChild,
                     &[
+                        call_result_register,
                         function_register,
+                        frame_base,
+                        args.len() as u8,
                         parent_register,
+                    ],
+                );
+            }
+            None => {
+                self.push_op(
+                    Call,
+                    &[
+                        call_result_register,
+                        function_register,
                         frame_base,
                         args.len() as u8,
                     ],
                 );
             }
-            None => {
-                self.push_op(Call, &[function_register, frame_base, args.len() as u8]);
-            }
-        }
-
-        // The return value gets placed in the frame base register
-        // TODO multiple return values
-        if let Some(result_register) = result_register {
-            self.push_op(Copy, &[result_register, frame_base]);
         }
 
         self.frame_mut().truncate_register_stack(stack_count)?;

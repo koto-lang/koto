@@ -22,15 +22,22 @@ struct Frame {
     base: usize,
     captures: Option<ValueList>,
     return_ip: Option<usize>,
+    result_register: u8,
     result: Value,
 }
 
 impl Frame {
-    fn new(base: usize, return_ip: Option<usize>, captures: ValueList) -> Self {
+    fn new(
+        base: usize,
+        return_ip: Option<usize>,
+        result_register: u8,
+        captures: ValueList,
+    ) -> Self {
         Self {
             base,
             captures: Some(captures),
             return_ip,
+            result_register,
             ..Default::default()
         }
     }
@@ -147,7 +154,7 @@ impl Vm {
         let arg_register = (self.value_stack.len() - self.frame().base) as u8;
         self.value_stack.extend_from_slice(args);
 
-        self.push_frame(None, arg_register, function.captures.clone());
+        self.push_frame(None, arg_register, arg_register, function.captures.clone());
         let ip = self.reader.ip;
         self.set_ip(function.ip);
 
@@ -744,21 +751,23 @@ impl Vm {
                 }
             },
             Instruction::Call {
-                register,
+                result,
+                function,
                 arg_register,
                 arg_count,
             } => {
-                let function = self.get_register(register).clone();
-                self.call_function(&function, arg_register, arg_count, None)?;
+                let function = self.get_register(function).clone();
+                self.call_function(result, &function, arg_register, arg_count, None)?;
             }
             Instruction::CallChild {
-                register,
-                parent,
+                result,
+                function,
                 arg_register,
                 arg_count,
+                parent,
             } => {
-                let function = self.get_register(register).clone();
-                self.call_function(&function, arg_register, arg_count, Some(parent))?;
+                let function = self.get_register(function).clone();
+                self.call_function(result, &function, arg_register, arg_count, Some(parent))?;
             }
             Instruction::IteratorNext {
                 register,
@@ -1136,6 +1145,7 @@ impl Vm {
 
     fn call_function(
         &mut self,
+        result_register: u8,
         function: &Value,
         arg_register: u8,
         call_arg_count: u8,
@@ -1172,7 +1182,7 @@ impl Vm {
                 let result = (&*function)(self, &args);
                 match result {
                     Ok(value) => {
-                        self.set_register(arg_register, value);
+                        self.set_register(result_register, value);
                     }
                     error @ Err(_) => {
                         return error;
@@ -1205,7 +1215,12 @@ impl Vm {
                     );
                 }
 
-                self.push_frame(Some(self.reader.ip), arg_register, captures.clone());
+                self.push_frame(
+                    Some(self.reader.ip),
+                    arg_register,
+                    result_register,
+                    captures.clone(),
+                );
 
                 self.set_ip(*function_ip);
             }
@@ -1241,10 +1256,16 @@ impl Vm {
         self.call_stack.last_mut().unwrap()
     }
 
-    fn push_frame(&mut self, return_ip: Option<usize>, arg_register: u8, captures: ValueList) {
+    fn push_frame(
+        &mut self,
+        return_ip: Option<usize>,
+        arg_register: u8,
+        result_register: u8,
+        captures: ValueList,
+    ) {
         let frame_base = self.register_index(arg_register);
         self.call_stack
-            .push(Frame::new(frame_base, return_ip, captures));
+            .push(Frame::new(frame_base, return_ip, result_register, captures));
     }
 
     fn pop_frame(&mut self) -> RuntimeResult {
@@ -1259,7 +1280,7 @@ impl Vm {
 
         self.value_stack.truncate(frame.base);
         if !self.call_stack.is_empty() && frame.return_ip.is_some() {
-            self.value_stack.push(return_value.clone());
+            self.set_register(frame.result_register, return_value.clone());
         }
 
         Ok(return_value)
