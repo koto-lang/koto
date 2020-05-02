@@ -1074,7 +1074,7 @@ impl Vm {
                     unexpected => {
                         return vm_error!(
                             instruction_ip,
-                            "Expected Map, found '{}'",
+                            "MapInsert: Expected Map, found '{}'",
                             type_as_string(&unexpected),
                         )
                     }
@@ -1109,7 +1109,7 @@ impl Vm {
                     unexpected => {
                         return vm_error!(
                             instruction_ip,
-                            "Expected Map, found '{}'",
+                            "MapAccess: Expected Map, found '{}'",
                             type_as_string(&unexpected),
                         )
                     }
@@ -2399,6 +2399,24 @@ f = |x| x * x
 x = 0
 [(x += 1) while x < 3]";
             test_script(script, number_list(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn for_loop_function_calls() {
+            let script = "
+count = 0
+f = |n| count += n
+x = [f 1 for _ in 0..5]";
+            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn while_loop_function_calls() {
+            let script = "
+count = 0
+f = |n| n
+x = [f count while (count += 1) <= 5]";
+            test_script(script, number_list(&[1, 2, 3, 4, 5]));
         }
     }
 

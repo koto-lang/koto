@@ -48,6 +48,7 @@ expression = _{
   | while_block
   | break_
   | continue_
+  | flow_inline
   | operation
   | debug_expression
   )
@@ -55,6 +56,11 @@ expression = _{
 }
 return_expression = !{ return_keyword ~ expressions | return_ }
 copy_expression = !{ !copy_id ~ copy_keyword ~ expression }
+
+flow_inline = _{
+  for_inline
+  | while_inline
+}
 
 assignment = _{ single_assignment | multiple_assignment }
 single_assignment = !{
@@ -86,7 +92,7 @@ operations = !{ operation ~ (comma_separator ~ operation)* }
 operation_link = _{
   (NEWLINE* ~ WHITESPACE+ | empty_line* ~ WHITESPACE+)*
   ~ op
-  ~ ((WHITESPACE+ ~ inline_term) | (WHITESPACE* ~ map))
+  ~ ((WHITESPACE+ ~ call_or_value_term) | (WHITESPACE* ~ map))
 }
 
 op = _{
@@ -97,22 +103,19 @@ op = _{
   | and | or
 }
 
+// map is broken out here to allow for block map assignment, e.g.
+// m =
+//   foo: 0
+//   bar: 1
 term = _{
   map
-  | inline_term
+  | call_or_value_term
 }
 
-inline_term = _{
-  function_call
-  | flow_term
-}
-
-flow_term = _{
-  if_inline
-  | for_inline
-  | while_inline
-  | value_term
-}
+// function calls are broken out from value_terms to disambiguate a series of arguments
+// from a series of values.
+call_or_value_term = _{ function_call | value_term }
+call_or_value_terms = _{ function_call | value_terms }
 
 value_term = _{(
   empty
@@ -127,6 +130,7 @@ value_term = _{(
   | negatable_lookup
   | id
   | vec4_expression
+  | if_inline
   | ("(" ~ expression ~ ")")
   )
   ~ comment?
@@ -157,7 +161,7 @@ for_block = !{
   ~ child_block
 }
 for_inline = !{
-  value_terms
+  call_or_value_terms
   ~ for_keyword ~ for_ids
   ~ in_keyword ~ expressions
   ~ (if_keyword ~ expression)?
@@ -172,7 +176,7 @@ while_block = !{
 }
 
 while_inline = !{
-  value_terms
+  call_or_value_terms
   ~ (while_keyword | until_keyword) ~ operation
 }
 
@@ -231,7 +235,7 @@ next_map_entry = @{ NEWLINE ~ empty_line* ~ indentation ~ map_entry }
 list = !{
   "["
   ~ separator_line*
-  ~ (flow_term ~ separator_line*)*
+  ~ ((flow_inline ~ separator_line*) | (value_term ~ separator_line*)*)
   ~ "]"
 }
 
@@ -244,13 +248,13 @@ vec4_with_parens = !{
   vec4
   ~ "("
   ~ separator_line*
-  ~ flow_term ~ (separator_line* ~ flow_term){, 3} ~ separator_line*
+  ~ value_term ~ (separator_line* ~ value_term){, 3} ~ separator_line*
   ~ ")"
   }
 vec4_no_parens = ${
   vec4
-  ~ WHITESPACE+ ~ flow_term
-  ~ (WHITESPACE+ ~ flow_term){, 3}
+  ~ WHITESPACE+ ~ value_term
+  ~ (WHITESPACE+ ~ value_term){, 3}
 }
 
 boolean = { true_ | false_ }
