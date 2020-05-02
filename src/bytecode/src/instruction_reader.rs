@@ -243,22 +243,22 @@ impl fmt::Display for Instruction {
         use Instruction::*;
         match self {
             Error { .. } => unreachable!(),
-            Copy { target, source } => write!(f, "Copy\t\treg: {}\t\tsource: {}", target, source),
+            Copy { target, source } => write!(f, "Copy\t\tresult: {}\tsource: {}", target, source),
             DeepCopy { target, source } => {
-                write!(f, "DeepCopy\treg: {}\t\tsource: {}", target, source)
+                write!(f, "DeepCopy\tresult: {}\tsource: {}", target, source)
             }
-            SetEmpty { register } => write!(f, "SetEmpty\treg: {}", register),
-            SetTrue { register } => write!(f, "SetTrue\t\treg: {}", register),
-            SetFalse { register } => write!(f, "SetFalse\treg: {}", register),
-            Return { register } => write!(f, "Return\t\treg: {}", register),
+            SetEmpty { register } => write!(f, "SetEmpty\tresult: {}", register),
+            SetTrue { register } => write!(f, "SetTrue\t\tresult: {}", register),
+            SetFalse { register } => write!(f, "SetFalse\tresult: {}", register),
+            Return { register } => write!(f, "Return\t\tresult: {}", register),
             LoadNumber { register, constant } => {
-                write!(f, "LoadNumber\treg: {}\t\tconstant: {}", register, constant)
+                write!(f, "LoadNumber\tresult: {}\tconstant: {}", register, constant)
             }
             LoadString { register, constant } => {
-                write!(f, "LoadString\treg: {}\t\tconstant: {}", register, constant)
+                write!(f, "LoadString\tresult: {}\tconstant: {}", register, constant)
             }
             LoadGlobal { register, constant } => {
-                write!(f, "LoadGlobal\treg: {}\t\tconstant: {}", register, constant)
+                write!(f, "LoadGlobal\tresult: {}\tconstant: {}", register, constant)
             }
             SetGlobal { global, source } => {
                 write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
@@ -266,13 +266,13 @@ impl fmt::Display for Instruction {
             MakeList {
                 register,
                 size_hint,
-            } => write!(f, "MakeList\treg: {}\t\tsize_hint: {}", register, size_hint),
+            } => write!(f, "MakeList\tresult: {}\tsize_hint: {}", register, size_hint),
             MakeMap {
                 register,
                 size_hint,
             } => write!(
                 f,
-                "MakeMap\t\treg: {}\t\tsize_hint: {}",
+                "MakeMap\t\tresult: {}\tsize_hint: {}",
                 register, size_hint
             ),
             MakeVec4 {
@@ -281,7 +281,7 @@ impl fmt::Display for Instruction {
                 element_register,
             } => write!(
                 f,
-                "MakeVec4\treg: {}\t\tcount: {}\telement reg: {}",
+                "MakeVec4\tresult: {}\tcount: {}\telement reg: {}",
                 register, count, element_register
             ),
             Range {
@@ -290,7 +290,7 @@ impl fmt::Display for Instruction {
                 end,
             } => write!(
                 f,
-                "Range\t\treg: {}\t\tstart: {}\tend: {}",
+                "Range\t\tresult: {}\tstart: {}\tend: {}",
                 register, start, end
             ),
             RangeInclusive {
@@ -299,19 +299,19 @@ impl fmt::Display for Instruction {
                 end,
             } => write!(
                 f,
-                "RangeInclusive\treg: {}\t\tstart: {}\tend: {}",
+                "RangeInclusive\tresult: {}\tstart: {}\tend: {}",
                 register, start, end
             ),
-            RangeTo { register, end } => write!(f, "RangeTo\t\treg: {}\t\tend: {}", register, end),
+            RangeTo { register, end } => write!(f, "RangeTo\t\tresult: {}\tend: {}", register, end),
             RangeToInclusive { register, end } => {
-                write!(f, "RangeToIncl\treg: {}\t\tend: {}", register, end)
+                write!(f, "RangeToIncl\tresult: {}\tend: {}", register, end)
             }
             RangeFrom { register, start } => {
-                write!(f, "RangeFrom\treg: {}\t\tstart: {}", register, start)
+                write!(f, "RangeFrom\tresult: {}\tstart: {}", register, start)
             }
-            RangeFull { register } => write!(f, "RangeFull\treg: {}", register),
+            RangeFull { register } => write!(f, "RangeFull\tresult: {}", register),
             MakeIterator { register, range } => {
-                write!(f, "MakeIterator\treg: {}\t\trange: {}", register, range)
+                write!(f, "MakeIterator\tresult: {}\trange: {}", register, range)
             }
             Function {
                 register,
@@ -320,7 +320,7 @@ impl fmt::Display for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
+                "Function\tresult: {}\targ_count: {}\tcaptures: {}\tsize: {}",
                 register, arg_count, capture_count, size
             ),
             InstanceFunction {
@@ -330,7 +330,7 @@ impl fmt::Display for Instruction {
                 size,
             } => write!(
                 f,
-                "InstanceFn\treg: {}\t\targ_count: {}\tcaptures: {}\tsize: {}",
+                "InstanceFn\tresult: {}\targ_count: {}\tcaptures: {}\tsize: {}",
                 register, arg_count, capture_count, size
             ),
             Capture {
@@ -343,67 +343,67 @@ impl fmt::Display for Instruction {
                 function, target, source
             ),
             LoadCapture { register, capture } => {
-                write!(f, "LoadCapture\treg: {}\t\tcapture: {}", register, capture)
+                write!(f, "LoadCapture\tresult: {}\tcapture: {}", register, capture)
             }
             SetCapture { capture, source } => {
                 write!(f, "SetCapture\tcapture: {}\tsource {}", capture, source)
             }
             Negate { register, source } => {
-                write!(f, "Negate\t\treg: {}\t\tsource: {}", register, source)
+                write!(f, "Negate\t\tresult: {}\tsource: {}", register, source)
             }
             Add { register, lhs, rhs } => write!(
                 f,
-                "Add\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Add\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Subtract { register, lhs, rhs } => write!(
                 f,
-                "Subtract\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Subtract\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Multiply { register, lhs, rhs } => write!(
                 f,
-                "Multiply\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Multiply\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Divide { register, lhs, rhs } => write!(
                 f,
-                "Divide\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Divide\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Modulo { register, lhs, rhs } => write!(
                 f,
-                "Modulo\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Modulo\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Less { register, lhs, rhs } => write!(
                 f,
-                "Less\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Less\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             LessOrEqual { register, lhs, rhs } => write!(
                 f,
-                "LessOrEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "LessOrEqual\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Greater { register, lhs, rhs } => write!(
                 f,
-                "Greater\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Greater\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             GreaterOrEqual { register, lhs, rhs } => write!(
                 f,
-                "GreaterOrEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "GreaterOrEqual\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Equal { register, lhs, rhs } => write!(
                 f,
-                "Equal\t\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "Equal\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             NotEqual { register, lhs, rhs } => write!(
                 f,
-                "NotEqual\treg: {}\t\tlhs: {}\t\trhs: {}",
+                "NotEqual\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
@@ -413,7 +413,7 @@ impl fmt::Display for Instruction {
                 jump_condition,
             } => write!(
                 f,
-                "JumpIf\t\treg: {}\t\toffset: {}\tcondition: {}",
+                "JumpIf\t\tresult: {}\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
             JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
@@ -423,7 +423,7 @@ impl fmt::Display for Instruction {
                 jump_condition,
             } => write!(
                 f,
-                "JumpBackIf\t\treg: {}\t\toffset: {}\tcondition: {}",
+                "JumpBackIf\t\tresult: {}\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
             Call {
@@ -432,7 +432,7 @@ impl fmt::Display for Instruction {
                 arg_count,
             } => write!(
                 f,
-                "Call\t\treg: {}\t\targ_reg: {}\targs: {}",
+                "Call\t\tfunction: {}\targ_reg: {}\targs: {}",
                 register, arg_register, arg_count
             ),
             CallChild {
@@ -442,7 +442,7 @@ impl fmt::Display for Instruction {
                 arg_count,
             } => write!(
                 f,
-                "CallChild\treg: {}\t\tparent: {}\targ_reg: {}\targs: {}",
+                "CallChild\tfunction: {}\tparent: {}\targ_reg: {}\targs: {}",
                 register, parent, arg_register, arg_count
             ),
             IteratorNext {
@@ -451,7 +451,7 @@ impl fmt::Display for Instruction {
                 jump_offset,
             } => write!(
                 f,
-                "IteratorNext\treg: {}\t\titerator: {}\tjump offset: {}",
+                "IteratorNext\tresult: {}\titerator: {}\tjump offset: {}",
                 register, iterator, jump_offset
             ),
             ExpressionIndex {
@@ -460,11 +460,11 @@ impl fmt::Display for Instruction {
                 index,
             } => write!(
                 f,
-                "ExpressionIndex\treg: {}\t\texpression: {}\tindex: {}",
+                "ExpressionIndex\tresult: {}\texpression: {}\tindex: {}",
                 register, expression, index
             ),
             ListPush { register, value } => {
-                write!(f, "ListPush\treg: {}\t\tvalue: {}", register, value)
+                write!(f, "ListPush\tresult: {}\tvalue: {}", register, value)
             }
             ListUpdate { list, index, value } => write!(
                 f,
@@ -477,7 +477,7 @@ impl fmt::Display for Instruction {
                 index,
             } => write!(
                 f,
-                "ListIndex\treg: {}\t\tlist: {}\t\tindex: {}",
+                "ListIndex\tresult: {}\tlist: {}\t\tindex: {}",
                 register, list, index
             ),
             MapInsert {
@@ -486,16 +486,16 @@ impl fmt::Display for Instruction {
                 value,
             } => write!(
                 f,
-                "MapInsert\treg: {}\t\tkey: {}\t\tvalue: {}",
+                "MapInsert\tresult: {}\tkey: {}\t\tvalue: {}",
                 register, key, value
             ),
             MapAccess { register, map, key } => write!(
                 f,
-                "MapAccess\treg: {}\t\tmap: {}\t\tkey: {}",
+                "MapAccess\tresult: {}\tmap: {}\t\tkey: {}",
                 register, map, key
             ),
             Debug { register, constant } => {
-                write!(f, "Debug\t\treg: {}\t\tconstant: {}", register, constant)
+                write!(f, "Debug\t\tresult: {}\tconstant: {}", register, constant)
             }
         }
     }
