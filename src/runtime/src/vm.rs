@@ -1257,8 +1257,8 @@ impl Vm {
 
         let return_value = frame.result.clone();
 
+        self.value_stack.truncate(frame.base);
         if !self.call_stack.is_empty() && frame.return_ip.is_some() {
-            self.value_stack.truncate(frame.base);
             self.value_stack.push(return_value.clone());
         }
 
