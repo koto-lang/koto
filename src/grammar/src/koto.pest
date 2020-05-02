@@ -164,7 +164,7 @@ for_inline = !{
 }
 for_id = !{ id | placeholder }
 for_ids = { for_id ~ ("," ~ for_id)* }
-placeholder = { "_" }
+placeholder = ${ "_" ~ WHITESPACE+ }
 
 while_block = !{
   (while_keyword | until_keyword) ~ operation
