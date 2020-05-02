@@ -2377,6 +2377,31 @@ m2.bar";
         }
     }
 
+    mod placeholders {
+        use super::*;
+
+        #[test]
+        fn placeholder_in_assignment() {
+            let script = "
+f = || 1, 2, 3
+a, _, c = f()
+a, c";
+            test_script(script, number_list(&[1, 3]));
+        }
+
+        #[test]
+        fn placeholder_argument() {
+            let script = "
+fold = |xs f|
+  result = 0
+  for x in xs
+    result = f result x
+  result
+fold 0..5 |n _| n + 1";
+            test_script(script, Number(5.0));
+        }
+    }
+
     mod list_comprehensions {
         use super::*;
 

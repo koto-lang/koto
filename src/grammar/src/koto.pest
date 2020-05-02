@@ -71,7 +71,7 @@ single_assignment = !{
 multiple_assignment = !{
   assignment_targets
   ~ "=" ~ (expressions | expression_block) }
-assignment_target = _{ lookup | assignment_id }
+assignment_target = _{ lookup | scoped_assign_id }
 assignment_targets = !{ assignment_target ~ ("," ~ assignment_target)+ }
 
 assignment_operator = _{
@@ -166,9 +166,9 @@ for_inline = !{
   ~ in_keyword ~ expressions
   ~ (if_keyword ~ expression)?
 }
-for_id = !{ id | placeholder }
-for_ids = { for_id ~ ("," ~ for_id)* }
-placeholder = ${ "_" ~ WHITESPACE+ }
+// Specify whitespace here to avoid the placeholder symbol running into the 'in' keyword,
+// i.e. we don't want to allow `x for _in y`
+for_ids = ${ assign_id ~ (WHITESPACE* ~ "," ~ WHITESPACE* ~ assign_id)* ~ WHITESPACE+ }
 
 while_block = !{
   (while_keyword | until_keyword) ~ operation
@@ -204,7 +204,7 @@ function_inline = !{ function_args ~ expressions }
 function_args = {
   "|"
   ~ separator_line*
-  ~ (id ~ separator_line*)*
+  ~ (assign_id ~ separator_line*)*
   ~ "|"
 }
 
@@ -276,7 +276,9 @@ char = {
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
-assignment_id = !{ export_keyword? ~ id }
+scoped_assign_id = !{ export_keyword? ~ assign_id }
+assign_id = !{ id | placeholder }
+placeholder = ${ "_" }
 copy_id = !{ copy_keyword ~ lookup_or_id }
 lookup_or_id = _{ lookup | id }
 id = ${ negative? ~ single_id }
