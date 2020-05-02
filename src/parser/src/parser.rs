@@ -693,9 +693,8 @@ impl KotoParser {
                     Node::If(AstIf {
                         condition,
                         then_node,
+                        else_if_blocks: vec![],
                         else_node,
-                        else_if_condition: None,
-                        else_if_node: None,
                     }),
                 )
             }
@@ -705,17 +704,17 @@ impl KotoParser {
                 let condition = next_as_boxed_ast!(inner);
                 let then_node = next_as_boxed_ast!(inner);
 
-                let (else_if_condition, else_if_node) = if inner.peek().is_some()
+                let mut else_if_blocks = Vec::new();
+
+                while inner.peek().is_some()
                     && inner.peek().unwrap().as_rule() == Rule::else_if_block
                 {
                     let mut inner = inner.next().unwrap().into_inner();
                     inner.next(); // else if
                     let condition = next_as_boxed_ast!(inner);
                     let node = next_as_boxed_ast!(inner);
-                    (Some(condition), Some(node))
-                } else {
-                    (None, None)
-                };
+                    else_if_blocks.push((condition, node));
+                }
 
                 let else_node = if inner.peek().is_some() {
                     let mut inner = inner.next().unwrap().into_inner();
@@ -730,8 +729,7 @@ impl KotoParser {
                     Node::If(AstIf {
                         condition,
                         then_node,
-                        else_if_condition,
-                        else_if_node,
+                        else_if_blocks,
                         else_node,
                     }),
                 )

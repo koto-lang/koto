@@ -1251,8 +1251,7 @@ impl Compiler {
         let AstIf {
             condition,
             then_node,
-            else_if_condition,
-            else_if_node,
+            else_if_blocks,
             else_node,
         } = ast_if;
 
@@ -1266,7 +1265,7 @@ impl Compiler {
         self.compile_node(result_register, &then_node)?;
 
         let then_jump_ip = {
-            if else_if_node.is_some() || else_node.is_some() {
+            if !else_if_blocks.is_empty() || else_node.is_some() {
                 self.push_op(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
@@ -1276,34 +1275,34 @@ impl Compiler {
 
         self.update_offset_placeholder(if_jump_ip);
 
-        let else_if_jump_ip = if let Some(condition) = else_if_condition {
-            // TODO combine condition and node in ast
-            let else_if_node = else_if_node.as_ref().unwrap();
+        let else_if_jump_ips = else_if_blocks
+            .iter()
+            .map(
+                |(else_if_condition, else_if_node)| -> Result<Option<usize>, String> {
+                    let condition_register = self.push_register()?;
+                    self.compile_node(Some(condition_register), &else_if_condition)?;
 
-            let condition_register = self.push_register()?;
-            self.compile_node(Some(condition_register), &condition)?;
+                    self.push_op(JumpFalse, &[condition_register]);
+                    let then_jump_ip = self.push_offset_placeholder();
 
-            self.push_op(JumpFalse, &[condition_register]);
-            let then_jump_ip = self.push_offset_placeholder();
+                    self.pop_register()?; // condition register
 
-            self.pop_register()?; // condition register
+                    // re-use registers from if block - TODO, still necessary with result registers?
+                    // self.frame_mut().truncate_register_stack(stack_count)?;
+                    self.compile_node(result_register, &else_if_node)?;
 
-            // re-use registers from if block - TODO, still necessary with result registers?
-            // self.frame_mut().truncate_register_stack(stack_count)?;
-            self.compile_node(result_register, &else_if_node)?;
+                    let else_if_jump_ip = if else_node.is_some() {
+                        self.push_op(Jump, &[]);
+                        Some(self.push_offset_placeholder())
+                    } else {
+                        None
+                    };
+                    self.update_offset_placeholder(then_jump_ip);
 
-            let else_if_jump_ip = if else_node.is_some() {
-                self.push_op(Jump, &[]);
-                Some(self.push_offset_placeholder())
-            } else {
-                None
-            };
-            self.update_offset_placeholder(then_jump_ip);
-
-            else_if_jump_ip
-        } else {
-            None
-        };
+                    Ok(else_if_jump_ip)
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         if let Some(else_node) = else_node {
             // re-use registers from if/else if blocks - TODO, still necessary?
@@ -1319,8 +1318,11 @@ impl Compiler {
             self.update_offset_placeholder(then_jump_ip);
         }
 
-        if let Some(else_if_jump_ip) = else_if_jump_ip {
-            self.update_offset_placeholder(else_if_jump_ip);
+        for else_if_jump_ip in else_if_jump_ips.iter() {
+            // When there's no else block, the final else_if doesn't have a jump
+            if let Some(else_if_jump_ip) = else_if_jump_ip {
+                self.update_offset_placeholder(*else_if_jump_ip);
+            }
         }
 
         Ok(())

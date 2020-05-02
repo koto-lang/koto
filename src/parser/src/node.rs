@@ -174,8 +174,7 @@ pub struct AstWhile {
 pub struct AstIf {
     pub condition: Box<AstNode>,
     pub then_node: Box<AstNode>,
-    pub else_if_condition: Option<Box<AstNode>>,
-    pub else_if_node: Option<Box<AstNode>>,
+    pub else_if_blocks: Vec<(Box<AstNode>, Box<AstNode>)>,
     pub else_node: Option<Box<AstNode>>,
 }
 

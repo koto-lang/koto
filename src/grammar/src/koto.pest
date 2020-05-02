@@ -142,7 +142,7 @@ value_terms = !{
 if_statement = _{ if_block | if_inline }
 if_block = !{
   if_keyword ~ expression ~ child_block
-  ~ else_if_block?
+  ~ else_if_block*
   ~ else_block?
 }
 else_if_block = { NEWLINE* ~ else_if_keyword ~ expression ~ child_block }

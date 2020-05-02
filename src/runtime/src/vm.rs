@@ -1818,6 +1818,23 @@ else
 x";
             test_script(script, Number(99.0));
         }
+
+        #[test]
+        fn multiple_else_ifs() {
+            let script = "
+x = if false
+  42
+else if false
+  -1
+else if false
+  99
+else if true
+  100
+else
+  0
+x";
+            test_script(script, Number(100.0));
+        }
     }
 
     mod globals {
