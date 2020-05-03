@@ -337,8 +337,11 @@ impl Compiler {
                     self.load_string(result_register, *constant);
                 }
             }
-            Node::Vec4(elements) => {
-                self.compile_make_vec4(result_register, &elements)?;
+            Node::Num2(elements) => {
+                self.compile_make_num2(result_register, &elements)?;
+            }
+            Node::Num4(elements) => {
+                self.compile_make_num4(result_register, &elements)?;
             }
             Node::List(elements) => {
                 self.compile_make_list(result_register, &elements)?;
@@ -977,16 +980,16 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_make_vec4(
+    fn compile_make_num2(
         &mut self,
         result_register: Option<u8>,
         elements: &[AstNode],
     ) -> Result<(), String> {
         use Op::*;
 
-        if elements.len() < 1 || elements.len() > 4 {
+        if elements.len() < 1 || elements.len() > 2 {
             return Err(format!(
-                "compile_make_vec4: unexpected number of elements: {}",
+                "compile_make_num2: unexpected number of elements: {}",
                 elements.len()
             ));
         }
@@ -1001,7 +1004,49 @@ impl Compiler {
 
             let first_element_register = self.frame().peek_register(elements.len() - 1)?;
             self.push_op(
-                MakeVec4,
+                MakeNum2,
+                &[
+                    result_register,
+                    elements.len() as u8,
+                    first_element_register,
+                ],
+            );
+
+            self.frame_mut().truncate_register_stack(stack_count)?;
+        } else {
+            for element_node in elements.iter() {
+                self.compile_node(None, element_node)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_make_num4(
+        &mut self,
+        result_register: Option<u8>,
+        elements: &[AstNode],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if elements.len() < 1 || elements.len() > 4 {
+            return Err(format!(
+                "compile_make_num4: unexpected number of elements: {}",
+                elements.len()
+            ));
+        }
+
+        if let Some(result_register) = result_register {
+            let stack_count = self.frame().register_stack.len();
+
+            for element_node in elements.iter() {
+                let element_register = self.push_register()?;
+                self.compile_node(Some(element_register), element_node)?;
+            }
+
+            let first_element_register = self.frame().peek_register(elements.len() - 1)?;
+            self.push_op(
+                MakeNum4,
                 &[
                     result_register,
                     elements.len() as u8,

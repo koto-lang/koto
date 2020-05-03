@@ -334,13 +334,21 @@ impl KotoParser {
                     .collect::<Vec<_>>();
                 AstNode::new(span, Node::List(elements))
             }
-            Rule::vec4_with_parens | Rule::vec4_no_parens => {
+            Rule::num2_with_parens | Rule::num2_no_parens => {
                 let mut inner = pair.into_inner();
-                inner.next(); // vec4
+                inner.next(); // num2
                 let expressions = inner
                     .map(|pair| self.build_ast(pair, constants, local_ids))
                     .collect::<Vec<_>>();
-                AstNode::new(span, Node::Vec4(expressions))
+                AstNode::new(span, Node::Num2(expressions))
+            }
+            Rule::num4_with_parens | Rule::num4_no_parens => {
+                let mut inner = pair.into_inner();
+                inner.next(); // num4
+                let expressions = inner
+                    .map(|pair| self.build_ast(pair, constants, local_ids))
+                    .collect::<Vec<_>>();
+                AstNode::new(span, Node::Num4(expressions))
             }
             Rule::range => {
                 let mut inner = pair.into_inner();

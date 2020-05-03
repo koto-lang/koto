@@ -32,7 +32,7 @@ assert_eq (list.get z 15) ()
 ###### list.filter
 
 # Passing a value into list.filter will leave only matching elements in the list
-z = ["hello" 42 (vec4 0) "hello"]
+z = ["hello" 42 (num4 0) "hello"]
 list.filter z "hello"
 assert_eq z ["hello" "hello"]
 

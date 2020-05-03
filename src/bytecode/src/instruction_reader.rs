@@ -52,7 +52,12 @@ pub enum Instruction {
         register: u8,
         size_hint: usize,
     },
-    MakeVec4 {
+    MakeNum2 {
+        register: u8,
+        count: u8,
+        element_register: u8,
+    },
+    MakeNum4 {
         register: u8,
         count: u8,
         element_register: u8,
@@ -292,13 +297,22 @@ impl fmt::Display for Instruction {
                 "MakeMap\t\tresult: {}\tsize_hint: {}",
                 register, size_hint
             ),
-            MakeVec4 {
+            MakeNum2 {
                 register,
                 count,
                 element_register,
             } => write!(
                 f,
-                "MakeVec4\tresult: {}\tcount: {}\telement reg: {}",
+                "MakeNum2\tresult: {}\tcount: {}\telement reg: {}",
+                register, count, element_register
+            ),
+            MakeNum4 {
+                register,
+                count,
+                element_register,
+            } => write!(
+                f,
+                "MakeNum4\tresult: {}\tcount: {}\telement reg: {}",
                 register, count, element_register
             ),
             Range {
@@ -686,7 +700,12 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 size_hint: get_u32!() as usize,
             }),
-            Op::MakeVec4 => Some(MakeVec4 {
+            Op::MakeNum2 => Some(MakeNum2 {
+                register: get_byte!(),
+                count: get_byte!(),
+                element_register: get_byte!(),
+            }),
+            Op::MakeNum4 => Some(MakeNum4 {
                 register: get_byte!(),
                 count: get_byte!(),
                 element_register: get_byte!(),
