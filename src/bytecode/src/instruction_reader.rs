@@ -20,14 +20,13 @@ pub enum Instruction {
     SetEmpty {
         register: u8,
     },
-    SetTrue {
+    SetBool {
         register: u8,
+        value: bool,
     },
-    SetFalse {
+    SetNumber {
         register: u8,
-    },
-    Return {
-        register: u8,
+        value: f64,
     },
     LoadNumber {
         register: u8,
@@ -200,6 +199,9 @@ pub enum Instruction {
         arg_count: u8,
         parent: u8,
     },
+    Return {
+        register: u8,
+    },
     IteratorNext {
         register: u8,
         iterator: u8,
@@ -250,25 +252,38 @@ impl fmt::Display for Instruction {
                 write!(f, "DeepCopy\tresult: {}\tsource: {}", target, source)
             }
             SetEmpty { register } => write!(f, "SetEmpty\tresult: {}", register),
-            SetTrue { register } => write!(f, "SetTrue\t\tresult: {}", register),
-            SetFalse { register } => write!(f, "SetFalse\tresult: {}", register),
-            Return { register } => write!(f, "Return\t\tresult: {}", register),
-            LoadNumber { register, constant } => {
-                write!(f, "LoadNumber\tresult: {}\tconstant: {}", register, constant)
+            SetBool { register, value } => {
+                write!(f, "SetBool\t\tresult: {}\tvalue: {}", register, value)
             }
-            LoadString { register, constant } => {
-                write!(f, "LoadString\tresult: {}\tconstant: {}", register, constant)
+            SetNumber { register, value } => {
+                write!(f, "SetNumber\tresult: {}\tvalue: {}", register, value)
             }
-            LoadGlobal { register, constant } => {
-                write!(f, "LoadGlobal\tresult: {}\tconstant: {}", register, constant)
-            }
+            LoadNumber { register, constant } => write!(
+                f,
+                "LoadNumber\tresult: {}\tconstant: {}",
+                register, constant
+            ),
+            LoadString { register, constant } => write!(
+                f,
+                "LoadString\tresult: {}\tconstant: {}",
+                register, constant
+            ),
+            LoadGlobal { register, constant } => write!(
+                f,
+                "LoadGlobal\tresult: {}\tconstant: {}",
+                register, constant
+            ),
             SetGlobal { global, source } => {
-                write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
+                write!(f, "SetGlobal\tconstant: {}\tsource: {}", global, source)
             }
             MakeList {
                 register,
                 size_hint,
-            } => write!(f, "MakeList\tresult: {}\tsize_hint: {}", register, size_hint),
+            } => write!(
+                f,
+                "MakeList\tresult: {}\tsize_hint: {}",
+                register, size_hint
+            ),
             MakeMap {
                 register,
                 size_hint,
@@ -449,6 +464,7 @@ impl fmt::Display for Instruction {
                 "CallChild\tresult: {}\tfunction: {}\targ_reg: {}\targs: {}\t\tparent: {}",
                 result, function, arg_register, arg_count, parent
             ),
+            Return { register } => write!(f, "Return\t\tresult: {}", register),
             IteratorNext {
                 register,
                 iterator,
@@ -606,14 +622,21 @@ impl Iterator for InstructionReader {
             Op::SetEmpty => Some(SetEmpty {
                 register: get_byte!(),
             }),
-            Op::SetTrue => Some(SetTrue {
+            Op::SetFalse => Some(SetBool {
                 register: get_byte!(),
+                value: false
             }),
-            Op::SetFalse => Some(SetFalse {
+            Op::SetTrue => Some(SetBool {
                 register: get_byte!(),
+                value: true
             }),
-            Op::Return => Some(Return {
+            Op::Set0 => Some(SetNumber {
                 register: get_byte!(),
+                value: 0.0
+            }),
+            Op::Set1 => Some(SetNumber {
+                register: get_byte!(),
+                value: 1.0
             }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),
@@ -814,6 +837,9 @@ impl Iterator for InstructionReader {
                 arg_register: get_byte!(),
                 arg_count: get_byte!(),
                 parent: get_byte!(),
+            }),
+            Op::Return => Some(Return {
+                register: get_byte!(),
             }),
             Op::IteratorNext => Some(IteratorNext {
                 register: get_byte!(),

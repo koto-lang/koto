@@ -311,6 +311,16 @@ impl Compiler {
                     self.push_op(SetFalse, &[result_register]);
                 }
             }
+            Node::Number0 => {
+                if let Some(result_register) = result_register {
+                    self.push_op(Set0, &[result_register]);
+                }
+            }
+            Node::Number1 => {
+                if let Some(result_register) = result_register {
+                    self.push_op(Set1, &[result_register]);
+                }
+            }
             Node::Number(constant) => {
                 if let Some(result_register) = result_register {
                     let constant = *constant;

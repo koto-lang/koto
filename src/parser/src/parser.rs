@@ -307,12 +307,18 @@ impl KotoParser {
             }
             Rule::number => {
                 let n: f64 = pair.as_str().parse().unwrap();
-                let constant_index = match u32::try_from(constants.add_f64(n)) {
-                    Ok(index) => index,
-                    Err(_) => panic!("The constant pool has overflowed"), // TODO Return an error
-                };
+                match n {
+                    _ if n == 0.0 => AstNode::new(span, Node::Number0),
+                    _ if n == 1.0 => AstNode::new(span, Node::Number1),
+                    _ => {
+                        let constant_index = match u32::try_from(constants.add_f64(n)) {
+                            Ok(index) => index,
+                            Err(_) => panic!("The constant pool has overflowed"),
+                        };
 
-                AstNode::new(span, Node::Number(constant_index))
+                        AstNode::new(span, Node::Number(constant_index))
+                    }
+                }
             }
             Rule::string => AstNode::new(
                 span,

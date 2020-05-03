@@ -14,9 +14,10 @@ pub enum Op {
     Copy,             // target, source
     DeepCopy,         // target, source
     SetEmpty,         // register
-    SetTrue,          // register
     SetFalse,         // register
-    Return,           // register
+    SetTrue,          // register
+    Set0,             // register
+    Set1,             // register
     LoadNumber,       // register, constant
     LoadNumberLong,   // register, constant[4]
     LoadString,       // register, constant
@@ -61,6 +62,7 @@ pub enum Op {
     JumpBackFalse,    // offset[2]
     Call,             // result, function, arg register, arg count
     CallChild,        // result, function, arg register, arg count, parent
+    Return,           // register
     IteratorNext,     // output, iterator, jump offset[2]
     ExpressionIndex,  // register, multi_expression, index
     ListPush,         // list, value

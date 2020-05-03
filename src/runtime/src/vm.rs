@@ -202,19 +202,9 @@ impl Vm {
                 self.set_register(target, copy_value(self.get_register(source)));
             }
             Instruction::SetEmpty { register } => self.set_register(register, Empty),
-            Instruction::SetTrue { register } => self.set_register(register, Bool(true)),
-            Instruction::SetFalse { register } => self.set_register(register, Bool(false)),
-            Instruction::Return { register } => {
-                self.frame_mut().result = self.get_register(register).clone();
-
-                let return_ip = self.frame().return_ip;
-                let frame_result = self.pop_frame()?;
-
-                if self.call_stack.is_empty() || return_ip.is_none() {
-                    result = ControlFlow::ReturnValue(frame_result);
-                } else {
-                    self.set_ip(return_ip.unwrap());
-                }
+            Instruction::SetBool { register, value } => self.set_register(register, Bool(value)),
+            Instruction::SetNumber { register, value } => {
+                self.set_register(register, Number(value))
             }
             Instruction::LoadNumber { register, constant } => {
                 self.set_register(register, Number(self.constants.get_f64(constant)))
@@ -768,6 +758,18 @@ impl Vm {
             } => {
                 let function = self.get_register(function).clone();
                 self.call_function(result, &function, arg_register, arg_count, Some(parent))?;
+            }
+            Instruction::Return { register } => {
+                self.frame_mut().result = self.get_register(register).clone();
+
+                let return_ip = self.frame().return_ip;
+                let frame_result = self.pop_frame()?;
+
+                if self.call_stack.is_empty() || return_ip.is_none() {
+                    result = ControlFlow::ReturnValue(frame_result);
+                } else {
+                    self.set_ip(return_ip.unwrap());
+                }
             }
             Instruction::IteratorNext {
                 register,
