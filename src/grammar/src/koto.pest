@@ -247,15 +247,10 @@ num4_expression = _{ num4_with_parens | num4_no_parens }
 num4_with_parens = !{
   num4
   ~ "("
-  ~ separator_line*
-  ~ value_term ~ (separator_line* ~ value_term){, 3} ~ separator_line*
+  ~ (separator_line* ~ value_term){1, 4} ~ separator_line*
   ~ ")"
-  }
-num4_no_parens = ${
-  num4
-  ~ WHITESPACE+ ~ value_term
-  ~ (WHITESPACE+ ~ value_term){, 3}
 }
+num4_no_parens = ${ num4 ~ (WHITESPACE+ ~ value_term){1, 4} }
 
 boolean = { true_ | false_ }
 negate = { not_keyword ~ operation }
