@@ -1,5 +1,5 @@
 use crate::single_arg_fn;
-use koto_runtime::{value, Value, ValueMap};
+use koto_runtime::{external_error, type_as_string, value, Value, ValueMap};
 
 pub fn register(global: &mut ValueMap) {
     use Value::*;
@@ -37,8 +37,15 @@ pub fn register(global: &mut ValueMap) {
     math_fn_1!(tan);
     math_fn_1!(tanh);
 
-    single_arg_fn!(math, "sum", Num4, v, {
-        Ok(Number((v[0] + v[1] + v[2] + v[3]) as f64))
+    math.add_fn("sum", |_, args| match args {
+        [] => external_error!("sum: Missing argument"),
+        [Num2(n)] => Ok(Number(n[0] + n[1])),
+        [Num4(n)] => Ok(Number((n[0] + n[1] + n[2] + n[3]) as f64)),
+        [unexpected] => external_error!(
+            "math.sum: Expected Num2 or Num4, found '{}'",
+            type_as_string(unexpected)
+        ),
+        _ => external_error!("math.sum: Expected a single Num2 or Num4 argument"),
     });
 
     math.add_value("pi", Number(std::f64::consts::PI));

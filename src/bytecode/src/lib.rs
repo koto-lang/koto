@@ -30,6 +30,7 @@ pub enum Op {
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint
     MakeMapLong,      // register, size hint[4]
+    MakeNum2,         // register, element count, first element
     MakeNum4,         // register, element count, first element
     MakeIterator,     // register, range
     Function,         // register, arg count, capture count, size[2]

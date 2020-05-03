@@ -129,6 +129,7 @@ value_term = _{(
   | boolean
   | negatable_lookup
   | id
+  | num2_expression
   | num4_expression
   | if_inline
   | ("(" ~ expression ~ ")")
@@ -243,6 +244,15 @@ range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
 range_arg = _{ number | function_call | negatable_lookup | id | ("(" ~ expression ~ ")") }
 
+num2_expression = _{ num2_with_parens | num2_no_parens }
+num2_with_parens = !{
+  num2
+  ~ "("
+  ~ (separator_line* ~ value_term){1, 2} ~ separator_line*
+  ~ ")"
+}
+num2_no_parens = ${ num2 ~ (WHITESPACE+ ~ value_term){1, 2} }
+
 num4_expression = _{ num4_with_parens | num4_no_parens }
 num4_with_parens = !{
   num4
@@ -324,6 +334,7 @@ export = { "export" }
 if_ = { "if" }
 in_ = { "in" }
 not = { "not" }
+num2 = { "num2" }
 num4 = { "num4" }
 return_ = { "return" }
 then = { "then" }
@@ -344,6 +355,7 @@ keyword = _{
   | if_
   | in_
   | not
+  | num2
   | num4
   | or
   | return_

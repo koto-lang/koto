@@ -1,0 +1,13 @@
+assert_eq (num4 0) (num4 0 0 0 0)
+assert_eq (num2 1) (num2 1 1)
+assert_eq (num4 (num2 1)) (num4 1 1 0 0)
+
+x = num4 5 6 7 8
+x *= 2
+assert_eq x (num4 10 12 14 16)
+assert_eq x (num4 10 12 14 16)
+x %= 5
+assert_eq x (num4 0 2 4 1)
+
+assert_eq (math.sum (num2 1 2)) 3
+assert_eq (math.sum (num4 1 2 3 4)) 10

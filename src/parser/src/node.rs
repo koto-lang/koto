@@ -15,6 +15,7 @@ pub enum Node {
     Number1,
     Number(ConstantIndex),
     Str(ConstantIndex),
+    Num2(Vec<AstNode>),
     Num4(Vec<AstNode>),
     List(Vec<AstNode>),
     Range {
@@ -91,6 +92,7 @@ impl fmt::Display for Node {
             Number0=> write!(f, "Number0"),
             Number1 => write!(f, "Number1"),
             Str(_) => write!(f, "Str"),
+            Num2(_) => write!(f, "Num2"),
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
             Range { .. } => write!(f, "Range"),

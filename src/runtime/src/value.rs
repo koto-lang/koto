@@ -4,7 +4,7 @@ use crate::{
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
 };
-use koto_parser::{num4, AstFor, AstWhile};
+use koto_parser::{num2, num4, AstFor, AstWhile};
 use std::{
     cmp::Ordering,
     fmt,
@@ -17,6 +17,7 @@ pub enum Value {
     Empty,
     Bool(bool),
     Number(f64),
+    Num2(num2::Num2),
     Num4(num4::Num4),
     Range(IntRange),
     IndexRange { start: usize, end: Option<usize> },
@@ -44,6 +45,7 @@ impl fmt::Display for Value {
             Empty => f.write_str("()"),
             Bool(b) => f.write_str(&b.to_string()),
             Number(n) => f.write_str(&n.to_string()),
+            Num2(v) => write!(f, "({} {})", v.0, v.1),
             Num4(v) => write!(f, "({} {} {} {})", v.0, v.1, v.2, v.3),
             Str(s) => f.write_str(&s),
             List(l) => f.write_str(&l.to_string()),
@@ -88,6 +90,7 @@ impl PartialEq for Value {
 
         match (self, other) {
             (Number(a), Number(b)) => a == b,
+            (Num2(a), Num2(b)) => a == b,
             (Num4(a), Num4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
@@ -127,6 +130,7 @@ impl PartialOrd for Value {
 
         match (self, other) {
             (Number(a), Number(b)) => a.partial_cmp(b),
+            (Num2(a), Num2(b)) => a.partial_cmp(b),
             (Num4(a), Num4(b)) => a.partial_cmp(b),
             (Str(a), Str(b)) => a.partial_cmp(b),
             (a, b) => panic!(format!("partial_cmp unsupported for {} and {}", a, b)),
@@ -188,6 +192,7 @@ pub fn type_as_string(value: &Value) -> String {
         Empty => "Empty".to_string(),
         Bool(_) => "Bool".to_string(),
         Number(_) => "Number".to_string(),
+        Num2(_) => "Num2".to_string(),
         Num4(_) => "Num4".to_string(),
         List(_) => "List".to_string(),
         Range { .. } => "Range".to_string(),

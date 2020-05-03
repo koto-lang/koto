@@ -1,6 +1,7 @@
 mod constant_pool;
 mod lookup;
 mod node;
+pub mod num2;
 pub mod num4;
 mod parser;
 mod prec_climber;

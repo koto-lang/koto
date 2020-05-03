@@ -7,7 +7,7 @@ use crate::{
     vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
-use koto_parser::{num4, ConstantPool};
+use koto_parser::{num2, num4, ConstantPool};
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
 
@@ -245,6 +245,59 @@ impl Vm {
             } => {
                 self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
             }
+            Instruction::MakeNum2 {
+                register,
+                count,
+                element_register,
+            } => {
+                let result = if count == 1 {
+                    match self.get_register(element_register) {
+                        Number(n) => num2::Num2(*n, *n),
+                        Num2(v) => *v,
+                        List(list) => {
+                            let mut v = num2::Num2::default();
+                            for (i, value) in list.data().iter().take(2).enumerate() {
+                                match value {
+                                    Number(n) => v[i] = *n,
+                                    unexpected => {
+                                        return vm_error!(
+                                            instruction_ip,
+                                            "num2 only accepts Numbers as arguments, - found {}",
+                                            unexpected
+                                        )
+                                    }
+                                }
+                            }
+                            v
+                        }
+                        unexpected => {
+                            return vm_error!(
+                                instruction_ip,
+                                "num2 only accepts a Number, Num2, or List as first argument \
+                                - found {}",
+                                unexpected
+                            );
+                        }
+                    }
+                } else {
+                    let mut v = num2::Num2::default();
+                    for i in 0..count {
+                        match self.get_register(element_register + i) {
+                            Number(n) => v[i as usize] = *n,
+                            unexpected => {
+                                return vm_error!(
+                                    instruction_ip,
+                                    "num2 only accepts Numbers as arguments, \
+                                     or Num2 or List as first argument - found {}",
+                                    unexpected
+                                );
+                            }
+                        }
+                    }
+                    v
+                };
+                self.set_register(register, Num2(result));
+            }
             Instruction::MakeNum4 {
                 register,
                 count,
@@ -256,7 +309,8 @@ impl Vm {
                             let n = *n as f32;
                             num4::Num4(n, n, n, n)
                         }
-                        Num4(v) => *v,
+                        Num2(n) => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
+                        Num4(n) => *n,
                         List(list) => {
                             let mut v = num4::Num4::default();
                             for (i, value) in list.data().iter().take(4).enumerate() {
@@ -547,6 +601,7 @@ impl Vm {
                 let result = match &self.get_register(source) {
                     Bool(b) => Bool(!b),
                     Number(n) => Number(-n),
+                    Num2(v) => Num2(-v),
                     Num4(v) => Num4(-v),
                     unexpected => {
                         return vm_error!(
@@ -563,6 +618,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a + b),
+                    (Number(a), Num2(b)) => Num2(a + b),
+                    (Num2(a), Num2(b)) => Num2(a + b),
+                    (Num2(a), Number(b)) => Num2(a + b),
                     (Number(a), Num4(b)) => Num4(a + b),
                     (Num4(a), Num4(b)) => Num4(a + b),
                     (Num4(a), Number(b)) => Num4(a + b),
@@ -591,6 +649,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a - b),
+                    (Number(a), Num2(b)) => Num2(a - b),
+                    (Num2(a), Num2(b)) => Num2(a - b),
+                    (Num2(a), Number(b)) => Num2(a - b),
                     (Number(a), Num4(b)) => Num4(a - b),
                     (Num4(a), Num4(b)) => Num4(a - b),
                     (Num4(a), Number(b)) => Num4(a - b),
@@ -605,6 +666,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a * b),
+                    (Number(a), Num2(b)) => Num2(a * b),
+                    (Num2(a), Num2(b)) => Num2(a * b),
+                    (Num2(a), Number(b)) => Num2(a * b),
                     (Number(a), Num4(b)) => Num4(a * b),
                     (Num4(a), Num4(b)) => Num4(a * b),
                     (Num4(a), Number(b)) => Num4(a * b),
@@ -619,6 +683,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a / b),
+                    (Number(a), Num2(b)) => Num2(a / b),
+                    (Num2(a), Num2(b)) => Num2(a / b),
+                    (Num2(a), Number(b)) => Num2(a / b),
                     (Number(a), Num4(b)) => Num4(a / b),
                     (Num4(a), Num4(b)) => Num4(a / b),
                     (Num4(a), Number(b)) => Num4(a / b),
@@ -633,6 +700,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a % b),
+                    (Number(a), Num2(b)) => Num2(a % b),
+                    (Num2(a), Num2(b)) => Num2(a % b),
+                    (Num2(a), Number(b)) => Num2(a % b),
                     (Number(a), Num4(b)) => Num4(a % b),
                     (Num4(a), Num4(b)) => Num4(a % b),
                     (Num4(a), Number(b)) => Num4(a % b),
@@ -1440,6 +1510,10 @@ mod tests {
 
     fn value_list(values: &[Value]) -> Value {
         List(ValueList::from_slice(&values))
+    }
+
+    fn num2(a: f64, b: f64) -> Value {
+        Num2(koto_parser::num2::Num2(a, b))
     }
 
     fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
@@ -2464,6 +2538,58 @@ x = [f count while (count += 1) <= 5]";
         }
     }
 
+    mod num2_test {
+        use super::*;
+
+        #[test]
+        fn with_1_arg_1() {
+            test_script("num2 1", num2(1.0, 1.0));
+        }
+
+        #[test]
+        fn with_1_arg_2() {
+            test_script("num2 2", num2(2.0, 2.0));
+        }
+
+        #[test]
+        fn with_2_args() {
+            test_script("num2 1 2", num2(1.0, 2.0));
+        }
+
+        #[test]
+        fn from_list() {
+            test_script("num2 [-1]", num2(-1.0, 0.0));
+        }
+
+        #[test]
+        fn from_num2() {
+            test_script("num2 (num2 1 2)", num2(1.0, 2.0));
+        }
+
+        #[test]
+        fn add_multiply() {
+            test_script("(num2 1) + (num2 0.5) * 3.0", num2(2.5, 2.5));
+        }
+
+        #[test]
+        fn subtract_divide() {
+            test_script("((num2 10 20) - (num2 2)) / 2.0", num2(4.0, 9.0));
+        }
+
+        #[test]
+        fn modulo() {
+            test_script("(num2 15 25) % (num2 10) % 4", num2(1.0, 1.0));
+        }
+
+        #[test]
+        fn negation() {
+            let script = "
+x = num2 1 -2
+-x";
+            test_script(script, num2(-1.0, 2.0));
+        }
+    }
+
     mod num4_test {
         use super::*;
 
@@ -2498,8 +2624,13 @@ x = [f count while (count += 1) <= 5]";
         }
 
         #[test]
+        fn from_num2() {
+            test_script("num4 (num2 1 2)", num4(1.0, 2.0, 0.0, 0.0));
+        }
+
+        #[test]
         fn from_num4() {
-            test_script("num4 (num4 1 2)", num4(1.0, 2.0, 0.0, 0.0));
+            test_script("num4 (num4 3 4)", num4(3.0, 4.0, 0.0, 0.0));
         }
 
         #[test]

@@ -337,6 +337,9 @@ impl Compiler {
                     self.load_string(result_register, *constant);
                 }
             }
+            Node::Num2(elements) => {
+                self.compile_make_num2(result_register, &elements)?;
+            }
             Node::Num4(elements) => {
                 self.compile_make_num4(result_register, &elements)?;
             }
@@ -971,6 +974,48 @@ impl Compiler {
             } else {
                 self.push_op(LoadGlobalLong, &[result_register]);
                 self.push_bytes(&id.to_le_bytes());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_make_num2(
+        &mut self,
+        result_register: Option<u8>,
+        elements: &[AstNode],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if elements.len() < 1 || elements.len() > 2 {
+            return Err(format!(
+                "compile_make_num2: unexpected number of elements: {}",
+                elements.len()
+            ));
+        }
+
+        if let Some(result_register) = result_register {
+            let stack_count = self.frame().register_stack.len();
+
+            for element_node in elements.iter() {
+                let element_register = self.push_register()?;
+                self.compile_node(Some(element_register), element_node)?;
+            }
+
+            let first_element_register = self.frame().peek_register(elements.len() - 1)?;
+            self.push_op(
+                MakeNum2,
+                &[
+                    result_register,
+                    elements.len() as u8,
+                    first_element_register,
+                ],
+            );
+
+            self.frame_mut().truncate_register_stack(stack_count)?;
+        } else {
+            for element_node in elements.iter() {
+                self.compile_node(None, element_node)?;
             }
         }
 
