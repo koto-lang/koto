@@ -1,9 +1,9 @@
 use std::ops;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
-pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
+pub struct Num4(pub f32, pub f32, pub f32, pub f32);
 
-impl ops::Index<usize> for Vec4 {
+impl ops::Index<usize> for Num4 {
     type Output = f32;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -12,46 +12,46 @@ impl ops::Index<usize> for Vec4 {
             1 => &self.1,
             2 => &self.2,
             3 => &self.3,
-            _ => panic!("Invalid index for Vec4"),
+            _ => panic!("Invalid index for Num4"),
         }
     }
 }
 
-impl ops::IndexMut<usize> for Vec4 {
+impl ops::IndexMut<usize> for Num4 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
             0 => &mut self.0,
             1 => &mut self.1,
             2 => &mut self.2,
             3 => &mut self.3,
-            _ => panic!("Invalid index for Vec4"),
+            _ => panic!("Invalid index for Num4"),
         }
     }
 }
 
-impl ops::Neg for Vec4 {
-    type Output = Vec4;
+impl ops::Neg for Num4 {
+    type Output = Num4;
 
     fn neg(self) -> Self::Output {
         Self(-self.0, -self.1, -self.2, -self.3)
     }
 }
 
-impl ops::Neg for &Vec4 {
-    type Output = Vec4;
+impl ops::Neg for &Num4 {
+    type Output = Num4;
 
     fn neg(self) -> Self::Output {
-        Vec4(-self.0, -self.1, -self.2, -self.3)
+        Num4(-self.0, -self.1, -self.2, -self.3)
     }
 }
 
-macro_rules! vec4_op {
+macro_rules! num4_op {
     ($trait:ident, $fn:ident, $op:tt) => {
-        impl ops::$trait for Vec4 {
-            type Output = Vec4;
+        impl ops::$trait for Num4 {
+            type Output = Num4;
 
-            fn $fn(self, other: Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: Num4) -> Num4 {
+                Num4(
                     self.0 $op other.0,
                     self.1 $op other.1,
                     self.2 $op other.2,
@@ -60,11 +60,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<&Vec4> for Vec4 {
-            type Output = Vec4;
+        impl ops::$trait<&Num4> for Num4 {
+            type Output = Num4;
 
-            fn $fn(self, other: &Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: &Num4) -> Num4 {
+                Num4(
                     self.0 $op other.0,
                     self.1 $op other.1,
                     self.2 $op other.2,
@@ -73,11 +73,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<&Vec4> for &Vec4 {
-            type Output = Vec4;
+        impl ops::$trait<&Num4> for &Num4 {
+            type Output = Num4;
 
-            fn $fn(self, other: &Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: &Num4) -> Num4 {
+                Num4(
                     self.0 $op other.0,
                     self.1 $op other.1,
                     self.2 $op other.2,
@@ -86,11 +86,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<f32> for Vec4 {
-            type Output = Vec4;
+        impl ops::$trait<f32> for Num4 {
+            type Output = Num4;
 
-            fn $fn(self, other: f32) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: f32) -> Num4 {
+                Num4(
                     self.0 $op other,
                     self.1 $op other,
                     self.2 $op other,
@@ -99,11 +99,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<Vec4> for f32 {
-            type Output = Vec4;
+        impl ops::$trait<Num4> for f32 {
+            type Output = Num4;
 
-            fn $fn(self, other: Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: Num4) -> Num4 {
+                Num4(
                     self $op other.0,
                     self $op other.1,
                     self $op other.2,
@@ -112,11 +112,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<f64> for Vec4 {
+        impl ops::$trait<f64> for Num4 {
             type Output = Self;
 
-            fn $fn(self, other: f64) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: f64) -> Num4 {
+                Num4(
                     self.0 $op other as f32,
                     self.1 $op other as f32,
                     self.2 $op other as f32,
@@ -125,11 +125,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<&f64> for &Vec4 {
-            type Output = Vec4;
+        impl ops::$trait<&f64> for &Num4 {
+            type Output = Num4;
 
-            fn $fn(self, other: &f64) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: &f64) -> Num4 {
+                Num4(
                     self.0 $op *other as f32,
                     self.1 $op *other as f32,
                     self.2 $op *other as f32,
@@ -138,11 +138,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<Vec4> for f64 {
-            type Output = Vec4;
+        impl ops::$trait<Num4> for f64 {
+            type Output = Num4;
 
-            fn $fn(self, other: Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: Num4) -> Num4 {
+                Num4(
                     self as f32 $op other.0,
                     self as f32 $op other.1,
                     self as f32 $op other.2,
@@ -151,11 +151,11 @@ macro_rules! vec4_op {
             }
         }
 
-        impl ops::$trait<&Vec4> for &f64 {
-            type Output = Vec4;
+        impl ops::$trait<&Num4> for &f64 {
+            type Output = Num4;
 
-            fn $fn(self, other: &Vec4) -> Vec4 {
-                Vec4(
+            fn $fn(self, other: &Num4) -> Num4 {
+                Num4(
                     *self as f32 $op other.0,
                     *self as f32 $op other.1,
                     *self as f32 $op other.2,
@@ -166,8 +166,8 @@ macro_rules! vec4_op {
     };
 }
 
-vec4_op!(Add, add, +);
-vec4_op!(Sub, sub, -);
-vec4_op!(Mul, mul, *);
-vec4_op!(Div, div, /);
-vec4_op!(Rem, rem, %);
+num4_op!(Add, add, +);
+num4_op!(Sub, sub, -);
+num4_op!(Mul, mul, *);
+num4_op!(Div, div, /);
+num4_op!(Rem, rem, %);

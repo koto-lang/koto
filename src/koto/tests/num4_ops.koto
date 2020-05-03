@@ -1,0 +1,13 @@
+assert_eq ((num4 1) + (num4 0.5)) (num4 1.5)
+assert_eq ((num4 2 4 6 8) - 1) (num4 1 3 5 7)
+
+assert_eq ((num4 2) * (num4 0.5)) (num4 1)
+assert_eq ((num4 2 4 6 8) * 0.5) (num4 1 2 3 4)
+assert_eq (8 / (num4 2 4 8 16)) (num4 4 2 1 0.5)
+
+x = num4 5 6 7 8
+x *= 2
+assert_eq x (num4 10 12 14 16)
+x %= 5
+assert_eq x (num4 0 2 4 1)
+assert_eq -x (num4 0 -2 -4 -1)

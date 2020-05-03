@@ -253,7 +253,7 @@ o2 = make_o2()
 o2.assert_foo()
 
 
-###### Vec4 type
+###### Num4 type
 
-# v = vec4 0.3, 0.5, 0.8, 1.0
-# assert_eq (vec4 1.0), (vec4 1.0, 0.0, 0.0, 0.0)
+# v = num4 0.3, 0.5, 0.8, 1.0
+# assert_eq (num4 1.0), (num4 1.0, 0.0, 0.0, 0.0)

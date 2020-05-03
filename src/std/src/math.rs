@@ -37,7 +37,7 @@ pub fn register(global: &mut ValueMap) {
     math_fn_1!(tan);
     math_fn_1!(tanh);
 
-    single_arg_fn!(math, "sum", Vec4, v, {
+    single_arg_fn!(math, "sum", Num4, v, {
         Ok(Number((v[0] + v[1] + v[2] + v[3]) as f64))
     });
 

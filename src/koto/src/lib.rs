@@ -2,7 +2,7 @@ pub use koto_bytecode::{
     bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader, SourceSpan,
 };
 pub use koto_parser::{
-    vec4::Vec4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+    num4::Num4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
 use koto_runtime::Vm;
 pub use koto_runtime::{

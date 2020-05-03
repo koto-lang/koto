@@ -337,8 +337,8 @@ impl Compiler {
                     self.load_string(result_register, *constant);
                 }
             }
-            Node::Vec4(elements) => {
-                self.compile_make_vec4(result_register, &elements)?;
+            Node::Num4(elements) => {
+                self.compile_make_num4(result_register, &elements)?;
             }
             Node::List(elements) => {
                 self.compile_make_list(result_register, &elements)?;
@@ -977,7 +977,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_make_vec4(
+    fn compile_make_num4(
         &mut self,
         result_register: Option<u8>,
         elements: &[AstNode],
@@ -986,7 +986,7 @@ impl Compiler {
 
         if elements.len() < 1 || elements.len() > 4 {
             return Err(format!(
-                "compile_make_vec4: unexpected number of elements: {}",
+                "compile_make_num4: unexpected number of elements: {}",
                 elements.len()
             ));
         }
@@ -1001,7 +1001,7 @@ impl Compiler {
 
             let first_element_register = self.frame().peek_register(elements.len() - 1)?;
             self.push_op(
-                MakeVec4,
+                MakeNum4,
                 &[
                     result_register,
                     elements.len() as u8,

@@ -1,9 +1,9 @@
 mod constant_pool;
 mod lookup;
 mod node;
+pub mod num4;
 mod parser;
 mod prec_climber;
-pub mod vec4;
 
 pub use lookup::*;
 pub use node::*;

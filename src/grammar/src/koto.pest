@@ -129,7 +129,7 @@ value_term = _{(
   | boolean
   | negatable_lookup
   | id
-  | vec4_expression
+  | num4_expression
   | if_inline
   | ("(" ~ expression ~ ")")
   )
@@ -243,16 +243,16 @@ range = ${ range_arg? ~ range_op ~ range_arg? }
 range_op = { ("..=" | "..") }
 range_arg = _{ number | function_call | negatable_lookup | id | ("(" ~ expression ~ ")") }
 
-vec4_expression = _{ vec4_with_parens | vec4_no_parens }
-vec4_with_parens = !{
-  vec4
+num4_expression = _{ num4_with_parens | num4_no_parens }
+num4_with_parens = !{
+  num4
   ~ "("
   ~ separator_line*
   ~ value_term ~ (separator_line* ~ value_term){, 3} ~ separator_line*
   ~ ")"
   }
-vec4_no_parens = ${
-  vec4
+num4_no_parens = ${
+  num4
   ~ WHITESPACE+ ~ value_term
   ~ (WHITESPACE+ ~ value_term){, 3}
 }
@@ -329,11 +329,11 @@ export = { "export" }
 if_ = { "if" }
 in_ = { "in" }
 not = { "not" }
+num4 = { "num4" }
 return_ = { "return" }
 then = { "then" }
 true_ = { "true" }
 until = { "until" }
-vec4 = { "vec4" }
 while_ = { "while" }
 
 keyword = _{
@@ -349,12 +349,12 @@ keyword = _{
   | if_
   | in_
   | not
+  | num4
   | or
   | return_
   | then
   | true_
   | until
-  | vec4
   | while_
 }
 

@@ -1,0 +1,7 @@
+assert_eq (num4 0) (num4 0 0 0 0)
+assert_eq (num4 1) (num4 1 1 1 1)
+assert_eq (num4 1 1) (num4 1 1 0 0)
+assert_eq (num4 1 1 1) (num4 1 1 1 0)
+assert_eq (num4 1 1 1 1) (num4 1 1 1 1)
+assert_eq (num4 [-1 1]) (num4 -1 1 0 0)
+assert_eq (num4 num4 1) (num4 1)

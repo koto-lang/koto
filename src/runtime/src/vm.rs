@@ -7,7 +7,7 @@ use crate::{
     vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
 };
 use koto_bytecode::{Bytecode, Instruction, InstructionReader};
-use koto_parser::{vec4, ConstantPool};
+use koto_parser::{num4, ConstantPool};
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
 
@@ -245,7 +245,7 @@ impl Vm {
             } => {
                 self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
             }
-            Instruction::MakeVec4 {
+            Instruction::MakeNum4 {
                 register,
                 count,
                 element_register,
@@ -254,18 +254,18 @@ impl Vm {
                     match self.get_register(element_register) {
                         Number(n) => {
                             let n = *n as f32;
-                            vec4::Vec4(n, n, n, n)
+                            num4::Num4(n, n, n, n)
                         }
-                        Vec4(v) => *v,
+                        Num4(v) => *v,
                         List(list) => {
-                            let mut v = vec4::Vec4::default();
+                            let mut v = num4::Num4::default();
                             for (i, value) in list.data().iter().take(4).enumerate() {
                                 match value {
                                     Number(n) => v[i] = *n as f32,
                                     unexpected => {
                                         return vm_error!(
                                             instruction_ip,
-                                            "vec4 only accepts Numbers as arguments, - found {}",
+                                            "num4 only accepts Numbers as arguments, - found {}",
                                             unexpected
                                         )
                                     }
@@ -276,22 +276,22 @@ impl Vm {
                         unexpected => {
                             return vm_error!(
                                 instruction_ip,
-                                "vec4 only accepts a Number, Vec4, or List as first argument \
+                                "num4 only accepts a Number, Num4, or List as first argument \
                                 - found {}",
                                 unexpected
                             );
                         }
                     }
                 } else {
-                    let mut v = vec4::Vec4::default();
+                    let mut v = num4::Num4::default();
                     for i in 0..count {
                         match self.get_register(element_register + i) {
                             Number(n) => v[i as usize] = *n as f32,
                             unexpected => {
                                 return vm_error!(
                                     instruction_ip,
-                                    "vec4 only accepts Numbers as arguments, \
-                                            or Vec4 or List as first argument - found {}",
+                                    "num4 only accepts Numbers as arguments, \
+                                            or Num4 or List as first argument - found {}",
                                     unexpected
                                 );
                             }
@@ -299,7 +299,7 @@ impl Vm {
                     }
                     v
                 };
-                self.set_register(register, Vec4(result));
+                self.set_register(register, Num4(result));
             }
             Instruction::Range {
                 register,
@@ -547,7 +547,7 @@ impl Vm {
                 let result = match &self.get_register(source) {
                     Bool(b) => Bool(!b),
                     Number(n) => Number(-n),
-                    Vec4(v) => Vec4(-v),
+                    Num4(v) => Num4(-v),
                     unexpected => {
                         return vm_error!(
                             instruction_ip,
@@ -563,9 +563,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a + b),
-                    (Number(a), Vec4(b)) => Vec4(a + b),
-                    (Vec4(a), Vec4(b)) => Vec4(a + b),
-                    (Vec4(a), Number(b)) => Vec4(a + b),
+                    (Number(a), Num4(b)) => Num4(a + b),
+                    (Num4(a), Num4(b)) => Num4(a + b),
+                    (Num4(a), Number(b)) => Num4(a + b),
                     (List(a), List(b)) => {
                         let mut result = ValueVec::new();
                         result.extend(a.data().iter().chain(b.data().iter()).cloned());
@@ -591,9 +591,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a - b),
-                    (Number(a), Vec4(b)) => Vec4(a - b),
-                    (Vec4(a), Vec4(b)) => Vec4(a - b),
-                    (Vec4(a), Number(b)) => Vec4(a - b),
+                    (Number(a), Num4(b)) => Num4(a - b),
+                    (Num4(a), Num4(b)) => Num4(a - b),
+                    (Num4(a), Number(b)) => Num4(a - b),
                     _ => {
                         return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
                     }
@@ -605,9 +605,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a * b),
-                    (Number(a), Vec4(b)) => Vec4(a * b),
-                    (Vec4(a), Vec4(b)) => Vec4(a * b),
-                    (Vec4(a), Number(b)) => Vec4(a * b),
+                    (Number(a), Num4(b)) => Num4(a * b),
+                    (Num4(a), Num4(b)) => Num4(a * b),
+                    (Num4(a), Number(b)) => Num4(a * b),
                     _ => {
                         return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
                     }
@@ -619,9 +619,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a / b),
-                    (Number(a), Vec4(b)) => Vec4(a / b),
-                    (Vec4(a), Vec4(b)) => Vec4(a / b),
-                    (Vec4(a), Number(b)) => Vec4(a / b),
+                    (Number(a), Num4(b)) => Num4(a / b),
+                    (Num4(a), Num4(b)) => Num4(a / b),
+                    (Num4(a), Number(b)) => Num4(a / b),
                     _ => {
                         return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
                     }
@@ -633,9 +633,9 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (Number(a), Number(b)) => Number(a % b),
-                    (Number(a), Vec4(b)) => Vec4(a % b),
-                    (Vec4(a), Vec4(b)) => Vec4(a % b),
-                    (Vec4(a), Number(b)) => Vec4(a % b),
+                    (Number(a), Num4(b)) => Num4(a % b),
+                    (Num4(a), Num4(b)) => Num4(a % b),
+                    (Num4(a), Number(b)) => Num4(a % b),
                     _ => {
                         return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
                     }
@@ -1442,8 +1442,8 @@ mod tests {
         List(ValueList::from_slice(&values))
     }
 
-    fn vec4(a: f32, b: f32, c: f32, d: f32) -> Value {
-        Vec4(koto_parser::vec4::Vec4(a, b, c, d))
+    fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
+        Num4(koto_parser::num4::Num4(a, b, c, d))
     }
 
     fn string(s: &str) -> Value {
@@ -2464,71 +2464,71 @@ x = [f count while (count += 1) <= 5]";
         }
     }
 
-    mod vec4_test {
+    mod num4_test {
         use super::*;
 
         #[test]
         fn with_1_arg_1() {
-            test_script("vec4 1", vec4(1.0, 1.0, 1.0, 1.0));
+            test_script("num4 1", num4(1.0, 1.0, 1.0, 1.0));
         }
 
         #[test]
         fn with_1_arg_2() {
-            test_script("vec4 2", vec4(2.0, 2.0, 2.0, 2.0));
+            test_script("num4 2", num4(2.0, 2.0, 2.0, 2.0));
         }
 
         #[test]
         fn with_2_args() {
-            test_script("vec4 1 2", vec4(1.0, 2.0, 0.0, 0.0));
+            test_script("num4 1 2", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn with_3_args() {
-            test_script("vec4 3 2 1", vec4(3.0, 2.0, 1.0, 0.0));
+            test_script("num4 3 2 1", num4(3.0, 2.0, 1.0, 0.0));
         }
 
         #[test]
         fn with_4_args() {
-            test_script("vec4 -1 1 -2 2", vec4(-1.0, 1.0, -2.0, 2.0));
+            test_script("num4 -1 1 -2 2", num4(-1.0, 1.0, -2.0, 2.0));
         }
 
         #[test]
         fn from_list() {
-            test_script("vec4 [-1 1]", vec4(-1.0, 1.0, 0.0, 0.0));
+            test_script("num4 [-1 1]", num4(-1.0, 1.0, 0.0, 0.0));
         }
 
         #[test]
-        fn from_vec4() {
-            test_script("vec4 (vec4 1 2)", vec4(1.0, 2.0, 0.0, 0.0));
+        fn from_num4() {
+            test_script("num4 (num4 1 2)", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn add_multiply() {
-            test_script("(vec4 1) + (vec4 0.5) * 3.0", vec4(2.5, 2.5, 2.5, 2.5));
+            test_script("(num4 1) + (num4 0.5) * 3.0", num4(2.5, 2.5, 2.5, 2.5));
         }
 
         #[test]
         fn subtract_divide() {
             test_script(
-                "((vec4 10 20 30 40) - (vec4 2)) / 2.0",
-                vec4(4.0, 9.0, 14.0, 19.0),
+                "((num4 10 20 30 40) - (num4 2)) / 2.0",
+                num4(4.0, 9.0, 14.0, 19.0),
             );
         }
 
         #[test]
         fn modulo() {
             test_script(
-                "(vec4 15 25 35 45) % (vec4 10) % 4",
-                vec4(1.0, 1.0, 1.0, 1.0),
+                "(num4 15 25 35 45) % (num4 10) % 4",
+                num4(1.0, 1.0, 1.0, 1.0),
             );
         }
 
         #[test]
         fn negation() {
             let script = "
-x = vec4 1 2 3 4
+x = num4 1 -2 3 -4
 -x";
-            test_script(script, vec4(-1.0, -2.0, -3.0, -4.0));
+            test_script(script, num4(-1.0, 2.0, -3.0, 4.0));
         }
     }
 
