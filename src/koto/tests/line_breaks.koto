@@ -10,11 +10,11 @@ b = num4(
 b = num4 1 2 3 4
 assert_eq a b
 
-x = list.fold(
+x = list.fold|
   [1 2 3]
   0
   |a b| a + b
-)
+|
 assert_eq x 6
 
 x = list.fold [1 2 3] 0 |a b|

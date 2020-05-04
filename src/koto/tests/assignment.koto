@@ -16,18 +16,18 @@ assert_eq b -1
 
 f = ||
   export x = 42
-f()
+f||
 assert_eq x 42
 
 f2 = ||
   export x = x * 2
-f2()
+f2||
 assert_eq x 84
 
 f3 = ||
   x = x + 15 # assigning x in local scope
   assert_eq x 99
-f3()
+f3||
 assert_eq x 84 # exported x remains the same
 
 # Assignments can be broken up with indentation (trailing commas are optional)

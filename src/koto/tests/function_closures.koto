@@ -1,6 +1,6 @@
 # variables are captured during function creation
-multipliers = [(|n| n * i) for i in 1..=4]
-assert_eq [2 4 6 8] [(multiplier 2) for multiplier in multipliers]
+multipliers = [|n| n * i for i in 1..=4]
+assert_eq [2 4 6 8] [multiplier 2 for multiplier in multipliers]
 
 
 # nested functions capture outer local variables during function creation
@@ -10,19 +10,19 @@ capture_test = |a b c|
       x + b + c
     inner2 a
   b, c = (), () # inner and inner2 have captured their own copies of b and c
-  inner()
+  inner||
 assert_eq (capture_test 1 2 3) 6
 
 
 # captured variables are mutable and share the function's lifetime
 counter = ||
   count = 0
-  return || count += 1
+  || count += 1
 
-c = counter()
-c2 = counter()
-assert_eq c() 1
-assert_eq c() 2
-assert_eq c2() 1
-assert_eq c() 3
-assert_eq c2() 2
+c = counter||
+c2 = counter||
+assert_eq c|| 1
+assert_eq c|| 2
+assert_eq c2|| 1
+assert_eq c|| 3
+assert_eq c2|| 2

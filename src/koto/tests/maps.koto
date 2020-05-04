@@ -1,10 +1,10 @@
 o = {min: 0, max: || 42}
-assert_eq 42 o.max()
+assert_eq 42 o.max||
 o2 = o
 assert_eq o o2
 
 sum = 0
-for i in o.min..o.max()
+for i in o.min..o.max||
   sum = sum + i
 assert_eq sum 861
 
@@ -50,21 +50,21 @@ make_o = ||
   foo: 42
   get_foo: |self| self.foo # self refers to table instance
 
-o = make_o()
-assert_eq 42 o.get_foo() # implicit self
+o = make_o||
+assert_eq 42 o.get_foo|| # implicit self
 
 make_o2 = ||
-  make_o() +
+  make_o|| +
     foo_2: 57
     get_foo_2: |self| self.foo_2
     set_foo_2: |self x| self.foo_2 = x
     sum_foo: |self| self.foo + self.foo_2
 
-o2 = make_o2()
+o2 = make_o2||
 assert_eq o2.foo 42
-assert_eq o2.get_foo_2() 57
+assert_eq o2.get_foo_2|| 57
 o2.set_foo_2 58
-assert_eq o2.sum_foo() 100
+assert_eq o2.sum_foo|| 100
 
 
 ###### Maps captured from for loops and control flow

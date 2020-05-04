@@ -1,4 +1,4 @@
-enumerate = |xs| [i, x for i, x in 0..size(xs), xs]
+enumerate = |xs| [i, x for i, x in 0..size|xs|, xs]
 
 export main = ||
   n = list.get env.args 0

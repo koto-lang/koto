@@ -53,7 +53,7 @@ assert_eq x [0 1 2]
 ###### return supports returning multiple values
 f = ||
   return -1, 1
-a, b = f()
+a, b = f||
 assert_eq a -1
 assert_eq b 1
 
@@ -62,4 +62,4 @@ f = ||
   if true
     return
   assert false
-f()
+f||
