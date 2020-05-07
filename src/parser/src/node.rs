@@ -1,4 +1,4 @@
-use crate::{AstNode, Lookup, LookupSlice};
+use crate::{ast::AstIndex, Lookup, LookupSlice};
 use std::{fmt, sync::Arc};
 
 pub type ConstantIndex = u32;
@@ -15,49 +15,49 @@ pub enum Node {
     Number1,
     Number(ConstantIndex),
     Str(ConstantIndex),
-    Num2(Vec<AstNode>),
-    Num4(Vec<AstNode>),
-    List(Vec<AstNode>),
+    Num2(Vec<AstIndex>),
+    Num4(Vec<AstIndex>),
+    List(Vec<AstIndex>),
     Range {
-        start: Box<AstNode>,
-        end: Box<AstNode>,
+        start: AstIndex,
+        end: AstIndex,
         inclusive: bool,
     },
     RangeFrom {
-        start: Box<AstNode>,
+        start: AstIndex,
     },
     RangeTo {
-        end: Box<AstNode>,
+        end: AstIndex,
         inclusive: bool,
     },
     RangeFull,
-    Map(Vec<(ConstantIndex, AstNode)>),
+    Map(Vec<(ConstantIndex, AstIndex)>),
     MainBlock {
-        body: Vec<AstNode>,
+        body: Vec<AstIndex>,
         local_count: usize,
     },
-    Block(Vec<AstNode>),
-    Expressions(Vec<AstNode>),
-    CopyExpression(Box<AstNode>),
-    Negate(Box<AstNode>),
+    Block(Vec<AstIndex>),
+    Expressions(Vec<AstIndex>),
+    CopyExpression(AstIndex),
+    Negate(AstIndex),
     Function(Arc<Function>),
     Call {
         function: LookupOrId,
-        args: Vec<AstNode>,
+        args: Vec<AstIndex>,
     },
     Assign {
         target: AssignTarget,
-        expression: Box<AstNode>,
+        expression: AstIndex,
     },
     MultiAssign {
         targets: Vec<AssignTarget>,
-        expressions: Vec<AstNode>,
+        expressions: Vec<AstIndex>,
     },
     Op {
         // TODO rename -> BinaryOp
         op: AstOp,
-        lhs: Box<AstNode>,
-        rhs: Box<AstNode>,
+        lhs: AstIndex,
+        rhs: AstIndex,
     },
     If(AstIf),
     For(Arc<AstFor>),
@@ -65,10 +65,10 @@ pub enum Node {
     Break,
     Continue,
     Return,
-    ReturnExpression(Box<AstNode>),
+    ReturnExpression(AstIndex),
     Debug {
         expression_string: ConstantIndex,
-        expression: Box<AstNode>,
+        expression: AstIndex,
     },
 }
 
@@ -89,7 +89,7 @@ impl fmt::Display for Node {
             BoolTrue => write!(f, "BoolTrue"),
             BoolFalse => write!(f, "BoolFalse"),
             Number(_) => write!(f, "Number"),
-            Number0=> write!(f, "Number0"),
+            Number0 => write!(f, "Number0"),
             Number1 => write!(f, "Number1"),
             Str(_) => write!(f, "Str"),
             Num2(_) => write!(f, "Num2"),
@@ -122,12 +122,6 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Position {
-    pub line: usize,
-    pub column: usize,
-}
-
 #[derive(Clone, Debug)]
 pub enum LookupOrId {
     Id(ConstantIndex),
@@ -157,31 +151,31 @@ pub struct Function {
     pub args: Vec<ConstantIndex>,
     pub captures: Vec<ConstantIndex>,
     pub local_count: usize,
-    pub body: Vec<AstNode>,
+    pub body: Vec<AstIndex>,
     pub is_instance_function: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstFor {
     pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
-    pub ranges: Vec<AstNode>,
-    pub condition: Option<Box<AstNode>>,
-    pub body: Box<AstNode>,
+    pub ranges: Vec<AstIndex>,
+    pub condition: Option<AstIndex>,
+    pub body: AstIndex,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstWhile {
-    pub condition: Box<AstNode>,
-    pub body: Box<AstNode>,
+    pub condition: AstIndex,
+    pub body: AstIndex,
     pub negate_condition: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct AstIf {
-    pub condition: Box<AstNode>,
-    pub then_node: Box<AstNode>,
-    pub else_if_blocks: Vec<(Box<AstNode>, Box<AstNode>)>,
-    pub else_node: Option<Box<AstNode>>,
+    pub condition: AstIndex,
+    pub then_node: AstIndex,
+    pub else_if_blocks: Vec<(AstIndex, AstIndex)>,
+    pub else_node: Option<AstIndex>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -209,7 +203,7 @@ pub enum Scope {
 
 #[derive(Clone, Debug)]
 pub enum AssignTarget {
-    Id { id_index: u32, scope: Scope },
+    Id { id_index: AstIndex, scope: Scope },
     Lookup(Lookup),
 }
 

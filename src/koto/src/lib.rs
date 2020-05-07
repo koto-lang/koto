@@ -1,8 +1,8 @@
 pub use koto_bytecode::{
-    bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader, SourceSpan,
+    bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader,
 };
 pub use koto_parser::{
-    num4::Num4, AstNode, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
+    num4::Num4, Ast, Function, KotoParser as Parser, LookupOrId, LookupSliceOrId, Position,
 };
 use koto_runtime::Vm;
 pub use koto_runtime::{
@@ -25,7 +25,7 @@ pub struct Koto {
     script_path: Option<String>,
     parser: Parser,
     compiler: Compiler,
-    ast: AstNode,
+    ast: Ast,
     runtime: Vm,
     options: Options,
 }
@@ -247,8 +247,8 @@ impl Koto {
             let excerpt_lines = self
                 .script
                 .lines()
-                .skip(start_pos.line - 1)
-                .take(end_pos.line - start_pos.line + 1)
+                .skip((start_pos.line - 1) as usize)
+                .take((end_pos.line - start_pos.line + 1) as usize)
                 .collect::<Vec<_>>();
 
             let line_numbers = (start_pos.line..=end_pos.line)
@@ -272,8 +272,8 @@ impl Koto {
                     padding,
                     format!(
                         "{}{}",
-                        " ".repeat(start_pos.column),
-                        "^".repeat(end_pos.column - start_pos.column)
+                        " ".repeat(start_pos.column as usize),
+                        "^".repeat((end_pos.column - start_pos.column) as usize)
                     ),
                 );
 

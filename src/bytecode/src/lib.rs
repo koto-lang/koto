@@ -1,4 +1,7 @@
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use {
+    koto_parser::Span,
+    num_enum::{IntoPrimitive, TryFromPrimitive},
+};
 
 mod compile;
 mod instruction_reader;
@@ -95,7 +98,7 @@ pub fn bytecode_to_string_annotated(
     let mut result = String::new();
     let mut reader = InstructionReader::new(bytecode);
     let mut ip = reader.ip;
-    let mut span: Option<SourceSpan> = None;
+    let mut span: Option<Span> = None;
     let mut first = true;
 
     while let Some(instruction) = reader.next() {
@@ -113,7 +116,7 @@ pub fn bytecode_to_string_annotated(
             }
             first = false;
 
-            let line = instruction_span.start.line;
+            let line = instruction_span.start.line as usize;
             result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
             span = Some(instruction_span);
         }

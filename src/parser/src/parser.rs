@@ -1,12 +1,30 @@
-use crate::{lookup::*, node::*, prec_climber::PrecClimber, AstNode, ConstantPool, LookupNode};
+use crate::{
+    lookup::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
+    LookupNode, ParserError, Position, Span,
+};
 use pest::Parser;
-use std::{collections::HashSet, convert::TryFrom, iter::FromIterator, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator, sync::Arc};
 
 use koto_grammar::Rule;
 
-type Error = pest::error::Error<Rule>;
-
 const TEMP_VAR_PREFIX: &str = "__";
+
+impl<'a> From<pest::Span<'a>> for Span {
+    fn from(span: pest::Span) -> Self {
+        let start_line_col = span.start_pos().line_col();
+        let end_line_col = span.end_pos().line_col();
+        Self {
+            start: Position {
+                line: start_line_col.0 as u32,
+                column: start_line_col.1 as u32,
+            },
+            end: Position {
+                line: end_line_col.0 as u32,
+                column: end_line_col.1 as u32,
+            },
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 struct LocalIds {
@@ -168,29 +186,37 @@ impl KotoParser {
         source: &str,
         constants: &mut ConstantPool,
         options: Options,
-    ) -> Result<AstNode, Error> {
+    ) -> Result<Ast, ParserError> {
         self.options = options;
 
-        let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)?;
+        let token_count_guess = source.len() / 8;
+        let mut ast = RefCell::new(Ast::with_capacity(token_count_guess));
 
-        Ok(self.build_ast(
+        let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)
+            .map_err(|pest_error| ParserError::PestSyntaxError(pest_error.to_string()))?;
+
+        self.build_ast(
+            &mut ast,
             parsed.next().unwrap(),
             constants,
             &mut LocalIds::top_level(),
-        ))
+        )?;
+
+        Ok(ast.into_inner())
     }
 
     fn build_ast(
         &self,
+        ast: &RefCell<Ast>,
         pair: pest::iterators::Pair<Rule>,
         constants: &mut ConstantPool,
         local_ids: &mut LocalIds,
-    ) -> AstNode {
+    ) -> Result<AstIndex, ParserError> {
         use pest::iterators::Pair;
 
-        macro_rules! next_as_boxed_ast {
+        macro_rules! build_next {
             ($inner:expr) => {
-                Box::new(self.build_ast($inner.next().unwrap(), constants, local_ids))
+                self.build_ast(ast, $inner.next().unwrap(), constants, local_ids)?
             };
         }
 
@@ -200,30 +226,31 @@ impl KotoParser {
                     $lookup_pair
                         .into_inner()
                         .map(|pair| match pair.as_rule() {
-                            Rule::single_id => {
-                                LookupNode::Id(add_constant_string(constants, pair.as_str()))
-                            }
-                            Rule::map_access => LookupNode::Id(add_constant_string(
+                            Rule::single_id => Ok(LookupNode::Id(add_constant_string(
+                                constants,
+                                pair.as_str(),
+                            ))),
+                            Rule::map_access => Ok(LookupNode::Id(add_constant_string(
                                 constants,
                                 pair.into_inner().next().unwrap().as_str(),
-                            )),
+                            ))),
                             Rule::index => {
                                 let mut inner = pair.into_inner();
-                                let expression = next_as_boxed_ast!(inner);
-                                LookupNode::Index(Index(expression))
+                                let expression = build_next!(inner);
+                                Ok(LookupNode::Index(Index(expression)))
                             }
                             Rule::call_args => {
                                 let args = pair
                                     .into_inner()
-                                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                                    .collect::<Vec<_>>();
-                                LookupNode::Call(args)
+                                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                                    .collect::<Result<Vec<_>, _>>()?;
+                                Ok(LookupNode::Call(args))
                             }
                             unexpected => {
                                 panic!("Unexpected rule while making lookup node: {:?}", unexpected)
                             }
                         })
-                        .collect::<Vec<_>>(),
+                        .collect::<Result<Vec<_>, _>>()?,
                 );
 
                 lookup
@@ -254,7 +281,7 @@ impl KotoParser {
         let span = pair.as_span();
         match pair.as_rule() {
             Rule::next_expressions => {
-                self.build_ast(pair.into_inner().next().unwrap(), constants, local_ids)
+                self.build_ast(ast, pair.into_inner().next().unwrap(), constants, local_ids)
             }
             Rule::program => {
                 let inner = pair.into_inner();
@@ -262,9 +289,9 @@ impl KotoParser {
                 assert!(local_ids.ids_assigned_in_scope.is_empty());
                 assert!(local_ids.captures.is_empty());
 
-                let body: Vec<AstNode> = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect();
+                let body = inner
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 // the top level scope will have captures assigned to it due to the grandparenting
                 // logic, but there's nothing to capture at the top level so clear the list to
@@ -272,102 +299,107 @@ impl KotoParser {
                 local_ids.captures.clear();
                 let local_count = local_ids.local_count();
 
-                AstNode::new(span, Node::MainBlock { body, local_count })
+                let entry_point = ast
+                    .borrow_mut()
+                    .push(Node::MainBlock { body, local_count }, span.into())?;
+                ast.borrow_mut().set_entry_point(entry_point);
+                Ok(entry_point)
             }
             Rule::child_block => {
                 let inner = pair.into_inner();
-                let block: Vec<AstNode> = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect();
-                AstNode::new(span, Node::Block(block))
+                let block = inner
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut().push(Node::Block(block), span.into())
             }
             Rule::expressions | Rule::value_terms => {
                 let inner = pair.into_inner();
                 let expressions = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 if expressions.len() == 1 {
-                    expressions.first().unwrap().clone()
+                    Ok(*expressions.first().unwrap())
                 } else {
-                    AstNode::new(span, Node::Expressions(expressions))
+                    ast.borrow_mut()
+                        .push(Node::Expressions(expressions), span.into())
                 }
             }
-            Rule::empty => AstNode::new(span, Node::Empty),
+            Rule::empty => ast.borrow_mut().push(Node::Empty, span.into()),
             Rule::boolean => {
                 let bool_value: bool = pair.as_str().parse().unwrap();
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     if bool_value {
                         Node::BoolTrue
                     } else {
                         Node::BoolFalse
                     },
+                    span.into(),
                 )
             }
             Rule::number => {
                 let n: f64 = pair.as_str().parse().unwrap();
                 match n {
-                    _ if n == 0.0 => AstNode::new(span, Node::Number0),
-                    _ if n == 1.0 => AstNode::new(span, Node::Number1),
+                    _ if n == 0.0 => ast.borrow_mut().push(Node::Number0, span.into()),
+                    _ if n == 1.0 => ast.borrow_mut().push(Node::Number1, span.into()),
                     _ => {
                         let constant_index = match u32::try_from(constants.add_f64(n)) {
                             Ok(index) => index,
                             Err(_) => panic!("The constant pool has overflowed"),
                         };
 
-                        AstNode::new(span, Node::Number(constant_index))
+                        ast.borrow_mut()
+                            .push(Node::Number(constant_index), span.into())
                     }
                 }
             }
-            Rule::string => AstNode::new(
-                span,
+            Rule::string => ast.borrow_mut().push(
                 Node::Str(add_constant_string(
                     constants,
                     pair.into_inner().next().unwrap().as_str(),
                 )),
+                span.into(),
             ),
             Rule::list => {
                 let inner = pair.into_inner();
                 let elements = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::List(elements))
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut().push(Node::List(elements), span.into())
             }
             Rule::num2_with_parens | Rule::num2_no_parens => {
                 let mut inner = pair.into_inner();
                 inner.next(); // num2
                 let expressions = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Num2(expressions))
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut().push(Node::Num2(expressions), span.into())
             }
             Rule::num4_with_parens | Rule::num4_no_parens => {
                 let mut inner = pair.into_inner();
                 inner.next(); // num4
                 let expressions = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Num4(expressions))
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut().push(Node::Num4(expressions), span.into())
             }
             Rule::range => {
                 let mut inner = pair.into_inner();
 
                 let maybe_start = match inner.peek().unwrap().as_rule() {
                     Rule::range_op => None,
-                    _ => Some(next_as_boxed_ast!(inner)),
+                    _ => Some(build_next!(inner)),
                 };
 
                 let inclusive = inner.next().unwrap().as_str() == "..=";
 
                 let maybe_end = if inner.peek().is_some() {
-                    Some(next_as_boxed_ast!(inner))
+                    Some(build_next!(inner))
                 } else {
                     None
                 };
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     match (&maybe_start, &maybe_end) {
                         (Some(start), Some(end)) => Node::Range {
                             start: start.clone(),
@@ -383,6 +415,7 @@ impl KotoParser {
                         },
                         _ => Node::RangeFull,
                     },
+                    span.into(),
                 )
             }
             Rule::map | Rule::map_value | Rule::map_inline => {
@@ -395,11 +428,12 @@ impl KotoParser {
                     .map(|pair| {
                         let mut inner = pair.into_inner();
                         let id = add_constant_string(constants, inner.next().unwrap().as_str());
-                        let value = self.build_ast(inner.next().unwrap(), constants, local_ids);
-                        (id, value)
+                        let value =
+                            self.build_ast(ast, inner.next().unwrap(), constants, local_ids)?;
+                        Ok((id, value))
                     })
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Map(entries))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut().push(Node::Map(entries), span.into())
             }
             Rule::negatable_lookup => {
                 let mut inner = pair.into_inner();
@@ -407,60 +441,60 @@ impl KotoParser {
                     inner.next();
                     let lookup = next_as_lookup!(inner);
                     local_ids.add_lookup_to_captures(&lookup);
-                    AstNode::new(
-                        span.clone(),
-                        Node::Negate(Box::new(AstNode::new(span, Node::Lookup(lookup)))),
-                    )
+                    let expression = ast
+                        .borrow_mut()
+                        .push(Node::Lookup(lookup), span.clone().into())?;
+                    ast.borrow_mut().push(Node::Negate(expression), span.into())
                 } else {
                     let lookup = next_as_lookup!(inner);
                     local_ids.add_lookup_to_captures(&lookup);
-                    AstNode::new(span, Node::Lookup(lookup))
+                    ast.borrow_mut().push(Node::Lookup(lookup), span.into())
                 }
             }
             Rule::id => {
                 let mut inner = pair.into_inner();
                 if inner.peek().unwrap().as_rule() == Rule::negative {
                     inner.next();
-                    AstNode::new(span, Node::Negate(next_as_boxed_ast!(inner)))
+                    let expression = build_next!(inner);
+                    ast.borrow_mut().push(Node::Negate(expression), span.into())
                 } else {
-                    self.build_ast(inner.next().unwrap(), constants, local_ids)
+                    self.build_ast(ast, inner.next().unwrap(), constants, local_ids)
                 }
             }
             Rule::single_id => {
                 let id_index = add_constant_string(constants, pair.as_str());
                 local_ids.add_id_to_captures(id_index);
-                AstNode::new(span, Node::Id(id_index))
+                ast.borrow_mut().push(Node::Id(id_index), span.into())
             }
             Rule::copy_id => {
                 let mut inner = pair.into_inner();
                 inner.next(); // copy
                 let lookup_or_id = next_as_lookup_or_id!(inner);
                 local_ids.add_lookup_or_id_to_captures(&lookup_or_id);
-                AstNode::new(span, Node::Copy(lookup_or_id))
+                ast.borrow_mut().push(Node::Copy(lookup_or_id), span.into())
             }
             Rule::copy_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // copy
-                let expression = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::CopyExpression(expression))
+                let expression = build_next!(inner);
+                ast.borrow_mut()
+                    .push(Node::CopyExpression(expression), span.into())
             }
             Rule::return_expression => {
                 let mut inner = pair.into_inner();
                 inner.next(); // return
-                AstNode::new(
-                    span,
-                    if inner.peek().is_some() {
-                        Node::ReturnExpression(next_as_boxed_ast!(inner))
-                    } else {
-                        Node::Return
-                    },
-                )
+                let node = if inner.peek().is_some() {
+                    Node::ReturnExpression(build_next!(inner))
+                } else {
+                    Node::Return
+                };
+                ast.borrow_mut().push(node, span.into())
             }
             Rule::negate => {
                 let mut inner = pair.into_inner();
                 inner.next(); // not
-                let expression = next_as_boxed_ast!(inner);
-                AstNode::new(span, Node::Negate(expression))
+                let expression = build_next!(inner);
+                ast.borrow_mut().push(Node::Negate(expression), span.into())
             }
             Rule::function_block | Rule::function_inline => {
                 let mut inner = pair.into_inner();
@@ -481,9 +515,9 @@ impl KotoParser {
                 nested_local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 // collect function body
-                let body: Vec<AstNode> = inner
-                    .map(|pair| self.build_ast(pair, constants, &mut nested_local_ids))
-                    .collect();
+                let body = inner
+                    .map(|pair| self.build_ast(ast, pair, constants, &mut nested_local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.
@@ -494,8 +528,7 @@ impl KotoParser {
 
                 let local_count = nested_local_ids.local_count();
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::Function(Arc::new(self::Function {
                         args,
                         captures: Vec::from_iter(nested_local_ids.captures),
@@ -503,6 +536,7 @@ impl KotoParser {
                         body,
                         is_instance_function,
                     })),
+                    span.into(),
                 )
             }
             Rule::call_no_parens => {
@@ -510,9 +544,10 @@ impl KotoParser {
                 let function = next_as_lookup_or_id!(inner);
                 local_ids.add_lookup_or_id_to_captures(&function);
                 let args = inner
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
-                AstNode::new(span, Node::Call { function, args })
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
+                ast.borrow_mut()
+                    .push(Node::Call { function, args }, span.into())
             }
             Rule::debug_with_parens | Rule::debug_no_parens => {
                 let mut inner = pair.into_inner();
@@ -521,14 +556,14 @@ impl KotoParser {
                 let expression_pair = inner.next().unwrap();
 
                 let expression_string = add_constant_string(constants, expression_pair.as_str());
-                let expression = Box::new(self.build_ast(expression_pair, constants, local_ids));
+                let expression = self.build_ast(ast, expression_pair, constants, local_ids)?;
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::Debug {
                         expression_string,
                         expression,
                     },
+                    span.into(),
                 )
             }
             Rule::single_assignment => {
@@ -563,17 +598,20 @@ impl KotoParser {
                 local_ids.add_assign_target_to_captures(&target);
                 local_ids.add_assign_target_to_ids_being_assigned_in_scope(&target);
 
-                let rhs = next_as_boxed_ast!(inner);
+                let rhs = build_next!(inner);
                 macro_rules! make_assign_op {
                     ($op:ident) => {{
-                        Box::new(AstNode::new(
-                            span.clone(),
+                        let lhs = ast
+                            .borrow_mut()
+                            .push(target.to_node(), span.clone().into())?;
+                        ast.borrow_mut().push(
                             Node::Op {
                                 op: AstOp::$op,
-                                lhs: Box::new(AstNode::new(span.clone(), target.to_node())),
+                                lhs,
                                 rhs,
                             },
-                        ))
+                            span.clone().into(),
+                        )?
                     }};
                 };
 
@@ -592,7 +630,8 @@ impl KotoParser {
                 local_ids.remove_assign_target_from_ids_being_assigned_in_scope(&target);
                 local_ids.add_assign_target_to_ids_assigned_in_scope(&target);
 
-                AstNode::new(span, Node::Assign { target, expression })
+                ast.borrow_mut()
+                    .push(Node::Assign { target, expression }, span.into())
             }
             Rule::multiple_assignment => {
                 let mut inner = pair.into_inner();
@@ -613,18 +652,18 @@ impl KotoParser {
                                 Scope::Local
                             };
 
-                            AssignTarget::Id {
+                            Ok(AssignTarget::Id {
                                 id_index: add_constant_string(
                                     constants,
                                     inner.next().unwrap().as_str(),
                                 ),
                                 scope,
-                            }
+                            })
                         }
-                        Rule::lookup => AssignTarget::Lookup(pair_as_lookup!(pair)),
+                        Rule::lookup => Ok(AssignTarget::Lookup(pair_as_lookup!(pair))),
                         _ => unreachable!(),
                     })
-                    .collect::<Vec<_>>();
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 for target in targets.iter() {
                     local_ids.add_assign_target_to_ids_being_assigned_in_scope(target);
@@ -634,36 +673,39 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 for target in targets.iter() {
                     local_ids.remove_assign_target_from_ids_being_assigned_in_scope(target);
                     local_ids.add_assign_target_to_ids_assigned_in_scope(target);
                 }
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::MultiAssign {
                         targets,
                         expressions,
                     },
+                    span.into(),
                 )
             }
             Rule::operation => {
                 let operation_tree = self.climber.climb(
                     pair.into_inner(),
-                    |pair: Pair<Rule>| self.build_ast(pair, constants, local_ids),
-                    |lhs: AstNode, op: Pair<Rule>, rhs: AstNode| {
+                    |pair: Pair<Rule>| self.build_ast(ast, pair, constants, local_ids),
+                    |lhs: Result<AstIndex, ParserError>,
+                     op: Pair<Rule>,
+                     rhs: Result<AstIndex, ParserError>| {
                         use AstOp::*;
 
                         let span = op.as_span();
-                        let lhs = Box::new(lhs);
-                        let rhs = Box::new(rhs);
+                        let lhs = lhs?;
+                        let rhs = rhs?;
 
                         macro_rules! make_ast_op {
                             ($op:expr) => {
-                                AstNode::new(span, Node::Op { op: $op, lhs, rhs })
+                                ast.borrow_mut()
+                                    .push(Node::Op { op: $op, lhs, rhs }, span.into())
                             };
                         };
 
@@ -683,40 +725,40 @@ impl KotoParser {
                             Rule::or => make_ast_op!(Or),
                             unexpected => {
                                 let error = format!("Unexpected operator: {:?}", unexpected);
-                                unreachable!(error)
+                                Err(ParserError::ParserError(error))
                             }
                         }
                     },
-                );
-                self.post_process_operation_tree(operation_tree, 0, constants, local_ids)
+                )?;
+                self.post_process_operation_tree(ast, operation_tree, 0, constants, local_ids)
             }
             Rule::if_inline => {
                 let mut inner = pair.into_inner();
                 inner.next(); // if
-                let condition = next_as_boxed_ast!(inner);
+                let condition = build_next!(inner);
                 inner.next(); // then
-                let then_node = next_as_boxed_ast!(inner);
+                let then_node = build_next!(inner);
                 let else_node = if inner.next().is_some() {
-                    Some(next_as_boxed_ast!(inner))
+                    Some(build_next!(inner))
                 } else {
                     None
                 };
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::If(AstIf {
                         condition,
                         then_node,
                         else_if_blocks: vec![],
                         else_node,
                     }),
+                    span.into(),
                 )
             }
             Rule::if_block => {
                 let mut inner = pair.into_inner();
                 inner.next(); // if
-                let condition = next_as_boxed_ast!(inner);
-                let then_node = next_as_boxed_ast!(inner);
+                let condition = build_next!(inner);
+                let then_node = build_next!(inner);
 
                 let mut else_if_blocks = Vec::new();
 
@@ -725,27 +767,27 @@ impl KotoParser {
                 {
                     let mut inner = inner.next().unwrap().into_inner();
                     inner.next(); // else if
-                    let condition = next_as_boxed_ast!(inner);
-                    let node = next_as_boxed_ast!(inner);
+                    let condition = build_next!(inner);
+                    let node = build_next!(inner);
                     else_if_blocks.push((condition, node));
                 }
 
                 let else_node = if inner.peek().is_some() {
                     let mut inner = inner.next().unwrap().into_inner();
                     inner.next(); // else
-                    Some(next_as_boxed_ast!(inner))
+                    Some(build_next!(inner))
                 } else {
                     None
                 };
 
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::If(AstIf {
                         condition,
                         then_node,
                         else_if_blocks,
                         else_node,
                     }),
+                    span.into(),
                 )
             }
             Rule::for_block => {
@@ -765,24 +807,24 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
                 let condition = if inner.peek().unwrap().as_rule() == Rule::if_keyword {
                     inner.next();
-                    Some(next_as_boxed_ast!(inner))
+                    Some(build_next!(inner))
                 } else {
                     None
                 };
 
-                let body = next_as_boxed_ast!(inner);
-                AstNode::new(
-                    span,
+                let body = build_next!(inner);
+                ast.borrow_mut().push(
                     Node::For(Arc::new(AstFor {
                         args,
                         ranges,
                         condition,
                         body,
                     })),
+                    span.into(),
                 )
             }
             Rule::for_inline => {
@@ -802,7 +844,7 @@ impl KotoParser {
                 local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 let mut inner = pair.into_inner();
-                let body = next_as_boxed_ast!(inner);
+                let body = build_next!(inner);
 
                 inner.next(); // for
                 inner.next(); // args have already been captured
@@ -812,22 +854,22 @@ impl KotoParser {
                     .next()
                     .unwrap()
                     .into_inner()
-                    .map(|pair| self.build_ast(pair, constants, local_ids))
-                    .collect::<Vec<_>>();
+                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                    .collect::<Result<Vec<_>, _>>()?;
                 let condition = if inner.next().is_some() {
                     // if
-                    Some(next_as_boxed_ast!(inner))
+                    Some(build_next!(inner))
                 } else {
                     None
                 };
-                AstNode::new(
-                    span,
+                ast.borrow_mut().push(
                     Node::For(Arc::new(AstFor {
                         args,
                         ranges,
                         condition,
                         body,
                     })),
+                    span.into(),
                 )
             }
             Rule::while_block => {
@@ -837,48 +879,49 @@ impl KotoParser {
                     Rule::until_keyword => true,
                     _ => unreachable!(),
                 };
-                let condition = next_as_boxed_ast!(inner);
-                let body = next_as_boxed_ast!(inner);
-                AstNode::new(
-                    span,
+                let condition = build_next!(inner);
+                let body = build_next!(inner);
+                ast.borrow_mut().push(
                     Node::While(Arc::new(AstWhile {
                         condition,
                         body,
                         negate_condition,
                     })),
+                    span.into(),
                 )
             }
             Rule::while_inline => {
                 let mut inner = pair.into_inner();
-                let body = next_as_boxed_ast!(inner);
+                let body = build_next!(inner);
                 let negate_condition = match inner.next().unwrap().as_rule() {
                     Rule::while_keyword => false,
                     Rule::until_keyword => true,
                     _ => unreachable!(),
                 };
-                let condition = next_as_boxed_ast!(inner);
-                AstNode::new(
-                    span,
+                let condition = build_next!(inner);
+                ast.borrow_mut().push(
                     Node::While(Arc::new(AstWhile {
                         condition,
                         body,
                         negate_condition,
                     })),
+                    span.into(),
                 )
             }
-            Rule::break_ => AstNode::new(span, Node::Break),
-            Rule::continue_ => AstNode::new(span, Node::Continue),
+            Rule::break_ => ast.borrow_mut().push(Node::Break, span.into()),
+            Rule::continue_ => ast.borrow_mut().push(Node::Continue, span.into()),
             unexpected => unreachable!("Unexpected expression: {:?} - {:#?}", unexpected, pair),
         }
     }
 
     fn post_process_operation_tree(
         &self,
-        tree: AstNode,
+        ast: &RefCell<Ast>,
+        tree_index: AstIndex,
         temp_value_counter: usize,
         constants: &mut ConstantPool,
         local_ids: &mut LocalIds,
-    ) -> AstNode {
+    ) -> Result<AstIndex, ParserError> {
         // To support chained comparisons:
         //   if the node is an op
         //     and if the op is a comparison
@@ -887,12 +930,16 @@ impl KotoParser {
         //           ..with lhs as the And's lhs, but with its rhs assigning to a temp value
         //           ..with rhs as the node's op, and with its lhs reading from the temp value
         //     then proceed down lhs and rhs
-        match tree.node {
-            Node::Op { op, lhs, rhs } => {
+        let node = ast.borrow().node(tree_index).clone();
+        match &node {
+            AstNode {
+                node: Node::Op { op, lhs, rhs },
+                span,
+            } => {
                 use AstOp::*;
                 let (op, lhs, rhs) = match op {
                     Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
-                        let chained_temp_value = match &lhs.node {
+                        let chained_temp_value = match ast.borrow().node(*lhs).node {
                             Node::Op { op, .. } => match op {
                                 Greater | GreaterOrEqual | Less | LessOrEqual | Equal => {
                                     let temp_value =
@@ -913,28 +960,33 @@ impl KotoParser {
 
                         if let Some(chained_temp_value) = chained_temp_value {
                             // rewrite the lhs to have its rhs assigned to a temp value
-                            let lhs = match lhs.node {
+                            let lhs_node = ast.borrow().node(*lhs).clone();
+                            let lhs = match lhs_node.node {
                                 Node::Op {
                                     op: lhs_op,
                                     lhs: lhs_lhs,
                                     rhs: lhs_rhs,
-                                } => Box::new(AstNode {
-                                    node: Node::Op {
-                                        op: lhs_op,
-                                        lhs: lhs_lhs,
-                                        rhs: Box::new(AstNode {
-                                            node: Node::Assign {
-                                                target: AssignTarget::Id {
-                                                    id_index: chained_temp_value,
-                                                    scope: Scope::Local,
-                                                },
-                                                expression: lhs_rhs.clone(),
+                                } => {
+                                    let rhs = ast.borrow_mut().push_with_span_index(
+                                        Node::Assign {
+                                            target: AssignTarget::Id {
+                                                id_index: chained_temp_value,
+                                                scope: Scope::Local,
                                             },
-                                            ..*lhs_rhs
-                                        }),
-                                    },
-                                    ..*lhs
-                                }),
+                                            expression: lhs_rhs.clone(),
+                                        },
+                                        *span,
+                                    )?;
+
+                                    ast.borrow_mut().push_with_span_index(
+                                        Node::Op {
+                                            op: lhs_op,
+                                            lhs: lhs_lhs,
+                                            rhs,
+                                        },
+                                        *span,
+                                    )?
+                                }
                                 _ => unreachable!(),
                             };
 
@@ -942,49 +994,46 @@ impl KotoParser {
 
                             // rewrite the rhs to perform the node's comparison,
                             // reading from the temp value on its lhs
-                            let rhs = Box::new(AstNode {
-                                node: Node::Op {
-                                    op,
-                                    lhs: Box::new(AstNode {
-                                        node: Node::Id(chained_temp_value),
-                                        start_pos: tree.start_pos,
-                                        end_pos: tree.end_pos,
-                                    }),
-                                    rhs,
+                            let temp = ast
+                                .borrow_mut()
+                                .push_with_span_index(Node::Id(chained_temp_value), *span)?;
+                            let rhs = ast.borrow_mut().push_with_span_index(
+                                Node::Op {
+                                    op: *op,
+                                    lhs: temp,
+                                    rhs: *rhs,
                                 },
-                                start_pos: tree.start_pos,
-                                end_pos: tree.end_pos,
-                            });
+                                *span,
+                            )?;
 
                             // Insert an And to chain the comparisons
                             (AstOp::And, lhs, rhs)
                         } else {
-                            (op, lhs, rhs)
+                            (*op, *lhs, *rhs)
                         }
                     }
-                    _ => (op, lhs, rhs),
+                    _ => (*op, *lhs, *rhs),
                 };
 
-                AstNode {
-                    node: Node::Op {
-                        op,
-                        lhs: Box::new(self.post_process_operation_tree(
-                            *lhs,
-                            temp_value_counter + 1,
-                            constants,
-                            local_ids,
-                        )),
-                        rhs: Box::new(self.post_process_operation_tree(
-                            *rhs,
-                            temp_value_counter + 1,
-                            constants,
-                            local_ids,
-                        )),
-                    },
-                    ..tree
-                }
+                let lhs = self.post_process_operation_tree(
+                    ast,
+                    lhs,
+                    temp_value_counter + 1,
+                    constants,
+                    local_ids,
+                )?;
+                let rhs = self.post_process_operation_tree(
+                    ast,
+                    rhs,
+                    temp_value_counter + 1,
+                    constants,
+                    local_ids,
+                )?;
+
+                ast.borrow_mut()
+                    .push_with_span_index(Node::Op { op, lhs, rhs }, *span)
             }
-            node => AstNode { node, ..tree },
+            _ => Ok(tree_index),
         }
     }
 }
