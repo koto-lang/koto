@@ -3,7 +3,7 @@ use std::fmt;
 
 pub type ConstantIndex = u32;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Empty,
     Id(ConstantIndex),
@@ -130,10 +130,7 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Block {}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub args: Vec<ConstantIndex>,
     pub captures: Vec<ConstantIndex>,
@@ -142,7 +139,7 @@ pub struct Function {
     pub is_instance_function: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
     pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
     pub ranges: Vec<AstIndex>,
@@ -150,7 +147,7 @@ pub struct AstFor {
     pub body: AstIndex,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AstIf {
     pub condition: AstIndex,
     pub then_node: AstIndex,
@@ -158,7 +155,7 @@ pub struct AstIf {
     pub else_node: Option<AstIndex>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AstOp {
     Add,
     Subtract,
@@ -181,7 +178,7 @@ pub enum Scope {
     Local,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AssignTarget {
     Id { id_index: AstIndex, scope: Scope },
     Lookup(Lookup),

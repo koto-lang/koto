@@ -1,30 +1,15 @@
 use crate::{
-    lookup::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
-    LookupNode, ParserError, Position, Span,
+    error::*, lookup::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
+    LookupNode,
 };
 use pest::Parser;
 use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator};
 
 use koto_grammar::Rule;
+use koto_lexer::Span;
+
 
 const TEMP_VAR_PREFIX: &str = "__";
-
-impl<'a> From<pest::Span<'a>> for Span {
-    fn from(span: pest::Span) -> Self {
-        let start_line_col = span.start_pos().line_col();
-        let end_line_col = span.end_pos().line_col();
-        Self {
-            start: Position {
-                line: start_line_col.0 as u32,
-                column: start_line_col.1 as u32,
-            },
-            end: Position {
-                line: end_line_col.0 as u32,
-                column: end_line_col.1 as u32,
-            },
-        }
-    }
-}
 
 #[derive(Debug, Default)]
 struct LocalIds {
@@ -185,8 +170,13 @@ impl KotoParser {
         let token_count_guess = source.len() / 8;
         let mut ast = RefCell::new(Ast::with_capacity(token_count_guess));
 
-        let mut parsed = koto_grammar::KotoParser::parse(Rule::program, source)
-            .map_err(|pest_error| ParserError::PestSyntaxError(pest_error.to_string()))?;
+        let mut parsed =
+            koto_grammar::KotoParser::parse(Rule::program, source).map_err(|pest_error| {
+                ParserError::new(
+                    ErrorType::PestSyntaxError(pest_error.to_string()),
+                    Span::default(),
+                )
+            })?;
 
         self.build_ast(
             &mut ast,
@@ -245,7 +235,7 @@ impl KotoParser {
                                 panic!("Unexpected rule while making lookup node: {:?}", unexpected)
                             }
                         })
-                        .collect::<Result<Vec<_>, _>>()?,
+                        .collect::<Result<Vec<_>, ParserError>>()?,
                 );
 
                 lookup
@@ -433,7 +423,7 @@ impl KotoParser {
                             self.build_ast(ast, inner.next().unwrap(), constants, local_ids)?;
                         Ok((id, value))
                     })
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>, ParserError>>()?;
                 ast.borrow_mut().push(Node::Map(entries), span.into())
             }
             Rule::negatable_lookup => {
@@ -666,7 +656,7 @@ impl KotoParser {
                         Rule::lookup => Ok(AssignTarget::Lookup(pair_as_lookup!(pair))),
                         _ => unreachable!(),
                     })
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>, ParserError>>()?;
 
                 for target in targets.iter() {
                     local_ids.add_assign_target_to_ids_being_assigned_in_scope(target);
@@ -728,7 +718,10 @@ impl KotoParser {
                             Rule::or => make_ast_op!(Or),
                             unexpected => {
                                 let error = format!("Unexpected operator: {:?}", unexpected);
-                                Err(ParserError::ParserError(error))
+                                Err(ParserError::new(
+                                    ErrorType::OldParserError(error),
+                                    span.into(),
+                                ))
                             }
                         }
                     },

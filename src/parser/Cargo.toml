@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 koto_grammar = { path = "../grammar" }
+koto_lexer = { path = "../lexer" }
 pest = "2.1.2"

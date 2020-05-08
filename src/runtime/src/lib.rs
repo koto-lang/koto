@@ -21,7 +21,7 @@ pub const EXTERNAL_DATA_ID: &str = "_external_data";
 pub enum Error {
     RuntimeError {
         message: String,
-        start_pos: koto_parser::Position,
+        start_pos: koto_parser::Position, // TODO use Span
         end_pos: koto_parser::Position,
     },
     VmRuntimeError {

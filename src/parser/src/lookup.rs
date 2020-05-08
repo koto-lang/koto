@@ -1,13 +1,13 @@
 use crate::{AstIndex, ConstantIndex};
 
 // TODO are the Index / Lookup types still useful?
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Index(pub AstIndex);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Lookup(pub Vec<LookupNode>);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LookupNode {
     Id(ConstantIndex),
     Index(Index),

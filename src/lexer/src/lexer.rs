@@ -1,9 +1,7 @@
-use logos::{Lexer, Logos};
-
-// fn trim_str(start: usize, end: usize, s: &str) -> &str {
-//     let len = s.len();
-//     &s[start..len - end]
-// }
+use {
+    logos::{Lexer, Logos},
+    std::ops::{Deref, DerefMut},
+};
 
 pub struct Extras {
     pub line_number: usize,
@@ -23,13 +21,13 @@ impl Default for Extras {
 
 fn next_line(lexer: &mut Lexer<Token>) {
     lexer.extras.line_number += 1;
-    lexer.extras.line_start = lexer.span().start + 2; // +2 to skip \n
+    lexer.extras.line_start = lexer.span().start + 1; // +1 to skip \n
     lexer.extras.indent = 0;
 }
 
 fn next_line_indented(lexer: &mut Lexer<Token>) {
     lexer.extras.line_number += 1;
-    lexer.extras.line_start = lexer.span().start + 2; // +2 to skip \n
+    lexer.extras.line_start = lexer.span().start + 1; // +1 to skip \n
     lexer.extras.indent = lexer.slice().len() - 1;
 }
 
@@ -37,12 +35,14 @@ fn count_newlines(lexer: &mut Lexer<Token>) {
     lexer.extras.line_number += lexer.slice().matches("\n").count();
 }
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Logos, Copy, Clone, Debug, PartialEq)]
 #[logos(extras = Extras)]
 pub enum Token {
-    #[regex(r"[ \t\f]+", logos::skip)]
     #[error]
     Error,
+
+    #[regex(r"[ \t\f]+")]
+    Whitespace,
 
     #[token("\n", next_line)]
     NewLine,
@@ -60,7 +60,7 @@ pub enum Token {
     Number,
 
     #[regex(r#""(?:[^"\\]|\\.)*""#)]
-    String,
+    Str,
 
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*")]
     Id,
@@ -71,9 +71,9 @@ pub enum Token {
     #[token(".")]
     Dot,
     #[token("(")]
-    ExpressionStart,
+    ParenOpen,
     #[token(")")]
-    ExpressionEnd,
+    ParenClose,
     #[token("|")]
     Function,
     #[token("[")]
@@ -175,34 +175,94 @@ pub enum Token {
     While,
 }
 
+pub struct KotoLexer<'a> {
+    lexer: Lexer<'a, Token>,
+    peeked: Option<Option<Token>>,
+}
+
+impl<'a> KotoLexer<'a> {
+    pub fn new(source: &'a str) -> Self {
+        Self {
+            lexer: Token::lexer(source),
+            peeked: None,
+        }
+    }
+
+    pub fn peek(&mut self) -> Option<Token> {
+        let lexer = &mut self.lexer;
+        *self.peeked.get_or_insert_with(|| lexer.next())
+    }
+}
+
+impl<'a> Iterator for KotoLexer<'a> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        match self.peeked.take() {
+            Some(token) => token,
+            None => self.lexer.next(),
+        }
+    }
+}
+
+impl<'a> Deref for KotoLexer<'a> {
+    type Target = Lexer<'a, Token>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.lexer
+    }
+}
+
+impl<'a> DerefMut for KotoLexer<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.lexer
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Token::*, *};
 
-    fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, usize)]) {
+    fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
         let mut lex = Token::lexer(source);
 
         for (token, maybe_slice, line_number) in tokens {
-            assert_eq!(&lex.next().expect("Expected token"), token);
-            if let Some(slice) = maybe_slice {
-                assert_eq!(&lex.slice(), slice);
+            loop {
+                match lex.next().expect("Expected token") {
+                    Whitespace => continue,
+                    output => {
+                        assert_eq!(&output, token);
+                        if let Some(slice) = maybe_slice {
+                            assert_eq!(&lex.slice(), slice);
+                        }
+                        assert_eq!(lex.extras.line_number as u32, *line_number);
+                        break;
+                    }
+                }
             }
-            assert_eq!(&lex.extras.line_number, line_number);
         }
 
         assert_eq!(lex.next(), None);
     }
 
-    fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, usize, usize)]) {
+    fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
         let mut lex = Token::lexer(source);
 
         for (token, maybe_slice, line_number, indent) in tokens {
-            assert_eq!(&lex.next().expect("Expected token"), token);
-            if let Some(slice) = maybe_slice {
-                assert_eq!(&lex.slice(), slice);
+            loop {
+                match lex.next().expect("Expected token") {
+                    Whitespace => continue,
+                    output => {
+                        assert_eq!(&output, token);
+                        if let Some(slice) = maybe_slice {
+                            assert_eq!(&lex.slice(), slice);
+                        }
+                        assert_eq!(lex.extras.line_number as u32, *line_number);
+                        assert_eq!(lex.extras.indent as u32, *indent);
+                        break;
+                    }
+                }
             }
-            assert_eq!(&lex.extras.line_number, line_number);
-            assert_eq!(&lex.extras.indent, indent);
         }
 
         assert_eq!(lex.next(), None);
@@ -262,7 +322,7 @@ true #-
 multiline -
 false #
 -# true
-false";
+()";
         check_lexer_output(
             input,
             &[
@@ -272,7 +332,8 @@ false";
                 (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 5),
                 (True, None, 5),
                 (NewLine, None, 6),
-                (False, None, 6),
+                (ParenOpen, None, 6),
+                (ParenClose, None, 6),
             ],
         );
     }
@@ -287,9 +348,9 @@ true"#;
             input,
             &[
                 (NewLine, None, 2),
-                (String, Some(r#""hello, world!""#), 2),
+                (Str, Some(r#""hello, world!""#), 2),
                 (NewLine, None, 3),
-                (String, Some(r#""escaped \"\n string""#), 3),
+                (Str, Some(r#""escaped \"\n string""#), 3),
                 (NewLine, None, 4),
                 (True, None, 4),
             ],
@@ -355,7 +416,7 @@ x = [i for i in 0..5]";
 export f = |a b|
   c = a + b
   c
-f||";
+f()";
         check_lexer_output_indented(
             input,
             &[
@@ -376,8 +437,8 @@ f||";
                 (Id, Some("c"), 3, 2),
                 (NewLine, None, 4, 0),
                 (Id, Some("f"), 4, 0),
-                (Function, None, 4, 0),
-                (Function, None, 4, 0),
+                (ParenOpen, None, 4, 0),
+                (ParenClose, None, 4, 0),
             ],
         );
     }

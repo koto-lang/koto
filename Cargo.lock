@@ -362,6 +362,7 @@ name = "koto_lexer"
 version = "0.1.0"
 dependencies = [
  "logos",
+ "pest",
 ]
 
 [[package]]
@@ -369,6 +370,7 @@ name = "koto_parser"
 version = "0.1.0"
 dependencies = [
  "koto_grammar",
+ "koto_lexer",
  "pest",
 ]
 
