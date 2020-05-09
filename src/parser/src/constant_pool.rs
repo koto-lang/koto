@@ -2,10 +2,22 @@
 
 use std::{collections::HashMap, convert::TryInto};
 
+#[derive(Clone, Debug)]
+enum ConstantType {
+    Number,
+    Str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Constant<'a> {
+    Number(f64),
+    Str(&'a str),
+}
+
 #[derive(Clone, Default)]
 pub struct ConstantPool {
     data: Vec<u8>,
-    index: Vec<usize>,
+    index: Vec<(usize, ConstantType)>,
     strings: HashMap<String, usize>,
     numbers: HashMap<[u8; 8], usize>,
 }
@@ -17,6 +29,10 @@ impl ConstantPool {
 
     pub fn data_len(&self) -> usize {
         self.data.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.index.len()
     }
 
     pub fn shrink_to_fit(&mut self) {
@@ -32,7 +48,7 @@ impl ConstantPool {
             None => {
                 let data_position = self.data.len();
                 let index = self.index.len();
-                self.index.push(data_position);
+                self.index.push((data_position, ConstantType::Str));
 
                 self.strings.insert(s.to_string(), index);
 
@@ -51,7 +67,7 @@ impl ConstantPool {
     }
 
     pub fn get_string(&self, index: usize) -> &str {
-        let data_position = self.index[index];
+        let (data_position, _) = self.index[index];
         let string_len = self.data[data_position] as usize;
         let start = data_position + 1;
         let end = start + string_len;
@@ -66,7 +82,7 @@ impl ConstantPool {
             None => {
                 let data_position = self.data.len();
                 let index = self.index.len();
-                self.index.push(data_position);
+                self.index.push((data_position, ConstantType::Number));
 
                 self.numbers.insert(bytes, index);
 
@@ -78,9 +94,44 @@ impl ConstantPool {
     }
 
     pub fn get_f64(&self, index: usize) -> f64 {
-        let start = self.index[index];
+        let (start, _) = self.index[index];
         let end = start + 8;
         f64::from_ne_bytes(self.data[start..end].try_into().unwrap()) // TODO Result
+    }
+
+    pub fn get(&self, index: usize) -> Option<Constant> {
+        match self.index.get(index) {
+            Some((_, constant_type)) => match constant_type {
+                ConstantType::Number => Some(Constant::Number(self.get_f64(index))),
+                ConstantType::Str => Some(Constant::Str(self.get_string(index))),
+            },
+            None => None,
+        }
+    }
+
+    pub fn iter(&self) -> ConstantPoolIterator {
+        ConstantPoolIterator::new(self)
+    }
+}
+
+pub struct ConstantPoolIterator<'a> {
+    pool: &'a ConstantPool,
+    index: usize,
+}
+
+impl<'a> ConstantPoolIterator<'a> {
+    fn new(pool: &'a ConstantPool) -> Self {
+        Self { pool, index: 0 }
+    }
+}
+
+impl<'a> Iterator for ConstantPoolIterator<'a> {
+    type Item = Constant<'a>;
+
+    fn next(&mut self) -> Option<Constant<'a>> {
+        let result = self.pool.get(self.index);
+        self.index += 1;
+        result
     }
 }
 
@@ -106,6 +157,7 @@ mod tests {
         assert_eq!(s1, pool.get_string(0));
         assert_eq!(s2, pool.get_string(1));
 
+        assert_eq!(2, pool.len());
         assert_eq!(11, pool.data_len());
     }
 
@@ -126,6 +178,7 @@ mod tests {
         assert_eq!(f1, pool.get_f64(0));
         assert_eq!(f2, pool.get_f64(1));
 
+        assert_eq!(2, pool.len());
         assert_eq!(16, pool.data_len());
     }
 
@@ -148,6 +201,29 @@ mod tests {
         assert_eq!(s1, pool.get_string(1));
         assert_eq!(s2, pool.get_string(3));
 
+        assert_eq!(4, pool.len());
         assert_eq!(24, pool.data_len());
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut pool = ConstantPool::new();
+
+        let f1 = -1.1;
+        let f2 = 99.9;
+        let s1 = "O_o";
+        let s2 = "^_^";
+
+        pool.add_f64(f1);
+        pool.add_string(s1);
+        pool.add_f64(f2);
+        pool.add_string(s2);
+
+        let mut iter = pool.iter();
+        assert_eq!(iter.next(), Some(Constant::Number(-1.1)));
+        assert_eq!(iter.next(), Some(Constant::Str("O_o")));
+        assert_eq!(iter.next(), Some(Constant::Number(99.9)));
+        assert_eq!(iter.next(), Some(Constant::Str("^_^")));
+        assert_eq!(iter.next(), None);
     }
 }
