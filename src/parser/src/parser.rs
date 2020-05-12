@@ -3,7 +3,7 @@ use crate::{
     LookupNode, ParserError, Position, Span,
 };
 use pest::Parser;
-use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator};
 
 use koto_grammar::Rule;
 
@@ -529,13 +529,13 @@ impl KotoParser {
                 let local_count = nested_local_ids.local_count();
 
                 ast.borrow_mut().push(
-                    Node::Function(Arc::new(self::Function {
+                    Node::Function(self::Function {
                         args,
                         captures: Vec::from_iter(nested_local_ids.captures),
                         local_count,
                         body,
                         is_instance_function,
-                    })),
+                    }),
                     span.into(),
                 )
             }
@@ -818,12 +818,12 @@ impl KotoParser {
 
                 let body = build_next!(inner);
                 ast.borrow_mut().push(
-                    Node::For(Arc::new(AstFor {
+                    Node::For(AstFor {
                         args,
                         ranges,
                         condition,
                         body,
-                    })),
+                    }),
                     span.into(),
                 )
             }
@@ -863,12 +863,12 @@ impl KotoParser {
                     None
                 };
                 ast.borrow_mut().push(
-                    Node::For(Arc::new(AstFor {
+                    Node::For(AstFor {
                         args,
                         ranges,
                         condition,
                         body,
-                    })),
+                    }),
                     span.into(),
                 )
             }
@@ -882,11 +882,11 @@ impl KotoParser {
                 let condition = build_next!(inner);
                 let body = build_next!(inner);
                 ast.borrow_mut().push(
-                    Node::While(Arc::new(AstWhile {
+                    Node::While(AstWhile {
                         condition,
                         body,
                         negate_condition,
-                    })),
+                    }),
                     span.into(),
                 )
             }
@@ -900,11 +900,11 @@ impl KotoParser {
                 };
                 let condition = build_next!(inner);
                 ast.borrow_mut().push(
-                    Node::While(Arc::new(AstWhile {
+                    Node::While(AstWhile {
                         condition,
                         body,
                         negate_condition,
-                    })),
+                    }),
                     span.into(),
                 )
             }
