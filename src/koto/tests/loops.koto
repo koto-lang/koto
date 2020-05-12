@@ -10,11 +10,11 @@ for x in 0..10
 assert_eq count 3
 
 # Inline for statement
-assert i >= 0 and i < 3 for i in 0..3
+(assert i >= 0 and i < 3) for i in 0..3
 
 # List comprehensions - for loop assignment captures values in a list
 square = |x| x * x
-c = [square x for x in [1 2 3]]
+c = [square(x) for x in [1 2 3]]
 assert_eq c [1 4 9]
 
 filter = |xs f| [x for x in xs if f x]
@@ -22,7 +22,7 @@ a = filter [0..20] |x| not x <= 15
 assert_eq a [16 17 18 19]
 
 # Iterating works over multiple ranges
-enumerate = |xs| [i, x for i, x in 0..size xs, xs]
+enumerate = |xs| [i, x for i, x in 0..size(xs), xs]
 
 z = [c for c in enumerate 100..103]
 assert_eq z [[0 100] [1 101] [2 102]]
@@ -36,7 +36,7 @@ while count < 5
   assert not count > 5
 
 count = 5
-assert (count -= 1) < 5 while count >= 0
+(assert (count -= 1) < 5) while count >= 0
 
 # while used in a list comprehension
 count = 0

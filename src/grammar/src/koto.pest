@@ -189,10 +189,10 @@ call_no_parens = ${
   }
 
 call_args = !{
-  "|"
+  "("
   ~ separator_line*
   ~ (value_term ~ separator_line*)*
-  ~ "|"
+  ~ ")"
 }
 
 debug_expression = _{ debug_with_parens | debug_no_parens }

@@ -1939,7 +1939,7 @@ x";
         fn no_args() {
             let script = "
 f = || 42
-f||";
+f()";
             test_script(script, Number(42.0));
         }
 
@@ -2051,7 +2051,7 @@ f -42";
             let script = "
 f = |x|
   inner = || x * x
-  inner||
+  inner()
 f 3";
             test_script(script, Number(9.0));
         }
@@ -2063,7 +2063,7 @@ data = [1 2 3]
 f = ||
   data[1] = 99
   data = () # reassignment doesn't affect the original copy of data
-f||
+f()
 data[1]";
             test_script(script, Number(99.0));
         }
@@ -2077,7 +2077,7 @@ capture_test = |a b c|
       x + b + c
     inner2 a
   b, c = (), () # inner and inner2 have captured their own copies of b and c
-  inner||
+  inner()
 capture_test 1 2 3";
             test_script(script, Number(6.0));
         }
@@ -2088,13 +2088,13 @@ capture_test 1 2 3";
 make_counter = ||
   count = 0
   return || count += 1
-c = make_counter||
-c2 = make_counter||
-assert c|| == 1
-assert c|| == 2
-assert c2|| == 1
-assert c|| == 3
-c2||";
+c = make_counter()
+c2 = make_counter()
+assert c() == 1
+assert c() == 2
+assert c2() == 1
+assert c() == 3
+c2()";
             test_script(script, Number(2.0));
         }
 
@@ -2104,7 +2104,7 @@ c2||";
 f = |x|
   inner = ||
     x[0], x[1] = x[0] + 1, x[1] + 1
-  inner||
+  inner()
   x
 f [1 2]";
             test_script(script, number_list(&[2, 3]));
@@ -2115,7 +2115,7 @@ f [1 2]";
             let script = "
 f = ||
   export x = 42
-f||
+f()
 x";
             test_script(script, Number(42.0));
         }
@@ -2261,7 +2261,7 @@ f = ||
       if i == j == 5
         return i
   -1
-f||";
+f()";
             test_script(script, Number(5.0));
         }
 
@@ -2271,7 +2271,8 @@ f||";
 sum = 0
 for a, b in [[1 2] [3 4]]
     sum += a + b
-sum";
+sum
+";
             test_script(script, Number(10.0));
         }
 
@@ -2281,7 +2282,8 @@ sum";
 sum = 0
 for a, b in [1 2 3], [4 5 6]
     sum += a + b
-sum";
+sum
+";
             test_script(script, Number(21.0));
         }
     }
@@ -2336,8 +2338,8 @@ m.bar";
         fn instance_function_no_args() {
             let script = "
 make_o = || {foo: 42, get_foo: |self| self.foo}
-o = make_o||
-o.get_foo||";
+o = make_o()
+o.get_foo()";
             test_script(script, Number(42.0));
         }
 
@@ -2345,7 +2347,7 @@ o.get_foo||";
         fn instance_function_with_args() {
             let script = "
 make_o = || {foo: 0, set_foo: |self a b| self.foo = a + b}
-o = make_o||
+o = make_o()
 o.set_foo 10 20
 o.foo";
             test_script(script, Number(30.0));
@@ -2443,7 +2445,7 @@ l[2].foo[0]";
         fn function_call() {
             let script = "
 m = {get_map: || { foo: -1 }}
-m.get_map||.foo";
+m.get_map().foo";
             test_script(script, Number(-1.0));
         }
 
@@ -2461,8 +2463,8 @@ m2.bar";
         fn copy_from_expression() {
             let script = "
 m = {foo: {bar: 88}, get_foo: |self| self.foo}
-m2 = copy (m.get_foo||)
-m.get_foo||.bar = 99
+m2 = copy (m.get_foo())
+m.get_foo().bar = 99
 m2.bar";
             test_script(script, Number(88.0));
         }
@@ -2475,7 +2477,7 @@ m2.bar";
         fn placeholder_in_assignment() {
             let script = "
 f = || 1, 2, 3
-a, _, c = f||
+a, _, c = f()
 a, c";
             test_script(script, number_list(&[1, 3]));
         }
@@ -2505,7 +2507,7 @@ fold 0..5 |n _| n + 1";
         fn conditional_for() {
             let script = "
 f = |x| x * x
-[f x for x in [2 3 4] if x % 2 == 0]";
+[f(x) for x in [2 3 4] if x % 2 == 0]";
             test_script(script, number_list(&[4, 16]));
         }
 

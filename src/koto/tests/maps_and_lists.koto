@@ -46,5 +46,5 @@ a =
         foo: -1
         set_foo: |self x| self.foo = x
 assert_eq a.b.c.d.foo -1
-a.b.c.d.set_foo 42
+a.b.c.d.set_foo(42)
 assert_eq a.b.c.d.foo 42

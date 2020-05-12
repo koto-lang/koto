@@ -6,5 +6,5 @@ worker = |i|
 
 threads = [(thread.create || worker i) for i in 0..4]
 
-t.join|| for t in threads
+t.join() for t in threads
 assert_eq data [0..8]
