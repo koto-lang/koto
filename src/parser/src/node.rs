@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, Lookup, LookupSlice};
+use crate::{ast::AstIndex, Lookup};
 use std::fmt;
 
 pub type ConstantIndex = u32;
@@ -8,7 +8,7 @@ pub enum Node {
     Empty,
     Id(ConstantIndex),
     Lookup(Lookup),
-    Copy(LookupOrId),
+    Copy(AstIndex),
     BoolTrue,
     BoolFalse,
     Number0,
@@ -42,7 +42,7 @@ pub enum Node {
     Negate(AstIndex),
     Function(Function),
     Call {
-        function: LookupOrId,
+        function: AstIndex,
         args: Vec<AstIndex>,
     },
     Assign {
@@ -120,27 +120,6 @@ impl fmt::Display for Node {
             Debug { .. } => write!(f, "Debug"),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum LookupOrId {
-    Id(ConstantIndex),
-    Lookup(Lookup),
-}
-
-impl LookupOrId {
-    pub fn as_slice<'a>(&'a self) -> LookupSliceOrId<'a> {
-        match self {
-            LookupOrId::Id(id) => LookupSliceOrId::Id(*id),
-            LookupOrId::Lookup(lookup) => LookupSliceOrId::LookupSlice(lookup.as_slice()),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum LookupSliceOrId<'a> {
-    Id(ConstantIndex),
-    LookupSlice(LookupSlice<'a>),
 }
 
 #[derive(Clone, Debug)]

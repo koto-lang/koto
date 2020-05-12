@@ -119,13 +119,6 @@ impl LocalIds {
         }
     }
 
-    fn add_lookup_or_id_to_captures(&mut self, lookup_or_id: &LookupOrId) {
-        match lookup_or_id {
-            LookupOrId::Id(id_index) => self.add_id_to_captures(*id_index),
-            LookupOrId::Lookup(lookup) => self.add_lookup_to_captures(lookup),
-        }
-    }
-
     fn add_lookup_to_captures(&mut self, lookup: &Lookup) {
         match lookup.as_slice().0 {
             &[LookupNode::Id(id_index), ..] => self.add_id_to_captures(id_index),
@@ -214,6 +207,8 @@ impl KotoParser {
     ) -> Result<AstIndex, ParserError> {
         use pest::iterators::Pair;
 
+        let span = pair.as_span();
+
         macro_rules! build_next {
             ($inner:expr) => {
                 self.build_ast(ast, $inner.next().unwrap(), constants, local_ids)?
@@ -270,15 +265,20 @@ impl KotoParser {
                 match next.as_rule() {
                     Rule::id => {
                         let id_index = add_constant_string(constants, next.as_str());
-                        LookupOrId::Id(id_index)
+                        local_ids.add_id_to_captures(id_index);
+                        ast.borrow_mut().push(Node::Id(id_index), span.clone().into())?
                     }
-                    Rule::lookup => LookupOrId::Lookup(pair_as_lookup!(next)),
+                    Rule::lookup => {
+                        let lookup = pair_as_lookup!(next);
+                        local_ids.add_lookup_to_captures(&lookup);
+                        ast.borrow_mut()
+                            .push(Node::Lookup(lookup), span.clone().into())?
+                    }
                     _ => unreachable!(),
                 }
             }};
         }
 
-        let span = pair.as_span();
         match pair.as_rule() {
             Rule::next_expressions => {
                 self.build_ast(ast, pair.into_inner().next().unwrap(), constants, local_ids)
@@ -470,7 +470,6 @@ impl KotoParser {
                 let mut inner = pair.into_inner();
                 inner.next(); // copy
                 let lookup_or_id = next_as_lookup_or_id!(inner);
-                local_ids.add_lookup_or_id_to_captures(&lookup_or_id);
                 ast.borrow_mut().push(Node::Copy(lookup_or_id), span.into())
             }
             Rule::copy_expression => {
@@ -542,7 +541,6 @@ impl KotoParser {
             Rule::call_no_parens => {
                 let mut inner = pair.into_inner();
                 let function = next_as_lookup_or_id!(inner);
-                local_ids.add_lookup_or_id_to_captures(&function);
                 let args = inner
                     .map(|pair| self.build_ast(ast, pair, constants, local_ids))
                     .collect::<Result<Vec<_>, _>>()?;

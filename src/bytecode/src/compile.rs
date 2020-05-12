@@ -2,7 +2,7 @@ use crate::{Bytecode, Op};
 
 use koto_parser::{
     AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstWhile, ConstantIndex, Lookup,
-    LookupNode, LookupOrId, Node, Scope, Span,
+    LookupNode, Node, Scope, Span,
 };
 use smallvec::SmallVec;
 use std::convert::TryFrom;
@@ -279,8 +279,8 @@ impl Compiler {
             Node::Lookup(lookup) => self.compile_lookup(result_register, lookup, None, ast)?,
             Node::Copy(lookup_or_id) => {
                 if let Some(result_register) = result_register {
-                    match lookup_or_id {
-                        LookupOrId::Id(id) => {
+                    match &ast.node(*lookup_or_id).node {
+                        Node::Id(id) => {
                             if let Some(local_register) =
                                 self.frame().get_local_assigned_register(*id)
                             {
@@ -292,11 +292,14 @@ impl Compiler {
                                 self.pop_register()?;
                             }
                         }
-                        LookupOrId::Lookup(lookup) => {
+                        Node::Lookup(lookup) => {
                             let register = self.push_register()?;
                             self.compile_lookup(Some(register), lookup, None, ast)?;
                             self.push_op(DeepCopy, &[result_register, register]);
                             self.pop_register()?;
+                        }
+                        _ => {
+                            return Err(format!("Copy: Unexpected node at index {}", lookup_or_id))
                         }
                     }
                 }
@@ -532,8 +535,8 @@ impl Compiler {
                 }
             }
             Node::Call { function, args } => {
-                match function {
-                    LookupOrId::Id(id) => {
+                match &ast.node(*function).node {
+                    Node::Id(id) => {
                         if let Some(function_register) =
                             self.frame().get_local_assigned_register(*id)
                         {
@@ -545,12 +548,13 @@ impl Compiler {
                             self.pop_register()?;
                         }
                     }
-                    LookupOrId::Lookup(function_lookup) => {
+                    Node::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
                         let mut call_lookup = function_lookup.clone();
                         call_lookup.0.push(LookupNode::Call(args.clone()));
                         self.compile_lookup(result_register, &call_lookup, None, ast)?
                     }
+                    _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
             Node::Assign { target, expression } => {
