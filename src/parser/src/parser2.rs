@@ -119,7 +119,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let mut body = Vec::new();
         while self.peek_token().is_some() {
-            if let Some(expression) = self.parse_primary_expression()? {
+            if let Some(expression) = self.parse_primary_expressions()? {
                 body.push(expression);
             }
 
@@ -189,7 +189,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             };
 
             while self.peek_token().is_some() {
-                if let Some(expression) = self.parse_primary_expression()? {
+                if let Some(expression) = self.parse_primary_expressions()? {
                     body.push(expression);
                 }
 
@@ -253,6 +253,27 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_primary_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if let Some(first) = self.parse_primary_expression()? {
+            let mut expressions = vec![first];
+            while let Some(Token::Separator) = self.skip_whitespace_and_peek() {
+                self.consume_token();
+                if let Some(next_expression) = self.parse_primary_expression()? {
+                    expressions.push(next_expression);
+                } else {
+                    return syntax_error!(ExpectedExpression, self);
+                }
+            }
+            if expressions.len() == 1 {
+                Ok(Some(first))
+            } else {
+                Ok(Some(self.push_node(Node::Expressions(expressions))?))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     fn parse_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
         self.parse_expression(0)
     }
@@ -278,8 +299,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 NewLine | NewLineIndented => break,
                 Assign => match self.ast.node(lhs).node {
                     Node::Id(id_index) => {
-                        self.lexer.next();
-                        if let Some(rhs) = self.parse_primary_expression()? {
+                        self.consume_token();
+
+                        if let Some(rhs) = self.parse_primary_expressions()? {
                             let node = Node::Assign {
                                 target: AssignTarget::Id {
                                     id_index: lhs,
@@ -290,7 +312,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                             self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
                             lhs = self.push_node(node)?;
                         } else {
-                            return syntax_error!(MissingRhsExpression, self);
+                            return syntax_error!(ExpectedRhsExpression, self);
                         }
                     }
                     _ => {
@@ -311,7 +333,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         if let Some(rhs) = self.parse_expression(priority)? {
                             lhs = self.push_ast_op(op, lhs, rhs)?;
                         } else {
-                            return syntax_error!(MissingRhsExpression, self);
+                            return syntax_error!(ExpectedRhsExpression, self);
                         }
                     } else {
                         break;
@@ -735,7 +757,7 @@ a
                     Number0,
                     Number1,
                     Number0,
-                    Expressions(vec![0, 1, 0]),
+                    Expressions(vec![0, 1, 2]),
                     MainBlock {
                         body: vec![3],
                         local_count: 0,

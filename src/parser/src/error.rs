@@ -11,7 +11,8 @@ pub enum InternalError {
 #[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken,
-    MissingRhsExpression,
+    ExpectedExpression,
+    ExpectedRhsExpression,
     ExpectedCloseParen,
     ExpectedListEnd,
     ExpectedMapSeparator,
@@ -95,7 +96,8 @@ impl fmt::Display for SyntaxError {
 
         match self {
             UnexpectedToken => f.write_str("Unexpected Token"),
-            MissingRhsExpression => f.write_str("Missing expression for operation"),
+            ExpectedExpression => f.write_str("Expected expression for operation"),
+            ExpectedRhsExpression => f.write_str("Expected expression for operation"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
             ExpectedListEnd => f.write_str("Unexpected token while in List, expected ']'"),
             ExpectedMapSeparator => f.write_str("Expected key/value separator ':' in Map"),
