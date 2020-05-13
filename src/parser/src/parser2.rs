@@ -281,14 +281,29 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     fn parse_expression(&mut self, min_precedence: u8) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        let first_node = min_precedence == 0;
+        let primary_expression = min_precedence == 0;
 
         let mut lhs = {
             // ID expressions are broken out to allow function calls in first position
-            if let Some(id_expression) = self.parse_id_expression(first_node)? {
+            if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
                 id_expression
-            } else if let Some(term) = self.parse_term(first_node)? {
-                term
+            } else if let Some(term) = self.parse_term(primary_expression)? {
+                match self.peek_token() {
+                    range @ Some(Token::Range) | range @ Some(Token::RangeInclusive) => {
+                        let inclusive = range == Some(Token::RangeInclusive);
+                        self.consume_token();
+                        if let Some(rhs) = self.parse_term(false)? {
+                            return Ok(Some(self.push_node(Node::Range {
+                                start: term,
+                                end: rhs,
+                                inclusive,
+                            })?));
+                        } else {
+                            return syntax_error!(ExpectedRangeRhs, self);
+                        }
+                    }
+                    _ => term,
+                }
             } else {
                 return Ok(None);
             }
@@ -354,12 +369,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
-    fn parse_id_expression(&mut self, first_node: bool) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_id_expression(
+        &mut self,
+        primary_expression: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id() {
             let id_index = self.push_node(Node::Id(constant_index))?;
 
             let result = match self.peek_token() {
-                Some(Token::Whitespace) if first_node => {
+                Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
                     if let Some(expression) = self.parse_expression(1)? {
                         let mut args = vec![expression];
@@ -404,7 +422,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
-    fn parse_term(&mut self, first_node: bool) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
         if let Some(token) = self.skip_whitespace_and_peek() {
@@ -522,7 +540,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         else_node,
                     }))?
                 }
-                Token::Function => return self.parse_function(first_node),
+                Token::Function => return self.parse_function(primary_expression),
                 _ => return Ok(None),
             };
 
@@ -745,6 +763,57 @@ a
                     Constant::Str("bar"),
                     Constant::Str("hello"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn ranges() {
+            let source = "\
+0..1
+0..=1
+(0 + 1)..(1 + 1)";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 3,
+                        end: 4,
+                        inclusive: true,
+                    }, // 5
+                    Number0,
+                    Number1,
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 6,
+                        rhs: 7,
+                    },
+                    Number1,
+                    Number1, // 10
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 9,
+                        rhs: 10,
+                    },
+                    Range {
+                        start: 8,
+                        end: 11,
+                        inclusive: false,
+                    },
+                    MainBlock {
+                        body: vec![2, 5, 12],
+                        local_count: 0,
+                    },
+                ],
+                None,
             )
         }
 

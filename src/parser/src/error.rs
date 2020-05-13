@@ -11,6 +11,7 @@ pub enum InternalError {
 #[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken,
+    UnexpectedIndentation,
     ExpectedExpression,
     ExpectedRhsExpression,
     ExpectedCloseParen,
@@ -25,7 +26,7 @@ pub enum SyntaxError {
     ExpectedAssignmentTarget,
     ExpectedFunctionArgsEnd,
     ExpectedCallArgsEnd,
-    UnexpectedIndentation,
+    ExpectedRangeRhs,
 }
 
 #[derive(Debug)]
@@ -96,8 +97,9 @@ impl fmt::Display for SyntaxError {
 
         match self {
             UnexpectedToken => f.write_str("Unexpected Token"),
-            ExpectedExpression => f.write_str("Expected expression for operation"),
-            ExpectedRhsExpression => f.write_str("Expected expression for operation"),
+            UnexpectedIndentation => f.write_str("Unexpected indentation level"),
+            ExpectedExpression => f.write_str("Expected expression"),
+            ExpectedRhsExpression => f.write_str("Expected expression"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
             ExpectedListEnd => f.write_str("Unexpected token while in List, expected ']'"),
             ExpectedMapSeparator => f.write_str("Expected key/value separator ':' in Map"),
@@ -110,7 +112,7 @@ impl fmt::Display for SyntaxError {
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
-            UnexpectedIndentation => f.write_str("Unexpected indentation level"),
+            ExpectedRangeRhs => f.write_str("Expected end expression for range"),
         }
     }
 }
