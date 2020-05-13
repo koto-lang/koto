@@ -511,35 +511,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
                     self.push_node(Map(entries))?
                 }
-                Token::If => {
-                    self.consume_token();
-                    let condition = match self.parse_term(false)? {
-                        Some(condition) => condition,
-                        None => return syntax_error!(ExpectedIfCondition, self),
-                    };
-                    if self.skip_whitespace_and_next() != Some(Token::Then) {
-                        return syntax_error!(ExpectedThenKeyword, self);
-                    }
-                    let then_node = match self.parse_term(false)? {
-                        Some(then_node) => then_node,
-                        None => return syntax_error!(ExpectedThenNode, self),
-                    };
-                    let else_node = if self.skip_whitespace_and_peek() == Some(Token::Else) {
-                        self.consume_token();
-                        match self.parse_term(false)? {
-                            Some(else_node) => Some(else_node),
-                            None => return syntax_error!(ExpectedElseNode, self),
-                        }
-                    } else {
-                        None
-                    };
-                    self.push_node(If(AstIf {
-                        condition,
-                        then_node,
-                        else_if_blocks: vec![],
-                        else_node,
-                    }))?
-                }
+                Token::If => return self.parse_if_expression(),
                 Token::Function => return self.parse_function(primary_expression),
                 _ => return Ok(None),
             };
@@ -547,6 +519,144 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             Ok(Some(result))
         } else {
             Ok(None)
+        }
+    }
+
+    fn parse_if_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.peek_token() != Some(Token::If) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.extras.indent;
+
+        self.consume_token();
+        let condition = match self.parse_primary_expression()? {
+            Some(condition) => condition,
+            None => return syntax_error!(ExpectedIfCondition, self),
+        };
+
+        let result = if self.skip_whitespace_and_peek() == Some(Token::Then) {
+            self.consume_token();
+            dbg!(self.peek_token());
+            let then_node = match self.parse_primary_expression()? {
+                Some(then_node) => then_node,
+                None => return syntax_error!(ExpectedThenExpression, self),
+            };
+            dbg!(then_node);
+            let else_node = if self.skip_whitespace_and_peek() == Some(Token::Else) {
+                self.consume_token();
+                dbg!(self.peek_token());
+                match self.parse_primary_expression()? {
+                    Some(else_node) => Some(else_node),
+                    None => return syntax_error!(ExpectedElseExpression, self),
+                }
+            } else {
+                None
+            };
+
+            dbg!(self.peek_token());
+            self.push_node(Node::If(AstIf {
+                condition,
+                then_node,
+                else_if_blocks: vec![],
+                else_node,
+            }))?
+        } else if let Some(then_node) = self.parse_indented_block(current_indent)? {
+            let mut else_if_blocks = Vec::new();
+
+            while self.lexer.extras.indent == current_indent {
+                self.consume_token(); // NewLine|Indented
+                if let Some(Token::ElseIf) = self.skip_whitespace_and_peek() {
+                    self.consume_token();
+                    if let Some(else_if_condition) = self.parse_primary_expression()? {
+                        if let Some(else_if_block) = self.parse_indented_block(current_indent)? {
+                            else_if_blocks.push((else_if_condition, else_if_block));
+                        } else {
+                            return syntax_error!(ExpectedElseIfBlock, self);
+                        }
+                    } else {
+                        return syntax_error!(ExpectedElseIfCondition, self);
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            let else_node = if self.lexer.extras.indent == current_indent {
+                if let Some(Token::Else) = self.skip_whitespace_and_peek() {
+                    self.consume_token();
+                    if let Some(else_block) = self.parse_indented_block(current_indent)? {
+                        Some(else_block)
+                    } else {
+                        return syntax_error!(ExpectedElseBlock, self);
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            self.push_node(Node::If(AstIf {
+                condition,
+                then_node,
+                else_if_blocks,
+                else_node,
+            }))?
+        } else {
+            return syntax_error!(ExpectedThenKeywordOrBlock, self);
+        };
+
+        Ok(Some(result))
+    }
+
+    fn parse_indented_block(
+        &mut self,
+        current_indent: usize,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        use Token::{NewLine, NewLineIndented};
+
+        if self.skip_whitespace_and_peek() != Some(NewLineIndented) {
+            return Ok(None);
+        }
+
+        self.consume_token();
+        let block_indent = self.lexer.extras.indent;
+
+        if block_indent <= current_indent {
+            return Ok(None);
+        }
+
+        let mut body = Vec::new();
+        while let Some(expression) = self.parse_line()? {
+            body.push(expression);
+
+            match self.skip_whitespace_and_peek() {
+                Some(token) => {
+                    let next_indent = self.lexer.extras.indent;
+                    match token {
+                        NewLineIndented if next_indent == block_indent => {
+                            self.consume_token();
+                            continue;
+                        }
+                        NewLineIndented if next_indent < block_indent => break,
+                        NewLineIndented if next_indent > block_indent => {
+                            return syntax_error!(UnexpectedIndentation, self);
+                        }
+                        NewLine => break,
+                        unexpected => {
+                            unimplemented!("parse_function: Unimplemented token: {:?}", unexpected)
+                        }
+                    }
+                }
+                None => continue,
+            }
+        }
+
+        if body.len() == 1 {
+            Ok(Some(*body.first().unwrap()))
+        } else {
+            Ok(Some(self.ast.push(Node::Block(body), Span::default())?))
         }
     }
 
@@ -659,6 +769,8 @@ mod tests {
     use {crate::constant_pool::Constant, Node::*};
 
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
+        println!("{}", source);
+
         let mut constants = ConstantPool::default();
         match Parser::parse(source, &mut constants) {
             Ok(ast) => {
@@ -1082,6 +1194,52 @@ a
                         body: vec![5],
                         local_count: 0,
                     },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn if_block() {
+            let source = "\
+a = if false
+  0
+elseif true
+  1
+elseif false
+  0
+else
+  1
+a";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    BoolFalse,
+                    Number0,
+                    BoolTrue,
+                    Number1,
+                    BoolFalse, // 5
+                    Number0,
+                    Number1,
+                    If(AstIf {
+                        condition: 1,
+                        then_node: 2,
+                        else_if_blocks: vec![(3, 4), (5, 6)],
+                        else_node: Some(7),
+                    }),
+                    Assign {
+                        target: AssignTarget::Id {
+                            id_index: 0,
+                            scope: Scope::Local,
+                        },
+                        expression: 8,
+                    },
+                    Id(0),
+                    MainBlock {
+                        body: vec![9, 10],
+                        local_count: 1,
+                    }, // 10
                 ],
                 None,
             )

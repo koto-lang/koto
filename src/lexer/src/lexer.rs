@@ -145,6 +145,8 @@ pub enum Token {
     Debug,
     #[token("else")]
     Else,
+    #[token("elseif")] // TODO investigate why 'else if' causes 'else' to fail matching
+    ElseIf,
     #[token("export")]
     Export,
     #[token("false")]
@@ -248,17 +250,21 @@ mod tests {
     fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
         let mut lex = Token::lexer(source);
 
-        for (token, maybe_slice, line_number, indent) in tokens {
+        for (i, (token, maybe_slice, line_number, indent)) in tokens.iter().enumerate() {
             loop {
                 match lex.next().expect("Expected token") {
                     Whitespace => continue,
                     output => {
-                        assert_eq!(&output, token);
+                        assert_eq!(&output, token, "token {}", i);
                         if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice);
+                            assert_eq!(&lex.slice(), slice, "token {}", i);
                         }
-                        assert_eq!(lex.extras.line_number as u32, *line_number);
-                        assert_eq!(lex.extras.indent as u32, *indent);
+                        assert_eq!(
+                            lex.extras.line_number as u32, *line_number,
+                            "Line number (token {})",
+                            i
+                        );
+                        assert_eq!(lex.extras.indent as u32, *indent, "Indent (token {})", i);
                         break;
                     }
                 }
@@ -286,6 +292,7 @@ mod tests {
 
     #[test]
     fn indent() {
+        // TODO add indentation to test
         let input = "\
 if true then
 
@@ -439,6 +446,53 @@ f()";
                 (Id, Some("f"), 4, 0),
                 (ParenOpen, None, 4, 0),
                 (ParenClose, None, 4, 0),
+            ],
+        );
+    }
+
+    #[test]
+    fn if_inline() {
+        let input = "1 + if true then 0 else 1";
+        check_lexer_output(
+            input,
+            &[
+                (Number, Some("1"), 1),
+                (Add, None, 1),
+                (If, None, 1),
+                (True, None, 1),
+                (Then, None, 1),
+                (Number, Some("0"), 1),
+                (Else, None, 1),
+                (Number, Some("1"), 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn if_block() {
+        let input = "\
+if true
+  0
+elseif false
+  1
+else
+  0";
+        check_lexer_output_indented(
+            input,
+            &[
+                (If, None, 1, 0),
+                (True, None, 1, 0),
+                (NewLineIndented, None, 2, 2),
+                (Number, Some("0"), 2, 2),
+                (NewLine, None, 3, 0),
+                (ElseIf, None, 3, 0),
+                (False, None, 3, 0),
+                (NewLineIndented, None, 4, 2),
+                (Number, Some("1"), 4, 2),
+                (NewLine, None, 5, 0),
+                (Else, None, 5, 0),
+                (NewLineIndented, None, 6, 2),
+                (Number, Some("0"), 6, 2),
             ],
         );
     }

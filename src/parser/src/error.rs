@@ -20,9 +20,12 @@ pub enum SyntaxError {
     ExpectedMapValue,
     ExpectedMapEnd,
     ExpectedIfCondition,
-    ExpectedThenKeyword,
-    ExpectedThenNode,
-    ExpectedElseNode,
+    ExpectedThenKeywordOrBlock,
+    ExpectedThenExpression,
+    ExpectedElseIfCondition,
+    ExpectedElseIfBlock,
+    ExpectedElseExpression,
+    ExpectedElseBlock,
     ExpectedAssignmentTarget,
     ExpectedFunctionArgsEnd,
     ExpectedCallArgsEnd,
@@ -105,10 +108,15 @@ impl fmt::Display for SyntaxError {
             ExpectedMapSeparator => f.write_str("Expected key/value separator ':' in Map"),
             ExpectedMapValue => f.write_str("Expected value after ':' in Map"),
             ExpectedMapEnd => f.write_str("Unexpected token in Map, expected '}'"),
-            ExpectedIfCondition => f.write_str("Expected condition for if statement"),
-            ExpectedThenKeyword => f.write_str("Expected 'then' in if statement"),
-            ExpectedThenNode => f.write_str("Expected then expression for if statement"),
-            ExpectedElseNode => f.write_str("Expected else expression for if statement"),
+            ExpectedIfCondition => f.write_str("Expected condition in if expression"),
+            ExpectedThenKeywordOrBlock => f.write_str(
+                "Error parsing if expression, expected 'then' keyword or indented block.",
+            ),
+            ExpectedThenExpression => f.write_str("Expected 'then' expression."),
+            ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
+            ExpectedElseIfBlock => f.write_str("Expected indented block for 'else if'."),
+            ExpectedElseExpression => f.write_str("Expected 'else' expression."),
+            ExpectedElseBlock => f.write_str("Expected indented block for 'else'."),
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
@@ -116,4 +124,3 @@ impl fmt::Display for SyntaxError {
         }
     }
 }
-
