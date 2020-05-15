@@ -30,6 +30,11 @@ pub enum SyntaxError {
     ExpectedFunctionArgsEnd,
     ExpectedCallArgsEnd,
     ExpectedRangeRhs,
+    ExpectedForArgs,
+    ExpectedForInKeyword,
+    ExpectedForRanges,
+    ExpectedForCondition,
+    ExpectedForBody,
 }
 
 #[derive(Debug)]
@@ -121,6 +126,11 @@ impl fmt::Display for SyntaxError {
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
             ExpectedRangeRhs => f.write_str("Expected end expression for range"),
+            ExpectedForArgs => f.write_str("Expected arguments in for loop"),
+            ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
+            ExpectedForRanges => f.write_str("Expected ranges in for loop"),
+            ExpectedForCondition => f.write_str("Expected condition after 'if' in for loop"),
+            ExpectedForBody => f.write_str("Expected indented block in for loop"),
         }
     }
 }

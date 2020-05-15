@@ -119,7 +119,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let mut body = Vec::new();
         while self.peek_token().is_some() {
-            if let Some(expression) = self.parse_primary_expressions()? {
+            if let Some(expression) = self.parse_new_line()? {
                 body.push(expression);
             }
 
@@ -189,7 +189,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             };
 
             while self.peek_token().is_some() {
-                if let Some(expression) = self.parse_primary_expressions()? {
+                if let Some(expression) = self.parse_new_line()? {
                     body.push(expression);
                 }
 
@@ -253,6 +253,14 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_new_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if let for_loop @ Some(_) = self.parse_for_loop(None)? {
+            return Ok(for_loop);
+        } else {
+            self.parse_primary_expressions()
+        }
+    }
+
     fn parse_primary_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
         if let Some(first) = self.parse_primary_expression()? {
             let mut expressions = vec![first];
@@ -276,6 +284,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
         self.parse_expression(0)
+    }
+
+    fn parse_non_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        self.parse_expression(1)
     }
 
     fn parse_expression(&mut self, min_precedence: u8) -> Result<Option<AstIndex>, ParserError> {
@@ -312,6 +324,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         while let Some(next) = self.skip_whitespace_and_peek() {
             match next {
                 NewLine | NewLineIndented => break,
+                For => {
+                    return self.parse_for_loop(Some(lhs));
+                }
                 Assign => match self.ast.node(lhs).node {
                     Node::Id(id_index) => {
                         self.consume_token();
@@ -522,6 +537,76 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_for_loop(&mut self, body: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::For) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.extras.indent;
+
+        self.consume_token();
+
+        let mut args = Vec::new();
+        while let Some(constant_index) = self.parse_id() {
+            args.push(constant_index);
+            self.frame_mut()?
+                .ids_assigned_in_scope
+                .insert(constant_index);
+            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                self.consume_token();
+            }
+        }
+        if args.is_empty() {
+            return syntax_error!(ExpectedForArgs, self);
+        }
+
+        if self.skip_whitespace_and_next() != Some(Token::In) {
+            return syntax_error!(ExpectedForInKeyword, self);
+        }
+
+        let mut ranges = Vec::new();
+        while let Some(range) = self.parse_non_primary_expression()? {
+            ranges.push(range);
+
+            if self.skip_whitespace_and_peek() != Some(Token::Separator) {
+                break;
+            }
+
+            self.consume_token();
+        }
+        if ranges.is_empty() {
+            return syntax_error!(ExpectedForRanges, self);
+        }
+
+        let condition = if self.skip_whitespace_and_peek() == Some(Token::If) {
+            self.consume_token();
+            if let Some(condition) = self.parse_primary_expression()? {
+                Some(condition)
+            } else {
+                return syntax_error!(ExpectedForCondition, self);
+            }
+        } else {
+            None
+        };
+
+        let body = if let Some(body) = body {
+            body
+        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+            body
+        } else {
+            return syntax_error!(ExpectedForBody, self);
+        };
+
+        let result = self.push_node(Node::For(AstFor {
+            args,
+            ranges,
+            condition,
+            body,
+        }))?;
+
+        Ok(Some(result))
+    }
+
     fn parse_if_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
         if self.peek_token() != Some(Token::If) {
             return Ok(None);
@@ -718,6 +803,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             ),
         )
     }
+
     fn skip_whitespace_and_peek(&mut self) -> Option<Token> {
         loop {
             let peeked = self.peek_token();
@@ -1242,6 +1328,106 @@ a";
                     }, // 10
                 ],
                 None,
+            )
+        }
+    }
+
+    mod loops {
+        use super::*;
+
+        #[test]
+        fn for_inline() {
+            let source = "x for x in 0..1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 1,
+                        end: 2,
+                        inclusive: false,
+                    },
+                    For(AstFor {
+                        args: vec![0],
+                        ranges: vec![3],
+                        condition: None,
+                        body: 0,
+                    }),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn for_inline_conditional() {
+            let source = "x for x in y if x == 0";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(0),
+                    Number0,
+                    Op {
+                        op: AstOp::Equal,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    For(AstFor {
+                        args: vec![0],
+                        ranges: vec![1],
+                        condition: Some(4),
+                        body: 0,
+                    }), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn for_block() {
+            let source = "\
+for x in y if x > 0
+  f x";
+            check_ast(
+                source,
+                &[
+                    Id(1),
+                    Id(0),
+                    Number0,
+                    Op {
+                        op: AstOp::Greater,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Id(2),
+                    Id(0), // 5
+                    Call {
+                        function: 4,
+                        args: vec![5],
+                    },
+                    For(AstFor {
+                        args: vec![0],   // constant 0
+                        ranges: vec![0], // ast 0
+                        condition: Some(3),
+                        body: 6,
+                    }),
+                    MainBlock {
+                        body: vec![7],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
             )
         }
     }

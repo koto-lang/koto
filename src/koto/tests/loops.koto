@@ -26,7 +26,7 @@ enumerate = |xs| [i, x for i, x in 0..size(xs), xs]
 
 z = [c for c in enumerate 100..103]
 assert_eq z [[0 100] [1 101] [2 102]]
-z2 = [c, d for c, d in enumerate 100..103]
+z2 = [[c d] for c, d in enumerate 100..103]
 assert_eq z z2
 
 ###### While loops
