@@ -61,7 +61,14 @@ pub enum Node {
     },
     If(AstIf),
     For(AstFor),
-    While(AstWhile),
+    While {
+        condition: AstIndex,
+        body: AstIndex,
+    },
+    Until {
+        condition: AstIndex,
+        body: AstIndex,
+    },
     Break,
     Continue,
     Return,
@@ -112,7 +119,8 @@ impl fmt::Display for Node {
             Op { .. } => write!(f, "Op"),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
-            While(_) => write!(f, "While"),
+            While{..} => write!(f, "While"),
+            Until{..} => write!(f, "Until"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
@@ -140,13 +148,6 @@ pub struct AstFor {
     pub ranges: Vec<AstIndex>,
     pub condition: Option<AstIndex>,
     pub body: AstIndex,
-}
-
-#[derive(Clone, Debug)]
-pub struct AstWhile {
-    pub condition: AstIndex,
-    pub body: AstIndex,
-    pub negate_condition: bool,
 }
 
 #[derive(Clone, Debug)]

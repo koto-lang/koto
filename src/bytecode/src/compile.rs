@@ -1,8 +1,8 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{
-    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstWhile, ConstantIndex, Lookup,
-    LookupNode, Node, Scope, Span,
+    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex, Lookup, LookupNode,
+    Node, Scope, Span,
 };
 use smallvec::SmallVec;
 use std::convert::TryFrom;
@@ -632,7 +632,12 @@ impl Compiler {
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
-            Node::While(ast_while) => self.compile_while(result_register, None, ast_while, ast)?,
+            Node::While { condition, body } => {
+                self.compile_while(result_register, None, *condition, *body, false, ast)?
+            }
+            Node::Until { condition, body } => {
+                self.compile_while(result_register, None, *condition, *body, true, ast)?
+            }
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -1110,11 +1115,23 @@ impl Compiler {
                             ast,
                         )?;
                     }
-                    Node::While(while_loop) => {
+                    Node::While { condition, body } => {
                         self.compile_while(
                             Some(element_register),
                             Some(result_register),
-                            &while_loop,
+                            *condition,
+                            *body,
+                            false,
+                            ast,
+                        )?;
+                    }
+                    Node::Until { condition, body } => {
+                        self.compile_while(
+                            Some(element_register),
+                            Some(result_register),
+                            *condition,
+                            *body,
+                            true,
                             ast,
                         )?;
                     }
@@ -1548,23 +1565,19 @@ impl Compiler {
         &mut self,
         result_register: Option<u8>, // register that gets the last iteration's result
         list_register: Option<u8>,   // list that receives each iteration's result
-        ast_while: &AstWhile,
+        condition: AstIndex,
+        body: AstIndex,
+        negate_condition: bool,
         ast: &Ast,
     ) -> Result<(), String> {
         use Op::*;
-
-        let AstWhile {
-            condition,
-            body,
-            negate_condition,
-        } = ast_while;
 
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
         let condition_register = self.push_register()?;
-        self.compile_node(Some(condition_register), ast.node(*condition), ast)?;
-        let op = if *negate_condition {
+        self.compile_node(Some(condition_register), ast.node(condition), ast)?;
+        let op = if negate_condition {
             JumpTrue
         } else {
             JumpFalse
@@ -1573,7 +1586,7 @@ impl Compiler {
         self.push_loop_jump_placeholder()?;
         self.pop_register()?; // condition register
 
-        self.compile_node(result_register, ast.node(*body), ast)?;
+        self.compile_node(result_register, ast.node(body), ast)?;
 
         if let Some(list_register) = list_register {
             if result_register.is_none() {

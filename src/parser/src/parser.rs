@@ -266,7 +266,8 @@ impl KotoParser {
                     Rule::id => {
                         let id_index = add_constant_string(constants, next.as_str());
                         local_ids.add_id_to_captures(id_index);
-                        ast.borrow_mut().push(Node::Id(id_index), span.clone().into())?
+                        ast.borrow_mut()
+                            .push(Node::Id(id_index), span.clone().into())?
                     }
                     Rule::lookup => {
                         let lookup = pair_as_lookup!(next);
@@ -872,39 +873,37 @@ impl KotoParser {
             }
             Rule::while_block => {
                 let mut inner = pair.into_inner();
-                let negate_condition = match inner.next().unwrap().as_rule() {
+                let until_loop = match inner.next().unwrap().as_rule() {
                     Rule::while_keyword => false,
                     Rule::until_keyword => true,
                     _ => unreachable!(),
                 };
                 let condition = build_next!(inner);
                 let body = build_next!(inner);
-                ast.borrow_mut().push(
-                    Node::While(AstWhile {
-                        condition,
-                        body,
-                        negate_condition,
-                    }),
-                    span.into(),
-                )
+                if until_loop {
+                    ast.borrow_mut()
+                        .push(Node::Until { condition, body }, span.into())
+                } else {
+                    ast.borrow_mut()
+                        .push(Node::While { condition, body }, span.into())
+                }
             }
             Rule::while_inline => {
                 let mut inner = pair.into_inner();
                 let body = build_next!(inner);
-                let negate_condition = match inner.next().unwrap().as_rule() {
+                let until_loop = match inner.next().unwrap().as_rule() {
                     Rule::while_keyword => false,
                     Rule::until_keyword => true,
                     _ => unreachable!(),
                 };
                 let condition = build_next!(inner);
-                ast.borrow_mut().push(
-                    Node::While(AstWhile {
-                        condition,
-                        body,
-                        negate_condition,
-                    }),
-                    span.into(),
-                )
+                if until_loop {
+                    ast.borrow_mut()
+                        .push(Node::Until { condition, body }, span.into())
+                } else {
+                    ast.borrow_mut()
+                        .push(Node::While { condition, body }, span.into())
+                }
             }
             Rule::break_ => ast.borrow_mut().push(Node::Break, span.into()),
             Rule::continue_ => ast.borrow_mut().push(Node::Continue, span.into()),
