@@ -35,6 +35,10 @@ pub enum SyntaxError {
     ExpectedForRanges,
     ExpectedForCondition,
     ExpectedForBody,
+    ExpectedWhileCondition,
+    ExpectedWhileBody,
+    ExpectedUntilCondition,
+    ExpectedUntilBody,
 }
 
 #[derive(Debug)]
@@ -131,6 +135,10 @@ impl fmt::Display for SyntaxError {
             ExpectedForRanges => f.write_str("Expected ranges in for loop"),
             ExpectedForCondition => f.write_str("Expected condition after 'if' in for loop"),
             ExpectedForBody => f.write_str("Expected indented block in for loop"),
+            ExpectedWhileCondition => f.write_str("Expected condition in while loop"),
+            ExpectedWhileBody => f.write_str("Expected indented block in while loop"),
+            ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
+            ExpectedUntilBody => f.write_str("Expected indented block in until loop"),
         }
     }
 }

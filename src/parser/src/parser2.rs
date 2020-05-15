@@ -254,8 +254,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 
     fn parse_new_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if let for_loop @ Some(_) = self.parse_for_loop(None)? {
-            return Ok(for_loop);
+        if let Some(for_loop) = self.parse_for_loop(None)? {
+            return Ok(Some(for_loop));
+        } else if let Some(while_loop) = self.parse_while_loop(None)? {
+            return Ok(Some(while_loop));
+        } else if let Some(until_loop) = self.parse_until_loop(None)? {
+            return Ok(Some(until_loop));
         } else {
             self.parse_primary_expressions()
         }
@@ -326,6 +330,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 NewLine | NewLineIndented => break,
                 For => {
                     return self.parse_for_loop(Some(lhs));
+                }
+                While => {
+                    return self.parse_while_loop(Some(lhs));
+                }
+                Until => {
+                    return self.parse_until_loop(Some(lhs));
                 }
                 Assign => match self.ast.node(lhs).node {
                     Node::Id(id_index) => {
@@ -604,6 +614,64 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             body,
         }))?;
 
+        Ok(Some(result))
+    }
+
+    fn parse_while_loop(
+        &mut self,
+        body: Option<AstIndex>,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::While) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.extras.indent;
+        self.consume_token();
+
+        let condition = if let Some(condition) = self.parse_primary_expression()? {
+            condition
+        } else {
+            return syntax_error!(ExpectedWhileCondition, self);
+        };
+
+        let body = if let Some(body) = body {
+            body
+        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+            body
+        } else {
+            return syntax_error!(ExpectedWhileBody, self);
+        };
+
+        let result = self.push_node(Node::While { condition, body })?;
+        Ok(Some(result))
+    }
+
+    fn parse_until_loop(
+        &mut self,
+        body: Option<AstIndex>,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::Until) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.extras.indent;
+        self.consume_token();
+
+        let condition = if let Some(condition) = self.parse_primary_expression()? {
+            condition
+        } else {
+            return syntax_error!(ExpectedUntilCondition, self);
+        };
+
+        let body = if let Some(body) = body {
+            body
+        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+            body
+        } else {
+            return syntax_error!(ExpectedUntilBody, self);
+        };
+
+        let result = self.push_node(Node::Until { condition, body })?;
         Ok(Some(result))
     }
 
@@ -1425,6 +1493,116 @@ for x in y if x > 0
                     MainBlock {
                         body: vec![7],
                         local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+            )
+        }
+
+        #[test]
+        fn while_inline() {
+            let source = "x while true";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    BoolTrue,
+                    While {
+                        condition: 1,
+                        body: 0,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn until_inline() {
+            let source = "y until false";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    BoolFalse,
+                    Until {
+                        condition: 1,
+                        body: 0,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn while_block() {
+            let source = "\
+while x > y
+  f x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Op {
+                        op: AstOp::Greater,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    Id(2),
+                    Id(0),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    While {
+                        condition: 2,
+                        body: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+            )
+        }
+
+        #[test]
+        fn until_block() {
+            let source = "\
+until x < y
+  f y";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Op {
+                        op: AstOp::Less,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    Id(2),
+                    Id(1),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    Until {
+                        condition: 2,
+                        body: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
