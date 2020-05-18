@@ -423,6 +423,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
+        let current_indent = self.lexer.current_indent();
+
         if let Some(token) = self.skip_whitespace_and_peek() {
             let result = match token {
                 Token::True => {
@@ -522,7 +524,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 }
                 Token::If => return self.parse_if_expression(),
                 Token::Function => return self.parse_function(primary_expression),
-                Token::NewLine | Token::NewLineIndented => return Ok(None),
+                Token::NewLineIndented => return self.parse_map_block(current_indent),
                 _ => return Ok(None),
             };
 
@@ -530,6 +532,47 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         } else {
             Ok(None)
         }
+    }
+
+    fn parse_map_block(&mut self, current_indent: usize) -> Result<Option<AstIndex>, ParserError> {
+        use Token::{Colon, NewLineIndented};
+
+        if self.skip_whitespace_and_peek() != Some(NewLineIndented) {
+            return Ok(None);
+        }
+
+        let block_indent = self.lexer.next_indent();
+
+        if block_indent <= current_indent {
+            return Ok(None);
+        }
+
+        self.consume_token();
+
+        let mut entries = Vec::new();
+
+        while let Some(key) = self.parse_id() {
+            if self.skip_whitespace_and_next() != Some(Colon) {
+                return syntax_error!(ExpectedMapSeparator, self);
+            }
+
+            if let Some(value) = self.parse_primary_expression()? {
+                entries.push((key, value));
+            } else {
+                return syntax_error!(ExpectedMapValue, self);
+            }
+
+            self.skip_empty_lines_and_peek();
+
+            let next_indent = self.lexer.next_indent();
+            if next_indent < block_indent {
+                break;
+            } else if next_indent > block_indent {
+                return syntax_error!(UnexpectedIndentation, self);
+            }
+        }
+
+        Ok(Some(self.ast.push(Node::Map(entries), Span::default())?))
     }
 
     fn parse_for_loop(&mut self, body: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
@@ -763,6 +806,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             body.push(expression);
 
             self.skip_empty_lines_and_peek();
+
             let next_indent = self.lexer.next_indent();
             if next_indent < block_indent {
                 break;
@@ -912,7 +956,11 @@ mod tests {
                 {
                     assert_eq!(ast_node.node, *expected_node, "Mismatch at position {}", i);
                 }
-                assert_eq!(ast.nodes().len(), expected_ast.len());
+                assert_eq!(
+                    ast.nodes().len(),
+                    expected_ast.len(),
+                    "Node list length mismatch"
+                );
 
                 if let Some(expected_constants) = expected_constants {
                     for (constant, expected_constant) in
@@ -920,7 +968,11 @@ mod tests {
                     {
                         assert_eq!(constant, *expected_constant);
                     }
-                    assert_eq!(constants.len(), expected_constants.len());
+                    assert_eq!(
+                        constants.len(),
+                        expected_constants.len(),
+                        "Constant list length mismatch"
+                    );
                 }
             }
             Err(error) => panic!("{}", error),
@@ -1007,6 +1059,48 @@ a
                     Constant::Number(42.0),
                     Constant::Str("bar"),
                     Constant::Str("hello"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_block() {
+            let source = "\
+x =
+  foo: 42
+  bar: \"hello\"
+  baz:
+    foo: 0
+x";
+            check_ast(
+                source,
+                &[
+                    Id(0),     // x
+                    Number(2), // 42
+                    Str(4),    // "hello"
+                    Number0,
+                    Map(vec![(1, 3)]),                 // baz nested map
+                    Map(vec![(1, 1), (3, 2), (5, 4)]), // 5 - map entries are constant/ast pairs
+                    Assign {
+                        target: AssignTarget::Id {
+                            scope: Scope::Local,
+                            id_index: 0,
+                        },
+                        expression: 5,
+                    },
+                    Id(0),
+                    MainBlock {
+                        body: vec![6, 7],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                    Constant::Str("bar"),
+                    Constant::Str("hello"),
+                    Constant::Str("baz"),
                 ]),
             )
         }
