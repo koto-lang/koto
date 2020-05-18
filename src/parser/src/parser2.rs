@@ -316,8 +316,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
                         if let Some(rhs) = self.parse_primary_expressions()? {
                             let node = Node::Assign {
-                                target: AssignTarget::Id {
-                                    id_index: lhs,
+                                target: AssignTarget {
+                                    target_index: lhs,
                                     scope: Scope::Local, // TODO
                                 },
                                 expression: rhs,
@@ -1082,9 +1082,9 @@ x";
                     Map(vec![(1, 3)]),                 // baz nested map
                     Map(vec![(1, 1), (3, 2), (5, 4)]), // 5 - map entries are constant/ast pairs
                     Assign {
-                        target: AssignTarget::Id {
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
-                            id_index: 0,
                         },
                         expression: 5,
                     },
@@ -1189,8 +1189,8 @@ x";
                     Id(0),
                     Number1,
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 1,
@@ -1215,8 +1215,8 @@ x";
                     Number0,
                     Expressions(vec![1, 2]),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 3,
@@ -1456,8 +1456,8 @@ a";
                         else_node: Some(7),
                     }),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 8,
@@ -1703,8 +1703,8 @@ until x < y
                         is_instance_function: false,
                     }),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 2,
@@ -1762,8 +1762,8 @@ f 42";
                     Id(2), // y
                     Id(1), // x
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 1,
+                        target: AssignTarget {
+                            target_index: 1,
                             scope: Scope::Local,
                         },
                         expression: 2,
@@ -1777,8 +1777,8 @@ f 42";
                         rhs: 6,
                     },
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 4,
+                        target: AssignTarget {
+                            target_index: 4,
                             scope: Scope::Local,
                         },
                         expression: 7,
@@ -1793,8 +1793,8 @@ f 42";
                         is_instance_function: false,
                     }),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 11,
@@ -1841,8 +1841,8 @@ f 42";
                         is_instance_function: false,
                     }),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 1,
+                        target: AssignTarget {
+                            target_index: 1,
                             scope: Scope::Local,
                         },
                         expression: 3,
@@ -1862,8 +1862,8 @@ f 42";
                         is_instance_function: false,
                     }),
                     Assign {
-                        target: AssignTarget::Id {
-                            id_index: 0,
+                        target: AssignTarget {
+                            target_index: 0,
                             scope: Scope::Local,
                         },
                         expression: 9,

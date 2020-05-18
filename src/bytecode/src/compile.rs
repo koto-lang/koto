@@ -775,19 +775,21 @@ impl Compiler {
     fn local_register_for_assign_target(
         &mut self,
         target: &AssignTarget,
+        ast: &Ast,
     ) -> Result<Option<u8>, String> {
-        let result = match target {
-            AssignTarget::Id { id_index, scope } => match *scope {
-                Scope::Local => {
-                    if self.frame().capture_slot(*id_index).is_some() {
+        let result = match target.scope {
+            Scope::Local => match &ast.node(target.target_index).node {
+                Node::Id(constant_index) => {
+                    if self.frame().capture_slot(*constant_index).is_some() {
                         None
                     } else {
-                        Some(self.frame_mut().reserve_local_register(*id_index)?)
+                        Some(self.frame_mut().reserve_local_register(*constant_index)?)
                     }
                 }
-                Scope::Global => None,
+                Node::Lookup(_) => None,
+                unexpected => return Err(format!("Expected Id in AST, found {}", unexpected)),
             },
-            _ => None,
+            Scope::Global => None,
         };
 
         Ok(result)
@@ -802,16 +804,16 @@ impl Compiler {
     ) -> Result<(), String> {
         use Op::*;
 
-        let local_assign_register = self.local_register_for_assign_target(target)?;
+        let local_assign_register = self.local_register_for_assign_target(target, ast)?;
         let assign_register = match local_assign_register {
             Some(local) => local,
             None => self.push_register()?,
         };
         self.compile_node(Some(assign_register), ast.node(*expression), ast)?;
 
-        match target {
-            AssignTarget::Id { id_index, scope } => {
-                match scope {
+        match &ast.node(target.target_index).node {
+            Node::Id(id_index) => {
+                match target.scope {
                     Scope::Local => {
                         if local_assign_register.is_some() {
                             // To ensure that global rhs ids with the same name as a local that's
@@ -840,9 +842,14 @@ impl Compiler {
                     }
                 }
             }
-
-            AssignTarget::Lookup(lookup) => {
-                self.compile_lookup(result_register, lookup, Some(assign_register), ast)?;
+            Node::Lookup(lookup) => {
+                self.compile_lookup(result_register, &lookup, Some(assign_register), ast)?;
+            }
+            unexpected => {
+                return Err(format!(
+                    "Expected Lookup or Id in AST, found {}",
+                    unexpected
+                ))
             }
         };
 
@@ -874,8 +881,8 @@ impl Compiler {
                 self.compile_node(Some(rhs_register), ast.node(*expression), ast)?;
 
                 for (i, target) in targets.iter().enumerate() {
-                    match target {
-                        AssignTarget::Id { id_index, .. } => {
+                    match &ast.node(target.target_index).node {
+                        Node::Id(id_index) => {
                             if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
                                 let capture_register = self.push_register()?;
 
@@ -896,13 +903,19 @@ impl Compiler {
                                 );
                             }
                         }
-                        AssignTarget::Lookup(lookup) => {
+                        Node::Lookup(lookup) => {
                             let register = self.push_register()?;
 
                             self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
-                            self.compile_lookup(None, lookup, Some(register), ast)?;
+                            self.compile_lookup(None, &lookup, Some(register), ast)?;
 
                             self.pop_register()?;
+                        }
+                        unexpected => {
+                            return Err(format!(
+                                "Expected ID or lookup in AST, found {}",
+                                unexpected
+                            ));
                         }
                     };
                 }
@@ -935,8 +948,8 @@ impl Compiler {
                             }
                         }
                         None => {
-                            match target {
-                                AssignTarget::Id { id_index, .. } => {
+                            match &ast.node(target.target_index).node {
+                                Node::Id(id_index) => {
                                     if let Some(capture) = self.frame().capture_slot(*id_index) {
                                         self.push_op(SetEmpty, &[temp_register]);
                                         self.push_op(SetCapture, &[capture, temp_register]);
@@ -946,10 +959,16 @@ impl Compiler {
                                         self.push_op(SetEmpty, &[local_register]);
                                     }
                                 }
-                                AssignTarget::Lookup(lookup) => {
+                                Node::Lookup(lookup) => {
                                     self.push_op(SetEmpty, &[temp_register]);
-                                    self.compile_lookup(None, lookup, Some(temp_register), ast)?;
+                                    self.compile_lookup(None, &lookup, Some(temp_register), ast)?;
                                     self.pop_register()?;
+                                }
+                                unexpected => {
+                                    return Err(format!(
+                                        "Expected ID or lookup in AST, found {}",
+                                        unexpected
+                                    ));
                                 }
                             }
 

@@ -185,17 +185,8 @@ pub enum LookupNode {
     Call(Vec<AstIndex>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum AssignTarget {
-    Id { id_index: AstIndex, scope: Scope },
-    Lookup(Vec<LookupNode>),
-}
-
-impl AssignTarget {
-    pub fn to_node(&self) -> Node {
-        match self {
-            AssignTarget::Id { id_index, .. } => Node::Id(*id_index),
-            AssignTarget::Lookup(lookup) => Node::Lookup(lookup.clone()),
-        }
-    }
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AssignTarget {
+    pub target_index: AstIndex,
+    pub scope: Scope,
 }

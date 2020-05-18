@@ -1,6 +1,5 @@
 use crate::{
-    error::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
-    LookupNode,
+    error::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool, LookupNode,
 };
 use pest::Parser;
 use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator};
@@ -54,53 +53,20 @@ impl LocalIds {
             .count()
     }
 
-    fn add_assign_target_to_ids_assigned_in_scope(&mut self, target: &AssignTarget) {
-        match target {
-            AssignTarget::Id { id_index, .. } => {
-                self.ids_assigned_in_scope.insert(*id_index);
-            }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
-                [LookupNode::Id(id_index), ..] => {
-                    self.ids_assigned_in_scope.insert(*id_index);
-                }
-                _ => panic!("Expected Id as first lookup node"),
-            },
-        }
+    fn add_assign_target_to_ids_assigned_in_scope(&mut self, target: ConstantIndex) {
+        self.ids_assigned_in_scope.insert(target);
     }
 
-    fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
-        match target {
-            AssignTarget::Id { id_index, .. } => {
-                self.ids_being_assigned_in_scope.insert(*id_index);
-            }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
-                [LookupNode::Id(id_index), ..] => {
-                    self.ids_being_assigned_in_scope.insert(*id_index);
-                }
-                _ => panic!("Expected Id as first lookup node"),
-            },
-        }
+    fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
+        self.ids_being_assigned_in_scope.insert(target);
     }
 
-    fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: &AssignTarget) {
-        match target {
-            AssignTarget::Id { id_index, .. } => {
-                self.ids_being_assigned_in_scope.remove(id_index);
-            }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
-                [LookupNode::Id(id_index), ..] => {
-                    self.ids_being_assigned_in_scope.remove(id_index);
-                }
-                _ => panic!("Expected Id as first lookup node"),
-            },
-        }
+    fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
+        self.ids_being_assigned_in_scope.remove(&target);
     }
 
-    fn add_assign_target_to_captures(&mut self, target: &AssignTarget) {
-        match target {
-            AssignTarget::Id { id_index, .. } => self.add_id_to_captures(*id_index),
-            AssignTarget::Lookup(lookup) => self.add_lookup_to_captures(lookup),
-        }
+    fn add_assign_target_to_captures(&mut self, target: ConstantIndex) {
+        self.add_id_to_captures(target);
     }
 
     fn add_lookup_to_captures(&mut self, lookup: &[LookupNode]) {
@@ -558,7 +524,7 @@ impl KotoParser {
             }
             Rule::single_assignment => {
                 let mut inner = pair.into_inner();
-                let target = match inner.peek().unwrap().as_rule() {
+                let (target, id_index) = match inner.peek().unwrap().as_rule() {
                     Rule::scoped_assign_id => {
                         let mut inner = inner.next().unwrap().into_inner();
 
@@ -571,33 +537,52 @@ impl KotoParser {
                             Scope::Local
                         };
 
-                        AssignTarget::Id {
-                            id_index: add_constant_string(
-                                constants,
-                                inner.next().unwrap().as_str(),
-                            ),
-                            scope,
-                        }
+                        let constant_index =
+                            add_constant_string(constants, inner.next().unwrap().as_str());
+                        let target_index = ast
+                            .borrow_mut()
+                            .push(Node::Id(constant_index), span.clone().into())?;
+                        (
+                            AssignTarget {
+                                target_index,
+                                scope,
+                            },
+                            constant_index,
+                        )
                     }
-                    Rule::lookup => AssignTarget::Lookup(next_as_lookup!(inner)),
+                    Rule::lookup => {
+                        let lookup = next_as_lookup!(inner);
+                        let constant_index = match &lookup.as_slice() {
+                            &[LookupNode::Id(id_index), ..] => *id_index,
+                            _ => unreachable!(),
+                        };
+                        let target_index = ast
+                            .borrow_mut()
+                            .push(Node::Lookup(lookup), span.clone().into())?;
+
+                        (
+                            AssignTarget {
+                                target_index,
+                                scope: Scope::Local,
+                            },
+                            constant_index,
+                        )
+                    }
                     _ => unreachable!(),
                 };
 
                 let operator = inner.next().unwrap().as_rule();
 
-                local_ids.add_assign_target_to_captures(&target);
-                local_ids.add_assign_target_to_ids_being_assigned_in_scope(&target);
+                local_ids.add_assign_target_to_captures(id_index);
+                local_ids.add_assign_target_to_ids_being_assigned_in_scope(id_index);
 
                 let rhs = build_next!(inner);
                 macro_rules! make_assign_op {
                     ($op:ident) => {{
-                        let lhs = ast
-                            .borrow_mut()
-                            .push(target.to_node(), span.clone().into())?;
                         ast.borrow_mut().push(
                             Node::Op {
                                 op: AstOp::$op,
-                                lhs,
+                                lhs: target.target_index,
                                 rhs,
                             },
                             span.clone().into(),
@@ -617,8 +602,8 @@ impl KotoParser {
 
                 // TODO only set as assigned locally when in local scope
                 // Add the target to the assigned list
-                local_ids.remove_assign_target_from_ids_being_assigned_in_scope(&target);
-                local_ids.add_assign_target_to_ids_assigned_in_scope(&target);
+                local_ids.remove_assign_target_from_ids_being_assigned_in_scope(id_index);
+                local_ids.add_assign_target_to_ids_assigned_in_scope(id_index);
 
                 ast.borrow_mut()
                     .push(Node::Assign { target, expression }, span.into())
@@ -642,21 +627,43 @@ impl KotoParser {
                                 Scope::Local
                             };
 
-                            Ok(AssignTarget::Id {
-                                id_index: add_constant_string(
-                                    constants,
-                                    inner.next().unwrap().as_str(),
-                                ),
-                                scope,
-                            })
+                            let constant_index =
+                                add_constant_string(constants, inner.next().unwrap().as_str());
+                            let target_index = ast
+                                .borrow_mut()
+                                .push(Node::Id(constant_index), span.clone().into())?;
+                            Ok((
+                                AssignTarget {
+                                    target_index,
+                                    scope,
+                                },
+                                constant_index,
+                            ))
                         }
-                        Rule::lookup => Ok(AssignTarget::Lookup(pair_as_lookup!(pair))),
+                        Rule::lookup => {
+                            let lookup = pair_as_lookup!(pair);
+                            let constant_index = match &lookup.as_slice() {
+                                &[LookupNode::Id(id_index), ..] => *id_index,
+                                _ => unreachable!(),
+                            };
+                            let target_index = ast
+                                .borrow_mut()
+                                .push(Node::Lookup(lookup), span.clone().into())?;
+
+                            Ok((
+                                AssignTarget {
+                                    target_index,
+                                    scope: Scope::Local,
+                                },
+                                constant_index,
+                            ))
+                        }
                         _ => unreachable!(),
                     })
                     .collect::<Result<Vec<_>, ParserError>>()?;
 
-                for target in targets.iter() {
-                    local_ids.add_assign_target_to_ids_being_assigned_in_scope(target);
+                for (_, id_index) in targets.iter() {
+                    local_ids.add_assign_target_to_ids_being_assigned_in_scope(*id_index);
                 }
 
                 let expressions = inner
@@ -666,14 +673,17 @@ impl KotoParser {
                     .map(|pair| self.build_ast(ast, pair, constants, local_ids))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                for target in targets.iter() {
-                    local_ids.remove_assign_target_from_ids_being_assigned_in_scope(target);
-                    local_ids.add_assign_target_to_ids_assigned_in_scope(target);
+                for (_, id_index) in targets.iter() {
+                    local_ids.remove_assign_target_from_ids_being_assigned_in_scope(*id_index);
+                    local_ids.add_assign_target_to_ids_assigned_in_scope(*id_index);
                 }
 
                 ast.borrow_mut().push(
                     Node::MultiAssign {
-                        targets,
+                        targets: targets
+                            .iter()
+                            .map(|(target, _)| *target)
+                            .collect::<Vec<_>>(),
                         expressions,
                     },
                     span.into(),
@@ -958,10 +968,14 @@ impl KotoParser {
                                     lhs: lhs_lhs,
                                     rhs: lhs_rhs,
                                 } => {
+                                    let target_index = ast.borrow_mut().push_with_span_index(
+                                        Node::Id(chained_temp_value),
+                                        span.clone(),
+                                    )?;
                                     let rhs = ast.borrow_mut().push_with_span_index(
                                         Node::Assign {
-                                            target: AssignTarget::Id {
-                                                id_index: chained_temp_value,
+                                            target: AssignTarget {
+                                                target_index,
                                                 scope: Scope::Local,
                                             },
                                             expression: lhs_rhs.clone(),
