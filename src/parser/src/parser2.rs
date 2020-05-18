@@ -310,9 +310,31 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Until => {
                     return self.parse_until_loop(Some(lhs));
                 }
-                Assign => match self.ast.node(lhs).node {
+                Assign => match self.ast.node(lhs).node.clone() {
                     Node::Id(id_index) => {
                         self.consume_token();
+
+                        if let Some(rhs) = self.parse_primary_expressions()? {
+                            let node = Node::Assign {
+                                target: AssignTarget {
+                                    target_index: lhs,
+                                    scope: Scope::Local, // TODO
+                                },
+                                expression: rhs,
+                            };
+                            self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                            lhs = self.push_node(node)?;
+                        } else {
+                            return syntax_error!(ExpectedRhsExpression, self);
+                        }
+                    }
+                    Node::Lookup(lookup) => {
+                        self.consume_token();
+
+                        let id_index = match lookup.as_slice() {
+                            &[LookupNode::Id(id_index), ..] => id_index,
+                            _ => return internal_error!(MissingLookupId, self),
+                        };
 
                         if let Some(rhs) = self.parse_primary_expressions()? {
                             let node = Node::Assign {
@@ -372,11 +394,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id() {
-            let id_index = self.push_node(Node::Id(constant_index))?;
-
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
+                    let id_index = self.push_node(Node::Id(constant_index))?;
                     if let Some(expression) = self.parse_expression(1)? {
                         let mut args = vec![expression];
 
@@ -392,6 +413,25 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         id_index
                     }
                 }
+                Some(Token::ParenOpen) | Some(Token::ListStart) => {
+                    self.parse_lookup(constant_index)?
+                }
+                _ => self.push_node(Node::Id(constant_index))?,
+            };
+
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn parse_lookup(&mut self, id: ConstantIndex) -> Result<AstIndex, ParserError> {
+        let mut lookup = Vec::new();
+
+        lookup.push(LookupNode::Id(id));
+
+        loop {
+            match self.peek_token() {
                 Some(Token::ParenOpen) => {
                     self.consume_token();
 
@@ -403,21 +443,31 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
                     if let Some(Token::ParenClose) = self.peek_token() {
                         self.consume_token();
-                        self.push_node(Node::Call {
-                            function: id_index,
-                            args,
-                        })?
+                        lookup.push(LookupNode::Call(args));
                     } else {
-                        id_index
+                        return syntax_error!(ExpectedCallArgsEnd, self);
                     }
                 }
-                _ => id_index,
-            };
+                Some(Token::ListStart) => {
+                    self.consume_token();
 
-            Ok(Some(result))
-        } else {
-            Ok(None)
+                    // TODO, first check for lookup ranges
+                    if let Some(index_expression) = self.parse_primary_expression()? {
+                        if let Some(Token::ListEnd) = self.peek_token() {
+                            self.consume_token();
+                            lookup.push(LookupNode::Index(index_expression));
+                        } else {
+                            return syntax_error!(ExpectedIndexEnd, self);
+                        }
+                    } else {
+                        return syntax_error!(ExpectedIndexExpression, self);
+                    }
+                }
+                _ => break,
+            }
         }
+
+        Ok(self.push_node(Node::Lookup(lookup))?)
     }
 
     fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
@@ -1886,6 +1936,36 @@ f 42";
                     Constant::Str("z"),
                     Constant::Number(42.0),
                 ]),
+            )
+        }
+    }
+
+    mod lookups {
+        use super::*;
+
+        #[test]
+        fn array_indexing() {
+            let source = "a[0] = a[1]";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Index(0)]),
+                    Number1,
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Index(2)]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                None,
             )
         }
     }

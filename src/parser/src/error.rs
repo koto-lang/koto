@@ -6,6 +6,7 @@ pub enum InternalError {
     MissingScope,
     NumberParseFailure,
     FunctionParseFailure,
+    MissingLookupId,
 }
 
 #[derive(Debug)]
@@ -17,6 +18,8 @@ pub enum SyntaxError {
     ExpectedRhsExpression,
     ExpectedCloseParen,
     ExpectedListEnd,
+    ExpectedIndexEnd,
+    ExpectedIndexExpression,
     ExpectedMapSeparator,
     ExpectedMapValue,
     ExpectedMapEnd,
@@ -101,6 +104,7 @@ impl fmt::Display for InternalError {
             MissingScope => f.write_str("Scope unavailable during parsing"),
             NumberParseFailure => f.write_str("Failed to parse number"),
             FunctionParseFailure => f.write_str("Failed to parse function"),
+            MissingLookupId => f.write_str("Missing lookup Id"),
         }
     }
 }
@@ -117,6 +121,8 @@ impl fmt::Display for SyntaxError {
             ExpectedRhsExpression => f.write_str("Expected expression"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
             ExpectedListEnd => f.write_str("Unexpected token while in List, expected ']'"),
+            ExpectedIndexEnd => f.write_str("Unexpected token while indexing a List, expected ']'"),
+            ExpectedIndexExpression => f.write_str("Expected index expression"),
             ExpectedMapSeparator => f.write_str("Expected key/value separator ':' in Map"),
             ExpectedMapValue => f.write_str("Expected value after ':' in Map"),
             ExpectedMapEnd => f.write_str("Unexpected token in Map, expected '}'"),
