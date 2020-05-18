@@ -224,15 +224,18 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         } else if let Some(until_loop) = self.parse_until_loop(None)? {
             Ok(Some(until_loop))
         } else {
-            let result = self.parse_primary_expressions()?;
-            // parse_primary_expressions may have not consumed the line end, so consume it now
-            match self.skip_whitespace_and_peek() {
-                Some(Token::NewLine) | Some(Token::NewLineIndented) => {
-                    self.consume_token();
+            if let Some(result) = self.parse_primary_expressions()? {
+                // parse_primary_expressions may have not consumed the line end, so consume it now
+                match self.skip_whitespace_and_peek() {
+                    Some(Token::NewLine) | Some(Token::NewLineIndented) => {
+                        self.consume_token();
+                    }
+                    _ => {}
                 }
-                _ => {}
+                Ok(Some(result))
+            } else {
+                return syntax_error!(ExpectedExpression, self);
             }
-            Ok(result)
         }
     }
 
@@ -398,10 +401,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
                     let id_index = self.push_node(Node::Id(constant_index))?;
-                    if let Some(expression) = self.parse_expression(1)? {
+                    if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
-                        while let Some(expression) = self.parse_expression(1)? {
+                        while let Some(expression) = self.parse_non_primary_expression()? {
                             args.push(expression);
                         }
 
@@ -413,7 +416,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         id_index
                     }
                 }
-                Some(Token::ParenOpen) | Some(Token::ListStart) => {
+                Some(Token::ParenOpen) | Some(Token::ListStart) | Some(Token::Dot) => {
                     self.parse_lookup(constant_index)?
                 }
                 _ => self.push_node(Node::Id(constant_index))?,
@@ -461,6 +464,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         }
                     } else {
                         return syntax_error!(ExpectedIndexExpression, self);
+                    }
+                }
+                Some(Token::Dot) => {
+                    self.consume_token();
+
+                    if let Some(id_index) = self.parse_id() {
+                        lookup.push(LookupNode::Id(id_index));
+                    } else {
+                        return syntax_error!(ExpectedMapKey, self);
                     }
                 }
                 _ => break,
@@ -1966,6 +1978,49 @@ f 42";
                     },
                 ],
                 None,
+            )
+        }
+
+        #[test]
+        fn map_lookup() {
+            let source = "\
+x.foo
+x.bar()
+x.bar().baz = 1";
+            check_ast(
+                source,
+                &[
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
+                    Lookup(vec![
+                        LookupNode::Id(0),
+                        LookupNode::Id(2),
+                        LookupNode::Call(vec![]),
+                    ]),
+                    Lookup(vec![
+                        LookupNode::Id(0),
+                        LookupNode::Id(2),
+                        LookupNode::Call(vec![]),
+                        LookupNode::Id(3),
+                    ]),
+                    Number1,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 2,
+                            scope: Scope::Local,
+                        },
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![0, 1, 4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
             )
         }
     }
