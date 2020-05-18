@@ -6,6 +6,7 @@ pub enum InternalError {
     MissingScope,
     NumberParseFailure,
     FunctionParseFailure,
+    RangeParseFailure,
     MissingLookupId,
 }
 
@@ -35,7 +36,6 @@ pub enum SyntaxError {
     ExpectedFunctionArgsEnd,
     ExpectedFunctionBody,
     ExpectedCallArgsEnd,
-    ExpectedRangeRhs,
     ExpectedForArgs,
     ExpectedForInKeyword,
     ExpectedForRanges,
@@ -105,6 +105,7 @@ impl fmt::Display for InternalError {
             MissingScope => f.write_str("Scope unavailable during parsing"),
             NumberParseFailure => f.write_str("Failed to parse number"),
             FunctionParseFailure => f.write_str("Failed to parse function"),
+            RangeParseFailure => f.write_str("Failed to parse range"),
             MissingLookupId => f.write_str("Missing lookup Id"),
         }
     }
@@ -141,7 +142,6 @@ impl fmt::Display for SyntaxError {
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedFunctionBody => f.write_str("Expected function body"),
             ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
-            ExpectedRangeRhs => f.write_str("Expected end expression for range"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
             ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
             ExpectedForRanges => f.write_str("Expected ranges in for loop"),

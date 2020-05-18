@@ -269,35 +269,36 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 
     fn parse_expression(&mut self, min_precedence: u8) -> Result<Option<AstIndex>, ParserError> {
-        use Token::*;
-
         let primary_expression = min_precedence == 0;
 
-        let mut lhs = {
+        let lhs = {
             // ID expressions are broken out to allow function calls in first position
             if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
                 id_expression
-            } else if let Some(term) = self.parse_term(primary_expression)? {
-                match self.peek_token() {
-                    range @ Some(Token::Range) | range @ Some(Token::RangeInclusive) => {
-                        let inclusive = range == Some(Token::RangeInclusive);
-                        self.consume_token();
-                        if let Some(rhs) = self.parse_term(false)? {
-                            return Ok(Some(self.push_node(Node::Range {
-                                start: term,
-                                end: rhs,
-                                inclusive,
-                            })?));
-                        } else {
-                            return syntax_error!(ExpectedRangeRhs, self);
-                        }
-                    }
-                    _ => term,
-                }
             } else {
-                return Ok(None);
+                let term = self.parse_term(primary_expression)?;
+
+                match self.peek_token() {
+                    Some(Token::Range) | Some(Token::RangeInclusive) => {
+                        return self.parse_range(term)
+                    }
+                    _ => match term {
+                        Some(term) => term,
+                        None => return Ok(None),
+                    },
+                }
             }
         };
+
+        self.parse_expression_with_lhs(lhs, min_precedence)
+    }
+
+    fn parse_expression_with_lhs(
+        &mut self,
+        mut lhs: AstIndex,
+        min_precedence: u8,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        use Token::*;
 
         while let Some(next) = self.skip_whitespace_and_peek() {
             match next {
@@ -454,16 +455,77 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::ListStart) => {
                     self.consume_token();
 
-                    // TODO, first check for lookup ranges
-                    if let Some(index_expression) = self.parse_primary_expression()? {
-                        if let Some(Token::ListEnd) = self.peek_token() {
-                            self.consume_token();
-                            lookup.push(LookupNode::Index(index_expression));
-                        } else {
-                            return syntax_error!(ExpectedIndexEnd, self);
+                    let index_expression = if let Some(index_expression) =
+                        self.parse_non_primary_expression()?
+                    {
+                        match self.peek_token() {
+                            Some(Token::Range) => {
+                                self.consume_token();
+
+                                if let Some(end_expression) = self.parse_non_primary_expression()? {
+                                    self.push_node(Node::Range {
+                                        start: index_expression,
+                                        end: end_expression,
+                                        inclusive: false,
+                                    })?
+                                } else {
+                                    self.push_node(Node::RangeFrom {
+                                        start: index_expression,
+                                    })?
+                                }
+                            }
+                            Some(Token::RangeInclusive) => {
+                                self.consume_token();
+
+                                if let Some(end_expression) = self.parse_non_primary_expression()? {
+                                    self.push_node(Node::Range {
+                                        start: index_expression,
+                                        end: end_expression,
+                                        inclusive: true,
+                                    })?
+                                } else {
+                                    self.push_node(Node::RangeFrom {
+                                        start: index_expression,
+                                    })?
+                                }
+                            }
+                            _ => index_expression,
                         }
                     } else {
-                        return syntax_error!(ExpectedIndexExpression, self);
+                        match self.skip_whitespace_and_peek() {
+                            Some(Token::Range) => {
+                                self.consume_token();
+
+                                if let Some(end_expression) = self.parse_non_primary_expression()? {
+                                    self.push_node(Node::RangeTo {
+                                        end: end_expression,
+                                        inclusive: false,
+                                    })?
+                                } else {
+                                    self.push_node(Node::RangeFull)?
+                                }
+                            }
+                            Some(Token::RangeInclusive) => {
+                                self.consume_token();
+
+                                if let Some(end_expression) = self.parse_non_primary_expression()? {
+                                    self.push_node(Node::RangeTo {
+                                        end: end_expression,
+                                        inclusive: true,
+                                    })?
+                                } else {
+                                    self.push_node(Node::RangeFull)?
+                                }
+                            }
+                            _ => return syntax_error!(ExpectedIndexExpression, self),
+                        }
+                    };
+
+                    if let Some(Token::ListEnd) = self.skip_whitespace_and_peek() {
+                        self.consume_token();
+                        lookup.push(LookupNode::Index(index_expression));
+                    } else {
+                        return syntax_error!(ExpectedIndexEnd, self);
                     }
                 }
                 Some(Token::Dot) => {
@@ -480,6 +542,33 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
 
         Ok(self.push_node(Node::Lookup(lookup))?)
+    }
+
+    fn parse_range(&mut self, lhs: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
+        use Node::{Range, RangeFrom, RangeFull, RangeTo};
+
+        let inclusive = match self.peek_token() {
+            Some(Token::Range) => false,
+            Some(Token::RangeInclusive) => true,
+            _ => return internal_error!(RangeParseFailure, self),
+        };
+
+        self.consume_token();
+
+        let rhs = self.parse_term(false)?;
+
+        let node = match (lhs, rhs) {
+            (Some(start), Some(end)) => Range {
+                start,
+                end,
+                inclusive,
+            },
+            (Some(start), None) => RangeFrom { start },
+            (None, Some(end)) => RangeTo { end, inclusive },
+            (None, None) => RangeFull,
+        };
+
+        return Ok(Some(self.push_node(node)?));
     }
 
     fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
@@ -1957,7 +2046,11 @@ f 42";
 
         #[test]
         fn array_indexing() {
-            let source = "a[0] = a[1]";
+            let source = "\
+a[0] = a[1]
+x[..]
+y[..3]
+z[10..][0]";
             check_ast(
                 source,
                 &[
@@ -1972,12 +2065,35 @@ f 42";
                         },
                         expression: 3,
                     },
+                    RangeFull, // 5
+                    Lookup(vec![LookupNode::Id(1), LookupNode::Index(5)]),
+                    Number(3),
+                    RangeTo {
+                        end: 7,
+                        inclusive: false,
+                    },
+                    Lookup(vec![LookupNode::Id(2), LookupNode::Index(8)]),
+                    Number(5), // 10
+                    RangeFrom { start: 10 },
+                    Number0,
+                    Lookup(vec![
+                        LookupNode::Id(4),
+                        LookupNode::Index(11),
+                        LookupNode::Index(12),
+                    ]),
                     MainBlock {
-                        body: vec![4],
+                        body: vec![4, 6, 9, 13],
                         local_count: 1,
                     },
                 ],
-                None,
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Number(3.0),
+                    Constant::Str("z"),
+                    Constant::Number(10.0),
+                ]),
             )
         }
 
