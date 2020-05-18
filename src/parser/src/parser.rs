@@ -515,9 +515,13 @@ impl KotoParser {
                 nested_local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 // collect function body
-                let body = inner
+                let body_expressions = inner
                     .map(|pair| self.build_ast(ast, pair, constants, &mut nested_local_ids))
                     .collect::<Result<Vec<_>, _>>()?;
+
+                let body = ast
+                    .borrow_mut()
+                    .push(Node::Block(body_expressions), span.clone().into())?;
 
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.

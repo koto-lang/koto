@@ -138,7 +138,7 @@ pub struct Function {
     pub args: Vec<ConstantIndex>,
     pub captures: Vec<ConstantIndex>,
     pub local_count: usize,
-    pub body: Vec<AstIndex>,
+    pub body: AstIndex,
     pub is_instance_function: bool,
 }
 

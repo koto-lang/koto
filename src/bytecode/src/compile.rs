@@ -517,7 +517,19 @@ impl Compiler {
                         }
                     };
 
-                    self.compile_frame(local_count, &f.body, &f.args, &f.captures, ast)?;
+                    match &ast.node(f.body).node {
+                        Node::Block(expressions) => {
+                            self.compile_frame(
+                                local_count,
+                                &expressions,
+                                &f.args,
+                                &f.captures,
+                                ast,
+                            )?;
+                        }
+                        _ => self.compile_block(Some(result_register), &[f.body], ast)?,
+                    };
+
                     self.update_offset_placeholder(function_size_ip);
 
                     for (i, capture) in f.captures.iter().enumerate() {
