@@ -1,5 +1,5 @@
 use crate::{
-    error::*, lookup::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
+    error::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool,
     LookupNode,
 };
 use pest::Parser;
@@ -7,7 +7,6 @@ use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromItera
 
 use koto_grammar::Rule;
 use koto_lexer::Span;
-
 
 const TEMP_VAR_PREFIX: &str = "__";
 
@@ -60,7 +59,7 @@ impl LocalIds {
             AssignTarget::Id { id_index, .. } => {
                 self.ids_assigned_in_scope.insert(*id_index);
             }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
                 [LookupNode::Id(id_index), ..] => {
                     self.ids_assigned_in_scope.insert(*id_index);
                 }
@@ -74,7 +73,7 @@ impl LocalIds {
             AssignTarget::Id { id_index, .. } => {
                 self.ids_being_assigned_in_scope.insert(*id_index);
             }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
                 [LookupNode::Id(id_index), ..] => {
                     self.ids_being_assigned_in_scope.insert(*id_index);
                 }
@@ -88,7 +87,7 @@ impl LocalIds {
             AssignTarget::Id { id_index, .. } => {
                 self.ids_being_assigned_in_scope.remove(id_index);
             }
-            AssignTarget::Lookup(lookup) => match lookup.as_slice().0 {
+            AssignTarget::Lookup(lookup) => match lookup.as_slice() {
                 [LookupNode::Id(id_index), ..] => {
                     self.ids_being_assigned_in_scope.remove(id_index);
                 }
@@ -104,8 +103,8 @@ impl LocalIds {
         }
     }
 
-    fn add_lookup_to_captures(&mut self, lookup: &Lookup) {
-        match lookup.as_slice().0 {
+    fn add_lookup_to_captures(&mut self, lookup: &[LookupNode]) {
+        match lookup {
             &[LookupNode::Id(id_index), ..] => self.add_id_to_captures(id_index),
             _ => panic!("Expected Id as first lookup node"),
         }
@@ -207,36 +206,34 @@ impl KotoParser {
 
         macro_rules! pair_as_lookup {
             ($lookup_pair:expr) => {{
-                let lookup = Lookup(
-                    $lookup_pair
-                        .into_inner()
-                        .map(|pair| match pair.as_rule() {
-                            Rule::single_id => Ok(LookupNode::Id(add_constant_string(
-                                constants,
-                                pair.as_str(),
-                            ))),
-                            Rule::map_access => Ok(LookupNode::Id(add_constant_string(
-                                constants,
-                                pair.into_inner().next().unwrap().as_str(),
-                            ))),
-                            Rule::index => {
-                                let mut inner = pair.into_inner();
-                                let expression = build_next!(inner);
-                                Ok(LookupNode::Index(Index(expression)))
-                            }
-                            Rule::call_args => {
-                                let args = pair
-                                    .into_inner()
-                                    .map(|pair| self.build_ast(ast, pair, constants, local_ids))
-                                    .collect::<Result<Vec<_>, _>>()?;
-                                Ok(LookupNode::Call(args))
-                            }
-                            unexpected => {
-                                panic!("Unexpected rule while making lookup node: {:?}", unexpected)
-                            }
-                        })
-                        .collect::<Result<Vec<_>, ParserError>>()?,
-                );
+                let lookup = $lookup_pair
+                    .into_inner()
+                    .map(|pair| match pair.as_rule() {
+                        Rule::single_id => Ok(LookupNode::Id(add_constant_string(
+                            constants,
+                            pair.as_str(),
+                        ))),
+                        Rule::map_access => Ok(LookupNode::Id(add_constant_string(
+                            constants,
+                            pair.into_inner().next().unwrap().as_str(),
+                        ))),
+                        Rule::index => {
+                            let mut inner = pair.into_inner();
+                            let expression = build_next!(inner);
+                            Ok(LookupNode::Index(expression))
+                        }
+                        Rule::call_args => {
+                            let args = pair
+                                .into_inner()
+                                .map(|pair| self.build_ast(ast, pair, constants, local_ids))
+                                .collect::<Result<Vec<_>, _>>()?;
+                            Ok(LookupNode::Call(args))
+                        }
+                        unexpected => {
+                            panic!("Unexpected rule while making lookup node: {:?}", unexpected)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, ParserError>>()?;
 
                 lookup
             }};

@@ -1,8 +1,8 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{
-    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex, Lookup, LookupNode,
-    Node, Scope, Span,
+    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex, LookupNode, Node,
+    Scope, Span,
 };
 use smallvec::SmallVec;
 use std::convert::TryFrom;
@@ -563,7 +563,7 @@ impl Compiler {
                     Node::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
                         let mut call_lookup = function_lookup.clone();
-                        call_lookup.0.push(LookupNode::Call(args.clone()));
+                        call_lookup.push(LookupNode::Call(args.clone()));
                         self.compile_lookup(result_register, &call_lookup, None, ast)?
                     }
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
@@ -1166,13 +1166,13 @@ impl Compiler {
     fn compile_lookup(
         &mut self,
         result_register: Option<u8>,
-        lookup: &Lookup,
+        lookup: &[LookupNode],
         set_value: Option<u8>,
         ast: &Ast,
     ) -> Result<(), String> {
         use Op::*;
 
-        let lookup_len = lookup.0.len();
+        let lookup_len = lookup.len();
         if lookup_len < 2 {
             return Err(format!(
                 "compile_lookup: lookup requires at least 2 elements, found {}",
@@ -1188,8 +1188,8 @@ impl Compiler {
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.frame().register_stack.len();
 
-        for (i, lookup_node) in lookup.0.iter().enumerate() {
-            let is_last_node = i == lookup.0.len() - 1;
+        for (i, lookup_node) in lookup.iter().enumerate() {
+            let is_last_node = i == lookup.len() - 1;
 
             match lookup_node {
                 LookupNode::Id(id) => {
@@ -1237,7 +1237,7 @@ impl Compiler {
                     // List index
 
                     let (index_register, _) =
-                        self.compile_node_or_get_local(None, ast.node(index_node.0), ast)?;
+                        self.compile_node_or_get_local(None, ast.node(*index_node), ast)?;
                     let list_register = *node_registers.last().unwrap();
 
                     if is_last_node {

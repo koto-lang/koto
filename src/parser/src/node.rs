@@ -1,4 +1,4 @@
-use crate::{ast::AstIndex, Lookup};
+use crate::ast::AstIndex;
 use std::fmt;
 
 pub type ConstantIndex = u32;
@@ -7,7 +7,7 @@ pub type ConstantIndex = u32;
 pub enum Node {
     Empty,
     Id(ConstantIndex),
-    Lookup(Lookup),
+    Lookup(Vec<LookupNode>),
     Copy(AstIndex),
     BoolTrue,
     BoolFalse,
@@ -119,8 +119,8 @@ impl fmt::Display for Node {
             Op { .. } => write!(f, "Op"),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
-            While{..} => write!(f, "While"),
-            Until{..} => write!(f, "Until"),
+            While { .. } => write!(f, "While"),
+            Until { .. } => write!(f, "Until"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
@@ -179,9 +179,16 @@ pub enum Scope {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum LookupNode {
+    Id(ConstantIndex),
+    Index(AstIndex),
+    Call(Vec<AstIndex>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AssignTarget {
     Id { id_index: AstIndex, scope: Scope },
-    Lookup(Lookup),
+    Lookup(Vec<LookupNode>),
 }
 
 impl AssignTarget {
