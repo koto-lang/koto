@@ -12,6 +12,7 @@ pub enum InternalError {
 pub enum SyntaxError {
     UnexpectedToken,
     UnexpectedIndentation,
+    ExpectedEndOfLine,
     ExpectedExpression,
     ExpectedRhsExpression,
     ExpectedCloseParen,
@@ -28,6 +29,7 @@ pub enum SyntaxError {
     ExpectedElseBlock,
     ExpectedAssignmentTarget,
     ExpectedFunctionArgsEnd,
+    ExpectedFunctionBody,
     ExpectedCallArgsEnd,
     ExpectedRangeRhs,
     ExpectedForArgs,
@@ -110,6 +112,7 @@ impl fmt::Display for SyntaxError {
         match self {
             UnexpectedToken => f.write_str("Unexpected Token"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
+            ExpectedEndOfLine => f.write_str("Expected end of line"),
             ExpectedExpression => f.write_str("Expected expression"),
             ExpectedRhsExpression => f.write_str("Expected expression"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
@@ -128,6 +131,7 @@ impl fmt::Display for SyntaxError {
             ExpectedElseBlock => f.write_str("Expected indented block for 'else'."),
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
+            ExpectedFunctionBody => f.write_str("Expected function body"),
             ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
             ExpectedRangeRhs => f.write_str("Expected end expression for range"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),

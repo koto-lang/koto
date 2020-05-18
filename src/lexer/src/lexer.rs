@@ -1,8 +1,6 @@
-use {
-    logos::{Lexer, Logos},
-    std::ops::{Deref, DerefMut},
-};
+use logos::{Lexer, Logos};
 
+#[derive(Clone, Copy)]
 pub struct Extras {
     pub line_number: usize,
     pub line_start: usize,
@@ -179,20 +177,67 @@ pub enum Token {
 
 pub struct KotoLexer<'a> {
     lexer: Lexer<'a, Token>,
-    peeked: Option<Option<Token>>,
+    peeked_token: Option<Option<Token>>,
+    peeked_span: Option<logos::Span>,
+    peeked_slice: Option<&'a str>,
+    peeked_extras: Option<Extras>,
 }
 
 impl<'a> KotoLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: Token::lexer(source),
-            peeked: None,
+            peeked_token: None,
+            peeked_span: None,
+            peeked_slice: None,
+            peeked_extras: None,
         }
     }
 
     pub fn peek(&mut self) -> Option<Token> {
-        let lexer = &mut self.lexer;
-        *self.peeked.get_or_insert_with(|| lexer.next())
+        if self.peeked_token.is_none() {
+            self.peeked_span = Some(self.lexer.span());
+            self.peeked_slice = Some(self.lexer.slice());
+            self.peeked_extras = Some(self.lexer.extras);
+            self.peeked_token = Some(self.lexer.next());
+        }
+        self.peeked_token.unwrap()
+    }
+
+    pub fn source(&self) -> &'a str {
+        self.lexer.source()
+    }
+
+    pub fn span(&self) -> logos::Span {
+        match &self.peeked_span {
+            Some(span) => span.clone(),
+            None => self.lexer.span(),
+        }
+    }
+
+    pub fn slice(&self) -> &'a str {
+        match &self.peeked_slice {
+            Some(slice) => slice,
+            None => self.lexer.slice(),
+        }
+    }
+
+    pub fn extras(&self) -> Extras {
+        match &self.peeked_extras {
+            Some(extras) => *extras,
+            None => self.lexer.extras,
+        }
+    }
+
+    pub fn current_indent(&self) -> usize {
+        match self.peeked_extras {
+            Some(extras) => extras.indent,
+            None => self.lexer.extras.indent,
+        }
+    }
+
+    pub fn next_indent(&self) -> usize {
+        self.lexer.extras.indent
     }
 }
 
@@ -200,24 +245,15 @@ impl<'a> Iterator for KotoLexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        match self.peeked.take() {
-            Some(token) => token,
+        match self.peeked_token.take() {
+            Some(token) => {
+                self.peeked_span = None;
+                self.peeked_slice = None;
+                self.peeked_extras = None;
+                token
+            }
             None => self.lexer.next(),
         }
-    }
-}
-
-impl<'a> Deref for KotoLexer<'a> {
-    type Target = Lexer<'a, Token>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.lexer
-    }
-}
-
-impl<'a> DerefMut for KotoLexer<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.lexer
     }
 }
 
