@@ -166,6 +166,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return syntax_error!(ExpectedFunctionArgsEnd, self);
         }
 
+        let is_instance_function = match args.as_slice() {
+            [first, ..] => self.constants.get_string(*first as usize) == "self",
+            _ => false,
+        };
+
         // body
         let mut function_frame = Frame::default();
         function_frame.ids_assigned_in_scope.extend(args.clone());
@@ -204,7 +209,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 captures: vec![], // TODO
                 local_count: self.frame()?.local_count(),
                 body,
-                is_instance_function: false, // TODO
+                is_instance_function,
             }),
             Span {
                 start: span_start,
@@ -2036,6 +2041,45 @@ f 42";
                     Constant::Str("y"),
                     Constant::Str("z"),
                     Constant::Number(42.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn instance_function() {
+            let source = "{foo: 42, bar: |self x| self.foo = x}";
+            check_ast(
+                source,
+                &[
+                    Number(1),
+                    Lookup(vec![LookupNode::Id(3), LookupNode::Id(0)]),
+                    Id(4), // x
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        expression: 2,
+                    },
+                    Function(Function {
+                        args: vec![3, 4],
+                        captures: vec![],
+                        local_count: 2,
+                        body: 3,
+                        is_instance_function: true,
+                    }),
+                    Map(vec![(0, 0), (2, 4)]), // Map entries are constant/ast index pairs
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                    Constant::Str("bar"),
+                    Constant::Str("self"),
+                    Constant::Str("x"),
                 ]),
             )
         }
