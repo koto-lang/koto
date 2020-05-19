@@ -1,13 +1,13 @@
 use {
     crate::{error::*, *},
     koto_lexer::{make_end_position, make_span, make_start_position, Lexer, Span, Token},
-    std::{collections::HashSet, str::FromStr},
+    std::{collections::HashSet, iter::FromIterator, str::FromStr},
 };
 
-macro_rules! internal_error {
+macro_rules! make_internal_error {
     ($error:ident, $parser:expr) => {{
         let extras = &$parser.lexer.extras();
-        let error = ParserError::new(
+        ParserError::new(
             InternalError::$error.into(),
             make_span(
                 $parser.lexer.source(),
@@ -15,7 +15,13 @@ macro_rules! internal_error {
                 extras.line_start,
                 &$parser.lexer.span(),
             ),
-        );
+        )
+    }};
+}
+
+macro_rules! internal_error {
+    ($error:ident, $parser:expr) => {{
+        let error = make_internal_error!($error, $parser);
         #[cfg(panic_on_parser_error)]
         {
             panic!(error);
@@ -50,9 +56,21 @@ fn trim_str(s: &str, trim_from_start: usize, trim_from_end: usize) -> &str {
     &s[start..end]
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Frame {
+    // IDs that are available in the parent scope.
+    ids_in_parent_scope: HashSet<ConstantIndex>,
+    // IDs that have been assigned within the current scope.
     ids_assigned_in_scope: HashSet<ConstantIndex>,
+    // IDs that are currently being assigned to in the current scope.
+    // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
+    // of 'being assigned' values in child functions.
+    // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
+    // scope then it isn't made available to child functions.
+    ids_being_assigned_in_scope: HashSet<ConstantIndex>,
+    // Captures are IDs and lookup roots, that are accessed within the current scope,
+    // which haven't yet been assigned in the current scope,
+    // but are available in the parent scope.
     captures: HashSet<ConstantIndex>,
     _top_level: bool,
 }
@@ -62,6 +80,22 @@ impl Frame {
         self.ids_assigned_in_scope
             .difference(&self.captures)
             .count()
+    }
+
+    fn all_available_ids(&self) -> HashSet<ConstantIndex> {
+        let mut result = self
+            .ids_assigned_in_scope
+            .union(&self.ids_in_parent_scope)
+            .cloned()
+            .collect::<HashSet<_>>();
+        result.extend(self.ids_being_assigned_in_scope.iter());
+        result
+    }
+
+    fn add_id_to_captures(&mut self, id: ConstantIndex) {
+        if !self.ids_assigned_in_scope.contains(&id) && self.ids_in_parent_scope.contains(&id) {
+            self.captures.insert(id);
+        }
     }
 }
 
@@ -173,6 +207,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         // body
         let mut function_frame = Frame::default();
+        function_frame.ids_in_parent_scope = self.frame()?.all_available_ids();
         function_frame.ids_assigned_in_scope.extend(args.clone());
         self.frame_stack.push(function_frame);
 
@@ -195,6 +230,22 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
         };
 
+        let function_frame = self
+            .frame_stack
+            .pop()
+            .ok_or_else(|| make_internal_error!(MissingScope, self))?;
+
+        // Captures from the nested function that are from this function's parent scope
+        // need to be added to this function's captures.
+        let missing_captures = function_frame
+            .captures
+            .difference(&self.frame()?.ids_assigned_in_scope)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.frame_mut()?.captures.extend(missing_captures);
+
+        let local_count = function_frame.local_count();
+
         let end_extras = self.lexer.extras();
         let span_end = make_end_position(
             self.lexer.source(),
@@ -206,8 +257,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         let result = self.ast.push(
             Node::Function(Function {
                 args,
-                captures: vec![], // TODO
-                local_count: self.frame()?.local_count(),
+                captures: Vec::from_iter(function_frame.captures),
+                local_count,
                 body,
                 is_instance_function,
             }),
@@ -217,7 +268,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             },
         )?;
 
-        self.frame_stack.pop();
         Ok(Some(result))
     }
 
@@ -332,6 +382,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                 expression: rhs,
                             };
                             self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+
                             lhs = self.push_node(node)?;
                         } else {
                             return syntax_error!(ExpectedRhsExpression, self);
@@ -403,6 +454,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id() {
+            self.frame_mut()?.add_id_to_captures(constant_index);
+
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
@@ -2081,6 +2134,48 @@ f 42";
                     Constant::Str("self"),
                     Constant::Str("x"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn captures() {
+            let source = "\
+x = 0
+|| x = 1";
+            check_ast(
+                source,
+                &[
+                    Id(0), // x
+                    Number0,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        expression: 1,
+                    },
+                    Id(0),
+                    Number1,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 3,
+                            scope: Scope::Local,
+                        },
+                        expression: 4,
+                    }, // 5
+                    Function(Function {
+                        args: vec![],
+                        captures: vec![0],
+                        local_count: 0,
+                        body: 5,
+                        is_instance_function: false,
+                    }),
+                    MainBlock {
+                        body: vec![2, 6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
     }
