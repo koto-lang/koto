@@ -331,6 +331,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
                 id_expression
             } else {
+                if primary_expression {
+                    if let Some(export_id) = self.parse_export_id()? {
+                        return Ok(Some(export_id));
+                    }
+                }
+
                 let term = self.parse_term(primary_expression)?;
 
                 match self.peek_token() {
@@ -400,7 +406,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                             let node = Node::Assign {
                                 target: AssignTarget {
                                     target_index: lhs,
-                                    scope: Scope::Local, // TODO
+                                    scope: Scope::Local,
                                 },
                                 expression: rhs,
                             };
@@ -627,6 +633,42 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         };
 
         return Ok(Some(self.push_node(node)?));
+    }
+
+    fn parse_export_id(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() == Some(Token::Export) {
+            self.consume_token();
+
+            if let Some(constant_index) = self.parse_id() {
+                let export_id = self.push_node(Node::Id(constant_index))?;
+
+                match self.skip_whitespace_and_peek() {
+                    Some(Token::Assign) => {
+                        self.consume_token();
+
+                        if let Some(rhs) = self.parse_primary_expressions()? {
+                            let node = Node::Assign {
+                                target: AssignTarget {
+                                    target_index: export_id,
+                                    scope: Scope::Global,
+                                },
+                                expression: rhs,
+                            };
+
+                            Ok(Some(self.push_node(node)?))
+                        } else {
+                            return syntax_error!(ExpectedRhsExpression, self);
+                        }
+                    }
+                    Some(Token::NewLine) | Some(Token::NewLineIndented) => Ok(Some(export_id)),
+                    _ => syntax_error!(UnexpectedTokenAfterExportId, self),
+                }
+            } else {
+                syntax_error!(ExpectedExportExpression, self)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
@@ -1407,6 +1449,36 @@ x";
                     MainBlock {
                         body: vec![2],
                         local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn single_export() {
+            let source = "export a = 1 + 1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Number1,
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Global,
+                        },
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("a")]),

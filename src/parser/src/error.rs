@@ -45,6 +45,8 @@ pub enum SyntaxError {
     ExpectedWhileBody,
     ExpectedUntilCondition,
     ExpectedUntilBody,
+    ExpectedExportExpression,
+    UnexpectedTokenAfterExportId,
 }
 
 #[derive(Debug)]
@@ -151,6 +153,8 @@ impl fmt::Display for SyntaxError {
             ExpectedWhileBody => f.write_str("Expected indented block in while loop"),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedUntilBody => f.write_str("Expected indented block in until loop"),
+            ExpectedExportExpression => f.write_str("Expected id to export"),
+            UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export id"),
         }
     }
 }
