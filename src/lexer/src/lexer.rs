@@ -239,6 +239,10 @@ impl<'a> KotoLexer<'a> {
     pub fn next_indent(&self) -> usize {
         self.lexer.extras.indent
     }
+
+    pub fn next_span(&self) -> logos::Span {
+        self.lexer.span()
+    }
 }
 
 impl<'a> Iterator for KotoLexer<'a> {

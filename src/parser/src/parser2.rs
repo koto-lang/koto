@@ -222,7 +222,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 }
             }
             _ => {
-                if let Some(body) = self.parse_primary_expressions()? {
+                if let Some(body) = self.parse_line()? {
                     body
                 } else {
                     return syntax_error!(ExpectedFunctionBody, self);
@@ -272,26 +272,52 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if let Some(for_loop) = self.parse_for_loop(None)? {
-            Ok(Some(for_loop))
+        let result = if let Some(for_loop) = self.parse_for_loop(None)? {
+            for_loop
         } else if let Some(while_loop) = self.parse_while_loop(None)? {
-            Ok(Some(while_loop))
+            while_loop
         } else if let Some(until_loop) = self.parse_until_loop(None)? {
-            Ok(Some(until_loop))
+            until_loop
+        } else if let Some(export_id) = self.parse_export_id()? {
+            export_id
+        } else if let Some(debug_expression) = self.parse_debug_expression()? {
+            debug_expression
         } else {
-            if let Some(result) = self.parse_primary_expressions()? {
-                // parse_primary_expressions may have not consumed the line end, so consume it now
-                match self.skip_whitespace_and_peek() {
-                    Some(Token::NewLine) | Some(Token::NewLineIndented) => {
-                        self.consume_token();
-                    }
-                    _ => {}
+            match self.peek_token() {
+                Some(Token::Break) => {
+                    self.consume_token();
+                    self.push_node(Node::Break)?
                 }
-                Ok(Some(result))
-            } else {
-                return syntax_error!(ExpectedExpression, self);
+                Some(Token::Continue) => {
+                    self.consume_token();
+                    self.push_node(Node::Continue)?
+                }
+                Some(Token::Return) => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expressions()? {
+                        self.push_node(Node::ReturnExpression(expression))?
+                    } else {
+                        self.push_node(Node::Return)?
+                    }
+                }
+                _ => {
+                    if let Some(result) = self.parse_primary_expressions()? {
+                        result
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
             }
+        };
+
+        match self.skip_whitespace_and_peek() {
+            Some(Token::NewLine) | Some(Token::NewLineIndented) => {
+                self.consume_token();
+            }
+            _ => {}
         }
+
+        Ok(Some(result))
     }
 
     fn parse_primary_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -331,12 +357,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
                 id_expression
             } else {
-                if primary_expression {
-                    if let Some(export_id) = self.parse_export_id()? {
-                        return Ok(Some(export_id));
-                    }
-                }
-
                 let term = self.parse_term(primary_expression)?;
 
                 match self.peek_token() {
@@ -671,6 +691,58 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_debug_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.peek_token() != Some(Token::Debug) {
+            return Ok(None);
+        }
+
+        self.consume_token();
+
+        let start_extras = self.lexer.extras();
+        let start_position = make_start_position(
+            self.lexer.source(),
+            start_extras.line_number,
+            start_extras.line_start,
+            &self.lexer.span(),
+        );
+
+        self.skip_whitespace_and_peek();
+
+        let expression_start_span = self.lexer.next_span();
+        let expression = if let Some(expression) = self.parse_primary_expressions()? {
+            expression
+        } else {
+            return syntax_error!(ExpectedExpression, self);
+        };
+
+        let end_extras = self.lexer.extras();
+        let end_span = self.lexer.span();
+        let end_position = make_end_position(
+            self.lexer.source(),
+            end_extras.line_number,
+            end_extras.line_start,
+            &end_span,
+        );
+
+        let expression_string = self
+            .constants
+            .add_string(&self.lexer.source()[expression_start_span.start..end_span.end])
+            as u32;
+
+        let result = self.ast.push(
+            Node::Debug {
+                expression_string,
+                expression,
+            },
+            Span {
+                start: start_position,
+                end: end_position,
+            },
+        )?;
+
+        Ok(Some(result))
+    }
+
     fn parse_term(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
@@ -775,6 +847,22 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 }
                 Token::If => return self.parse_if_expression(),
                 Token::Function => return self.parse_function(primary_expression),
+                Token::Copy => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::CopyExpression(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Not => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::Negate(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
                 Token::NewLineIndented => return self.parse_map_block(current_indent),
                 _ => return Ok(None),
             };
@@ -2348,6 +2436,67 @@ x.bar().baz = 1";
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                 ]),
+            )
+        }
+    }
+
+    mod keywords {
+        use super::*;
+
+        #[test]
+        fn flow() {
+            let source = "\
+break
+continue
+return
+return 1";
+            check_ast(
+                source,
+                &[
+                    Break,
+                    Continue,
+                    Return,
+                    Number1,
+                    ReturnExpression(3),
+                    MainBlock {
+                        body: vec![0, 1, 2, 4],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn expressions() {
+            let source = "\
+copy x
+not true
+debug x + x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    CopyExpression(0),
+                    BoolTrue,
+                    Negate(2),
+                    Id(0),
+                    Id(0), // 5
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    Debug {
+                        expression_string: 1,
+                        expression: 6,
+                    },
+                    MainBlock {
+                        body: vec![1, 3, 7],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("x + x")]),
             )
         }
     }
