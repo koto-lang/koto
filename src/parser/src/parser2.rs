@@ -325,7 +325,26 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             let mut expressions = vec![first];
             while let Some(Token::Separator) = self.skip_whitespace_and_peek() {
                 self.consume_token();
-                if let Some(next_expression) = self.parse_primary_expression()? {
+                if let Some(next_expression) =
+                    self.parse_primary_expression_with_lhs(Some(&expressions))?
+                {
+                    match self.ast.node(next_expression).node {
+                        Node::Assign { .. }
+                        | Node::MultiAssign { .. }
+                        | Node::For(_)
+                        | Node::While { .. }
+                        | Node::Until { .. } => {
+                            // These nodes will have consumed the expressions parsed expressions,
+                            // so there's no further work to do.
+                            // e.g.
+                            //   x, y for x, y in a, b
+                            //   a, b = c, d
+                            //   a, b, c = x
+                            return Ok(Some(next_expression));
+                        }
+                        _ => {}
+                    }
+
                     expressions.push(next_expression);
                 } else {
                     return syntax_error!(ExpectedExpression, self);
@@ -341,18 +360,29 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_primary_expression_with_lhs(
+        &mut self,
+        lhs: Option<&[AstIndex]>,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        self.parse_expression_start(lhs, 0)
+    }
+
     fn parse_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression(0)
+        self.parse_expression_start(None, 0)
     }
 
     fn parse_non_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression(1)
+        self.parse_expression_start(None, 1)
     }
 
-    fn parse_expression(&mut self, min_precedence: u8) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_expression_start(
+        &mut self,
+        lhs: Option<&[AstIndex]>,
+        min_precedence: u8,
+    ) -> Result<Option<AstIndex>, ParserError> {
         let primary_expression = min_precedence == 0;
 
-        let lhs = {
+        let expression_start = {
             // ID expressions are broken out to allow function calls in first position
             if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
                 id_expression
@@ -371,20 +401,32 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
         };
 
-        self.parse_expression_with_lhs(lhs, min_precedence)
+        if let Some(lhs) = lhs {
+            let mut lhs_with_expression_start = lhs.to_vec();
+            lhs_with_expression_start.push(expression_start);
+            self.parse_expression_continued(&lhs_with_expression_start, min_precedence)
+        } else {
+            self.parse_expression_continued(&[expression_start], min_precedence)
+        }
     }
 
-    fn parse_expression_with_lhs(
+    fn parse_expression_continued(
         &mut self,
-        mut lhs: AstIndex,
+        lhs: &[AstIndex],
         min_precedence: u8,
     ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        while let Some(next) = self.skip_whitespace_and_peek() {
+        let last_lhs = match lhs {
+            [last] => *last,
+            [.., last] => *last,
+            _ => return internal_error!(MissingContinuedExpressionLhs, self),
+        };
+
+        if let Some(next) = self.skip_whitespace_and_peek() {
             match next {
                 NewLine | NewLineIndented => {
-                    break;
+                    return Ok(Some(last_lhs));
                 }
                 For => {
                     return self.parse_for_loop(Some(lhs));
@@ -395,75 +437,116 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Until => {
                     return self.parse_until_loop(Some(lhs));
                 }
-                Assign => match self.ast.node(lhs).node.clone() {
-                    Node::Id(id_index) => {
-                        self.consume_token();
+                Assign => {
+                    self.consume_token();
+
+                    if lhs.len() == 1 {
+                        let lhs = *lhs.first().unwrap();
+                        match self.ast.node(lhs).node.clone() {
+                            Node::Id(id_index) => {
+                                if let Some(rhs) = self.parse_primary_expressions()? {
+                                    let node = Node::Assign {
+                                        target: AssignTarget {
+                                            target_index: lhs,
+                                            scope: Scope::Local,
+                                        },
+                                        expression: rhs,
+                                    };
+                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+
+                                    return Ok(Some(self.push_node(node)?));
+                                } else {
+                                    return syntax_error!(ExpectedRhsExpression, self);
+                                }
+                            }
+                            Node::Lookup(lookup) => {
+                                let id_index = match lookup.as_slice() {
+                                    &[LookupNode::Id(id_index), ..] => id_index,
+                                    _ => return internal_error!(MissingLookupId, self),
+                                };
+
+                                if let Some(rhs) = self.parse_primary_expressions()? {
+                                    let node = Node::Assign {
+                                        target: AssignTarget {
+                                            target_index: lhs,
+                                            scope: Scope::Local,
+                                        },
+                                        expression: rhs,
+                                    };
+                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                                    return Ok(Some(self.push_node(node)?));
+                                } else {
+                                    return syntax_error!(ExpectedRhsExpression, self);
+                                }
+                            }
+                            _ => {
+                                return syntax_error!(ExpectedAssignmentTarget, self);
+                            }
+                        }
+                    } else {
+                        let mut targets = Vec::new();
+
+                        for lhs_expression in lhs.iter() {
+                            match self.ast.node(*lhs_expression).node.clone() {
+                                Node::Id(id_index) => {
+                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                                }
+                                Node::Lookup(lookup) => {
+                                    let id_index = match lookup.as_slice() {
+                                        &[LookupNode::Id(id_index), ..] => id_index,
+                                        _ => return internal_error!(MissingLookupId, self),
+                                    };
+                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                                }
+                                _ => return syntax_error!(ExpectedAssignmentTarget, self),
+                            }
+
+                            targets.push(AssignTarget {
+                                target_index: *lhs_expression,
+                                scope: Scope::Local,
+                            });
+                        }
+
+                        if targets.is_empty() {
+                            return internal_error!(MissingAssignmentTarget, self);
+                        }
 
                         if let Some(rhs) = self.parse_primary_expressions()? {
-                            let node = Node::Assign {
-                                target: AssignTarget {
-                                    target_index: lhs,
-                                    scope: Scope::Local, // TODO
-                                },
-                                expression: rhs,
+                            let node = Node::MultiAssign {
+                                targets,
+                                expressions: rhs,
                             };
-                            self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-
-                            lhs = self.push_node(node)?;
+                            return Ok(Some(self.push_node(node)?));
                         } else {
                             return syntax_error!(ExpectedRhsExpression, self);
                         }
                     }
-                    Node::Lookup(lookup) => {
-                        self.consume_token();
-
-                        let id_index = match lookup.as_slice() {
-                            &[LookupNode::Id(id_index), ..] => id_index,
-                            _ => return internal_error!(MissingLookupId, self),
-                        };
-
-                        if let Some(rhs) = self.parse_primary_expressions()? {
-                            let node = Node::Assign {
-                                target: AssignTarget {
-                                    target_index: lhs,
-                                    scope: Scope::Local,
-                                },
-                                expression: rhs,
-                            };
-                            self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                            lhs = self.push_node(node)?;
-                        } else {
-                            return syntax_error!(ExpectedRhsExpression, self);
-                        }
-                    }
-                    _ => {
-                        return syntax_error!(ExpectedAssignmentTarget, self);
-                    }
-                },
+                }
                 AssignAdd | AssignSubtract | AssignMultiply | AssignDivide | AssignModulo => {
                     unimplemented!("Unimplemented assignment operator")
                 }
                 _ => {
                     if let Some(priority) = operator_precedence(next) {
                         if priority < min_precedence {
-                            break;
+                            return Ok(Some(last_lhs));
                         }
 
                         let op = self.consume_token().unwrap();
 
-                        if let Some(rhs) = self.parse_expression(priority)? {
-                            lhs = self.push_ast_op(op, lhs, rhs)?;
+                        if let Some(rhs) = self.parse_expression_start(None, priority)? {
+                            let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                            return self.parse_expression_continued(&[op_node], min_precedence);
                         } else {
                             return syntax_error!(ExpectedRhsExpression, self);
                         }
                     } else {
-                        break;
+                        return Ok(Some(last_lhs));
                     }
                 }
             }
+        } else {
+            return Ok(Some(last_lhs));
         }
-
-        Ok(Some(lhs))
     }
 
     fn parse_id(&mut self) -> Option<ConstantIndex> {
@@ -914,7 +997,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(Some(self.ast.push(Node::Map(entries), Span::default())?))
     }
 
-    fn parse_for_loop(&mut self, body: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_for_loop(
+        &mut self,
+        body: Option<&[AstIndex]>,
+    ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::For) {
             return Ok(None);
         }
@@ -966,8 +1052,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             None
         };
 
-        let body = if let Some(body) = body {
-            body
+        let body = if let Some(expressions) = body {
+            if expressions.len() == 1 {
+                *expressions.first().unwrap()
+            } else {
+                self.push_node(Node::Expressions(expressions.to_vec()))?
+            }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
         } else {
@@ -986,7 +1076,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_while_loop(
         &mut self,
-        body: Option<AstIndex>,
+        body: Option<&[AstIndex]>,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::While) {
             return Ok(None);
@@ -1001,8 +1091,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return syntax_error!(ExpectedWhileCondition, self);
         };
 
-        let body = if let Some(body) = body {
-            body
+        let body = if let Some(expressions) = body {
+            if expressions.len() == 1 {
+                *expressions.first().unwrap()
+            } else {
+                self.push_node(Node::Expressions(expressions.to_vec()))?
+            }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
         } else {
@@ -1015,7 +1109,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_until_loop(
         &mut self,
-        body: Option<AstIndex>,
+        body: Option<&[AstIndex]>,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::Until) {
             return Ok(None);
@@ -1030,8 +1124,12 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return syntax_error!(ExpectedUntilCondition, self);
         };
 
-        let body = if let Some(body) = body {
-            body
+        let body = if let Some(expressions) = body {
+            if expressions.len() == 1 {
+                *expressions.first().unwrap()
+            } else {
+                self.push_node(Node::Expressions(expressions.to_vec()))?
+            }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
         } else {
@@ -1598,6 +1696,40 @@ x";
                 Some(&[Constant::Str("x")]),
             )
         }
+
+        #[test]
+        fn multi_2_to_2() {
+            let source = "x, y[0] = 1, 0";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Lookup(vec![LookupNode::Id(1), LookupNode::Index(1)]),
+                    Number1,
+                    Number0,
+                    Expressions(vec![3, 4]),
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 2,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
     }
 
     mod arithmetic {
@@ -1871,6 +2003,37 @@ a";
                     },
                 ],
                 Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn for_inline_multi() {
+            let source = "x, y for x, y in a, b";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Id(3),
+                    Expressions(vec![0, 1]),
+                    For(AstFor {
+                        args: vec![0, 1],
+                        ranges: vec![2, 3],
+                        condition: None,
+                        body: 4,
+                    }), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("a"),
+                    Constant::Str("b"),
+                ]),
             )
         }
 
