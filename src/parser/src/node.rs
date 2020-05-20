@@ -51,7 +51,7 @@ pub enum Node {
     },
     MultiAssign {
         targets: Vec<AssignTarget>,
-        expressions: Vec<AstIndex>,
+        expressions: AstIndex,
     },
     Op {
         // TODO rename -> BinaryOp

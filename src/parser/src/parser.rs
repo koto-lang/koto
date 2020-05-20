@@ -678,6 +678,10 @@ impl KotoParser {
                     local_ids.add_assign_target_to_ids_assigned_in_scope(*id_index);
                 }
 
+                let expressions = ast
+                    .borrow_mut()
+                    .push(Node::Expressions(expressions), span.clone().into())?;
+
                 ast.borrow_mut().push(
                     Node::MultiAssign {
                         targets: targets

@@ -575,9 +575,14 @@ impl Compiler {
             Node::MultiAssign {
                 targets,
                 expressions,
-            } => {
-                self.compile_multi_assign(result_register, targets, expressions, ast)?;
-            }
+            } => match &ast.node(*expressions).node {
+                Node::Expressions(expressions) => {
+                    self.compile_multi_assign(result_register, targets, &expressions, ast)?;
+                }
+                _ => {
+                    self.compile_multi_assign(result_register, targets, &[*expressions], ast)?;
+                }
+            },
             Node::Op { op, lhs, rhs } => {
                 let op = match op {
                     AstOp::Add => Add,
