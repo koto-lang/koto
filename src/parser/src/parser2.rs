@@ -904,6 +904,32 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
                     self.push_node(Map(entries))?
                 }
+                Token::Num2 => {
+                    self.consume_token();
+                    let mut entries = Vec::new();
+                    while let Some(entry) = self.parse_term(false)? {
+                        entries.push(entry);
+                    }
+                    if entries.len() < 1 {
+                        return syntax_error!(ExpectedExpression, self);
+                    } else if entries.len() > 2 {
+                        return syntax_error!(TooManyNum2Terms, self);
+                    }
+                    self.push_node(Num2(entries))?
+                }
+                Token::Num4 => {
+                    self.consume_token();
+                    let mut entries = Vec::new();
+                    while let Some(entry) = self.parse_term(false)? {
+                        entries.push(entry);
+                    }
+                    if entries.len() < 1 {
+                        return syntax_error!(ExpectedExpression, self);
+                    } else if entries.len() > 4 {
+                        return syntax_error!(TooManyNum4Terms, self);
+                    }
+                    self.push_node(Num4(entries))?
+                }
                 Token::If => return self.parse_if_expression(),
                 Token::Function => return self.parse_function(primary_expression),
                 Token::Copy => {
@@ -1576,6 +1602,56 @@ x";
                     },
                 ],
                 None,
+            )
+        }
+
+        #[test]
+        fn num2() {
+            let source = "\
+num2 0
+num2 1 x";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Num2(vec![0]),
+                    Number1,
+                    Id(0),
+                    Num2(vec![2, 3]),
+                    MainBlock {
+                        body: vec![1, 4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn num4() {
+            let source = "\
+num4 0
+num4 1 x
+num4 x 0 1 x";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Num4(vec![0]),
+                    Number1,
+                    Id(0),
+                    Num4(vec![2, 3]),
+                    Id(0), // 5
+                    Number0,
+                    Number1,
+                    Id(0),
+                    Num4(vec![5, 6, 7, 8]),
+                    MainBlock {
+                        body: vec![1, 4, 9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
 

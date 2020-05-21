@@ -49,6 +49,8 @@ pub enum SyntaxError {
     ExpectedUntilBody,
     ExpectedExportExpression,
     UnexpectedTokenAfterExportId,
+    TooManyNum2Terms,
+    TooManyNum4Terms,
 }
 
 #[derive(Debug)]
@@ -159,6 +161,8 @@ impl fmt::Display for SyntaxError {
             ExpectedUntilBody => f.write_str("Expected indented block in until loop"),
             ExpectedExportExpression => f.write_str("Expected id to export"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export id"),
+            TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
+            TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
         }
     }
 }
