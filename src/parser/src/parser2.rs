@@ -423,92 +423,91 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             _ => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        if let Some(next) = self.skip_whitespace_and_peek() {
-            match next {
-                NewLine | NewLineIndented => {
-                    return Ok(Some(last_lhs));
-                }
-                For => {
-                    return self.parse_for_loop(Some(lhs));
-                }
-                While => {
-                    return self.parse_while_loop(Some(lhs));
-                }
-                Until => {
-                    return self.parse_until_loop(Some(lhs));
-                }
-                Assign => {
-                    self.consume_token();
-
-                    let mut targets = Vec::new();
-
-                    for lhs_expression in lhs.iter() {
-                        match self.ast.node(*lhs_expression).node.clone() {
-                            Node::Id(id_index) => {
-                                self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                            }
-                            Node::Lookup(lookup) => {
-                                let id_index = match lookup.as_slice() {
-                                    &[LookupNode::Id(id_index), ..] => id_index,
-                                    _ => return internal_error!(MissingLookupId, self),
-                                };
-                                self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                            }
-                            _ => return syntax_error!(ExpectedAssignmentTarget, self),
-                        }
-
-                        targets.push(AssignTarget {
-                            target_index: *lhs_expression,
-                            scope: Scope::Local,
-                        });
-                    }
-
-                    if targets.is_empty() {
-                        return internal_error!(MissingAssignmentTarget, self);
-                    }
-
-                    if let Some(rhs) = self.parse_primary_expressions()? {
-                        let node = if targets.len() == 1 {
-                            Node::Assign {
-                                target: *targets.first().unwrap(),
-                                op: AssignOp::Equal,
-                                expression: rhs,
-                            }
-                        } else {
-                            Node::MultiAssign {
-                                targets,
-                                expressions: rhs,
-                            }
-                        };
-                        return Ok(Some(self.push_node(node)?));
-                    } else {
-                        return syntax_error!(ExpectedRhsExpression, self);
-                    }
-                }
-                AssignAdd | AssignSubtract | AssignMultiply | AssignDivide | AssignModulo => {
-                    unimplemented!("Unimplemented assignment operator")
-                }
+        match self.skip_whitespace_and_peek() {
+            Some(next) => match next {
+                NewLine | NewLineIndented => Ok(Some(last_lhs)),
+                For => self.parse_for_loop(Some(lhs)),
+                While => self.parse_while_loop(Some(lhs)),
+                Until => self.parse_until_loop(Some(lhs)),
+                Assign => self.parse_assign_expression(lhs, AssignOp::Equal),
+                AssignAdd => self.parse_assign_expression(lhs, AssignOp::Add),
+                AssignSubtract => self.parse_assign_expression(lhs, AssignOp::Subtract),
+                AssignMultiply => self.parse_assign_expression(lhs, AssignOp::Multiply),
+                AssignDivide => self.parse_assign_expression(lhs, AssignOp::Divide),
+                AssignModulo => self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some(priority) = operator_precedence(next) {
-                        if priority < min_precedence {
-                            return Ok(Some(last_lhs));
-                        }
+                        if priority >= min_precedence {
+                            let op = self.consume_token().unwrap();
 
-                        let op = self.consume_token().unwrap();
-
-                        if let Some(rhs) = self.parse_expression_start(None, priority)? {
-                            let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                            return self.parse_expression_continued(&[op_node], min_precedence);
+                            if let Some(rhs) = self.parse_expression_start(None, priority)? {
+                                let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                                self.parse_expression_continued(&[op_node], min_precedence)
+                            } else {
+                                syntax_error!(ExpectedRhsExpression, self)
+                            }
                         } else {
-                            return syntax_error!(ExpectedRhsExpression, self);
+                            Ok(Some(last_lhs))
                         }
                     } else {
-                        return Ok(Some(last_lhs));
+                        Ok(Some(last_lhs))
                     }
                 }
+            },
+            None => Ok(Some(last_lhs)),
+        }
+    }
+
+    fn parse_assign_expression(
+        &mut self,
+        lhs: &[AstIndex],
+        assign_op: AssignOp,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        self.consume_token();
+
+        let mut targets = Vec::new();
+
+        for lhs_expression in lhs.iter() {
+            match self.ast.node(*lhs_expression).node.clone() {
+                Node::Id(id_index) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                }
+                Node::Lookup(lookup) => {
+                    let id_index = match lookup.as_slice() {
+                        &[LookupNode::Id(id_index), ..] => id_index,
+                        _ => return internal_error!(MissingLookupId, self),
+                    };
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                }
+                _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
+
+            targets.push(AssignTarget {
+                target_index: *lhs_expression,
+                scope: Scope::Local,
+            });
+        }
+
+        if targets.is_empty() {
+            return internal_error!(MissingAssignmentTarget, self);
+        }
+
+        if let Some(rhs) = self.parse_primary_expressions()? {
+            let node = if targets.len() == 1 {
+                Node::Assign {
+                    target: *targets.first().unwrap(),
+                    op: assign_op,
+                    expression: rhs,
+                }
+            } else {
+                Node::MultiAssign {
+                    targets,
+                    expressions: rhs,
+                }
+            };
+            return Ok(Some(self.push_node(node)?));
         } else {
-            return Ok(Some(last_lhs));
+            return syntax_error!(ExpectedRhsExpression, self);
         }
     }
 
@@ -1696,6 +1695,81 @@ x";
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn modify_assign() {
+            let source = "\
+x += 0
+x -= 1
+x *= 2
+x /= 3
+x %= 4";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Add,
+                        expression: 1,
+                    },
+                    Id(0),
+                    Number1,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 3,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Subtract,
+                        expression: 4,
+                    }, // 5
+                    Id(0),
+                    Number(1),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 6,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Multiply,
+                        expression: 7,
+                    },
+                    Id(0),
+                    Number(2), // 10
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 9,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Divide,
+                        expression: 10,
+                    },
+                    Id(0),
+                    Number(3),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 12,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Modulo,
+                        expression: 13,
+                    },
+                    MainBlock {
+                        body: vec![2, 5, 8, 11, 14],
+                        local_count: 1,
+                    }, // 15
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
+                    Constant::Number(4.0),
+                ]),
             )
         }
     }
