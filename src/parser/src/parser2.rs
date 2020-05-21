@@ -450,6 +450,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                             target_index: lhs,
                                             scope: Scope::Local,
                                         },
+                                        op: AssignOp::Equal,
                                         expression: rhs,
                                     };
                                     self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
@@ -471,6 +472,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                             target_index: lhs,
                                             scope: Scope::Local,
                                         },
+                                        op: AssignOp::Equal,
                                         expression: rhs,
                                     };
                                     self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
@@ -755,6 +757,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                     target_index: export_id,
                                     scope: Scope::Global,
                                 },
+                                op: AssignOp::Equal,
                                 expression: rhs,
                             };
 
@@ -1523,6 +1526,7 @@ x";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 5,
                     },
                     Id(0),
@@ -1630,6 +1634,7 @@ x";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 1,
                     },
                     MainBlock {
@@ -1660,6 +1665,7 @@ x";
                             target_index: 0,
                             scope: Scope::Global,
                         },
+                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {
@@ -1686,6 +1692,7 @@ x";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {
@@ -1961,6 +1968,7 @@ a";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 8,
                     },
                     Id(0),
@@ -2239,6 +2247,7 @@ until x < y
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     MainBlock {
@@ -2298,6 +2307,7 @@ f 42";
                             target_index: 1,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     Id(2), // y
@@ -2313,6 +2323,7 @@ f 42";
                             target_index: 4,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 7,
                     },
                     Id(2),                // y
@@ -2329,6 +2340,7 @@ f 42";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 11,
                     },
                     Id(0),
@@ -2377,6 +2389,7 @@ f 42";
                             target_index: 1,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     Id(2), // y // 5
@@ -2398,6 +2411,7 @@ f 42";
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 9,
                     }, // 10
                     Id(0), // f
@@ -2435,6 +2449,7 @@ f 42";
                             target_index: 1,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 2,
                     },
                     Function(Function {
@@ -2475,6 +2490,7 @@ x = 0
                             target_index: 0,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 1,
                     },
                     Id(0),
@@ -2484,6 +2500,7 @@ x = 0
                             target_index: 3,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 4,
                     }, // 5
                     Function(Function {
@@ -2525,6 +2542,7 @@ z[10..][0]";
                             target_index: 1,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     RangeFull, // 5
@@ -2586,6 +2604,7 @@ x.bar().baz = 1";
                             target_index: 2,
                             scope: Scope::Local,
                         },
+                        op: AssignOp::Equal,
                         expression: 3,
                     },
                     MainBlock {

@@ -569,7 +569,11 @@ impl Compiler {
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
-            Node::Assign { target, expression } => {
+            Node::Assign {
+                target,
+                op: _todo,
+                expression,
+            } => {
                 self.compile_assign(result_register, target, expression, ast)?;
             }
             Node::MultiAssign {

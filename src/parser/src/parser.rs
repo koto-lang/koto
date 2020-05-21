@@ -605,8 +605,14 @@ impl KotoParser {
                 local_ids.remove_assign_target_from_ids_being_assigned_in_scope(id_index);
                 local_ids.add_assign_target_to_ids_assigned_in_scope(id_index);
 
-                ast.borrow_mut()
-                    .push(Node::Assign { target, expression }, span.into())
+                ast.borrow_mut().push(
+                    Node::Assign {
+                        target,
+                        op: AssignOp::Equal,
+                        expression,
+                    },
+                    span.into(),
+                )
             }
             Rule::multiple_assignment => {
                 let mut inner = pair.into_inner();
@@ -982,6 +988,7 @@ impl KotoParser {
                                                 target_index,
                                                 scope: Scope::Local,
                                             },
+                                            op: AssignOp::Equal,
                                             expression: lhs_rhs.clone(),
                                         },
                                         *span,

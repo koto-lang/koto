@@ -47,6 +47,7 @@ pub enum Node {
     },
     Assign {
         target: AssignTarget,
+        op: AssignOp,
         expression: AstIndex,
     },
     MultiAssign {
@@ -170,6 +171,16 @@ pub enum AstOp {
     GreaterOrEqual,
     And,
     Or,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AssignOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    Equal,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
