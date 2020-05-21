@@ -1874,7 +1874,33 @@ x %= 4";
         }
 
         #[test]
-        fn logic() {
+        fn string_and_id() {
+            let source = "\"hello\" + x";
+            check_ast(
+                source,
+                &[
+                    Str(0),
+                    Id(1),
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("hello"), Constant::Str("x")]),
+            )
+        }
+    }
+
+    mod logic {
+        use super::*;
+
+        #[test]
+        fn and_or() {
             let source = "0 < 1 and 1 > 0 or true";
             check_ast(
                 source,
@@ -1914,24 +1940,30 @@ x %= 4";
         }
 
         #[test]
-        fn string_and_id() {
-            let source = "\"hello\" + x";
+        fn chained_comparisons() {
+            let source = "0 < 1 <= 1";
             check_ast(
                 source,
                 &[
-                    Str(0),
-                    Id(1),
+                    Number0,
+                    Number1,
+                    Number1,
                     Op {
-                        op: AstOp::Add,
+                        op: AstOp::LessOrEqual,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Op {
+                        op: AstOp::Less,
                         lhs: 0,
-                        rhs: 1,
+                        rhs: 3,
                     },
                     MainBlock {
-                        body: vec![2],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("hello"), Constant::Str("x")]),
+                None,
             )
         }
     }
