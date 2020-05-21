@@ -15,7 +15,7 @@ if x
 if x == false
   # This comment shouldn't break parsing
   assert false
-else if false
+elseif false
   assert false
 else
        # ...and neither should this one
@@ -29,7 +29,7 @@ if true
   fib = |n|
     if n <= 0
       0
-    else if n == 1
+    elseif n == 1
       1
     else
       (fib n - 1) + (fib n - 2)

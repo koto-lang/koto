@@ -33,7 +33,7 @@ saturn =
   vel:
     num4 (-2.76742510726862411e-03 * days_per_year) \
          (4.99852801234917238e-03 * days_per_year) \
-         2.30417297573763929e-05 * days_per_year
+         (2.30417297573763929e-05 * days_per_year)
   mass: 2.85885980666130812e-04 * solar_mass
 
 uranus =

@@ -1,9 +1,7 @@
 pub use koto_bytecode::{
     bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader,
 };
-pub use koto_parser::{
-    num4::Num4, Ast, Function, KotoParser as Parser, Position,
-};
+pub use koto_parser::{num4::Num4, Ast, Function, Parser2 as Parser, Position};
 use koto_runtime::Vm;
 pub use koto_runtime::{
     external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,
@@ -23,7 +21,6 @@ pub struct Options {
 pub struct Koto {
     script: String,
     script_path: Option<String>,
-    parser: Parser,
     compiler: Compiler,
     ast: Ast,
     runtime: Vm,
@@ -69,7 +66,7 @@ impl Koto {
                     message,
                     start_pos,
                     end_pos,
-                } => self.format_runtime_error(message, start_pos, end_pos),
+                } => self.format_error("Runtime", message, &self.script, start_pos, end_pos),
                 Error::VmRuntimeError {
                     message,
                     instruction,
@@ -90,16 +87,19 @@ impl Koto {
             export_all_top_level: self.options.export_all_at_top_level,
         };
 
-        match self
-            .parser
-            .parse(&script, self.runtime.constants_mut(), options)
-        {
+        match Parser::parse(&script, self.runtime.constants_mut(), options) {
             Ok(ast) => {
                 self.ast = ast;
                 self.runtime.constants_mut().shrink_to_fit();
             }
             Err(e) => {
-                return Err(format!("Error while parsing script: {}", e));
+                return Err(self.format_error(
+                    "Parser",
+                    &e.to_string(),
+                    script,
+                    &e.span.start,
+                    &e.span.end,
+                ));
             }
         }
 
@@ -217,7 +217,7 @@ impl Koto {
                     message,
                     start_pos,
                     end_pos,
-                } => self.format_runtime_error(&message, start_pos, end_pos),
+                } => self.format_error("Runtime", &message, &self.script, start_pos, end_pos),
                 Error::VmRuntimeError {
                     message,
                     instruction,
@@ -229,7 +229,9 @@ impl Koto {
 
     fn format_vm_error(&self, message: &str, instruction: usize) -> String {
         match self.compiler.debug_info().get_source_span(instruction) {
-            Some(span) => self.format_runtime_error(message, &span.start, &span.end),
+            Some(span) => {
+                self.format_error("Runtime", message, &self.script, &span.start, &span.end)
+            }
             None => format!(
                 "Runtime error at instruction {}: {}\n",
                 instruction, message
@@ -237,15 +239,16 @@ impl Koto {
         }
     }
 
-    fn format_runtime_error(
+    fn format_error(
         &self,
+        error_type: &str,
         message: &str,
+        script: &str,
         start_pos: &Position,
         end_pos: &Position,
     ) -> String {
         let (excerpt, padding) = {
-            let excerpt_lines = self
-                .script
+            let excerpt_lines = script
                 .lines()
                 .skip((start_pos.line - 1) as usize)
                 .take((end_pos.line - start_pos.line + 1) as usize)
@@ -295,7 +298,8 @@ impl Koto {
         };
 
         format!(
-            "Runtime error: {message}\n --> {}:{}\n{padding}|\n{excerpt}",
+            "{} error: {message}\n --> {}:{}\n{padding}|\n{excerpt}",
+            error_type,
             start_pos.line,
             start_pos.column,
             padding = padding,

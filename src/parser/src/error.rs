@@ -96,8 +96,8 @@ impl fmt::Display for ParserError {
         use ErrorType::*;
 
         match &self.error {
-            InternalError(error) => write!(f, "Internal error {}: {}", self.span.start, error),
-            SyntaxError(error) => write!(f, "Syntax error {}: {}", self.span.start, error),
+            InternalError(error) => write!(f, "Internal error: {}", error),
+            SyntaxError(error) => write!(f, "Syntax error: {}", error),
 
             PestSyntaxError(error) => f.write_str(&error),
             OldParserError(error) => f.write_str(&error),

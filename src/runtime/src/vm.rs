@@ -1454,15 +1454,14 @@ mod tests {
     use super::*;
     use crate::{external_error, Value::*, ValueHashMap};
     use koto_bytecode::{bytecode_to_string_annotated, Compiler};
-    use koto_parser::KotoParser;
+    use koto_parser::{Options as ParserOptions, Parser2};
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
 
-        let mut parser = KotoParser::new();
         let mut compiler = Compiler::new();
 
-        let ast = match parser.parse(&script, vm.constants_mut(), koto_parser::Options::default()) {
+        let ast = match Parser2::parse(&script, vm.constants_mut(), ParserOptions::default()) {
             Ok(ast) => ast,
             Err(e) => panic!(format!(
                 "\n{}\n\n Error while parsing script: {}",
@@ -1473,7 +1472,10 @@ mod tests {
             Ok((bytecode, _debug_info)) => {
                 vm.set_bytecode(bytecode);
             }
-            Err(e) => panic!(format!("Error while compiling bytecode: {}", e)),
+            Err(e) => panic!(format!(
+                "\n{}\n\n Error while compiling bytecode: {}",
+                script, e
+            )),
         };
 
         vm.global.add_value("test_global", Number(42.0));
@@ -1884,7 +1886,7 @@ x
             let script = "
 x = if 5 > 4
   42
-else if 1 < 2
+elseif 1 < 2
   -1
 else
   99
@@ -1897,7 +1899,7 @@ x";
             let script = "
 x = if 5 < 4
   42
-else if 1 < 2
+elseif 1 < 2
   -1
 else
   99
@@ -1910,7 +1912,7 @@ x";
             let script = "
 x = if 5 < 4
   42
-else if 2 < 1
+elseif 2 < 1
   -1
 else
   99
@@ -1923,11 +1925,11 @@ x";
             let script = "
 x = if false
   42
-else if false
+elseif false
   -1
-else if false
+elseif false
   99
-else if true
+elseif true
   100
 else
   0
@@ -2020,7 +2022,7 @@ f 4
 fib = |n|
   if n <= 0
     0
-  else if n == 1
+  elseif n == 1
     1
   else
     (fib n - 1) + (fib n - 2)

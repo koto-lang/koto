@@ -5,7 +5,7 @@ assert_eq o o2
 
 sum = 0
 for i in o.min..o.max()
-  sum = sum + i
+  sum += i
 assert_eq sum 861
 
 m =
