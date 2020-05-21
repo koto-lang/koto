@@ -155,7 +155,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         });
 
         let mut body = Vec::new();
-        while self.peek_token().is_some() {
+        while self.skip_empty_lines_and_peek().is_some() {
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
             }
@@ -1406,7 +1406,7 @@ mod tests {
 
         #[test]
         fn literals() {
-            let source = "\
+            let source = "
 true
 false
 1
