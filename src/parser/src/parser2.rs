@@ -195,7 +195,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         // args
         let mut args = Vec::new();
-        while let Some(constant_index) = self.parse_id() {
+        while let Some(constant_index) = self.parse_id(true) {
             args.push(constant_index);
         }
 
@@ -524,12 +524,17 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
-    fn parse_id(&mut self) -> Option<ConstantIndex> {
-        if let Some(Token::Id) = self.skip_whitespace_and_peek() {
-            self.consume_token();
-            Some(self.constants.add_string(self.lexer.slice()) as u32)
-        } else {
-            None
+    fn parse_id(&mut self, allow_placeholders: bool) -> Option<ConstantIndex> {
+        match self.skip_whitespace_and_peek() {
+            Some(Token::Id) => {
+                self.consume_token();
+                Some(self.constants.add_string(self.lexer.slice()) as u32)
+            }
+            Some(Token::Placeholder) if allow_placeholders => {
+                self.consume_token();
+                Some(self.constants.add_string(self.lexer.slice()) as u32)
+            }
+            _ => None,
         }
     }
 
@@ -537,7 +542,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         &mut self,
         primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if let Some(constant_index) = self.parse_id() {
+        if let Some(constant_index) = self.parse_id(primary_expression) {
             self.frame_mut()?.add_id_to_captures(constant_index);
 
             let result = match self.peek_token() {
@@ -673,7 +678,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Dot) => {
                     self.consume_token();
 
-                    if let Some(id_index) = self.parse_id() {
+                    if let Some(id_index) = self.parse_id(false) {
                         lookup.push(LookupNode::Id(id_index));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
@@ -717,7 +722,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         if self.skip_whitespace_and_peek() == Some(Token::Export) {
             self.consume_token();
 
-            if let Some(constant_index) = self.parse_id() {
+            if let Some(constant_index) = self.parse_id(false) {
                 let export_id = self.push_node(Node::Id(constant_index))?;
 
                 match self.skip_whitespace_and_peek() {
@@ -878,7 +883,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     let mut entries = Vec::new();
 
                     loop {
-                        if let Some(key) = self.parse_id() {
+                        if let Some(key) = self.parse_id(false) {
                             if self.skip_whitespace_and_next() != Some(Token::Colon) {
                                 return syntax_error!(ExpectedMapSeparator, self);
                             }
@@ -975,7 +980,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let mut entries = Vec::new();
 
-        while let Some(key) = self.parse_id() {
+        while let Some(key) = self.parse_id(false) {
             if self.skip_whitespace_and_next() != Some(Colon) {
                 return syntax_error!(ExpectedMapSeparator, self);
             }
@@ -1012,7 +1017,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         self.consume_token();
 
         let mut args = Vec::new();
-        while let Some(constant_index) = self.parse_id() {
+        while let Some(constant_index) = self.parse_id(true) {
             args.push(constant_index);
             self.frame_mut()?
                 .ids_assigned_in_scope
@@ -1821,6 +1826,47 @@ num4 x 0 1 x";
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn multi_1_to_3_with_placeholder() {
+            let source = "x, _, y = f()";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Lookup(vec![LookupNode::Id(3), LookupNode::Call(vec![])]),
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 1,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 2,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("_"),
+                    Constant::Str("y"),
+                    Constant::Str("f"),
+                ]),
             )
         }
 
