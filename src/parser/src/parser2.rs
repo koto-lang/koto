@@ -72,7 +72,7 @@ struct Frame {
     // which haven't yet been assigned in the current scope,
     // but are available in the parent scope.
     captures: HashSet<ConstantIndex>,
-    _top_level: bool,
+    top_level: bool,
 }
 
 impl Frame {
@@ -104,12 +104,14 @@ pub struct Parser<'source, 'constants> {
     lexer: Lexer<'source>,
     constants: &'constants mut ConstantPool,
     frame_stack: Vec<Frame>,
+    options: Options,
 }
 
 impl<'source, 'constants> Parser<'source, 'constants> {
     pub fn parse(
         source: &'source str,
         constants: &'constants mut ConstantPool,
+        options: Options,
     ) -> Result<Ast, ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
@@ -117,6 +119,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             lexer: Lexer::new(source),
             constants,
             frame_stack: Vec::new(),
+            options,
         };
 
         let main_block = parser.parse_main_block()?;
@@ -147,7 +150,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_main_block(&mut self) -> Result<AstIndex, ParserError> {
         self.frame_stack.push(Frame {
-            _top_level: true,
+            top_level: true,
             ..Frame::default()
         });
 
@@ -467,24 +470,34 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let mut targets = Vec::new();
 
+        let scope = if self.options.export_all_top_level && self.frame()?.top_level {
+            Scope::Global
+        } else {
+            Scope::Local
+        };
+
         for lhs_expression in lhs.iter() {
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    if matches!(scope, Scope::Local) {
+                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    }
                 }
                 Node::Lookup(lookup) => {
-                    let id_index = match lookup.as_slice() {
-                        &[LookupNode::Id(id_index), ..] => id_index,
-                        _ => return internal_error!(MissingLookupId, self),
-                    };
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    if matches!(scope, Scope::Local) {
+                        let id_index = match lookup.as_slice() {
+                            &[LookupNode::Id(id_index), ..] => id_index,
+                            _ => return internal_error!(MissingLookupId, self),
+                        };
+                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    }
                 }
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
 
             targets.push(AssignTarget {
                 target_index: *lhs_expression,
-                scope: Scope::Local,
+                scope,
             });
         }
 
@@ -1346,10 +1359,19 @@ mod tests {
     use {crate::constant_pool::Constant, Node::*};
 
     fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
+        check_ast_with_options(source, expected_ast, expected_constants, Options::default());
+    }
+
+    fn check_ast_with_options(
+        source: &str,
+        expected_ast: &[Node],
+        expected_constants: Option<&[Constant]>,
+        options: Options,
+    ) {
         println!("{}", source);
 
         let mut constants = ConstantPool::default();
-        match Parser::parse(source, &mut constants) {
+        match Parser::parse(source, &mut constants, options) {
             Ok(ast) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
@@ -1603,6 +1625,34 @@ x";
                     },
                 ],
                 Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn single_with_export_top_level_option() {
+            let source = "a = 1";
+            check_ast_with_options(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Global,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+                crate::Options {
+                    export_all_top_level: true,
+                },
             )
         }
 

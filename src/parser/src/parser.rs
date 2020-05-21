@@ -1,5 +1,6 @@
 use crate::{
     error::*, node::*, prec_climber::PrecClimber, Ast, AstIndex, AstNode, ConstantPool, LookupNode,
+    Options,
 };
 use pest::Parser;
 use std::{cell::RefCell, collections::HashSet, convert::TryFrom, iter::FromIterator};
@@ -81,11 +82,6 @@ impl LocalIds {
             self.captures.insert(id);
         }
     }
-}
-
-#[derive(Default)]
-pub struct Options {
-    pub export_all_top_level: bool,
 }
 
 pub struct KotoParser {

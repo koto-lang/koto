@@ -16,3 +16,8 @@ pub use error::ParserError;
 pub use node::*;
 pub use parser::*;
 pub use parser2::Parser as Parser2;
+
+#[derive(Default)]
+pub struct Options {
+    pub export_all_top_level: bool,
+}
