@@ -440,88 +440,49 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Assign => {
                     self.consume_token();
 
-                    if lhs.len() == 1 {
-                        let lhs = *lhs.first().unwrap();
-                        match self.ast.node(lhs).node.clone() {
-                            Node::Id(id_index) => {
-                                if let Some(rhs) = self.parse_primary_expressions()? {
-                                    let node = Node::Assign {
-                                        target: AssignTarget {
-                                            target_index: lhs,
-                                            scope: Scope::Local,
-                                        },
-                                        op: AssignOp::Equal,
-                                        expression: rhs,
-                                    };
-                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    let mut targets = Vec::new();
 
-                                    return Ok(Some(self.push_node(node)?));
-                                } else {
-                                    return syntax_error!(ExpectedRhsExpression, self);
-                                }
+                    for lhs_expression in lhs.iter() {
+                        match self.ast.node(*lhs_expression).node.clone() {
+                            Node::Id(id_index) => {
+                                self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
                             }
                             Node::Lookup(lookup) => {
                                 let id_index = match lookup.as_slice() {
                                     &[LookupNode::Id(id_index), ..] => id_index,
                                     _ => return internal_error!(MissingLookupId, self),
                                 };
-
-                                if let Some(rhs) = self.parse_primary_expressions()? {
-                                    let node = Node::Assign {
-                                        target: AssignTarget {
-                                            target_index: lhs,
-                                            scope: Scope::Local,
-                                        },
-                                        op: AssignOp::Equal,
-                                        expression: rhs,
-                                    };
-                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                                    return Ok(Some(self.push_node(node)?));
-                                } else {
-                                    return syntax_error!(ExpectedRhsExpression, self);
-                                }
+                                self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
                             }
-                            _ => {
-                                return syntax_error!(ExpectedAssignmentTarget, self);
-                            }
-                        }
-                    } else {
-                        let mut targets = Vec::new();
-
-                        for lhs_expression in lhs.iter() {
-                            match self.ast.node(*lhs_expression).node.clone() {
-                                Node::Id(id_index) => {
-                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                                }
-                                Node::Lookup(lookup) => {
-                                    let id_index = match lookup.as_slice() {
-                                        &[LookupNode::Id(id_index), ..] => id_index,
-                                        _ => return internal_error!(MissingLookupId, self),
-                                    };
-                                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                                }
-                                _ => return syntax_error!(ExpectedAssignmentTarget, self),
-                            }
-
-                            targets.push(AssignTarget {
-                                target_index: *lhs_expression,
-                                scope: Scope::Local,
-                            });
+                            _ => return syntax_error!(ExpectedAssignmentTarget, self),
                         }
 
-                        if targets.is_empty() {
-                            return internal_error!(MissingAssignmentTarget, self);
-                        }
+                        targets.push(AssignTarget {
+                            target_index: *lhs_expression,
+                            scope: Scope::Local,
+                        });
+                    }
 
-                        if let Some(rhs) = self.parse_primary_expressions()? {
-                            let node = Node::MultiAssign {
+                    if targets.is_empty() {
+                        return internal_error!(MissingAssignmentTarget, self);
+                    }
+
+                    if let Some(rhs) = self.parse_primary_expressions()? {
+                        let node = if targets.len() == 1 {
+                            Node::Assign {
+                                target: *targets.first().unwrap(),
+                                op: AssignOp::Equal,
+                                expression: rhs,
+                            }
+                        } else {
+                            Node::MultiAssign {
                                 targets,
                                 expressions: rhs,
-                            };
-                            return Ok(Some(self.push_node(node)?));
-                        } else {
-                            return syntax_error!(ExpectedRhsExpression, self);
-                        }
+                            }
+                        };
+                        return Ok(Some(self.push_node(node)?));
+                    } else {
+                        return syntax_error!(ExpectedRhsExpression, self);
                     }
                 }
                 AssignAdd | AssignSubtract | AssignMultiply | AssignDivide | AssignModulo => {
