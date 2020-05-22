@@ -166,7 +166,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 body,
                 local_count: self.frame()?.local_count(),
             },
-            Span::default(),
+            Span::default(), // TODO is there something better to do here? first->last position?
         )?;
 
         self.frame_stack.pop();

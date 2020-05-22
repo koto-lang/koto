@@ -1,8 +1,8 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{
-    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex, LookupNode, Node,
-    Scope, Span,
+    AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
+    LookupNode, Node, Scope, Span,
 };
 use smallvec::SmallVec;
 use std::convert::TryFrom;
@@ -528,14 +528,8 @@ impl Compiler {
                             )?;
                         }
                         _ => {
-                            self.compile_frame(
-                                local_count,
-                                &[f.body],
-                                &f.args,
-                                &f.captures,
-                                ast,
-                            )?;
-                        },
+                            self.compile_frame(local_count, &[f.body], &f.args, &f.captures, ast)?;
+                        }
                     };
 
                     self.update_offset_placeholder(function_size_ip);
@@ -579,10 +573,10 @@ impl Compiler {
             }
             Node::Assign {
                 target,
-                op: _todo,
+                op,
                 expression,
             } => {
-                self.compile_assign(result_register, target, expression, ast)?;
+                self.compile_assign(result_register, target, *op, *expression, ast)?;
             }
             Node::MultiAssign {
                 targets,
@@ -596,68 +590,7 @@ impl Compiler {
                 }
             },
             Node::Op { op, lhs, rhs } => {
-                let op = match op {
-                    AstOp::Add => Add,
-                    AstOp::Subtract => Subtract,
-                    AstOp::Multiply => Multiply,
-                    AstOp::Divide => Divide,
-                    AstOp::Modulo => Modulo,
-                    AstOp::Less => Less,
-                    AstOp::LessOrEqual => LessOrEqual,
-                    AstOp::Greater => Greater,
-                    AstOp::GreaterOrEqual => GreaterOrEqual,
-                    AstOp::Equal => Equal,
-                    AstOp::NotEqual => NotEqual,
-                    AstOp::And | AstOp::Or => {
-                        let register = if let Some(result_register) = result_register {
-                            result_register
-                        } else {
-                            self.push_register()?
-                        };
-                        self.compile_node(Some(register), ast.node(*lhs), ast)?;
-
-                        let jump_op = if matches!(op, AstOp::And) {
-                            JumpFalse
-                        } else {
-                            JumpTrue
-                        };
-                        self.push_op(jump_op, &[register]);
-
-                        // If the lhs causes a jump then that's the result,
-                        // otherwise the rhs is the result
-                        self.compile_node_with_jump_offset(Some(register), ast.node(*rhs), ast)?;
-
-                        if result_register.is_none() {
-                            self.pop_register()?;
-                        }
-
-                        return Ok(());
-                    }
-                };
-
-                let (lhs_register, pop_lhs) =
-                    self.compile_node_or_get_local(result_register, ast.node(*lhs), ast)?;
-
-                // If the result register wasn't used for the lhs, then it's available for the rhs
-                let rhs_result_register = match result_register {
-                    Some(register) if lhs_register != register => Some(register),
-                    _ => None,
-                };
-
-                let (rhs_register, pop_rhs) =
-                    self.compile_node_or_get_local(rhs_result_register, ast.node(*rhs), ast)?;
-
-                // We only need to do the actual op if there's a result register
-                if let Some(result_register) = result_register {
-                    self.push_op(op, &[result_register, lhs_register, rhs_register]);
-                }
-
-                if pop_rhs {
-                    self.pop_register()?;
-                }
-                if pop_lhs {
-                    self.pop_register()?;
-                }
+                self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?;
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
@@ -816,7 +749,8 @@ impl Compiler {
         &mut self,
         result_register: Option<u8>,
         target: &AssignTarget,
-        expression: &AstIndex,
+        op: AssignOp,
+        expression: AstIndex,
         ast: &Ast,
     ) -> Result<(), String> {
         use Op::*;
@@ -826,7 +760,47 @@ impl Compiler {
             Some(local) => local,
             None => self.push_register()?,
         };
-        self.compile_node(Some(assign_register), ast.node(*expression), ast)?;
+
+        match op {
+            AssignOp::Equal => {
+                self.compile_node(Some(assign_register), ast.node(expression), ast)?
+            }
+            AssignOp::Add => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Add,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Subtract => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Subtract,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Multiply => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Multiply,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Divide => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Divide,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Modulo => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Modulo,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+        }
 
         match &ast.node(target.target_index).node {
             Node::Id(id_index) => {
@@ -958,10 +932,22 @@ impl Compiler {
                     match expressions.get(i) {
                         Some(expression) => {
                             if let Some(result_register) = result_register {
-                                self.compile_assign(Some(temp_register), target, expression, ast)?;
+                                self.compile_assign(
+                                    Some(temp_register),
+                                    target,
+                                    AssignOp::Equal,
+                                    *expression,
+                                    ast,
+                                )?;
                                 self.push_op(ListPush, &[result_register, temp_register]);
                             } else {
-                                self.compile_assign(None, target, expression, ast)?;
+                                self.compile_assign(
+                                    None,
+                                    target,
+                                    AssignOp::Equal,
+                                    *expression,
+                                    ast,
+                                )?;
                             }
                         }
                         None => {
@@ -1043,6 +1029,82 @@ impl Compiler {
                 self.push_op(LoadGlobalLong, &[result_register]);
                 self.push_bytes(&id.to_le_bytes());
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_binary_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: AstOp,
+        lhs: AstIndex,
+        rhs: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        let op = match op {
+            AstOp::Add => Add,
+            AstOp::Subtract => Subtract,
+            AstOp::Multiply => Multiply,
+            AstOp::Divide => Divide,
+            AstOp::Modulo => Modulo,
+            AstOp::Less => Less,
+            AstOp::LessOrEqual => LessOrEqual,
+            AstOp::Greater => Greater,
+            AstOp::GreaterOrEqual => GreaterOrEqual,
+            AstOp::Equal => Equal,
+            AstOp::NotEqual => NotEqual,
+            AstOp::And | AstOp::Or => {
+                let register = if let Some(result_register) = result_register {
+                    result_register
+                } else {
+                    self.push_register()?
+                };
+                self.compile_node(Some(register), ast.node(lhs), ast)?;
+
+                let jump_op = if matches!(op, AstOp::And) {
+                    JumpFalse
+                } else {
+                    JumpTrue
+                };
+                self.push_op(jump_op, &[register]);
+
+                // If the lhs causes a jump then that's the result,
+                // otherwise the rhs is the result
+                self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
+
+                if result_register.is_none() {
+                    self.pop_register()?;
+                }
+
+                return Ok(());
+            }
+        };
+
+        let (lhs_register, pop_lhs) =
+            self.compile_node_or_get_local(result_register, ast.node(lhs), ast)?;
+
+        // If the result register wasn't used for the lhs, then it's available for the rhs
+        let rhs_result_register = match result_register {
+            Some(register) if lhs_register != register => Some(register),
+            _ => None,
+        };
+
+        let (rhs_register, pop_rhs) =
+            self.compile_node_or_get_local(rhs_result_register, ast.node(rhs), ast)?;
+
+        // We only need to do the actual op if there's a result register
+        if let Some(result_register) = result_register {
+            self.push_op(op, &[result_register, lhs_register, rhs_register]);
+        }
+
+        if pop_rhs {
+            self.pop_register()?;
+        }
+        if pop_lhs {
+            self.pop_register()?;
         }
 
         Ok(())
