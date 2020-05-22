@@ -870,7 +870,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Token::ListStart => {
                     self.consume_token();
                     let mut entries = Vec::new();
-                    while let Some(entry) = self.parse_term(false)? {
+                    while let Some(entry) = self.parse_non_primary_expression()? {
                         entries.push(entry);
                     }
                     if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
@@ -2856,6 +2856,28 @@ x.bar().baz = 1";
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_lookup_in_list() {
+            let source = "[m.foo m.bar]";
+            check_ast(
+                source,
+                &[
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(2)]),
+                    List(vec![0, 1]),
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("m"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
                 ]),
             )
         }
