@@ -527,7 +527,15 @@ impl Compiler {
                                 ast,
                             )?;
                         }
-                        _ => self.compile_block(Some(result_register), &[f.body], ast)?,
+                        _ => {
+                            self.compile_frame(
+                                local_count,
+                                &[f.body],
+                                &f.args,
+                                &f.captures,
+                                ast,
+                            )?;
+                        },
                     };
 
                     self.update_offset_placeholder(function_size_ip);

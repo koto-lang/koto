@@ -2468,7 +2468,9 @@ until x < y
 
         #[test]
         fn inline_no_args() {
-            let source = "a = || 42";
+            let source = "
+a = || 42
+a()";
             check_ast(
                 source,
                 &[
@@ -2489,8 +2491,9 @@ until x < y
                         op: AssignOp::Equal,
                         expression: 2,
                     },
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
                     MainBlock {
-                        body: vec![3],
+                        body: vec![3, 4],
                         local_count: 1,
                     },
                 ],
