@@ -275,11 +275,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(for_loop) = self.parse_for_loop(None)? {
+        let result = if let Some(for_loop) = self.parse_for_loop(None, true)? {
             for_loop
-        } else if let Some(while_loop) = self.parse_while_loop(None)? {
+        } else if let Some(while_loop) = self.parse_while_loop(None, true)? {
             while_loop
-        } else if let Some(until_loop) = self.parse_until_loop(None)? {
+        } else if let Some(until_loop) = self.parse_until_loop(None, true)? {
             until_loop
         } else if let Some(export_id) = self.parse_export_id()? {
             export_id
@@ -307,7 +307,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(result) = self.parse_primary_expressions()? {
                         result
                     } else {
-                        return syntax_error!(ExpectedExpression, self);
+                        return Ok(None);
                     }
                 }
             }
@@ -418,6 +418,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         lhs: &[AstIndex],
         min_precedence: u8,
     ) -> Result<Option<AstIndex>, ParserError> {
+        let primary_expression = min_precedence == 0;
+
         use Token::*;
 
         let last_lhs = match lhs {
@@ -429,9 +431,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         match self.skip_whitespace_and_peek() {
             Some(next) => match next {
                 NewLine | NewLineIndented => Ok(Some(last_lhs)),
-                For => self.parse_for_loop(Some(lhs)),
-                While => self.parse_while_loop(Some(lhs)),
-                Until => self.parse_until_loop(Some(lhs)),
+                For => self.parse_for_loop(Some(lhs), primary_expression),
+                While => self.parse_while_loop(Some(lhs), primary_expression),
+                Until => self.parse_until_loop(Some(lhs), primary_expression),
                 Assign => self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -862,22 +864,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     let constant_index = self.constants.add_string(s) as u32;
                     self.push_node(Str(constant_index))?
                 }
-                Token::Id => {
-                    self.consume_token();
-                    let constant_index = self.constants.add_string(self.lexer.slice()) as u32;
-                    self.push_node(Id(constant_index))?
-                }
-                Token::ListStart => {
-                    self.consume_token();
-                    let mut entries = Vec::new();
-                    while let Some(entry) = self.parse_non_primary_expression()? {
-                        entries.push(entry);
-                    }
-                    if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
-                        return syntax_error!(ExpectedListEnd, self);
-                    }
-                    self.push_node(List(entries))?
-                }
+                Token::Id => return self.parse_id_expression(primary_expression),
+                Token::ListStart => return self.parse_list(),
                 Token::MapStart => {
                     self.consume_token();
                     let mut entries = Vec::new();
@@ -963,6 +951,46 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_list(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        self.consume_token();
+
+        let mut entries = Vec::new();
+        loop {
+            if !entries.is_empty() {
+                let comprehension =
+                    if let Some(for_loop) = self.parse_for_loop(Some(&entries), false)? {
+                        Some(for_loop)
+                    } else if let Some(while_loop) = self.parse_while_loop(Some(&entries), false)? {
+                        Some(while_loop)
+                    } else if let Some(until_loop) = self.parse_until_loop(Some(&entries), false)? {
+                        Some(until_loop)
+                    } else {
+                        None
+                    };
+
+                if let Some(comprehension) = comprehension {
+                    if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
+                        return syntax_error!(ExpectedListEnd, self);
+                    }
+
+                    return Ok(Some(self.push_node(Node::List(vec![comprehension]))?));
+                }
+            }
+
+            if let Some(term) = self.parse_term(false)? {
+                entries.push(term);
+            } else {
+                break;
+            }
+        }
+
+        if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
+            return syntax_error!(ExpectedListEnd, self);
+        }
+
+        Ok(Some(self.push_node(Node::List(entries))?))
+    }
+
     fn parse_map_block(&mut self, current_indent: usize) -> Result<Option<AstIndex>, ParserError> {
         use Token::{Colon, NewLineIndented};
 
@@ -1006,7 +1034,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_for_loop(
         &mut self,
-        body: Option<&[AstIndex]>,
+        inline_body: Option<&[AstIndex]>,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::For) {
             return Ok(None);
@@ -1059,11 +1088,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             None
         };
 
-        let body = if let Some(expressions) = body {
-            if expressions.len() == 1 {
-                *expressions.first().unwrap()
-            } else {
-                self.push_node(Node::Expressions(expressions.to_vec()))?
+        let body = if let Some(expressions) = inline_body {
+            match expressions {
+                [] => return internal_error!(ForParseFailure, self),
+                [expression] => *expression,
+                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
+                    function: *function,
+                    args: args.to_vec(),
+                })?,
+                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
@@ -1083,7 +1116,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_while_loop(
         &mut self,
-        body: Option<&[AstIndex]>,
+        inline_body: Option<&[AstIndex]>,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::While) {
             return Ok(None);
@@ -1098,11 +1132,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return syntax_error!(ExpectedWhileCondition, self);
         };
 
-        let body = if let Some(expressions) = body {
-            if expressions.len() == 1 {
-                *expressions.first().unwrap()
-            } else {
-                self.push_node(Node::Expressions(expressions.to_vec()))?
+        let body = if let Some(expressions) = inline_body {
+            match expressions {
+                [] => return internal_error!(ForParseFailure, self),
+                [expression] => *expression,
+                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
+                    function: *function,
+                    args: args.to_vec(),
+                })?,
+                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
@@ -1116,7 +1154,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn parse_until_loop(
         &mut self,
-        body: Option<&[AstIndex]>,
+        inline_body: Option<&[AstIndex]>,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::Until) {
             return Ok(None);
@@ -1131,11 +1170,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return syntax_error!(ExpectedUntilCondition, self);
         };
 
-        let body = if let Some(expressions) = body {
-            if expressions.len() == 1 {
-                *expressions.first().unwrap()
-            } else {
-                self.push_node(Node::Expressions(expressions.to_vec()))?
+        let body = if let Some(expressions) = inline_body {
+            match expressions {
+                [] => return internal_error!(ForParseFailure, self),
+                [expression] => *expression,
+                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
+                    function: *function,
+                    args: args.to_vec(),
+                })?,
+                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent)? {
             body
@@ -2460,6 +2503,127 @@ until x < y
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+            )
+        }
+
+        #[test]
+        fn list_comprehension_for() {
+            let source = "[x y for x in 0..1]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 2,
+                        end: 3,
+                        inclusive: false,
+                    },
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    }, // 5
+                    For(AstFor {
+                        args: vec![0],
+                        ranges: vec![4],
+                        condition: None,
+                        body: 5,
+                    }),
+                    List(vec![6]),
+                    MainBlock {
+                        body: vec![7],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn list_comprehension_while() {
+            let source = "[f x while (f y) < 10]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
+                    Number(3), // 5
+                    Op {
+                        op: AstOp::Less,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    While {
+                        condition: 6,
+                        body: 7,
+                    },
+                    List(vec![8]),
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Number(10.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn list_comprehension_until() {
+            let source = "[f x until (f y) >= 10]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
+                    Number(3), // 5
+                    Op {
+                        op: AstOp::GreaterOrEqual,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Until {
+                        condition: 6,
+                        body: 7,
+                    },
+                    List(vec![8]),
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Number(10.0),
+                ]),
             )
         }
     }
