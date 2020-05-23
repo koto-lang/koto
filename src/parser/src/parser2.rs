@@ -567,7 +567,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     }
                 }
                 Some(Token::ParenOpen) | Some(Token::ListStart) | Some(Token::Dot) => {
-                    self.parse_lookup(constant_index)?
+                    self.parse_lookup(constant_index, primary_expression)?
                 }
                 _ => self.push_node(Node::Id(constant_index))?,
             };
@@ -578,7 +578,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
-    fn parse_lookup(&mut self, id: ConstantIndex) -> Result<AstIndex, ParserError> {
+    fn parse_lookup(
+        &mut self,
+        id: ConstantIndex,
+        primary_expression: bool,
+    ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
         lookup.push(LookupNode::Id(id));
@@ -685,6 +689,21 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
                     }
+                }
+                Some(Token::Whitespace) if primary_expression => {
+                    self.consume_token();
+
+                    if let Some(expression) = self.parse_non_primary_expression()? {
+                        let mut args = vec![expression];
+
+                        while let Some(expression) = self.parse_non_primary_expression()? {
+                            args.push(expression);
+                        }
+
+                        lookup.push(LookupNode::Call(args));
+                    }
+
+                    break;
                 }
                 _ => break,
             }
@@ -3049,7 +3068,8 @@ z[10..][0]";
             let source = "\
 x.foo
 x.bar()
-x.bar().baz = 1";
+x.bar().baz = 1
+x.foo 42";
             check_ast(
                 source,
                 &[
@@ -3074,8 +3094,14 @@ x.bar().baz = 1";
                         op: AssignOp::Equal,
                         expression: 3,
                     },
+                    Number(4), // 5
+                    Lookup(vec![
+                        LookupNode::Id(0),
+                        LookupNode::Id(1),
+                        LookupNode::Call(vec![5]),
+                    ]),
                     MainBlock {
-                        body: vec![0, 1, 4],
+                        body: vec![0, 1, 4, 6],
                         local_count: 1,
                     },
                 ],
@@ -3084,6 +3110,7 @@ x.bar().baz = 1";
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
+                    Constant::Number(42.0),
                 ]),
             )
         }
