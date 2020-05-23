@@ -1330,6 +1330,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Whitespace) => {}
                 Some(Token::NewLine) => {}
                 Some(Token::NewLineIndented) => {}
+                Some(Token::CommentMulti) => {}
+                Some(Token::CommentSingle) => {}
                 Some(token) => return Some(token),
                 None => return None,
             }
