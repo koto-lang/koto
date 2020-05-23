@@ -6,13 +6,13 @@ use {
 
 pub type AstIndex = u32;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct AstNode {
     pub node: Node,
     pub span: AstIndex,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Ast {
     nodes: Vec<AstNode>,
     spans: Vec<Span>,

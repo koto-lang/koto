@@ -699,7 +699,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         let inclusive = match self.peek_token() {
             Some(Token::Range) => false,
             Some(Token::RangeInclusive) => true,
-            _ => return internal_error!(RangeParseFailure, self),
+            _ => return Ok(None),
         };
 
         self.consume_token();
@@ -956,6 +956,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let mut entries = Vec::new();
         loop {
+            if let Some(range) = self.parse_range(None)? {
+                entries.push(range);
+                break;
+            }
+
             if !entries.is_empty() {
                 let comprehension =
                     if let Some(for_loop) = self.parse_for_loop(Some(&entries), false)? {
@@ -969,18 +974,32 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     };
 
                 if let Some(comprehension) = comprehension {
-                    if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
-                        return syntax_error!(ExpectedListEnd, self);
-                    }
-
-                    return Ok(Some(self.push_node(Node::List(vec![comprehension]))?));
+                    entries.clear();
+                    entries.push(comprehension);
+                    break;
                 }
             }
 
             if let Some(term) = self.parse_term(false)? {
-                entries.push(term);
+                if matches!(
+                    self.peek_token(),
+                    Some(Token::Range) | Some(Token::RangeInclusive)
+                ) {
+                    if let Some(range) = self.parse_range(Some(term))? {
+                        entries.push(range);
+                    } else {
+                        return internal_error!(RangeParseFailure, self);
+                    }
+                } else {
+                    entries.push(term);
+                }
             } else {
                 break;
+            }
+
+            match self.peek_token() {
+                Some(Token::Whitespace) => continue,
+                _ => break,
             }
         }
 
@@ -1652,6 +1671,46 @@ x";
                     },
                 ],
                 None,
+            )
+        }
+
+        #[test]
+        fn lists_from_ranges() {
+            let source = "\
+[0..1]
+[0..10 10..=0]";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    List(vec![2]),
+                    Number0,
+                    Number(0), // 5
+                    Range {
+                        start: 4,
+                        end: 5,
+                        inclusive: false,
+                    },
+                    Number(0),
+                    Number0,
+                    Range {
+                        start: 7,
+                        end: 8,
+                        inclusive: true,
+                    },
+                    List(vec![6, 9]),
+                    MainBlock {
+                        body: vec![3, 10],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Number(10.0)]),
             )
         }
 

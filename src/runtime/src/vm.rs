@@ -1444,7 +1444,10 @@ mod tests {
 
         let ast = match parser.parse(&script, vm.constants_mut(), koto_parser::Options::default()) {
             Ok(ast) => ast,
-            Err(e) => panic!(format!("Error while parsing script: {}", e)),
+            Err(e) => panic!(format!(
+                "\n{}\n\n Error while parsing script: {}",
+                script, e
+            )),
         };
         match compiler.compile_ast(&ast) {
             Ok((bytecode, _debug_info)) => {
