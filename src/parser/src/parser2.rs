@@ -889,24 +889,22 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     self.consume_token();
                     let mut entries = Vec::new();
 
-                    loop {
-                        if let Some(key) = self.parse_id(false) {
-                            if self.skip_whitespace_and_next() != Some(Token::Colon) {
-                                return syntax_error!(ExpectedMapSeparator, self);
-                            }
+                    while let Some(key) = self.parse_id(false) {
+                        if self.skip_whitespace_and_next() != Some(Token::Colon) {
+                            return syntax_error!(ExpectedMapSeparator, self);
+                        }
 
-                            if let Some(value) = self.parse_primary_expression()? {
-                                entries.push((key, value));
-                            } else {
-                                return syntax_error!(ExpectedMapValue, self);
-                            }
+                        if let Some(value) = self.parse_primary_expression()? {
+                            entries.push((key, value));
+                        } else {
+                            return syntax_error!(ExpectedMapValue, self);
+                        }
 
-                            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
-                                self.consume_token();
-                                continue;
-                            } else {
-                                break;
-                            }
+                        if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                            self.consume_token();
+                            continue;
+                        } else {
+                            break;
                         }
                     }
 
@@ -1578,15 +1576,18 @@ a
 
         #[test]
         fn map_inline() {
-            let source = "{foo: 42, bar: \"hello\"}";
+            let source = "\
+{}
+{foo: 42, bar: \"hello\"}";
             check_ast(
                 source,
                 &[
+                    Map(vec![]),
                     Number(1),
                     Str(3),
-                    Map(vec![(0, 0), (2, 1)]), // map entries are constant/ast index pairs
+                    Map(vec![(0, 1), (2, 2)]), // map entries are constant/ast index pairs
                     MainBlock {
-                        body: vec![2],
+                        body: vec![0, 3],
                         local_count: 0,
                     },
                 ],
