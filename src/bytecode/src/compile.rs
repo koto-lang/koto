@@ -1042,49 +1042,37 @@ impl Compiler {
         rhs: AstIndex,
         ast: &Ast,
     ) -> Result<(), String> {
-        use Op::*;
+        use AstOp::*;
+
+        let lhs_node = ast.node(lhs);
+        let rhs_node = ast.node(rhs);
 
         let op = match op {
-            AstOp::Add => Add,
-            AstOp::Subtract => Subtract,
-            AstOp::Multiply => Multiply,
-            AstOp::Divide => Divide,
-            AstOp::Modulo => Modulo,
-            AstOp::Less => Less,
-            AstOp::LessOrEqual => LessOrEqual,
-            AstOp::Greater => Greater,
-            AstOp::GreaterOrEqual => GreaterOrEqual,
-            AstOp::Equal => Equal,
-            AstOp::NotEqual => NotEqual,
-            AstOp::And | AstOp::Or => {
-                let register = if let Some(result_register) = result_register {
-                    result_register
-                } else {
-                    self.push_register()?
-                };
-                self.compile_node(Some(register), ast.node(lhs), ast)?;
-
-                let jump_op = if matches!(op, AstOp::And) {
-                    JumpFalse
-                } else {
-                    JumpTrue
-                };
-                self.push_op(jump_op, &[register]);
-
-                // If the lhs causes a jump then that's the result,
-                // otherwise the rhs is the result
-                self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
-
-                if result_register.is_none() {
-                    self.pop_register()?;
-                }
-
-                return Ok(());
+            Add => Op::Add,
+            Subtract => Op::Subtract,
+            Multiply => Op::Multiply,
+            Divide => Op::Divide,
+            Modulo => Op::Modulo,
+            Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                return self.compile_comparison_op(result_register, op, &lhs_node, &rhs_node, ast);
+            }
+            And | Or => {
+                return self.compile_logic_op(result_register, op, lhs, rhs, ast);
             }
         };
 
-        let (lhs_register, pop_lhs) =
-            self.compile_node_or_get_local(result_register, ast.node(lhs), ast)?;
+        self.compile_op(result_register, op, lhs_node, rhs_node, ast)
+    }
+
+    fn compile_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: Op,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        let (lhs_register, pop_lhs) = self.compile_node_or_get_local(result_register, lhs, ast)?;
 
         // If the result register wasn't used for the lhs, then it's available for the rhs
         let rhs_result_register = match result_register {
@@ -1093,7 +1081,7 @@ impl Compiler {
         };
 
         let (rhs_register, pop_rhs) =
-            self.compile_node_or_get_local(rhs_result_register, ast.node(rhs), ast)?;
+            self.compile_node_or_get_local(rhs_result_register, rhs, ast)?;
 
         // We only need to do the actual op if there's a result register
         if let Some(result_register) = result_register {
@@ -1104,6 +1092,131 @@ impl Compiler {
             self.pop_register()?;
         }
         if pop_lhs {
+            self.pop_register()?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_comparison_op(
+        &mut self,
+        result_register: Option<u8>,
+        ast_op: AstOp,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use AstOp::*;
+
+        let get_comparision_op = |ast_op| {
+            Ok(match ast_op {
+                Less => Op::Less,
+                LessOrEqual => Op::LessOrEqual,
+                Greater => Op::Greater,
+                GreaterOrEqual => Op::GreaterOrEqual,
+                Equal => Op::Equal,
+                NotEqual => Op::NotEqual,
+                _ => return Err("Internal error: invalid comparison op".to_string()),
+            })
+        };
+
+        let stack_count = self.frame().register_stack.len();
+
+        let (result_register, _) = match result_register {
+            Some(register) => (register, false),
+            None => (self.push_register()?, true),
+        };
+
+        let mut jump_offsets = Vec::new();
+
+        let (mut lhs_register, _) = self.compile_node_or_get_local(None, lhs, ast)?;
+        let mut rhs = rhs;
+        let mut ast_op = ast_op;
+
+        loop {
+            match rhs.node {
+                Node::Op {
+                    op: rhs_ast_op,
+                    lhs: rhs_lhs,
+                    rhs: rhs_rhs,
+                } => {
+                    dbg!(rhs_ast_op);
+                    match rhs_ast_op {
+                        Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                            // If the rhs is also a comparison, then chain the operations.
+                            // e.g.
+                            //   `a < (b < c)`
+                            // needs to become equivalent to:
+                            //   `(a < b) and (b < c)`
+                            // To achieve this,
+                            //   - use the lhs of the rhs as the rhs of the current operation
+                            //   - use the temp value as the lhs for the current operation
+                            //   - chain the two comparisons together with an And
+
+                            let (rhs_lhs_register, _) =
+                                self.compile_node_or_get_local(None, ast.node(rhs_lhs), ast)?;
+
+                            // Place the lhs comparison result in the result_register
+                            let op = get_comparision_op(ast_op)?;
+                            self.push_op(op, &[result_register, lhs_register, rhs_lhs_register]);
+
+                            // Skip evaluating the rhs if the lhs result is false
+                            self.push_op(Op::JumpFalse, &[result_register]);
+                            jump_offsets.push(self.push_offset_placeholder());
+
+                            lhs_register = rhs_lhs_register;
+                            rhs = ast.node(rhs_rhs);
+                            ast_op = rhs_ast_op;
+                        }
+                        _ => break,
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        // Compile the rhs and op for the final rhs in the comparison chain
+        let (rhs_register, _) = self.compile_node_or_get_local(None, rhs, ast)?;
+        let op = get_comparision_op(ast_op)?;
+        self.push_op(op, &[result_register, lhs_register, rhs_register]);
+
+        for jump_offset in jump_offsets.iter() {
+            self.update_offset_placeholder(*jump_offset);
+        }
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
+
+        Ok(())
+    }
+
+    fn compile_logic_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: AstOp,
+        lhs: AstIndex,
+        rhs: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        let register = if let Some(result_register) = result_register {
+            result_register
+        } else {
+            self.push_register()?
+        };
+        self.compile_node(Some(register), ast.node(lhs), ast)?;
+
+        let jump_op = match op {
+            AstOp::And => Op::JumpFalse,
+            AstOp::Or => Op::JumpTrue,
+            _ => unreachable!(),
+        };
+
+        self.push_op(jump_op, &[register]);
+
+        // If the lhs causes a jump then that's the result,
+        // otherwise the rhs is the result
+        self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
+
+        if result_register.is_none() {
             self.pop_register()?;
         }
 
