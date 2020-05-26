@@ -443,11 +443,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 AssignDivide => self.parse_assign_expression(lhs, AssignOp::Divide),
                 AssignModulo => self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
-                    if let Some(priority) = operator_precedence(next) {
-                        if priority >= min_precedence {
+                    if let Some((left_priority, right_priority)) = operator_precedence(next) {
+                        if left_priority >= min_precedence {
                             let op = self.consume_token().unwrap();
 
-                            if let Some(rhs) = self.parse_expression_start(None, priority)? {
+                            if let Some(rhs) = self.parse_expression_start(None, right_priority)? {
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
                                 self.parse_expression_continued(&[op_node], min_precedence)
                             } else {
@@ -1486,15 +1486,16 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 }
 
-fn operator_precedence(op: Token) -> Option<u8> {
+fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
-        Or => 1,
-        And => 2,
-        Equal | NotEqual => 3,
-        Greater | GreaterOrEqual | Less | LessOrEqual => 4,
-        Add | Subtract => 5,
-        Multiply | Divide | Modulo => 6,
+        Or => (1, 2),
+        And => (3, 4),
+        // TODO, chained comparisons currently require right-associativity
+        Equal | NotEqual => (6, 5),
+        Greater | GreaterOrEqual | Less | LessOrEqual => (8, 7),
+        Add | Subtract => (9, 10),
+        Multiply | Divide | Modulo => (11, 12),
         _ => return None,
     };
     Some(priority)
@@ -2153,15 +2154,15 @@ x %= 4";
                 &[
                     Number1,
                     Number0,
-                    Number1,
-                    Op {
-                        op: AstOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
                     Op {
                         op: AstOp::Subtract,
                         lhs: 0,
+                        rhs: 1,
+                    },
+                    Number1,
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 2,
                         rhs: 3,
                     },
                     MainBlock {
@@ -2187,15 +2188,15 @@ x %= 4";
                         lhs: 1,
                         rhs: 2,
                     },
-                    Number0,
-                    Op {
-                        op: AstOp::Add,
-                        lhs: 3,
-                        rhs: 4,
-                    },
                     Op {
                         op: AstOp::Add,
                         lhs: 0,
+                        rhs: 3,
+                    },
+                    Number0, // 5
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 4,
                         rhs: 5,
                     },
                     MainBlock {
@@ -2238,6 +2239,38 @@ x %= 4";
                     },
                 ],
                 None,
+            )
+        }
+
+        #[test]
+        fn divide_modulo() {
+            let source = "18 / 3 % 4";
+            check_ast(
+                source,
+                &[
+                    Number(0),
+                    Number(1),
+                    Op {
+                        op: AstOp::Divide,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    Number(2),
+                    Op {
+                        op: AstOp::Modulo,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Number(18.0),
+                    Constant::Number(3.0),
+                    Constant::Number(4.0),
+                ]),
             )
         }
 
