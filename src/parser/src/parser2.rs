@@ -387,8 +387,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
-            if let Some(id_expression) = self.parse_id_expression(primary_expression)? {
-                id_expression
+            if let Some(expression) = self.parse_negatable_expression()? {
+                expression
+            } else if let Some(expression) = self.parse_id_expression(primary_expression)? {
+                expression
             } else {
                 let term = self.parse_term(primary_expression)?;
 
@@ -712,6 +714,29 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(self.push_node(Node::Lookup(lookup))?)
     }
 
+    fn parse_negatable_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::Subtract) {
+            return Ok(None);
+        }
+
+        if self.peek_token_after_next() == Some(Token::Whitespace) {
+            return Ok(None);
+        }
+
+        self.consume_token();
+
+        let expression = match self.peek_token() {
+            Some(Token::Id) => self.parse_id_expression(false)?,
+            Some(Token::ParenOpen) => self.parse_nested_expression()?,
+            _ => None,
+        };
+
+        match expression {
+            Some(expression) => Ok(Some(self.push_node(Node::Negate(expression))?)),
+            None => syntax_error!(ExpectedNegatableExpression, self),
+        }
+    }
+
     fn parse_range(&mut self, lhs: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
         use Node::{Range, RangeFrom, RangeFull, RangeTo};
 
@@ -843,22 +868,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     self.consume_token();
                     self.push_node(BoolFalse)?
                 }
-                Token::ParenOpen => {
-                    self.consume_token();
-
-                    let expression = if let Some(expression) = self.parse_primary_expression()? {
-                        expression
-                    } else {
-                        self.push_node(Empty)?
-                    };
-
-                    if let Some(Token::ParenClose) = self.peek_token() {
-                        self.consume_token();
-                        expression
-                    } else {
-                        return syntax_error!(ExpectedCloseParen, self);
-                    }
-                }
+                Token::ParenOpen => return self.parse_nested_expression(),
                 Token::Number => {
                     self.consume_token();
                     match f64::from_str(self.lexer.slice()) {
@@ -1346,6 +1356,27 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
     }
 
+    fn parse_nested_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::ParenOpen) {
+            return Ok(None);
+        }
+
+        self.consume_token();
+
+        let expression = if let Some(expression) = self.parse_primary_expression()? {
+            expression
+        } else {
+            self.push_node(Node::Empty)?
+        };
+
+        if let Some(Token::ParenClose) = self.peek_token() {
+            self.consume_token();
+            Ok(Some(expression))
+        } else {
+            syntax_error!(ExpectedCloseParen, self)
+        }
+    }
+
     fn push_ast_op(
         &mut self,
         op: Token,
@@ -1382,6 +1413,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn peek_token(&mut self) -> Option<Token> {
         self.lexer.peek()
+    }
+
+    fn peek_token_after_next(&mut self) -> Option<Token> {
+        self.lexer.peek_again()
     }
 
     fn consume_token(&mut self) -> Option<Token> {
@@ -1545,6 +1580,43 @@ a
                     Constant::Number(1.5),
                     Constant::Str("hello"),
                     Constant::Str("a"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn negatives() {
+            let source = "\
+-12.0
+-a
+-x[0]
+-(1 + 1)";
+            check_ast(
+                source,
+                &[
+                    Number(0),
+                    Id(1),
+                    Negate(1),
+                    Number0,
+                    Lookup(vec![LookupNode::Id(2), LookupNode::Index(3)]),
+                    Negate(4), // 5
+                    Number1,
+                    Number1,
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 6,
+                        rhs: 7,
+                    },
+                    Negate(8),
+                    MainBlock {
+                        body: vec![0, 2, 5, 9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Number(-12.0),
+                    Constant::Str("a"),
+                    Constant::Str("x"),
                 ]),
             )
         }

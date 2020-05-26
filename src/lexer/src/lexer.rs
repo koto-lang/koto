@@ -175,33 +175,49 @@ pub enum Token {
     While,
 }
 
+struct PeekedToken<'a> {
+    token: Option<Token>,
+    span: logos::Span,
+    slice: &'a str,
+    extras: Extras,
+}
+
 pub struct KotoLexer<'a> {
     lexer: Lexer<'a, Token>,
-    peeked_token: Option<Option<Token>>,
-    peeked_span: Option<logos::Span>,
-    peeked_slice: Option<&'a str>,
-    peeked_extras: Option<Extras>,
+    peeked_tokens: Vec<PeekedToken<'a>>,
+    current_peek_index: usize,
 }
 
 impl<'a> KotoLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: Token::lexer(source),
-            peeked_token: None,
-            peeked_span: None,
-            peeked_slice: None,
-            peeked_extras: None,
+            peeked_tokens: Vec::new(),
+            current_peek_index: 0,
         }
     }
 
     pub fn peek(&mut self) -> Option<Token> {
-        if self.peeked_token.is_none() {
-            self.peeked_span = Some(self.lexer.span());
-            self.peeked_slice = Some(self.lexer.slice());
-            self.peeked_extras = Some(self.lexer.extras);
-            self.peeked_token = Some(self.lexer.next());
+        if self.peeked_tokens.is_empty() {
+            self.peek_again()
+        } else {
+            self.peeked_tokens[self.current_peek_index].token
         }
-        self.peeked_token.unwrap()
+    }
+
+    pub fn peek_again(&mut self) -> Option<Token> {
+        let span = self.lexer.span();
+        let slice = self.lexer.slice();
+        let extras = self.lexer.extras;
+        // getting the tocken needs to happen after the other properties
+        let token = self.lexer.next();
+        self.peeked_tokens.push(PeekedToken {
+            token,
+            span,
+            slice,
+            extras,
+        });
+        token
     }
 
     pub fn source(&self) -> &'a str {
@@ -209,35 +225,45 @@ impl<'a> KotoLexer<'a> {
     }
 
     pub fn span(&self) -> logos::Span {
-        match &self.peeked_span {
-            Some(span) => span.clone(),
-            None => self.lexer.span(),
+        if self.peeked_tokens.is_empty() {
+            self.lexer.span()
+        } else {
+            self.peeked_tokens[self.current_peek_index].span.clone()
         }
     }
 
     pub fn slice(&self) -> &'a str {
-        match &self.peeked_slice {
-            Some(slice) => slice,
-            None => self.lexer.slice(),
+        if self.peeked_tokens.is_empty() {
+            self.lexer.slice()
+        } else {
+            self.peeked_tokens[self.current_peek_index].slice
         }
     }
 
     pub fn extras(&self) -> Extras {
-        match &self.peeked_extras {
-            Some(extras) => *extras,
-            None => self.lexer.extras,
+        if self.peeked_tokens.is_empty() {
+            self.lexer.extras
+        } else {
+            self.peeked_tokens[self.current_peek_index].extras
         }
     }
 
     pub fn current_indent(&self) -> usize {
-        match self.peeked_extras {
-            Some(extras) => extras.indent,
-            None => self.lexer.extras.indent,
+        if self.peeked_tokens.is_empty() {
+            self.lexer.extras.indent
+        } else {
+            self.peeked_tokens[self.current_peek_index].extras.indent
         }
     }
 
     pub fn next_indent(&self) -> usize {
-        self.lexer.extras.indent
+        if self.current_peek_index < self.peeked_tokens.len() - 1 {
+            self.peeked_tokens[self.current_peek_index + 1]
+                .extras
+                .indent
+        } else {
+            self.lexer.extras.indent
+        }
     }
 
     pub fn next_span(&self) -> logos::Span {
@@ -249,14 +275,16 @@ impl<'a> Iterator for KotoLexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        match self.peeked_token.take() {
-            Some(token) => {
-                self.peeked_span = None;
-                self.peeked_slice = None;
-                self.peeked_extras = None;
-                token
+        if self.peeked_tokens.is_empty() {
+            self.lexer.next()
+        } else {
+            let result = self.peeked_tokens[self.current_peek_index].token;
+            self.current_peek_index += 1;
+            if self.current_peek_index == self.peeked_tokens.len() {
+                self.peeked_tokens.clear();
+                self.current_peek_index = 0;
             }
-            None => self.lexer.next(),
+            result
         }
     }
 }
