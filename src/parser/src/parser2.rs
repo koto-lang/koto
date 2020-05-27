@@ -297,14 +297,14 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 }
                 Some(Token::Return) => {
                     self.consume_token();
-                    if let Some(expression) = self.parse_primary_expressions()? {
+                    if let Some(expression) = self.parse_primary_expressions(true)? {
                         self.push_node(Node::ReturnExpression(expression))?
                     } else {
                         self.push_node(Node::Return)?
                     }
                 }
                 _ => {
-                    if let Some(result) = self.parse_primary_expressions()? {
+                    if let Some(result) = self.parse_primary_expressions(false)? {
                         result
                     } else {
                         return Ok(None);
@@ -323,11 +323,56 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(Some(result))
     }
 
-    fn parse_primary_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_primary_expressions(
+        &mut self,
+        allow_initial_indentation: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let current_indent = self.lexer.current_indent();
+
+        let mut expected_indent = None;
+
+        if allow_initial_indentation
+            && self.skip_whitespace_and_peek() == Some(Token::NewLineIndented)
+        {
+            self.skip_empty_lines_and_peek();
+
+            let indent = self.lexer.current_indent();
+            if indent <= current_indent {
+                return Ok(None);
+            }
+
+            expected_indent = Some(indent);
+
+            if let Some(map_block) = self.parse_map_block(current_indent, expected_indent)? {
+                return Ok(Some(map_block));
+            }
+        }
+
         if let Some(first) = self.parse_primary_expression()? {
             let mut expressions = vec![first];
             while let Some(Token::Separator) = self.skip_whitespace_and_peek() {
                 self.consume_token();
+
+                if self.skip_whitespace_and_peek() == Some(Token::NewLineIndented) {
+                    self.skip_empty_lines_and_peek();
+
+                    let next_indent = self.lexer.next_indent();
+
+                    if let Some(expected_indent) = expected_indent {
+                        if next_indent < expected_indent {
+                            break;
+                        } else if next_indent > expected_indent {
+                            return syntax_error!(UnexpectedIndentation, self);
+                        }
+                    } else {
+                        if next_indent <= current_indent {
+                            break;
+                        } else {
+                            expected_indent = Some(next_indent);
+                        }
+                    }
+                }
+
                 if let Some(next_expression) =
                     self.parse_primary_expression_with_lhs(Some(&expressions))?
                 {
@@ -509,7 +554,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return internal_error!(MissingAssignmentTarget, self);
         }
 
-        if let Some(rhs) = self.parse_primary_expressions()? {
+        if let Some(rhs) = self.parse_primary_expressions(true)? {
             let node = if targets.len() == 1 {
                 Node::Assign {
                     target: *targets.first().unwrap(),
@@ -775,7 +820,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     Some(Token::Assign) => {
                         self.consume_token();
 
-                        if let Some(rhs) = self.parse_primary_expressions()? {
+                        if let Some(rhs) = self.parse_primary_expressions(true)? {
                             let node = Node::Assign {
                                 target: AssignTarget {
                                     target_index: export_id,
@@ -819,7 +864,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         self.skip_whitespace_and_peek();
 
         let expression_start_span = self.lexer.next_span();
-        let expression = if let Some(expression) = self.parse_primary_expressions()? {
+        let expression = if let Some(expression) = self.parse_primary_expressions(true)? {
             expression
         } else {
             return syntax_error!(ExpectedExpression, self);
@@ -968,7 +1013,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
-                Token::NewLineIndented => return self.parse_map_block(current_indent),
+                Token::NewLineIndented => return self.parse_map_block(current_indent, None),
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => return Ok(None),
             };
@@ -1038,25 +1083,41 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(Some(self.push_node(Node::List(entries))?))
     }
 
-    fn parse_map_block(&mut self, current_indent: usize) -> Result<Option<AstIndex>, ParserError> {
-        use Token::{Colon, NewLineIndented};
+    fn parse_map_block(
+        &mut self,
+        current_indent: usize,
+        block_indent: Option<usize>,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let block_indent = match block_indent {
+            Some(indent) => indent,
+            None => {
+                if self.skip_whitespace_and_peek() != Some(Token::NewLineIndented) {
+                    return Ok(None);
+                }
 
-        if self.skip_whitespace_and_peek() != Some(NewLineIndented) {
+                let block_indent = self.lexer.next_indent();
+
+                if block_indent <= current_indent {
+                    return Ok(None);
+                }
+
+                self.consume_token();
+                block_indent
+            }
+        };
+
+        // Look ahead to check there's at least one map entry
+        if self.skip_whitespace_and_peek() != Some(Token::Id) {
             return Ok(None);
         }
-
-        let block_indent = self.lexer.next_indent();
-
-        if block_indent <= current_indent {
+        if self.peek_token_n(1) != Some(Token::Colon) {
             return Ok(None);
         }
-
-        self.consume_token();
 
         let mut entries = Vec::new();
 
         while let Some(key) = self.parse_id(false) {
-            if self.skip_whitespace_and_next() != Some(Colon) {
+            if self.skip_whitespace_and_next() != Some(Token::Colon) {
                 return syntax_error!(ExpectedMapSeparator, self);
             }
 
@@ -2020,6 +2081,44 @@ num4 x 0 1 x";
                     },
                     MainBlock {
                         body: vec![6],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn multi_2_to_2_with_linebreaks() {
+            let source = "\
+x, y =
+  1,
+  0,
+x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Number1,
+                    Number0,
+                    Expressions(vec![2, 3]),
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 1,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 4,
+                    }, // 5
+                    Id(0),
+                    MainBlock {
+                        body: vec![5, 6],
                         local_count: 2,
                     },
                 ],
