@@ -15,6 +15,7 @@ pub enum InternalError {
 
 #[derive(Debug)]
 pub enum SyntaxError {
+    LexerError,
     UnexpectedToken,
     UnexpectedIndentation,
     ExpectedEndOfLine,
@@ -127,6 +128,7 @@ impl fmt::Display for SyntaxError {
         use SyntaxError::*;
 
         match self {
+            LexerError => f.write_str("Unable to parse source"),
             UnexpectedToken => f.write_str("Unexpected Token"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             ExpectedEndOfLine => f.write_str("Expected end of line"),

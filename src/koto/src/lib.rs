@@ -74,7 +74,7 @@ impl Koto {
                     message,
                     instruction,
                 } => self.format_vm_error(message, *instruction),
-                Error::ExternalError { message } => format!("External error: {}\n", message),
+                Error::ExternalError { message } => format!("Error: {}\n", message),
             }),
         }?;
 
@@ -222,7 +222,7 @@ impl Koto {
                     message,
                     instruction,
                 } => self.format_vm_error(message, *instruction),
-                Error::ExternalError { message } => format!("External error: {}\n", message,),
+                Error::ExternalError { message } => format!("Error: {}\n", message,),
             }),
         }
     }

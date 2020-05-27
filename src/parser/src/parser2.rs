@@ -349,8 +349,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     }
 
                     expressions.push(next_expression);
-                } else {
-                    return syntax_error!(ExpectedExpression, self);
                 }
             }
             if expressions.len() == 1 {
@@ -444,7 +442,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 AssignModulo => self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some((left_priority, right_priority)) = operator_precedence(next) {
-                        if left_priority >= min_precedence {
+                        if self.peek_token_n(1) == Some(Token::Whitespace)
+                            && left_priority >= min_precedence
+                        {
                             let op = self.consume_token().unwrap();
 
                             if let Some(rhs) = self.parse_expression_start(None, right_priority)? {
@@ -719,7 +719,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             return Ok(None);
         }
 
-        if self.peek_token_after_next() == Some(Token::Whitespace) {
+        if self.peek_token_n(1) == Some(Token::Whitespace) {
             return Ok(None);
         }
 
@@ -969,6 +969,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     }
                 }
                 Token::NewLineIndented => return self.parse_map_block(current_indent),
+                Token::Error => return syntax_error!(LexerError, self),
                 _ => return Ok(None),
             };
 
@@ -1415,8 +1416,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         self.lexer.peek()
     }
 
-    fn peek_token_after_next(&mut self) -> Option<Token> {
-        self.lexer.peek_again()
+    fn peek_token_n(&mut self, n: usize) -> Option<Token> {
+        self.lexer.peek_n(n)
     }
 
     fn consume_token(&mut self) -> Option<Token> {
@@ -3024,6 +3025,30 @@ f 42";
                     Constant::Str("z"),
                     Constant::Number(42.0),
                 ]),
+            )
+        }
+
+        #[test]
+        fn call_negative_arg() {
+            let source = "\
+f 0 -x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Id(1),
+                    Negate(2),
+                    Call {
+                        function: 0,
+                        args: vec![1, 3],
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
             )
         }
 

@@ -199,25 +199,27 @@ impl<'a> KotoLexer<'a> {
 
     pub fn peek(&mut self) -> Option<Token> {
         if self.peeked_tokens.is_empty() {
-            self.peek_again()
+            self.peek_n(0)
         } else {
             self.peeked_tokens[self.current_peek_index].token
         }
     }
 
-    pub fn peek_again(&mut self) -> Option<Token> {
-        let span = self.lexer.span();
-        let slice = self.lexer.slice();
-        let extras = self.lexer.extras;
-        // getting the tocken needs to happen after the other properties
-        let token = self.lexer.next();
-        self.peeked_tokens.push(PeekedToken {
-            token,
-            span,
-            slice,
-            extras,
-        });
-        token
+    pub fn peek_n(&mut self, n: usize) -> Option<Token> {
+        while self.peeked_tokens.len() - self.current_peek_index <= n {
+            let span = self.lexer.span();
+            let slice = self.lexer.slice();
+            let extras = self.lexer.extras;
+            // getting the token needs to happen after the other properties
+            let token = self.lexer.next();
+            self.peeked_tokens.push(PeekedToken {
+                token,
+                span,
+                slice,
+                extras,
+            });
+        }
+        self.peeked_tokens[self.current_peek_index + n].token
     }
 
     pub fn source(&self) -> &'a str {
