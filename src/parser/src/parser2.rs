@@ -460,22 +460,22 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
-            if let Some(expression) = self.parse_negatable_expression()? {
-                expression
+            let expression = if let Some(expression) = self.parse_negatable_expression()? {
+                Some(expression)
             } else if let Some(expression) = self.parse_id_expression(primary_expression)? {
-                expression
+                Some(expression)
             } else {
-                let term = self.parse_term(primary_expression)?;
+                self.parse_term(primary_expression)?
+            };
 
-                match self.peek_token() {
-                    Some(Token::Range) | Some(Token::RangeInclusive) => {
-                        return self.parse_range(term)
-                    }
-                    _ => match term {
-                        Some(term) => term,
-                        None => return Ok(None),
-                    },
+            match self.peek_token() {
+                Some(Token::Range) | Some(Token::RangeInclusive) => {
+                    return self.parse_range(expression)
                 }
+                _ => match expression {
+                    Some(expression) => expression,
+                    None => return Ok(None),
+                },
             }
         };
 
@@ -1812,7 +1812,8 @@ x";
             let source = "\
 0..1
 0..=1
-(0 + 1)..(1 + 1)";
+(0 + 1)..(1 + 1)
+foo.bar..foo.baz";
             check_ast(
                 source,
                 &[
@@ -1849,12 +1850,23 @@ x";
                         end: 11,
                         inclusive: false,
                     },
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(2)]),
+                    Range {
+                        start: 13,
+                        end: 14,
+                        inclusive: false,
+                    }, //15
                     MainBlock {
-                        body: vec![2, 5, 12],
+                        body: vec![2, 5, 12, 15],
                         local_count: 0,
                     },
                 ],
-                None,
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
             )
         }
 
