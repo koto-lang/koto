@@ -1585,7 +1585,7 @@ impl Compiler {
 
         let condition_register = self.push_register()?;
         self.compile_node(Some(condition_register), ast.node(*condition), ast)?;
-        self.push_op(JumpFalse, &[condition_register]);
+        self.push_op_without_span(JumpFalse, &[condition_register]);
         let if_jump_ip = self.push_offset_placeholder();
         self.pop_register()?;
 
@@ -1594,7 +1594,7 @@ impl Compiler {
 
         let then_jump_ip = {
             if !else_if_blocks.is_empty() || else_node.is_some() {
-                self.push_op(Jump, &[]);
+                self.push_op_without_span(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
                 None
@@ -1610,7 +1610,7 @@ impl Compiler {
                     let condition_register = self.push_register()?;
                     self.compile_node(Some(condition_register), ast.node(*else_if_condition), ast)?;
 
-                    self.push_op(JumpFalse, &[condition_register]);
+                    self.push_op_without_span(JumpFalse, &[condition_register]);
                     let then_jump_ip = self.push_offset_placeholder();
 
                     self.pop_register()?; // condition register
@@ -1620,7 +1620,7 @@ impl Compiler {
                     self.compile_node(result_register, ast.node(*else_if_node), ast)?;
 
                     let else_if_jump_ip = if else_node.is_some() {
-                        self.push_op(Jump, &[]);
+                        self.push_op_without_span(Jump, &[]);
                         Some(self.push_offset_placeholder())
                     } else {
                         None
@@ -1638,7 +1638,7 @@ impl Compiler {
             self.compile_node(result_register, ast.node(*else_node), ast)?;
         } else {
             if let Some(result_register) = result_register {
-                self.push_op(SetEmpty, &[result_register]);
+                self.push_op_without_span(SetEmpty, &[result_register]);
             }
         }
 
@@ -1896,7 +1896,10 @@ impl Compiler {
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
         self.debug_info
             .push(self.bytes.len(), &self.span_stack.last().unwrap());
+        self.push_op_without_span(op, bytes);
+    }
 
+    fn push_op_without_span(&mut self, op: Op, bytes: &[u8]) {
         self.bytes.push(op.into());
         self.bytes.extend_from_slice(bytes);
     }
