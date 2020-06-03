@@ -502,7 +502,7 @@ impl fmt::Display for Instruction {
             }
             ListUpdate { list, index, value } => write!(
                 f,
-                "ListUpdate\tlist: {}\tindex: {}\tvalue: {}",
+                "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
                 list, index, value
             ),
             ListIndex {

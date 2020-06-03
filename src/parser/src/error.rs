@@ -8,9 +8,9 @@ pub enum InternalError {
     FunctionParseFailure,
     RangeParseFailure,
     ForParseFailure,
-    MissingLookupId,
     MissingContinuedExpressionLhs,
     MissingAssignmentTarget,
+    UnexpectedIdInExpression,
 }
 
 #[derive(Debug)]
@@ -116,9 +116,11 @@ impl fmt::Display for InternalError {
             FunctionParseFailure => f.write_str("Failed to parse function"),
             RangeParseFailure => f.write_str("Failed to parse range"),
             ForParseFailure => f.write_str("Failed to parse for loop"),
-            MissingLookupId => f.write_str("Missing lookup Id"),
             MissingContinuedExpressionLhs => f.write_str("Missing LHS for continued expression"),
             MissingAssignmentTarget => f.write_str("Missing assignment target"),
+            UnexpectedIdInExpression => {
+                f.write_str("Unexpected Id encountered while parsing expression")
+            }
         }
     }
 }

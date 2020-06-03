@@ -13,19 +13,19 @@ const TEMP_VAR_PREFIX: &str = "__";
 #[derive(Debug, Default)]
 struct LocalIds {
     // IDs that are available in the parent scope.
-    ids_in_parent_scope: HashSet<ConstantIndex>,
+    // ids_in_parent_scope: HashSet<ConstantIndex>,
     // IDs that have been assigned within the current scope.
     ids_assigned_in_scope: HashSet<ConstantIndex>,
-    // IDs that are currently being assigned to in the current scope.
-    // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
-    // of 'being assigned' values in child functions.
-    // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
-    // scope then it isn't made available to child functions.
-    ids_being_assigned_in_scope: HashSet<ConstantIndex>,
-    // Captures are IDs and lookup roots, that are accessed within the current scope,
-    // which haven't yet been assigned in the current scope,
-    // but are available in the parent scope.
-    captures: HashSet<ConstantIndex>,
+    // // IDs that are currently being assigned to in the current scope.
+    // // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
+    // // of 'being assigned' values in child functions.
+    // // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
+    // // scope then it isn't made available to child functions.
+    // ids_being_assigned_in_scope: HashSet<ConstantIndex>,
+    // // Captures are IDs and lookup roots, that are accessed within the current scope,
+    // // which haven't yet been assigned in the current scope,
+    // // but are available in the parent scope.
+    accessed_non_locals: HashSet<ConstantIndex>,
     // True if the scope is at the top level
     top_level: bool,
 }
@@ -38,19 +38,19 @@ impl LocalIds {
         }
     }
 
-    fn all_available_ids(&self) -> HashSet<ConstantIndex> {
-        let mut result = self
-            .ids_assigned_in_scope
-            .union(&self.ids_in_parent_scope)
-            .cloned()
-            .collect::<HashSet<_>>();
-        result.extend(self.ids_being_assigned_in_scope.iter());
-        result
-    }
+    // fn all_available_ids(&self) -> HashSet<ConstantIndex> {
+    //     let mut result = self
+    //         .ids_assigned_in_scope
+    //         .union(&self.ids_in_parent_scope)
+    //         .cloned()
+    //         .collect::<HashSet<_>>();
+    //     result.extend(self.ids_being_assigned_in_scope.iter());
+    //     result
+    // }
 
     fn local_count(&self) -> usize {
         self.ids_assigned_in_scope
-            .difference(&self.captures)
+            .difference(&self.accessed_non_locals)
             .count()
     }
 
@@ -58,28 +58,28 @@ impl LocalIds {
         self.ids_assigned_in_scope.insert(target);
     }
 
-    fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
-        self.ids_being_assigned_in_scope.insert(target);
-    }
+    // fn add_assign_target_to_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
+    //     self.ids_being_assigned_in_scope.insert(target);
+    // }
 
-    fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
-        self.ids_being_assigned_in_scope.remove(&target);
-    }
+    // fn remove_assign_target_from_ids_being_assigned_in_scope(&mut self, target: ConstantIndex) {
+    //     self.ids_being_assigned_in_scope.remove(&target);
+    // }
 
-    fn add_assign_target_to_captures(&mut self, target: ConstantIndex) {
-        self.add_id_to_captures(target);
-    }
+    // fn add_assign_target_to_captures(&mut self, target: ConstantIndex) {
+    //     self.add_id_to_accessed_non_locals(target);
+    // }
 
-    fn add_lookup_to_captures(&mut self, lookup: &[LookupNode]) {
+    fn add_lookup_to_accessed_non_locals(&mut self, lookup: &[LookupNode]) {
         match lookup {
-            &[LookupNode::Id(id_index), ..] => self.add_id_to_captures(id_index),
+            &[LookupNode::Id(id_index), ..] => self.add_id_to_accessed_non_locals(id_index),
             _ => panic!("Expected Id as first lookup node"),
         }
     }
 
-    fn add_id_to_captures(&mut self, id: ConstantIndex) {
-        if !self.ids_assigned_in_scope.contains(&id) && self.ids_in_parent_scope.contains(&id) {
-            self.captures.insert(id);
+    fn add_id_to_accessed_non_locals(&mut self, id: ConstantIndex) {
+        if !self.ids_assigned_in_scope.contains(&id) {
+            self.accessed_non_locals.insert(id);
         }
     }
 }
@@ -214,13 +214,13 @@ impl KotoParser {
                 match next.as_rule() {
                     Rule::id => {
                         let id_index = add_constant_string(constants, next.as_str());
-                        local_ids.add_id_to_captures(id_index);
+                        local_ids.add_id_to_accessed_non_locals(id_index);
                         ast.borrow_mut()
                             .push(Node::Id(id_index), span.clone().into())?
                     }
                     Rule::lookup => {
                         let lookup = pair_as_lookup!(next);
-                        local_ids.add_lookup_to_captures(&lookup);
+                        local_ids.add_lookup_to_accessed_non_locals(&lookup);
                         ast.borrow_mut()
                             .push(Node::Lookup(lookup), span.clone().into())?
                     }
@@ -237,16 +237,12 @@ impl KotoParser {
                 let inner = pair.into_inner();
 
                 assert!(local_ids.ids_assigned_in_scope.is_empty());
-                assert!(local_ids.captures.is_empty());
+                assert!(local_ids.accessed_non_locals.is_empty());
 
                 let body = inner
                     .map(|pair| self.build_ast(ast, pair, constants, local_ids))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                // the top level scope will have captures assigned to it due to the grandparenting
-                // logic, but there's nothing to capture at the top level so clear the list to
-                // ensure a correct local count.
-                local_ids.captures.clear();
                 let local_count = local_ids.local_count();
 
                 let entry_point = ast
@@ -390,14 +386,14 @@ impl KotoParser {
                 if inner.peek().unwrap().as_rule() == Rule::negative {
                     inner.next();
                     let lookup = next_as_lookup!(inner);
-                    local_ids.add_lookup_to_captures(&lookup);
+                    local_ids.add_lookup_to_accessed_non_locals(&lookup);
                     let expression = ast
                         .borrow_mut()
                         .push(Node::Lookup(lookup), span.clone().into())?;
                     ast.borrow_mut().push(Node::Negate(expression), span.into())
                 } else {
                     let lookup = next_as_lookup!(inner);
-                    local_ids.add_lookup_to_captures(&lookup);
+                    local_ids.add_lookup_to_accessed_non_locals(&lookup);
                     ast.borrow_mut().push(Node::Lookup(lookup), span.into())
                 }
             }
@@ -413,7 +409,7 @@ impl KotoParser {
             }
             Rule::single_id => {
                 let id_index = add_constant_string(constants, pair.as_str());
-                local_ids.add_id_to_captures(id_index);
+                local_ids.add_id_to_accessed_non_locals(id_index);
                 ast.borrow_mut().push(Node::Id(id_index), span.into())
             }
             Rule::copy_id => {
@@ -460,7 +456,6 @@ impl KotoParser {
                 };
 
                 let mut nested_local_ids = LocalIds::default();
-                nested_local_ids.ids_in_parent_scope = local_ids.all_available_ids();
                 nested_local_ids.ids_assigned_in_scope.extend(args.clone());
 
                 // collect function body
@@ -474,18 +469,21 @@ impl KotoParser {
 
                 // Captures from the nested function that are from this function's parent scope
                 // need to be added to this function's captures.
-                let missing_captures = nested_local_ids
-                    .captures
+                //
+                // Non-locals accessed in the nested function need to be added to this function's
+                // non-locals.
+                let missing_non_locals = nested_local_ids
+                    .accessed_non_locals
                     .difference(&local_ids.ids_assigned_in_scope);
-                local_ids.captures.extend(missing_captures);
+                local_ids.accessed_non_locals.extend(missing_non_locals);
 
                 let local_count = nested_local_ids.local_count();
 
                 ast.borrow_mut().push(
                     Node::Function(self::Function {
                         args,
-                        captures: Vec::from_iter(nested_local_ids.captures),
                         local_count,
+                        accessed_non_locals: Vec::from_iter(nested_local_ids.accessed_non_locals),
                         body,
                         is_instance_function,
                     }),
@@ -569,8 +567,7 @@ impl KotoParser {
 
                 let operator = inner.next().unwrap().as_rule();
 
-                local_ids.add_assign_target_to_captures(id_index);
-                local_ids.add_assign_target_to_ids_being_assigned_in_scope(id_index);
+                local_ids.add_id_to_accessed_non_locals(id_index);
 
                 let rhs = build_next!(inner);
                 macro_rules! make_assign_op {
@@ -597,8 +594,6 @@ impl KotoParser {
                 };
 
                 // TODO only set as assigned locally when in local scope
-                // Add the target to the assigned list
-                local_ids.remove_assign_target_from_ids_being_assigned_in_scope(id_index);
                 local_ids.add_assign_target_to_ids_assigned_in_scope(id_index);
 
                 ast.borrow_mut().push(
@@ -664,9 +659,9 @@ impl KotoParser {
                     })
                     .collect::<Result<Vec<_>, ParserError>>()?;
 
-                for (_, id_index) in targets.iter() {
-                    local_ids.add_assign_target_to_ids_being_assigned_in_scope(*id_index);
-                }
+                // for (_, id_index) in targets.iter() {
+                //     local_ids.add_assign_target_to_ids_being_assigned_in_scope(*id_index);
+                // }
 
                 let expressions = inner
                     .next()
@@ -676,7 +671,7 @@ impl KotoParser {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 for (_, id_index) in targets.iter() {
-                    local_ids.remove_assign_target_from_ids_being_assigned_in_scope(*id_index);
+                    // local_ids.remove_assign_target_from_ids_being_assigned_in_scope(*id_index);
                     local_ids.add_assign_target_to_ids_assigned_in_scope(*id_index);
                 }
 

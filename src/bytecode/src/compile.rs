@@ -56,7 +56,7 @@ impl Loop {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum LocalRegister {
     Assigned(ConstantIndex),
     Reserved(ConstantIndex),
@@ -221,6 +221,25 @@ impl Frame {
 
     fn next_temporary_register(&self) -> u8 {
         self.temporary_count + self.temporary_base
+    }
+
+    fn captures_for_nested_frame(
+        &self,
+        accessed_non_locals: &[ConstantIndex],
+    ) -> Vec<ConstantIndex> {
+        accessed_non_locals
+            .iter()
+            .filter(|&non_local| {
+                self.captures.contains(non_local)
+                    || self
+                        .local_registers
+                        .contains(&LocalRegister::Assigned(*non_local))
+                    || self
+                        .local_registers
+                        .contains(&LocalRegister::Reserved(*non_local))
+            })
+            .cloned()
+            .collect()
     }
 }
 
@@ -497,7 +516,16 @@ impl Compiler {
                         }
                     };
 
-                    let capture_count = f.captures.len() as u8;
+                    let captures = self
+                        .frame()
+                        .captures_for_nested_frame(&f.accessed_non_locals);
+                    if captures.len() > u8::MAX as usize {
+                        return Err(format!(
+                            "Function captures too many values: {}",
+                            captures.len(),
+                        ));
+                    }
+                    let capture_count = captures.len() as u8;
 
                     if f.is_instance_function {
                         self.push_op(
@@ -519,22 +547,16 @@ impl Compiler {
 
                     match &ast.node(f.body).node {
                         Node::Block(expressions) => {
-                            self.compile_frame(
-                                local_count,
-                                &expressions,
-                                &f.args,
-                                &f.captures,
-                                ast,
-                            )?;
+                            self.compile_frame(local_count, &expressions, &f.args, &captures, ast)?;
                         }
                         _ => {
-                            self.compile_frame(local_count, &[f.body], &f.args, &f.captures, ast)?;
+                            self.compile_frame(local_count, &[f.body], &f.args, &captures, ast)?;
                         }
                     };
 
                     self.update_offset_placeholder(function_size_ip);
 
-                    for (i, capture) in f.captures.iter().enumerate() {
+                    for (i, capture) in captures.iter().enumerate() {
                         if let Some(local_register) = self.frame().get_local_register(*capture) {
                             self.push_op(Capture, &[result_register, i as u8, local_register]);
                         } else {
@@ -1140,7 +1162,6 @@ impl Compiler {
                     lhs: rhs_lhs,
                     rhs: rhs_rhs,
                 } => {
-                    dbg!(rhs_ast_op);
                     match rhs_ast_op {
                         Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
                             // If the rhs is also a comparison, then chain the operations.

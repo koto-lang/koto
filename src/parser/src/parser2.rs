@@ -1,7 +1,11 @@
 use {
     crate::{error::*, *},
     koto_lexer::{make_end_position, make_span, make_start_position, Lexer, Span, Token},
-    std::{collections::HashSet, iter::FromIterator, str::FromStr},
+    std::{
+        collections::{HashMap, HashSet},
+        iter::FromIterator,
+        str::FromStr,
+    },
 };
 
 macro_rules! make_internal_error {
@@ -58,44 +62,75 @@ fn trim_str(s: &str, trim_from_start: usize, trim_from_end: usize) -> &str {
 
 #[derive(Debug, Default)]
 struct Frame {
-    // IDs that are available in the parent scope.
-    ids_in_parent_scope: HashSet<ConstantIndex>,
-    // IDs that have been assigned within the current scope.
-    ids_assigned_in_scope: HashSet<ConstantIndex>,
-    // IDs that are currently being assigned to in the current scope.
-    // We need to disinguish between 'has been assigned' and 'is being assigned' to allow capturing
-    // of 'being assigned' values in child functions.
-    // Once an ID has been marked as assigned locally it can't be captured, but if it isn't in
-    // scope then it isn't made available to child functions.
-    ids_being_assigned_in_scope: HashSet<ConstantIndex>,
-    // Captures are IDs and lookup roots, that are accessed within the current scope,
-    // which haven't yet been assigned in the current scope,
-    // but are available in the parent scope.
-    captures: HashSet<ConstantIndex>,
     top_level: bool,
+    // IDs that have been assigned within the current frame
+    ids_assigned_in_scope: HashSet<ConstantIndex>,
+    // IDs and lookup roots which have been accessed without being locally assigned previously
+    accessed_non_locals: HashSet<ConstantIndex>,
+    // Due to single-pass parsing, we don't know while parsing an ID if it's the lhs of an
+    // assignment or not. We have to wait until the expression is complete to determine if the
+    // reference to an ID was non-local or not.
+    // To achieve this, while an expression is being parsed we can maintain a running count:
+    // +1 for reading, -1 for assignment. At the end of the expression, a positive count indicates
+    // a non-local access.
+    //
+    // e.g.
+    //
+    // a is a local, it's on lhs of expression, so its a local assignment
+    // || a = 1
+    // (access count == 0: +1 -1)
+    //
+    // a is first accessed as a non-local before being assigned locally
+    // || a = a
+    // (access count == 1: +1 -1 +1)
+    //
+    // a is assigned locally twice from a non-local
+    // || a = a = a
+    // (access count == 1: +1 -1 +1 -1 +1)
+    expression_id_accesses: HashMap<ConstantIndex, usize>,
 }
 
 impl Frame {
     fn local_count(&self) -> usize {
         self.ids_assigned_in_scope
-            .difference(&self.captures)
+            .difference(&self.accessed_non_locals)
             .count()
     }
 
-    fn all_available_ids(&self) -> HashSet<ConstantIndex> {
-        let mut result = self
-            .ids_assigned_in_scope
-            .union(&self.ids_in_parent_scope)
-            .cloned()
-            .collect::<HashSet<_>>();
-        result.extend(self.ids_being_assigned_in_scope.iter());
+    // Non-locals accessed in a nested frame need to be declared as also accessed in this
+    // frame. This ensures that captures from the outer frame will be available when
+    // creating the nested inner scope.
+    fn add_nested_accessed_non_locals(&mut self, nested_frame: &Frame) {
+        self.accessed_non_locals.extend(
+            nested_frame
+                .accessed_non_locals
+                .difference(&self.ids_assigned_in_scope)
+                .cloned(),
+        );
+    }
+
+    fn increment_expression_access_for_id(&mut self, id: ConstantIndex) {
+        *self.expression_id_accesses.entry(id).or_insert(0) += 1;
+    }
+
+    fn decrement_expression_access_for_id(&mut self, id: ConstantIndex) -> Result<(), ()> {
+        let result = match self.expression_id_accesses.get_mut(&id) {
+            Some(entry) => {
+                *entry -= 1;
+                Ok(())
+            }
+            None => Err(()),
+        };
         result
     }
 
-    fn add_id_to_captures(&mut self, id: ConstantIndex) {
-        if !self.ids_assigned_in_scope.contains(&id) && self.ids_in_parent_scope.contains(&id) {
-            self.captures.insert(id);
+    fn finish_expressions(&mut self) {
+        for (id, access_count) in self.expression_id_accesses.iter() {
+            if *access_count > 0 && !self.ids_assigned_in_scope.contains(id) {
+                self.accessed_non_locals.insert(*id);
+            }
         }
+        self.expression_id_accesses.clear();
     }
 }
 
@@ -210,7 +245,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         // body
         let mut function_frame = Frame::default();
-        function_frame.ids_in_parent_scope = self.frame()?.all_available_ids();
         function_frame.ids_assigned_in_scope.extend(args.clone());
         self.frame_stack.push(function_frame);
 
@@ -238,14 +272,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             .pop()
             .ok_or_else(|| make_internal_error!(MissingScope, self))?;
 
-        // Captures from the nested function that are from this function's parent scope
-        // need to be added to this function's captures.
-        let missing_captures = function_frame
-            .captures
-            .difference(&self.frame()?.ids_assigned_in_scope)
-            .cloned()
-            .collect::<Vec<_>>();
-        self.frame_mut()?.captures.extend(missing_captures);
+        self.frame_mut()?
+            .add_nested_accessed_non_locals(&function_frame);
 
         let local_count = function_frame.local_count();
 
@@ -260,8 +288,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         let result = self.ast.push(
             Node::Function(Function {
                 args,
-                captures: Vec::from_iter(function_frame.captures),
                 local_count,
+                accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
                 is_instance_function,
             }),
@@ -319,6 +347,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
             _ => {}
         }
+
+        self.frame_mut()?.finish_expressions();
 
         Ok(Some(result))
     }
@@ -528,19 +558,17 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         for lhs_expression in lhs.iter() {
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
-                    if matches!(scope, Scope::Local) {
-                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    if matches!(assign_op, AssignOp::Equal) {
+                        self.frame_mut()?
+                            .decrement_expression_access_for_id(id_index)
+                            .map_err(|_| make_internal_error!(UnexpectedIdInExpression, self))?;
+
+                        if matches!(scope, Scope::Local) {
+                            self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                        }
                     }
                 }
-                Node::Lookup(lookup) => {
-                    if matches!(scope, Scope::Local) {
-                        let id_index = match lookup.as_slice() {
-                            &[LookupNode::Id(id_index), ..] => id_index,
-                            _ => return internal_error!(MissingLookupId, self),
-                        };
-                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                    }
-                }
+                Node::Lookup(_) => {}
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
 
@@ -592,7 +620,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id(primary_expression) {
-            self.frame_mut()?.add_id_to_captures(constant_index);
+            self.frame_mut()?
+                .increment_expression_access_for_id(constant_index);
 
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
@@ -2081,7 +2110,7 @@ num4 x 0 1 x";
                     },
                     MainBlock {
                         body: vec![6],
-                        local_count: 2,
+                        local_count: 1, // y is assumed to be non-local
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
@@ -2230,7 +2259,7 @@ x %= 4";
                     },
                     MainBlock {
                         body: vec![2, 5, 8, 11, 14],
-                        local_count: 1,
+                        local_count: 0,
                     }, // 15
                 ],
                 Some(&[
@@ -2928,8 +2957,8 @@ a()";
                     Number(1),
                     Function(Function {
                         args: vec![],
-                        captures: vec![],
                         local_count: 0,
+                        accessed_non_locals: vec![],
                         body: 1,
                         is_instance_function: false,
                     }),
@@ -2966,8 +2995,8 @@ a()";
                     },
                     Function(Function {
                         args: vec![0, 1],
-                        captures: vec![],
                         local_count: 2,
+                        accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
                     }),
@@ -3022,8 +3051,8 @@ f 42";
                     Block(vec![3, 8, 9]), // 10
                     Function(Function {
                         args: vec![1],
-                        captures: vec![],
                         local_count: 2,
+                        accessed_non_locals: vec![],
                         body: 10,
                         is_instance_function: false,
                     }),
@@ -3071,8 +3100,8 @@ f 42";
                     Id(3), // z
                     Function(Function {
                         args: vec![3],
-                        captures: vec![],
                         local_count: 1,
+                        accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
                     }),
@@ -3093,8 +3122,8 @@ f 42";
                     Block(vec![4, 7]),
                     Function(Function {
                         args: vec![1],
-                        captures: vec![],
                         local_count: 2,
+                        accessed_non_locals: vec![],
                         body: 8,
                         is_instance_function: false,
                     }),
@@ -3170,8 +3199,8 @@ f 0 -x";
                     },
                     Function(Function {
                         args: vec![3, 4],
-                        captures: vec![],
                         local_count: 2,
+                        accessed_non_locals: vec![],
                         body: 3,
                         is_instance_function: true,
                     }),
@@ -3192,43 +3221,32 @@ f 0 -x";
         }
 
         #[test]
-        fn captures() {
+        fn non_local_access() {
             let source = "\
-x = 0
-|| x = 1";
+|| x += 1";
             check_ast(
                 source,
                 &[
-                    Id(0), // x
-                    Number0,
+                    Id(0),
+                    Number1,
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Equal,
+                        op: AssignOp::Add,
                         expression: 1,
                     },
-                    Id(0),
-                    Number1,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 3,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Equal,
-                        expression: 4,
-                    }, // 5
                     Function(Function {
                         args: vec![],
-                        captures: vec![0],
                         local_count: 0,
-                        body: 5,
+                        accessed_non_locals: vec![0], // initial read of x via capture
+                        body: 2,
                         is_instance_function: false,
                     }),
                     MainBlock {
-                        body: vec![2, 6],
-                        local_count: 1,
+                        body: vec![3],
+                        local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x")]),
@@ -3279,7 +3297,7 @@ z[10..][0]";
                     ]),
                     MainBlock {
                         body: vec![4, 6, 9, 13],
-                        local_count: 1,
+                        local_count: 0,
                     },
                 ],
                 Some(&[
@@ -3332,7 +3350,7 @@ x.foo 42";
                     ]),
                     MainBlock {
                         body: vec![0, 1, 4, 6],
-                        local_count: 1,
+                        local_count: 0,
                     },
                 ],
                 Some(&[

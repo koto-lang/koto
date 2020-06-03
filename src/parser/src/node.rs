@@ -134,8 +134,11 @@ impl fmt::Display for Node {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub args: Vec<ConstantIndex>,
-    pub captures: Vec<ConstantIndex>,
     pub local_count: usize,
+    // Any ID or lookup root that's accessed in a function and which wasn't previously assigned
+    // locally, is either a global or needs to be captured. The compiler takes care of determining
+    // if an access is a capture or not at the moment the function is created.
+    pub accessed_non_locals: Vec<ConstantIndex>,
     pub body: AstIndex,
     pub is_instance_function: bool,
 }
