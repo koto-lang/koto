@@ -817,7 +817,14 @@ impl Vm {
                 arg_count,
             } => {
                 let function = self.get_register(function).clone();
-                self.call_function(result, &function, arg_register, arg_count, None)?;
+                self.call_function(
+                    result,
+                    &function,
+                    arg_register,
+                    arg_count,
+                    None,
+                    instruction_ip,
+                )?;
             }
             Instruction::CallChild {
                 result,
@@ -827,7 +834,14 @@ impl Vm {
                 parent,
             } => {
                 let function = self.get_register(function).clone();
-                self.call_function(result, &function, arg_register, arg_count, Some(parent))?;
+                self.call_function(
+                    result,
+                    &function,
+                    arg_register,
+                    arg_count,
+                    Some(parent),
+                    instruction_ip,
+                )?;
             }
             Instruction::Return { register } => {
                 self.frame_mut().result = self.get_register(register).clone();
@@ -1222,6 +1236,7 @@ impl Vm {
         arg_register: u8,
         call_arg_count: u8,
         parent_register: Option<u8>,
+        instruction_ip: usize,
     ) -> RuntimeResult {
         use Value::*;
 
@@ -1240,7 +1255,7 @@ impl Vm {
                         call_arg_count += 1;
                     } else {
                         return vm_error!(
-                            self.reader.ip,
+                            instruction_ip,
                             "Expected self for external instance function"
                         );
                     }
@@ -1256,8 +1271,13 @@ impl Vm {
                     Ok(value) => {
                         self.set_register(result_register, value);
                     }
-                    error @ Err(_) => {
-                        return error;
+                    Err(error) => {
+                        match error {
+                            Error::ExternalError { message } => {
+                                return vm_error!(instruction_ip, message)
+                            }
+                            _ => return Err(error), // TODO extract external error and enforce its use
+                        }
                     }
                 }
             }
@@ -1274,13 +1294,13 @@ impl Vm {
                             self.get_register(parent_register).clone(),
                         );
                     } else {
-                        return vm_error!(self.reader.ip, "Expected self for function");
+                        return vm_error!(instruction_ip, "Expected self for function");
                     }
                 }
 
                 if *function_arg_count != call_arg_count {
                     return vm_error!(
-                        self.reader.ip,
+                        instruction_ip,
                         "Incorrect argument count, expected {}, found {}",
                         function_arg_count,
                         call_arg_count,
@@ -1298,7 +1318,7 @@ impl Vm {
             }
             unexpected => {
                 return vm_error!(
-                    self.reader.ip,
+                    instruction_ip,
                     "Expected Function, found '{}'",
                     type_as_string(&unexpected),
                 )
