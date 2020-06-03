@@ -1380,13 +1380,13 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let result = if self.skip_whitespace_and_peek() == Some(Token::Then) {
             self.consume_token();
-            let then_node = match self.parse_primary_expression()? {
+            let then_node = match self.parse_primary_expressions(false)? {
                 Some(then_node) => then_node,
                 None => return syntax_error!(ExpectedThenExpression, self),
             };
             let else_node = if self.skip_whitespace_and_peek() == Some(Token::Else) {
                 self.consume_token();
-                match self.parse_primary_expression()? {
+                match self.parse_primary_expressions(false)? {
                     Some(else_node) => Some(else_node),
                     None => return syntax_error!(ExpectedElseExpression, self),
                 }
@@ -2644,6 +2644,49 @@ a";
                     }, // 10
                 ],
                 None,
+            )
+        }
+
+        #[test]
+        fn if_inline_multi_expressions() {
+            let source = "a, b = if true then 0, 1 else 1, 0";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    BoolTrue,
+                    Number0,
+                    Number1,
+                    Expressions(vec![3, 4]), // 5
+                    Number1,
+                    Number0,
+                    Expressions(vec![6, 7]),
+                    If(AstIf {
+                        condition: 2,
+                        then_node: 5,
+                        else_if_blocks: vec![],
+                        else_node: Some(8),
+                    }),
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 1,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 9,
+                    }, // 10
+                    MainBlock {
+                        body: vec![10],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("b")]),
             )
         }
     }
