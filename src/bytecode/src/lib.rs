@@ -116,7 +116,7 @@ pub fn bytecode_to_string_annotated(
             }
             first = false;
 
-            let line = instruction_span.start.line.max(1) as usize;
+            let line = instruction_span.start.line.max(1).min(script_lines.len() as u32) as usize;
             result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
             span = Some(instruction_span);
         }

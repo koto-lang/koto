@@ -252,7 +252,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             Some(Token::NewLineIndented)
                 if primary_expression && self.lexer.next_indent() > current_indent =>
             {
-                if let Some(block) = self.parse_indented_block(current_indent)? {
+                if let Some(block) = self.parse_indented_map_or_block(current_indent)? {
                     block
                 } else {
                     return internal_error!(FunctionParseFailure, self);
@@ -315,6 +315,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             debug_expression
         } else {
             match self.peek_token() {
+                Some(Token::Error) => {
+                    return syntax_error!(UnexpectedToken, self);
+                }
                 Some(Token::Break) => {
                     self.consume_token();
                     self.push_node(Node::Break)?
@@ -517,16 +520,30 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 AssignModulo => self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some((left_priority, right_priority)) = operator_precedence(next) {
-                        if self.peek_token_n(1) == Some(Token::Whitespace)
-                            && left_priority >= min_precedence
-                        {
-                            let op = self.consume_token().unwrap();
+                        if let Some(token_after_op) = self.peek_token_n(1) {
+                            if token_is_whitespace(token_after_op)
+                                && left_priority >= min_precedence
+                            {
+                                let op = self.consume_token().unwrap();
 
-                            if let Some(rhs) = self.parse_expression_start(None, right_priority)? {
+                                let current_indent = self.lexer.current_indent();
+
+                                let rhs = if let Some(map_block) =
+                                    self.parse_map_block(current_indent, None)?
+                                {
+                                    map_block
+                                } else if let Some(rhs_expression) =
+                                    self.parse_expression_start(None, right_priority)?
+                                {
+                                    rhs_expression
+                                } else {
+                                    return syntax_error!(ExpectedRhsExpression, self);
+                                };
+
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
                                 self.parse_expression_continued(&[op_node], min_precedence)
                             } else {
-                                syntax_error!(ExpectedRhsExpression, self)
+                                Ok(Some(last_lhs))
                             }
                         } else {
                             Ok(Some(last_lhs))
@@ -1112,6 +1129,27 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(Some(self.push_node(Node::List(entries))?))
     }
 
+    fn parse_indented_map_or_block(
+        &mut self,
+        current_indent: usize,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        self.skip_empty_lines_and_peek();
+        let expected_indent = self.lexer.next_indent();
+
+        let result =
+            if let Some(map_block) = self.parse_map_block(current_indent, Some(expected_indent))? {
+                Some(map_block)
+            } else if let Some(block) =
+                self.parse_indented_block(current_indent, Some(expected_indent))?
+            {
+                Some(block)
+            } else {
+                None
+            };
+
+        Ok(result)
+    }
+
     fn parse_map_block(
         &mut self,
         current_indent: usize,
@@ -1136,7 +1174,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         };
 
         // Look ahead to check there's at least one map entry
-        if self.skip_whitespace_and_peek() != Some(Token::Id) {
+        if self.skip_empty_lines_and_peek() != Some(Token::Id) {
             return Ok(None);
         }
         if self.peek_token_n(1) != Some(Token::Colon) {
@@ -1235,7 +1273,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
-        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+        } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
         } else {
             return syntax_error!(ExpectedForBody, self);
@@ -1279,7 +1317,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
-        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+        } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
         } else {
             return syntax_error!(ExpectedWhileBody, self);
@@ -1317,7 +1355,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
-        } else if let Some(body) = self.parse_indented_block(current_indent)? {
+        } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
         } else {
             return syntax_error!(ExpectedUntilBody, self);
@@ -1362,14 +1400,16 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 else_if_blocks: vec![],
                 else_node,
             }))?
-        } else if let Some(then_node) = self.parse_indented_block(current_indent)? {
+        } else if let Some(then_node) = self.parse_indented_map_or_block(current_indent)? {
             let mut else_if_blocks = Vec::new();
 
             while self.lexer.current_indent() == current_indent {
                 if let Some(Token::ElseIf) = self.skip_whitespace_and_peek() {
                     self.consume_token();
                     if let Some(else_if_condition) = self.parse_primary_expression()? {
-                        if let Some(else_if_block) = self.parse_indented_block(current_indent)? {
+                        if let Some(else_if_block) =
+                            self.parse_indented_map_or_block(current_indent)?
+                        {
                             else_if_blocks.push((else_if_condition, else_if_block));
                         } else {
                             return syntax_error!(ExpectedElseIfBlock, self);
@@ -1385,7 +1425,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             let else_node = if self.lexer.current_indent() == current_indent {
                 if let Some(Token::Else) = self.skip_whitespace_and_peek() {
                     self.consume_token();
-                    if let Some(else_block) = self.parse_indented_block(current_indent)? {
+                    if let Some(else_block) = self.parse_indented_map_or_block(current_indent)? {
                         Some(else_block)
                     } else {
                         return syntax_error!(ExpectedElseBlock, self);
@@ -1413,13 +1453,25 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     fn parse_indented_block(
         &mut self,
         current_indent: usize,
+        block_indent: Option<usize>,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if self.skip_whitespace_and_peek() != Some(Token::NewLineIndented) {
-            return Ok(None);
-        }
+        let block_indent = match block_indent {
+            Some(indent) => indent,
+            None => {
+                if self.skip_whitespace_and_peek() != Some(Token::NewLineIndented) {
+                    return Ok(None);
+                }
 
-        self.consume_token();
-        let block_indent = self.lexer.current_indent();
+                let block_indent = self.lexer.next_indent();
+
+                if block_indent <= current_indent {
+                    return Ok(None);
+                }
+
+                self.consume_token();
+                block_indent
+            }
+        };
 
         if block_indent <= current_indent {
             return Ok(None);
@@ -1590,6 +1642,11 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         _ => return None,
     };
     Some(priority)
+}
+
+fn token_is_whitespace(op: Token) -> bool {
+    use Token::*;
+    matches!(op, Whitespace | NewLine | NewLineIndented)
 }
 
 #[cfg(test)]
@@ -3233,9 +3290,70 @@ f 0 -x";
         }
 
         #[test]
+        fn instance_function_block() {
+            let source = "
+f = ||
+  foo: 42
+  bar: |self x| self.foo = x
+f()";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number(2),
+                    Lookup(vec![LookupNode::Id(4), LookupNode::Id(1)]),
+                    Id(5), // x
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 2,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 3,
+                    },
+                    Function(Function {
+                        args: vec![4, 5],
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 4,
+                        is_instance_function: true,
+                    }), // 5
+                    Map(vec![(1, 1), (3, 5)]), // Map entries are constant/ast index pairs
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 6,
+                        is_instance_function: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 7,
+                    },
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    MainBlock {
+                        body: vec![8, 9],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                    Constant::Str("bar"),
+                    Constant::Str("self"),
+                    Constant::Str("x"),
+                ]),
+            )
+        }
+
+        #[test]
         fn non_local_access() {
-            let source = "\
-|| x += 1";
+            let source = "|| x += 1";
             check_ast(
                 source,
                 &[

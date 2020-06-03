@@ -259,7 +259,8 @@ impl<'a> KotoLexer<'a> {
     }
 
     pub fn next_indent(&self) -> usize {
-        if self.current_peek_index < self.peeked_tokens.len() - 1 {
+        if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
+        {
             self.peeked_tokens[self.current_peek_index + 1]
                 .extras
                 .indent
