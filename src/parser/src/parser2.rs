@@ -461,6 +461,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     ) -> Result<Option<AstIndex>, ParserError> {
         let primary_expression = min_precedence == 0;
 
+        let start_line = self.lexer.extras().line_number;
+
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
             let expression = if let Some(expression) = self.parse_negatable_expression()? {
@@ -482,12 +484,18 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
         };
 
-        if let Some(lhs) = lhs {
-            let mut lhs_with_expression_start = lhs.to_vec();
-            lhs_with_expression_start.push(expression_start);
-            self.parse_expression_continued(&lhs_with_expression_start, min_precedence)
+        let continue_expression = start_line == self.lexer.extras().line_number;
+
+        if continue_expression {
+            if let Some(lhs) = lhs {
+                let mut lhs_with_expression_start = lhs.to_vec();
+                lhs_with_expression_start.push(expression_start);
+                self.parse_expression_continued(&lhs_with_expression_start, min_precedence)
+            } else {
+                self.parse_expression_continued(&[expression_start], min_precedence)
+            }
         } else {
-            self.parse_expression_continued(&[expression_start], min_precedence)
+            Ok(Some(expression_start))
         }
     }
 
@@ -1483,7 +1491,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             self.skip_empty_lines_and_peek();
 
-            let next_indent = self.lexer.next_indent();
+            let next_indent = self.lexer.current_indent();
             if next_indent < block_indent {
                 break;
             } else if next_indent > block_indent {
@@ -3389,6 +3397,138 @@ f()";
                     Constant::Number(42.0),
                     Constant::Str("bar"),
                     Constant::Str("self"),
+                    Constant::Str("x"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn nested_function_with_loops_and_ifs() {
+            let source = "\
+f = |n|
+  f2 = |n|
+    for i in 0..1
+      if i == n
+        return i
+
+  for x in 0..1
+    if x == n
+      return f2 n
+f 1
+";
+            check_ast(
+                source,
+                &[
+                    Id(0), // f
+                    Id(2), // f2
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 2,
+                        end: 3,
+                        inclusive: false,
+                    },
+                    Id(3), // 5 - i
+                    Id(1), // n
+                    Op {
+                        op: AstOp::Equal,
+                        lhs: 5,
+                        rhs: 6,
+                    },
+                    Id(3),
+                    ReturnExpression(8),
+                    If(AstIf {
+                        condition: 7,
+                        then_node: 9,
+                        else_if_blocks: vec![],
+                        else_node: None,
+                    }), // 10
+                    For(AstFor {
+                        args: vec![3],
+                        ranges: vec![4],
+                        condition: None,
+                        body: 10,
+                    }),
+                    Function(Function {
+                        args: vec![1],
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 11,
+                        is_instance_function: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 12,
+                    },
+                    Number0,
+                    Number1, // 15
+                    Range {
+                        start: 14,
+                        end: 15,
+                        inclusive: false,
+                    },
+                    Id(4), // x
+                    Id(1), // n
+                    Op {
+                        op: AstOp::Equal,
+                        lhs: 17,
+                        rhs: 18,
+                    },
+                    Id(2), // 20 - f2
+                    Id(1), // n
+                    Call {
+                        function: 20,
+                        args: vec![21],
+                    },
+                    ReturnExpression(22),
+                    If(AstIf {
+                        condition: 19,
+                        then_node: 23,
+                        else_if_blocks: vec![],
+                        else_node: None,
+                    }),
+                    For(AstFor {
+                        args: vec![4], // x
+                        ranges: vec![16],
+                        condition: None,
+                        body: 24,
+                    }), // 25
+                    Block(vec![13, 25]),
+                    Function(Function {
+                        args: vec![1],
+                        local_count: 3,
+                        accessed_non_locals: vec![],
+                        body: 26,
+                        is_instance_function: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 27,
+                    },
+                    Id(0),   // f
+                    Number1, // 30
+                    Call {
+                        function: 29,
+                        args: vec![30],
+                    },
+                    MainBlock {
+                        body: vec![28, 31],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("n"),
+                    Constant::Str("f2"),
+                    Constant::Str("i"),
                     Constant::Str("x"),
                 ]),
             )
