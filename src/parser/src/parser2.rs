@@ -190,9 +190,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         });
 
         let mut body = Vec::new();
-        while self.skip_empty_lines_and_peek().is_some() {
+        while self.consume_until_next_token().is_some() {
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
+            } else {
+                return syntax_error!(UnexpectedToken, self);
             }
         }
 
@@ -360,7 +362,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         if allow_initial_indentation
             && self.skip_whitespace_and_peek() == Some(Token::NewLineIndented)
         {
-            self.skip_empty_lines_and_peek();
+            self.consume_until_next_token();
 
             let indent = self.lexer.current_indent();
             if indent <= current_indent {
@@ -380,7 +382,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 self.consume_token();
 
                 if self.skip_whitespace_and_peek() == Some(Token::NewLineIndented) {
-                    self.skip_empty_lines_and_peek();
+                    self.consume_until_next_token();
 
                     let next_indent = self.lexer.next_indent();
 
@@ -509,16 +511,23 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         match self.skip_whitespace_and_peek() {
             Some(next) => match next {
-                NewLine | NewLineIndented => Ok(Some(last_lhs)),
-                For => self.parse_for_loop(Some(lhs), primary_expression),
-                While => self.parse_while_loop(Some(lhs), primary_expression),
-                Until => self.parse_until_loop(Some(lhs), primary_expression),
-                Assign => self.parse_assign_expression(lhs, AssignOp::Equal),
-                AssignAdd => self.parse_assign_expression(lhs, AssignOp::Add),
-                AssignSubtract => self.parse_assign_expression(lhs, AssignOp::Subtract),
-                AssignMultiply => self.parse_assign_expression(lhs, AssignOp::Multiply),
-                AssignDivide => self.parse_assign_expression(lhs, AssignOp::Divide),
-                AssignModulo => self.parse_assign_expression(lhs, AssignOp::Modulo),
+                NewLine | NewLineIndented => {
+                    if let Some(maybe_operator) = self.peek_until_next_token() {
+                        if operator_precedence(maybe_operator).is_some() {
+                            self.consume_until_next_token();
+                            return self.parse_expression_continued(lhs, min_precedence);
+                        }
+                    }
+                }
+                For => return self.parse_for_loop(Some(lhs), primary_expression),
+                While => return self.parse_while_loop(Some(lhs), primary_expression),
+                Until => return self.parse_until_loop(Some(lhs), primary_expression),
+                Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
+                AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
+                AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
+                AssignMultiply => return self.parse_assign_expression(lhs, AssignOp::Multiply),
+                AssignDivide => return self.parse_assign_expression(lhs, AssignOp::Divide),
+                AssignModulo => return self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some((left_priority, right_priority)) = operator_precedence(next) {
                         if let Some(token_after_op) = self.peek_token_n(1) {
@@ -542,20 +551,16 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                 };
 
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                                self.parse_expression_continued(&[op_node], min_precedence)
-                            } else {
-                                Ok(Some(last_lhs))
+                                return self.parse_expression_continued(&[op_node], min_precedence);
                             }
-                        } else {
-                            Ok(Some(last_lhs))
                         }
-                    } else {
-                        Ok(Some(last_lhs))
                     }
                 }
             },
-            None => Ok(Some(last_lhs)),
+            None => {}
         }
+
+        Ok(Some(last_lhs))
     }
 
     fn parse_assign_expression(
@@ -1134,7 +1139,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         &mut self,
         current_indent: usize,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.skip_empty_lines_and_peek();
+        self.consume_until_next_token();
         let expected_indent = self.lexer.next_indent();
 
         let result =
@@ -1175,7 +1180,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         };
 
         // Look ahead to check there's at least one map entry
-        if self.skip_empty_lines_and_peek() != Some(Token::Id) {
+        if self.consume_until_next_token() != Some(Token::Id) {
             return Ok(None);
         }
         if self.peek_token_n(1) != Some(Token::Colon) {
@@ -1195,7 +1200,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 return syntax_error!(ExpectedMapValue, self);
             }
 
-            self.skip_empty_lines_and_peek();
+            self.consume_until_next_token();
 
             let next_indent = self.lexer.next_indent();
             if next_indent < block_indent {
@@ -1482,7 +1487,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         while let Some(expression) = self.parse_line()? {
             body.push(expression);
 
-            self.skip_empty_lines_and_peek();
+            self.consume_until_next_token();
 
             let next_indent = self.lexer.current_indent();
             if next_indent < block_indent {
@@ -1580,7 +1585,26 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         )
     }
 
-    fn skip_empty_lines_and_peek(&mut self) -> Option<Token> {
+    fn peek_until_next_token(&mut self) -> Option<Token> {
+        let mut peek_count = 0;
+        loop {
+            let peeked = self.peek_token_n(peek_count);
+
+            match peeked {
+                Some(Token::Whitespace) => {}
+                Some(Token::NewLine) => {}
+                Some(Token::NewLineIndented) => {}
+                Some(Token::CommentMulti) => {}
+                Some(Token::CommentSingle) => {}
+                Some(token) => return Some(token),
+                None => return None,
+            }
+
+            peek_count += 1;
+        }
+    }
+
+    fn consume_until_next_token(&mut self) -> Option<Token> {
         loop {
             let peeked = self.peek_token();
 
