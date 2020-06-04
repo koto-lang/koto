@@ -1249,7 +1249,14 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             if let Some(value) = self.parse_primary_expression()? {
                 entries.push((key, value));
             } else {
-                return syntax_error!(ExpectedMapValue, self);
+                // If a value wasn't found on the same line as the key, scan ahead to the next
+                // token (skipping newlines) and try again
+                self.consume_until_next_token();
+                if let Some(value) = self.parse_primary_expression()? {
+                    entries.push((key, value));
+                } else {
+                    return syntax_error!(ExpectedMapValue, self);
+                }
             }
 
             self.consume_until_next_token();
@@ -1536,6 +1543,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
 
         let mut body = Vec::new();
+        self.consume_until_next_token();
+
         while let Some(expression) = self.parse_line()? {
             body.push(expression);
 
