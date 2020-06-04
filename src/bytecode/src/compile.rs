@@ -1,8 +1,8 @@
 use crate::{Bytecode, Op};
 
 use koto_parser::{
-    AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex, Lookup, LookupNode,
-    Node, Scope, Span,
+    AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
+    LookupNode, Node, Scope, Span,
 };
 use smallvec::SmallVec;
 use std::convert::TryFrom;
@@ -56,7 +56,7 @@ impl Loop {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum LocalRegister {
     Assigned(ConstantIndex),
     Reserved(ConstantIndex),
@@ -221,6 +221,25 @@ impl Frame {
 
     fn next_temporary_register(&self) -> u8 {
         self.temporary_count + self.temporary_base
+    }
+
+    fn captures_for_nested_frame(
+        &self,
+        accessed_non_locals: &[ConstantIndex],
+    ) -> Vec<ConstantIndex> {
+        accessed_non_locals
+            .iter()
+            .filter(|&non_local| {
+                self.captures.contains(non_local)
+                    || self
+                        .local_registers
+                        .contains(&LocalRegister::Assigned(*non_local))
+                    || self
+                        .local_registers
+                        .contains(&LocalRegister::Reserved(*non_local))
+            })
+            .cloned()
+            .collect()
     }
 }
 
@@ -497,7 +516,16 @@ impl Compiler {
                         }
                     };
 
-                    let capture_count = f.captures.len() as u8;
+                    let captures = self
+                        .frame()
+                        .captures_for_nested_frame(&f.accessed_non_locals);
+                    if captures.len() > u8::MAX as usize {
+                        return Err(format!(
+                            "Function captures too many values: {}",
+                            captures.len(),
+                        ));
+                    }
+                    let capture_count = captures.len() as u8;
 
                     if f.is_instance_function {
                         self.push_op(
@@ -517,10 +545,18 @@ impl Compiler {
                         }
                     };
 
-                    self.compile_frame(local_count, &f.body, &f.args, &f.captures, ast)?;
+                    match &ast.node(f.body).node {
+                        Node::Block(expressions) => {
+                            self.compile_frame(local_count, &expressions, &f.args, &captures, ast)?;
+                        }
+                        _ => {
+                            self.compile_frame(local_count, &[f.body], &f.args, &captures, ast)?;
+                        }
+                    };
+
                     self.update_offset_placeholder(function_size_ip);
 
-                    for (i, capture) in f.captures.iter().enumerate() {
+                    for (i, capture) in captures.iter().enumerate() {
                         if let Some(local_register) = self.frame().get_local_register(*capture) {
                             self.push_op(Capture, &[result_register, i as u8, local_register]);
                         } else {
@@ -551,84 +587,32 @@ impl Compiler {
                     Node::Lookup(function_lookup) => {
                         // TODO find a way to avoid the lookup cloning here
                         let mut call_lookup = function_lookup.clone();
-                        call_lookup.0.push(LookupNode::Call(args.clone()));
+                        call_lookup.push(LookupNode::Call(args.clone()));
                         self.compile_lookup(result_register, &call_lookup, None, ast)?
                     }
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
-            Node::Assign { target, expression } => {
-                self.compile_assign(result_register, target, expression, ast)?;
+            Node::Assign {
+                target,
+                op,
+                expression,
+            } => {
+                self.compile_assign(result_register, target, *op, *expression, ast)?;
             }
             Node::MultiAssign {
                 targets,
                 expressions,
-            } => {
-                self.compile_multi_assign(result_register, targets, expressions, ast)?;
-            }
+            } => match &ast.node(*expressions).node {
+                Node::Expressions(expressions) => {
+                    self.compile_multi_assign(result_register, targets, &expressions, ast)?;
+                }
+                _ => {
+                    self.compile_multi_assign(result_register, targets, &[*expressions], ast)?;
+                }
+            },
             Node::Op { op, lhs, rhs } => {
-                let op = match op {
-                    AstOp::Add => Add,
-                    AstOp::Subtract => Subtract,
-                    AstOp::Multiply => Multiply,
-                    AstOp::Divide => Divide,
-                    AstOp::Modulo => Modulo,
-                    AstOp::Less => Less,
-                    AstOp::LessOrEqual => LessOrEqual,
-                    AstOp::Greater => Greater,
-                    AstOp::GreaterOrEqual => GreaterOrEqual,
-                    AstOp::Equal => Equal,
-                    AstOp::NotEqual => NotEqual,
-                    AstOp::And | AstOp::Or => {
-                        let register = if let Some(result_register) = result_register {
-                            result_register
-                        } else {
-                            self.push_register()?
-                        };
-                        self.compile_node(Some(register), ast.node(*lhs), ast)?;
-
-                        let jump_op = if matches!(op, AstOp::And) {
-                            JumpFalse
-                        } else {
-                            JumpTrue
-                        };
-                        self.push_op(jump_op, &[register]);
-
-                        // If the lhs causes a jump then that's the result,
-                        // otherwise the rhs is the result
-                        self.compile_node_with_jump_offset(Some(register), ast.node(*rhs), ast)?;
-
-                        if result_register.is_none() {
-                            self.pop_register()?;
-                        }
-
-                        return Ok(());
-                    }
-                };
-
-                let (lhs_register, pop_lhs) =
-                    self.compile_node_or_get_local(result_register, ast.node(*lhs), ast)?;
-
-                // If the result register wasn't used for the lhs, then it's available for the rhs
-                let rhs_result_register = match result_register {
-                    Some(register) if lhs_register != register => Some(register),
-                    _ => None,
-                };
-
-                let (rhs_register, pop_rhs) =
-                    self.compile_node_or_get_local(rhs_result_register, ast.node(*rhs), ast)?;
-
-                // We only need to do the actual op if there's a result register
-                if let Some(result_register) = result_register {
-                    self.push_op(op, &[result_register, lhs_register, rhs_register]);
-                }
-
-                if pop_rhs {
-                    self.pop_register()?;
-                }
-                if pop_lhs {
-                    self.pop_register()?;
-                }
+                self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?;
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
@@ -763,19 +747,21 @@ impl Compiler {
     fn local_register_for_assign_target(
         &mut self,
         target: &AssignTarget,
+        ast: &Ast,
     ) -> Result<Option<u8>, String> {
-        let result = match target {
-            AssignTarget::Id { id_index, scope } => match *scope {
-                Scope::Local => {
-                    if self.frame().capture_slot(*id_index).is_some() {
+        let result = match target.scope {
+            Scope::Local => match &ast.node(target.target_index).node {
+                Node::Id(constant_index) => {
+                    if self.frame().capture_slot(*constant_index).is_some() {
                         None
                     } else {
-                        Some(self.frame_mut().reserve_local_register(*id_index)?)
+                        Some(self.frame_mut().reserve_local_register(*constant_index)?)
                     }
                 }
-                Scope::Global => None,
+                Node::Lookup(_) => None,
+                unexpected => return Err(format!("Expected Id in AST, found {}", unexpected)),
             },
-            _ => None,
+            Scope::Global => None,
         };
 
         Ok(result)
@@ -785,21 +771,62 @@ impl Compiler {
         &mut self,
         result_register: Option<u8>,
         target: &AssignTarget,
-        expression: &AstIndex,
+        op: AssignOp,
+        expression: AstIndex,
         ast: &Ast,
     ) -> Result<(), String> {
         use Op::*;
 
-        let local_assign_register = self.local_register_for_assign_target(target)?;
+        let local_assign_register = self.local_register_for_assign_target(target, ast)?;
         let assign_register = match local_assign_register {
             Some(local) => local,
             None => self.push_register()?,
         };
-        self.compile_node(Some(assign_register), ast.node(*expression), ast)?;
 
-        match target {
-            AssignTarget::Id { id_index, scope } => {
-                match scope {
+        match op {
+            AssignOp::Equal => {
+                self.compile_node(Some(assign_register), ast.node(expression), ast)?
+            }
+            AssignOp::Add => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Add,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Subtract => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Subtract,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Multiply => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Multiply,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Divide => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Divide,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+            AssignOp::Modulo => self.compile_binary_op(
+                Some(assign_register),
+                AstOp::Modulo,
+                target.target_index,
+                expression,
+                ast,
+            )?,
+        }
+
+        match &ast.node(target.target_index).node {
+            Node::Id(id_index) => {
+                match target.scope {
                     Scope::Local => {
                         if local_assign_register.is_some() {
                             // To ensure that global rhs ids with the same name as a local that's
@@ -828,9 +855,14 @@ impl Compiler {
                     }
                 }
             }
-
-            AssignTarget::Lookup(lookup) => {
-                self.compile_lookup(result_register, lookup, Some(assign_register), ast)?;
+            Node::Lookup(lookup) => {
+                self.compile_lookup(result_register, &lookup, Some(assign_register), ast)?;
+            }
+            unexpected => {
+                return Err(format!(
+                    "Expected Lookup or Id in AST, found {}",
+                    unexpected
+                ))
             }
         };
 
@@ -862,8 +894,8 @@ impl Compiler {
                 self.compile_node(Some(rhs_register), ast.node(*expression), ast)?;
 
                 for (i, target) in targets.iter().enumerate() {
-                    match target {
-                        AssignTarget::Id { id_index, .. } => {
+                    match &ast.node(target.target_index).node {
+                        Node::Id(id_index) => {
                             if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
                                 let capture_register = self.push_register()?;
 
@@ -884,13 +916,19 @@ impl Compiler {
                                 );
                             }
                         }
-                        AssignTarget::Lookup(lookup) => {
+                        Node::Lookup(lookup) => {
                             let register = self.push_register()?;
 
                             self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
-                            self.compile_lookup(None, lookup, Some(register), ast)?;
+                            self.compile_lookup(None, &lookup, Some(register), ast)?;
 
                             self.pop_register()?;
+                        }
+                        unexpected => {
+                            return Err(format!(
+                                "Expected ID or lookup in AST, found {}",
+                                unexpected
+                            ));
                         }
                     };
                 }
@@ -916,15 +954,27 @@ impl Compiler {
                     match expressions.get(i) {
                         Some(expression) => {
                             if let Some(result_register) = result_register {
-                                self.compile_assign(Some(temp_register), target, expression, ast)?;
+                                self.compile_assign(
+                                    Some(temp_register),
+                                    target,
+                                    AssignOp::Equal,
+                                    *expression,
+                                    ast,
+                                )?;
                                 self.push_op(ListPush, &[result_register, temp_register]);
                             } else {
-                                self.compile_assign(None, target, expression, ast)?;
+                                self.compile_assign(
+                                    None,
+                                    target,
+                                    AssignOp::Equal,
+                                    *expression,
+                                    ast,
+                                )?;
                             }
                         }
                         None => {
-                            match target {
-                                AssignTarget::Id { id_index, .. } => {
+                            match &ast.node(target.target_index).node {
+                                Node::Id(id_index) => {
                                     if let Some(capture) = self.frame().capture_slot(*id_index) {
                                         self.push_op(SetEmpty, &[temp_register]);
                                         self.push_op(SetCapture, &[capture, temp_register]);
@@ -934,10 +984,16 @@ impl Compiler {
                                         self.push_op(SetEmpty, &[local_register]);
                                     }
                                 }
-                                AssignTarget::Lookup(lookup) => {
+                                Node::Lookup(lookup) => {
                                     self.push_op(SetEmpty, &[temp_register]);
-                                    self.compile_lookup(None, lookup, Some(temp_register), ast)?;
+                                    self.compile_lookup(None, &lookup, Some(temp_register), ast)?;
                                     self.pop_register()?;
+                                }
+                                unexpected => {
+                                    return Err(format!(
+                                        "Expected ID or lookup in AST, found {}",
+                                        unexpected
+                                    ));
                                 }
                             }
 
@@ -995,6 +1051,194 @@ impl Compiler {
                 self.push_op(LoadGlobalLong, &[result_register]);
                 self.push_bytes(&id.to_le_bytes());
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_binary_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: AstOp,
+        lhs: AstIndex,
+        rhs: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use AstOp::*;
+
+        let lhs_node = ast.node(lhs);
+        let rhs_node = ast.node(rhs);
+
+        let op = match op {
+            Add => Op::Add,
+            Subtract => Op::Subtract,
+            Multiply => Op::Multiply,
+            Divide => Op::Divide,
+            Modulo => Op::Modulo,
+            Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                return self.compile_comparison_op(result_register, op, &lhs_node, &rhs_node, ast);
+            }
+            And | Or => {
+                return self.compile_logic_op(result_register, op, lhs, rhs, ast);
+            }
+        };
+
+        self.compile_op(result_register, op, lhs_node, rhs_node, ast)
+    }
+
+    fn compile_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: Op,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        let (lhs_register, pop_lhs) = self.compile_node_or_get_local(result_register, lhs, ast)?;
+
+        // If the result register wasn't used for the lhs, then it's available for the rhs
+        let rhs_result_register = match result_register {
+            Some(register) if lhs_register != register => Some(register),
+            _ => None,
+        };
+
+        let (rhs_register, pop_rhs) =
+            self.compile_node_or_get_local(rhs_result_register, rhs, ast)?;
+
+        // We only need to do the actual op if there's a result register
+        if let Some(result_register) = result_register {
+            self.push_op(op, &[result_register, lhs_register, rhs_register]);
+        }
+
+        if pop_rhs {
+            self.pop_register()?;
+        }
+        if pop_lhs {
+            self.pop_register()?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_comparison_op(
+        &mut self,
+        result_register: Option<u8>,
+        ast_op: AstOp,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use AstOp::*;
+
+        let get_comparision_op = |ast_op| {
+            Ok(match ast_op {
+                Less => Op::Less,
+                LessOrEqual => Op::LessOrEqual,
+                Greater => Op::Greater,
+                GreaterOrEqual => Op::GreaterOrEqual,
+                Equal => Op::Equal,
+                NotEqual => Op::NotEqual,
+                _ => return Err("Internal error: invalid comparison op".to_string()),
+            })
+        };
+
+        let stack_count = self.frame().register_stack.len();
+
+        let (result_register, _) = match result_register {
+            Some(register) => (register, false),
+            None => (self.push_register()?, true),
+        };
+
+        let mut jump_offsets = Vec::new();
+
+        let (mut lhs_register, _) = self.compile_node_or_get_local(None, lhs, ast)?;
+        let mut rhs = rhs;
+        let mut ast_op = ast_op;
+
+        loop {
+            match rhs.node {
+                Node::Op {
+                    op: rhs_ast_op,
+                    lhs: rhs_lhs,
+                    rhs: rhs_rhs,
+                } => {
+                    match rhs_ast_op {
+                        Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                            // If the rhs is also a comparison, then chain the operations.
+                            // e.g.
+                            //   `a < (b < c)`
+                            // needs to become equivalent to:
+                            //   `(a < b) and (b < c)`
+                            // To achieve this,
+                            //   - use the lhs of the rhs as the rhs of the current operation
+                            //   - use the temp value as the lhs for the current operation
+                            //   - chain the two comparisons together with an And
+
+                            let (rhs_lhs_register, _) =
+                                self.compile_node_or_get_local(None, ast.node(rhs_lhs), ast)?;
+
+                            // Place the lhs comparison result in the result_register
+                            let op = get_comparision_op(ast_op)?;
+                            self.push_op(op, &[result_register, lhs_register, rhs_lhs_register]);
+
+                            // Skip evaluating the rhs if the lhs result is false
+                            self.push_op(Op::JumpFalse, &[result_register]);
+                            jump_offsets.push(self.push_offset_placeholder());
+
+                            lhs_register = rhs_lhs_register;
+                            rhs = ast.node(rhs_rhs);
+                            ast_op = rhs_ast_op;
+                        }
+                        _ => break,
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        // Compile the rhs and op for the final rhs in the comparison chain
+        let (rhs_register, _) = self.compile_node_or_get_local(None, rhs, ast)?;
+        let op = get_comparision_op(ast_op)?;
+        self.push_op(op, &[result_register, lhs_register, rhs_register]);
+
+        for jump_offset in jump_offsets.iter() {
+            self.update_offset_placeholder(*jump_offset);
+        }
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
+
+        Ok(())
+    }
+
+    fn compile_logic_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: AstOp,
+        lhs: AstIndex,
+        rhs: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        let register = if let Some(result_register) = result_register {
+            result_register
+        } else {
+            self.push_register()?
+        };
+        self.compile_node(Some(register), ast.node(lhs), ast)?;
+
+        let jump_op = match op {
+            AstOp::And => Op::JumpFalse,
+            AstOp::Or => Op::JumpTrue,
+            _ => unreachable!(),
+        };
+
+        self.push_op(jump_op, &[register]);
+
+        // If the lhs causes a jump then that's the result,
+        // otherwise the rhs is the result
+        self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
+
+        if result_register.is_none() {
+            self.pop_register()?;
         }
 
         Ok(())
@@ -1154,13 +1398,13 @@ impl Compiler {
     fn compile_lookup(
         &mut self,
         result_register: Option<u8>,
-        lookup: &Lookup,
+        lookup: &[LookupNode],
         set_value: Option<u8>,
         ast: &Ast,
     ) -> Result<(), String> {
         use Op::*;
 
-        let lookup_len = lookup.0.len();
+        let lookup_len = lookup.len();
         if lookup_len < 2 {
             return Err(format!(
                 "compile_lookup: lookup requires at least 2 elements, found {}",
@@ -1176,8 +1420,8 @@ impl Compiler {
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.frame().register_stack.len();
 
-        for (i, lookup_node) in lookup.0.iter().enumerate() {
-            let is_last_node = i == lookup.0.len() - 1;
+        for (i, lookup_node) in lookup.iter().enumerate() {
+            let is_last_node = i == lookup.len() - 1;
 
             match lookup_node {
                 LookupNode::Id(id) => {
@@ -1225,7 +1469,7 @@ impl Compiler {
                     // List index
 
                     let (index_register, _) =
-                        self.compile_node_or_get_local(None, ast.node(index_node.0), ast)?;
+                        self.compile_node_or_get_local(None, ast.node(*index_node), ast)?;
                     let list_register = *node_registers.last().unwrap();
 
                     if is_last_node {
@@ -1362,7 +1606,7 @@ impl Compiler {
 
         let condition_register = self.push_register()?;
         self.compile_node(Some(condition_register), ast.node(*condition), ast)?;
-        self.push_op(JumpFalse, &[condition_register]);
+        self.push_op_without_span(JumpFalse, &[condition_register]);
         let if_jump_ip = self.push_offset_placeholder();
         self.pop_register()?;
 
@@ -1371,7 +1615,7 @@ impl Compiler {
 
         let then_jump_ip = {
             if !else_if_blocks.is_empty() || else_node.is_some() {
-                self.push_op(Jump, &[]);
+                self.push_op_without_span(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
                 None
@@ -1387,7 +1631,7 @@ impl Compiler {
                     let condition_register = self.push_register()?;
                     self.compile_node(Some(condition_register), ast.node(*else_if_condition), ast)?;
 
-                    self.push_op(JumpFalse, &[condition_register]);
+                    self.push_op_without_span(JumpFalse, &[condition_register]);
                     let then_jump_ip = self.push_offset_placeholder();
 
                     self.pop_register()?; // condition register
@@ -1397,7 +1641,7 @@ impl Compiler {
                     self.compile_node(result_register, ast.node(*else_if_node), ast)?;
 
                     let else_if_jump_ip = if else_node.is_some() {
-                        self.push_op(Jump, &[]);
+                        self.push_op_without_span(Jump, &[]);
                         Some(self.push_offset_placeholder())
                     } else {
                         None
@@ -1415,7 +1659,7 @@ impl Compiler {
             self.compile_node(result_register, ast.node(*else_node), ast)?;
         } else {
             if let Some(result_register) = result_register {
-                self.push_op(SetEmpty, &[result_register]);
+                self.push_op_without_span(SetEmpty, &[result_register]);
             }
         }
 
@@ -1673,7 +1917,10 @@ impl Compiler {
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
         self.debug_info
             .push(self.bytes.len(), &self.span_stack.last().unwrap());
+        self.push_op_without_span(op, bytes);
+    }
 
+    fn push_op_without_span(&mut self, op: Op, bytes: &[u8]) {
         self.bytes.push(op.into());
         self.bytes.extend_from_slice(bytes);
     }

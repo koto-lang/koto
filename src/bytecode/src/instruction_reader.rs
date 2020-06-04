@@ -454,7 +454,7 @@ impl fmt::Display for Instruction {
                 jump_condition,
             } => write!(
                 f,
-                "JumpBackIf\t\tresult: {}\toffset: {}\tcondition: {}",
+                "JumpBackIf\tresult: {}\toffset: {}\tcondition: {}",
                 register, offset, jump_condition
             ),
             Call {
@@ -502,7 +502,7 @@ impl fmt::Display for Instruction {
             }
             ListUpdate { list, index, value } => write!(
                 f,
-                "ListUpdate\tlist: {}\tindex: {}\tvalue: {}",
+                "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
                 list, index, value
             ),
             ListIndex {

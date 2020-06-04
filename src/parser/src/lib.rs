@@ -1,36 +1,20 @@
 mod ast;
 mod constant_pool;
-mod lookup;
+mod error;
 mod node;
 pub mod num2;
 pub mod num4;
 mod parser;
-mod prec_climber;
+
+pub use koto_lexer::{Position, Span};
 
 pub use ast::*;
 pub use constant_pool::ConstantPool;
-pub use lookup::*;
+pub use error::ParserError;
 pub use node::*;
-pub use parser::*;
+pub use parser::Parser;
 
-use std::fmt;
-
-#[derive(Debug)]
-pub enum ParserError {
-    AstCapacityOverflow,
-    PestSyntaxError(String),
-    ParserError(String),
-}
-
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crate::ParserError::*;
-        match self {
-            AstCapacityOverflow => {
-                f.write_str("There are more nodes in the program than the AST can support")
-            }
-            PestSyntaxError(error) => f.write_str(error),
-            ParserError(error) => f.write_str(error),
-        }
-    }
+#[derive(Default)]
+pub struct Options {
+    pub export_all_top_level: bool,
 }

@@ -2,8 +2,8 @@
 members = [
   "src/bytecode",
   "src/cli",
-  "src/grammar",
   "src/koto",
+  "src/lexer",
   "src/parser",
   "src/runtime",
   "src/std",

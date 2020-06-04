@@ -15,7 +15,7 @@ if x
 if x == false
   # This comment shouldn't break parsing
   assert false
-else if false
+elseif false
   assert false
 else
        # ...and neither should this one
@@ -29,7 +29,7 @@ if true
   fib = |n|
     if n <= 0
       0
-    else if n == 1
+    elseif n == 1
       1
     else
       (fib n - 1) + (fib n - 2)
@@ -53,7 +53,7 @@ assert_eq x [0 1 2]
 ###### return supports returning multiple values
 f = ||
   return -1, 1
-a, b = f||
+a, b = f()
 assert_eq a -1
 assert_eq b 1
 
@@ -62,4 +62,4 @@ f = ||
   if true
     return
   assert false
-f||
+f()

@@ -4,7 +4,7 @@ use crate::{
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
 };
-use koto_parser::{num2, num4, AstFor};
+use koto_parser::{num2, num4};
 use std::{
     cmp::Ordering,
     fmt,
@@ -27,7 +27,6 @@ pub enum Value {
     Function(RuntimeFunction),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
-    For(Arc<AstFor>),
     Iterator(ValueIterator),
 }
 
@@ -76,7 +75,6 @@ impl fmt::Display for Value {
                 write!(f, "External function: {:?}", raw)
             }
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
-            For(_) => write!(f, "For loop"),
             Iterator(_) => write!(f, "Iterator"),
         }
     }
@@ -200,7 +198,6 @@ pub fn type_as_string(value: &Value) -> String {
         Function { .. } => "Function".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
-        For(_) => "For".to_string(),
         Iterator(_) => "Iterator".to_string(),
     }
 }

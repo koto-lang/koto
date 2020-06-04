@@ -4,6 +4,9 @@ koto_tests:
 runtime_tests:
   cargo watch -x "test --package koto_runtime"
 
+parser_tests:
+  cargo watch -x "test --package koto_lexer --package koto_parser"
+
 test:
   cargo test --all-targets --benches
 

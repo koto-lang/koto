@@ -1,13 +1,13 @@
-use crate::{ast::AstIndex, Lookup};
+use crate::ast::AstIndex;
 use std::fmt;
 
 pub type ConstantIndex = u32;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Empty,
     Id(ConstantIndex),
-    Lookup(Lookup),
+    Lookup(Vec<LookupNode>),
     Copy(AstIndex),
     BoolTrue,
     BoolFalse,
@@ -47,11 +47,12 @@ pub enum Node {
     },
     Assign {
         target: AssignTarget,
+        op: AssignOp,
         expression: AstIndex,
     },
     MultiAssign {
         targets: Vec<AssignTarget>,
-        expressions: Vec<AstIndex>,
+        expressions: AstIndex,
     },
     Op {
         // TODO rename -> BinaryOp
@@ -119,8 +120,8 @@ impl fmt::Display for Node {
             Op { .. } => write!(f, "Op"),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
-            While{..} => write!(f, "While"),
-            Until{..} => write!(f, "Until"),
+            While { .. } => write!(f, "While"),
+            Until { .. } => write!(f, "Until"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
@@ -130,19 +131,19 @@ impl fmt::Display for Node {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Block {}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub args: Vec<ConstantIndex>,
-    pub captures: Vec<ConstantIndex>,
     pub local_count: usize,
-    pub body: Vec<AstIndex>,
+    // Any ID or lookup root that's accessed in a function and which wasn't previously assigned
+    // locally, is either a global or needs to be captured. The compiler takes care of determining
+    // if an access is a capture or not at the moment the function is created.
+    pub accessed_non_locals: Vec<ConstantIndex>,
+    pub body: AstIndex,
     pub is_instance_function: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
     pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
     pub ranges: Vec<AstIndex>,
@@ -150,7 +151,7 @@ pub struct AstFor {
     pub body: AstIndex,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AstIf {
     pub condition: AstIndex,
     pub then_node: AstIndex,
@@ -158,7 +159,7 @@ pub struct AstIf {
     pub else_node: Option<AstIndex>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AstOp {
     Add,
     Subtract,
@@ -176,22 +177,30 @@ pub enum AstOp {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AssignOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    Equal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
     Global,
     Local,
 }
 
-#[derive(Clone, Debug)]
-pub enum AssignTarget {
-    Id { id_index: AstIndex, scope: Scope },
-    Lookup(Lookup),
+#[derive(Clone, Debug, PartialEq)]
+pub enum LookupNode {
+    Id(ConstantIndex),
+    Index(AstIndex),
+    Call(Vec<AstIndex>),
 }
 
-impl AssignTarget {
-    pub fn to_node(&self) -> Node {
-        match self {
-            AssignTarget::Id { id_index, .. } => Node::Id(*id_index),
-            AssignTarget::Lookup(lookup) => Node::Lookup(lookup.clone()),
-        }
-    }
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AssignTarget {
+    pub target_index: AstIndex,
+    pub scope: Scope,
 }

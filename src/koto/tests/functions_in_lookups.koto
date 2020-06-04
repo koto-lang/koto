@@ -5,14 +5,14 @@ test_map = ||
     set_foo: |self x| self.foo = x
   get_child_map: |self| self.child_map
 
-a = [test_map|| test_map||]
-assert_eq 42 a[0].get_child_map||.foo
-a[0].get_child_map||.set_foo -1
-assert_eq -1 a[0].get_child_map||.foo
+a = [test_map() test_map()]
+assert_eq 42 a[0].get_child_map().foo
+a[0].get_child_map().set_foo -1
+assert_eq -1 a[0].get_child_map().foo
 assert_eq -1 a[0].child_map.foo
-assert_eq 42 a[1].get_child_map||.foo
-assert_eq -42 -a[1].get_child_map||.foo
+assert_eq 42 a[1].get_child_map().foo
+assert_eq -42 -a[1].get_child_map().foo
 
 # Chained function calls
 f = || |x| x * x
-assert_eq (f|| 8) 64
+assert_eq f()(8) 64

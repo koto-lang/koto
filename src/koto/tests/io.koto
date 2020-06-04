@@ -6,10 +6,10 @@ assert_eq (string.lines contents) ["aaa" "bbb" "ccc"]
 
 ###### io.open
 file = io.open path
-assert_eq contents file.read_to_string||
+assert_eq contents file.read_to_string()
 
-###### io.temp_path|| + io.create + io.remove_file
-path = io.temp_path||
+###### io.temp_path() + io.create + io.remove_file
+path = io.temp_path()
 file = io.create path
 print path
 contents = "<(^_^)<"
@@ -19,14 +19,14 @@ io.remove_file path
 assert not io.exists path
 
 ###### io.temp_file
-temp = io.temp_file||
-temp_path = temp.path||
+temp = io.temp_file()
+temp_path = temp.path()
 temp.write_line "hello"
 temp.write_line 42
 assert (io.exists temp_path)
-assert_eq (io.read_to_string temp_path) temp.read_to_string||
+assert_eq (io.read_to_string temp_path) temp.read_to_string()
 
 # TODO re-enable
 # # Temp files are deleted when they're no longer used
-# temp = () # TODO with block, i.e. with temp = io.temp_file||...
+# temp = () # TODO with block, i.e. with temp = io.temp_file()...
 # assert not io.exists temp_path
