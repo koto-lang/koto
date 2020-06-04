@@ -194,7 +194,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
             } else {
-                return syntax_error!(UnexpectedToken, self);
+                return syntax_error!(ExpectedExpression, self);
             }
         }
 
@@ -210,10 +210,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(result)
     }
 
-    fn parse_function(
-        &mut self,
-        primary_expression: bool,
-    ) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_function(&mut self) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::Function) {
             return internal_error!(FunctionParseFailure, self);
         }
@@ -232,8 +229,13 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         // args
         let mut args = Vec::new();
-        while let Some(constant_index) = self.parse_id(true) {
-            args.push(constant_index);
+        loop {
+            self.consume_until_next_token();
+            if let Some(constant_index) = self.parse_id(true) {
+                args.push(constant_index);
+            } else {
+                break;
+            }
         }
 
         if self.skip_whitespace_and_next() != Some(Token::Function) {
@@ -251,9 +253,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         self.frame_stack.push(function_frame);
 
         let body = match self.skip_whitespace_and_peek() {
-            Some(Token::NewLineIndented)
-                if primary_expression && self.lexer.next_indent() > current_indent =>
-            {
+            Some(Token::NewLineIndented) if self.lexer.next_indent() > current_indent => {
                 if let Some(block) = self.parse_indented_map_or_block(current_indent)? {
                     block
                 } else {
@@ -650,11 +650,17 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
                     let id_index = self.push_node(Node::Id(constant_index))?;
+
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
+                        let current_line = self.lexer.extras().line_number;
                         while let Some(expression) = self.parse_non_primary_expression()? {
                             args.push(expression);
+
+                            if self.lexer.extras().line_number != current_line {
+                                break;
+                            }
                         }
 
                         self.push_node(Node::Call {
@@ -689,20 +695,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         loop {
             match self.peek_token() {
                 Some(Token::ParenOpen) => {
-                    self.consume_token();
-
-                    let mut args = Vec::new();
-
-                    while let Some(expression) = self.parse_primary_expression()? {
-                        args.push(expression);
-                    }
-
-                    if let Some(Token::ParenClose) = self.peek_token() {
-                        self.consume_token();
-                        lookup.push(LookupNode::Call(args));
-                    } else {
-                        return syntax_error!(ExpectedCallArgsEnd, self);
-                    }
+                    let args = self.parse_parenthesized_args()?;
+                    lookup.push(LookupNode::Call(args));
                 }
                 Some(Token::ListStart) => {
                     self.consume_token();
@@ -795,9 +789,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
+                        let current_line = self.lexer.extras().line_number;
                         while let Some(expression) = self.parse_non_primary_expression()? {
                             args.push(expression);
+
+                            if self.lexer.extras().line_number != current_line {
+                                break;
+                            }
                         }
+
 
                         lookup.push(LookupNode::Call(args));
                     }
@@ -809,6 +809,33 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         }
 
         Ok(self.push_node(Node::Lookup(lookup))?)
+    }
+
+    fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::ParenOpen) {
+            return internal_error!(ArgumentsParseFailure, self);
+        }
+
+        self.consume_token();
+
+        let mut args = Vec::new();
+
+        loop {
+            self.consume_until_next_token();
+
+            if let Some(expression) = self.parse_non_primary_expression()? {
+                args.push(expression);
+            } else {
+                break;
+            }
+        }
+
+        self.consume_until_next_token();
+        if self.consume_token() == Some(Token::ParenClose) {
+            Ok(args)
+        } else {
+            syntax_error!(ExpectedArgsEnd, self)
+        }
     }
 
     fn parse_negatable_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -1023,32 +1050,48 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 }
                 Token::Num2 => {
                     self.consume_token();
-                    let mut entries = Vec::new();
-                    while let Some(entry) = self.parse_term(false)? {
-                        entries.push(entry);
-                    }
-                    if entries.len() < 1 {
+
+                    let args = if self.peek_token() == Some(Token::ParenOpen) {
+                        self.parse_parenthesized_args()?
+                    } else {
+                        let mut args = Vec::new();
+                        while let Some(arg) = self.parse_term(false)? {
+                            args.push(arg);
+                        }
+                        args
+                    };
+
+                    if args.len() < 1 {
                         return syntax_error!(ExpectedExpression, self);
-                    } else if entries.len() > 2 {
+                    } else if args.len() > 2 {
                         return syntax_error!(TooManyNum2Terms, self);
                     }
-                    self.push_node(Num2(entries))?
+
+                    self.push_node(Num2(args))?
                 }
                 Token::Num4 => {
                     self.consume_token();
-                    let mut entries = Vec::new();
-                    while let Some(entry) = self.parse_term(false)? {
-                        entries.push(entry);
-                    }
-                    if entries.len() < 1 {
+
+                    let args = if self.peek_token() == Some(Token::ParenOpen) {
+                        self.parse_parenthesized_args()?
+                    } else {
+                        let mut args = Vec::new();
+                        while let Some(arg) = self.parse_term(false)? {
+                            args.push(arg);
+                        }
+                        args
+                    };
+
+                    if args.len() < 1 {
                         return syntax_error!(ExpectedExpression, self);
-                    } else if entries.len() > 4 {
+                    } else if args.len() > 4 {
                         return syntax_error!(TooManyNum4Terms, self);
                     }
-                    self.push_node(Num4(entries))?
+
+                    self.push_node(Num4(args))?
                 }
                 Token::If => return self.parse_if_expression(),
-                Token::Function => return self.parse_function(primary_expression),
+                Token::Function => return self.parse_function(),
                 Token::Copy => {
                     self.consume_token();
                     if let Some(expression) = self.parse_primary_expression()? {
@@ -1080,15 +1123,19 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         self.consume_token();
 
         let mut entries = Vec::new();
+
         loop {
-            if let Some(range) = self.parse_range(None)? {
-                entries.push(range);
+            if self.consume_until_next_token() == Some(Token::ListEnd) {
                 break;
             }
 
-            if !entries.is_empty() {
-                let comprehension =
-                    if let Some(for_loop) = self.parse_for_loop(Some(&entries), false)? {
+            if let Some(range) = self.parse_range(None)? {
+                entries.push(range);
+            } else {
+                if !entries.is_empty() {
+                    let comprehension = if let Some(for_loop) =
+                        self.parse_for_loop(Some(&entries), false)?
+                    {
                         Some(for_loop)
                     } else if let Some(while_loop) = self.parse_while_loop(Some(&entries), false)? {
                         Some(while_loop)
@@ -1098,37 +1145,35 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         None
                     };
 
-                if let Some(comprehension) = comprehension {
-                    entries.clear();
-                    entries.push(comprehension);
+                    if let Some(comprehension) = comprehension {
+                        entries.clear();
+                        entries.push(comprehension);
+                        break;
+                    }
+                }
+
+                if let Some(term) = self.parse_term(false)? {
+                    if matches!(
+                        self.peek_token(),
+                        Some(Token::Range) | Some(Token::RangeInclusive)
+                    ) {
+                        if let Some(range) = self.parse_range(Some(term))? {
+                            entries.push(range);
+                        } else {
+                            return internal_error!(RangeParseFailure, self);
+                        }
+                    } else {
+                        entries.push(term);
+                    }
+                } else {
                     break;
                 }
             }
-
-            if let Some(term) = self.parse_term(false)? {
-                if matches!(
-                    self.peek_token(),
-                    Some(Token::Range) | Some(Token::RangeInclusive)
-                ) {
-                    if let Some(range) = self.parse_range(Some(term))? {
-                        entries.push(range);
-                    } else {
-                        return internal_error!(RangeParseFailure, self);
-                    }
-                } else {
-                    entries.push(term);
-                }
-            } else {
-                break;
-            }
-
-            match self.peek_token() {
-                Some(Token::Whitespace) => continue,
-                _ => break,
-            }
         }
 
-        if self.skip_whitespace_and_next() != Some(Token::ListEnd) {
+        self.consume_until_next_token();
+
+        if self.consume_token() != Some(Token::ListEnd) {
             return syntax_error!(ExpectedListEnd, self);
         }
 
@@ -1718,7 +1763,7 @@ mod tests {
                     );
                 }
             }
-            Err(error) => panic!("{}", error),
+            Err(error) => panic!("{} - {}", error, error.span.start),
         }
     }
 
@@ -1817,6 +1862,41 @@ a
                     Constant::Str("test"),
                     Constant::Number(-1.0),
                 ]),
+            )
+        }
+
+        #[test]
+        fn list_with_line_breaks() {
+            let source = "\
+x = [
+  0
+  1 0 1
+  0
+]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Number1,
+                    Number0,
+                    Number1,
+                    Number0, // 5
+                    List(vec![1, 2, 3, 4, 5]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 6,
+                    },
+                    MainBlock {
+                        body: vec![7],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
 

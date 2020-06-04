@@ -8,6 +8,7 @@ pub enum InternalError {
     FunctionParseFailure,
     RangeParseFailure,
     ForParseFailure,
+    ArgumentsParseFailure,
     MissingContinuedExpressionLhs,
     MissingAssignmentTarget,
     UnexpectedIdInExpression,
@@ -39,7 +40,7 @@ pub enum SyntaxError {
     ExpectedAssignmentTarget,
     ExpectedFunctionArgsEnd,
     ExpectedFunctionBody,
-    ExpectedCallArgsEnd,
+    ExpectedArgsEnd,
     ExpectedForArgs,
     ExpectedForInKeyword,
     ExpectedForRanges,
@@ -116,6 +117,7 @@ impl fmt::Display for InternalError {
             FunctionParseFailure => f.write_str("Failed to parse function"),
             RangeParseFailure => f.write_str("Failed to parse range"),
             ForParseFailure => f.write_str("Failed to parse for loop"),
+            ArgumentsParseFailure => f.write_str("Failed to parse arguments"),
             MissingContinuedExpressionLhs => f.write_str("Missing LHS for continued expression"),
             MissingAssignmentTarget => f.write_str("Missing assignment target"),
             UnexpectedIdInExpression => {
@@ -130,7 +132,7 @@ impl fmt::Display for SyntaxError {
         use SyntaxError::*;
 
         match self {
-            LexerError => f.write_str("Unable to parse source"),
+            LexerError => f.write_str("Unexpected token"),
             UnexpectedToken => f.write_str("Unexpected Token"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             ExpectedEndOfLine => f.write_str("Expected end of line"),
@@ -156,7 +158,7 @@ impl fmt::Display for SyntaxError {
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedFunctionBody => f.write_str("Expected function body"),
-            ExpectedCallArgsEnd => f.write_str("Expected end of function call arguments '|'"),
+            ExpectedArgsEnd => f.write_str("Expected end of arguments ')'"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
             ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
             ExpectedForRanges => f.write_str("Expected ranges in for loop"),
