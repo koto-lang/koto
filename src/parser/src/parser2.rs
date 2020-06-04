@@ -344,13 +344,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
         };
 
-        match self.skip_whitespace_and_peek() {
-            Some(Token::NewLine) | Some(Token::NewLineIndented) => {
-                self.consume_token();
-            }
-            _ => {}
-        }
-
         self.frame_mut()?.finish_expressions();
 
         Ok(Some(result))
@@ -3563,6 +3556,70 @@ f 1
                     },
                 ],
                 Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn call_with_functor() {
+            let source = "\
+z = y [0..20] |x| x > 1
+y z";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Number0,
+                    Number(2),
+                    Range {
+                        start: 2,
+                        end: 3,
+                        inclusive: false,
+                    },
+                    List(vec![4]), // 5
+                    Id(3),
+                    Number1,
+                    Op {
+                        op: AstOp::Greater,
+                        lhs: 6,
+                        rhs: 7,
+                    },
+                    Function(Function {
+                        args: vec![3],
+                        local_count: 1,
+                        accessed_non_locals: vec![],
+                        body: 8,
+                        is_instance_function: false,
+                    }),
+                    Call {
+                        function: 1,
+                        args: vec![5, 9],
+                    }, // 10
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 10,
+                    },
+                    Id(1),
+                    Id(0),
+                    Call {
+                        function: 12,
+                        args: vec![13],
+                    },
+                    MainBlock {
+                        body: vec![11, 14],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("z"),
+                    Constant::Str("y"),
+                    Constant::Number(20.0),
+                    Constant::Str("x"),
+                ]),
             )
         }
     }
