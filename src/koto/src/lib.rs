@@ -1,7 +1,7 @@
 pub use koto_bytecode::{
     bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader,
 };
-pub use koto_parser::{num4::Num4, Ast, Function, Parser2 as Parser, Position};
+pub use koto_parser::{num4::Num4, Ast, Function, Parser, Position};
 use koto_runtime::Vm;
 pub use koto_runtime::{
     external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,

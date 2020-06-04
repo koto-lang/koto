@@ -1454,14 +1454,14 @@ mod tests {
     use super::*;
     use crate::{external_error, Value::*, ValueHashMap};
     use koto_bytecode::{bytecode_to_string_annotated, Compiler};
-    use koto_parser::{Options as ParserOptions, Parser2};
+    use koto_parser::{Options as ParserOptions, Parser};
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
 
         let mut compiler = Compiler::new();
 
-        let ast = match Parser2::parse(&script, vm.constants_mut(), ParserOptions::default()) {
+        let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
             Ok(ast) => ast,
             Err(e) => panic!(format!(
                 "\n{}\n\n Error while parsing script: {}",
