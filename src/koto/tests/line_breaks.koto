@@ -26,6 +26,7 @@ x = |
   long_arg # This is an argument that needs an explanation
   long_arg_2
 |
+  # The body must be indented
   assert_eq long_arg long_arg_2
 
 x 1 1

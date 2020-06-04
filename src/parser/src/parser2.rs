@@ -1021,22 +1021,29 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Token::ListStart => return self.parse_list(),
                 Token::MapStart => {
                     self.consume_token();
+
                     let mut entries = Vec::new();
 
-                    while let Some(key) = self.parse_id(false) {
-                        if self.skip_whitespace_and_next() != Some(Token::Colon) {
-                            return syntax_error!(ExpectedMapSeparator, self);
-                        }
+                    loop {
+                        self.consume_until_next_token();
 
-                        if let Some(value) = self.parse_primary_expression()? {
-                            entries.push((key, value));
-                        } else {
-                            return syntax_error!(ExpectedMapValue, self);
-                        }
+                        if let Some(key) = self.parse_id(false) {
+                            if self.consume_token() != Some(Token::Colon) {
+                                return syntax_error!(ExpectedMapSeparator, self);
+                            }
 
-                        if self.skip_whitespace_and_peek() == Some(Token::Separator) {
-                            self.consume_token();
-                            continue;
+                            self.consume_until_next_token();
+                            if let Some(value) = self.parse_primary_expression()? {
+                                entries.push((key, value));
+                            } else {
+                                return syntax_error!(ExpectedMapValue, self);
+                            }
+
+                            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                                self.consume_token();
+                            } else {
+                                break;
+                            }
                         } else {
                             break;
                         }
