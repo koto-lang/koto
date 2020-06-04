@@ -45,6 +45,9 @@ pub enum Token {
     #[token("\n", next_line)]
     NewLine,
 
+    #[regex(r"\\\n( )*", next_line_indented)]
+    NewLineSkipped,
+
     #[regex(r"\n( )+", next_line_indented)]
     NewLineIndented,
 

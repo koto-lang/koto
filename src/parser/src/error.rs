@@ -132,7 +132,7 @@ impl fmt::Display for SyntaxError {
         use SyntaxError::*;
 
         match self {
-            LexerError => f.write_str("Unexpected token"),
+            LexerError => f.write_str("Found an unexpected token while lexing input"),
             UnexpectedToken => f.write_str("Unexpected Token"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             ExpectedEndOfLine => f.write_str("Expected end of line"),

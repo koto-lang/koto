@@ -649,6 +649,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
+
                     let id_index = self.push_node(Node::Id(constant_index))?;
 
                     if let Some(expression) = self.parse_non_primary_expression()? {
@@ -797,7 +798,6 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                                 break;
                             }
                         }
-
 
                         lookup.push(LookupNode::Call(args));
                     }
@@ -1646,6 +1646,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Whitespace) => {}
                 Some(Token::NewLine) => {}
                 Some(Token::NewLineIndented) => {}
+                Some(Token::NewLineSkipped) => {}
                 Some(Token::CommentMulti) => {}
                 Some(Token::CommentSingle) => {}
                 Some(token) => return Some(token),
@@ -1664,6 +1665,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 Some(Token::Whitespace) => {}
                 Some(Token::NewLine) => {}
                 Some(Token::NewLineIndented) => {}
+                Some(Token::NewLineSkipped) => {}
                 Some(Token::CommentMulti) => {}
                 Some(Token::CommentSingle) => {}
                 Some(token) => return Some(token),
@@ -1681,6 +1683,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             match peeked {
                 Some(Token::Whitespace) => {}
+                Some(Token::NewLineSkipped) => {}
                 Some(token) => return Some(token),
                 None => return None,
             }
@@ -1696,6 +1699,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             match peeked {
                 Some(Token::Whitespace) => {}
+                Some(Token::NewLineSkipped) => {}
                 Some(_) => return self.lexer.next(),
                 None => return None,
             }
@@ -3924,6 +3928,55 @@ debug x + x";
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("x + x")]),
+            )
+        }
+    }
+
+    mod line_continuation {
+        use super::*;
+
+        #[test]
+        fn arithmetic() {
+            let source = r"
+a = 1 + \
+    2 + \
+    3
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Number(1),
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Number(2),
+                    Op {
+                        op: AstOp::Add,
+                        lhs: 3,
+                        rhs: 4,
+                    }, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
+                ]),
             )
         }
     }
