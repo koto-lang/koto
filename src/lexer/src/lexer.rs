@@ -1,188 +1,82 @@
 use {
     crate::{Position, Span},
-    logos::{Lexer, Logos},
     std::{iter::Peekable, str::Chars},
 };
 
-#[derive(Clone, Copy)]
-pub struct Extras {
-    pub line_number: usize,
-    pub line_start: usize,
-    pub indent: usize,
-}
-
-impl Default for Extras {
-    fn default() -> Self {
-        Self {
-            line_number: 1,
-            line_start: 0,
-            indent: 0,
-        }
-    }
-}
-
-fn next_line(lexer: &mut Lexer<Token>) {
-    lexer.extras.line_number += 1;
-    lexer.extras.line_start = lexer.span().start + 1; // +1 to skip \n
-    lexer.extras.indent = 0;
-}
-
-fn next_line_indented(lexer: &mut Lexer<Token>) {
-    lexer.extras.line_number += 1;
-    lexer.extras.line_start = lexer.span().start + 1; // +1 to skip \n
-    lexer.extras.indent = lexer.slice().len() - 1;
-}
-
-fn count_newlines(lexer: &mut Lexer<Token>) {
-    lexer.extras.line_number += lexer.slice().matches("\n").count();
-}
-
-#[derive(Logos, Copy, Clone, Debug, PartialEq)]
-#[logos(extras = Extras)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token {
-    #[error]
     Error,
-
-    #[regex(r"[ \t\f]+")]
     Whitespace,
-
-    #[token("\n", next_line)]
     NewLine,
-
-    #[regex(r"\\\n( )*", next_line_indented)]
     NewLineSkipped,
-
-    #[regex(r"\n( )+", next_line_indented)]
     NewLineIndented,
-
-    #[regex(r"#[^-].*")]
     CommentSingle,
-
-    #[regex(r"#-([^-]|-[^#])*-#", count_newlines)]
     CommentMulti,
-
-    #[regex(r"-?(0|[1-9][0-9]*)(\.[0-9]+)?(e(\+|\-)?[0-9]+)?")]
     Number,
-
-    #[regex(r#""(?:[^"\\]|\\.)*""#)]
     Str,
-
-    #[regex(r"[a-zA-Z][a-zA-Z0-9_]*")]
     Id,
 
     // Symbols
-    #[token(":")]
     Colon,
-    #[token(".")]
     Dot,
-    #[token("(")]
     ParenOpen,
-    #[token(")")]
     ParenClose,
-    #[token("|")]
     Function,
-    #[token("[")]
     ListStart,
-    #[token("]")]
     ListEnd,
-    #[token("{")]
     MapStart,
-    #[token("}")]
     MapEnd,
-    #[token("_")]
     Placeholder,
-    #[token("..")]
     Range,
-    #[token("..=")]
     RangeInclusive,
-    #[token(",")]
     Separator,
 
     // operators
-    #[token("+")]
     Add,
-    #[token("-")]
     Subtract,
-    #[token("*")]
     Multiply,
-    #[token("/")]
     Divide,
-    #[token("%")]
     Modulo,
 
-    #[token("=")]
     Assign,
-    #[token("+=")]
     AssignAdd,
-    #[token("-=")]
     AssignSubtract,
-    #[token("*=")]
     AssignMultiply,
-    #[token("/=")]
     AssignDivide,
-    #[token("%=")]
     AssignModulo,
 
-    #[token("==")]
     Equal,
-    #[token("!=")]
     NotEqual,
-
-    #[token(">")]
     Greater,
-    #[token(">=")]
     GreaterOrEqual,
-    #[token("<")]
     Less,
-    #[token("<=")]
     LessOrEqual,
 
     // Keywords
-    #[token("and")]
     And,
-    #[token("break")]
     Break,
-    #[token("continue")]
     Continue,
-    #[token("copy")]
     Copy,
-    #[token("debug")]
     Debug,
-    #[token("else")]
     Else,
-    #[token("elseif")] // TODO investigate why 'else if' causes 'else' to fail matching
     ElseIf,
-    #[token("export")]
     Export,
-    #[token("false")]
     False,
-    #[token("for")]
     For,
-    #[token("if")]
     If,
-    #[token("in")]
     In,
-    #[token("not")]
     Not,
-    #[token("num2")]
     Num2,
-    #[token("num4")]
     Num4,
-    #[token("or")]
     Or,
-    #[token("return")]
     Return,
-    #[token("then")]
     Then,
-    #[token("true")]
     True,
-    #[token("until")]
     Until,
-    #[token("while")]
     While,
 }
 
-pub struct Lexer2<'a> {
+struct TokenLexer<'a> {
     source: &'a str,
     previous: usize,
     current: usize,
@@ -191,7 +85,7 @@ pub struct Lexer2<'a> {
     span: Span,
 }
 
-impl<'a> Lexer2<'a> {
+impl<'a> TokenLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
@@ -506,7 +400,7 @@ impl<'a> Lexer2<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer2<'a> {
+impl<'a> Iterator for TokenLexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -573,7 +467,7 @@ struct PeekedToken<'a> {
 }
 
 pub struct KotoLexer<'a> {
-    lexer: Lexer2<'a>,
+    lexer: TokenLexer<'a>,
     peeked_tokens: Vec<PeekedToken<'a>>,
     current_peek_index: usize,
 }
@@ -581,7 +475,7 @@ pub struct KotoLexer<'a> {
 impl<'a> KotoLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            lexer: Lexer2::new(source),
+            lexer: TokenLexer::new(source),
             peeked_tokens: Vec::new(),
             current_peek_index: 0,
         }
@@ -696,7 +590,7 @@ mod tests {
     use super::{Token::*, *};
 
     fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
-        let mut lex = Lexer2::new(source);
+        let mut lex = KotoLexer::new(source);
 
         for (token, maybe_slice, line_number) in tokens {
             loop {
@@ -707,7 +601,7 @@ mod tests {
                         if let Some(slice) = maybe_slice {
                             assert_eq!(&lex.slice(), slice);
                         }
-                        assert_eq!(lex.position.line as u32, *line_number);
+                        assert_eq!(lex.line_number() as u32, *line_number);
                         break;
                     }
                 }
@@ -718,7 +612,7 @@ mod tests {
     }
 
     fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
-        let mut lex = Lexer2::new(source);
+        let mut lex = KotoLexer::new(source);
 
         for (i, (token, maybe_slice, line_number, indent)) in tokens.iter().enumerate() {
             loop {
@@ -730,11 +624,11 @@ mod tests {
                             assert_eq!(&lex.slice(), slice, "token {}", i);
                         }
                         assert_eq!(
-                            lex.position.line as u32, *line_number,
+                            lex.line_number() as u32, *line_number,
                             "Line number (token {})",
                             i
                         );
-                        assert_eq!(lex.indent as u32, *indent, "Indent (token {})", i);
+                        assert_eq!(lex.current_indent() as u32, *indent, "Indent (token {})", i);
                         break;
                     }
                 }

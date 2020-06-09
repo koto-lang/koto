@@ -1,4 +1,4 @@
-use std::{fmt, ops::Range, str};
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
@@ -22,92 +22,4 @@ impl fmt::Display for Position {
 pub struct Span {
     pub start: Position,
     pub end: Position,
-}
-
-fn get_slice<'a>(source: &'a str, line_start: usize, byte_span: &Range<usize>) -> &'a str {
-    let slice_start = line_start;
-    let slice_end = byte_span.end;
-
-    // from_utf8_unchecked could be considered here if necessary
-    str::from_utf8(&source.as_bytes()[slice_start..slice_end]).unwrap()
-}
-
-pub fn make_span(
-    source: &str,
-    line_number: usize,
-    line_start: usize,
-    byte_span: &Range<usize>,
-) -> Span {
-    let slice = get_slice(source, line_start, byte_span);
-
-    let mut line = line_number;
-    let mut column = 1;
-    let mut result = Span::default();
-    result.start.line = line_number as u32;
-
-    for (byte_count, c) in slice.char_indices() {
-        if line_start + byte_count == byte_span.start {
-            result.start.column = column as u32;
-        }
-        if c == '\n' {
-            line += 1;
-            column = 1;
-        } else {
-            column += 1;
-        }
-    }
-
-    result.end.line = line as u32;
-    result.end.column = column as u32;
-
-    result
-}
-
-pub fn make_start_position(
-    source: &str,
-    line_number: usize,
-    line_start: usize,
-    byte_span: &Range<usize>,
-) -> Position {
-    let slice = get_slice(source, line_start, byte_span);
-
-    let mut column = 1;
-
-    for (byte_count, _) in slice.char_indices() {
-        if line_start + byte_count == byte_span.start {
-            return Position {
-                line: line_number as u32,
-                column: column as u32,
-            };
-        }
-        column += 1;
-    }
-
-    unreachable!();
-}
-
-pub fn make_end_position(
-    source: &str,
-    line_number: usize,
-    line_start: usize,
-    byte_span: &Range<usize>,
-) -> Position {
-    let slice = get_slice(source, line_start, byte_span);
-
-    let mut line = line_number;
-    let mut column = 1;
-
-    for c in slice.chars() {
-        if c == '\n' {
-            line += 1;
-            column = 1;
-        } else {
-            column += 1;
-        }
-    }
-
-    Position {
-        line: line as u32,
-        column: column as u32,
-    }
 }
