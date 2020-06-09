@@ -1464,8 +1464,8 @@ mod tests {
         let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
             Ok(ast) => ast,
             Err(e) => panic!(format!(
-                "\n{}\n\n Error while parsing script: {}",
-                script, e
+                "\n{}\n\n Error while parsing script: {} - {}",
+                script, e, e.span.start
             )),
         };
         match compiler.compile_ast(&ast) {
@@ -1886,7 +1886,7 @@ x
             let script = "
 x = if 5 > 4
   42
-elseif 1 < 2
+else if 1 < 2
   -1
 else
   99
@@ -1899,7 +1899,7 @@ x";
             let script = "
 x = if 5 < 4
   42
-elseif 1 < 2
+else if 1 < 2
   -1
 else
   99
@@ -1912,7 +1912,7 @@ x";
             let script = "
 x = if 5 < 4
   42
-elseif 2 < 1
+else if 2 < 1
   -1
 else
   99
@@ -1925,11 +1925,11 @@ x";
             let script = "
 x = if false
   42
-elseif false
+else if false
   -1
-elseif false
+else if false
   99
-elseif true
+else if true
   100
 else
   0
@@ -2022,7 +2022,7 @@ f 4
 fib = |n|
   if n <= 0
     0
-  elseif n == 1
+  else if n == 1
     1
   else
     (fib n - 1) + (fib n - 2)

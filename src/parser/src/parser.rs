@@ -1,6 +1,6 @@
 use {
     crate::{error::*, *},
-    koto_lexer::{make_end_position, make_span, make_start_position, Lexer, Span, Token},
+    koto_lexer::{Lexer, Span, Token},
     std::{
         collections::{HashMap, HashSet},
         iter::FromIterator,
@@ -10,16 +10,7 @@ use {
 
 macro_rules! make_internal_error {
     ($error:ident, $parser:expr) => {{
-        let extras = &$parser.lexer.extras();
-        ParserError::new(
-            InternalError::$error.into(),
-            make_span(
-                $parser.lexer.source(),
-                extras.line_number,
-                extras.line_start,
-                &$parser.lexer.span(),
-            ),
-        )
+        ParserError::new(InternalError::$error.into(), $parser.lexer.span())
     }};
 }
 
@@ -36,16 +27,7 @@ macro_rules! internal_error {
 
 macro_rules! syntax_error {
     ($error:ident, $parser:expr) => {{
-        let extras = &$parser.lexer.extras();
-        let error = ParserError::new(
-            SyntaxError::$error.into(),
-            make_span(
-                $parser.lexer.source(),
-                extras.line_number,
-                extras.line_start,
-                &$parser.lexer.span(),
-            ),
-        );
+        let error = ParserError::new(SyntaxError::$error.into(), $parser.lexer.span());
         #[cfg(panic_on_parser_error)]
         {
             panic!(error);
@@ -194,7 +176,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
             } else {
-                return syntax_error!(ExpectedExpression, self);
+                return syntax_error!(ExpectedExpressionInMainBlock, self);
             }
         }
 
@@ -219,13 +201,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         self.consume_token();
 
-        let start_extras = self.lexer.extras();
-        let span_start = make_start_position(
-            self.lexer.source(),
-            start_extras.line_number,
-            start_extras.line_start,
-            &self.lexer.span(),
-        );
+        let span_start = self.lexer.span().start;
 
         // args
         let mut args = Vec::new();
@@ -279,13 +255,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         let local_count = function_frame.local_count();
 
-        let end_extras = self.lexer.extras();
-        let span_end = make_end_position(
-            self.lexer.source(),
-            end_extras.line_number,
-            end_extras.line_start,
-            &self.lexer.span(),
-        );
+        let span_end = self.lexer.span().end;
 
         let result = self.ast.push(
             Node::Function(Function {
@@ -456,7 +426,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     ) -> Result<Option<AstIndex>, ParserError> {
         let primary_expression = min_precedence == 0;
 
-        let start_line = self.lexer.extras().line_number;
+        let start_line = self.lexer.line_number();
 
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
@@ -479,7 +449,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             }
         };
 
-        let continue_expression = start_line == self.lexer.extras().line_number;
+        let continue_expression = start_line == self.lexer.line_number();
 
         if continue_expression {
             if let Some(lhs) = lhs {
@@ -655,11 +625,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
-                        let current_line = self.lexer.extras().line_number;
+                        let current_line = self.lexer.line_number();
                         while let Some(expression) = self.parse_non_primary_expression()? {
                             args.push(expression);
 
-                            if self.lexer.extras().line_number != current_line {
+                            if self.lexer.line_number() != current_line {
                                 break;
                             }
                         }
@@ -790,11 +760,11 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
-                        let current_line = self.lexer.extras().line_number;
+                        let current_line = self.lexer.line_number();
                         while let Some(expression) = self.parse_non_primary_expression()? {
                             args.push(expression);
 
-                            if self.lexer.extras().line_number != current_line {
+                            if self.lexer.line_number() != current_line {
                                 break;
                             }
                         }
@@ -932,35 +902,22 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
         self.consume_token();
 
-        let start_extras = self.lexer.extras();
-        let start_position = make_start_position(
-            self.lexer.source(),
-            start_extras.line_number,
-            start_extras.line_start,
-            &self.lexer.span(),
-        );
+        let start_position = self.lexer.span().start;
 
         self.skip_whitespace_and_peek();
 
-        let expression_start_span = self.lexer.next_span();
+        let expression_source_start = self.lexer.source_position();
         let expression = if let Some(expression) = self.parse_primary_expressions(true)? {
             expression
         } else {
             return syntax_error!(ExpectedExpression, self);
         };
 
-        let end_extras = self.lexer.extras();
-        let end_span = self.lexer.span();
-        let end_position = make_end_position(
-            self.lexer.source(),
-            end_extras.line_number,
-            end_extras.line_start,
-            &end_span,
-        );
+        let expression_source_end = self.lexer.source_position();
 
         let expression_string = self
             .constants
-            .add_string(&self.lexer.source()[expression_start_span.start..end_span.end])
+            .add_string(&self.lexer.source()[expression_source_start..expression_source_end])
             as u32;
 
         let result = self.ast.push(
@@ -970,7 +927,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             },
             Span {
                 start: start_position,
-                end: end_position,
+                end: self.lexer.span().end,
             },
         )?;
 
@@ -1634,16 +1591,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
     }
 
     fn push_node(&mut self, node: Node) -> Result<AstIndex, ParserError> {
-        let extras = self.lexer.extras();
-        self.ast.push(
-            node,
-            make_span(
-                self.lexer.source(),
-                extras.line_number,
-                extras.line_start,
-                &self.lexer.span(),
-            ),
-        )
+        self.ast.push(node, self.lexer.span())
     }
 
     fn peek_until_next_token(&mut self) -> Option<Token> {
@@ -2730,9 +2678,9 @@ x %= 4";
             let source = "\
 a = if false
   0
-elseif true
+else if true
   1
-elseif false
+else if false
   0
 else
   1
