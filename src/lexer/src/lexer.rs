@@ -1,4 +1,8 @@
-use logos::{Lexer, Logos};
+use {
+    crate::{Position, Span},
+    logos::{Lexer, Logos},
+    std::{iter::Peekable, str::Chars},
+};
 
 #[derive(Clone, Copy)]
 pub struct Extras {
@@ -178,15 +182,398 @@ pub enum Token {
     While,
 }
 
+pub struct Lexer2<'a> {
+    source: &'a str,
+    previous: usize,
+    current: usize,
+    indent: usize,
+    position: Position,
+    span: Span,
+}
+
+impl<'a> Lexer2<'a> {
+    pub fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            previous: 0,
+            current: 0,
+            indent: 0,
+            position: Position::default(),
+            span: Span::default(),
+        }
+    }
+
+    pub fn slice(&self) -> &'a str {
+        &self.source[self.previous..self.current]
+    }
+
+    fn advance_line(&mut self, char_count: usize) {
+        self.previous = self.current;
+        self.current += char_count;
+
+        self.position.column += char_count as u32;
+
+        self.span = Span {
+            start: self.span.end,
+            end: self.position,
+        };
+    }
+
+    fn advance_to_position(&mut self, char_count: usize, position: Position) {
+        self.previous = self.current;
+        self.current += char_count;
+
+        self.position = position;
+
+        self.span = Span {
+            start: self.span.end,
+            end: position,
+        };
+    }
+
+    fn consume_newline(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        use Token::*;
+
+        let mut count = 1;
+        let mut skipped = false;
+
+        match chars.next() {
+            Some('\\') => {
+                if chars.next() == Some('\n') {
+                    skipped = true;
+                    count += 1;
+                } else {
+                    return Some(Error);
+                }
+            }
+            Some('\n') => {}
+            _ => return Some(Error),
+        }
+
+        count += consume_and_count(&mut chars, is_whitespace);
+
+        self.indent = count - 1; // -1 for newline
+        self.advance_to_position(
+            count,
+            Position {
+                line: self.position.line + 1,
+                column: count as u32, // indexing from 1 for column
+            },
+        );
+
+        Some(if skipped {
+            NewLineSkipped
+        } else if self.indent == 0 {
+            NewLine
+        } else {
+            NewLineIndented
+        })
+    }
+
+    fn consume_comment(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        use Token::*;
+
+        // The # symbol has already been matched
+        chars.next();
+
+        if chars.peek() == Some(&'-') {
+            // multi-line comment
+            let mut char_count = 1;
+            let mut nest_count = 1;
+            let mut position = self.position;
+            while let Some(c) = chars.next() {
+                char_count += 1;
+                match c {
+                    '#' => {
+                        if chars.peek() == Some(&'-') {
+                            chars.next();
+                            char_count += 1;
+                            position.column += 1;
+                            nest_count += 1;
+                        }
+                    }
+                    '-' => {
+                        if chars.peek() == Some(&'#') {
+                            chars.next();
+                            char_count += 1;
+                            position.column += 1;
+                            nest_count -= 1;
+                            if nest_count == 0 {
+                                break;
+                            }
+                        }
+                    }
+                    '\n' => {
+                        position.line += 1;
+                        position.column = 1;
+                    }
+                    _ => {}
+                }
+            }
+
+            self.advance_to_position(char_count, position);
+
+            Some(if nest_count == 0 { CommentMulti } else { Error })
+        } else {
+            // single-line comment
+            let count = 1 + consume_and_count(&mut chars, |c| c != '\n');
+            self.advance_line(count);
+            Some(CommentSingle)
+        }
+    }
+
+    fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        use Token::*;
+
+        chars.next();
+        let mut char_count = 1;
+
+        while let Some(c) = chars.next() {
+            char_count += 1;
+            match c {
+                '\\' => {
+                    if chars.peek() == Some(&'"') {
+                        chars.next();
+                        char_count += 1;
+                    }
+                }
+                '"' => {
+                    self.advance_line(char_count);
+                    return Some(Str);
+                }
+                _ => {}
+            }
+        }
+
+        Some(Error)
+    }
+
+    fn consume_number_or_subtract(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        use Token::*;
+
+        let mut count = 0;
+
+        if chars.peek() == Some(&'-') {
+            chars.next();
+            count += 1;
+
+            if chars.peek() == Some(&'=') {
+                self.advance_line(2);
+                return Some(AssignSubtract);
+            }
+        }
+
+        match chars.peek() {
+            Some(c) if is_digit(*c) => {
+                count += consume_and_count(&mut chars, is_digit);
+
+                if chars.peek() == Some(&'.') {
+                    chars.next();
+
+                    if chars.peek() == Some(&'.') {
+                        // A double-dot should be lexed as a range token, so bail out here
+                        self.advance_line(count);
+                        return Some(Number);
+                    }
+
+                    count += 1 + consume_and_count(&mut chars, is_digit);
+                }
+
+                if chars.peek() == Some(&'e') {
+                    chars.next();
+                    count += 1;
+
+                    if matches!(chars.peek(), Some(&'+') | Some(&'-')) {
+                        chars.next();
+                        count += 1;
+                    }
+
+                    count += consume_and_count(&mut chars, is_digit);
+                }
+
+                self.advance_line(count);
+                Some(Number)
+            }
+            _ => {
+                if count == 1 {
+                    self.advance_line(1);
+                    Some(Subtract)
+                } else {
+                    Some(Error)
+                }
+            }
+        }
+    }
+
+    fn consume_id_or_keyword(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+        use Token::*;
+
+        // The first character has already been matched
+        chars.next();
+
+        let count = 1 + consume_and_count(&mut chars, |c| {
+            matches!(
+                c,
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_'
+            )
+        });
+        let id = &self.source[self.current..self.current + count];
+
+        macro_rules! check_keyword {
+            ($keyword:expr, $token:ident) => {
+                if id == $keyword {
+                    self.advance_line($keyword.len());
+                    return Some($token);
+                }
+            };
+        }
+
+        check_keyword!("and", And);
+        check_keyword!("break", Break);
+        check_keyword!("continue", Continue);
+        check_keyword!("copy", Copy);
+        check_keyword!("debug", Debug);
+        check_keyword!("elseif", ElseIf);
+        check_keyword!("else", Else);
+        check_keyword!("export", Export);
+        check_keyword!("false", False);
+        check_keyword!("for", For);
+        check_keyword!("if", If);
+        check_keyword!("in", In);
+        check_keyword!("not", Not);
+        check_keyword!("num2", Num2);
+        check_keyword!("num4", Num4);
+        check_keyword!("or", Or);
+        check_keyword!("return", Return);
+        check_keyword!("then", Then);
+        check_keyword!("true", True);
+        check_keyword!("until", Until);
+        check_keyword!("while", While);
+
+        // If no keyword matched, then consume as an Id
+        self.advance_line(count);
+        Some(Token::Id)
+    }
+
+    fn consume_symbol(&mut self, remaining: &str) -> Option<Token> {
+        use Token::*;
+
+        macro_rules! check_symbol {
+            ($token_str:expr, $token:ident) => {
+                if remaining.starts_with($token_str) {
+                    self.advance_line($token_str.len());
+                    return Some($token);
+                }
+            };
+        }
+
+        check_symbol!("..=", RangeInclusive);
+        check_symbol!("..", Range);
+
+        check_symbol!("==", Equal);
+        check_symbol!("!=", NotEqual);
+        check_symbol!(">=", GreaterOrEqual);
+        check_symbol!("<=", LessOrEqual);
+        check_symbol!(">", Greater);
+        check_symbol!("<", Less);
+
+        check_symbol!("+=", AssignAdd);
+        check_symbol!("*=", AssignMultiply);
+        check_symbol!("/=", AssignDivide);
+        check_symbol!("%=", AssignModulo);
+        check_symbol!("=", Assign);
+
+        check_symbol!("+", Add);
+        check_symbol!("*", Multiply);
+        check_symbol!("/", Divide);
+        check_symbol!("%", Modulo);
+
+        // Subtract and AssignSubtract are checked separately to allow for negative numbers
+
+        check_symbol!(":", Colon);
+        check_symbol!(".", Dot);
+        check_symbol!("(", ParenOpen);
+        check_symbol!(")", ParenClose);
+        check_symbol!("|", Function);
+        check_symbol!("[", ListStart);
+        check_symbol!("]", ListEnd);
+        check_symbol!("{", MapStart);
+        check_symbol!("}", MapEnd);
+        check_symbol!("_", Placeholder);
+        check_symbol!(",", Separator);
+
+        None
+    }
+}
+
+impl<'a> Iterator for Lexer2<'a> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        use Token::*;
+
+        match self.source.get(self.current..) {
+            Some(remaining) => {
+                let mut chars = remaining.chars().peekable();
+
+                match chars.peek() {
+                    Some(c) if is_whitespace(*c) => {
+                        let count = consume_and_count(&mut chars, is_whitespace);
+                        self.advance_line(count);
+                        Some(Whitespace)
+                    }
+                    Some('\n') | Some('\\') => self.consume_newline(chars),
+                    Some('#') => self.consume_comment(chars),
+                    Some('"') => self.consume_string(chars),
+                    Some('0'..='9') | Some('-') => self.consume_number_or_subtract(chars),
+                    Some('a'..='z') | Some('A'..='Z') => self.consume_id_or_keyword(chars),
+                    Some(_) => {
+                        if let Some(id) = self.consume_symbol(remaining) {
+                            Some(id)
+                        } else {
+                            Some(Error)
+                        }
+                    }
+                    None => None,
+                }
+            }
+            None => None,
+        }
+    }
+}
+
+fn is_digit(c: char) -> bool {
+    matches!(c, '0'..='9')
+}
+
+fn is_whitespace(c: char) -> bool {
+    matches!(c, ' ' | '\t')
+}
+
+fn consume_and_count(chars: &mut Peekable<Chars>, predicate: impl Fn(char) -> bool) -> usize {
+    let mut count = 0;
+
+    while let Some(c) = chars.peek() {
+        if !predicate(*c) {
+            break;
+        }
+        count += 1;
+        chars.next();
+    }
+
+    count
+}
+
 struct PeekedToken<'a> {
     token: Option<Token>,
-    span: logos::Span,
     slice: &'a str,
-    extras: Extras,
+    span: Span,
+    indent: usize,
+    source_position: usize,
 }
 
 pub struct KotoLexer<'a> {
-    lexer: Lexer<'a, Token>,
+    lexer: Lexer2<'a>,
     peeked_tokens: Vec<PeekedToken<'a>>,
     current_peek_index: usize,
 }
@@ -194,7 +581,7 @@ pub struct KotoLexer<'a> {
 impl<'a> KotoLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            lexer: Token::lexer(source),
+            lexer: Lexer2::new(source),
             peeked_tokens: Vec::new(),
             current_peek_index: 0,
         }
@@ -210,30 +597,49 @@ impl<'a> KotoLexer<'a> {
 
     pub fn peek_n(&mut self, n: usize) -> Option<Token> {
         while self.peeked_tokens.len() - self.current_peek_index <= n {
-            let span = self.lexer.span();
+            let span = self.lexer.span;
             let slice = self.lexer.slice();
-            let extras = self.lexer.extras;
+            let indent = self.lexer.indent;
+            let source_position = self.lexer.current;
             // getting the token needs to happen after the other properties
             let token = self.lexer.next();
             self.peeked_tokens.push(PeekedToken {
                 token,
-                span,
                 slice,
-                extras,
+                span,
+                indent,
+                source_position,
             });
         }
         self.peeked_tokens[self.current_peek_index + n].token
     }
 
     pub fn source(&self) -> &'a str {
-        self.lexer.source()
+        self.lexer.source
     }
 
-    pub fn span(&self) -> logos::Span {
+    pub fn source_position(&self) -> usize {
         if self.peeked_tokens.is_empty() {
-            self.lexer.span()
+            self.lexer.current
+        } else {
+            self.peeked_tokens[self.current_peek_index].source_position
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        if self.peeked_tokens.is_empty() {
+            self.lexer.span
         } else {
             self.peeked_tokens[self.current_peek_index].span.clone()
+        }
+    }
+
+    pub fn next_span(&self) -> Span {
+        if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
+        {
+            self.peeked_tokens[self.current_peek_index + 1].span
+        } else {
+            self.lexer.span
         }
     }
 
@@ -245,35 +651,25 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
-    pub fn extras(&self) -> Extras {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.extras
-        } else {
-            self.peeked_tokens[self.current_peek_index].extras
-        }
-    }
-
     pub fn current_indent(&self) -> usize {
         if self.peeked_tokens.is_empty() {
-            self.lexer.extras.indent
+            self.lexer.indent
         } else {
-            self.peeked_tokens[self.current_peek_index].extras.indent
+            self.peeked_tokens[self.current_peek_index].indent
         }
     }
 
     pub fn next_indent(&self) -> usize {
         if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
         {
-            self.peeked_tokens[self.current_peek_index + 1]
-                .extras
-                .indent
+            self.peeked_tokens[self.current_peek_index + 1].indent
         } else {
-            self.lexer.extras.indent
+            self.lexer.indent
         }
     }
 
-    pub fn next_span(&self) -> logos::Span {
-        self.lexer.span()
+    pub fn line_number(&self) -> u32 {
+        self.span().end.line
     }
 }
 
@@ -300,7 +696,7 @@ mod tests {
     use super::{Token::*, *};
 
     fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
-        let mut lex = Token::lexer(source);
+        let mut lex = Lexer2::new(source);
 
         for (token, maybe_slice, line_number) in tokens {
             loop {
@@ -311,7 +707,7 @@ mod tests {
                         if let Some(slice) = maybe_slice {
                             assert_eq!(&lex.slice(), slice);
                         }
-                        assert_eq!(lex.extras.line_number as u32, *line_number);
+                        assert_eq!(lex.position.line as u32, *line_number);
                         break;
                     }
                 }
@@ -322,7 +718,7 @@ mod tests {
     }
 
     fn check_lexer_output_indented(source: &str, tokens: &[(Token, Option<&str>, u32, u32)]) {
-        let mut lex = Token::lexer(source);
+        let mut lex = Lexer2::new(source);
 
         for (i, (token, maybe_slice, line_number, indent)) in tokens.iter().enumerate() {
             loop {
@@ -334,11 +730,11 @@ mod tests {
                             assert_eq!(&lex.slice(), slice, "token {}", i);
                         }
                         assert_eq!(
-                            lex.extras.line_number as u32, *line_number,
+                            lex.position.line as u32, *line_number,
                             "Line number (token {})",
                             i
                         );
-                        assert_eq!(lex.extras.indent as u32, *indent, "Indent (token {})", i);
+                        assert_eq!(lex.indent as u32, *indent, "Indent (token {})", i);
                         break;
                     }
                 }
@@ -350,7 +746,7 @@ mod tests {
 
     #[test]
     fn ids() {
-        let input = "id id1 id_2 i_d_3 if _";
+        let input = "id id1 id_2 i_d_3 if iff _";
         check_lexer_output(
             input,
             &[
@@ -359,6 +755,7 @@ mod tests {
                 (Id, Some("id_2"), 1),
                 (Id, Some("i_d_3"), 1),
                 (If, None, 1),
+                (Id, Some("iff"), 1),
                 (Placeholder, None, 1),
             ],
         );
@@ -458,6 +855,30 @@ true"#;
                 (Number, Some("0.5e+9"), 4),
                 (NewLine, None, 5),
                 (Number, Some("-8e8"), 5),
+            ],
+        );
+    }
+
+    #[test]
+    fn modify_assign() {
+        let input = "\
+a += 1
+b -= 2
+c *= 3";
+        check_lexer_output(
+            input,
+            &[
+                (Id, Some("a"), 1),
+                (AssignAdd, None, 1),
+                (Number, Some("1"), 1),
+                (NewLine, None, 2),
+                (Id, Some("b"), 2),
+                (AssignSubtract, None, 2),
+                (Number, Some("2"), 2),
+                (NewLine, None, 3),
+                (Id, Some("c"), 3),
+                (AssignMultiply, None, 3),
+                (Number, Some("3"), 3),
             ],
         );
     }

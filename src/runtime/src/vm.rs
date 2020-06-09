@@ -1464,8 +1464,8 @@ mod tests {
         let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
             Ok(ast) => ast,
             Err(e) => panic!(format!(
-                "\n{}\n\n Error while parsing script: {}",
-                script, e
+                "\n{}\n\n Error while parsing script: {} - {}",
+                script, e, e.span.start
             )),
         };
         match compiler.compile_ast(&ast) {
