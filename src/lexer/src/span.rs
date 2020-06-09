@@ -18,24 +18,6 @@ pub struct Span {
     pub end: Position,
 }
 
-// TODO remove once pest is removed from koto_parser
-impl<'a> From<pest::Span<'a>> for Span {
-    fn from(span: pest::Span) -> Self {
-        let start_line_col = span.start_pos().line_col();
-        let end_line_col = span.end_pos().line_col();
-        Self {
-            start: Position {
-                line: start_line_col.0 as u32,
-                column: start_line_col.1 as u32,
-            },
-            end: Position {
-                line: end_line_col.0 as u32,
-                column: end_line_col.1 as u32,
-            },
-        }
-    }
-}
-
 fn get_slice<'a>(source: &'a str, line_start: usize, byte_span: &Range<usize>) -> &'a str {
     let slice_start = line_start;
     let slice_end = byte_span.end;
