@@ -2678,9 +2678,9 @@ x %= 4";
             let source = "\
 a = if false
   0
-elseif true
+else if true
   1
-elseif false
+else if false
   0
 else
   1

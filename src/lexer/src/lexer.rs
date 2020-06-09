@@ -313,6 +313,16 @@ impl<'a> TokenLexer<'a> {
         });
         let id = &self.source[self.current..self.current + count];
 
+        if id == "else" {
+            if self.source.get(self.current..self.current + count + 3) == Some("else if") {
+                self.advance_line(7);
+                return Some(ElseIf);
+            } else {
+                self.advance_line(4);
+                return Some(Else);
+            }
+        }
+
         macro_rules! check_keyword {
             ($keyword:expr, $token:ident) => {
                 if id == $keyword {
@@ -327,8 +337,6 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("continue", Continue);
         check_keyword!("copy", Copy);
         check_keyword!("debug", Debug);
-        check_keyword!("elseif", ElseIf);
-        check_keyword!("else", Else);
         check_keyword!("export", Export);
         check_keyword!("false", False);
         check_keyword!("for", For);
@@ -624,7 +632,8 @@ mod tests {
                             assert_eq!(&lex.slice(), slice, "token {}", i);
                         }
                         assert_eq!(
-                            lex.line_number() as u32, *line_number,
+                            lex.line_number() as u32,
+                            *line_number,
                             "Line number (token {})",
                             i
                         );
@@ -862,7 +871,7 @@ f()";
         let input = "\
 if true
   0
-elseif false
+else if false
   1
 else
   0";
