@@ -15,6 +15,7 @@ pub struct Options {
     pub show_annotated: bool,
     pub show_bytecode: bool,
     pub export_all_at_top_level: bool,
+    pub incremental_mode: bool,
 }
 
 #[derive(Default)]
@@ -25,6 +26,7 @@ pub struct Koto {
     ast: Ast,
     runtime: Vm,
     options: Options,
+    new_bytecode: Option<usize>,
 }
 
 impl Koto {
@@ -59,7 +61,9 @@ impl Koto {
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        let result = match self.runtime.run() {
+        let run_result = self.runtime.run_from(self.new_bytecode.unwrap_or(0));
+
+        let result = match run_result {
             Ok(result) => Ok(result),
             Err(e) => Err(match &e {
                 Error::RuntimeError {
@@ -90,7 +94,9 @@ impl Koto {
         match Parser::parse(&script, self.runtime.constants_mut(), options) {
             Ok(ast) => {
                 self.ast = ast;
-                self.runtime.constants_mut().shrink_to_fit();
+                if !self.options.incremental_mode {
+                    self.runtime.constants_mut().shrink_to_fit();
+                }
             }
             Err(e) => {
                 return Err(self.format_error(
@@ -103,8 +109,20 @@ impl Koto {
             }
         }
 
-        match self.compiler.compile_ast(&self.ast) {
+        self.new_bytecode = None;
+
+        let compile_result = if self.options.incremental_mode {
+            self.compiler.compile_incremental(&self.ast)
+        } else {
+            self.compiler.compile(&self.ast)
+        };
+
+        match compile_result {
             Ok((bytecode, debug_info)) => {
+                if self.options.incremental_mode {
+                    self.new_bytecode = Some(self.runtime.bytecode().len());
+                };
+
                 self.runtime.set_bytecode(bytecode);
                 self.runtime.set_debug_info(Arc::new(DebugInfo {
                     source_map: debug_info.clone(),
@@ -120,7 +138,8 @@ impl Koto {
                         bytecode_to_string_annotated(
                             self.runtime.bytecode(),
                             &script_lines,
-                            self.compiler.debug_info()
+                            self.compiler.debug_info(),
+                            self.new_bytecode,
                         )
                     );
                 } else if self.options.show_bytecode {
@@ -229,9 +248,7 @@ impl Koto {
 
     fn format_vm_error(&self, message: &str, instruction: usize) -> String {
         match self.compiler.debug_info().get_source_span(instruction) {
-            Some(span) => {
-                self.format_error("Runtime", message, &self.script, span.start, span.end)
-            }
+            Some(span) => self.format_error("Runtime", message, &self.script, span.start, span.end),
             None => format!(
                 "Runtime error at instruction {}: {}\n",
                 instruction, message

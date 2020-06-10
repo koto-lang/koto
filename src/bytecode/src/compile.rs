@@ -262,13 +262,34 @@ impl Compiler {
         &self.debug_info
     }
 
-    pub fn compile_ast(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
+    pub fn compile(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
         // dbg!(ast);
         assert!(self.frame_stack.is_empty());
         self.bytes.clear();
 
         if let Some(entry_point) = ast.entry_point() {
             self.compile_node(None, entry_point, ast)?;
+        }
+
+        Ok((&self.bytes, &self.debug_info))
+    }
+
+    pub fn compile_incremental(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
+        // dbg!(ast);
+        assert!(self.frame_stack.is_empty());
+
+        let bytes_len = self.bytes.len();
+        let debug_len = self.debug_info.ip_to_source.len();
+
+        if let Some(entry_point) = ast.entry_point() {
+            match self.compile_node(None, entry_point, ast) {
+                Ok(_) => {}
+                Err(e) => {
+                    self.bytes.truncate(bytes_len);
+                    self.debug_info.ip_to_source.truncate(debug_len);
+                    return Err(e);
+                }
+            }
         }
 
         Ok((&self.bytes, &self.debug_info))

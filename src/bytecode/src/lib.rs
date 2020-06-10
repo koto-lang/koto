@@ -94,9 +94,11 @@ pub fn bytecode_to_string_annotated(
     bytecode: &[u8],
     script_lines: &[&str],
     debug_info: &DebugInfo,
+    start_position: Option<usize>,
 ) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(bytecode);
+    reader.ip = start_position.unwrap_or(0);
     let mut ip = reader.ip;
     let mut span: Option<Span> = None;
     let mut first = true;
@@ -110,7 +112,7 @@ pub fn bytecode_to_string_annotated(
             true
         };
 
-        if print_source_lines {
+        if print_source_lines && !script_lines.is_empty() {
             if !first {
                 result += "\n";
             }
@@ -119,8 +121,8 @@ pub fn bytecode_to_string_annotated(
             let line = instruction_span
                 .start
                 .line
-                .max(1)
-                .min(script_lines.len() as u32) as usize;
+                .min(script_lines.len() as u32)
+                .max(1) as usize;
             result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
             span = Some(instruction_span);
         }

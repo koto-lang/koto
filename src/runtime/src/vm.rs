@@ -1,15 +1,17 @@
 #![allow(dead_code)]
 
-use crate::{
-    type_as_string,
-    value::{copy_value, RuntimeFunction},
-    value_iterator::{IntRange, Iterable, ValueIterator},
-    vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+use {
+    crate::{
+        type_as_string,
+        value::{copy_value, RuntimeFunction},
+        value_iterator::{IntRange, Iterable, ValueIterator},
+        vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    },
+    koto_bytecode::{Bytecode, Instruction, InstructionReader},
+    koto_parser::{num2, num4, ConstantPool},
+    rustc_hash::FxHashMap,
+    std::sync::Arc,
 };
-use koto_bytecode::{Bytecode, Instruction, InstructionReader};
-use koto_parser::{num2, num4, ConstantPool};
-use rustc_hash::FxHashMap;
-use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow {
@@ -99,7 +101,7 @@ impl Vm {
     }
 
     pub fn set_bytecode(&mut self, bytecode: &[u8]) {
-        self.reader = InstructionReader::new(bytecode);
+        self.reader.bytes = bytecode.to_vec();
     }
 
     pub fn bytecode(&self) -> &Bytecode {
@@ -129,7 +131,13 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> RuntimeResult {
+        self.run_from(0)
+    }
+
+    pub fn run_from(&mut self, position: usize) -> RuntimeResult {
+        dbg!(self.reader.ip);
         self.reset();
+        self.set_ip(position);
         self.execute_instructions()
     }
 
@@ -1470,7 +1478,7 @@ mod tests {
                 script, e, e.span.start
             )),
         };
-        match compiler.compile_ast(&ast) {
+        match compiler.compile(&ast) {
             Ok((bytecode, _debug_info)) => {
                 vm.set_bytecode(bytecode);
             }
@@ -1505,7 +1513,7 @@ mod tests {
             let script_lines = script.lines().collect::<Vec<_>>();
             eprintln!(
                 "{}",
-                bytecode_to_string_annotated(bytecode, &script_lines, debug_info)
+                bytecode_to_string_annotated(bytecode, &script_lines, debug_info, None)
             );
         };
 
