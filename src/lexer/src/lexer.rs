@@ -532,7 +532,7 @@ impl<'a> KotoLexer<'a> {
         if self.peeked_tokens.is_empty() {
             self.lexer.span
         } else {
-            self.peeked_tokens[self.current_peek_index].span.clone()
+            self.peeked_tokens[self.current_peek_index].span
         }
     }
 

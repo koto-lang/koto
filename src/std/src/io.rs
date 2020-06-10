@@ -256,7 +256,7 @@ struct File {
 impl Drop for File {
     fn drop(&mut self) {
         if self.temporary {
-            if let Err(_) = fs::remove_file(&self.path) {};
+            let _ = fs::remove_file(&self.path).is_ok();
         }
     }
 }

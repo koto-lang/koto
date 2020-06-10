@@ -32,7 +32,7 @@ impl DebugInfo {
         let mut result = None;
         for entry in self.ip_to_source.iter() {
             if entry.0 <= ip {
-                result = Some(entry.1.clone());
+                result = Some(entry.1);
             } else {
                 break;
             }
@@ -97,7 +97,7 @@ impl Frame {
         let new_register = self.temporary_base + self.temporary_count;
         self.temporary_count += 1;
 
-        if new_register > u8::MAX {
+        if new_register == u8::MAX {
             Err("Reached maximum number of registers".to_string())
         } else {
             self.register_stack.push(new_register);
@@ -598,7 +598,7 @@ impl Compiler {
                 op,
                 expression,
             } => {
-                self.compile_assign(result_register, target, *op, *expression, ast)?;
+                self.compile_assign(result_register, *target, *op, *expression, ast)?;
             }
             Node::MultiAssign {
                 targets,
@@ -676,7 +676,7 @@ impl Compiler {
     ) -> Result<(u8, bool), String> {
         if let Node::Id(id) = node.node {
             if let Some(local_register) = self.frame().get_local_assigned_register(id) {
-                return Ok((local_register, false));
+                Ok((local_register, false))
             } else if let Some(register) = result_register {
                 self.compile_load_non_local_id(register, id)?;
                 Ok((register, false))
@@ -746,7 +746,7 @@ impl Compiler {
 
     fn local_register_for_assign_target(
         &mut self,
-        target: &AssignTarget,
+        target: AssignTarget,
         ast: &Ast,
     ) -> Result<Option<u8>, String> {
         let result = match target.scope {
@@ -770,7 +770,7 @@ impl Compiler {
     fn compile_assign(
         &mut self,
         result_register: Option<u8>,
-        target: &AssignTarget,
+        target: AssignTarget,
         op: AssignOp,
         expression: AstIndex,
         ast: &Ast,
@@ -956,7 +956,7 @@ impl Compiler {
                             if let Some(result_register) = result_register {
                                 self.compile_assign(
                                     Some(temp_register),
-                                    target,
+                                    *target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,
@@ -965,7 +965,7 @@ impl Compiler {
                             } else {
                                 self.compile_assign(
                                     None,
-                                    target,
+                                    *target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,
@@ -1155,42 +1155,38 @@ impl Compiler {
         let mut rhs = rhs;
         let mut ast_op = ast_op;
 
-        loop {
-            match rhs.node {
-                Node::Op {
-                    op: rhs_ast_op,
-                    lhs: rhs_lhs,
-                    rhs: rhs_rhs,
-                } => {
-                    match rhs_ast_op {
-                        Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
-                            // If the rhs is also a comparison, then chain the operations.
-                            // e.g.
-                            //   `a < (b < c)`
-                            // needs to become equivalent to:
-                            //   `(a < b) and (b < c)`
-                            // To achieve this,
-                            //   - use the lhs of the rhs as the rhs of the current operation
-                            //   - use the temp value as the lhs for the current operation
-                            //   - chain the two comparisons together with an And
+        while let Node::Op {
+            op: rhs_ast_op,
+            lhs: rhs_lhs,
+            rhs: rhs_rhs,
+        } = rhs.node
+        {
+            match rhs_ast_op {
+                Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                    // If the rhs is also a comparison, then chain the operations.
+                    // e.g.
+                    //   `a < (b < c)`
+                    // needs to become equivalent to:
+                    //   `(a < b) and (b < c)`
+                    // To achieve this,
+                    //   - use the lhs of the rhs as the rhs of the current operation
+                    //   - use the temp value as the lhs for the current operation
+                    //   - chain the two comparisons together with an And
 
-                            let (rhs_lhs_register, _) =
-                                self.compile_node_or_get_local(None, ast.node(rhs_lhs), ast)?;
+                    let (rhs_lhs_register, _) =
+                        self.compile_node_or_get_local(None, ast.node(rhs_lhs), ast)?;
 
-                            // Place the lhs comparison result in the result_register
-                            let op = get_comparision_op(ast_op)?;
-                            self.push_op(op, &[result_register, lhs_register, rhs_lhs_register]);
+                    // Place the lhs comparison result in the result_register
+                    let op = get_comparision_op(ast_op)?;
+                    self.push_op(op, &[result_register, lhs_register, rhs_lhs_register]);
 
-                            // Skip evaluating the rhs if the lhs result is false
-                            self.push_op(Op::JumpFalse, &[result_register]);
-                            jump_offsets.push(self.push_offset_placeholder());
+                    // Skip evaluating the rhs if the lhs result is false
+                    self.push_op(Op::JumpFalse, &[result_register]);
+                    jump_offsets.push(self.push_offset_placeholder());
 
-                            lhs_register = rhs_lhs_register;
-                            rhs = ast.node(rhs_rhs);
-                            ast_op = rhs_ast_op;
-                        }
-                        _ => break,
-                    }
+                    lhs_register = rhs_lhs_register;
+                    rhs = ast.node(rhs_rhs);
+                    ast_op = rhs_ast_op;
                 }
                 _ => break,
             }
@@ -1252,7 +1248,7 @@ impl Compiler {
     ) -> Result<(), String> {
         use Op::*;
 
-        if elements.len() < 1 || elements.len() > 2 {
+        if elements.is_empty() || elements.len() > 2 {
             return Err(format!(
                 "compile_make_num2: unexpected number of elements: {}",
                 elements.len()
@@ -1295,7 +1291,7 @@ impl Compiler {
     ) -> Result<(), String> {
         use Op::*;
 
-        if elements.len() < 1 || elements.len() > 4 {
+        if elements.is_empty() || elements.len() > 4 {
             return Err(format!(
                 "compile_make_num4: unexpected number of elements: {}",
                 elements.len()
@@ -1447,11 +1443,8 @@ impl Compiler {
                         let map_register = *node_registers.last().unwrap();
 
                         if is_last_node {
-                            if set_value.is_some() {
-                                self.push_op(
-                                    MapInsert,
-                                    &[map_register, key_register, set_value.unwrap()],
-                                );
+                            if let Some(set_value) = set_value {
+                                self.push_op(MapInsert, &[map_register, key_register, set_value]);
                             } else if let Some(result_register) = result_register {
                                 self.push_op(
                                     MapAccess,
@@ -1473,11 +1466,8 @@ impl Compiler {
                     let list_register = *node_registers.last().unwrap();
 
                     if is_last_node {
-                        if set_value.is_some() {
-                            self.push_op(
-                                ListUpdate,
-                                &[list_register, index_register, set_value.unwrap()],
-                            );
+                        if let Some(set_value) = set_value {
+                            self.push_op(ListUpdate, &[list_register, index_register, set_value]);
                         } else if let Some(result_register) = result_register {
                             self.push_op(
                                 ListIndex,
@@ -1657,10 +1647,8 @@ impl Compiler {
             // re-use registers from if/else if blocks - TODO, still necessary?
             // self.frame_mut().truncate_register_stack(stack_count)?;
             self.compile_node(result_register, ast.node(*else_node), ast)?;
-        } else {
-            if let Some(result_register) = result_register {
-                self.push_op_without_span(SetEmpty, &[result_register]);
-            }
+        } else if let Some(result_register) = result_register {
+            self.push_op_without_span(SetEmpty, &[result_register]);
         }
 
         if let Some(then_jump_ip) = then_jump_ip {
@@ -1704,21 +1692,19 @@ impl Compiler {
         //   jump -> loop_start
         // end:
 
-        if ranges.len() > 1 {
-            if args.len() != ranges.len() {
-                return Err(format!(
-                    "compile_for: argument and range count mismatch: {} vs {}",
-                    args.len(),
-                    ranges.len()
-                ));
-            }
+        if ranges.len() > 1 && args.len() != ranges.len() {
+            return Err(format!(
+                "compile_for: argument and range count mismatch: {} vs {}",
+                args.len(),
+                ranges.len()
+            ));
         }
 
         let stack_count = self.frame().register_stack.len();
 
         let iterator_register = match ranges.as_slice() {
             [] => {
-                return Err(format!("compile_for: Missing range"));
+                return Err("compile_for: Missing range".to_string());
             }
             [range_node] => {
                 let iterator_register = self.push_register()?;

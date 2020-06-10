@@ -98,7 +98,7 @@ impl Vm {
         }
     }
 
-    pub fn set_bytecode(&mut self, bytecode: &Bytecode) {
+    pub fn set_bytecode(&mut self, bytecode: &[u8]) {
         self.reader = InstructionReader::new(bytecode);
     }
 
@@ -115,7 +115,7 @@ impl Vm {
     }
 
     pub fn set_debug_info(&mut self, info: Arc<DebugInfo>) {
-        self.debug_info = Some(info.clone());
+        self.debug_info = Some(info);
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
@@ -849,10 +849,12 @@ impl Vm {
                 let return_ip = self.frame().return_ip;
                 let frame_result = self.pop_frame()?;
 
-                if self.call_stack.is_empty() || return_ip.is_none() {
+                if self.call_stack.is_empty() {
                     result = ControlFlow::ReturnValue(frame_result);
+                } else if let Some(return_ip) = return_ip {
+                    self.set_ip(return_ip);
                 } else {
-                    self.set_ip(return_ip.unwrap());
+                    result = ControlFlow::ReturnValue(frame_result);
                 }
             }
             Instruction::IteratorNext {
@@ -1211,7 +1213,7 @@ impl Vm {
                             (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
                             (Some(span), None) => format!("[{}] ", span.start.line),
                             (None, Some(path)) => format!("[{}: #ERR] ", path),
-                            (None, None) => format!("[#ERR] "),
+                            (None, None) => "[#ERR] ".to_string(),
                         }
                     }
                     None => String::new(),
@@ -1648,7 +1650,7 @@ a = 99
 
         #[test]
         fn empty() {
-            test_script("[]", List(ValueList::new()));
+            test_script("[]", List(ValueList::default()));
         }
 
         #[test]

@@ -54,7 +54,7 @@ impl Thread {
                 let result = thread.join_handle.take().unwrap().join();
                 match result {
                     Ok(Ok(_)) => Ok(Value::Empty),
-                    Ok(Err(koto_error)) => Err(koto_error.clone()),
+                    Ok(Err(koto_error)) => Err(koto_error),
                     Err(_) => external_error!("thread.join: thread panicked"),
                 }
             })

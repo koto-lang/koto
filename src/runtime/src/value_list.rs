@@ -6,14 +6,10 @@ use std::{
 
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ValueList(Arc<RwLock<ValueVec>>);
 
 impl ValueList {
-    pub fn new() -> Self {
-        Self(Arc::new(RwLock::new(ValueVec::new())))
-    }
-
     pub fn with_capacity(capacity: usize) -> Self {
         Self(Arc::new(RwLock::new(ValueVec::with_capacity(capacity))))
     }
@@ -30,6 +26,10 @@ impl ValueList {
 
     pub fn len(&self) -> usize {
         self.data().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn data(&self) -> RwLockReadGuard<ValueVec> {

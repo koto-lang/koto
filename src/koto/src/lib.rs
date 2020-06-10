@@ -36,7 +36,7 @@ impl Koto {
         let mut env = ValueMap::new();
         env.add_value("script_dir", Value::Empty);
         env.add_value("script_path", Value::Empty);
-        env.add_list("args", ValueList::new());
+        env.add_list("args", ValueList::default());
         result.runtime.global_mut().add_map("env", env);
 
         result
@@ -66,7 +66,7 @@ impl Koto {
                     message,
                     start_pos,
                     end_pos,
-                } => self.format_error("Runtime", message, &self.script, start_pos, end_pos),
+                } => self.format_error("Runtime", message, &self.script, *start_pos, *end_pos),
                 Error::VmRuntimeError {
                     message,
                     instruction,
@@ -97,8 +97,8 @@ impl Koto {
                     "Parser",
                     &e.to_string(),
                     script,
-                    &e.span.start,
-                    &e.span.end,
+                    e.span.start,
+                    e.span.end,
                 ));
             }
         }
@@ -217,7 +217,7 @@ impl Koto {
                     message,
                     start_pos,
                     end_pos,
-                } => self.format_error("Runtime", &message, &self.script, start_pos, end_pos),
+                } => self.format_error("Runtime", &message, &self.script, *start_pos, *end_pos),
                 Error::VmRuntimeError {
                     message,
                     instruction,
@@ -230,7 +230,7 @@ impl Koto {
     fn format_vm_error(&self, message: &str, instruction: usize) -> String {
         match self.compiler.debug_info().get_source_span(instruction) {
             Some(span) => {
-                self.format_error("Runtime", message, &self.script, &span.start, &span.end)
+                self.format_error("Runtime", message, &self.script, span.start, span.end)
             }
             None => format!(
                 "Runtime error at instruction {}: {}\n",
@@ -244,8 +244,8 @@ impl Koto {
         error_type: &str,
         message: &str,
         script: &str,
-        start_pos: &Position,
-        end_pos: &Position,
+        start_pos: Position,
+        end_pos: Position,
     ) -> String {
         let (excerpt, padding) = {
             let excerpt_lines = script
@@ -260,7 +260,7 @@ impl Koto {
 
             let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
 
-            let padding = format!("{}", " ".repeat(number_width + 2));
+            let padding = " ".repeat(number_width + 2);
 
             if excerpt_lines.len() == 1 {
                 let mut excerpt = format!(

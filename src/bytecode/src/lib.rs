@@ -77,7 +77,7 @@ pub enum Op {
     Debug,            // register, constant[4]
 }
 
-pub fn bytecode_to_string(bytecode: &Bytecode) -> String {
+pub fn bytecode_to_string(bytecode: &[u8]) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(bytecode);
     let mut ip = reader.ip;
@@ -91,7 +91,7 @@ pub fn bytecode_to_string(bytecode: &Bytecode) -> String {
 }
 
 pub fn bytecode_to_string_annotated(
-    bytecode: &Bytecode,
+    bytecode: &[u8],
     script_lines: &[&str],
     debug_info: &DebugInfo,
 ) -> String {
@@ -116,7 +116,11 @@ pub fn bytecode_to_string_annotated(
             }
             first = false;
 
-            let line = instruction_span.start.line.max(1).min(script_lines.len() as u32) as usize;
+            let line = instruction_span
+                .start
+                .line
+                .max(1)
+                .min(script_lines.len() as u32) as usize;
             result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
             span = Some(instruction_span);
         }

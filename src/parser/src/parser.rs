@@ -2,6 +2,7 @@ use {
     crate::{error::*, *},
     koto_lexer::{Lexer, Span, Token},
     std::{
+        cmp::Ordering,
         collections::{HashMap, HashSet},
         iter::FromIterator,
         str::FromStr,
@@ -40,6 +41,10 @@ fn trim_str(s: &str, trim_from_start: usize, trim_from_end: usize) -> &str {
     let start = trim_from_start;
     let end = s.len() - trim_from_end;
     &s[start..end]
+}
+
+fn f64_eq(a: f64, b: f64) -> bool {
+    (a - b).abs() < std::f64::EPSILON
 }
 
 #[derive(Debug, Default)]
@@ -96,14 +101,13 @@ impl Frame {
     }
 
     fn decrement_expression_access_for_id(&mut self, id: ConstantIndex) -> Result<(), ()> {
-        let result = match self.expression_id_accesses.get_mut(&id) {
+        match self.expression_id_accesses.get_mut(&id) {
             Some(entry) => {
                 *entry -= 1;
                 Ok(())
             }
             None => Err(()),
-        };
-        result
+        }
     }
 
     fn finish_expressions(&mut self) {
@@ -357,17 +361,15 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     let next_indent = self.lexer.next_indent();
 
                     if let Some(expected_indent) = expected_indent {
-                        if next_indent < expected_indent {
-                            break;
-                        } else if next_indent > expected_indent {
-                            return syntax_error!(UnexpectedIndentation, self);
+                        match next_indent.cmp(&expected_indent) {
+                            Ordering::Less => break,
+                            Ordering::Equal => {},
+                            Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
                         }
+                    } else if next_indent <= current_indent {
+                        break;
                     } else {
-                        if next_indent <= current_indent {
-                            break;
-                        } else {
-                            expected_indent = Some(next_indent);
-                        }
+                        expected_indent = Some(next_indent);
                     }
                 }
 
@@ -479,8 +481,8 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             _ => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        match self.skip_whitespace_and_peek() {
-            Some(next) => match next {
+        if let Some(next) = self.skip_whitespace_and_peek() {
+            match next {
                 NewLine | NewLineIndented => {
                     if let Some(maybe_operator) = self.peek_until_next_token() {
                         if operator_precedence(maybe_operator).is_some() {
@@ -526,8 +528,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         }
                     }
                 }
-            },
-            None => {}
+            }
         }
 
         Ok(Some(last_lhs))
@@ -588,9 +589,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     expressions: rhs,
                 }
             };
-            return Ok(Some(self.push_node(node)?));
+            Ok(Some(self.push_node(node)?))
         } else {
-            return syntax_error!(ExpectedRhsExpression, self);
+            syntax_error!(ExpectedRhsExpression, self)
         }
     }
 
@@ -855,7 +856,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             (None, None) => RangeFull,
         };
 
-        return Ok(Some(self.push_node(node)?));
+        Ok(Some(self.push_node(node)?))
     }
 
     fn parse_export_id(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -954,9 +955,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     self.consume_token();
                     match f64::from_str(self.lexer.slice()) {
                         Ok(n) => {
-                            if n == 0.0 {
+                            if f64_eq(n, 0.0) {
                                 self.push_node(Number0)?
-                            } else if n == 1.0 {
+                            } else if f64_eq(n, 1.0) {
                                 self.push_node(Number1)?
                             } else {
                                 let constant_index = self.constants.add_f64(n) as u32;
@@ -1025,7 +1026,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         args
                     };
 
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         return syntax_error!(ExpectedExpression, self);
                     } else if args.len() > 2 {
                         return syntax_error!(TooManyNum2Terms, self);
@@ -1046,7 +1047,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         args
                     };
 
-                    if args.len() < 1 {
+                    if args.is_empty() {
                         return syntax_error!(ExpectedExpression, self);
                     } else if args.len() > 4 {
                         return syntax_error!(TooManyNum4Terms, self);
@@ -1219,10 +1220,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             self.consume_until_next_token();
 
             let next_indent = self.lexer.next_indent();
-            if next_indent < block_indent {
-                break;
-            } else if next_indent > block_indent {
-                return syntax_error!(UnexpectedIndentation, self);
+            match next_indent.cmp(&block_indent) {
+                Ordering::Less => break,
+                Ordering::Equal => {}
+                Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
             }
         }
 
@@ -1508,10 +1509,10 @@ impl<'source, 'constants> Parser<'source, 'constants> {
             self.consume_until_next_token();
 
             let next_indent = self.lexer.current_indent();
-            if next_indent < block_indent {
-                break;
-            } else if next_indent > block_indent {
-                return syntax_error!(UnexpectedIndentation, self);
+            match next_indent.cmp(&block_indent) {
+                Ordering::Less => break,
+                Ordering::Equal => {}
+                Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
             }
         }
 

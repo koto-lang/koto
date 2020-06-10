@@ -35,6 +35,10 @@ impl ConstantPool {
         self.index.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
         self.index.shrink_to_fit();
