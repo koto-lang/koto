@@ -1,0 +1,14 @@
+file_data = io.read_to_string env.script_dir + "/data/test.json"
+data = json.from_string file_data
+
+assert_eq data.number 99
+assert_eq data.bool true
+assert_eq data.string "O_o"
+assert_eq data.nested.number -1
+assert_eq data.nested.string "hello"
+assert_eq data.entries[0].foo "bar"
+assert_eq data.entries[1].foo "baz"
+
+serialized = json.to_string data
+data_2 = json.from_string serialized
+assert_eq data data_2

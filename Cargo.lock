@@ -315,6 +315,8 @@ version = "0.1.0"
 dependencies = [
  "koto_parser",
  "koto_runtime",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

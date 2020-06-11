@@ -20,13 +20,14 @@ pub enum Value {
     Num2(num2::Num2),
     Num4(num4::Num4),
     Range(IntRange),
-    IndexRange { start: usize, end: Option<usize> },
     List(ValueList),
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+    // Internal value types
+    IndexRange { start: usize, end: Option<usize> },
     Iterator(ValueIterator),
 }
 

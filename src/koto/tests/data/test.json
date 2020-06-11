@@ -1,0 +1,18 @@
+{
+  "empty": null,
+  "number": 99,
+  "bool": true,
+  "string": "O_o",
+  "nested": {
+    "number": -1,
+    "string": "hello"
+  },
+  "entries": [
+    {
+      "foo": "bar"
+    },
+    {
+      "foo": "baz"
+    }
+  ]
+}

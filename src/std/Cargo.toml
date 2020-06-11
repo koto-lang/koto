@@ -8,4 +8,6 @@ edition = "2018"
 koto_parser = {path = "../parser" }
 koto_runtime = {path = "../runtime" }
 
+serde = "1.0.0"
+serde_json = "1.0.0"
 tempfile = "3.1.0"

@@ -1,4 +1,5 @@
 mod io;
+mod json;
 mod list;
 mod map;
 mod math;
@@ -99,6 +100,7 @@ pub fn register(runtime: &mut Vm) {
     let global = runtime.global_mut();
 
     io::register(global);
+    json::register(global);
     list::register(global);
     map::register(global);
     math::register(global);

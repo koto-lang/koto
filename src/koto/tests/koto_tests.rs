@@ -36,6 +36,7 @@ koto_test!(function_closures);
 koto_test!(functions);
 koto_test!(functions_in_lookups);
 koto_test!(io);
+koto_test!(json);
 koto_test!(line_breaks);
 koto_test!(lists);
 koto_test!(list_ops);
