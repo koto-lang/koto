@@ -222,6 +222,29 @@ pub fn register(runtime: &mut Vm) {
         _ => external_error!("number expects a single argument, found {}", args.len()),
     });
 
+    global.add_fn("type", |_, args| {
+        let result = match &args {
+            [Bool(_)] => "Bool",
+            [Empty] => "Empty",
+            [Function(_)] => "Function",
+            [ExternalFunction(_)] => "Function",
+            [ExternalValue(value)] => return Ok(Str(Arc::new(value.read().unwrap().value_type()))),
+            [List(_)] => "List",
+            [Map(_)] => "Map",
+            [Number(_)] => "Number",
+            [Num2(_)] => "Num2",
+            [Num4(_)] => "Num4",
+            [Range(_)] => "Range",
+            [Str(_)] => "String",
+            [unexpected] => return external_error!(
+                "type is only supported for user types, found {}",
+                unexpected,
+            ),
+            _ => return external_error!("type expects a single argument, found {}", args.len()),
+        };
+        Ok(Str(Arc::new(result.to_string())))
+    });
+
     global.add_fn("print", |_, args| {
         for value in args.iter() {
             print!("{}", value);

@@ -6,7 +6,7 @@ syntax keyword kotoTodos contained TODO FIXME NOTE
 syntax keyword kotoKeywords copy debug export not num2 num4 return self
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating break continue for in until while
-syntax keyword kotoStdLib env io list map math number print push size string thread
+syntax keyword kotoStdLib env io list map math number print push size string thread type
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 
