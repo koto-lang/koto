@@ -1,27 +1,34 @@
-use crate::{
-    external::{ExternalFunction, ExternalValue},
-    value::make_external_value,
-    Id, RuntimeResult, Value, ValueList, Vm, EXTERNAL_DATA_ID,
-};
-use rustc_hash::FxHashMap;
-use std::{
-    borrow::Borrow,
-    collections::hash_map::{Iter, Keys},
-    hash::Hash,
-    iter::{FromIterator, IntoIterator},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+use {
+    crate::{
+        external::{ExternalFunction, ExternalValue},
+        value::make_external_value,
+        Id, RuntimeResult, Value, ValueList, Vm, EXTERNAL_DATA_ID,
+    },
+    indexmap::{
+        map::{Iter, Keys},
+        IndexMap,
+    },
+    rustc_hash::FxHasher,
+    std::{
+        borrow::Borrow,
+        hash::{BuildHasherDefault, Hash},
+        iter::{FromIterator, IntoIterator},
+        sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    },
 };
 
+type ValueHashMapType = IndexMap<Id, Value, BuildHasherDefault<FxHasher>>;
+
 #[derive(Clone, Debug, Default)]
-pub struct ValueHashMap(FxHashMap<Id, Value>);
+pub struct ValueHashMap(ValueHashMapType);
 
 impl ValueHashMap {
     pub fn new() -> Self {
-        Self(FxHashMap::default())
+        Self(ValueHashMapType::default())
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(FxHashMap::with_capacity_and_hasher(
+        Self(ValueHashMapType::with_capacity_and_hasher(
             capacity,
             Default::default(),
         ))
@@ -95,14 +102,14 @@ impl ValueHashMap {
         self.0.len()
     }
 
-    pub fn is_empty(&self)->bool{
-        self.len()==0
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
 impl FromIterator<(Id, Value)> for ValueHashMap {
     fn from_iter<T: IntoIterator<Item = (Id, Value)>>(iter: T) -> ValueHashMap {
-        Self(FxHashMap::from_iter(iter))
+        Self(ValueHashMapType::from_iter(iter))
     }
 }
 

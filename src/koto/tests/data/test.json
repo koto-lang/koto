@@ -1,10 +1,10 @@
 {
   "empty": null,
-  "number": 99,
+  "number": 99.0,
   "bool": true,
   "string": "O_o",
   "nested": {
-    "number": -1,
+    "number": -1.0,
     "string": "hello"
   },
   "entries": [

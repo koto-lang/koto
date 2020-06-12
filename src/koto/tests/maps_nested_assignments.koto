@@ -20,9 +20,9 @@ assert_eq z {baz: -1}
 
 # New entries can be added
 x.new = "O_o"
-assert_eq (list.sort_copy (map.keys x)) ["bar" "foo" "new"]
+assert_eq (map.keys x) ["foo" "bar" "new"]
 x.bar.new = ">_<"
-assert_eq (list.sort_copy (map.keys x.bar)) ["baz" "new"]
+assert_eq (map.keys x.bar) ["baz" "new"]
 
 # Maps can be nested deeply
 deep = {a: {b: {c: {d: {e: {f: 42}}}}}}

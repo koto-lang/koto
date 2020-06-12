@@ -234,6 +234,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "indexmap"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c398b2b113b55809ceb9ee3e753fcbac793f1956663f3c36549c1346015c2afe"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "itertools"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -302,6 +311,7 @@ name = "koto_runtime"
 version = "0.1.0"
 dependencies = [
  "downcast-rs",
+ "indexmap",
  "koto_bytecode",
  "koto_parser",
  "num_enum",
@@ -647,6 +657,7 @@ version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da07b57ee2623368351e9a0488bb0b261322a15a6e0ae53e243cbdc0f4208da9"
 dependencies = [
+ "indexmap",
  "itoa",
  "ryu",
  "serde",

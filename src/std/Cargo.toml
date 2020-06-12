@@ -5,9 +5,9 @@ authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-koto_parser = {path = "../parser" }
-koto_runtime = {path = "../runtime" }
+koto_parser = { path = "../parser" }
+koto_runtime = { path = "../runtime" }
 
 serde = "1.0.0"
-serde_json = "1.0.0"
+serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 tempfile = "3.1.0"

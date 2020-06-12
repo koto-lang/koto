@@ -40,8 +40,8 @@ assert_eq (size m) 3
 assert_eq (size m2) 4
 
 # map.keys
-assert_eq (list.sort_copy (map.keys m)) ["baz" "foo" "square"]
-assert_eq (list.sort_copy (map.keys m2)) ["baz" "extra" "foo" "square"]
+assert_eq (map.keys m) ["foo" "square" "baz"]
+assert_eq (map.keys m2) ["foo" "square" "baz" "extra"]
 
 
 ###### Maps as classes
