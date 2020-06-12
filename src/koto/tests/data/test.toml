@@ -1,0 +1,13 @@
+number = 99.0
+bool = true
+string = "O_o"
+
+[nested]
+number = -1.0
+string = "hello"
+
+[[entries]]
+foo = "bar"
+
+[[entries]]
+foo = "baz"

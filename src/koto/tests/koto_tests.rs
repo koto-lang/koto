@@ -50,4 +50,5 @@ koto_test!(num2_4);
 koto_test!(ranges);
 koto_test!(strings);
 koto_test!(threads);
+koto_test!(toml);
 koto_test!(types);

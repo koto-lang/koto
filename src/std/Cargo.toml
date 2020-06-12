@@ -11,3 +11,4 @@ koto_runtime = { path = "../runtime" }
 serde = "1.0.0"
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
 tempfile = "3.1.0"
+toml = { version = "0.5.6", features = ["preserve_order"] }

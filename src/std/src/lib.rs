@@ -3,7 +3,9 @@ mod json;
 mod list;
 mod map;
 mod math;
+mod serializable_value;
 mod thread;
+mod toml;
 
 pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
 
@@ -105,6 +107,7 @@ pub fn register(runtime: &mut Vm) {
     map::register(global);
     math::register(global);
     thread::register(global);
+    toml::register(global);
 
     {
         let mut string = ValueMap::new();
