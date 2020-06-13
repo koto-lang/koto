@@ -1,15 +1,18 @@
-use crate::{
-    external::{ExternalFunction, ExternalValue},
-    value_iterator::{IntRange, ValueIterator},
-    value_list::{ValueList, ValueVec},
-    value_map::{ValueHashMap, ValueMap},
-};
-use koto_parser::{num2, num4};
-use std::{
-    cmp::Ordering,
-    fmt,
-    iter::FromIterator,
-    sync::{Arc, RwLock},
+use {
+    crate::{
+        external::{ExternalFunction, ExternalValue},
+        value_iterator::{IntRange, ValueIterator},
+        value_list::{ValueList, ValueVec},
+        value_map::{ValueHashMap, ValueMap},
+    },
+    koto_bytecode::Chunk,
+    koto_parser::{num2, num4},
+    std::{
+        cmp::Ordering,
+        fmt,
+        iter::FromIterator,
+        sync::{Arc, RwLock},
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -160,6 +163,7 @@ impl From<bool> for Value {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeFunction {
+    pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub arg_count: u8,
     pub is_instance_function: bool,

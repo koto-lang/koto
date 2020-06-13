@@ -1,7 +1,10 @@
-use crate::{Bytecode, Op};
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt,
+use {
+    crate::{Chunk, Op},
+    std::{
+        convert::{TryFrom, TryInto},
+        fmt,
+        sync::Arc,
+    },
 };
 
 #[derive(Debug)]
@@ -535,19 +538,15 @@ impl fmt::Display for Instruction {
     }
 }
 
-// TODO owning/non-owning readers
 #[derive(Clone, Default)]
 pub struct InstructionReader {
-    pub bytes: Bytecode,
+    pub chunk: Arc<Chunk>,
     pub ip: usize,
 }
 
 impl InstructionReader {
-    pub fn new(bytes: &[u8]) -> Self {
-        Self {
-            bytes: bytes.to_vec(),
-            ip: 0,
-        }
+    pub fn new(chunk: Arc<Chunk>) -> Self {
+        Self { chunk, ip: 0 }
     }
 }
 
@@ -559,7 +558,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_byte {
             () => {{
-                match self.bytes.get(self.ip) {
+                match self.chunk.bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
                         *byte
@@ -575,7 +574,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16 {
             () => {{
-                match self.bytes.get(self.ip..self.ip + 2) {
+                match self.chunk.bytes.get(self.ip..self.ip + 2) {
                     Some(u16_bytes) => {
                         self.ip += 2;
                         u16::from_le_bytes(u16_bytes.try_into().unwrap())
@@ -591,7 +590,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u32 {
             () => {{
-                match self.bytes.get(self.ip..self.ip + 4) {
+                match self.chunk.bytes.get(self.ip..self.ip + 4) {
                     Some(u32_bytes) => {
                         self.ip += 4;
                         u32::from_le_bytes(u32_bytes.try_into().unwrap())
@@ -605,7 +604,7 @@ impl Iterator for InstructionReader {
             }};
         }
 
-        let byte = match self.bytes.get(self.ip) {
+        let byte = match self.chunk.bytes.get(self.ip) {
             Some(byte) => *byte,
             None => return None,
         };
@@ -638,19 +637,19 @@ impl Iterator for InstructionReader {
             }),
             Op::SetFalse => Some(SetBool {
                 register: get_byte!(),
-                value: false
+                value: false,
             }),
             Op::SetTrue => Some(SetBool {
                 register: get_byte!(),
-                value: true
+                value: true,
             }),
             Op::Set0 => Some(SetNumber {
                 register: get_byte!(),
-                value: 0.0
+                value: 0.0,
             }),
             Op::Set1 => Some(SetNumber {
                 register: get_byte!(),
-                value: 1.0
+                value: 1.0,
             }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),

@@ -8,12 +8,14 @@ mod vm;
 
 use id::Id;
 
-pub use external::{ExternalFunction, ExternalValue};
-pub use value::{make_external_value, type_as_string, RuntimeFunction, Value};
-pub use value_iterator::IntRange;
-pub use value_list::{ValueList, ValueVec};
-pub use value_map::{ValueHashMap, ValueMap};
-pub use vm::{DebugInfo, Vm};
+pub use {
+    external::{ExternalFunction, ExternalValue},
+    value::{make_external_value, type_as_string, RuntimeFunction, Value},
+    value_iterator::IntRange,
+    value_list::{ValueList, ValueVec},
+    value_map::{ValueHashMap, ValueMap},
+    vm::Vm,
+};
 
 pub const EXTERNAL_DATA_ID: &str = "_external_data";
 

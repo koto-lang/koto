@@ -1,45 +1,12 @@
-use crate::{Bytecode, Op};
-
-use koto_parser::{
-    AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
-    LookupNode, Node, Scope, Span,
+use {
+    crate::{DebugInfo, Op},
+    koto_parser::{
+        AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
+        LookupNode, Node, Scope, Span,
+    },
+    smallvec::SmallVec,
+    std::convert::TryFrom,
 };
-use smallvec::SmallVec;
-use std::convert::TryFrom;
-
-#[derive(Clone, Default)]
-pub struct DebugInfo {
-    ip_to_source: Vec<(usize, Span)>,
-}
-
-impl DebugInfo {
-    fn push(&mut self, ip: usize, span: &Span) {
-        if let Some(entry) = self.ip_to_source.last() {
-            if entry.1 == *span {
-                // Don't add entries with matching spans, a search is performed in
-                // get_source_span which will find the correct span
-                // for intermediate ips.
-                return;
-            }
-        }
-        self.ip_to_source.push((ip, *span));
-    }
-
-    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
-        // Find the last entry with an ip less than or equal to the input
-        // an upper_bound would nice here, but this isn't currently a performance sensitive function
-        // so a scan through the entries will do.
-        let mut result = None;
-        for entry in self.ip_to_source.iter() {
-            if entry.0 <= ip {
-                result = Some(entry.1);
-            } else {
-                break;
-            }
-        }
-        result
-    }
-}
 
 #[derive(Clone, Debug, Default)]
 struct Loop {
@@ -245,54 +212,21 @@ impl Frame {
 
 #[derive(Default)]
 pub struct Compiler {
-    bytes: Bytecode,
-    frame_stack: Vec<Frame>,
+    bytes: Vec<u8>,
     debug_info: DebugInfo,
+    frame_stack: Vec<Frame>,
     span_stack: Vec<Span>,
 }
 
 impl Compiler {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn debug_info(&self) -> &DebugInfo {
-        &self.debug_info
-    }
-
-    pub fn compile(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
-        // dbg!(ast);
-        assert!(self.frame_stack.is_empty());
-        self.bytes.clear();
+    pub fn compile(ast: &Ast) -> Result<(Vec<u8>, DebugInfo), String> {
+        let mut compiler = Compiler::default();
 
         if let Some(entry_point) = ast.entry_point() {
-            self.compile_node(None, entry_point, ast)?;
+            compiler.compile_node(None, entry_point, ast)?;
         }
 
-        Ok((&self.bytes, &self.debug_info))
-    }
-
-    pub fn compile_incremental(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
-        // dbg!(ast);
-        assert!(self.frame_stack.is_empty());
-
-        let bytes_len = self.bytes.len();
-        let debug_len = self.debug_info.ip_to_source.len();
-
-        if let Some(entry_point) = ast.entry_point() {
-            match self.compile_node(None, entry_point, ast) {
-                Ok(_) => {}
-                Err(e) => {
-                    self.bytes.truncate(bytes_len);
-                    self.debug_info.ip_to_source.truncate(debug_len);
-                    return Err(e);
-                }
-            }
-        }
-
-        Ok((&self.bytes, &self.debug_info))
+        Ok((compiler.bytes, compiler.debug_info))
     }
 
     fn compile_node(

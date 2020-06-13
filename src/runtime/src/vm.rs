@@ -7,7 +7,7 @@ use {
         value_iterator::{IntRange, Iterable, ValueIterator},
         vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
-    koto_bytecode::{Bytecode, Instruction, InstructionReader},
+    koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::{num2, num4, ConstantPool},
     rustc_hash::FxHashMap,
     std::sync::Arc,
@@ -23,22 +23,22 @@ pub enum ControlFlow {
 struct Frame {
     base: usize,
     captures: Option<ValueList>,
-    return_ip: Option<usize>,
     result_register: u8,
     result: Value,
+    return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
 }
 
 impl Frame {
     fn new(
         base: usize,
-        return_ip: Option<usize>,
+        return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
         result_register: u8,
         captures: ValueList,
     ) -> Self {
         Self {
             base,
             captures: Some(captures),
-            return_ip,
+            return_chunk_and_ip,
             result_register,
             ..Default::default()
         }
@@ -63,18 +63,12 @@ impl Frame {
     }
 }
 
-pub struct DebugInfo {
-    pub source_map: koto_bytecode::DebugInfo,
-    pub script_path: Option<String>,
-}
-
 #[derive(Default)]
 pub struct Vm {
-    reader: InstructionReader,
     global: ValueMap,
     constants: Arc<ConstantPool>,
-    debug_info: Option<Arc<DebugInfo>>,
 
+    reader: InstructionReader,
     string_constants: FxHashMap<usize, Arc<String>>,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -93,19 +87,10 @@ impl Vm {
         Self {
             constants: self.constants.clone(),
             global: self.global.clone(),
-            debug_info: self.debug_info.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
         }
-    }
-
-    pub fn set_bytecode(&mut self, bytecode: &[u8]) {
-        self.reader.bytes = bytecode.to_vec();
-    }
-
-    pub fn bytecode(&self) -> &Bytecode {
-        &self.reader.bytes
     }
 
     pub fn constants_mut(&mut self) -> &mut ConstantPool {
@@ -114,10 +99,6 @@ impl Vm {
 
     pub fn global_mut(&mut self) -> &mut ValueMap {
         &mut self.global
-    }
-
-    pub fn set_debug_info(&mut self, info: Arc<DebugInfo>) {
-        self.debug_info = Some(info);
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
@@ -130,25 +111,20 @@ impl Vm {
         self.call_stack.push(Frame::default());
     }
 
-    pub fn run(&mut self) -> RuntimeResult {
-        self.run_from(0)
-    }
-
-    pub fn run_from(&mut self, position: usize) -> RuntimeResult {
-        dbg!(self.reader.ip);
+    pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
         self.reset();
-        self.set_ip(position);
+        self.set_chunk_and_ip(chunk, 0);
         self.execute_instructions()
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
         if function.is_instance_function {
-            return vm_error!(self.reader.ip, "Unexpected instance function");
+            return vm_error!(self.ip(), "Unexpected instance function");
         }
 
         if function.arg_count != args.len() as u8 {
             return vm_error!(
-                self.reader.ip,
+                self.ip(),
                 "Incorrect argument count, expected {}, found {}",
                 function.arg_count,
                 args.len(),
@@ -163,11 +139,13 @@ impl Vm {
         self.value_stack.extend_from_slice(args);
 
         self.push_frame(None, arg_register, arg_register, function.captures.clone());
-        let ip = self.reader.ip;
-        self.set_ip(function.ip);
+
+        let chunk = self.chunk();
+        let ip = self.ip();
+        self.set_chunk_and_ip(function.chunk.clone(), function.ip);
 
         let result = self.execute_instructions()?;
-        self.reader.ip = ip;
+        self.set_chunk_and_ip(chunk, ip);
 
         Ok(result)
     }
@@ -175,7 +153,7 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
-        let mut ip = self.reader.ip;
+        let mut ip = self.ip();
         while let Some(instruction) = self.reader.next() {
             match self.execute_instruction(instruction, ip)? {
                 ControlFlow::Continue => {}
@@ -184,7 +162,7 @@ impl Vm {
                     break;
                 }
             }
-            ip = self.reader.ip;
+            ip = self.ip();
         }
 
         Ok(result)
@@ -528,7 +506,8 @@ impl Vm {
                 captures.resize(capture_count as usize, Empty);
 
                 let function = Function(RuntimeFunction {
-                    ip: self.reader.ip,
+                    chunk: self.chunk(),
+                    ip: self.ip(),
                     arg_count,
                     captures: ValueList::with_data(captures),
                     is_instance_function: false,
@@ -546,7 +525,8 @@ impl Vm {
                 captures.resize(capture_count as usize, Empty);
 
                 let function = Function(RuntimeFunction {
-                    ip: self.reader.ip,
+                    chunk: self.chunk(),
+                    ip: self.ip(),
                     arg_count,
                     captures: ValueList::with_data(captures),
                     is_instance_function: true,
@@ -854,13 +834,13 @@ impl Vm {
             Instruction::Return { register } => {
                 self.frame_mut().result = self.get_register(register).clone();
 
-                let return_ip = self.frame().return_ip;
+                let return_chunk_and_ip = self.frame().return_chunk_and_ip.clone();
                 let frame_result = self.pop_frame()?;
 
                 if self.call_stack.is_empty() {
                     result = ControlFlow::ReturnValue(frame_result);
-                } else if let Some(return_ip) = return_ip {
-                    self.set_ip(return_ip);
+                } else if let Some(return_chunk_and_ip) = return_chunk_and_ip {
+                    self.set_chunk_and_ip(return_chunk_and_ip.0, return_chunk_and_ip.1);
                 } else {
                     result = ControlFlow::ReturnValue(frame_result);
                 }
@@ -1212,19 +1192,14 @@ impl Vm {
                 };
             }
             Instruction::Debug { register, constant } => {
-                let prefix = match &self.debug_info {
-                    Some(debug_info) => {
-                        match (
-                            debug_info.source_map.get_source_span(instruction_ip),
-                            &debug_info.script_path.as_ref(),
-                        ) {
-                            (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
-                            (Some(span), None) => format!("[{}] ", span.start.line),
-                            (None, Some(path)) => format!("[{}: #ERR] ", path),
-                            (None, None) => "[#ERR] ".to_string(),
-                        }
-                    }
-                    None => String::new(),
+                let prefix = match (
+                    self.reader.chunk.debug_info.get_source_span(instruction_ip),
+                    self.reader.chunk.debug_info.script_path.as_ref(),
+                ) {
+                    (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
+                    (Some(span), None) => format!("[{}] ", span.start.line),
+                    (None, Some(path)) => format!("[{}: #ERR] ", path),
+                    (None, None) => "[#ERR] ".to_string(),
                 };
                 let value = self.get_register(register);
                 println!(
@@ -1292,6 +1267,7 @@ impl Vm {
                 }
             }
             Function(RuntimeFunction {
+                chunk,
                 ip: function_ip,
                 arg_count: function_arg_count,
                 captures,
@@ -1318,13 +1294,13 @@ impl Vm {
                 }
 
                 self.push_frame(
-                    Some(self.reader.ip),
+                    Some((self.chunk(), self.ip())),
                     arg_register,
                     result_register,
                     captures.clone(),
                 );
 
-                self.set_ip(*function_ip);
+                self.set_chunk_and_ip(chunk.clone(), *function_ip);
             }
             unexpected => {
                 return vm_error!(
@@ -1336,6 +1312,18 @@ impl Vm {
         };
 
         Ok(Empty)
+    }
+
+    pub fn chunk(&self) -> Arc<Chunk> {
+        self.reader.chunk.clone()
+    }
+
+    fn set_chunk_and_ip(&mut self, chunk: Arc<Chunk>, ip: usize) {
+        self.reader = InstructionReader { chunk, ip };
+    }
+
+    fn ip(&self) -> usize {
+        self.reader.ip
     }
 
     fn set_ip(&mut self, ip: usize) {
@@ -1360,7 +1348,7 @@ impl Vm {
 
     fn push_frame(
         &mut self,
-        return_ip: Option<usize>,
+        return_ip: Option<(Arc<Chunk>, usize)>,
         arg_register: u8,
         result_register: u8,
         captures: ValueList,
@@ -1381,7 +1369,7 @@ impl Vm {
         let return_value = frame.result.clone();
 
         self.value_stack.truncate(frame.base);
-        if !self.call_stack.is_empty() && frame.return_ip.is_some() {
+        if !self.call_stack.is_empty() && frame.return_chunk_and_ip.is_some() {
             self.set_register(frame.result_register, return_value.clone());
         }
 
@@ -1461,15 +1449,15 @@ fn binary_op_error(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{external_error, Value::*, ValueHashMap};
-    use koto_bytecode::{bytecode_to_string_annotated, Compiler};
-    use koto_parser::{Options as ParserOptions, Parser};
+    use {
+        super::*,
+        crate::{external_error, Value::*, ValueHashMap},
+        koto_bytecode::{chunk_to_string_annotated, Compiler},
+        koto_parser::{Options as ParserOptions, Parser},
+    };
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
-
-        let mut compiler = Compiler::new();
 
         let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
             Ok(ast) => ast,
@@ -1478,12 +1466,10 @@ mod tests {
                 script, e, e.span.start
             )),
         };
-        match compiler.compile(&ast) {
-            Ok((bytecode, _debug_info)) => {
-                vm.set_bytecode(bytecode);
-            }
+        let chunk = match Compiler::compile(&ast) {
+            Ok((bytes, debug_info)) => Arc::new(Chunk::new(bytes, debug_info)),
             Err(e) => panic!(format!(
-                "\n{}\n\n Error while compiling bytecode: {}",
+                "\n{}\n\n Error while compiling chunk: {}",
                 script, e
             )),
         };
@@ -1508,24 +1494,21 @@ mod tests {
             Ok(Empty)
         });
 
-        let print_bytecode = |script: &str, bytecode, debug_info| {
+        let print_chunk = |script: &str, chunk| {
             eprintln!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
-            eprintln!(
-                "{}",
-                bytecode_to_string_annotated(bytecode, &script_lines, debug_info, None)
-            );
+            eprintln!("{}", chunk_to_string_annotated(chunk, &script_lines));
         };
 
-        match vm.run() {
+        match vm.run(chunk) {
             Ok(result) => {
                 if result != expected_output {
-                    print_bytecode(script, vm.bytecode(), compiler.debug_info());
+                    print_chunk(script, vm.chunk());
                 }
                 assert_eq!(result, expected_output);
             }
             Err(e) => {
-                print_bytecode(script, vm.bytecode(), compiler.debug_info());
+                print_chunk(script, vm.chunk());
                 panic!(format!("Error while running script: {:?}", e));
             }
         }

@@ -1,32 +1,35 @@
-pub use koto_bytecode::{
-    bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader,
+pub use {
+    koto_bytecode::{
+        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, DebugInfo, InstructionReader,
+    },
+    koto_parser::{num4::Num4, Ast, Function, Parser, Position},
+    koto_runtime::{
+        external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
+        RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    },
+    koto_std::{get_external_instance, visit_external_value},
 };
-pub use koto_parser::{num4::Num4, Ast, Function, Parser, Position};
-use koto_runtime::Vm;
-pub use koto_runtime::{
-    external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,
-    RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+
+use {
+    koto_runtime::Vm,
+    std::{path::Path, sync::Arc},
 };
-pub use koto_std::{get_external_instance, visit_external_value};
-use std::{path::Path, sync::Arc};
 
 #[derive(Copy, Clone, Default)]
 pub struct Options {
     pub show_annotated: bool,
     pub show_bytecode: bool,
-    pub export_all_at_top_level: bool,
-    pub incremental_mode: bool,
+    pub repl_mode: bool,
 }
 
 #[derive(Default)]
 pub struct Koto {
     script: String,
     script_path: Option<String>,
-    compiler: Compiler,
     ast: Ast,
     runtime: Vm,
     options: Options,
-    new_bytecode: Option<usize>,
+    chunk: Option<Arc<Chunk>>,
 }
 
 impl Koto {
@@ -61,40 +64,44 @@ impl Koto {
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        let run_result = self.runtime.run_from(self.new_bytecode.unwrap_or(0));
+        if let Some(chunk) = &self.chunk {
+            let run_result = self.runtime.run(chunk.clone());
 
-        let result = match run_result {
-            Ok(result) => Ok(result),
-            Err(e) => Err(match &e {
-                Error::RuntimeError {
-                    message,
-                    start_pos,
-                    end_pos,
-                } => self.format_error("Runtime", message, &self.script, *start_pos, *end_pos),
-                Error::VmRuntimeError {
-                    message,
-                    instruction,
-                } => self.format_vm_error(message, *instruction),
-                Error::ExternalError { message } => format!("Error: {}\n", message),
-            }),
-        }?;
+            let result = match run_result {
+                Ok(result) => Ok(result),
+                Err(e) => Err(match &e {
+                    Error::RuntimeError {
+                        message,
+                        start_pos,
+                        end_pos,
+                    } => self.format_error("Runtime", message, &self.script, *start_pos, *end_pos),
+                    Error::VmRuntimeError {
+                        message,
+                        instruction,
+                    } => self.format_vm_error(message, *instruction),
+                    Error::ExternalError { message } => format!("Error: {}\n", message),
+                }),
+            }?;
 
-        if let Some(main) = self.get_global_function("main") {
-            self.call_function(&main, &[])
+            if let Some(main) = self.get_global_function("main") {
+                self.call_function(&main, &[])
+            } else {
+                Ok(result)
+            }
         } else {
-            Ok(result)
+            Ok(Value::Empty)
         }
     }
 
     pub fn compile(&mut self, script: &str) -> Result<(), String> {
         let options = koto_parser::Options {
-            export_all_top_level: self.options.export_all_at_top_level,
+            export_all_top_level: self.options.repl_mode,
         };
 
         match Parser::parse(&script, self.runtime.constants_mut(), options) {
             Ok(ast) => {
                 self.ast = ast;
-                if !self.options.incremental_mode {
+                if !self.options.repl_mode {
                     self.runtime.constants_mut().shrink_to_fit();
                 }
             }
@@ -109,41 +116,23 @@ impl Koto {
             }
         }
 
-        self.new_bytecode = None;
+        self.chunk = None;
 
-        let compile_result = if self.options.incremental_mode {
-            self.compiler.compile_incremental(&self.ast)
-        } else {
-            self.compiler.compile(&self.ast)
-        };
+        let compile_result = Compiler::compile(&self.ast);
 
         match compile_result {
-            Ok((bytecode, debug_info)) => {
-                if self.options.incremental_mode {
-                    self.new_bytecode = Some(self.runtime.bytecode().len());
-                };
-
-                self.runtime.set_bytecode(bytecode);
-                self.runtime.set_debug_info(Arc::new(DebugInfo {
-                    source_map: debug_info.clone(),
-                    script_path: self.script_path.clone(),
-                }));
+            Ok((bytes, mut debug_info)) => {
+                debug_info.script_path = self.script_path.clone();
+                let chunk = Arc::new(Chunk::new(bytes, debug_info));
+                self.chunk = Some(chunk.clone());
 
                 self.script = script.to_string();
 
                 if self.options.show_annotated {
                     let script_lines = self.script.lines().collect::<Vec<_>>();
-                    println!(
-                        "{}",
-                        bytecode_to_string_annotated(
-                            self.runtime.bytecode(),
-                            &script_lines,
-                            self.compiler.debug_info(),
-                            self.new_bytecode,
-                        )
-                    );
+                    println!("{}", chunk_to_string_annotated(chunk, &script_lines));
                 } else if self.options.show_bytecode {
-                    println!("{}", bytecode_to_string(self.runtime.bytecode()));
+                    println!("{}", chunk_to_string(chunk));
                 }
 
                 Ok(())
@@ -247,7 +236,7 @@ impl Koto {
     }
 
     fn format_vm_error(&self, message: &str, instruction: usize) -> String {
-        match self.compiler.debug_info().get_source_span(instruction) {
+        match self.runtime.chunk().debug_info.get_source_span(instruction) {
             Some(span) => self.format_error("Runtime", message, &self.script, span.start, span.end),
             None => format!(
                 "Runtime error at instruction {}: {}\n",

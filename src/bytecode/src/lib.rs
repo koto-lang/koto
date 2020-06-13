@@ -1,6 +1,7 @@
 use {
     koto_parser::Span,
     num_enum::{IntoPrimitive, TryFromPrimitive},
+    std::sync::Arc,
 };
 
 mod compile;
@@ -9,7 +10,52 @@ mod instruction_reader;
 pub use compile::*;
 pub use instruction_reader::*;
 
-pub type Bytecode = Vec<u8>;
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DebugInfo {
+    source_map: Vec<(usize, Span)>,
+    pub script_path: Option<String>,
+}
+
+impl DebugInfo {
+    fn push(&mut self, ip: usize, span: &Span) {
+        if let Some(entry) = self.source_map.last() {
+            if entry.1 == *span {
+                // Don't add entries with matching spans, a search is performed in
+                // get_source_span which will find the correct span
+                // for intermediate ips.
+                return;
+            }
+        }
+        self.source_map.push((ip, *span));
+    }
+
+    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
+        // Find the last entry with an ip less than or equal to the input
+        // an upper_bound would nice here, but this isn't currently a performance sensitive function
+        // so a scan through the entries will do.
+        let mut result = None;
+        for entry in self.source_map.iter() {
+            if entry.0 <= ip {
+                result = Some(entry.1);
+            } else {
+                break;
+            }
+        }
+        result
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Chunk {
+    bytes: Vec<u8>,
+    pub debug_info: DebugInfo,
+}
+
+impl Chunk {
+    pub fn new(bytes: Vec<u8>, debug_info: DebugInfo) -> Self {
+        Self { bytes, debug_info }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
@@ -77,9 +123,9 @@ pub enum Op {
     Debug,            // register, constant[4]
 }
 
-pub fn bytecode_to_string(bytecode: &[u8]) -> String {
+pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     let mut result = String::new();
-    let mut reader = InstructionReader::new(bytecode);
+    let mut reader = InstructionReader::new(chunk);
     let mut ip = reader.ip;
 
     while let Some(instruction) = reader.next() {
@@ -90,21 +136,22 @@ pub fn bytecode_to_string(bytecode: &[u8]) -> String {
     result
 }
 
-pub fn bytecode_to_string_annotated(
-    bytecode: &[u8],
+pub fn chunk_to_string_annotated(
+    chunk: Arc<Chunk>,
     script_lines: &[&str],
-    debug_info: &DebugInfo,
-    start_position: Option<usize>,
 ) -> String {
     let mut result = String::new();
-    let mut reader = InstructionReader::new(bytecode);
-    reader.ip = start_position.unwrap_or(0);
+    let mut reader = InstructionReader::new(chunk);
     let mut ip = reader.ip;
     let mut span: Option<Span> = None;
     let mut first = true;
 
     while let Some(instruction) = reader.next() {
-        let instruction_span = debug_info.get_source_span(ip).expect("Missing source span");
+        let instruction_span = reader
+            .chunk
+            .debug_info
+            .get_source_span(ip)
+            .expect("Missing source span");
 
         let print_source_lines = if let Some(span) = span {
             instruction_span.start.line != span.start.line
