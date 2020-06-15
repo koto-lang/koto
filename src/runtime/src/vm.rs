@@ -205,11 +205,7 @@ impl Vm {
                 match global {
                     Some(value) => self.set_register(register, value),
                     None => {
-                        return vm_error!(
-                            instruction_ip,
-                            "LoadGlobal: '{}' not found",
-                            global_name
-                        );
+                        return vm_error!(instruction_ip, "'{}' not found", global_name);
                     }
                 }
             }
