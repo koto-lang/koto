@@ -70,12 +70,7 @@ impl Koto {
             let result = match run_result {
                 Ok(result) => Ok(result),
                 Err(e) => Err(match &e {
-                    Error::RuntimeError {
-                        message,
-                        start_pos,
-                        end_pos,
-                    } => self.format_error("Runtime", message, &self.script, *start_pos, *end_pos),
-                    Error::VmRuntimeError {
+                    Error::VmError {
                         message,
                         instruction,
                     } => self.format_vm_error(message, *instruction),
@@ -106,13 +101,7 @@ impl Koto {
                 }
             }
             Err(e) => {
-                return Err(self.format_error(
-                    "Parser",
-                    &e.to_string(),
-                    script,
-                    e.span.start,
-                    e.span.end,
-                ));
+                return Err(self.format_error(&e.to_string(), script, e.span.start, e.span.end));
             }
         }
 
@@ -220,16 +209,11 @@ impl Koto {
     ) -> Result<Value, String> {
         match self.runtime.run_function(function, args) {
             Ok(result) => Ok(result),
-            Err(e) => Err(match &e {
-                Error::RuntimeError {
-                    message,
-                    start_pos,
-                    end_pos,
-                } => self.format_error("Runtime", &message, &self.script, *start_pos, *end_pos),
-                Error::VmRuntimeError {
+            Err(e) => Err(match e {
+                Error::VmError {
                     message,
                     instruction,
-                } => self.format_vm_error(message, *instruction),
+                } => self.format_vm_error(&message, instruction),
                 Error::ExternalError { message } => format!("Error: {}\n", message,),
             }),
         }
@@ -237,7 +221,7 @@ impl Koto {
 
     fn format_vm_error(&self, message: &str, instruction: usize) -> String {
         match self.runtime.chunk().debug_info.get_source_span(instruction) {
-            Some(span) => self.format_error("Runtime", message, &self.script, span.start, span.end),
+            Some(span) => self.format_error(message, &self.script, span.start, span.end),
             None => format!(
                 "Runtime error at instruction {}: {}\n",
                 instruction, message
@@ -247,7 +231,6 @@ impl Koto {
 
     fn format_error(
         &self,
-        error_type: &str,
         message: &str,
         script: &str,
         start_pos: Position,
@@ -304,8 +287,7 @@ impl Koto {
         };
 
         format!(
-            "{} error: {message}\n --> {}:{}\n{padding}|\n{excerpt}",
-            error_type,
+            "{message}\n --> {}:{}\n{padding}|\n{excerpt}",
             start_pos.line,
             start_pos.column,
             padding = padding,
