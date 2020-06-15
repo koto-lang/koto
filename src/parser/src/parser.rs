@@ -363,7 +363,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(expected_indent) = expected_indent {
                         match next_indent.cmp(&expected_indent) {
                             Ordering::Less => break,
-                            Ordering::Equal => {},
+                            Ordering::Equal => {}
                             Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
                         }
                     } else if next_indent <= current_indent {
@@ -619,6 +619,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
+                    let start_span = self.lexer.span();
                     self.consume_token();
 
                     let id_index = self.push_node(Node::Id(constant_index))?;
@@ -635,10 +636,13 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                             }
                         }
 
-                        self.push_node(Node::Call {
-                            function: id_index,
-                            args,
-                        })?
+                        self.push_node_with_start_span(
+                            Node::Call {
+                                function: id_index,
+                                args,
+                            },
+                            start_span,
+                        )?
                     } else {
                         id_index
                     }
@@ -1593,6 +1597,20 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn push_node(&mut self, node: Node) -> Result<AstIndex, ParserError> {
         self.ast.push(node, self.lexer.span())
+    }
+
+    fn push_node_with_start_span(
+        &mut self,
+        node: Node,
+        start_span: Span,
+    ) -> Result<AstIndex, ParserError> {
+        self.ast.push(
+            node,
+            Span {
+                start: start_span.start,
+                end: self.lexer.span().end,
+            },
+        )
     }
 
     fn peek_until_next_token(&mut self) -> Option<Token> {
