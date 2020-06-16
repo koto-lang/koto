@@ -63,7 +63,9 @@ pub enum Token {
     Export,
     False,
     For,
+    From,
     If,
+    Import,
     In,
     Not,
     Num2,
@@ -340,7 +342,9 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("export", Export);
         check_keyword!("false", False);
         check_keyword!("for", For);
+        check_keyword!("from", From);
         check_keyword!("if", If);
+        check_keyword!("import", Import);
         check_keyword!("in", In);
         check_keyword!("not", Not);
         check_keyword!("num2", Num2);

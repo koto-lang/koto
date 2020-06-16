@@ -45,6 +45,10 @@ pub enum Node {
         function: AstIndex,
         args: Vec<AstIndex>,
     },
+    Import {
+        module: Vec<ConstantIndex>,
+        items: Vec<ConstantIndex>,
+    },
     Assign {
         target: AssignTarget,
         op: AssignOp,
@@ -115,6 +119,7 @@ impl fmt::Display for Node {
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             Call { .. } => write!(f, "Call"),
+            Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
             Op { .. } => write!(f, "Op"),

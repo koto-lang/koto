@@ -548,6 +548,12 @@ impl Compiler {
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
+            Node::Import {
+                module: _module,
+                items: _items,
+            } => {
+                unimplemented!();
+            }
             Node::Assign {
                 target,
                 op,

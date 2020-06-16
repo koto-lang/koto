@@ -1077,6 +1077,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
+                Token::Import => return self.parse_import_expression(),
                 Token::NewLineIndented => return self.parse_map_block(current_indent, None),
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => return Ok(None),
@@ -1475,6 +1476,68 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         };
 
         Ok(Some(result))
+    }
+
+    fn parse_import_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.peek_token() != Some(Token::Import) {
+            return Ok(None);
+        }
+
+        self.consume_token();
+
+        let items = if self.skip_whitespace_and_peek() == Some(Token::ListStart) {
+            self.consume_token();
+
+            let first = match self.parse_id(false) {
+                Some(id) => id,
+                None => return syntax_error!(ExpectedIdInImportItemList, self),
+            };
+
+            let mut items = vec![first];
+
+            while self.skip_whitespace_and_peek() != Some(Token::ListEnd) {
+                let next_item = match self.parse_id(false) {
+                    Some(id) => id,
+                    None => return syntax_error!(ExpectedIdInImportItemList, self),
+                };
+                items.push(next_item);
+            }
+
+            if self.consume_token() != Some(Token::ListEnd) {
+                return syntax_error!(ExpectedListEndInImportItemList, self);
+            }
+
+            if self.skip_whitespace_and_next() != Some(Token::From) {
+                return syntax_error!(ExpectedFromAfterImportItemList, self);
+            }
+
+            for item in items.iter(){
+                self.frame_mut()?.ids_assigned_in_scope.insert(*item);
+            }
+
+            items
+        } else {
+            vec![]
+        };
+
+        let module = match self.parse_id(false) {
+            Some(first) => {
+                let mut module = vec![first];
+                while self.peek_token() == Some(Token::Dot) {
+                    self.consume_token();
+                    let child_module = match self.parse_id(false) {
+                        Some(next) => next,
+                        None => return syntax_error!(ExpectedImportModuleId, self),
+                    };
+                    module.push(child_module);
+                }
+                self.frame_mut()?.ids_assigned_in_scope.insert(*module.last().unwrap());
+                module
+            }
+            None => return syntax_error!(ExpectedImportModuleId, self),
+        };
+
+        Ok(Some(self.push_node(Node::Import { module, items })?))
     }
 
     fn parse_indented_block(
@@ -3952,6 +4015,127 @@ a = 1 + \
                     Constant::Str("a"),
                     Constant::Number(2.0),
                     Constant::Number(3.0),
+                ]),
+            )
+        }
+    }
+
+    mod import {
+        use super::*;
+
+        #[test]
+        fn import_module() {
+            let source = "import foo";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        module: vec![0],
+                        items: vec![],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn import_item() {
+            let source = "import foo.bar";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        module: vec![0, 1],
+                        items: vec![],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
+
+        #[test]
+        fn import_item_used_in_assignment() {
+            let source = "x = import foo.bar";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Import {
+                        module: vec![1, 2],
+                        items: vec![],
+                    },
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 2, // x and bar both assigned locally
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_items() {
+            let source = "import [bar baz] from foo";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        module: vec![2],
+                        items: vec![0, 1],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                    Constant::Str("foo"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_items_from_child() {
+            let source = "import [abc xyz] from foo.bar";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        module: vec![2, 3],
+                        items: vec![0, 1],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("abc"),
+                    Constant::Str("xyz"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
                 ]),
             )
         }
