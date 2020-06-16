@@ -120,25 +120,24 @@ impl Frame {
     }
 }
 
-pub struct Parser<'source, 'constants> {
+pub struct Parser<'source> {
     ast: Ast,
+    constants: ConstantPool,
     lexer: Lexer<'source>,
-    constants: &'constants mut ConstantPool,
     frame_stack: Vec<Frame>,
     options: Options,
 }
 
-impl<'source, 'constants> Parser<'source, 'constants> {
+impl<'source> Parser<'source> {
     pub fn parse(
         source: &'source str,
-        constants: &'constants mut ConstantPool,
         options: Options,
-    ) -> Result<Ast, ParserError> {
+    ) -> Result<(Ast, ConstantPool), ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
+            constants: ConstantPool::new(),
             lexer: Lexer::new(source),
-            constants,
             frame_stack: Vec::new(),
             options,
         };
@@ -146,7 +145,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
 
-        Ok(parser.ast)
+        Ok((parser.ast, parser.constants))
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {
@@ -1511,7 +1510,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                 return syntax_error!(ExpectedFromAfterImportItemList, self);
             }
 
-            for item in items.iter(){
+            for item in items.iter() {
                 self.frame_mut()?.ids_assigned_in_scope.insert(*item);
             }
 
@@ -1531,7 +1530,9 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     };
                     module.push(child_module);
                 }
-                self.frame_mut()?.ids_assigned_in_scope.insert(*module.last().unwrap());
+                self.frame_mut()?
+                    .ids_assigned_in_scope
+                    .insert(*module.last().unwrap());
                 module
             }
             None => return syntax_error!(ExpectedImportModuleId, self),
@@ -1786,9 +1787,8 @@ mod tests {
     ) {
         println!("{}", source);
 
-        let mut constants = ConstantPool::default();
-        match Parser::parse(source, &mut constants, options) {
-            Ok(ast) => {
+        match Parser::parse(source, options) {
+            Ok((ast, constants)) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {

@@ -47,8 +47,13 @@ fn main() {
 
         let script = fs::read_to_string(path).expect("Unable to load path");
         koto.set_script_path(Some(path.to_string()));
-        match koto.run_script_with_args(&script, &args) {
-            Ok(_) => {}
+        match koto.compile(&script) {
+            Ok(_) => match koto.run_with_args(&args) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{}", e);
+                }
+            },
             Err(e) => {
                 eprintln!("{}", e);
             }

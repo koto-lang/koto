@@ -548,11 +548,63 @@ impl Compiler {
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
-            Node::Import {
-                module: _module,
-                items: _items,
-            } => {
-                unimplemented!();
+            Node::Import { module, items } => {
+                if module.is_empty() {
+                    return Err("Missing module for import".to_string());
+                }
+
+                let root_id = module.first().unwrap();
+                let import_id = module.last().unwrap();
+
+                // Import the root module
+                let (module_register, pop_module_register) = match result_register {
+                    Some(register) => {
+                        self.compile_import_id(register, *root_id);
+                        (register, false)
+                    }
+                    None => {
+                        let register = self.push_register()?;
+                        self.compile_import_id(register, *root_id);
+                        (register, true)
+                    }
+                };
+
+                // Access the leaf node via lookup chain
+                // e.g.
+                // import foo.bar.baz
+                // - foo is already in the module_register, so get bar.baz via two MapAccesses
+                match module.as_slice() {
+                    [_, rest @ ..] => {
+                        let key_register = self.push_register()?;
+                        // then, access the leaf module node, reusing the module register
+                        for child in rest.iter() {
+                            self.load_string(key_register, *child);
+                            self.push_op(
+                                MapAccess,
+                                &[module_register, module_register, key_register],
+                            );
+                        }
+                        self.pop_register()?;
+                    }
+                    _ => {}
+                }
+
+                // assign the leaf item to a local with a matching name
+                let import_register = self.frame_mut().assign_local_register(*import_id)?;
+                self.push_op(Copy, &[import_register, module_register]);
+
+                // then, for each item, lookup from the leaf item and assign to a local
+                let key_register = self.push_register()?;
+                for item in items.iter() {
+                    self.load_string(key_register, *item);
+                    let import_register = self.frame_mut().assign_local_register(*import_id)?;
+                    self.push_op(MapAccess, &[import_register, module_register, key_register])
+                }
+                self.pop_register()?;
+
+                if pop_module_register {
+                    self.pop_register()?;
+                }
             }
             Node::Assign {
                 target,
@@ -984,7 +1036,6 @@ impl Compiler {
         use Op::*;
 
         if let Some(local_register) = self.frame().get_local_assigned_register(id) {
-            // local
             if local_register != result_register {
                 self.push_op(Copy, &[result_register, local_register]);
             }
@@ -1002,7 +1053,6 @@ impl Compiler {
         use Op::*;
 
         if let Some(capture_slot) = self.frame().capture_slot(id) {
-            // capture
             self.push_op(LoadCapture, &[result_register, capture_slot]);
         } else {
             // global
@@ -1015,6 +1065,26 @@ impl Compiler {
         }
 
         Ok(())
+    }
+
+    fn compile_import_id(&mut self, result_register: u8, id: ConstantIndex) {
+        use Op::*;
+
+        if let Some(local_register) = self.frame().get_local_assigned_register(id) {
+            if local_register != result_register {
+                self.push_op(Copy, &[result_register, local_register]);
+            }
+        } else if let Some(capture_slot) = self.frame().capture_slot(id) {
+            self.push_op(LoadCapture, &[result_register, capture_slot]);
+        } else {
+            // If the id isn't a local or capture, then it needs to be imported
+            if id <= u8::MAX as u32 {
+                self.push_op(Import, &[result_register, id as u8]);
+            } else {
+                self.push_op(ImportLong, &[result_register]);
+                self.push_bytes(&id.to_le_bytes());
+            }
+        }
     }
 
     fn compile_binary_op(

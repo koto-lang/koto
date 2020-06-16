@@ -8,7 +8,7 @@ parser_tests:
   cargo watch -x "test --package koto_lexer --package koto_parser"
 
 test:
-  cargo test --all-targets --benches
+  cargo watch -x "test --all-targets --benches"
 
 test_benches:
   cargo test --benches

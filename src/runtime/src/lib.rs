@@ -1,5 +1,6 @@
 mod external;
 mod id;
+mod loader;
 pub mod value;
 mod value_iterator;
 mod value_list;
@@ -10,6 +11,7 @@ use id::Id;
 
 pub use {
     external::{ExternalFunction, ExternalValue},
+    loader::Loader,
     value::{make_external_value, type_as_string, RuntimeFunction, Value},
     value_iterator::IntRange,
     value_list::{ValueList, ValueVec},

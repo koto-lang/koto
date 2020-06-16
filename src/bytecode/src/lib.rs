@@ -1,5 +1,5 @@
 use {
-    koto_parser::Span,
+    koto_parser::{ConstantPool, Span},
     num_enum::{IntoPrimitive, TryFromPrimitive},
     std::sync::Arc,
 };
@@ -47,13 +47,18 @@ impl DebugInfo {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Chunk {
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
+    pub constants: ConstantPool,
     pub debug_info: DebugInfo,
 }
 
 impl Chunk {
-    pub fn new(bytes: Vec<u8>, debug_info: DebugInfo) -> Self {
-        Self { bytes, debug_info }
+    pub fn new(bytes: Vec<u8>, constants: ConstantPool, debug_info: DebugInfo) -> Self {
+        Self {
+            bytes,
+            constants,
+            debug_info,
+        }
     }
 }
 
@@ -75,6 +80,8 @@ pub enum Op {
     LoadGlobalLong,   // register, constant[4]
     SetGlobal,        // global, source
     SetGlobalLong,    // global[4], source
+    Import,           // register, constant
+    ImportLong,       // register, constant[4]
     MakeList,         // register, size hint
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint
@@ -136,10 +143,7 @@ pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     result
 }
 
-pub fn chunk_to_string_annotated(
-    chunk: Arc<Chunk>,
-    script_lines: &[&str],
-) -> String {
+pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, script_lines: &[&str]) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(chunk);
     let mut ip = reader.ip;

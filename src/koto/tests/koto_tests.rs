@@ -13,9 +13,15 @@ fn run_script(script_path: &str) {
 
     let mut koto = Koto::new();
     koto.set_script_path(Some(path.to_string_lossy().to_string()));
-    if let Err(error) = koto.run_script(&script) {
-        eprintln!("{}", error);
-        assert!(false);
+    match koto.compile(&script) {
+        Ok(_) => {
+            if let Err(error) = koto.run() {
+                panic!(error);
+            }
+        }
+        Err(error) => {
+            panic!(error);
+        }
     }
 }
 

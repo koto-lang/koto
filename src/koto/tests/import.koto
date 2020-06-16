@@ -1,0 +1,19 @@
+# importing a module brings the module's global map into scope by assignment
+# import_module is defined in import_module.koto
+import import_module
+assert_eq (type import_module) "map"
+assert_eq import_module.foo 42
+
+# import statements can appear at any point in a script, and can refer directly to items
+x = import import_module.bar
+assert_eq bar -1
+assert_eq x bar
+
+# import_module_2 is defined in import_module_2/lib.koto
+import import_module_2
+assert_eq import_module_2.baz "O_o"
+
+# import statements can bring in multiple items via list/from syntax
+import [foo bar] from import_module
+assert_eq foo 42
+assert_eq bar -1

@@ -4,8 +4,8 @@ pub use {
     },
     koto_parser::{num4::Num4, Ast, Function, Parser, Position},
     koto_runtime::{
-        external_error, make_external_value, type_as_string, Error, ExternalValue, RuntimeFunction,
-        RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+        external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
+        RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
     },
     koto_std::{get_external_instance, visit_external_value},
 };
@@ -28,6 +28,7 @@ pub struct Koto {
     script_path: Option<String>,
     runtime: Vm,
     options: Options,
+    loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }
 
@@ -52,80 +53,64 @@ impl Koto {
         result
     }
 
-    pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
-        self.run_script_with_args(script, &[])
+    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
+        let compile_result = if self.options.repl_mode {
+            self.loader.compile_repl(script)
+        } else {
+            self.loader.compile_script(script, &self.script_path)
+        };
+
+        match compile_result {
+            Ok(chunk) => {
+                self.chunk = Some(chunk.clone());
+                if self.options.show_annotated {
+                    let script_lines = script.lines().collect::<Vec<_>>();
+                    println!(
+                        "{}",
+                        chunk_to_string_annotated(chunk.clone(), &script_lines)
+                    );
+                } else if self.options.show_bytecode {
+                    println!("{}", chunk_to_string(chunk.clone()));
+                }
+                Ok(chunk)
+            }
+            Err(e) => Err(format!("Error while compiling script: {}", e)),
+        }
     }
 
-    pub fn run_script_with_args(&mut self, script: &str, args: &[String]) -> Result<Value, String> {
-        self.compile(script)?;
+    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value, String> {
         self.set_args(args);
         self.run()
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        if let Some(chunk) = &self.chunk {
-            let run_result = self.runtime.run(chunk.clone());
+        let chunk = self.chunk.clone();
+        match chunk {
+            Some(chunk) => self.run_chunk(chunk),
+            None => Err("koto.run: missing compiled chunk".to_string()),
+        }
+    }
 
-            let result = match run_result {
-                Ok(result) => Ok(result),
-                Err(e) => Err(match &e {
+    pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
+        let result = match self.runtime.run(chunk) {
+            Ok(result) => result,
+            Err(e) => {
+                return Err(match &e {
                     Error::VmError {
                         message,
                         instruction,
                     } => self.format_vm_error(message, *instruction),
                     Error::ExternalError { message } => format!("Error: {}\n", message),
-                }),
-            }?;
-
-            if let Some(main) = self.get_global_function("main") {
-                self.call_function(&main, &[])
-            } else {
-                Ok(result)
+                })
             }
+        };
+
+        if self.options.repl_mode {
+            Ok(result)
+        } else if let Some(main) = self.get_global_function("main") {
+            self.call_function(&main, &[])
         } else {
-            Ok(Value::Empty)
-        }
-    }
-
-    pub fn compile(&mut self, script: &str) -> Result<(), String> {
-        let options = koto_parser::Options {
-            export_all_top_level: self.options.repl_mode,
-        };
-
-        let ast = match Parser::parse(&script, self.runtime.constants_mut(), options) {
-            Ok(ast) => {
-                if !self.options.repl_mode {
-                    self.runtime.constants_mut().shrink_to_fit();
-                }
-                ast
-            }
-            Err(e) => {
-                return Err(self.format_error(&e.to_string(), script, e.span.start, e.span.end));
-            }
-        };
-
-        self.chunk = None;
-
-        let compile_result = Compiler::compile(&ast);
-
-        match compile_result {
-            Ok((bytes, mut debug_info)) => {
-                debug_info.script_path = self.script_path.clone();
-                let chunk = Arc::new(Chunk::new(bytes, debug_info));
-                self.chunk = Some(chunk.clone());
-
-                self.script = script.to_string();
-
-                if self.options.show_annotated {
-                    let script_lines = self.script.lines().collect::<Vec<_>>();
-                    println!("{}", chunk_to_string_annotated(chunk, &script_lines));
-                } else if self.options.show_bytecode {
-                    println!("{}", chunk_to_string(chunk));
-                }
-
-                Ok(())
-            }
-            Err(e) => Err(format!("Error while compiling script: {}", e)),
+            Ok(result)
         }
     }
 

@@ -5,10 +5,10 @@ use {
         type_as_string,
         value::{copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator},
-        vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+        vm_error, Error, Id, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
-    koto_parser::{num2, num4, ConstantPool},
+    koto_parser::{num2, num4},
     rustc_hash::FxHashMap,
     std::sync::Arc,
 };
@@ -66,7 +66,7 @@ impl Frame {
 #[derive(Default)]
 pub struct Vm {
     global: ValueMap,
-    constants: Arc<ConstantPool>,
+    loader: Loader,
 
     reader: InstructionReader,
     string_constants: FxHashMap<usize, Arc<String>>,
@@ -85,16 +85,12 @@ impl Vm {
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
-            constants: self.constants.clone(),
+            loader: self.loader.clone(),
             global: self.global.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
         }
-    }
-
-    pub fn constants_mut(&mut self) -> &mut ConstantPool {
-        Arc::make_mut(&mut self.constants)
     }
 
     pub fn global_mut(&mut self) -> &mut ValueMap {
@@ -192,9 +188,10 @@ impl Vm {
             Instruction::SetNumber { register, value } => {
                 self.set_register(register, Number(value))
             }
-            Instruction::LoadNumber { register, constant } => {
-                self.set_register(register, Number(self.constants.get_f64(constant)))
-            }
+            Instruction::LoadNumber { register, constant } => self.set_register(
+                register,
+                Number(self.reader.chunk.constants.get_f64(constant)),
+            ),
             Instruction::LoadString { register, constant } => {
                 let string = self.arc_string_from_constant(constant);
                 self.set_register(register, Str(string))
@@ -214,6 +211,17 @@ impl Vm {
                 self.global
                     .data_mut()
                     .insert(Id::from_str(global_name), self.get_register(source).clone());
+            }
+            Instruction::Import { register, constant } => {
+                let import_name = self.get_constant_string(constant);
+                let maybe_global = self.global.data().get(import_name).cloned();
+                match maybe_global {
+                    Some(value) => self.set_register(register, value),
+                    None => {
+                        // let imported_module = self.loader.load(&import_name)?;
+                        // self.set_register(register, imported_module);
+                    }
+                }
             }
             Instruction::MakeList {
                 register,
@@ -1411,7 +1419,7 @@ impl Vm {
     }
 
     fn get_constant_string(&self, constant_index: usize) -> &str {
-        self.constants.get_string(constant_index)
+        self.reader.chunk.constants.get_string(constant_index)
     }
 
     fn arc_string_from_constant(&mut self, constant_index: usize) -> Arc<String> {
@@ -1420,7 +1428,13 @@ impl Vm {
         match maybe_string {
             Some(s) => s,
             None => {
-                let s = Arc::new(self.constants.get_string(constant_index).to_string());
+                let s = Arc::new(
+                    self.reader
+                        .chunk
+                        .constants
+                        .get_string(constant_index)
+                        .to_string(),
+                );
                 self.string_constants.insert(constant_index, s.clone());
                 s
             }
@@ -1448,27 +1462,11 @@ mod tests {
     use {
         super::*,
         crate::{external_error, Value::*, ValueHashMap},
-        koto_bytecode::{chunk_to_string_annotated, Compiler},
-        koto_parser::{Options as ParserOptions, Parser},
+        koto_bytecode::chunk_to_string_annotated,
     };
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
-
-        let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
-            Ok(ast) => ast,
-            Err(e) => panic!(format!(
-                "\n{}\n\n Error while parsing script: {} - {}",
-                script, e, e.span.start
-            )),
-        };
-        let chunk = match Compiler::compile(&ast) {
-            Ok((bytes, debug_info)) => Arc::new(Chunk::new(bytes, debug_info)),
-            Err(e) => panic!(format!(
-                "\n{}\n\n Error while compiling chunk: {}",
-                script, e
-            )),
-        };
 
         vm.global.add_value("test_global", Number(42.0));
         vm.global.add_fn("assert", |_, args| {
@@ -1489,6 +1487,11 @@ mod tests {
             }
             Ok(Empty)
         });
+
+        let chunk = match vm.loader.compile_script(script, &None) {
+            Ok(chunk) => chunk,
+            Err(error) => panic!(error),
+        };
 
         let print_chunk = |script: &str, chunk| {
             eprintln!("{}\n", script);
