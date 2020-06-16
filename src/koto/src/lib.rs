@@ -26,7 +26,6 @@ pub struct Options {
 pub struct Koto {
     script: String,
     script_path: Option<String>,
-    ast: Ast,
     runtime: Vm,
     options: Options,
     chunk: Option<Arc<Chunk>>,
@@ -93,21 +92,21 @@ impl Koto {
             export_all_top_level: self.options.repl_mode,
         };
 
-        match Parser::parse(&script, self.runtime.constants_mut(), options) {
+        let ast = match Parser::parse(&script, self.runtime.constants_mut(), options) {
             Ok(ast) => {
-                self.ast = ast;
                 if !self.options.repl_mode {
                     self.runtime.constants_mut().shrink_to_fit();
                 }
+                ast
             }
             Err(e) => {
                 return Err(self.format_error(&e.to_string(), script, e.span.start, e.span.end));
             }
-        }
+        };
 
         self.chunk = None;
 
-        let compile_result = Compiler::compile(&self.ast);
+        let compile_result = Compiler::compile(&ast);
 
         match compile_result {
             Ok((bytes, mut debug_info)) => {
