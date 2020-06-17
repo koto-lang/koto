@@ -1,0 +1,5 @@
+# This file is imported by main.koto
+
+# main functions should be run when loading a module
+export main = ||
+  export qux = "O_o"

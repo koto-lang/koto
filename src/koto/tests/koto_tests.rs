@@ -12,7 +12,7 @@ fn run_script(script_path: &str) {
     let script = read_to_string(&path).expect(&format!("Unable to load path '{:?}'", &path));
 
     let mut koto = Koto::new();
-    koto.set_script_path(Some(path.to_string_lossy().to_string()));
+    koto.set_script_path(Some(path));
     match koto.compile(&script) {
         Ok(_) => {
             if let Err(error) = koto.run() {
@@ -41,6 +41,7 @@ koto_test!(control_flow);
 koto_test!(function_closures);
 koto_test!(functions);
 koto_test!(functions_in_lookups);
+koto_test!(import);
 koto_test!(io);
 koto_test!(json);
 koto_test!(line_breaks);

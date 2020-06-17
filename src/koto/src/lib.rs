@@ -12,7 +12,7 @@ pub use {
 
 use {
     koto_runtime::Vm,
-    std::{path::Path, sync::Arc},
+    std::{path::PathBuf, sync::Arc},
 };
 
 #[derive(Copy, Clone, Default)]
@@ -25,7 +25,7 @@ pub struct Options {
 #[derive(Default)]
 pub struct Koto {
     script: String,
-    script_path: Option<String>,
+    script_path: Option<PathBuf>,
     runtime: Vm,
     options: Options,
     loader: Loader,
@@ -63,6 +63,7 @@ impl Koto {
         match compile_result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
+                self.script = script.to_string();
                 if self.options.show_annotated {
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
@@ -107,7 +108,7 @@ impl Koto {
 
         if self.options.repl_mode {
             Ok(result)
-        } else if let Some(main) = self.get_global_function("main") {
+        } else if let Some(main) = self.runtime.get_global_function("main") {
             self.call_function(&main, &[])
         } else {
             Ok(result)
@@ -134,13 +135,12 @@ impl Koto {
         }
     }
 
-    pub fn set_script_path(&mut self, path: Option<String>) {
+    pub fn set_script_path(&mut self, path: Option<PathBuf>) {
         use Value::{Empty, Map, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => (
-                Path::new(&path)
-                    .parent()
+                path.parent()
                     .map(|p| {
                         Str(Arc::new(
                             p.to_str().expect("invalid script path").to_string(),
@@ -148,7 +148,7 @@ impl Koto {
                     })
                     .or(Some(Empty))
                     .unwrap(),
-                Str(Arc::new(path.to_string())),
+                Str(Arc::new(path.display().to_string())),
             ),
             None => (Empty, Empty),
         };
@@ -165,19 +165,12 @@ impl Koto {
         }
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
-        match self.runtime.get_global_value(id) {
-            Some(Value::Function(function)) => Some(function),
-            _ => None,
-        }
-    }
-
     pub fn call_function_by_name(
         &mut self,
         function_name: &str,
         args: &[Value],
     ) -> Result<Value, String> {
-        match self.get_global_function(function_name) {
+        match self.runtime.get_global_function(function_name) {
             Some(f) => self.call_function(&f, args),
             None => Err(format!(
                 "Runtime error: function '{}' not found",

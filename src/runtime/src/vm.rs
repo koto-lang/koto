@@ -10,7 +10,7 @@ use {
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::{num2, num4},
     rustc_hash::FxHashMap,
-    std::sync::Arc,
+    std::{collections::HashMap, path::PathBuf, sync::Arc},
 };
 
 #[derive(Clone, Debug)]
@@ -67,6 +67,7 @@ impl Frame {
 pub struct Vm {
     global: ValueMap,
     loader: Loader,
+    modules: HashMap<PathBuf, ValueMap>,
 
     reader: InstructionReader,
     string_constants: FxHashMap<usize, Arc<String>>,
@@ -85,8 +86,9 @@ impl Vm {
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
-            loader: self.loader.clone(),
             global: self.global.clone(),
+            loader: self.loader.clone(),
+            modules: self.modules.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
@@ -99,6 +101,13 @@ impl Vm {
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
         self.global.data().get(id).cloned()
+    }
+
+    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
+        match self.get_global_value(id) {
+            Some(Value::Function(function)) => Some(function),
+            _ => None,
+        }
     }
 
     pub fn reset(&mut self) {
@@ -218,8 +227,34 @@ impl Vm {
                 match maybe_global {
                     Some(value) => self.set_register(register, value),
                     None => {
-                        // let imported_module = self.loader.load(&import_name)?;
-                        // self.set_register(register, imported_module);
+                        let module_name = self.get_constant_string(constant).to_string();
+                        let script_path = self.reader.chunk.script_path.clone();
+                        let (module_chunk, module_path) =
+                            match self.loader.compile_module(&module_name, script_path) {
+                                Ok(chunk) => chunk,
+                                Err(e) => {
+                                    return vm_error!(
+                                        instruction_ip,
+                                        "Error while importing '{}': {}",
+                                        module_name,
+                                        e
+                                    )
+                                }
+                            };
+                        let maybe_module = self.modules.get(&module_path).cloned();
+                        match maybe_module {
+                            Some(module) => self.set_register(register, Value::Map(module)),
+                            None => {
+                                // Run the chunk, and cache the resulting global map
+                                let mut vm = Vm::new();
+                                vm.run(module_chunk)?;
+                                if let Some(main) = vm.get_global_function("main") {
+                                    vm.run_function(&main, &[])?;
+                                }
+                                self.modules.insert(module_path, vm.global.clone());
+                                self.set_register(register, Value::Map(vm.global));
+                            }
+                        }
                     }
                 }
             }
@@ -1198,11 +1233,13 @@ impl Vm {
             Instruction::Debug { register, constant } => {
                 let prefix = match (
                     self.reader.chunk.debug_info.get_source_span(instruction_ip),
-                    self.reader.chunk.debug_info.script_path.as_ref(),
+                    self.reader.chunk.script_path.as_ref(),
                 ) {
-                    (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
+                    (Some(span), Some(path)) => {
+                        format!("[{}: {}] ", path.display(), span.start.line)
+                    }
                     (Some(span), None) => format!("[{}] ", span.start.line),
-                    (None, Some(path)) => format!("[{}: #ERR] ", path),
+                    (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
                     (None, None) => "[#ERR] ".to_string(),
                 };
                 let value = self.get_register(register);

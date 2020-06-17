@@ -597,7 +597,7 @@ impl Compiler {
                 let key_register = self.push_register()?;
                 for item in items.iter() {
                     self.load_string(key_register, *item);
-                    let import_register = self.frame_mut().assign_local_register(*import_id)?;
+                    let import_register = self.frame_mut().assign_local_register(*item)?;
                     self.push_op(MapAccess, &[import_register, module_register, key_register])
                 }
                 self.pop_register()?;

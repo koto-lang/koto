@@ -289,7 +289,7 @@ impl fmt::Display for Instruction {
                 write!(f, "SetGlobal\tconstant: {}\tsource: {}", global, source)
             }
             Import { register, constant } => {
-                write!(f, "Import\tresult: {}\tconstant: {}", register, constant)
+                write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
             }
             MakeList {
                 register,

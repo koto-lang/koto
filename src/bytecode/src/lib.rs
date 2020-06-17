@@ -1,7 +1,7 @@
 use {
     koto_parser::{ConstantPool, Span},
     num_enum::{IntoPrimitive, TryFromPrimitive},
-    std::sync::Arc,
+    std::{path::PathBuf, sync::Arc},
 };
 
 mod compile;
@@ -10,57 +10,6 @@ mod instruction_reader;
 pub use compile::*;
 pub use instruction_reader::*;
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct DebugInfo {
-    source_map: Vec<(usize, Span)>,
-    pub script_path: Option<String>,
-}
-
-impl DebugInfo {
-    fn push(&mut self, ip: usize, span: &Span) {
-        if let Some(entry) = self.source_map.last() {
-            if entry.1 == *span {
-                // Don't add entries with matching spans, a search is performed in
-                // get_source_span which will find the correct span
-                // for intermediate ips.
-                return;
-            }
-        }
-        self.source_map.push((ip, *span));
-    }
-
-    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
-        // Find the last entry with an ip less than or equal to the input
-        // an upper_bound would nice here, but this isn't currently a performance sensitive function
-        // so a scan through the entries will do.
-        let mut result = None;
-        for entry in self.source_map.iter() {
-            if entry.0 <= ip {
-                result = Some(entry.1);
-            } else {
-                break;
-            }
-        }
-        result
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Chunk {
-    pub bytes: Vec<u8>,
-    pub constants: ConstantPool,
-    pub debug_info: DebugInfo,
-}
-
-impl Chunk {
-    pub fn new(bytes: Vec<u8>, constants: ConstantPool, debug_info: DebugInfo) -> Self {
-        Self {
-            bytes,
-            constants,
-            debug_info,
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
@@ -129,6 +78,67 @@ pub enum Op {
     MapAccess,        // register, map, key
     Debug,            // register, constant[4]
 }
+
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DebugInfo {
+    source_map: Vec<(usize, Span)>,
+}
+
+impl DebugInfo {
+    fn push(&mut self, ip: usize, span: &Span) {
+        if let Some(entry) = self.source_map.last() {
+            if entry.1 == *span {
+                // Don't add entries with matching spans, a search is performed in
+                // get_source_span which will find the correct span
+                // for intermediate ips.
+                return;
+            }
+        }
+        self.source_map.push((ip, *span));
+    }
+
+    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
+        // Find the last entry with an ip less than or equal to the input
+        // an upper_bound would nice here, but this isn't currently a performance sensitive function
+        // so a scan through the entries will do.
+        let mut result = None;
+        for entry in self.source_map.iter() {
+            if entry.0 <= ip {
+                result = Some(entry.1);
+            } else {
+                break;
+            }
+        }
+        result
+    }
+}
+
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Chunk {
+    pub bytes: Vec<u8>,
+    pub constants: ConstantPool,
+    pub script_path: Option<PathBuf>,
+    pub debug_info: DebugInfo,
+}
+
+impl Chunk {
+    pub fn new(
+        bytes: Vec<u8>,
+        constants: ConstantPool,
+        script_path: Option<PathBuf>,
+        debug_info: DebugInfo,
+    ) -> Self {
+        Self {
+            bytes,
+            constants,
+            script_path,
+            debug_info,
+        }
+    }
+}
+
 
 pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     let mut result = String::new();
