@@ -65,6 +65,7 @@ impl Frame {
 
 #[derive(Default)]
 pub struct Vm {
+    prelude: ValueMap,
     global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, ValueMap>,
@@ -86,6 +87,7 @@ impl Vm {
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
+            prelude: self.prelude.clone(),
             global: self.global.clone(),
             loader: self.loader.clone(),
             modules: self.modules.clone(),
@@ -95,8 +97,8 @@ impl Vm {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap {
-        &mut self.global
+    pub fn prelude_mut(&mut self) -> &mut ValueMap {
+        &mut self.prelude
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
@@ -224,9 +226,13 @@ impl Vm {
             Instruction::Import { register, constant } => {
                 let import_name = self.get_constant_string(constant);
                 let maybe_global = self.global.data().get(import_name).cloned();
-                match maybe_global {
-                    Some(value) => self.set_register(register, value),
-                    None => {
+                if let Some(value) = maybe_global {
+                    self.set_register(register, value);
+                } else {
+                    let maybe_in_prelude = self.prelude.data().get(import_name).cloned();
+                    if let Some(value) = maybe_in_prelude {
+                        self.set_register(register, value);
+                    } else {
                         let module_name = self.get_constant_string(constant).to_string();
                         let script_path = self.reader.chunk.script_path.clone();
                         let (module_chunk, module_path) =
@@ -247,6 +253,7 @@ impl Vm {
                             None => {
                                 // Run the chunk, and cache the resulting global map
                                 let mut vm = Vm::new();
+                                vm.prelude = self.prelude.clone();
                                 vm.run(module_chunk)?;
                                 if let Some(main) = vm.get_global_function("main") {
                                     vm.run_function(&main, &[])?;

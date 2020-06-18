@@ -1,4 +1,7 @@
 import [assert assert_eq] from test
+import env
+import io
+import string
 
 ###### io.exists + io.read_to_string
 path = env.script_dir + "/data/test.txt"

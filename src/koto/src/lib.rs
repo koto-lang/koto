@@ -42,7 +42,7 @@ impl Koto {
         env.add_value("script_dir", Value::Empty);
         env.add_value("script_path", Value::Empty);
         env.add_list("args", ValueList::default());
-        result.runtime.global_mut().add_map("env", env);
+        result.runtime.prelude_mut().add_map("env", env);
 
         result
     }
@@ -75,7 +75,8 @@ impl Koto {
                 }
                 Ok(chunk)
             }
-            Err(e) => Err(format!("Error while compiling script: {}", e)),
+            Err(e) => Err(e),
+            // Err(e) => Err(self.format_error(&e.to_string(), &self.script, e.span.start, e.span.end)),
         }
     }
 
@@ -115,8 +116,8 @@ impl Koto {
         }
     }
 
-    pub fn global_mut(&mut self) -> &mut ValueMap {
-        self.runtime.global_mut()
+    pub fn prelude_mut(&mut self) -> &mut ValueMap {
+        self.runtime.prelude_mut()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
@@ -127,7 +128,7 @@ impl Koto {
             .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
+        match self.runtime.prelude_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -155,7 +156,7 @@ impl Koto {
 
         self.script_path = path;
 
-        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
+        match self.runtime.prelude_mut().data_mut().get_mut("env").unwrap() {
             Map(map) => {
                 let mut map = map.data_mut();
                 map.add_value("script_dir", script_dir);

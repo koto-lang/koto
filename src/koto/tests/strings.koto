@@ -1,3 +1,4 @@
+import string
 import [assert_eq assert_ne] from test
 
 assert_eq "Hello" "Hello"

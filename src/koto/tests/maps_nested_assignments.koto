@@ -1,3 +1,4 @@
+import map
 import test.assert_eq
 
 ####### Assigning to map entries

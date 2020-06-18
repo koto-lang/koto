@@ -1,3 +1,5 @@
+import env
+import list
 import test.assert_eq
 
 export main = ||

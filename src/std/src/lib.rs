@@ -95,7 +95,7 @@ macro_rules! get_external_instance {
 }
 
 pub fn register(runtime: &mut Vm) {
-    let global = runtime.global_mut();
+    let global = runtime.prelude_mut();
 
     io::register(global);
     json::register(global);
