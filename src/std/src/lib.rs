@@ -4,17 +4,19 @@ mod list;
 mod map;
 mod math;
 mod serializable_value;
+mod string;
 mod test;
 mod thread;
 mod toml;
 
 pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
 
-use koto_runtime::{
-    value, value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value, ValueList,
-    ValueMap, ValueVec, Vm,
+use {
+    koto_runtime::{
+        value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value, ValueMap, Vm,
+    },
+    std::sync::Arc,
 };
-use std::sync::Arc;
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -107,27 +109,10 @@ pub fn register(runtime: &mut Vm) {
     list::register(global);
     map::register(global);
     math::register(global);
+    string::register(global);
     test::register(global);
     thread::register(global);
     toml::register(global);
-
-    {
-        let mut string = ValueMap::new();
-
-        single_arg_fn!(string, "escape", Str, s, {
-            Ok(Str(Arc::new(s.escape_default().to_string())))
-        });
-
-        single_arg_fn!(string, "lines", Str, s, {
-            Ok(List(ValueList::with_data(
-                s.lines()
-                    .map(|line| Str(Arc::new(line.to_string())))
-                    .collect::<ValueVec>(),
-            )))
-        });
-
-        global.add_value("string", Map(string));
-    }
 
     global.add_fn("size", |_, args| match &args {
         [Empty] => Ok(Number(0.0)),
