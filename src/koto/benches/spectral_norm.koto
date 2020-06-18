@@ -39,7 +39,7 @@ export main = ||
   if n == ()
     n = 4
   else
-    n = number n
+    n = string.to_number n
 
   u = [1 for _ in 0..n]
   v = [0 for _ in 0..n]

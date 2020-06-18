@@ -46,7 +46,7 @@ assert_eq z [0 2 4 6 8]
 
 ###### list.transform
 z = ["1" "2" "3"]
-list.transform z |x| number x
+list.transform z |x| string.to_number x
 assert_eq z [1 2 3]
 
 

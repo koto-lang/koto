@@ -67,7 +67,7 @@ export main = ||
   if n == ()
     n = 4
   else
-    n = number n
+    n = string.to_number n
 
   sum, flips = fannkuch(n)
 

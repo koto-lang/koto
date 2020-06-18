@@ -130,19 +130,6 @@ pub fn register(runtime: &mut Vm) {
         _ => external_error!("size expects a single argument, found {}", args.len()),
     });
 
-    global.add_fn("number", |_, args| match &args {
-        [n @ Number(_)] => Ok(n.clone()),
-        [Str(s)] => match s.parse::<f64>() {
-            Ok(n) => Ok(Number(n)),
-            Err(_) => external_error!("Failed to convert '{}' into a Number", s),
-        },
-        [unexpected] => external_error!(
-            "number is only supported for numbers and strings, found {}",
-            unexpected,
-        ),
-        _ => external_error!("number expects a single argument, found {}", args.len()),
-    });
-
     global.add_fn("type", |_, args| {
         let result = match &args {
             [Bool(_)] => "bool",

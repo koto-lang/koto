@@ -105,7 +105,7 @@ export main = ||
   if n == ()
     n = 100
   else
-    n = number n
+    n = string.to_number n
 
   nbody = size bodies
 
