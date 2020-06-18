@@ -1,3 +1,5 @@
+import [assert_eq assert_ne] from test
+
 a, b, c, d, e = 1, 2, 3, 4, 5, 6, 7, 8,
 assert_eq c 3
 assert_eq e 5

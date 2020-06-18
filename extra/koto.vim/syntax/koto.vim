@@ -7,7 +7,7 @@ syntax keyword kotoKeywords copy debug export from import not num2 num4 return s
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating break continue for in until while
 syntax keyword kotoStdLib
-  \ env io json list map math number print push size string thread type
+  \ env io json list map math number print push size string test thread type
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 

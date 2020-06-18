@@ -1,3 +1,5 @@
+import test.assert_eq
+
 # importing a module brings the module's global map into scope by assignment
 # test_module is defined in the test_module directory, with main.koto as its entry point
 import test_module

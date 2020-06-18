@@ -1,3 +1,5 @@
+import test.assert_eq
+
 a = num4(1
   2 3
   4

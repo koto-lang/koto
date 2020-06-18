@@ -1,3 +1,5 @@
+import test.assert_eq
+
 ###### Calling a setter on a child of a map in a list
 test_map = ||
   child_map:

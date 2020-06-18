@@ -1,3 +1,5 @@
+import [assert_eq assert_ne] from test
+
 assert_eq "Hello" "Hello"
 assert_ne "Hello" "hello"
 assert_eq ("Hello" + ", " + "World!") "Hello, World!"

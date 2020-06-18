@@ -1,3 +1,5 @@
+import test.assert_eq
+
 o = {min: 0, max: || 42}
 assert_eq 42 o.max()
 o2 = o

@@ -1,3 +1,5 @@
+import test.assert_eq
+
 assert_eq (type true) "bool"
 assert_eq (type |x| x * x) "function"
 assert_eq (type [1 2 3]) "list"

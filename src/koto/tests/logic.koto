@@ -1,3 +1,5 @@
+import [assert assert_eq] from test
+
 assert true and true
 assert not true and false
 assert not false and true
