@@ -11,12 +11,7 @@ mod toml;
 
 pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
 
-use {
-    koto_runtime::{
-        value::type_as_string, ExternalValue, IntRange, RuntimeResult, Value, ValueMap, Vm,
-    },
-    std::sync::Arc,
-};
+use koto_runtime::{value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap, Vm};
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -100,8 +95,6 @@ macro_rules! get_external_instance {
 }
 
 pub fn register(runtime: &mut Vm) {
-    use Value::*;
-
     let global = runtime.global_mut();
 
     io::register(global);
@@ -113,45 +106,4 @@ pub fn register(runtime: &mut Vm) {
     test::register(global);
     thread::register(global);
     toml::register(global);
-
-    global.add_fn("size", |_, args| match &args {
-        [Empty] => Ok(Number(0.0)),
-        [List(list)] => Ok(Number(list.data().len() as f64)),
-        [Map(map)] => Ok(Number(map.data().len() as f64)),
-        [Range(IntRange { start, end })] => {
-            let result = if end >= start {
-                end - start
-            } else {
-                start - end
-            };
-            Ok(Number(result as f64))
-        }
-        [unexpected] => external_error!("size - '{}' is unsupported", unexpected),
-        _ => external_error!("size expects a single argument, found {}", args.len()),
-    });
-
-    global.add_fn("type", |_, args| {
-        let result = match &args {
-            [Bool(_)] => "bool",
-            [Empty] => "empty",
-            [Function(_)] => "function",
-            [ExternalFunction(_)] => "function",
-            [ExternalValue(value)] => return Ok(Str(Arc::new(value.read().unwrap().value_type()))),
-            [List(_)] => "list",
-            [Map(_)] => "map",
-            [Number(_)] => "number",
-            [Num2(_)] => "num2",
-            [Num4(_)] => "num4",
-            [Range(_)] => "range",
-            [Str(_)] => "string",
-            [unexpected] => {
-                return external_error!(
-                    "type is only supported for user types, found {}",
-                    unexpected,
-                )
-            }
-            _ => return external_error!("type expects a single argument, found {}", args.len()),
-        };
-        Ok(Str(Arc::new(result.to_string())))
-    });
 }

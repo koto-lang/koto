@@ -10,7 +10,6 @@ mod instruction_reader;
 pub use compile::*;
 pub use instruction_reader::*;
 
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Op {
@@ -76,9 +75,10 @@ pub enum Op {
     ListIndex,        // register, list, index
     MapInsert,        // map, key, value
     MapAccess,        // register, map, key
+    Size,             // register
+    Type,             // register
     Debug,            // register, constant[4]
 }
-
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DebugInfo {
@@ -114,7 +114,6 @@ impl DebugInfo {
     }
 }
 
-
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Chunk {
     pub bytes: Vec<u8>,
@@ -138,7 +137,6 @@ impl Chunk {
         }
     }
 }
-
 
 pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     let mut result = String::new();

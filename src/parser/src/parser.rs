@@ -1076,6 +1076,22 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
+                Token::Size => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::Size(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Type => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::Type(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
                 Token::Import => return self.parse_import_expression(),
                 Token::NewLineIndented => return self.parse_map_block(current_indent, None),
                 Token::Error => return syntax_error!(LexerError, self),
@@ -3942,7 +3958,9 @@ return 1";
             let source = "\
 copy x
 not true
-debug x + x";
+debug x + x
+assert_eq (type true) \"bool\"
+";
             check_ast(
                 source,
                 &[
@@ -3961,12 +3979,25 @@ debug x + x";
                         expression_string: 1,
                         expression: 6,
                     },
+                    Id(2),
+                    BoolTrue,
+                    Type(9), // 10
+                    Str(3),
+                    Call {
+                        function: 8,
+                        args: vec![10, 11],
+                    },
                     MainBlock {
-                        body: vec![1, 3, 7],
+                        body: vec![1, 3, 7, 12],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("x + x")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("x + x"),
+                    Constant::Str("assert_eq"),
+                    Constant::Str("bool"),
+                ]),
             )
         }
     }

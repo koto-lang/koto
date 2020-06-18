@@ -26,7 +26,12 @@ impl Loader {
                     debug_info,
                 )))
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(format!(
+                "{} - ({}, {})",
+                e.to_string(),
+                e.span.start,
+                e.span.end
+            )),
         }
     }
 

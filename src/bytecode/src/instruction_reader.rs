@@ -214,6 +214,12 @@ pub enum Instruction {
     Return {
         register: u8,
     },
+    Size {
+        register: u8,
+    },
+    Type {
+        register: u8,
+    },
     IteratorNext {
         register: u8,
         iterator: u8,
@@ -489,6 +495,8 @@ impl fmt::Display for Instruction {
                 result, function, arg_register, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
+            Size { register } => write!(f, "Size\t\tresult: {}", register),
+            Type { register } => write!(f, "Type\t\tresult: {}", register),
             IteratorNext {
                 register,
                 iterator,
@@ -872,6 +880,12 @@ impl Iterator for InstructionReader {
                 parent: get_byte!(),
             }),
             Op::Return => Some(Return {
+                register: get_byte!(),
+            }),
+            Op::Size => Some(Size {
+                register: get_byte!(),
+            }),
+            Op::Type => Some(Type {
                 register: get_byte!(),
             }),
             Op::IteratorNext => Some(IteratorNext {

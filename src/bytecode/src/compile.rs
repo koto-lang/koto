@@ -627,15 +627,13 @@ impl Compiler {
                 }
             }
             Node::ReturnExpression(expression) => {
-                if let Some(result_register) = result_register {
-                    self.compile_node(Some(result_register), ast.node(*expression), ast)?;
-                    self.push_op(Return, &[result_register]);
-                } else {
-                    let register = self.push_register()?;
-                    self.compile_node(Some(register), ast.node(*expression), ast)?;
-                    self.push_op(Return, &[register]);
-                    self.pop_register()?;
-                }
+                self.compile_single_register_op(Return, result_register, *expression, ast)?
+            }
+            Node::Size(expression) => {
+                self.compile_single_register_op(Size, result_register, *expression, ast)?
+            }
+            Node::Type(expression) => {
+                self.compile_single_register_op(Type, result_register, *expression, ast)?
             }
             Node::Debug {
                 expression_string,
@@ -1238,6 +1236,26 @@ impl Compiler {
         self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
 
         if result_register.is_none() {
+            self.pop_register()?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_single_register_op(
+        &mut self,
+        op: Op,
+        result_register: Option<u8>,
+        expression: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        if let Some(result_register) = result_register {
+            self.compile_node(Some(result_register), ast.node(expression), ast)?;
+            self.push_op(op, &[result_register]);
+        } else {
+            let register = self.push_register()?;
+            self.compile_node(Some(register), ast.node(expression), ast)?;
+            self.push_op(op, &[register]);
             self.pop_register()?;
         }
 

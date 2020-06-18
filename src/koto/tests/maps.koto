@@ -77,13 +77,13 @@ assert_eq a [{foo: 1, bar: 4} {foo: 2, bar: 5} {foo: 3, bar: 6}]
 
 make_map = |n|
   if n >= 0
-    type: "positive"
+    sign: "positive"
     n: n
   else
-    type: "negative"
+    sign: "negative"
     n: n
 
 p = make_map 100
-assert_eq p.type "positive" # TODO (make_map 100).type
+assert_eq p.sign "positive" # TODO (make_map 100).type
 n = make_map -100
-assert_eq n.type "negative"
+assert_eq n.sign "negative"

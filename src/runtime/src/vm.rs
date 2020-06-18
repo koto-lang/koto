@@ -884,6 +884,50 @@ impl Vm {
                     result = ControlFlow::ReturnValue(frame_result);
                 }
             }
+            Instruction::Size { register } => {
+                let size = match self.get_register(register) {
+                    Empty => 0.0,
+                    List(list) => list.data().len() as f64,
+                    Map(map) => map.data().len() as f64,
+                    Range(IntRange { start, end }) => {
+                        (if end >= start {
+                            end - start
+                        } else {
+                            start - end
+                        }) as f64
+                    }
+                    unexpected => {
+                        return vm_error!(instruction_ip, "size - '{}' is unsupported", unexpected);
+                    }
+                };
+
+                self.set_register(register, Number(size));
+            }
+            Instruction::Type { register } => {
+                let result = match self.get_register(register) {
+                    Bool(_) => "bool".to_string(),
+                    Empty => "empty".to_string(),
+                    Function(_) => "function".to_string(),
+                    ExternalFunction(_) => "function".to_string(),
+                    ExternalValue(value) => value.read().unwrap().value_type(),
+                    List(_) => "list".to_string(),
+                    Map(_) => "map".to_string(),
+                    Number(_) => "number".to_string(),
+                    Num2(_) => "num2".to_string(),
+                    Num4(_) => "num4".to_string(),
+                    Range(_) => "range".to_string(),
+                    Str(_) => "string".to_string(),
+                    unexpected => {
+                        return vm_error!(
+                            instruction_ip,
+                            "type is only supported for user types, found {}",
+                            unexpected
+                        );
+                    }
+                };
+
+                self.set_register(register, Str(Arc::new(result.to_string())));
+            }
             Instruction::IteratorNext {
                 register,
                 iterator,
@@ -1838,6 +1882,16 @@ l[1] = -1
 l2[1]";
             test_script(script, Number(2.0));
         }
+
+        #[test]
+        fn size() {
+            let script = "
+a = []
+b = [1 2 3]
+c = [0..10]
+[(size a) (size b) (size c)]";
+            test_script(script, number_list(&[0, 3, 10]));
+        }
     }
 
     mod multi_assignment {
@@ -2452,6 +2506,14 @@ m2 = copy m
 m.foo = -1
 m2.foo";
             test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn size() {
+            let script = "
+m = {foo: 42, bar: 0, baz: 1}
+size m";
+            test_script(script, Number(3.0));
         }
     }
 

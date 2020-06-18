@@ -15,5 +15,3 @@ assert_eq (type x) "number"
 
 x = "bar"
 assert_eq (type x) "string"
-
-assert_eq (type type) "function"

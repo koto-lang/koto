@@ -72,8 +72,10 @@ pub enum Token {
     Num4,
     Or,
     Return,
+    Size,
     Then,
     True,
+    Type,
     Until,
     While,
 }
@@ -350,9 +352,11 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("num2", Num2);
         check_keyword!("num4", Num4);
         check_keyword!("or", Or);
+        check_keyword!("size", Size);
         check_keyword!("return", Return);
         check_keyword!("then", Then);
         check_keyword!("true", True);
+        check_keyword!("type", Type);
         check_keyword!("until", Until);
         check_keyword!("while", While);
 
@@ -631,9 +635,9 @@ mod tests {
                 match lex.next().expect("Expected token") {
                     Whitespace => continue,
                     output => {
-                        assert_eq!(&output, token, "token {}", i);
+                        assert_eq!(&output, token, "Mismatch at token {}", i);
                         if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice, "token {}", i);
+                            assert_eq!(&lex.slice(), slice, "Mismatch at token {}", i);
                         }
                         assert_eq!(
                             lex.line_number() as u32,

@@ -76,6 +76,8 @@ pub enum Node {
     ReturnExpression(AstIndex),
     CopyExpression(AstIndex),
     Negate(AstIndex),
+    Type(AstIndex),
+    Size(AstIndex),
     Debug {
         expression_string: ConstantIndex,
         expression: AstIndex,
@@ -128,6 +130,8 @@ impl fmt::Display for Node {
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
             ReturnExpression(_) => write!(f, "ReturnExpression"),
+            Size(_) => write!(f, "Size"),
+            Type(_) => write!(f, "Type"),
             Debug { .. } => write!(f, "Debug"),
         }
     }
