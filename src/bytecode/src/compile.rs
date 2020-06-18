@@ -251,33 +251,6 @@ impl Compiler {
                 }
             }
             Node::Lookup(lookup) => self.compile_lookup(result_register, lookup, None, ast)?,
-            Node::Copy(lookup_or_id) => {
-                if let Some(result_register) = result_register {
-                    match &ast.node(*lookup_or_id).node {
-                        Node::Id(id) => {
-                            if let Some(local_register) =
-                                self.frame().get_local_assigned_register(*id)
-                            {
-                                self.push_op(DeepCopy, &[result_register, local_register]);
-                            } else {
-                                let register = self.push_register()?;
-                                self.compile_load_non_local_id(register, *id)?;
-                                self.push_op(DeepCopy, &[result_register, register]);
-                                self.pop_register()?;
-                            }
-                        }
-                        Node::Lookup(lookup) => {
-                            let register = self.push_register()?;
-                            self.compile_lookup(Some(register), lookup, None, ast)?;
-                            self.push_op(DeepCopy, &[result_register, register]);
-                            self.pop_register()?;
-                        }
-                        _ => {
-                            return Err(format!("Copy: Unexpected node at index {}", lookup_or_id))
-                        }
-                    }
-                }
-            }
             Node::BoolTrue => {
                 if let Some(result_register) = result_register {
                     self.push_op(SetTrue, &[result_register]);

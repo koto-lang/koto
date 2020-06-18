@@ -8,7 +8,6 @@ pub enum Node {
     Empty,
     Id(ConstantIndex),
     Lookup(Vec<LookupNode>),
-    Copy(AstIndex),
     BoolTrue,
     BoolFalse,
     Number0,
@@ -38,8 +37,6 @@ pub enum Node {
     },
     Block(Vec<AstIndex>),
     Expressions(Vec<AstIndex>),
-    CopyExpression(AstIndex),
-    Negate(AstIndex),
     Function(Function),
     Call {
         function: AstIndex,
@@ -78,6 +75,8 @@ pub enum Node {
     Continue,
     Return,
     ReturnExpression(AstIndex),
+    CopyExpression(AstIndex),
+    Negate(AstIndex),
     Debug {
         expression_string: ConstantIndex,
         expression: AstIndex,
@@ -97,7 +96,6 @@ impl fmt::Display for Node {
             Empty => write!(f, "Empty"),
             Id(_) => write!(f, "Id"),
             Lookup(_) => write!(f, "Lookup"),
-            Copy(_) => write!(f, "Copy"),
             BoolTrue => write!(f, "BoolTrue"),
             BoolFalse => write!(f, "BoolFalse"),
             Number(_) => write!(f, "Number"),
