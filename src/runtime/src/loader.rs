@@ -18,7 +18,8 @@ impl Loader {
     ) -> Result<Arc<Chunk>, String> {
         match Parser::parse(&script, parser_options) {
             Ok((ast, constants)) => {
-                let (bytes, debug_info) = Compiler::compile(&ast)?;
+                let (bytes, mut debug_info) = Compiler::compile(&ast)?;
+                debug_info.source = script.to_string();
                 Ok(Arc::new(Chunk::new(
                     bytes,
                     constants,

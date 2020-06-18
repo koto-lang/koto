@@ -24,7 +24,6 @@ pub struct Options {
 
 #[derive(Default)]
 pub struct Koto {
-    script: String,
     script_path: Option<PathBuf>,
     runtime: Vm,
     options: Options,
@@ -63,7 +62,6 @@ impl Koto {
         match compile_result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
-                self.script = script.to_string();
                 if self.options.show_annotated {
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
@@ -97,11 +95,12 @@ impl Koto {
         let result = match self.runtime.run(chunk) {
             Ok(result) => result,
             Err(e) => {
-                return Err(match &e {
+                return Err(match e {
                     Error::VmError {
                         message,
+                        chunk,
                         instruction,
-                    } => self.format_vm_error(message, *instruction),
+                    } => self.format_vm_error(&message, chunk, instruction),
                     Error::ExternalError { message } => format!("Error: {}\n", message),
                 })
             }
@@ -128,7 +127,13 @@ impl Koto {
             .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self.runtime.prelude_mut().data_mut().get_mut("env").unwrap() {
+        match self
+            .runtime
+            .prelude_mut()
+            .data_mut()
+            .get_mut("env")
+            .unwrap()
+        {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -156,7 +161,13 @@ impl Koto {
 
         self.script_path = path;
 
-        match self.runtime.prelude_mut().data_mut().get_mut("env").unwrap() {
+        match self
+            .runtime
+            .prelude_mut()
+            .data_mut()
+            .get_mut("env")
+            .unwrap()
+        {
             Map(map) => {
                 let mut map = map.data_mut();
                 map.add_value("script_dir", script_dir);
@@ -190,16 +201,23 @@ impl Koto {
             Err(e) => Err(match e {
                 Error::VmError {
                     message,
+                    chunk,
                     instruction,
-                } => self.format_vm_error(&message, instruction),
+                } => self.format_vm_error(&message, chunk, instruction),
                 Error::ExternalError { message } => format!("Error: {}\n", message,),
             }),
         }
     }
 
-    fn format_vm_error(&self, message: &str, instruction: usize) -> String {
-        match self.runtime.chunk().debug_info.get_source_span(instruction) {
-            Some(span) => self.format_error(message, &self.script, span.start, span.end),
+    fn format_vm_error(&self, message: &str, chunk: Arc<Chunk>, instruction: usize) -> String {
+        match chunk.debug_info.get_source_span(instruction) {
+            Some(span) => self.format_error(
+                message,
+                &chunk.source_path,
+                &chunk.debug_info.source,
+                span.start,
+                span.end,
+            ),
             None => format!(
                 "Runtime error at instruction {}: {}\n",
                 instruction, message
@@ -210,12 +228,13 @@ impl Koto {
     fn format_error(
         &self,
         message: &str,
-        script: &str,
+        source_path: &Option<PathBuf>,
+        source: &str,
         start_pos: Position,
         end_pos: Position,
     ) -> String {
         let (excerpt, padding) = {
-            let excerpt_lines = script
+            let excerpt_lines = source
                 .lines()
                 .skip((start_pos.line - 1) as usize)
                 .take((end_pos.line - start_pos.line + 1) as usize)
@@ -264,10 +283,15 @@ impl Koto {
             }
         };
 
+        let position_info = if let Some(path) = source_path {
+            format!("{} - {}:{}", path.display(), start_pos.line, start_pos.column)
+        } else {
+            format!("{}:{}", start_pos.line, start_pos.column)
+        };
+
         format!(
-            "{message}\n --> {}:{}\n{padding}|\n{excerpt}",
-            start_pos.line,
-            start_pos.column,
+            "{message}\n --> {}\n{padding}|\n{excerpt}",
+            position_info,
             padding = padding,
             excerpt = excerpt,
             message = message

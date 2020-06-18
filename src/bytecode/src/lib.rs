@@ -83,6 +83,7 @@ pub enum Op {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DebugInfo {
     source_map: Vec<(usize, Span)>,
+    pub source: String,
 }
 
 impl DebugInfo {
@@ -118,7 +119,7 @@ impl DebugInfo {
 pub struct Chunk {
     pub bytes: Vec<u8>,
     pub constants: ConstantPool,
-    pub script_path: Option<PathBuf>,
+    pub source_path: Option<PathBuf>,
     pub debug_info: DebugInfo,
 }
 
@@ -126,13 +127,13 @@ impl Chunk {
     pub fn new(
         bytes: Vec<u8>,
         constants: ConstantPool,
-        script_path: Option<PathBuf>,
+        source_path: Option<PathBuf>,
         debug_info: DebugInfo,
     ) -> Self {
         Self {
             bytes,
             constants,
-            script_path,
+            source_path,
             debug_info,
         }
     }
@@ -151,7 +152,7 @@ pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     result
 }
 
-pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, script_lines: &[&str]) -> String {
+pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, source_lines: &[&str]) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(chunk);
     let mut ip = reader.ip;
@@ -171,7 +172,7 @@ pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, script_lines: &[&str]) -> St
             true
         };
 
-        if print_source_lines && !script_lines.is_empty() {
+        if print_source_lines && !source_lines.is_empty() {
             if !first {
                 result += "\n";
             }
@@ -180,9 +181,9 @@ pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, script_lines: &[&str]) -> St
             let line = instruction_span
                 .start
                 .line
-                .min(script_lines.len() as u32)
+                .min(source_lines.len() as u32)
                 .max(1) as usize;
-            result += &format!("|{}| {}\n", line.to_string(), script_lines[line - 1]);
+            result += &format!("|{}| {}\n", line.to_string(), source_lines[line - 1]);
             span = Some(instruction_span);
         }
 

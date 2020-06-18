@@ -7,7 +7,7 @@ mod value_list;
 mod value_map;
 mod vm;
 
-use id::Id;
+use {id::Id, koto_bytecode::Chunk, std::sync::Arc};
 
 pub use {
     external::{ExternalFunction, ExternalValue},
@@ -23,17 +23,24 @@ pub const EXTERNAL_DATA_ID: &str = "_external_data";
 
 #[derive(Clone, Debug)]
 pub enum Error {
-    VmError { message: String, instruction: usize },
-    ExternalError { message: String },
+    VmError {
+        message: String,
+        chunk: Arc<Chunk>,
+        instruction: usize,
+    },
+    ExternalError {
+        message: String,
+    },
 }
 
 pub type RuntimeResult = Result<Value, Error>;
 
 #[macro_export]
 macro_rules! make_vm_error {
-    ($ip:expr, $message:expr) => {{
+    ($chunk:expr, $ip:expr, $message:expr) => {{
         let error = $crate::Error::VmError {
             message: $message,
+            chunk: $chunk,
             instruction: $ip,
         };
         #[cfg(panic_on_runtime_error)]
@@ -46,11 +53,11 @@ macro_rules! make_vm_error {
 
 #[macro_export]
 macro_rules! vm_error {
-    ($ip:expr, $error:expr) => {
-        Err($crate::make_vm_error!($ip, String::from($error)))
+    ($chunk:expr, $ip:expr, $error:expr) => {
+        Err($crate::make_vm_error!($chunk, $ip, String::from($error)))
     };
-    ($ip:expr, $error:expr, $($y:expr),+ $(,)?) => {
-        Err($crate::make_vm_error!($ip, format!($error, $($y),+)))
+    ($chunk:expr, $ip:expr, $error:expr, $($y:expr),+ $(,)?) => {
+        Err($crate::make_vm_error!($chunk, $ip, format!($error, $($y),+)))
     };
 }
 
