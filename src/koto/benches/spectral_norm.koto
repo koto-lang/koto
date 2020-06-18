@@ -6,6 +6,8 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
+import io.print
+
 A = |i j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)

@@ -1,7 +1,6 @@
 use crate::{get_external_instance, single_arg_fn};
 use koto_runtime::{
-    external_error, value, value::type_as_string, ExternalValue, RuntimeResult, Value,
-    ValueMap,
+    external_error, value, value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap,
 };
 use std::{
     fmt, fs,
@@ -11,12 +10,20 @@ use std::{
 };
 
 pub fn register(global: &mut ValueMap) {
-    use Value::{Bool, Map, Number, Str};
+    use Value::{Bool, Empty, Map, Number, Str};
 
     let mut io = ValueMap::new();
 
     single_arg_fn!(io, "exists", Str, path, {
         Ok(Bool(Path::new(path.as_ref()).exists()))
+    });
+
+    io.add_fn("print", |_, args| {
+        for value in args.iter() {
+            print!("{}", value);
+        }
+        println!();
+        Ok(Empty)
     });
 
     single_arg_fn!(io, "read_to_string", Str, path, {

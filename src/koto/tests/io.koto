@@ -13,7 +13,7 @@ assert_eq contents file.read_to_string()
 ###### io.temp_path() + io.create + io.remove_file
 path = io.temp_path()
 file = io.create path
-print path
+io.print path
 contents = "<(^_^)<"
 file.write contents
 assert_eq (io.read_to_string path) contents

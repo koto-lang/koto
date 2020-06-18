@@ -167,12 +167,4 @@ pub fn register(runtime: &mut Vm) {
         };
         Ok(Str(Arc::new(result.to_string())))
     });
-
-    global.add_fn("print", |_, args| {
-        for value in args.iter() {
-            print!("{}", value);
-        }
-        println!();
-        Ok(Empty)
-    });
 }
