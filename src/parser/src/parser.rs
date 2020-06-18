@@ -1640,7 +1640,7 @@ impl<'source> Parser<'source> {
 
             _ => unreachable!(),
         };
-        self.push_node(Node::Op {
+        self.push_node(Node::BinaryOp {
             op: ast_op,
             lhs,
             rhs,
@@ -1871,7 +1871,7 @@ a
                     Negate(4), // 5
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 6,
                         rhs: 7,
@@ -2045,14 +2045,14 @@ foo.bar..foo.baz";
                     }, // 5
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 6,
                         rhs: 7,
                     },
                     Number1,
                     Number1, // 10
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 9,
                         rhs: 10,
@@ -2258,7 +2258,7 @@ num4 x 0 1 x";
                     Id(0),
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
                         rhs: 2,
@@ -2507,13 +2507,13 @@ x %= 4";
                 &[
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Subtract,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 2,
                         rhs: 3,
@@ -2536,18 +2536,18 @@ x %= 4";
                     Number1,
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 1,
                         rhs: 2,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 3,
                     },
                     Number0, // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 4,
                         rhs: 5,
@@ -2569,19 +2569,19 @@ x %= 4";
                 &[
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 3,
                         rhs: 4,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 2,
                         rhs: 5,
@@ -2603,13 +2603,13 @@ x %= 4";
                 &[
                     Number(0),
                     Number(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Divide,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number(2),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Modulo,
                         lhs: 2,
                         rhs: 3,
@@ -2635,7 +2635,7 @@ x %= 4";
                 &[
                     Str(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
@@ -2661,25 +2661,25 @@ x %= 4";
                 &[
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 3,
                         rhs: 4,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::And,
                         lhs: 2,
                         rhs: 5,
                     },
                     BoolTrue,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Or,
                         lhs: 6,
                         rhs: 7,
@@ -2702,12 +2702,12 @@ x %= 4";
                     Number0,
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::LessOrEqual,
                         lhs: 1,
                         rhs: 2,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 3,
@@ -2741,7 +2741,7 @@ x %= 4";
                         else_if_blocks: vec![],
                         else_node: Some(3),
                     }),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 4,
@@ -2919,7 +2919,7 @@ a";
                     Id(1),
                     Id(0),
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 2,
                         rhs: 3,
@@ -2950,7 +2950,7 @@ for x in y if x > 0
                     Id(1),
                     Id(0),
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 1,
                         rhs: 2,
@@ -3028,7 +3028,7 @@ while x > y
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 0,
                         rhs: 1,
@@ -3062,7 +3062,7 @@ until x < y
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 1,
@@ -3136,7 +3136,7 @@ until x < y
                         args: vec![3],
                     },
                     Number(3), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 4,
                         rhs: 5,
@@ -3179,7 +3179,7 @@ until x < y
                         args: vec![3],
                     },
                     Number(3), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::GreaterOrEqual,
                         lhs: 4,
                         rhs: 5,
@@ -3255,7 +3255,7 @@ a()";
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
@@ -3301,7 +3301,7 @@ f 42";
                     Id(2), // y
                     Id(2), // y // 5
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 5,
                         rhs: 6,
@@ -3577,7 +3577,7 @@ f 1
                     },
                     Id(3), // 5 - i
                     Id(1), // n
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 5,
                         rhs: 6,
@@ -3620,7 +3620,7 @@ f 1
                     },
                     Id(4), // x
                     Id(1), // n
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 17,
                         rhs: 18,
@@ -3733,7 +3733,7 @@ y z";
                     List(vec![4]), // 5
                     Id(3),
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 6,
                         rhs: 7,
@@ -3952,7 +3952,7 @@ debug x + x";
                     Negate(2),
                     Id(0),
                     Id(0), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 4,
                         rhs: 5,
@@ -3987,13 +3987,13 @@ a = 1 + \
                     Id(0),
                     Number1,
                     Number(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
                         rhs: 2,
                     },
                     Number(2),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 3,
                         rhs: 4,

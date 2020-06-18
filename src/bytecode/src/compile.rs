@@ -597,7 +597,7 @@ impl Compiler {
                     self.compile_multi_assign(result_register, targets, &[*expressions], ast)?;
                 }
             },
-            Node::Op { op, lhs, rhs } => {
+            Node::BinaryOp { op, lhs, rhs } => {
                 self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?;
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
@@ -1159,7 +1159,7 @@ impl Compiler {
         let mut rhs = rhs;
         let mut ast_op = ast_op;
 
-        while let Node::Op {
+        while let Node::BinaryOp {
             op: rhs_ast_op,
             lhs: rhs_lhs,
             rhs: rhs_rhs,

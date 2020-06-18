@@ -55,8 +55,7 @@ pub enum Node {
         targets: Vec<AssignTarget>,
         expressions: AstIndex,
     },
-    Op {
-        // TODO rename -> BinaryOp
+    BinaryOp {
         op: AstOp,
         lhs: AstIndex,
         rhs: AstIndex,
@@ -120,7 +119,7 @@ impl fmt::Display for Node {
             Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
-            Op { .. } => write!(f, "Op"),
+            BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
