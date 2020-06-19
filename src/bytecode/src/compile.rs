@@ -521,63 +521,8 @@ impl Compiler {
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
-            Node::Import { module, items } => {
-                if module.is_empty() {
-                    return Err("Missing module for import".to_string());
-                }
-
-                let root_id = module.first().unwrap();
-                let import_id = module.last().unwrap();
-
-                // Import the root module
-                let (module_register, pop_module_register) = match result_register {
-                    Some(register) => {
-                        self.compile_import_id(register, *root_id);
-                        (register, false)
-                    }
-                    None => {
-                        let register = self.push_register()?;
-                        self.compile_import_id(register, *root_id);
-                        (register, true)
-                    }
-                };
-
-                // Access the leaf node via lookup chain
-                // e.g.
-                // import foo.bar.baz
-                // - foo is already in the module_register, so get bar.baz via two MapAccesses
-                match module.as_slice() {
-                    [_, rest @ ..] => {
-                        let key_register = self.push_register()?;
-                        // then, access the leaf module node, reusing the module register
-                        for child in rest.iter() {
-                            self.load_string(key_register, *child);
-                            self.push_op(
-                                MapAccess,
-                                &[module_register, module_register, key_register],
-                            );
-                        }
-                        self.pop_register()?;
-                    }
-                    _ => {}
-                }
-
-                // assign the leaf item to a local with a matching name
-                let import_register = self.frame_mut().assign_local_register(*import_id)?;
-                self.push_op(Copy, &[import_register, module_register]);
-
-                // then, for each item, lookup from the leaf item and assign to a local
-                let key_register = self.push_register()?;
-                for item in items.iter() {
-                    self.load_string(key_register, *item);
-                    let import_register = self.frame_mut().assign_local_register(*item)?;
-                    self.push_op(MapAccess, &[import_register, module_register, key_register])
-                }
-                self.pop_register()?;
-
-                if pop_module_register {
-                    self.pop_register()?;
-                }
+            Node::Import { from, items } => {
+                self.compile_import_expression(result_register, from, items)?
             }
             Node::Assign {
                 target,
@@ -1032,6 +977,106 @@ impl Compiler {
             } else {
                 self.push_op(LoadGlobalLong, &[result_register]);
                 self.push_bytes(&id.to_le_bytes());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_import_expression(
+        &mut self,
+        result_register: Option<u8>,
+        from: &Vec<ConstantIndex>,
+        items: &Vec<Vec<ConstantIndex>>,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        let mut imported = vec![];
+
+        if from.is_empty() {
+            for item in items.iter() {
+                let import_id = match item.last() {
+                    Some(id) => id,
+                    None => return Err("Missing ID in import item".to_string()),
+                };
+
+                // Reserve a local for the imported item
+                // (only reserve the register otherwise it'll show up in the import search)
+                let import_register = self.frame_mut().reserve_local_register(*import_id)?;
+
+                self.compile_import_item(import_register, item)?;
+
+                imported.push(import_register);
+                self.frame_mut().commit_local_register(import_register)?;
+            }
+        } else {
+            let from_register = self.push_register()?;
+            let key_register = self.push_register()?;
+
+            self.compile_import_item(from_register, from)?;
+
+            for item in items.iter() {
+                let mut access_register = from_register;
+                let import_id = match item.last() {
+                    Some(id) => id,
+                    None => return Err("Missing ID in import item".to_string()),
+                };
+
+                // assign the leaf item to a local with a matching name
+                let import_register = self.frame_mut().assign_local_register(*import_id)?;
+
+                for id in item.iter() {
+                    self.load_string(key_register, *id);
+                    self.push_op(MapAccess, &[import_register, access_register, key_register]);
+                    access_register = import_register;
+                }
+
+                imported.push(import_register);
+            }
+
+            self.pop_register()?; // key_register
+            self.pop_register()?; // from_register
+        }
+
+        if let Some(result_register) = result_register {
+            match imported.as_slice() {
+                [] => return Err("Missing item to import".to_string()),
+                [single_item] => {
+                    self.push_op(Copy, &[result_register, *single_item]);
+                }
+                _ => {
+                    self.push_op(MakeList, &[result_register, imported.len() as u8]);
+                    for item in imported.iter() {
+                        self.push_op(ListPush, &[result_register, *item]);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_import_item(
+        &mut self,
+        result_register: u8,
+        item: &[ConstantIndex],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        match item {
+            [] => return Err("Missing item to import".to_string()),
+            [import_id] => self.compile_import_id(result_register, *import_id),
+            [import_id, nested @ ..] => {
+                self.compile_import_id(result_register, *import_id);
+
+                let key_register = self.push_register()?;
+
+                for nested_item in nested.iter() {
+                    self.load_string(key_register, *nested_item);
+                    self.push_op(MapAccess, &[result_register, result_register, key_register]);
+                }
+
+                self.pop_register()?; // key_register
             }
         }
 

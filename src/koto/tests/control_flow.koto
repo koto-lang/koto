@@ -1,4 +1,4 @@
-import [assert assert_eq] from test
+from test import assert assert_eq
 
 # Single line if statement
 is_zero = |x| x == 0

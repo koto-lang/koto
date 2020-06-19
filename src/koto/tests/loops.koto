@@ -1,4 +1,4 @@
-import [assert assert_eq] from test
+from test import assert assert_eq
 
 # For statement blocks
 count = 0

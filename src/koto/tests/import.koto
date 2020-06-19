@@ -15,6 +15,10 @@ import test_module.baz.qux
 assert_eq qux "O_o"
 
 # import statements can bring in multiple items via list/from syntax
-import [foo bar] from test_module
-assert_eq foo 42
-assert_eq bar -1
+x, y = from test_module import foo bar
+assert_eq x 42
+assert_eq y -1
+
+a, b = import test_module.foo test_module.bar
+assert_eq a x
+assert_eq b y

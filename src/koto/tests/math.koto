@@ -1,5 +1,5 @@
 import math
-import [assert_eq assert_near] from test
+from test import assert_eq assert_near
 
 assert_near (math.sin math.pi) 0 1.0e-15
 assert_eq (math.cos math.pi) -1

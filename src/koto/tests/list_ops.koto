@@ -1,6 +1,5 @@
-import list
-import [assert assert_eq] from test
-import string
+import list string
+from test import assert assert_eq
 
 ###### list.push + pop
 z = [1]

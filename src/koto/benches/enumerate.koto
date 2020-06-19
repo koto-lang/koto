@@ -1,5 +1,4 @@
-import env
-import list
+import env list
 
 enumerate = |xs| [[i x] for i, x in 0..size(xs), xs]
 

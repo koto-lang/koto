@@ -1,4 +1,4 @@
-import [assert assert_eq assert_ne] from test
+from test import assert assert_eq assert_ne
 
 z = [10 (10 + 10) 30]
 assert_eq z[0] 10

@@ -2,6 +2,7 @@ use {koto_lexer::Span, std::fmt};
 
 #[derive(Debug)]
 pub enum InternalError {
+    UnexpectedToken,
     AstCapacityOverflow,
     MissingScope,
     NumberParseFailure,
@@ -12,6 +13,7 @@ pub enum InternalError {
     MissingContinuedExpressionLhs,
     MissingAssignmentTarget,
     UnexpectedIdInExpression,
+    ExpectedIdInImportItem,
 }
 
 #[derive(Debug)]
@@ -53,10 +55,10 @@ pub enum SyntaxError {
     ExpectedUntilBody,
     ExpectedExportExpression,
     ExpectedNegatableExpression,
-    ExpectedIdInImportItemList,
-    ExpectedListEndInImportItemList,
-    ExpectedFromAfterImportItemList,
     ExpectedImportModuleId,
+    ExpectedIdInImportExpression,
+    ImportFromExpressionHasTooManyItems,
+    ExpectedImportKeywordAfterFrom,
     UnexpectedTokenAfterExportId,
     TooManyNum2Terms,
     TooManyNum4Terms,
@@ -114,6 +116,7 @@ impl fmt::Display for InternalError {
         use InternalError::*;
 
         match self {
+            UnexpectedToken => f.write_str("Unexpected token"),
             AstCapacityOverflow => {
                 f.write_str("There are more nodes in the program than the AST can support")
             }
@@ -126,8 +129,9 @@ impl fmt::Display for InternalError {
             MissingContinuedExpressionLhs => f.write_str("Missing LHS for continued expression"),
             MissingAssignmentTarget => f.write_str("Missing assignment target"),
             UnexpectedIdInExpression => {
-                f.write_str("Unexpected Id encountered while parsing expression")
+                f.write_str("Unexpected ID encountered while parsing expression")
             }
+            ExpectedIdInImportItem => f.write_str("Expected ID in import item"),
         }
     }
 }
@@ -138,7 +142,7 @@ impl fmt::Display for SyntaxError {
 
         match self {
             LexerError => f.write_str("Found an unexpected token while lexing input"),
-            UnexpectedToken => f.write_str("Unexpected Token"),
+            UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             ExpectedEndOfLine => f.write_str("Expected end of line"),
             ExpectedExpression => f.write_str("Expected expression"),
@@ -176,10 +180,12 @@ impl fmt::Display for SyntaxError {
             ExpectedUntilBody => f.write_str("Expected indented block in until loop"),
             ExpectedExportExpression => f.write_str("Expected ID to export"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
-            ExpectedIdInImportItemList => f.write_str("Expected ID in import item list"),
-            ExpectedListEndInImportItemList => f.write_str("Expected ']' at end of import item list"),
-            ExpectedFromAfterImportItemList => f.write_str("Expected 'from' after import item list"),
+            ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
+            ExpectedImportKeywordAfterFrom => f.write_str("Expected 'import' after 'from' ID"),
             ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
+            ImportFromExpressionHasTooManyItems => {
+                f.write_str("Too many items listed after 'from' in import expression")
+            }
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),

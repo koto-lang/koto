@@ -1,5 +1,4 @@
-import env
-import list
+import env list
 
 fib = |n|
   if n <= 0

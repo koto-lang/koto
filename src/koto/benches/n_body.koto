@@ -6,11 +6,7 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import env
-import io.print
-import list
-import math
-import string
+import env io.print list math string
 
 solar_mass = 4 * math.pi * math.pi
 days_per_year = 365.24

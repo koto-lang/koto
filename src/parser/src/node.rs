@@ -43,8 +43,8 @@ pub enum Node {
         args: Vec<AstIndex>,
     },
     Import {
-        module: Vec<ConstantIndex>,
-        items: Vec<ConstantIndex>,
+        from: Vec<ConstantIndex>,
+        items: Vec<Vec<ConstantIndex>>,
     },
     Assign {
         target: AssignTarget,
