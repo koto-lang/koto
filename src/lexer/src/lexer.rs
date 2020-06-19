@@ -13,7 +13,7 @@ pub enum Token {
     CommentSingle,
     CommentMulti,
     Number,
-    Str,
+    String,
     Id,
 
     // Symbols
@@ -237,7 +237,7 @@ impl<'a> TokenLexer<'a> {
                 }
                 '"' => {
                     self.advance_line(char_count);
-                    return Some(Str);
+                    return Some(String);
                 }
                 _ => {}
             }
@@ -737,9 +737,9 @@ true"#;
             input,
             &[
                 (NewLine, None, 2),
-                (Str, Some(r#""hello, world!""#), 2),
+                (String, Some(r#""hello, world!""#), 2),
                 (NewLine, None, 3),
-                (Str, Some(r#""escaped \"\n string""#), 3),
+                (String, Some(r#""escaped \"\n string""#), 3),
                 (NewLine, None, 4),
                 (True, None, 4),
             ],

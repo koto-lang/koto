@@ -608,6 +608,21 @@ impl<'source> Parser<'source> {
         }
     }
 
+    fn parse_id_or_string(&mut self) -> Option<ConstantIndex> {
+        match self.skip_whitespace_and_peek() {
+            Some(Token::Id) => {
+                self.consume_token();
+                Some(self.constants.add_string(self.lexer.slice()) as u32)
+            }
+            Some(Token::String) => {
+                self.consume_token();
+                let s = trim_str(self.lexer.slice(), 1, 1);
+                Some(self.constants.add_string(s) as u32)
+            }
+            _ => None,
+        }
+    }
+
     fn parse_id_expression(
         &mut self,
         primary_expression: bool,
@@ -752,7 +767,7 @@ impl<'source> Parser<'source> {
                 Some(Token::Dot) => {
                     self.consume_token();
 
-                    if let Some(id_index) = self.parse_id(false) {
+                    if let Some(id_index) = self.parse_id_or_string() {
                         lookup.push(LookupNode::Id(id_index));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
@@ -972,7 +987,7 @@ impl<'source> Parser<'source> {
                         }
                     }
                 }
-                Token::Str => {
+                Token::String => {
                     self.consume_token();
                     let s = trim_str(self.lexer.slice(), 1, 1);
                     let constant_index = self.constants.add_string(s) as u32;
@@ -988,7 +1003,7 @@ impl<'source> Parser<'source> {
                     loop {
                         self.consume_until_next_token();
 
-                        if let Some(key) = self.parse_id(false) {
+                        if let Some(key) = self.parse_id_or_string() {
                             if self.consume_token() != Some(Token::Colon) {
                                 return syntax_error!(ExpectedMapSeparator, self);
                             }
@@ -1219,7 +1234,7 @@ impl<'source> Parser<'source> {
 
         let mut entries = Vec::new();
 
-        while let Some(key) = self.parse_id(false) {
+        while let Some(key) = self.parse_id_or_string() {
             if self.skip_whitespace_and_next() != Some(Token::Colon) {
                 return syntax_error!(ExpectedMapSeparator, self);
             }
@@ -1966,9 +1981,9 @@ x = [
 
         #[test]
         fn map_inline() {
-            let source = "\
+            let source = r#"
 {}
-{foo: 42, bar: \"hello\"}";
+{"foo": 42, bar: "hello"}"#;
             check_ast(
                 source,
                 &[
@@ -1992,13 +2007,13 @@ x = [
 
         #[test]
         fn map_block() {
-            let source = "\
+            let source = r#"
 x =
   foo: 42
-  bar: \"hello\"
-  baz:
+  bar: "hello"
+  "baz":
     foo: 0
-x";
+x"#;
             check_ast(
                 source,
                 &[
@@ -3851,11 +3866,11 @@ z[10..][0]";
 
         #[test]
         fn map_lookup() {
-            let source = "\
+            let source = r#"
 x.foo
 x.bar()
-x.bar().baz = 1
-x.foo 42";
+x.bar()."baz" = 1
+x.foo 42"#;
             check_ast(
                 source,
                 &[

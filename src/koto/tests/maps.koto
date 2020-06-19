@@ -6,6 +6,11 @@ assert_eq 42 o.max()
 o2 = o
 assert_eq o o2
 
+# quoted keys can be used for identifiers that would otherwise be disallowed
+x = {"for": -1, "while": 99}
+assert_eq x."for" -1
+assert_eq x."while" 99
+
 sum = 0
 for i in o.min..o.max()
   sum += i
