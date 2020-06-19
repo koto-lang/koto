@@ -1,0 +1,9 @@
+# This file is imported by main.koto
+
+# std modules should be available to import
+import math.pi test.assert_eq
+assert_eq pi pi
+
+# main functions should be run when loading a module
+export main = ||
+  export qux = "O_o"

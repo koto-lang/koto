@@ -1,7 +1,10 @@
-use crate::{Bytecode, Op};
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt,
+use {
+    crate::{Chunk, Op},
+    std::{
+        convert::{TryFrom, TryInto},
+        fmt,
+        sync::Arc,
+    },
 };
 
 #[derive(Debug)]
@@ -43,6 +46,10 @@ pub enum Instruction {
     SetGlobal {
         global: usize,
         source: u8,
+    },
+    Import {
+        register: u8,
+        constant: usize,
     },
     MakeList {
         register: u8,
@@ -207,6 +214,12 @@ pub enum Instruction {
     Return {
         register: u8,
     },
+    Size {
+        register: u8,
+    },
+    Type {
+        register: u8,
+    },
     IteratorNext {
         register: u8,
         iterator: u8,
@@ -280,6 +293,9 @@ impl fmt::Display for Instruction {
             ),
             SetGlobal { global, source } => {
                 write!(f, "SetGlobal\tconstant: {}\tsource: {}", global, source)
+            }
+            Import { register, constant } => {
+                write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
             }
             MakeList {
                 register,
@@ -479,6 +495,8 @@ impl fmt::Display for Instruction {
                 result, function, arg_register, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
+            Size { register } => write!(f, "Size\t\tresult: {}", register),
+            Type { register } => write!(f, "Type\t\tresult: {}", register),
             IteratorNext {
                 register,
                 iterator,
@@ -535,19 +553,15 @@ impl fmt::Display for Instruction {
     }
 }
 
-// TODO owning/non-owning readers
 #[derive(Clone, Default)]
 pub struct InstructionReader {
-    pub bytes: Bytecode,
+    pub chunk: Arc<Chunk>,
     pub ip: usize,
 }
 
 impl InstructionReader {
-    pub fn new(bytes: &[u8]) -> Self {
-        Self {
-            bytes: bytes.to_vec(),
-            ip: 0,
-        }
+    pub fn new(chunk: Arc<Chunk>) -> Self {
+        Self { chunk, ip: 0 }
     }
 }
 
@@ -559,7 +573,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_byte {
             () => {{
-                match self.bytes.get(self.ip) {
+                match self.chunk.bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
                         *byte
@@ -575,7 +589,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16 {
             () => {{
-                match self.bytes.get(self.ip..self.ip + 2) {
+                match self.chunk.bytes.get(self.ip..self.ip + 2) {
                     Some(u16_bytes) => {
                         self.ip += 2;
                         u16::from_le_bytes(u16_bytes.try_into().unwrap())
@@ -591,7 +605,7 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u32 {
             () => {{
-                match self.bytes.get(self.ip..self.ip + 4) {
+                match self.chunk.bytes.get(self.ip..self.ip + 4) {
                     Some(u32_bytes) => {
                         self.ip += 4;
                         u32::from_le_bytes(u32_bytes.try_into().unwrap())
@@ -605,7 +619,7 @@ impl Iterator for InstructionReader {
             }};
         }
 
-        let byte = match self.bytes.get(self.ip) {
+        let byte = match self.chunk.bytes.get(self.ip) {
             Some(byte) => *byte,
             None => return None,
         };
@@ -638,19 +652,19 @@ impl Iterator for InstructionReader {
             }),
             Op::SetFalse => Some(SetBool {
                 register: get_byte!(),
-                value: false
+                value: false,
             }),
             Op::SetTrue => Some(SetBool {
                 register: get_byte!(),
-                value: true
+                value: true,
             }),
             Op::Set0 => Some(SetNumber {
                 register: get_byte!(),
-                value: 0.0
+                value: 0.0,
             }),
             Op::Set1 => Some(SetNumber {
                 register: get_byte!(),
-                value: 1.0
+                value: 1.0,
             }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),
@@ -683,6 +697,14 @@ impl Iterator for InstructionReader {
             Op::SetGlobalLong => Some(SetGlobal {
                 global: get_u32!() as usize,
                 source: get_byte!(),
+            }),
+            Op::Import => Some(Import {
+                register: get_byte!(),
+                constant: get_byte!() as usize,
+            }),
+            Op::ImportLong => Some(Import {
+                register: get_byte!(),
+                constant: get_u32!() as usize,
             }),
             Op::MakeList => Some(MakeList {
                 register: get_byte!(),
@@ -858,6 +880,12 @@ impl Iterator for InstructionReader {
                 parent: get_byte!(),
             }),
             Op::Return => Some(Return {
+                register: get_byte!(),
+            }),
+            Op::Size => Some(Size {
+                register: get_byte!(),
+            }),
+            Op::Type => Some(Type {
                 register: get_byte!(),
             }),
             Op::IteratorNext => Some(IteratorNext {

@@ -6,6 +6,8 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
+import env io.print list math string
+
 A = |i j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)
@@ -37,7 +39,7 @@ export main = ||
   if n == ()
     n = 4
   else
-    n = number n
+    n = string.to_number n
 
   u = [1 for _ in 0..n]
   v = [0 for _ in 0..n]

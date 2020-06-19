@@ -1,3 +1,5 @@
+from test import assert assert_eq
+
 # For statement blocks
 count = 0
 for x in 0..10

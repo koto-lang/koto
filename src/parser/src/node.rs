@@ -8,7 +8,6 @@ pub enum Node {
     Empty,
     Id(ConstantIndex),
     Lookup(Vec<LookupNode>),
-    Copy(AstIndex),
     BoolTrue,
     BoolFalse,
     Number0,
@@ -38,12 +37,14 @@ pub enum Node {
     },
     Block(Vec<AstIndex>),
     Expressions(Vec<AstIndex>),
-    CopyExpression(AstIndex),
-    Negate(AstIndex),
     Function(Function),
     Call {
         function: AstIndex,
         args: Vec<AstIndex>,
+    },
+    Import {
+        from: Vec<ConstantIndex>,
+        items: Vec<Vec<ConstantIndex>>,
     },
     Assign {
         target: AssignTarget,
@@ -54,8 +55,7 @@ pub enum Node {
         targets: Vec<AssignTarget>,
         expressions: AstIndex,
     },
-    Op {
-        // TODO rename -> BinaryOp
+    BinaryOp {
         op: AstOp,
         lhs: AstIndex,
         rhs: AstIndex,
@@ -74,6 +74,10 @@ pub enum Node {
     Continue,
     Return,
     ReturnExpression(AstIndex),
+    CopyExpression(AstIndex),
+    Negate(AstIndex),
+    Type(AstIndex),
+    Size(AstIndex),
     Debug {
         expression_string: ConstantIndex,
         expression: AstIndex,
@@ -93,7 +97,6 @@ impl fmt::Display for Node {
             Empty => write!(f, "Empty"),
             Id(_) => write!(f, "Id"),
             Lookup(_) => write!(f, "Lookup"),
-            Copy(_) => write!(f, "Copy"),
             BoolTrue => write!(f, "BoolTrue"),
             BoolFalse => write!(f, "BoolFalse"),
             Number(_) => write!(f, "Number"),
@@ -115,9 +118,10 @@ impl fmt::Display for Node {
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             Call { .. } => write!(f, "Call"),
+            Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
-            Op { .. } => write!(f, "Op"),
+            BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
@@ -126,6 +130,8 @@ impl fmt::Display for Node {
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
             ReturnExpression(_) => write!(f, "ReturnExpression"),
+            Size(_) => write!(f, "Size"),
+            Type(_) => write!(f, "Type"),
             Debug { .. } => write!(f, "Debug"),
         }
     }

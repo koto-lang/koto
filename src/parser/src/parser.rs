@@ -120,25 +120,24 @@ impl Frame {
     }
 }
 
-pub struct Parser<'source, 'constants> {
+pub struct Parser<'source> {
     ast: Ast,
+    constants: ConstantPool,
     lexer: Lexer<'source>,
-    constants: &'constants mut ConstantPool,
     frame_stack: Vec<Frame>,
     options: Options,
 }
 
-impl<'source, 'constants> Parser<'source, 'constants> {
+impl<'source> Parser<'source> {
     pub fn parse(
         source: &'source str,
-        constants: &'constants mut ConstantPool,
         options: Options,
-    ) -> Result<Ast, ParserError> {
+    ) -> Result<(Ast, ConstantPool), ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
+            constants: ConstantPool::new(),
             lexer: Lexer::new(source),
-            constants,
             frame_stack: Vec::new(),
             options,
         };
@@ -146,7 +145,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
 
-        Ok(parser.ast)
+        Ok((parser.ast, parser.constants))
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {
@@ -363,7 +362,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                     if let Some(expected_indent) = expected_indent {
                         match next_indent.cmp(&expected_indent) {
                             Ordering::Less => break,
-                            Ordering::Equal => {},
+                            Ordering::Equal => {}
                             Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
                         }
                     } else if next_indent <= current_indent {
@@ -619,6 +618,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
+                    let start_span = self.lexer.span();
                     self.consume_token();
 
                     let id_index = self.push_node(Node::Id(constant_index))?;
@@ -635,10 +635,13 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                             }
                         }
 
-                        self.push_node(Node::Call {
-                            function: id_index,
-                            args,
-                        })?
+                        self.push_node_with_start_span(
+                            Node::Call {
+                                function: id_index,
+                                args,
+                            },
+                            start_span,
+                        )?
                     } else {
                         id_index
                     }
@@ -1073,6 +1076,23 @@ impl<'source, 'constants> Parser<'source, 'constants> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
+                Token::Size => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::Size(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Type => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expression()? {
+                        self.push_node(Node::Type(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::From | Token::Import => return self.parse_import_expression(),
                 Token::NewLineIndented => return self.parse_map_block(current_indent, None),
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => return Ok(None),
@@ -1473,6 +1493,68 @@ impl<'source, 'constants> Parser<'source, 'constants> {
         Ok(Some(result))
     }
 
+    fn parse_import_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        let from_import = match self.peek_token() {
+            Some(Token::From) => true,
+            Some(Token::Import) => false,
+            _ => return internal_error!(UnexpectedToken, self),
+        };
+
+        self.consume_token();
+
+        let from = if from_import {
+            let from = match self.consume_import_items()?.as_slice() {
+                [from] => from.clone(),
+                _ => return syntax_error!(ImportFromExpressionHasTooManyItems, self),
+            };
+
+            if self.skip_whitespace_and_peek() != Some(Token::Import) {
+                return syntax_error!(ExpectedImportKeywordAfterFrom, self);
+            }
+            self.consume_token();
+            from
+        } else {
+            vec![]
+        };
+
+        let items = self.consume_import_items()?;
+        for item in items.iter() {
+            match item.last() {
+                Some(id) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(*id);
+                }
+                None => return internal_error!(ExpectedIdInImportItem, self),
+            }
+        }
+
+        Ok(Some(self.push_node(Node::Import { from, items })?))
+    }
+
+    fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
+        let mut items = vec![];
+
+        while let Some(item_root) = self.parse_id(false) {
+            let mut item = vec![item_root];
+
+            while self.peek_token() == Some(Token::Dot) {
+                self.consume_token();
+
+                match self.parse_id(false) {
+                    Some(id) => item.push(id),
+                    None => return syntax_error!(ExpectedImportModuleId, self),
+                }
+            }
+
+            items.push(item);
+        }
+
+        if items.is_empty() {
+            return syntax_error!(ExpectedIdInImportExpression, self);
+        }
+
+        Ok(items)
+    }
+
     fn parse_indented_block(
         &mut self,
         current_indent: usize,
@@ -1572,7 +1654,7 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
             _ => unreachable!(),
         };
-        self.push_node(Node::Op {
+        self.push_node(Node::BinaryOp {
             op: ast_op,
             lhs,
             rhs,
@@ -1593,6 +1675,20 @@ impl<'source, 'constants> Parser<'source, 'constants> {
 
     fn push_node(&mut self, node: Node) -> Result<AstIndex, ParserError> {
         self.ast.push(node, self.lexer.span())
+    }
+
+    fn push_node_with_start_span(
+        &mut self,
+        node: Node,
+        start_span: Span,
+    ) -> Result<AstIndex, ParserError> {
+        self.ast.push(
+            node,
+            Span {
+                start: start_span.start,
+                end: self.lexer.span().end,
+            },
+        )
     }
 
     fn peek_until_next_token(&mut self) -> Option<Token> {
@@ -1705,9 +1801,8 @@ mod tests {
     ) {
         println!("{}", source);
 
-        let mut constants = ConstantPool::default();
-        match Parser::parse(source, &mut constants, options) {
-            Ok(ast) => {
+        match Parser::parse(source, options) {
+            Ok((ast, constants)) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {
@@ -1790,7 +1885,7 @@ a
                     Negate(4), // 5
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 6,
                         rhs: 7,
@@ -1964,14 +2059,14 @@ foo.bar..foo.baz";
                     }, // 5
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 6,
                         rhs: 7,
                     },
                     Number1,
                     Number1, // 10
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 9,
                         rhs: 10,
@@ -2177,7 +2272,7 @@ num4 x 0 1 x";
                     Id(0),
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
                         rhs: 2,
@@ -2426,13 +2521,13 @@ x %= 4";
                 &[
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Subtract,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 2,
                         rhs: 3,
@@ -2455,18 +2550,18 @@ x %= 4";
                     Number1,
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 1,
                         rhs: 2,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 3,
                     },
                     Number0, // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 4,
                         rhs: 5,
@@ -2488,19 +2583,19 @@ x %= 4";
                 &[
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 3,
                         rhs: 4,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 2,
                         rhs: 5,
@@ -2522,13 +2617,13 @@ x %= 4";
                 &[
                     Number(0),
                     Number(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Divide,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number(2),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Modulo,
                         lhs: 2,
                         rhs: 3,
@@ -2554,7 +2649,7 @@ x %= 4";
                 &[
                     Str(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
@@ -2580,25 +2675,25 @@ x %= 4";
                 &[
                     Number0,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 3,
                         rhs: 4,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::And,
                         lhs: 2,
                         rhs: 5,
                     },
                     BoolTrue,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Or,
                         lhs: 6,
                         rhs: 7,
@@ -2621,12 +2716,12 @@ x %= 4";
                     Number0,
                     Number1,
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::LessOrEqual,
                         lhs: 1,
                         rhs: 2,
                     },
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 3,
@@ -2660,7 +2755,7 @@ x %= 4";
                         else_if_blocks: vec![],
                         else_node: Some(3),
                     }),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 4,
@@ -2838,7 +2933,7 @@ a";
                     Id(1),
                     Id(0),
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 2,
                         rhs: 3,
@@ -2869,7 +2964,7 @@ for x in y if x > 0
                     Id(1),
                     Id(0),
                     Number0,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 1,
                         rhs: 2,
@@ -2947,7 +3042,7 @@ while x > y
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 0,
                         rhs: 1,
@@ -2981,7 +3076,7 @@ until x < y
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 1,
@@ -3055,7 +3150,7 @@ until x < y
                         args: vec![3],
                     },
                     Number(3), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Less,
                         lhs: 4,
                         rhs: 5,
@@ -3098,7 +3193,7 @@ until x < y
                         args: vec![3],
                     },
                     Number(3), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::GreaterOrEqual,
                         lhs: 4,
                         rhs: 5,
@@ -3174,7 +3269,7 @@ a()";
                 &[
                     Id(0),
                     Id(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 0,
                         rhs: 1,
@@ -3220,7 +3315,7 @@ f 42";
                     Id(2), // y
                     Id(2), // y // 5
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 5,
                         rhs: 6,
@@ -3496,7 +3591,7 @@ f 1
                     },
                     Id(3), // 5 - i
                     Id(1), // n
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 5,
                         rhs: 6,
@@ -3539,7 +3634,7 @@ f 1
                     },
                     Id(4), // x
                     Id(1), // n
-                    Op {
+                    BinaryOp {
                         op: AstOp::Equal,
                         lhs: 17,
                         rhs: 18,
@@ -3652,7 +3747,7 @@ y z";
                     List(vec![4]), // 5
                     Id(3),
                     Number1,
-                    Op {
+                    BinaryOp {
                         op: AstOp::Greater,
                         lhs: 6,
                         rhs: 7,
@@ -3861,7 +3956,9 @@ return 1";
             let source = "\
 copy x
 not true
-debug x + x";
+debug x + x
+assert_eq (type true) \"bool\"
+";
             check_ast(
                 source,
                 &[
@@ -3871,7 +3968,7 @@ debug x + x";
                     Negate(2),
                     Id(0),
                     Id(0), // 5
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 4,
                         rhs: 5,
@@ -3880,12 +3977,25 @@ debug x + x";
                         expression_string: 1,
                         expression: 6,
                     },
+                    Id(2),
+                    BoolTrue,
+                    Type(9), // 10
+                    Str(3),
+                    Call {
+                        function: 8,
+                        args: vec![10, 11],
+                    },
                     MainBlock {
-                        body: vec![1, 3, 7],
+                        body: vec![1, 3, 7, 12],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("x + x")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("x + x"),
+                    Constant::Str("assert_eq"),
+                    Constant::Str("bool"),
+                ]),
             )
         }
     }
@@ -3906,13 +4016,13 @@ a = 1 + \
                     Id(0),
                     Number1,
                     Number(1),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
                         rhs: 2,
                     },
                     Number(2),
-                    Op {
+                    BinaryOp {
                         op: AstOp::Add,
                         lhs: 3,
                         rhs: 4,
@@ -3934,6 +4044,128 @@ a = 1 + \
                     Constant::Str("a"),
                     Constant::Number(2.0),
                     Constant::Number(3.0),
+                ]),
+            )
+        }
+    }
+
+    mod import {
+        use super::*;
+
+        #[test]
+        fn import_module() {
+            let source = "import foo";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![],
+                        items: vec![vec![0]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn import_item() {
+            let source = "import foo.bar";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![],
+                        items: vec![vec![0, 1]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("bar")]),
+            )
+        }
+
+        #[test]
+        fn import_item_used_in_assignment() {
+            let source = "x = import foo.bar";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Import {
+                        from: vec![],
+                        items: vec![vec![1, 2]],
+                    },
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 1,
+                    },
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 2, // x and bar both assigned locally
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_items() {
+            let source = "from foo import bar baz";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![0],
+                        items: vec![vec![1], vec![2]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_nested_items() {
+            let source = "from foo.bar import abc.def xyz";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![0, 1],
+                        items: vec![vec![2, 3], vec![4]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("abc"),
+                    Constant::Str("def"),
+                    Constant::Str("xyz"),
                 ]),
             )
         }

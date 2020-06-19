@@ -1,3 +1,5 @@
+from test import assert assert_eq
+
 square = |x| x * x
 assert_eq 49 (square 7)
 assert_eq 100 (square -10)

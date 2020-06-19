@@ -1,3 +1,8 @@
+import env
+import io
+import test.assert_eq
+import toml
+
 file_data = io.read_to_string env.script_dir + "/data/test.toml"
 data = toml.from_string file_data
 

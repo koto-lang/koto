@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, convert::TryInto};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum ConstantType {
     Number,
     Str,
@@ -14,7 +14,7 @@ pub enum Constant<'a> {
     Str(&'a str),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ConstantPool {
     data: Vec<u8>,
     index: Vec<(usize, ConstantType)>,

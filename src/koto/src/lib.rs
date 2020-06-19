@@ -1,32 +1,34 @@
-pub use koto_bytecode::{
-    bytecode_to_string, bytecode_to_string_annotated, Compiler, InstructionReader,
+pub use {
+    koto_bytecode::{
+        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, DebugInfo, InstructionReader,
+    },
+    koto_parser::{num4::Num4, Ast, Function, Parser, Position},
+    koto_runtime::{
+        external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
+        RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    },
+    koto_std::{get_external_instance, visit_external_value},
 };
-pub use koto_parser::{num4::Num4, Ast, Function, Parser, Position};
-use koto_runtime::Vm;
-pub use koto_runtime::{
-    external_error, make_external_value, type_as_string, DebugInfo, Error, ExternalValue,
-    RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+
+use {
+    koto_runtime::Vm,
+    std::{path::PathBuf, sync::Arc},
 };
-pub use koto_std::{get_external_instance, visit_external_value};
-use std::{path::Path, sync::Arc};
 
 #[derive(Copy, Clone, Default)]
 pub struct Options {
     pub show_annotated: bool,
     pub show_bytecode: bool,
-    pub export_all_at_top_level: bool,
-    pub incremental_mode: bool,
+    pub repl_mode: bool,
 }
 
 #[derive(Default)]
 pub struct Koto {
-    script: String,
-    script_path: Option<String>,
-    compiler: Compiler,
-    ast: Ast,
+    script_path: Option<PathBuf>,
     runtime: Vm,
     options: Options,
-    new_bytecode: Option<usize>,
+    loader: Loader,
+    chunk: Option<Arc<Chunk>>,
 }
 
 impl Koto {
@@ -39,7 +41,7 @@ impl Koto {
         env.add_value("script_dir", Value::Empty);
         env.add_value("script_path", Value::Empty);
         env.add_list("args", ValueList::default());
-        result.runtime.global_mut().add_map("env", env);
+        result.runtime.prelude_mut().add_map("env", env);
 
         result
     }
@@ -50,110 +52,71 @@ impl Koto {
         result
     }
 
-    pub fn run_script(&mut self, script: &str) -> Result<Value, String> {
-        self.run_script_with_args(script, &[])
+    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
+        let compile_result = if self.options.repl_mode {
+            self.loader.compile_repl(script)
+        } else {
+            self.loader.compile_script(script, &self.script_path)
+        };
+
+        match compile_result {
+            Ok(chunk) => {
+                self.chunk = Some(chunk.clone());
+                if self.options.show_annotated {
+                    let script_lines = script.lines().collect::<Vec<_>>();
+                    println!(
+                        "{}",
+                        chunk_to_string_annotated(chunk.clone(), &script_lines)
+                    );
+                } else if self.options.show_bytecode {
+                    println!("{}", chunk_to_string(chunk.clone()));
+                }
+                Ok(chunk)
+            }
+            Err(e) => Err(e),
+            // Err(e) => Err(self.format_error(&e.to_string(), &self.script, e.span.start, e.span.end)),
+        }
     }
 
-    pub fn run_script_with_args(&mut self, script: &str, args: &[String]) -> Result<Value, String> {
-        self.compile(script)?;
+    pub fn run_with_args(&mut self, args: &[String]) -> Result<Value, String> {
         self.set_args(args);
         self.run()
     }
 
     pub fn run(&mut self) -> Result<Value, String> {
-        let run_result = self.runtime.run_from(self.new_bytecode.unwrap_or(0));
+        let chunk = self.chunk.clone();
+        match chunk {
+            Some(chunk) => self.run_chunk(chunk),
+            None => Err("koto.run: missing compiled chunk".to_string()),
+        }
+    }
 
-        let result = match run_result {
-            Ok(result) => Ok(result),
-            Err(e) => Err(match &e {
-                Error::RuntimeError {
-                    message,
-                    start_pos,
-                    end_pos,
-                } => self.format_error("Runtime", message, &self.script, *start_pos, *end_pos),
-                Error::VmRuntimeError {
-                    message,
-                    instruction,
-                } => self.format_vm_error(message, *instruction),
-                Error::ExternalError { message } => format!("Error: {}\n", message),
-            }),
-        }?;
+    pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
+        let result = match self.runtime.run(chunk) {
+            Ok(result) => result,
+            Err(e) => {
+                return Err(match e {
+                    Error::VmError {
+                        message,
+                        chunk,
+                        instruction,
+                    } => self.format_vm_error(&message, chunk, instruction),
+                    Error::ExternalError { message } => format!("Error: {}\n", message),
+                })
+            }
+        };
 
-        if let Some(main) = self.get_global_function("main") {
+        if self.options.repl_mode {
+            Ok(result)
+        } else if let Some(main) = self.runtime.get_global_function("main") {
             self.call_function(&main, &[])
         } else {
             Ok(result)
         }
     }
 
-    pub fn compile(&mut self, script: &str) -> Result<(), String> {
-        let options = koto_parser::Options {
-            export_all_top_level: self.options.export_all_at_top_level,
-        };
-
-        match Parser::parse(&script, self.runtime.constants_mut(), options) {
-            Ok(ast) => {
-                self.ast = ast;
-                if !self.options.incremental_mode {
-                    self.runtime.constants_mut().shrink_to_fit();
-                }
-            }
-            Err(e) => {
-                return Err(self.format_error(
-                    "Parser",
-                    &e.to_string(),
-                    script,
-                    e.span.start,
-                    e.span.end,
-                ));
-            }
-        }
-
-        self.new_bytecode = None;
-
-        let compile_result = if self.options.incremental_mode {
-            self.compiler.compile_incremental(&self.ast)
-        } else {
-            self.compiler.compile(&self.ast)
-        };
-
-        match compile_result {
-            Ok((bytecode, debug_info)) => {
-                if self.options.incremental_mode {
-                    self.new_bytecode = Some(self.runtime.bytecode().len());
-                };
-
-                self.runtime.set_bytecode(bytecode);
-                self.runtime.set_debug_info(Arc::new(DebugInfo {
-                    source_map: debug_info.clone(),
-                    script_path: self.script_path.clone(),
-                }));
-
-                self.script = script.to_string();
-
-                if self.options.show_annotated {
-                    let script_lines = self.script.lines().collect::<Vec<_>>();
-                    println!(
-                        "{}",
-                        bytecode_to_string_annotated(
-                            self.runtime.bytecode(),
-                            &script_lines,
-                            self.compiler.debug_info(),
-                            self.new_bytecode,
-                        )
-                    );
-                } else if self.options.show_bytecode {
-                    println!("{}", bytecode_to_string(self.runtime.bytecode()));
-                }
-
-                Ok(())
-            }
-            Err(e) => Err(format!("Error while compiling script: {}", e)),
-        }
-    }
-
-    pub fn global_mut(&mut self) -> &mut ValueMap {
-        self.runtime.global_mut()
+    pub fn prelude_mut(&mut self) -> &mut ValueMap {
+        self.runtime.prelude_mut()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
@@ -164,7 +127,13 @@ impl Koto {
             .map(|arg| Str(Arc::new(arg.to_string())))
             .collect::<ValueVec>();
 
-        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
+        match self
+            .runtime
+            .prelude_mut()
+            .data_mut()
+            .get_mut("env")
+            .unwrap()
+        {
             Map(map) => map
                 .data_mut()
                 .add_list("args", ValueList::with_data(koto_args)),
@@ -172,13 +141,12 @@ impl Koto {
         }
     }
 
-    pub fn set_script_path(&mut self, path: Option<String>) {
+    pub fn set_script_path(&mut self, path: Option<PathBuf>) {
         use Value::{Empty, Map, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => (
-                Path::new(&path)
-                    .parent()
+                path.parent()
                     .map(|p| {
                         Str(Arc::new(
                             p.to_str().expect("invalid script path").to_string(),
@@ -186,14 +154,20 @@ impl Koto {
                     })
                     .or(Some(Empty))
                     .unwrap(),
-                Str(Arc::new(path.to_string())),
+                Str(Arc::new(path.display().to_string())),
             ),
             None => (Empty, Empty),
         };
 
         self.script_path = path;
 
-        match self.runtime.global_mut().data_mut().get_mut("env").unwrap() {
+        match self
+            .runtime
+            .prelude_mut()
+            .data_mut()
+            .get_mut("env")
+            .unwrap()
+        {
             Map(map) => {
                 let mut map = map.data_mut();
                 map.add_value("script_dir", script_dir);
@@ -203,19 +177,12 @@ impl Koto {
         }
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
-        match self.runtime.get_global_value(id) {
-            Some(Value::Function(function)) => Some(function),
-            _ => None,
-        }
-    }
-
     pub fn call_function_by_name(
         &mut self,
         function_name: &str,
         args: &[Value],
     ) -> Result<Value, String> {
-        match self.get_global_function(function_name) {
+        match self.runtime.get_global_function(function_name) {
             Some(f) => self.call_function(&f, args),
             None => Err(format!(
                 "Runtime error: function '{}' not found",
@@ -231,24 +198,26 @@ impl Koto {
     ) -> Result<Value, String> {
         match self.runtime.run_function(function, args) {
             Ok(result) => Ok(result),
-            Err(e) => Err(match &e {
-                Error::RuntimeError {
+            Err(e) => Err(match e {
+                Error::VmError {
                     message,
-                    start_pos,
-                    end_pos,
-                } => self.format_error("Runtime", &message, &self.script, *start_pos, *end_pos),
-                Error::VmRuntimeError {
-                    message,
+                    chunk,
                     instruction,
-                } => self.format_vm_error(message, *instruction),
+                } => self.format_vm_error(&message, chunk, instruction),
                 Error::ExternalError { message } => format!("Error: {}\n", message,),
             }),
         }
     }
 
-    fn format_vm_error(&self, message: &str, instruction: usize) -> String {
-        match self.compiler.debug_info().get_source_span(instruction) {
-            Some(span) => self.format_error("Runtime", message, &self.script, span.start, span.end),
+    fn format_vm_error(&self, message: &str, chunk: Arc<Chunk>, instruction: usize) -> String {
+        match chunk.debug_info.get_source_span(instruction) {
+            Some(span) => self.format_error(
+                message,
+                &chunk.source_path,
+                &chunk.debug_info.source,
+                span.start,
+                span.end,
+            ),
             None => format!(
                 "Runtime error at instruction {}: {}\n",
                 instruction, message
@@ -258,14 +227,14 @@ impl Koto {
 
     fn format_error(
         &self,
-        error_type: &str,
         message: &str,
-        script: &str,
+        source_path: &Option<PathBuf>,
+        source: &str,
         start_pos: Position,
         end_pos: Position,
     ) -> String {
         let (excerpt, padding) = {
-            let excerpt_lines = script
+            let excerpt_lines = source
                 .lines()
                 .skip((start_pos.line - 1) as usize)
                 .take((end_pos.line - start_pos.line + 1) as usize)
@@ -314,11 +283,15 @@ impl Koto {
             }
         };
 
+        let position_info = if let Some(path) = source_path {
+            format!("{} - {}:{}", path.display(), start_pos.line, start_pos.column)
+        } else {
+            format!("{}:{}", start_pos.line, start_pos.column)
+        };
+
         format!(
-            "{} error: {message}\n --> {}:{}\n{padding}|\n{excerpt}",
-            error_type,
-            start_pos.line,
-            start_pos.column,
+            "{message}\n --> {}\n{padding}|\n{excerpt}",
+            position_info,
             padding = padding,
             excerpt = excerpt,
             message = message

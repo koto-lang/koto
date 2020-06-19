@@ -1,3 +1,5 @@
+import env list test.assert_eq
+
 export main = ||
   n = list.get env.args 0
   if n == ()

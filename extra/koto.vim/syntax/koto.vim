@@ -3,18 +3,19 @@ if exists("b:current_syntax")
 endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
-syntax keyword kotoKeywords copy debug export not num2 num4 return self
+syntax keyword kotoKeywords
+  \ copy debug export from import not num2 num4 return self size type
 syntax keyword kotoConditionals if then else
 syntax keyword kotoRepeating break continue for in until while
 syntax keyword kotoStdLib
-  \ env io json list map math number print push size string thread type
+  \ env io json list map math print push string test thread toml
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 
 syntax match kotoInlineComment "#.*$"
   \ contains=kotoTodos oneline
 syntax region kotoMultilineComment start="#-" end="-#"
-      \ contains=kotoTodos,kotoMultilineComment fold
+  \ contains=kotoTodos,kotoMultilineComment fold
 
 syntax keyword kotoOperator and or
 syntax match kotoOperator "\v\+"

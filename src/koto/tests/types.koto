@@ -1,17 +1,17 @@
-assert_eq (type true) "Bool"
-assert_eq (type |x| x * x) "Function"
-assert_eq (type [1 2 3]) "List"
-assert_eq (type {foo: 42}) "Map"
-assert_eq (type 0) "Number"
-assert_eq (type (num2 0)) "Num2"
-assert_eq (type (num4 0)) "Num4"
-assert_eq (type 0..10) "Range"
-assert_eq (type "foo") "String"
+import test.assert_eq
+
+assert_eq (type true) "bool"
+assert_eq (type |x| x * x) "function"
+assert_eq (type [1 2 3]) "list"
+assert_eq (type {foo: 42}) "map"
+assert_eq (type 0) "number"
+assert_eq (type (num2 0)) "num2"
+assert_eq (type (num4 0)) "num4"
+assert_eq (type 0..10) "range"
+assert_eq (type "foo") "string"
 
 x = 1
-assert_eq (type x) "Number"
+assert_eq (type x) "number"
 
 x = "bar"
-assert_eq (type x) "String"
-
-assert_eq (type type) "Function"
+assert_eq (type x) "string"

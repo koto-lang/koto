@@ -5,12 +5,12 @@ use {
         type_as_string,
         value::{copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator},
-        vm_error, Error, Id, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+        vm_error, Error, Id, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
-    koto_bytecode::{Bytecode, Instruction, InstructionReader},
-    koto_parser::{num2, num4, ConstantPool},
+    koto_bytecode::{Chunk, Instruction, InstructionReader},
+    koto_parser::{num2, num4},
     rustc_hash::FxHashMap,
-    std::sync::Arc,
+    std::{collections::HashMap, path::PathBuf, sync::Arc},
 };
 
 #[derive(Clone, Debug)]
@@ -23,22 +23,22 @@ pub enum ControlFlow {
 struct Frame {
     base: usize,
     captures: Option<ValueList>,
-    return_ip: Option<usize>,
     result_register: u8,
     result: Value,
+    return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
 }
 
 impl Frame {
     fn new(
         base: usize,
-        return_ip: Option<usize>,
+        return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
         result_register: u8,
         captures: ValueList,
     ) -> Self {
         Self {
             base,
             captures: Some(captures),
-            return_ip,
+            return_chunk_and_ip,
             result_register,
             ..Default::default()
         }
@@ -63,18 +63,14 @@ impl Frame {
     }
 }
 
-pub struct DebugInfo {
-    pub source_map: koto_bytecode::DebugInfo,
-    pub script_path: Option<String>,
-}
-
 #[derive(Default)]
 pub struct Vm {
-    reader: InstructionReader,
+    prelude: ValueMap,
     global: ValueMap,
-    constants: Arc<ConstantPool>,
-    debug_info: Option<Arc<DebugInfo>>,
+    loader: Loader,
+    modules: HashMap<PathBuf, ValueMap>,
 
+    reader: InstructionReader,
     string_constants: FxHashMap<usize, Arc<String>>,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -91,37 +87,29 @@ impl Vm {
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
-            constants: self.constants.clone(),
+            prelude: self.prelude.clone(),
             global: self.global.clone(),
-            debug_info: self.debug_info.clone(),
+            loader: self.loader.clone(),
+            modules: self.modules.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
         }
     }
 
-    pub fn set_bytecode(&mut self, bytecode: &[u8]) {
-        self.reader.bytes = bytecode.to_vec();
-    }
-
-    pub fn bytecode(&self) -> &Bytecode {
-        &self.reader.bytes
-    }
-
-    pub fn constants_mut(&mut self) -> &mut ConstantPool {
-        Arc::make_mut(&mut self.constants)
-    }
-
-    pub fn global_mut(&mut self) -> &mut ValueMap {
-        &mut self.global
-    }
-
-    pub fn set_debug_info(&mut self, info: Arc<DebugInfo>) {
-        self.debug_info = Some(info);
+    pub fn prelude_mut(&mut self) -> &mut ValueMap {
+        &mut self.prelude
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
         self.global.data().get(id).cloned()
+    }
+
+    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
+        match self.get_global_value(id) {
+            Some(Value::Function(function)) => Some(function),
+            _ => None,
+        }
     }
 
     pub fn reset(&mut self) {
@@ -130,25 +118,21 @@ impl Vm {
         self.call_stack.push(Frame::default());
     }
 
-    pub fn run(&mut self) -> RuntimeResult {
-        self.run_from(0)
-    }
-
-    pub fn run_from(&mut self, position: usize) -> RuntimeResult {
-        dbg!(self.reader.ip);
+    pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
         self.reset();
-        self.set_ip(position);
+        self.set_chunk_and_ip(chunk, 0);
         self.execute_instructions()
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
         if function.is_instance_function {
-            return vm_error!(self.reader.ip, "Unexpected instance function");
+            return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
         }
 
         if function.arg_count != args.len() as u8 {
             return vm_error!(
-                self.reader.ip,
+                self.chunk(),
+                self.ip(),
                 "Incorrect argument count, expected {}, found {}",
                 function.arg_count,
                 args.len(),
@@ -163,11 +147,13 @@ impl Vm {
         self.value_stack.extend_from_slice(args);
 
         self.push_frame(None, arg_register, arg_register, function.captures.clone());
-        let ip = self.reader.ip;
-        self.set_ip(function.ip);
+
+        let chunk = self.chunk();
+        let ip = self.ip();
+        self.set_chunk_and_ip(function.chunk.clone(), function.ip);
 
         let result = self.execute_instructions()?;
-        self.reader.ip = ip;
+        self.set_chunk_and_ip(chunk, ip);
 
         Ok(result)
     }
@@ -175,7 +161,7 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
-        let mut ip = self.reader.ip;
+        let mut ip = self.ip();
         while let Some(instruction) = self.reader.next() {
             match self.execute_instruction(instruction, ip)? {
                 ControlFlow::Continue => {}
@@ -184,7 +170,7 @@ impl Vm {
                     break;
                 }
             }
-            ip = self.reader.ip;
+            ip = self.ip();
         }
 
         Ok(result)
@@ -201,7 +187,7 @@ impl Vm {
 
         match instruction {
             Instruction::Error { message } => {
-                return vm_error!(instruction_ip, "{}", message);
+                return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
                 self.set_register(target, self.get_register(source).clone());
@@ -214,9 +200,10 @@ impl Vm {
             Instruction::SetNumber { register, value } => {
                 self.set_register(register, Number(value))
             }
-            Instruction::LoadNumber { register, constant } => {
-                self.set_register(register, Number(self.constants.get_f64(constant)))
-            }
+            Instruction::LoadNumber { register, constant } => self.set_register(
+                register,
+                Number(self.reader.chunk.constants.get_f64(constant)),
+            ),
             Instruction::LoadString { register, constant } => {
                 let string = self.arc_string_from_constant(constant);
                 self.set_register(register, Str(string))
@@ -228,8 +215,9 @@ impl Vm {
                     Some(value) => self.set_register(register, value),
                     None => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
-                            "LoadGlobal: '{}' not found",
+                            "'{}' not found",
                             global_name
                         );
                     }
@@ -240,6 +228,49 @@ impl Vm {
                 self.global
                     .data_mut()
                     .insert(Id::from_str(global_name), self.get_register(source).clone());
+            }
+            Instruction::Import { register, constant } => {
+                let import_name = self.get_constant_string(constant);
+                let maybe_global = self.global.data().get(import_name).cloned();
+                if let Some(value) = maybe_global {
+                    self.set_register(register, value);
+                } else {
+                    let maybe_in_prelude = self.prelude.data().get(import_name).cloned();
+                    if let Some(value) = maybe_in_prelude {
+                        self.set_register(register, value);
+                    } else {
+                        let module_name = self.get_constant_string(constant).to_string();
+                        let source_path = self.reader.chunk.source_path.clone();
+                        let (module_chunk, module_path) =
+                            match self.loader.compile_module(&module_name, source_path) {
+                                Ok(chunk) => chunk,
+                                Err(e) => {
+                                    return vm_error!(
+                                        self.chunk(),
+                                        instruction_ip,
+                                        "Error while importing '{}': {}",
+                                        module_name,
+                                        e
+                                    )
+                                }
+                            };
+                        let maybe_module = self.modules.get(&module_path).cloned();
+                        match maybe_module {
+                            Some(module) => self.set_register(register, Value::Map(module)),
+                            None => {
+                                // Run the chunk, and cache the resulting global map
+                                let mut vm = Vm::new();
+                                vm.prelude = self.prelude.clone();
+                                vm.run(module_chunk)?;
+                                if let Some(main) = vm.get_global_function("main") {
+                                    vm.run_function(&main, &[])?;
+                                }
+                                self.modules.insert(module_path, vm.global.clone());
+                                self.set_register(register, Value::Map(vm.global));
+                            }
+                        }
+                    }
+                }
             }
             Instruction::MakeList {
                 register,
@@ -269,6 +300,7 @@ impl Vm {
                                     Number(n) => v[i] = *n,
                                     unexpected => {
                                         return vm_error!(
+                                            self.chunk(),
                                             instruction_ip,
                                             "num2 only accepts Numbers as arguments, - found {}",
                                             unexpected
@@ -280,6 +312,7 @@ impl Vm {
                         }
                         unexpected => {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "num2 only accepts a Number, Num2, or List as first argument \
                                 - found {}",
@@ -294,6 +327,7 @@ impl Vm {
                             Number(n) => v[i as usize] = *n,
                             unexpected => {
                                 return vm_error!(
+                                    self.chunk(),
                                     instruction_ip,
                                     "num2 only accepts Numbers as arguments, \
                                      or Num2 or List as first argument - found {}",
@@ -326,6 +360,7 @@ impl Vm {
                                     Number(n) => v[i] = *n as f32,
                                     unexpected => {
                                         return vm_error!(
+                                            self.chunk(),
                                             instruction_ip,
                                             "num4 only accepts Numbers as arguments, - found {}",
                                             unexpected
@@ -337,6 +372,7 @@ impl Vm {
                         }
                         unexpected => {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "num4 only accepts a Number, Num4, or List as first argument \
                                 - found {}",
@@ -351,6 +387,7 @@ impl Vm {
                             Number(n) => v[i as usize] = *n as f32,
                             unexpected => {
                                 return vm_error!(
+                                    self.chunk(),
                                     instruction_ip,
                                     "num4 only accepts Numbers as arguments, \
                                             or Num4 or List as first argument - found {}",
@@ -381,6 +418,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected numbers for range bounds, found start: {}, end: {}",
                             type_as_string(&unexpected.0),
@@ -408,6 +446,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected numbers for range bounds, found start: {}, end: {}",
                             type_as_string(&unexpected.0),
@@ -422,6 +461,7 @@ impl Vm {
                     Number(end) => {
                         if *end < 0.0 {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "RangeTo: negative numbers not allowed, found '{}'",
                                 end
@@ -434,6 +474,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "RangeTo: Expected numbers for range bounds, found end: {}",
                             type_as_string(&unexpected)
@@ -447,6 +488,7 @@ impl Vm {
                     Number(end) => {
                         if *end < 0.0 {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "RangeToInclusive: negative numbers not allowed, found '{}'",
                                 end
@@ -459,6 +501,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "RangeToInclusive: Expected numbers for range bounds, found end: {}",
                             type_as_string(&unexpected)
@@ -472,6 +515,7 @@ impl Vm {
                     Number(start) => {
                         if *start < 0.0 {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "RangeFrom: negative numbers not allowed, found '{}'",
                                 start
@@ -484,6 +528,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "RangeFrom: Expected numbers for range bounds, found end: {}",
                             type_as_string(&unexpected)
@@ -510,6 +555,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected iterable value while making iterator, found '{}'",
                             type_as_string(&unexpected)
@@ -528,7 +574,8 @@ impl Vm {
                 captures.resize(capture_count as usize, Empty);
 
                 let function = Function(RuntimeFunction {
-                    ip: self.reader.ip,
+                    chunk: self.chunk(),
+                    ip: self.ip(),
                     arg_count,
                     captures: ValueList::with_data(captures),
                     is_instance_function: false,
@@ -546,7 +593,8 @@ impl Vm {
                 captures.resize(capture_count as usize, Empty);
 
                 let function = Function(RuntimeFunction {
-                    ip: self.reader.ip,
+                    chunk: self.chunk(),
+                    ip: self.ip(),
                     arg_count,
                     captures: ValueList::with_data(captures),
                     is_instance_function: true,
@@ -564,6 +612,7 @@ impl Vm {
                 }
                 unexpected => {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "Capture: expected Function, found '{}'",
                         type_as_string(unexpected)
@@ -578,11 +627,16 @@ impl Vm {
                     None => {
                         if self.call_stack.len() == 1 {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "LoadCapture: attempting to capture outside of function"
                             );
                         } else {
-                            return vm_error!(instruction_ip, "LoadCapture: invalid capture index");
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "LoadCapture: invalid capture index"
+                            );
                         }
                     }
                 }
@@ -590,6 +644,7 @@ impl Vm {
             Instruction::SetCapture { capture, source } => {
                 if self.call_stack.len() == 1 {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "SetCapture: attempting to set a capture outside of a function"
                     );
@@ -599,6 +654,7 @@ impl Vm {
 
                 if !self.frame_mut().set_capture(capture, value) {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "SetCapture: invalid capture index: {} ",
                         capture
@@ -613,6 +669,7 @@ impl Vm {
                     Num4(v) => Num4(-v),
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Negate: expected negatable value, found '{}'",
                             type_as_string(unexpected)
@@ -647,7 +704,13 @@ impl Vm {
                         Str(Arc::new(result))
                     }
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -664,7 +727,13 @@ impl Vm {
                     (Num4(a), Num4(b)) => Num4(a - b),
                     (Num4(a), Number(b)) => Num4(a - b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -681,7 +750,13 @@ impl Vm {
                     (Num4(a), Num4(b)) => Num4(a * b),
                     (Num4(a), Number(b)) => Num4(a * b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -698,7 +773,13 @@ impl Vm {
                     (Num4(a), Num4(b)) => Num4(a / b),
                     (Num4(a), Number(b)) => Num4(a / b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -715,7 +796,13 @@ impl Vm {
                     (Num4(a), Num4(b)) => Num4(a % b),
                     (Num4(a), Number(b)) => Num4(a % b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -726,7 +813,13 @@ impl Vm {
                 let result = match (&lhs_value, &rhs_value) {
                     (Number(a), Number(b)) => Bool(a < b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -737,7 +830,13 @@ impl Vm {
                 let result = match (&lhs_value, &rhs_value) {
                     (Number(a), Number(b)) => Bool(a <= b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -748,7 +847,13 @@ impl Vm {
                 let result = match (&lhs_value, &rhs_value) {
                     (Number(a), Number(b)) => Bool(a > b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -759,7 +864,13 @@ impl Vm {
                 let result = match (&lhs_value, &rhs_value) {
                     (Number(a), Number(b)) => Bool(a >= b),
                     _ => {
-                        return binary_op_error(instruction, lhs_value, rhs_value, instruction_ip);
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
                     }
                 };
                 self.set_register(register, result);
@@ -791,6 +902,7 @@ impl Vm {
                 }
                 unexpected => {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "Expected Bool, found '{}'",
                         type_as_string(&unexpected),
@@ -812,6 +924,7 @@ impl Vm {
                 }
                 unexpected => {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "Expected Bool, found '{}'",
                         type_as_string(&unexpected),
@@ -854,16 +967,66 @@ impl Vm {
             Instruction::Return { register } => {
                 self.frame_mut().result = self.get_register(register).clone();
 
-                let return_ip = self.frame().return_ip;
+                let return_chunk_and_ip = self.frame().return_chunk_and_ip.clone();
                 let frame_result = self.pop_frame()?;
 
                 if self.call_stack.is_empty() {
                     result = ControlFlow::ReturnValue(frame_result);
-                } else if let Some(return_ip) = return_ip {
-                    self.set_ip(return_ip);
+                } else if let Some(return_chunk_and_ip) = return_chunk_and_ip {
+                    self.set_chunk_and_ip(return_chunk_and_ip.0, return_chunk_and_ip.1);
                 } else {
                     result = ControlFlow::ReturnValue(frame_result);
                 }
+            }
+            Instruction::Size { register } => {
+                let size = match self.get_register(register) {
+                    Empty => 0.0,
+                    List(list) => list.data().len() as f64,
+                    Map(map) => map.data().len() as f64,
+                    Range(IntRange { start, end }) => {
+                        (if end >= start {
+                            end - start
+                        } else {
+                            start - end
+                        }) as f64
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "size - '{}' is unsupported",
+                            unexpected
+                        );
+                    }
+                };
+
+                self.set_register(register, Number(size));
+            }
+            Instruction::Type { register } => {
+                let result = match self.get_register(register) {
+                    Bool(_) => "bool".to_string(),
+                    Empty => "empty".to_string(),
+                    Function(_) => "function".to_string(),
+                    ExternalFunction(_) => "function".to_string(),
+                    ExternalValue(value) => value.read().unwrap().value_type(),
+                    List(_) => "list".to_string(),
+                    Map(_) => "map".to_string(),
+                    Number(_) => "number".to_string(),
+                    Num2(_) => "num2".to_string(),
+                    Num4(_) => "num4".to_string(),
+                    Range(_) => "range".to_string(),
+                    Str(_) => "string".to_string(),
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "type is only supported for user types, found {}",
+                            unexpected
+                        );
+                    }
+                };
+
+                self.set_register(register, Str(Arc::new(result.to_string())));
             }
             Instruction::IteratorNext {
                 register,
@@ -874,6 +1037,7 @@ impl Vm {
                     Iterator(iterator) => iterator.next(),
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected Iterator, found '{}'",
                             type_as_string(&unexpected),
@@ -920,6 +1084,7 @@ impl Vm {
                     },
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected List, found '{}'",
                             type_as_string(&unexpected),
@@ -939,22 +1104,26 @@ impl Vm {
                     List(list) => {
                         let list_len = list.len();
                         match index_value {
-                            Number(index) => match list.data_mut().get_mut(index as usize) {
-                                Some(element) => *element = value,
-                                None => {
+                            Number(index) => {
+                                let u_index = index as usize;
+                                if index >= 0.0 && u_index < list_len {
+                                    list.data_mut()[u_index] = value;
+                                } else {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Index '{}' not in List",
                                         index
                                     );
                                 }
-                            },
+                            }
                             Range(IntRange { start, end }) => {
                                 let ustart = start as usize;
                                 let uend = end as usize;
 
                                 if start < 0 || end < 0 {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with negative indices isn't supported, \
                                                 start: {}, end: {}",
@@ -963,6 +1132,7 @@ impl Vm {
                                     );
                                 } else if start > end {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
@@ -971,6 +1141,7 @@ impl Vm {
                                     );
                                 } else if ustart > list_len || uend > list_len {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
@@ -989,6 +1160,7 @@ impl Vm {
                                 let end = end.unwrap_or(list_len);
                                 if start > end {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
@@ -997,6 +1169,7 @@ impl Vm {
                                     );
                                 } else if start > list_len || end > list_len {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
@@ -1013,6 +1186,7 @@ impl Vm {
                             }
                             unexpected => {
                                 return vm_error!(
+                                    self.chunk(),
                                     instruction_ip,
                                     "Unexpected type for List index: '{}'",
                                     type_as_string(&unexpected)
@@ -1022,6 +1196,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected List, found '{}'",
                             type_as_string(&unexpected),
@@ -1045,6 +1220,7 @@ impl Vm {
                             Number(n) => {
                                 if n < 0.0 {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Negative list indices aren't allowed (found '{}')",
                                         n
@@ -1056,6 +1232,7 @@ impl Vm {
                                     }
                                     None => {
                                         return vm_error!(
+                                            self.chunk(),
                                             instruction_ip,
                                             "List index out of bounds - index: {}, list size: {}",
                                             n,
@@ -1070,6 +1247,7 @@ impl Vm {
 
                                 if start < 0 || end < 0 {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with negative indices isn't supported, \
                                                 start: {}, end: {}",
@@ -1078,6 +1256,7 @@ impl Vm {
                                     );
                                 } else if start > end {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
@@ -1086,6 +1265,7 @@ impl Vm {
                                     );
                                 } else if ustart > list_len || uend > list_len {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
@@ -1106,6 +1286,7 @@ impl Vm {
                                 let end = end.unwrap_or(list_len);
                                 if start > end {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
@@ -1114,6 +1295,7 @@ impl Vm {
                                     );
                                 } else if start > list_len || end > list_len {
                                     return vm_error!(
+                                        self.chunk(),
                                         instruction_ip,
                                         "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
@@ -1130,6 +1312,7 @@ impl Vm {
                             }
                             unexpected => {
                                 return vm_error!(
+                                    self.chunk(),
                                     instruction_ip,
                                     "Expected Number or Range, found '{}'",
                                     type_as_string(&unexpected),
@@ -1139,6 +1322,7 @@ impl Vm {
                     }
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected List, found '{}'",
                             type_as_string(&unexpected),
@@ -1161,6 +1345,7 @@ impl Vm {
                         }
                         unexpected => {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "Expected String for Map key, found '{}'",
                                 type_as_string(&unexpected),
@@ -1169,6 +1354,7 @@ impl Vm {
                     },
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "MapInsert: Expected Map, found '{}'",
                             type_as_string(&unexpected),
@@ -1188,6 +1374,7 @@ impl Vm {
                             }
                             None => {
                                 return vm_error!(
+                                    self.chunk(),
                                     instruction_ip,
                                     "Map entry '{}' not found",
                                     id_string,
@@ -1196,6 +1383,7 @@ impl Vm {
                         },
                         unexpected => {
                             return vm_error!(
+                                self.chunk(),
                                 instruction_ip,
                                 "Expected String for Map key, found '{}'",
                                 type_as_string(&unexpected),
@@ -1204,6 +1392,7 @@ impl Vm {
                     },
                     unexpected => {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "MapAccess: Expected Map, found '{}'",
                             type_as_string(&unexpected),
@@ -1212,19 +1401,16 @@ impl Vm {
                 };
             }
             Instruction::Debug { register, constant } => {
-                let prefix = match &self.debug_info {
-                    Some(debug_info) => {
-                        match (
-                            debug_info.source_map.get_source_span(instruction_ip),
-                            &debug_info.script_path.as_ref(),
-                        ) {
-                            (Some(span), Some(path)) => format!("[{}: {}] ", path, span.start.line),
-                            (Some(span), None) => format!("[{}] ", span.start.line),
-                            (None, Some(path)) => format!("[{}: #ERR] ", path),
-                            (None, None) => "[#ERR] ".to_string(),
-                        }
+                let prefix = match (
+                    self.reader.chunk.debug_info.get_source_span(instruction_ip),
+                    self.reader.chunk.source_path.as_ref(),
+                ) {
+                    (Some(span), Some(path)) => {
+                        format!("[{}: {}] ", path.display(), span.start.line)
                     }
-                    None => String::new(),
+                    (Some(span), None) => format!("[{}] ", span.start.line),
+                    (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
+                    (None, None) => "[#ERR] ".to_string(),
                 };
                 let value = self.get_register(register);
                 println!(
@@ -1265,6 +1451,7 @@ impl Vm {
                         call_arg_count += 1;
                     } else {
                         return vm_error!(
+                            self.chunk(),
                             instruction_ip,
                             "Expected self for external instance function"
                         );
@@ -1284,7 +1471,7 @@ impl Vm {
                     Err(error) => {
                         match error {
                             Error::ExternalError { message } => {
-                                return vm_error!(instruction_ip, message)
+                                return vm_error!(self.chunk(), instruction_ip, message)
                             }
                             _ => return Err(error), // TODO extract external error and enforce its use
                         }
@@ -1292,6 +1479,7 @@ impl Vm {
                 }
             }
             Function(RuntimeFunction {
+                chunk,
                 ip: function_ip,
                 arg_count: function_arg_count,
                 captures,
@@ -1304,12 +1492,17 @@ impl Vm {
                             self.get_register(parent_register).clone(),
                         );
                     } else {
-                        return vm_error!(instruction_ip, "Expected self for function");
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Expected self for function"
+                        );
                     }
                 }
 
                 if *function_arg_count != call_arg_count {
                     return vm_error!(
+                        self.chunk(),
                         instruction_ip,
                         "Incorrect argument count, expected {}, found {}",
                         function_arg_count,
@@ -1318,16 +1511,17 @@ impl Vm {
                 }
 
                 self.push_frame(
-                    Some(self.reader.ip),
+                    Some((self.chunk(), self.ip())),
                     arg_register,
                     result_register,
                     captures.clone(),
                 );
 
-                self.set_ip(*function_ip);
+                self.set_chunk_and_ip(chunk.clone(), *function_ip);
             }
             unexpected => {
                 return vm_error!(
+                    self.chunk(),
                     instruction_ip,
                     "Expected Function, found '{}'",
                     type_as_string(&unexpected),
@@ -1336,6 +1530,18 @@ impl Vm {
         };
 
         Ok(Empty)
+    }
+
+    pub fn chunk(&self) -> Arc<Chunk> {
+        self.reader.chunk.clone()
+    }
+
+    fn set_chunk_and_ip(&mut self, chunk: Arc<Chunk>, ip: usize) {
+        self.reader = InstructionReader { chunk, ip };
+    }
+
+    fn ip(&self) -> usize {
+        self.reader.ip
     }
 
     fn set_ip(&mut self, ip: usize) {
@@ -1360,7 +1566,7 @@ impl Vm {
 
     fn push_frame(
         &mut self,
-        return_ip: Option<usize>,
+        return_ip: Option<(Arc<Chunk>, usize)>,
         arg_register: u8,
         result_register: u8,
         captures: ValueList,
@@ -1374,14 +1580,14 @@ impl Vm {
         let frame = match self.call_stack.pop() {
             Some(frame) => frame,
             None => {
-                return vm_error!(0, "pop_frame: Empty call stack");
+                return vm_error!(self.chunk(), 0, "pop_frame: Empty call stack");
             }
         };
 
         let return_value = frame.result.clone();
 
         self.value_stack.truncate(frame.base);
-        if !self.call_stack.is_empty() && frame.return_ip.is_some() {
+        if !self.call_stack.is_empty() && frame.return_chunk_and_ip.is_some() {
             self.set_register(frame.result_register, return_value.clone());
         }
 
@@ -1427,7 +1633,7 @@ impl Vm {
     }
 
     fn get_constant_string(&self, constant_index: usize) -> &str {
-        self.constants.get_string(constant_index)
+        self.reader.chunk.constants.get_string(constant_index)
     }
 
     fn arc_string_from_constant(&mut self, constant_index: usize) -> Arc<String> {
@@ -1436,7 +1642,13 @@ impl Vm {
         match maybe_string {
             Some(s) => s,
             None => {
-                let s = Arc::new(self.constants.get_string(constant_index).to_string());
+                let s = Arc::new(
+                    self.reader
+                        .chunk
+                        .constants
+                        .get_string(constant_index)
+                        .to_string(),
+                );
                 self.string_constants.insert(constant_index, s.clone());
                 s
             }
@@ -1445,12 +1657,14 @@ impl Vm {
 }
 
 fn binary_op_error(
+    chunk: Arc<Chunk>,
     op: Instruction,
     lhs: &Value,
     rhs: &Value,
     ip: usize,
 ) -> Result<ControlFlow, Error> {
     vm_error!(
+        chunk,
         ip,
         "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
         op,
@@ -1461,32 +1675,14 @@ fn binary_op_error(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{external_error, Value::*, ValueHashMap};
-    use koto_bytecode::{bytecode_to_string_annotated, Compiler};
-    use koto_parser::{Options as ParserOptions, Parser};
+    use {
+        super::*,
+        crate::{external_error, Value::*, ValueHashMap},
+        koto_bytecode::chunk_to_string_annotated,
+    };
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
-
-        let mut compiler = Compiler::new();
-
-        let ast = match Parser::parse(&script, vm.constants_mut(), ParserOptions::default()) {
-            Ok(ast) => ast,
-            Err(e) => panic!(format!(
-                "\n{}\n\n Error while parsing script: {} - {}",
-                script, e, e.span.start
-            )),
-        };
-        match compiler.compile(&ast) {
-            Ok((bytecode, _debug_info)) => {
-                vm.set_bytecode(bytecode);
-            }
-            Err(e) => panic!(format!(
-                "\n{}\n\n Error while compiling bytecode: {}",
-                script, e
-            )),
-        };
 
         vm.global.add_value("test_global", Number(42.0));
         vm.global.add_fn("assert", |_, args| {
@@ -1508,24 +1704,26 @@ mod tests {
             Ok(Empty)
         });
 
-        let print_bytecode = |script: &str, bytecode, debug_info| {
-            eprintln!("{}\n", script);
-            let script_lines = script.lines().collect::<Vec<_>>();
-            eprintln!(
-                "{}",
-                bytecode_to_string_annotated(bytecode, &script_lines, debug_info, None)
-            );
+        let chunk = match vm.loader.compile_script(script, &None) {
+            Ok(chunk) => chunk,
+            Err(error) => panic!(error),
         };
 
-        match vm.run() {
+        let print_chunk = |script: &str, chunk| {
+            eprintln!("{}\n", script);
+            let script_lines = script.lines().collect::<Vec<_>>();
+            eprintln!("{}", chunk_to_string_annotated(chunk, &script_lines));
+        };
+
+        match vm.run(chunk) {
             Ok(result) => {
                 if result != expected_output {
-                    print_bytecode(script, vm.bytecode(), compiler.debug_info());
+                    print_chunk(script, vm.chunk());
                 }
                 assert_eq!(result, expected_output);
             }
             Err(e) => {
-                print_bytecode(script, vm.bytecode(), compiler.debug_info());
+                print_chunk(script, vm.chunk());
                 panic!(format!("Error while running script: {:?}", e));
             }
         }
@@ -1818,6 +2016,16 @@ l2 = copy l
 l[1] = -1
 l2[1]";
             test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn size() {
+            let script = "
+a = []
+b = [1 2 3]
+c = [0..10]
+[(size a) (size b) (size c)]";
+            test_script(script, number_list(&[0, 3, 10]));
         }
     }
 
@@ -2433,6 +2641,14 @@ m2 = copy m
 m.foo = -1
 m2.foo";
             test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn size() {
+            let script = "
+m = {foo: 42, bar: 0, baz: 1}
+size m";
+            test_script(script, Number(3.0));
         }
     }
 

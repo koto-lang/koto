@@ -1,3 +1,6 @@
+import thread
+import test.assert_eq
+
 data = [0 for _ in 0..8]
 
 worker = |i|

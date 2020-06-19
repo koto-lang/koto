@@ -1,45 +1,12 @@
-use crate::{Bytecode, Op};
-
-use koto_parser::{
-    AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
-    LookupNode, Node, Scope, Span,
+use {
+    crate::{DebugInfo, Op},
+    koto_parser::{
+        AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
+        LookupNode, Node, Scope, Span,
+    },
+    smallvec::SmallVec,
+    std::convert::TryFrom,
 };
-use smallvec::SmallVec;
-use std::convert::TryFrom;
-
-#[derive(Clone, Default)]
-pub struct DebugInfo {
-    ip_to_source: Vec<(usize, Span)>,
-}
-
-impl DebugInfo {
-    fn push(&mut self, ip: usize, span: &Span) {
-        if let Some(entry) = self.ip_to_source.last() {
-            if entry.1 == *span {
-                // Don't add entries with matching spans, a search is performed in
-                // get_source_span which will find the correct span
-                // for intermediate ips.
-                return;
-            }
-        }
-        self.ip_to_source.push((ip, *span));
-    }
-
-    pub fn get_source_span(&self, ip: usize) -> Option<Span> {
-        // Find the last entry with an ip less than or equal to the input
-        // an upper_bound would nice here, but this isn't currently a performance sensitive function
-        // so a scan through the entries will do.
-        let mut result = None;
-        for entry in self.ip_to_source.iter() {
-            if entry.0 <= ip {
-                result = Some(entry.1);
-            } else {
-                break;
-            }
-        }
-        result
-    }
-}
 
 #[derive(Clone, Debug, Default)]
 struct Loop {
@@ -245,54 +212,21 @@ impl Frame {
 
 #[derive(Default)]
 pub struct Compiler {
-    bytes: Bytecode,
-    frame_stack: Vec<Frame>,
+    bytes: Vec<u8>,
     debug_info: DebugInfo,
+    frame_stack: Vec<Frame>,
     span_stack: Vec<Span>,
 }
 
 impl Compiler {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn debug_info(&self) -> &DebugInfo {
-        &self.debug_info
-    }
-
-    pub fn compile(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
-        // dbg!(ast);
-        assert!(self.frame_stack.is_empty());
-        self.bytes.clear();
+    pub fn compile(ast: &Ast) -> Result<(Vec<u8>, DebugInfo), String> {
+        let mut compiler = Compiler::default();
 
         if let Some(entry_point) = ast.entry_point() {
-            self.compile_node(None, entry_point, ast)?;
+            compiler.compile_node(None, entry_point, ast)?;
         }
 
-        Ok((&self.bytes, &self.debug_info))
-    }
-
-    pub fn compile_incremental(&mut self, ast: &Ast) -> Result<(&Bytecode, &DebugInfo), String> {
-        // dbg!(ast);
-        assert!(self.frame_stack.is_empty());
-
-        let bytes_len = self.bytes.len();
-        let debug_len = self.debug_info.ip_to_source.len();
-
-        if let Some(entry_point) = ast.entry_point() {
-            match self.compile_node(None, entry_point, ast) {
-                Ok(_) => {}
-                Err(e) => {
-                    self.bytes.truncate(bytes_len);
-                    self.debug_info.ip_to_source.truncate(debug_len);
-                    return Err(e);
-                }
-            }
-        }
-
-        Ok((&self.bytes, &self.debug_info))
+        Ok((compiler.bytes, compiler.debug_info))
     }
 
     fn compile_node(
@@ -317,33 +251,6 @@ impl Compiler {
                 }
             }
             Node::Lookup(lookup) => self.compile_lookup(result_register, lookup, None, ast)?,
-            Node::Copy(lookup_or_id) => {
-                if let Some(result_register) = result_register {
-                    match &ast.node(*lookup_or_id).node {
-                        Node::Id(id) => {
-                            if let Some(local_register) =
-                                self.frame().get_local_assigned_register(*id)
-                            {
-                                self.push_op(DeepCopy, &[result_register, local_register]);
-                            } else {
-                                let register = self.push_register()?;
-                                self.compile_load_non_local_id(register, *id)?;
-                                self.push_op(DeepCopy, &[result_register, register]);
-                                self.pop_register()?;
-                            }
-                        }
-                        Node::Lookup(lookup) => {
-                            let register = self.push_register()?;
-                            self.compile_lookup(Some(register), lookup, None, ast)?;
-                            self.push_op(DeepCopy, &[result_register, register]);
-                            self.pop_register()?;
-                        }
-                        _ => {
-                            return Err(format!("Copy: Unexpected node at index {}", lookup_or_id))
-                        }
-                    }
-                }
-            }
             Node::BoolTrue => {
                 if let Some(result_register) = result_register {
                     self.push_op(SetTrue, &[result_register]);
@@ -614,6 +521,9 @@ impl Compiler {
                     _ => return Err(format!("Call: unexpected node at index {}", function)),
                 };
             }
+            Node::Import { from, items } => {
+                self.compile_import_expression(result_register, from, items)?
+            }
             Node::Assign {
                 target,
                 op,
@@ -632,7 +542,7 @@ impl Compiler {
                     self.compile_multi_assign(result_register, targets, &[*expressions], ast)?;
                 }
             },
-            Node::Op { op, lhs, rhs } => {
+            Node::BinaryOp { op, lhs, rhs } => {
                 self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?;
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
@@ -662,15 +572,13 @@ impl Compiler {
                 }
             }
             Node::ReturnExpression(expression) => {
-                if let Some(result_register) = result_register {
-                    self.compile_node(Some(result_register), ast.node(*expression), ast)?;
-                    self.push_op(Return, &[result_register]);
-                } else {
-                    let register = self.push_register()?;
-                    self.compile_node(Some(register), ast.node(*expression), ast)?;
-                    self.push_op(Return, &[register]);
-                    self.pop_register()?;
-                }
+                self.compile_single_register_op(Return, result_register, *expression, ast)?
+            }
+            Node::Size(expression) => {
+                self.compile_single_register_op(Size, result_register, *expression, ast)?
+            }
+            Node::Type(expression) => {
+                self.compile_single_register_op(Type, result_register, *expression, ast)?
             }
             Node::Debug {
                 expression_string,
@@ -1044,7 +952,6 @@ impl Compiler {
         use Op::*;
 
         if let Some(local_register) = self.frame().get_local_assigned_register(id) {
-            // local
             if local_register != result_register {
                 self.push_op(Copy, &[result_register, local_register]);
             }
@@ -1062,7 +969,6 @@ impl Compiler {
         use Op::*;
 
         if let Some(capture_slot) = self.frame().capture_slot(id) {
-            // capture
             self.push_op(LoadCapture, &[result_register, capture_slot]);
         } else {
             // global
@@ -1075,6 +981,126 @@ impl Compiler {
         }
 
         Ok(())
+    }
+
+    fn compile_import_expression(
+        &mut self,
+        result_register: Option<u8>,
+        from: &Vec<ConstantIndex>,
+        items: &Vec<Vec<ConstantIndex>>,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        let mut imported = vec![];
+
+        if from.is_empty() {
+            for item in items.iter() {
+                let import_id = match item.last() {
+                    Some(id) => id,
+                    None => return Err("Missing ID in import item".to_string()),
+                };
+
+                // Reserve a local for the imported item
+                // (only reserve the register otherwise it'll show up in the import search)
+                let import_register = self.frame_mut().reserve_local_register(*import_id)?;
+
+                self.compile_import_item(import_register, item)?;
+
+                imported.push(import_register);
+                self.frame_mut().commit_local_register(import_register)?;
+            }
+        } else {
+            let from_register = self.push_register()?;
+            let key_register = self.push_register()?;
+
+            self.compile_import_item(from_register, from)?;
+
+            for item in items.iter() {
+                let mut access_register = from_register;
+                let import_id = match item.last() {
+                    Some(id) => id,
+                    None => return Err("Missing ID in import item".to_string()),
+                };
+
+                // assign the leaf item to a local with a matching name
+                let import_register = self.frame_mut().assign_local_register(*import_id)?;
+
+                for id in item.iter() {
+                    self.load_string(key_register, *id);
+                    self.push_op(MapAccess, &[import_register, access_register, key_register]);
+                    access_register = import_register;
+                }
+
+                imported.push(import_register);
+            }
+
+            self.pop_register()?; // key_register
+            self.pop_register()?; // from_register
+        }
+
+        if let Some(result_register) = result_register {
+            match imported.as_slice() {
+                [] => return Err("Missing item to import".to_string()),
+                [single_item] => {
+                    self.push_op(Copy, &[result_register, *single_item]);
+                }
+                _ => {
+                    self.push_op(MakeList, &[result_register, imported.len() as u8]);
+                    for item in imported.iter() {
+                        self.push_op(ListPush, &[result_register, *item]);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_import_item(
+        &mut self,
+        result_register: u8,
+        item: &[ConstantIndex],
+    ) -> Result<(), String> {
+        use Op::*;
+
+        match item {
+            [] => return Err("Missing item to import".to_string()),
+            [import_id] => self.compile_import_id(result_register, *import_id),
+            [import_id, nested @ ..] => {
+                self.compile_import_id(result_register, *import_id);
+
+                let key_register = self.push_register()?;
+
+                for nested_item in nested.iter() {
+                    self.load_string(key_register, *nested_item);
+                    self.push_op(MapAccess, &[result_register, result_register, key_register]);
+                }
+
+                self.pop_register()?; // key_register
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_import_id(&mut self, result_register: u8, id: ConstantIndex) {
+        use Op::*;
+
+        if let Some(local_register) = self.frame().get_local_assigned_register(id) {
+            if local_register != result_register {
+                self.push_op(Copy, &[result_register, local_register]);
+            }
+        } else if let Some(capture_slot) = self.frame().capture_slot(id) {
+            self.push_op(LoadCapture, &[result_register, capture_slot]);
+        } else {
+            // If the id isn't a local or capture, then it needs to be imported
+            if id <= u8::MAX as u32 {
+                self.push_op(Import, &[result_register, id as u8]);
+            } else {
+                self.push_op(ImportLong, &[result_register]);
+                self.push_bytes(&id.to_le_bytes());
+            }
+        }
     }
 
     fn compile_binary_op(
@@ -1176,7 +1202,7 @@ impl Compiler {
         let mut rhs = rhs;
         let mut ast_op = ast_op;
 
-        while let Node::Op {
+        while let Node::BinaryOp {
             op: rhs_ast_op,
             lhs: rhs_lhs,
             rhs: rhs_rhs,
@@ -1255,6 +1281,26 @@ impl Compiler {
         self.compile_node_with_jump_offset(Some(register), ast.node(rhs), ast)?;
 
         if result_register.is_none() {
+            self.pop_register()?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_single_register_op(
+        &mut self,
+        op: Op,
+        result_register: Option<u8>,
+        expression: AstIndex,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        if let Some(result_register) = result_register {
+            self.compile_node(Some(result_register), ast.node(expression), ast)?;
+            self.push_op(op, &[result_register]);
+        } else {
+            let register = self.push_register()?;
+            self.compile_node(Some(register), ast.node(expression), ast)?;
+            self.push_op(op, &[register]);
             self.pop_register()?;
         }
 

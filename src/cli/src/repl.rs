@@ -20,8 +20,7 @@ pub struct Repl {
 
 impl Repl {
     pub fn with_options(mut options: Options) -> Self {
-        options.export_all_at_top_level = true; // AKA 'REPL mode'
-        options.incremental_mode = true; // AKA 'REPL mode'
+        options.repl_mode = true;
 
         Self {
             koto: Koto::with_options(options),
