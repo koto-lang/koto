@@ -2,7 +2,7 @@ import string
 from test import assert_eq assert_ne
 
 assert_eq "Hello" "Hello"
-assert_ne "Hello" "hello"
+assert_ne "Hello" "Héllö"
 assert_eq ("Hello" + ", " + "World!") "Hello, World!"
 
 assert_eq 42.0 (string.to_number "42")

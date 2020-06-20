@@ -1,21 +1,53 @@
 import map
-import test.assert_eq
+from test import assert_eq assert_ne
 
-o = {min: 0, max: || 42}
-assert_eq 42 o.max()
-o2 = o
-assert_eq o o2
+# Maps are a collection of key/value pairs
+m = {key: "value", another_key: "another_value"}
 
-# quoted keys can be used for identifiers that would otherwise be disallowed
-x = {"for": -1, "while": 99}
+# A map's values can be accessed via their keys using '.', known as a 'lookup'
+assert_eq m.key "value"
+assert_eq m.another_key "another_value"
+
+# Map values can be updated via lookups
+m.key = 42
+assert_eq m.key 42
+
+# New key/value pairs can be added to the map via lookup
+m.new_key = -1
+assert_eq m.new_key -1
+
+# Quoted strings can be used for keys that would otherwise be disallowed
+x = {"for": -1, "while": 99, "20": "twenty"}
 assert_eq x."for" -1
 assert_eq x."while" 99
+assert_eq x."20" "twenty"
+
+# Unicode can be used in map keys
+x.ƒöó = 123
+assert_eq x.ƒöó 123
+
+# Any Koto value can be placed in a map, for example, functions
+o = {min: 0, max: || 42}
+assert_eq 42 o.max()
 
 sum = 0
 for i in o.min..o.max()
   sum += i
 assert_eq sum 861
 
+# Maps can be assigned to new identifiers
+o2 = o
+# Maps can be compared for equality
+assert_eq o o2
+
+# Maps share their data by default, but you can make a separate copy of the data if needed
+o2.min = -1
+assert_eq o o2 # o and o2 share the same data
+o3 = copy o
+o3.min = 99
+assert_ne o o3 # o and o3 have separate data
+
+# Maps can be defined using nested blocks
 m =
   foo: 42
   # Functions can be initialized as map values

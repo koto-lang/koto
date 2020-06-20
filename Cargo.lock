@@ -298,6 +298,10 @@ dependencies = [
 [[package]]
 name = "koto_lexer"
 version = "0.1.0"
+dependencies = [
+ "unicode-width",
+ "unicode-xid",
+]
 
 [[package]]
 name = "koto_parser"

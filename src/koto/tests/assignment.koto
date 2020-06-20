@@ -8,6 +8,11 @@ a = 1
 b = -a
 assert_eq a -b
 
+# Unicode is allowed in idenifiers
+やあ = héllø = 99
+assert_eq héllø 99
+assert_eq やあ 99
+
 # Assignments return the assigned value
 assert_eq (a = 42) 42
 

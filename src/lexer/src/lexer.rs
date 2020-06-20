@@ -1,6 +1,8 @@
 use {
     crate::{Position, Span},
     std::{iter::Peekable, str::Chars},
+    unicode_width::UnicodeWidthChar,
+    unicode_xid::UnicodeXID,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -105,9 +107,13 @@ impl<'a> TokenLexer<'a> {
         &self.source[self.previous..self.current]
     }
 
-    fn advance_line(&mut self, char_count: usize) {
+    fn advance_line(&mut self, char_bytes: usize) {
+        self.advance_line_utf8(char_bytes, char_bytes);
+    }
+
+    fn advance_line_utf8(&mut self, char_bytes: usize, char_count: usize) {
         self.previous = self.current;
-        self.current += char_count;
+        self.current += char_bytes;
 
         self.position.column += char_count as u32;
 
@@ -117,9 +123,9 @@ impl<'a> TokenLexer<'a> {
         };
     }
 
-    fn advance_to_position(&mut self, char_count: usize, position: Position) {
+    fn advance_to_position(&mut self, char_bytes: usize, position: Position) {
         self.previous = self.current;
-        self.current += char_count;
+        self.current += char_bytes;
 
         self.position = position;
 
@@ -132,14 +138,14 @@ impl<'a> TokenLexer<'a> {
     fn consume_newline(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
         use Token::*;
 
-        let mut count = 1;
+        let mut char_bytes = 1;
         let mut skipped = false;
 
         match chars.next() {
             Some('\\') => {
                 if chars.next() == Some('\n') {
                     skipped = true;
-                    count += 1;
+                    char_bytes += 1;
                 } else {
                     return Some(Error);
                 }
@@ -148,14 +154,14 @@ impl<'a> TokenLexer<'a> {
             _ => return Some(Error),
         }
 
-        count += consume_and_count(&mut chars, is_whitespace);
+        char_bytes += consume_and_count(&mut chars, is_whitespace);
 
-        self.indent = count - 1; // -1 for newline
+        self.indent = char_bytes - 1; // -1 for newline
         self.advance_to_position(
-            count,
+            char_bytes,
             Position {
                 line: self.position.line + 1,
-                column: count as u32, // indexing from 1 for column
+                column: char_bytes as u32, // indexing from 1 for column
             },
         );
 
@@ -176,16 +182,17 @@ impl<'a> TokenLexer<'a> {
 
         if chars.peek() == Some(&'-') {
             // multi-line comment
-            let mut char_count = 1;
+            let mut char_bytes = 1;
             let mut nest_count = 1;
             let mut position = self.position;
             while let Some(c) = chars.next() {
-                char_count += 1;
+                char_bytes += c.len_utf8();
+                position.column += c.width().unwrap_or(0) as u32;
                 match c {
                     '#' => {
                         if chars.peek() == Some(&'-') {
                             chars.next();
-                            char_count += 1;
+                            char_bytes += 1;
                             position.column += 1;
                             nest_count += 1;
                         }
@@ -193,7 +200,7 @@ impl<'a> TokenLexer<'a> {
                     '-' => {
                         if chars.peek() == Some(&'#') {
                             chars.next();
-                            char_count += 1;
+                            char_bytes += 1;
                             position.column += 1;
                             nest_count -= 1;
                             if nest_count == 0 {
@@ -209,13 +216,14 @@ impl<'a> TokenLexer<'a> {
                 }
             }
 
-            self.advance_to_position(char_count, position);
+            self.advance_to_position(char_bytes, position);
 
             Some(if nest_count == 0 { CommentMulti } else { Error })
         } else {
             // single-line comment
-            let count = 1 + consume_and_count(&mut chars, |c| c != '\n');
-            self.advance_line(count);
+            let (comment_bytes, comment_width) =
+                consume_and_count_utf8(&mut chars, |c| c != '\n');
+            self.advance_line_utf8(comment_bytes + 1, comment_width + 1);
             Some(CommentSingle)
         }
     }
@@ -223,20 +231,24 @@ impl<'a> TokenLexer<'a> {
     fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
         use Token::*;
 
+        // The '"' character has already been matched
         chars.next();
-        let mut char_count = 1;
+        let mut string_bytes = 1;
+        let mut string_width = 1;
 
         while let Some(c) = chars.next() {
-            char_count += 1;
+            string_bytes += c.len_utf8();
+            string_width += c.width().unwrap_or(0);
             match c {
                 '\\' => {
                     if chars.peek() == Some(&'"') {
                         chars.next();
-                        char_count += 1;
+                        string_bytes += 1;
+                        string_width += 1;
                     }
                 }
                 '"' => {
-                    self.advance_line(char_count);
+                    self.advance_line_utf8(string_bytes, string_width);
                     return Some(String);
                 }
                 _ => {}
@@ -249,11 +261,11 @@ impl<'a> TokenLexer<'a> {
     fn consume_number_or_subtract(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
         use Token::*;
 
-        let mut count = 0;
+        let mut char_bytes = 0;
 
         if chars.peek() == Some(&'-') {
             chars.next();
-            count += 1;
+            char_bytes += 1;
 
             if chars.peek() == Some(&'=') {
                 self.advance_line(2);
@@ -263,37 +275,37 @@ impl<'a> TokenLexer<'a> {
 
         match chars.peek() {
             Some(c) if is_digit(*c) => {
-                count += consume_and_count(&mut chars, is_digit);
+                char_bytes += consume_and_count(&mut chars, is_digit);
 
                 if chars.peek() == Some(&'.') {
                     chars.next();
 
                     if chars.peek() == Some(&'.') {
                         // A double-dot should be lexed as a range token, so bail out here
-                        self.advance_line(count);
+                        self.advance_line(char_bytes);
                         return Some(Number);
                     }
 
-                    count += 1 + consume_and_count(&mut chars, is_digit);
+                    char_bytes += 1 + consume_and_count(&mut chars, is_digit);
                 }
 
                 if chars.peek() == Some(&'e') {
                     chars.next();
-                    count += 1;
+                    char_bytes += 1;
 
                     if matches!(chars.peek(), Some(&'+') | Some(&'-')) {
                         chars.next();
-                        count += 1;
+                        char_bytes += 1;
                     }
 
-                    count += consume_and_count(&mut chars, is_digit);
+                    char_bytes += consume_and_count(&mut chars, is_digit);
                 }
 
-                self.advance_line(count);
+                self.advance_line(char_bytes);
                 Some(Number)
             }
             _ => {
-                if count == 1 {
+                if char_bytes == 1 {
                     self.advance_line(1);
                     Some(Subtract)
                 } else {
@@ -307,18 +319,16 @@ impl<'a> TokenLexer<'a> {
         use Token::*;
 
         // The first character has already been matched
-        chars.next();
+        let c = chars.next().unwrap();
 
-        let count = 1 + consume_and_count(&mut chars, |c| {
-            matches!(
-                c,
-                'a'..='z' | 'A'..='Z' | '0'..='9' | '_'
-            )
-        });
-        let id = &self.source[self.current..self.current + count];
+        let (char_bytes, char_count) = consume_and_count_utf8(&mut chars, is_id_continue);
+        let char_bytes = c.len_utf8() + char_bytes;
+        let char_count = 1 + char_count;
+
+        let id = &self.source[self.current..self.current + char_bytes];
 
         if id == "else" {
-            if self.source.get(self.current..self.current + count + 3) == Some("else if") {
+            if self.source.get(self.current..self.current + char_bytes + 3) == Some("else if") {
                 self.advance_line(7);
                 return Some(ElseIf);
             } else {
@@ -361,7 +371,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("while", While);
 
         // If no keyword matched, then consume as an Id
-        self.advance_line(count);
+        self.advance_line_utf8(char_bytes, char_count);
         Some(Token::Id)
     }
 
@@ -436,7 +446,7 @@ impl<'a> Iterator for TokenLexer<'a> {
                     Some('#') => self.consume_comment(chars),
                     Some('"') => self.consume_string(chars),
                     Some('0'..='9') | Some('-') => self.consume_number_or_subtract(chars),
-                    Some('a'..='z') | Some('A'..='Z') => self.consume_id_or_keyword(chars),
+                    Some(c) if is_id_start(*c) => self.consume_id_or_keyword(chars),
                     Some(_) => {
                         if let Some(id) = self.consume_symbol(remaining) {
                             Some(id)
@@ -460,18 +470,45 @@ fn is_whitespace(c: char) -> bool {
     matches!(c, ' ' | '\t')
 }
 
+fn is_id_start(c: char) -> bool {
+    UnicodeXID::is_xid_start(c)
+}
+
+fn is_id_continue(c: char) -> bool {
+    UnicodeXID::is_xid_continue(c)
+}
+
 fn consume_and_count(chars: &mut Peekable<Chars>, predicate: impl Fn(char) -> bool) -> usize {
-    let mut count = 0;
+    let mut char_bytes = 0;
 
     while let Some(c) = chars.peek() {
         if !predicate(*c) {
             break;
         }
-        count += 1;
+        char_bytes += 1;
         chars.next();
     }
 
-    count
+    char_bytes
+}
+
+fn consume_and_count_utf8(
+    chars: &mut Peekable<Chars>,
+    predicate: impl Fn(char) -> bool,
+) -> (usize, usize) {
+    let mut char_bytes = 0;
+    let mut char_count = 0;
+
+    while let Some(c) = chars.peek() {
+        if !predicate(*c) {
+            break;
+        }
+        char_bytes += c.len_utf8();
+        char_count += c.width().unwrap_or(0);
+        chars.next();
+    }
+
+    (char_bytes, char_count)
 }
 
 struct PeekedToken<'a> {
@@ -657,7 +694,7 @@ mod tests {
 
     #[test]
     fn ids() {
-        let input = "id id1 id_2 i_d_3 if iff _";
+        let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _";
         check_lexer_output(
             input,
             &[
@@ -665,6 +702,7 @@ mod tests {
                 (Id, Some("id1"), 1),
                 (Id, Some("id_2"), 1),
                 (Id, Some("i_d_3"), 1),
+                (Id, Some("ïd_ƒôûr"), 1),
                 (If, None, 1),
                 (Id, Some("iff"), 1),
                 (Placeholder, None, 1),
@@ -899,6 +937,29 @@ else
                 (Else, None, 5, 0),
                 (NewLineIndented, None, 6, 2),
                 (Number, Some("0"), 6, 2),
+            ],
+        );
+    }
+
+    #[test]
+    fn map_lookup() {
+        let input = "m.检验.foo[1].bär()";
+
+        check_lexer_output(
+            input,
+            &[
+                (Id, Some("m"), 1),
+                (Dot, None, 1),
+                (Id, Some("检验"), 1),
+                (Dot, None, 1),
+                (Id, Some("foo"), 1),
+                (ListStart, None, 1),
+                (Number, Some("1"), 1),
+                (ListEnd, None, 1),
+                (Dot, None, 1),
+                (Id, Some("bär"), 1),
+                (ParenOpen, None, 1),
+                (ParenClose, None, 1),
             ],
         );
     }

@@ -5,3 +5,5 @@ authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+unicode-width = "0.1.7"
+unicode-xid = "0.2.0"
