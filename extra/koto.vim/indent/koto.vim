@@ -38,6 +38,11 @@ function! KotoIndent()
     let l:indent += &shiftwidth
   endif
 
+  " Starting with try, catch, finally
+  if l:prev_line =~# '^\s*\(try\|catch\s\|finally\).*$'
+    let l:indent += &shiftwidth
+  endif
+
   return l:indent
 endfunc
 

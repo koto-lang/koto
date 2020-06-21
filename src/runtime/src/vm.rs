@@ -26,6 +26,7 @@ struct Frame {
     result_register: u8,
     result: Value,
     return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
+    catch_stack: Vec<(u8, usize)>,
 }
 
 impl Frame {
@@ -125,6 +126,8 @@ impl Vm {
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
+        println!("run_function");
+
         if function.is_instance_function {
             return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
         }
@@ -152,24 +155,54 @@ impl Vm {
         let ip = self.ip();
         self.set_chunk_and_ip(function.chunk.clone(), function.ip);
 
-        let result = self.execute_instructions()?;
+        let result = self.execute_instructions();
+        if result.is_err() {
+            self.pop_frame()?;
+        }
+
         self.set_chunk_and_ip(chunk, ip);
 
-        Ok(result)
+        result
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
         let mut ip = self.ip();
+
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction, ip)? {
-                ControlFlow::Continue => {}
-                ControlFlow::ReturnValue(return_value) => {
+            match self.execute_instruction(instruction, ip) {
+                Ok(ControlFlow::Continue) => {}
+                Ok(ControlFlow::ReturnValue(return_value)) => {
                     result = return_value;
                     break;
                 }
+                Err(error) => {
+                    let mut recover_chunk = self.chunk();
+                    let mut recover_register_and_ip = None;
+
+                    while let Some(frame) = self.call_stack.last() {
+                        if let Some((error_register, catch_ip)) = frame.catch_stack.last() {
+                            recover_register_and_ip = Some((*error_register, *catch_ip));
+                            break;
+                        } else {
+                            match &frame.return_chunk_and_ip {
+                                Some((chunk, _)) => recover_chunk = chunk.clone(),
+                                None => return Err(error),
+                            }
+                            self.pop_frame()?;
+                        }
+                    }
+
+                    if let Some((register, ip)) = recover_register_and_ip {
+                        self.set_register(register, Value::Str(Arc::new(error.to_string())));
+                        self.set_chunk_and_ip(recover_chunk, ip);
+                    } else {
+                        return Err(error);
+                    }
+                }
             }
+
             ip = self.ip();
         }
 
@@ -1098,6 +1131,16 @@ impl Vm {
                         )
                     }
                 };
+            }
+            Instruction::TryStart {
+                arg_register,
+                catch_offset,
+            } => {
+                let catch_ip = self.ip() + catch_offset;
+                self.frame_mut().catch_stack.push((arg_register, catch_ip));
+            }
+            Instruction::TryEnd => {
+                self.frame_mut().catch_stack.pop();
             }
             Instruction::Debug { register, constant } => {
                 let prefix = match (
@@ -3168,6 +3211,54 @@ assert "Hello" in "Hello, World!"
 assert not "Hello" in "World!"
 "#;
             test_script(script, Empty);
+        }
+    }
+
+    mod error_recovery {
+        use super::*;
+
+        #[test]
+        fn try_catch() {
+            let script = "
+x = 1
+try
+  x += 1
+  a + b
+catch _
+  x + 1
+";
+            test_script(script, Number(3.0));
+        }
+
+        #[test]
+        fn try_catch_finally() {
+            let script = "
+try
+  x
+catch e
+  -1
+finally
+  99
+";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
+        fn try_catch_nested() {
+            let script = "
+x = 0
+try
+  x += 1
+  try
+    x += 1
+    a + b
+  catch _
+    x += 1
+  a + b
+catch _
+  x += 1
+";
+            test_script(script, Number(4.0));
         }
     }
 }

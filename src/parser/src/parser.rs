@@ -1108,6 +1108,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::From | Token::Import => return self.parse_import_expression(),
+                Token::Try if primary_expression => return self.parse_try_expression(),
                 Token::NewLineIndented => return self.parse_map_block(current_indent, None),
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => return Ok(None),
@@ -1543,6 +1544,54 @@ impl<'source> Parser<'source> {
         }
 
         Ok(Some(self.push_node(Node::Import { from, items })?))
+    }
+
+    fn parse_try_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        let current_indent = self.lexer.current_indent();
+        self.consume_token();
+        let try_block = if let Some(try_block) = self.parse_indented_block(current_indent, None)? {
+            try_block
+        } else {
+            return syntax_error!(ExpectedTryBody, self);
+        };
+
+        if self.skip_whitespace_and_next() != Some(Token::Catch) {
+            return syntax_error!(ExpectedCatchBlock, self);
+        }
+
+        let catch_arg = if let Some(catch_arg) = self.parse_id(true) {
+            self.frame_mut()?.ids_assigned_in_scope.insert(catch_arg);
+            catch_arg
+        } else {
+            return syntax_error!(ExpectedCatchArgument, self);
+        };
+
+        let catch_block =
+            if let Some(catch_block) = self.parse_indented_block(current_indent, None)? {
+                catch_block
+            } else {
+                return syntax_error!(ExpectedCatchBody, self);
+            };
+
+        let finally_block = if self.skip_whitespace_and_peek() == Some(Token::Finally) {
+            self.consume_token();
+            if let Some(finally_block) = self.parse_indented_block(current_indent, None)? {
+                Some(finally_block)
+            } else {
+                return syntax_error!(ExpectedFinallyBody, self);
+            }
+        } else {
+            None
+        };
+
+        let result = self.push_node(Node::Try(AstTry {
+            try_block,
+            catch_arg,
+            catch_block,
+            finally_block,
+        }))?;
+
+        Ok(Some(result))
     }
 
     fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
@@ -4184,6 +4233,77 @@ a = 1 + \
                     Constant::Str("def"),
                     Constant::Str("xyz"),
                 ]),
+            )
+        }
+    }
+
+    mod error_handling {
+        use super::*;
+
+        #[test]
+        fn try_catch() {
+            let source = "\
+try
+  f()
+catch e
+  debug e
+";
+            check_ast(
+                source,
+                &[
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(1),
+                    Debug {
+                        expression_string: 1,
+                        expression: 1,
+                    },
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: 1,
+                        catch_block: 2,
+                        finally_block: None,
+                    }),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("e")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_finally() {
+            let source = "\
+try
+  f()
+catch e
+  debug e
+finally
+  0
+";
+            check_ast(
+                source,
+                &[
+                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(1),
+                    Debug {
+                        expression_string: 1,
+                        expression: 1,
+                    },
+                    Number0,
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: 1,
+                        catch_block: 2,
+                        finally_block: Some(3),
+                    }),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("e")]),
             )
         }
     }

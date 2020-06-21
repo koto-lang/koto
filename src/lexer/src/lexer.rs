@@ -57,6 +57,7 @@ pub enum Token {
     // Keywords
     And,
     Break,
+    Catch   ,
     Continue,
     Copy,
     Debug,
@@ -64,6 +65,7 @@ pub enum Token {
     ElseIf,
     Export,
     False,
+    Finally,
     For,
     From,
     If,
@@ -77,6 +79,7 @@ pub enum Token {
     Size,
     Then,
     True,
+    Try,
     Type,
     Until,
     While,
@@ -348,11 +351,13 @@ impl<'a> TokenLexer<'a> {
 
         check_keyword!("and", And);
         check_keyword!("break", Break);
+        check_keyword!("catch", Catch);
         check_keyword!("continue", Continue);
         check_keyword!("copy", Copy);
         check_keyword!("debug", Debug);
         check_keyword!("export", Export);
         check_keyword!("false", False);
+        check_keyword!("finally", Finally);
         check_keyword!("for", For);
         check_keyword!("from", From);
         check_keyword!("if", If);
@@ -366,6 +371,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("return", Return);
         check_keyword!("then", Then);
         check_keyword!("true", True);
+        check_keyword!("try", Try);
         check_keyword!("type", Type);
         check_keyword!("until", Until);
         check_keyword!("while", While);

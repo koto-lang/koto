@@ -78,9 +78,9 @@ pub enum Op {
     MapAccess,        // register, map, key
     Size,             // register
     Type,             // register
+    TryStart,         // catch arg register, catch body offset[2]
+    TryEnd,           //
     Debug,            // register, constant[4]
-    Unused67,
-    Unused68,
     Unused69,
     Unused70,
     Unused71,

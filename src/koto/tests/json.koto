@@ -3,8 +3,17 @@ import io
 import json
 import test.assert_eq
 
-file_data = io.read_to_string env.script_dir + "/data/test.json"
-data = json.from_string file_data
+file_data = try
+  io.read_to_string env.script_dir + "/data/test.json"
+catch error
+  io.print "Error reading file data: " error
+  assert false
+
+data = try
+  json.from_string file_data
+catch error
+  io.print "Error reading decoding json data: " error
+  assert false
 
 assert_eq data.empty ()
 assert_eq data.number 99
