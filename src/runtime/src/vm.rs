@@ -550,9 +550,7 @@ impl Vm {
                 let iterator = match self.get_register(range) {
                     Range(int_range) => Iterator(ValueIterator::new(Iterable::Range(*int_range))),
                     List(list) => Iterator(ValueIterator::new(Iterable::List(list.clone()))),
-                    Map(_) => {
-                        unimplemented!("MakeIterator - List");
-                    }
+                    Map(map) => Iterator(ValueIterator::new(Iterable::Map(map.clone()))),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),

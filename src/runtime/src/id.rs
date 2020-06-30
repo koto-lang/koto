@@ -15,6 +15,10 @@ impl Id {
     pub fn as_str(&self) -> &str {
         &self.0.as_ref()
     }
+
+    pub fn as_arc_string(&self) -> &Arc<String> {
+        &self.0
+    }
 }
 
 impl Borrow<str> for Id {

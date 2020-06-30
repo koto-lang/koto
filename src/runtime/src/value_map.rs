@@ -86,6 +86,10 @@ impl ValueHashMap {
         self.0.get_mut(id)
     }
 
+    pub fn get_index(&self, index: usize) -> Option<(&Id, &Value)> {
+        self.0.get_index(index)
+    }
+
     pub fn contains_key(&self, id: &str) -> bool {
         self.0.contains_key(id)
     }

@@ -1,4 +1,4 @@
-use crate::single_arg_fn;
+use crate::{external_error, single_arg_fn};
 use koto_runtime::{value, Value, ValueList, ValueMap, ValueVec};
 use std::sync::Arc;
 
@@ -14,6 +14,18 @@ pub fn register(global: &mut ValueMap) {
                 .map(|k| Str(Arc::new(k.as_str().to_string())))
                 .collect::<ValueVec>(),
         )))
+    });
+
+    map.add_fn("get", |_, args|{
+        match args {
+            [Map(m), Str(key)] => {
+                match m.data().get(key) {
+                    Some(value) => Ok(value.clone()),
+                    None => Ok(Empty),
+                }
+            }
+            _ => external_error!("map.get: Expected map and key as arguments"),
+        }
     });
 
     global.add_value("map", Map(map));

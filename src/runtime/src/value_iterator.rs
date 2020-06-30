@@ -1,4 +1,4 @@
-use crate::{Value, ValueList};
+use crate::{Value, ValueList, ValueMap};
 
 #[derive(Clone, Copy, Debug)]
 pub struct IntRange {
@@ -10,6 +10,7 @@ pub struct IntRange {
 pub enum Iterable {
     Range(IntRange),
     List(ValueList),
+    Map(ValueMap),
 }
 
 #[derive(Clone, Debug)]
@@ -28,7 +29,7 @@ impl Iterator for ValueIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Value> {
-        use Value::Number;
+        use Value::{List, Number, Str};
 
         match &self.iterable {
             Iterable::Range(IntRange { start, end }) => {
@@ -54,6 +55,19 @@ impl Iterator for ValueIterator {
             }
             Iterable::List(list) => {
                 let result = list.data().get(self.index).cloned();
+                self.index += 1;
+                result
+            }
+            Iterable::Map(map) => {
+                let result = match map.data().get_index(self.index) {
+                    // TODO - Introduce multivalue to avoid list creation
+                    Some((key, value)) => Some(List(ValueList::from_slice(&[
+                        Str(key.as_arc_string().clone()),
+                        value.clone(),
+                    ]))),
+                    None => None,
+                };
+
                 self.index += 1;
                 result
             }
