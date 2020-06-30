@@ -1,5 +1,5 @@
 import map
-from test import assert_eq assert_ne
+from test import assert assert_eq assert_ne
 
 # Maps are a collection of key/value pairs
 m = {key: "value", another_key: "another_value"}
@@ -25,6 +25,9 @@ assert_eq x."20" "twenty"
 # Unicode can be used in map keys
 x.ƒöó = 123
 assert_eq x.ƒöó 123
+
+# 'in' can be used to check if a key is in a map
+assert "ƒöó" in x
 
 # Any Koto value can be placed in a map, for example, functions
 o = {min: 0, max: || 42}

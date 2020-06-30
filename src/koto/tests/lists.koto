@@ -50,3 +50,7 @@ x = x + [1]
 assert_eq x [0 1]
 x += [2 3]
 assert_eq x [0 1 2 3]
+
+##### in operator
+assert 42 in [1 42 99]
+assert not -1 in [1 42 99]

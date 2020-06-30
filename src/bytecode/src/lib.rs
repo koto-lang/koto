@@ -60,6 +60,7 @@ pub enum Op {
     GreaterOrEqual,   // result, lhs, rhs
     Equal,            // result, lhs, rhs
     NotEqual,         // result, lhs, rhs
+    In,               // result, lhs, rhs
     Jump,             // offset[2]
     JumpTrue,         // condition, offset[2]
     JumpFalse,        // condition, offset[2]

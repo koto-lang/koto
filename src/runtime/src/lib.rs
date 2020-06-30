@@ -7,7 +7,11 @@ mod value_list;
 mod value_map;
 mod vm;
 
-use {id::Id, koto_bytecode::Chunk, std::sync::Arc};
+use {
+    id::Id,
+    koto_bytecode::Chunk,
+    std::{fmt, sync::Arc},
+};
 
 pub use {
     external::{ExternalFunction, ExternalValue},
@@ -31,6 +35,15 @@ pub enum Error {
     ExternalError {
         message: String,
     },
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::VmError { message, .. } => f.write_str(message),
+            Error::ExternalError { message } => f.write_str(message),
+        }
+    }
 }
 
 pub type RuntimeResult = Result<Value, Error>;

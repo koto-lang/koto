@@ -887,6 +887,26 @@ impl Vm {
                 let result = (lhs_value != rhs_value).into();
                 self.set_register(register, result);
             }
+            Instruction::In { register, lhs, rhs } => {
+                let lhs_value = self.get_register(lhs);
+                let rhs_value = self.get_register(rhs);
+                let result = match (lhs_value, rhs_value) {
+                    (_, List(l)) => l.data().contains(lhs_value).into(),
+                    (Str(s), Map(m)) => m.data().contains_key(s).into(),
+                    (Str(s1), Str(s2)) => s2.contains(s1.as_ref()).into(),
+                    (Number(n), Range(r)) => (r.start..r.end).contains(&(*n as isize)).into(),
+                    _ => {
+                        return binary_op_error(
+                            self.chunk(),
+                            instruction,
+                            lhs_value,
+                            rhs_value,
+                            instruction_ip,
+                        );
+                    }
+                };
+                self.set_register(register, result);
+            }
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
             }
@@ -1724,7 +1744,7 @@ mod tests {
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
-                panic!(format!("Error while running script: {:?}", e));
+                panic!(format!("Error while running script: {}", e.to_string()));
             }
         }
     }
@@ -1784,6 +1804,63 @@ mod tests {
         fn string() {
             test_script("\"Hello\"", Str(Arc::new("Hello".to_string())));
         }
+    }
+
+    mod operators {
+        use super::*;
+
+        #[test]
+        fn add_multiply() {
+            test_script("1 + 2 * 3 + 4", Number(11.0));
+        }
+
+        #[test]
+        fn subtract_divide_modulo() {
+            test_script("(20 - 2) / 3 % 4", Number(2.0));
+        }
+
+        #[test]
+        fn comparison() {
+            test_script(
+                "false or 1 < 2 <= 2 <= 3 and 3 >= 2 >= 2 > 1 or false",
+                Bool(true),
+            );
+        }
+
+        #[test]
+        fn equality() {
+            test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
+        }
+
+        #[test]
+        fn not_bool() {
+            test_script("not false", Bool(true));
+        }
+
+        #[test]
+        fn not_expression() {
+            test_script("not 1 + 1 == 2", Bool(false));
+        }
+
+        #[test]
+        fn assignment() {
+            let script = "
+a = 1 * 3
+a + 1";
+            test_script(script, Number(4.0));
+        }
+
+        #[test]
+        fn negation() {
+            let script = "
+a = 99
+-a";
+            test_script(script, Number(-99.0));
+        }
+    }
+
+    mod ranges {
+        use super::*;
 
         #[test]
         fn range() {
@@ -1796,14 +1873,15 @@ mod tests {
             test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
             test_script("4..=0", Range(IntRange { start: 5, end: 0 }));
         }
-    }
-
-    mod operators {
-        use super::*;
 
         #[test]
-        fn add_multiply() {
-            test_script("1 + 2 * 3 + 4", Number(11.0));
+        fn in_operator() {
+            let script = "
+assert 10 in 5..15
+assert 10 in 0..=10
+assert not 10 in 0..10";
+
+            test_script(script, Empty);
         }
 
         #[test]
@@ -2026,6 +2104,16 @@ b = [1 2 3]
 c = [0..10]
 [(size a) (size b) (size c)]";
             test_script(script, number_list(&[0, 3, 10]));
+        }
+
+        #[test]
+        fn in_operator() {
+            let script = r#"
+assert -1 in [2 -1 5]
+assert not 7 in [2 -1 5]
+assert "foo" in [0 [] "foo"]
+"#;
+            test_script(script, Empty);
         }
     }
 
@@ -2650,6 +2738,16 @@ m = {foo: 42, bar: 0, baz: 1}
 size m";
             test_script(script, Number(3.0));
         }
+
+        #[test]
+        fn in_operator() {
+            let script = r#"
+m = {foo: 42, bar: 0}
+assert "foo" in m
+assert not "baz" in m
+"#;
+            test_script(script, Empty);
+        }
     }
 
     mod lookups {
@@ -2919,7 +3017,16 @@ x = num4 1 -2 3 -4
 
         #[test]
         fn addition() {
-            test_script("\"Hello, \" + \"World!\"", string("Hello, World!"));
+            test_script(r#""Hello, " + "World!""#, string("Hello, World!"));
+        }
+
+        #[test]
+        fn in_operator() {
+            let script = r#"
+assert "Hello" in "Hello, World!"
+assert not "Hello" in "World!"
+"#;
+            test_script(script, Empty);
         }
     }
 }

@@ -1,4 +1,4 @@
-import test.assert_eq
+from test import assert assert_eq
 
 # Assigning a range to a value
 r = 0..2
@@ -40,3 +40,7 @@ assert_eq [2..=0] [2 1 0]
 
 a = [x for x in 4..=1]
 assert_eq a [4 3 2 1]
+
+# The in operator can be used to check if a number is in a range
+assert 10 in 0..20
+assert not 10 in 0..10

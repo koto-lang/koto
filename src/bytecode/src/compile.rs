@@ -1116,31 +1116,37 @@ impl Compiler {
         let lhs_node = ast.node(lhs);
         let rhs_node = ast.node(rhs);
 
+        match op {
+            Add | Subtract | Multiply | Divide | Modulo | In => {
+                self.compile_op(result_register, op, lhs_node, rhs_node, ast)
+            }
+            Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
+                self.compile_comparison_op(result_register, op, &lhs_node, &rhs_node, ast)
+            }
+            And | Or => self.compile_logic_op(result_register, op, lhs, rhs, ast),
+        }
+    }
+
+    fn compile_op(
+        &mut self,
+        result_register: Option<u8>,
+        op: AstOp,
+        lhs: &AstNode,
+        rhs: &AstNode,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use AstOp::*;
+
         let op = match op {
             Add => Op::Add,
             Subtract => Op::Subtract,
             Multiply => Op::Multiply,
             Divide => Op::Divide,
             Modulo => Op::Modulo,
-            Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
-                return self.compile_comparison_op(result_register, op, &lhs_node, &rhs_node, ast);
-            }
-            And | Or => {
-                return self.compile_logic_op(result_register, op, lhs, rhs, ast);
-            }
+            In => Op::In,
+            _ => return Err("Internal error: invalid op".to_string()),
         };
 
-        self.compile_op(result_register, op, lhs_node, rhs_node, ast)
-    }
-
-    fn compile_op(
-        &mut self,
-        result_register: Option<u8>,
-        op: Op,
-        lhs: &AstNode,
-        rhs: &AstNode,
-        ast: &Ast,
-    ) -> Result<(), String> {
         let (lhs_register, pop_lhs) = self.compile_node_or_get_local(result_register, lhs, ast)?;
 
         // If the result register wasn't used for the lhs, then it's available for the rhs

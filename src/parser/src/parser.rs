@@ -1666,6 +1666,7 @@ impl<'source> Parser<'source> {
 
             And => AstOp::And,
             Or => AstOp::Or,
+            In => AstOp::In,
 
             _ => unreachable!(),
         };
@@ -1784,11 +1785,12 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     let priority = match op {
         Or => (1, 2),
         And => (3, 4),
-        // TODO, chained comparisons currently require right-associativity
-        Equal | NotEqual => (6, 5),
-        Greater | GreaterOrEqual | Less | LessOrEqual => (8, 7),
-        Add | Subtract => (9, 10),
-        Multiply | Divide | Modulo => (11, 12),
+        In => (5, 6),
+        // Chained comparisons require right-associativity
+        Equal | NotEqual => (8, 7),
+        Greater | GreaterOrEqual | Less | LessOrEqual => (10, 9),
+        Add | Subtract => (11, 12),
+        Multiply | Divide | Modulo => (13, 14),
         _ => return None,
     };
     Some(priority)

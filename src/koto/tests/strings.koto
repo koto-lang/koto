@@ -1,5 +1,5 @@
 import string
-from test import assert_eq assert_ne
+from test import assert assert_eq assert_ne
 
 assert_eq "Hello" "Hello"
 assert_ne "Hello" "Héllö"
@@ -11,3 +11,6 @@ assert_eq -1.5 (string.to_number "-1.5")
 x = "^"
 x += "_" + "^"
 assert_eq x "^_^"
+
+assert "_" in "O_o"
+assert not "@" in "O_o"

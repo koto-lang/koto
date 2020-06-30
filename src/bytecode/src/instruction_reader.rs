@@ -182,6 +182,11 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
+    In {
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+    },
     Jump {
         offset: usize,
     },
@@ -451,6 +456,11 @@ impl fmt::Display for Instruction {
             NotEqual { register, lhs, rhs } => write!(
                 f,
                 "NotEqual\tresult: {}\tlhs: {}\t\trhs: {}",
+                register, lhs, rhs
+            ),
+            In { register, lhs, rhs } => write!(
+                f,
+                "In\t\tresult: {}\tlhs: {}\t\trhs: {}",
                 register, lhs, rhs
             ),
             Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
@@ -841,6 +851,11 @@ impl Iterator for InstructionReader {
                 rhs: get_byte!(),
             }),
             Op::NotEqual => Some(NotEqual {
+                register: get_byte!(),
+                lhs: get_byte!(),
+                rhs: get_byte!(),
+            }),
+            Op::In => Some(In {
                 register: get_byte!(),
                 lhs: get_byte!(),
                 rhs: get_byte!(),
