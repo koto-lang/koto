@@ -30,6 +30,7 @@ pub enum Op {
     SetGlobalLong,    // global[4], source
     Import,           // register, constant
     ImportLong,       // register, constant[4]
+    RegisterList,     // register, start register, count
     MakeList,         // register, size hint
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint

@@ -404,9 +404,27 @@ impl Compiler {
                 self.compile_block(result_register, expressions, ast)?;
             }
             Node::Expressions(expressions) => {
-                // For now, capture the results of multiple expressions in a list.
-                // Later, find situations where the list capture can be avoided.
-                self.compile_make_list(result_register, &expressions, ast)?;
+                let stack_count = self.frame().register_stack.len();
+
+                for expression in expressions.iter() {
+                    let register = self.push_register()?;
+                    self.compile_node(Some(register), ast.node(*expression), ast)?;
+                }
+
+                if let Some(result_register) = result_register {
+                    let start_register = self.frame().peek_register(expressions.len() - 1)?;
+
+                    self.push_op(
+                        RegisterList,
+                        &[
+                            result_register,
+                            start_register as u8,
+                            expressions.len() as u8,
+                        ],
+                    );
+                }
+
+                self.frame_mut().truncate_register_stack(stack_count)?;
             }
             Node::CopyExpression(expression) => {
                 if let Some(result_register) = result_register {
@@ -839,10 +857,7 @@ impl Compiler {
                                 let local_register =
                                     self.frame_mut().assign_local_register(*id_index)?;
 
-                                self.push_op(
-                                    ValueIndex,
-                                    &[local_register, rhs_register, i as u8],
-                                );
+                                self.push_op(ValueIndex, &[local_register, rhs_register, i as u8]);
                             }
                         }
                         Node::Lookup(lookup) => {

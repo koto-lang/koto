@@ -3,7 +3,7 @@
 use {
     crate::{
         type_as_string,
-        value::{copy_value, RuntimeFunction},
+        value::{deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Id, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
@@ -176,6 +176,19 @@ impl Vm {
         Ok(result)
     }
 
+    fn copy_value(&self, value: &Value) -> Value {
+        match value.clone() {
+            Value::RegisterList { start, count } => {
+                let mut copied = ValueVec::with_capacity(count as usize);
+                for register in start..start + count {
+                    copied.push(self.get_register(register).clone());
+                }
+                Value::List(ValueList::with_data(copied))
+            }
+            other => other,
+        }
+    }
+
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
@@ -190,10 +203,13 @@ impl Vm {
                 return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
-                self.set_register(target, self.get_register(source).clone());
+                self.set_register(target, self.copy_value(self.get_register(source)));
             }
             Instruction::DeepCopy { target, source } => {
-                self.set_register(target, copy_value(self.get_register(source)));
+                self.set_register(
+                    target,
+                    deep_copy_value(&self.copy_value(self.get_register(source))),
+                );
             }
             Instruction::SetEmpty { register } => self.set_register(register, Empty),
             Instruction::SetBool { register, value } => self.set_register(register, Bool(value)),
@@ -271,6 +287,13 @@ impl Vm {
                         }
                     }
                 }
+            }
+            Instruction::RegisterList {
+                register,
+                start,
+                count,
+            } => {
+                self.set_register(register, RegisterList { start, count });
             }
             Instruction::MakeList {
                 register,
@@ -983,18 +1006,18 @@ impl Vm {
                 )?;
             }
             Instruction::Return { register } => {
-                self.frame_mut().result = self.get_register(register).clone();
+                let frame_result = self.get_register(register).clone();
+                self.frame_mut().result = frame_result.clone();
 
                 let return_chunk_and_ip = self.frame().return_chunk_and_ip.clone();
-                let frame_result = self.pop_frame()?;
 
-                if self.call_stack.is_empty() {
-                    result = ControlFlow::ReturnValue(frame_result);
-                } else if let Some(return_chunk_and_ip) = return_chunk_and_ip {
+                if let Some(return_chunk_and_ip) = return_chunk_and_ip {
                     self.set_chunk_and_ip(return_chunk_and_ip.0, return_chunk_and_ip.1);
                 } else {
-                    result = ControlFlow::ReturnValue(frame_result);
+                    result = ControlFlow::ReturnValue(self.copy_value(&frame_result));
                 }
+
+                self.pop_frame()?;
             }
             Instruction::Size { register } => {
                 let size = match self.get_register(register) {
@@ -1632,9 +1655,38 @@ impl Vm {
 
         let return_value = frame.result.clone();
 
-        self.value_stack.truncate(frame.base);
         if !self.call_stack.is_empty() && frame.return_chunk_and_ip.is_some() {
-            self.set_register(frame.result_register, return_value.clone());
+            let return_value = match return_value.clone() {
+                Value::RegisterList { start, count } => {
+                    // If the return value is a register list (i.e. when returning multiple values),
+                    // then copy the list's values to the frame base,
+                    // and adjust the list's start register to match their new position.
+                    if start != 0 {
+                        let start = start as usize;
+                        for i in 0..count as usize {
+                            let source = frame.base + start + i;
+                            let target = frame.base + i;
+                            self.value_stack[target] = self.value_stack[source].clone();
+                        }
+                    }
+
+                    // Keep the register list values around after the frame has been popped
+                    self.value_stack.truncate(frame.base + count as usize);
+
+                    Value::RegisterList {
+                        start: frame.base as u8,
+                        count,
+                    }
+                }
+                other => {
+                    self.value_stack.truncate(frame.base);
+                    other
+                }
+            };
+
+            self.set_register(frame.result_register, return_value);
+        } else {
+            self.value_stack.truncate(frame.base);
         }
 
         Ok(return_value)

@@ -51,6 +51,11 @@ pub enum Instruction {
         register: u8,
         constant: usize,
     },
+    RegisterList {
+        register: u8,
+        start: u8,
+        count: u8,
+    },
     MakeList {
         register: u8,
         size_hint: usize,
@@ -302,6 +307,15 @@ impl fmt::Display for Instruction {
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
             }
+            RegisterList {
+                register,
+                start,
+                count,
+            } => write!(
+                f,
+                "RegisterList\tresult: {}\tstart: {}\tcount: {}",
+                register, start, count
+            ),
             MakeList {
                 register,
                 size_hint,
@@ -715,6 +729,11 @@ impl Iterator for InstructionReader {
             Op::ImportLong => Some(Import {
                 register: get_byte!(),
                 constant: get_u32!() as usize,
+            }),
+            Op::RegisterList => Some(RegisterList {
+                register: get_byte!(),
+                start: get_byte!(),
+                count: get_byte!(),
             }),
             Op::MakeList => Some(MakeList {
                 register: get_byte!(),

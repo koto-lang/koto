@@ -174,17 +174,24 @@ pub struct RuntimeFunction {
     pub captures: ValueList,
 }
 
-pub fn copy_value(value: &Value) -> Value {
+pub fn deep_copy_value(value: &Value) -> Value {
     use Value::{List, Map};
 
     match value {
         List(l) => {
-            let result = l.data().iter().map(|v| copy_value(v)).collect::<ValueVec>();
+            let result = l
+                .data()
+                .iter()
+                .map(|v| deep_copy_value(v))
+                .collect::<ValueVec>();
             List(ValueList::with_data(result))
         }
         Map(m) => {
-            let result =
-                ValueHashMap::from_iter(m.data().iter().map(|(k, v)| (k.clone(), copy_value(v))));
+            let result = ValueHashMap::from_iter(
+                m.data()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), deep_copy_value(v))),
+            );
             Map(ValueMap::with_data(result))
         }
         _ => value.clone(),
@@ -208,7 +215,7 @@ pub fn type_as_string(value: &Value) -> String {
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
-        RegisterList{..} => "RegisterList".to_string(),
+        RegisterList { .. } => "RegisterList".to_string(),
     }
 }
 
