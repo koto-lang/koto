@@ -230,7 +230,7 @@ pub enum Instruction {
         iterator: u8,
         jump_offset: usize,
     },
-    ExpressionIndex {
+    ValueIndex {
         register: u8,
         expression: u8,
         index: u8,
@@ -516,13 +516,13 @@ impl fmt::Display for Instruction {
                 "IteratorNext\tresult: {}\titerator: {}\tjump offset: {}",
                 register, iterator, jump_offset
             ),
-            ExpressionIndex {
+            ValueIndex {
                 register,
                 expression,
                 index,
             } => write!(
                 f,
-                "ExpressionIndex\tresult: {}\texpression: {}\tindex: {}",
+                "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
                 register, expression, index
             ),
             ListPush { register, value } => {
@@ -908,7 +908,7 @@ impl Iterator for InstructionReader {
                 iterator: get_byte!(),
                 jump_offset: get_u16!() as usize,
             }),
-            Op::ExpressionIndex => Some(ExpressionIndex {
+            Op::ValueIndex => Some(ValueIndex {
                 register: get_byte!(),
                 expression: get_byte!(),
                 index: get_byte!(),

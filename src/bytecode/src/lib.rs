@@ -70,10 +70,10 @@ pub enum Op {
     CallChild,        // result, function, arg register, arg count, parent
     Return,           // register
     IteratorNext,     // output, iterator, jump offset[2]
-    ExpressionIndex,  // register, multi_expression, index
+    ValueIndex,       // result, value register, index
     ListPush,         // list, value
     ListUpdate,       // list, index, value
-    ListIndex,        // register, list, index
+    ListIndex,        // result, list register, index register
     MapInsert,        // map, key, value
     MapAccess,        // register, map, key
     Size,             // register

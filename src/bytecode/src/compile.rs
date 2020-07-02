@@ -829,7 +829,7 @@ impl Compiler {
                                 let capture_register = self.push_register()?;
 
                                 self.push_op(
-                                    ExpressionIndex,
+                                    ValueIndex,
                                     &[capture_register, rhs_register, i as u8],
                                 );
                                 self.push_op(SetCapture, &[capture_slot, capture_register]);
@@ -840,7 +840,7 @@ impl Compiler {
                                     self.frame_mut().assign_local_register(*id_index)?;
 
                                 self.push_op(
-                                    ExpressionIndex,
+                                    ValueIndex,
                                     &[local_register, rhs_register, i as u8],
                                 );
                             }
@@ -848,7 +848,7 @@ impl Compiler {
                         Node::Lookup(lookup) => {
                             let register = self.push_register()?;
 
-                            self.push_op(ExpressionIndex, &[register, rhs_register, i as u8]);
+                            self.push_op(ValueIndex, &[register, rhs_register, i as u8]);
                             self.compile_lookup(None, &lookup, Some(register), ast)?;
 
                             self.pop_register()?;
@@ -1812,6 +1812,7 @@ impl Compiler {
 
         if args.len() > 1 && ranges.len() == 1 {
             // e.g. for a, b, c in list_of_lists()
+            // e.g. for key, value in map
             let temp_register = self.push_register()?;
 
             self.push_op(IteratorNext, &[temp_register, iterator_register]);
@@ -1819,7 +1820,7 @@ impl Compiler {
 
             for (i, arg) in args.iter().enumerate() {
                 let arg_register = self.frame_mut().assign_local_register(*arg)?;
-                self.push_op(ExpressionIndex, &[arg_register, temp_register, i as u8]);
+                self.push_op(ValueIndex, &[arg_register, temp_register, i as u8]);
             }
 
             self.pop_register()?; // temp_register

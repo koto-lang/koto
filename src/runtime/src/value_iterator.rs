@@ -13,6 +13,11 @@ pub enum Iterable {
     Map(ValueMap),
 }
 
+pub enum ValueIteratorOutput {
+    Value(Value),
+    ValuePair(Value, Value),
+}
+
 #[derive(Clone, Debug)]
 pub struct ValueIterator {
     index: usize,
@@ -26,10 +31,10 @@ impl ValueIterator {
 }
 
 impl Iterator for ValueIterator {
-    type Item = Value;
+    type Item = ValueIteratorOutput;
 
-    fn next(&mut self) -> Option<Value> {
-        use Value::{List, Number, Str};
+    fn next(&mut self) -> Option<Self::Item> {
+        use Value::Number;
 
         match &self.iterable {
             Iterable::Range(IntRange { start, end }) => {
@@ -38,7 +43,7 @@ impl Iterator for ValueIterator {
                     let result = start + self.index as isize;
                     if result < *end {
                         self.index += 1;
-                        Some(Number(result as f64))
+                        Some(ValueIteratorOutput::Value(Number(result as f64)))
                     } else {
                         None
                     }
@@ -47,24 +52,26 @@ impl Iterator for ValueIterator {
                     let result = start - self.index as isize - 1; // TODO avoid -1
                     if result >= *end {
                         self.index += 1;
-                        Some(Number(result as f64))
+                        Some(ValueIteratorOutput::Value(Number(result as f64)))
                     } else {
                         None
                     }
                 }
             }
             Iterable::List(list) => {
-                let result = list.data().get(self.index).cloned();
+                let result = list
+                    .data()
+                    .get(self.index)
+                    .map(|value| ValueIteratorOutput::Value(value.clone()));
                 self.index += 1;
                 result
             }
             Iterable::Map(map) => {
                 let result = match map.data().get_index(self.index) {
-                    // TODO - Introduce multivalue to avoid list creation
-                    Some((key, value)) => Some(List(ValueList::from_slice(&[
-                        Str(key.as_arc_string().clone()),
+                    Some((key, value)) => Some(ValueIteratorOutput::ValuePair(
+                        Value::Str(key.as_arc_string().clone()),
                         value.clone(),
-                    ]))),
+                    )),
                     None => None,
                 };
 

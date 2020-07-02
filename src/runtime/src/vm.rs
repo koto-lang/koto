@@ -4,7 +4,7 @@ use {
     crate::{
         type_as_string,
         value::{copy_value, RuntimeFunction},
-        value_iterator::{IntRange, Iterable, ValueIterator},
+        value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Id, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
@@ -1064,11 +1064,22 @@ impl Vm {
                 };
 
                 match result {
-                    Some(value) => self.set_register(register, value),
+                    Some(ValueIteratorOutput::Value(value)) => self.set_register(register, value),
+                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                        self.set_register(
+                            register,
+                            Value::RegisterList {
+                                start: register + 1,
+                                count: 2,
+                            },
+                        );
+                        self.set_register(register + 1, first);
+                        self.set_register(register + 2, second);
+                    }
                     None => self.jump_ip(jump_offset),
                 };
             }
-            Instruction::ExpressionIndex {
+            Instruction::ValueIndex {
                 register,
                 expression,
                 index,
@@ -1079,6 +1090,18 @@ impl Vm {
                     List(l) => {
                         let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
                         self.set_register(register, value);
+                    }
+                    RegisterList { start, count } => {
+                        if index >= count {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of range index: {}, count: {}",
+                                index,
+                                count
+                            );
+                        }
+                        self.set_register(register, self.get_register(start + index).clone());
                     }
                     other => {
                         if index == 0 {
@@ -1096,7 +1119,12 @@ impl Vm {
                     List(list) => match value {
                         Range(range) => {
                             list.data_mut()
-                                .extend(ValueIterator::new(Iterable::Range(range)));
+                                .extend(ValueIterator::new(Iterable::Range(range)).map(
+                                    |iterator_output| match iterator_output {
+                                        ValueIteratorOutput::Value(value) => value,
+                                        ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
+                                    },
+                                ));
                         }
                         _ => list.data_mut().push(value),
                     },

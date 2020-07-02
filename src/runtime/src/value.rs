@@ -32,6 +32,7 @@ pub enum Value {
     // Internal value types
     IndexRange { start: usize, end: Option<usize> },
     Iterator(ValueIterator),
+    RegisterList { start: u8, count: u8 },
 }
 
 impl Default for Value {
@@ -80,6 +81,9 @@ impl fmt::Display for Value {
             }
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             Iterator(_) => write!(f, "Iterator"),
+            RegisterList { start, count } => {
+                write!(f, "RegisterList [{}..{}]", start, start + count)
+            }
         }
     }
 }
@@ -204,6 +208,7 @@ pub fn type_as_string(value: &Value) -> String {
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
+        RegisterList{..} => "RegisterList".to_string(),
     }
 }
 
