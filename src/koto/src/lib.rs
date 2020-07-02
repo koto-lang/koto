@@ -35,7 +35,8 @@ impl Koto {
     pub fn new() -> Self {
         let mut result = Self::default();
 
-        koto_std::register(&mut result.runtime);
+        let prelude = result.prelude_mut();
+        koto_std::register(prelude);
 
         let mut env = ValueMap::new();
         env.add_value("script_dir", Value::Empty);
@@ -284,7 +285,12 @@ impl Koto {
         };
 
         let position_info = if let Some(path) = source_path {
-            format!("{} - {}:{}", path.display(), start_pos.line, start_pos.column)
+            format!(
+                "{} - {}:{}",
+                path.display(),
+                start_pos.line,
+                start_pos.column
+            )
         } else {
             format!("{}:{}", start_pos.line, start_pos.column)
         };

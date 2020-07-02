@@ -272,9 +272,11 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "koto_bytecode",
+ "koto_json",
  "koto_parser",
  "koto_runtime",
  "koto_std",
+ "koto_toml",
 ]
 
 [[package]]
@@ -292,7 +294,19 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "koto",
+ "koto_json",
+ "koto_toml",
  "termion",
+]
+
+[[package]]
+name = "koto_json"
+version = "0.1.0"
+dependencies = [
+ "koto_runtime",
+ "koto_serialize",
+ "koto_std",
+ "serde_json",
 ]
 
 [[package]]
@@ -324,14 +338,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "koto_serialize"
+version = "0.1.0"
+dependencies = [
+ "koto_runtime",
+ "serde",
+]
+
+[[package]]
 name = "koto_std"
 version = "0.1.0"
 dependencies = [
  "koto_parser",
  "koto_runtime",
- "serde",
- "serde_json",
+ "koto_serialize",
  "tempfile",
+]
+
+[[package]]
+name = "koto_toml"
+version = "0.1.0"
+dependencies = [
+ "koto_runtime",
+ "koto_serialize",
+ "koto_std",
  "toml",
 ]
 

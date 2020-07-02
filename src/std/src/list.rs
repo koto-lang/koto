@@ -1,7 +1,7 @@
 use crate::single_arg_fn;
 use koto_runtime::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut list = ValueMap::new();
@@ -206,7 +206,7 @@ pub fn register(global: &mut ValueMap) {
         })
     });
 
-    global.add_value("list", Map(list));
+    prelude.add_value("list", Map(list));
 }
 
 fn list_op(

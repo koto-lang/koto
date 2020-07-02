@@ -1,6 +1,7 @@
 use {
-    crate::{external_error, serializable_value::SerializableValue, single_arg_fn},
     koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
+    koto_serialize::SerializableValue,
+    koto_std::{external_error, single_arg_fn},
     std::sync::Arc,
     toml::Value as Toml,
 };
@@ -41,7 +42,7 @@ fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     Ok(result)
 }
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut toml = ValueMap::new();
@@ -67,5 +68,5 @@ pub fn register(global: &mut ValueMap) {
         _ => external_error!("number expects a single argument, found {}", args.len()),
     });
 
-    global.add_value("toml", Map(toml));
+    prelude.add_value("toml", Map(toml));
 }

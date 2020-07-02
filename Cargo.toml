@@ -2,11 +2,14 @@
 members = [
   "src/bytecode",
   "src/cli",
+  "src/json",
   "src/koto",
   "src/lexer",
   "src/parser",
   "src/runtime",
+  "src/serialize",
   "src/std",
+  "src/toml",
 ]
 
 [profile.dev]

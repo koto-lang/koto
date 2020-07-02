@@ -1,7 +1,7 @@
 use crate::single_arg_fn;
 use koto_runtime::{external_error, type_as_string, value, Value, ValueMap};
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut math = ValueMap::new();
@@ -50,5 +50,5 @@ pub fn register(global: &mut ValueMap) {
 
     math.add_value("pi", Number(std::f64::consts::PI));
 
-    global.add_map("math", math);
+    prelude.add_map("math", math);
 }

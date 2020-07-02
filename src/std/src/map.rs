@@ -2,7 +2,7 @@ use crate::{external_error, single_arg_fn};
 use koto_runtime::{value, Value, ValueList, ValueMap, ValueVec};
 use std::sync::Arc;
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut map = ValueMap::new();
@@ -28,5 +28,5 @@ pub fn register(global: &mut ValueMap) {
         }
     });
 
-    global.add_value("map", Map(map));
+    prelude.add_value("map", Map(map));
 }

@@ -1,17 +1,14 @@
 mod io;
-mod json;
 mod list;
 mod map;
 mod math;
-mod serializable_value;
 mod string;
 mod test;
 mod thread;
-mod toml;
 
 pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
 
-use koto_runtime::{value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap, Vm};
+use koto_runtime::{value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap};
 
 #[macro_export]
 macro_rules! single_arg_fn {
@@ -94,16 +91,12 @@ macro_rules! get_external_instance {
     }};
 }
 
-pub fn register(runtime: &mut Vm) {
-    let global = runtime.prelude_mut();
-
-    io::register(global);
-    json::register(global);
-    list::register(global);
-    map::register(global);
-    math::register(global);
-    string::register(global);
-    test::register(global);
-    thread::register(global);
-    toml::register(global);
+pub fn register(prelude: &mut ValueMap) {
+    io::register(prelude);
+    list::register(prelude);
+    map::register(prelude);
+    math::register(prelude);
+    string::register(prelude);
+    test::register(prelude);
+    thread::register(prelude);
 }

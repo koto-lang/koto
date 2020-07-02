@@ -13,6 +13,11 @@ fn run_script(script_path: &str) {
 
     let mut koto = Koto::new();
     koto.set_script_path(Some(path));
+
+    let prelude = koto.prelude_mut();
+    koto_json::register(prelude);
+    koto_toml::register(prelude);
+
     match koto.compile(&script) {
         Ok(_) => {
             if let Err(error) = koto.run() {

@@ -15,6 +15,9 @@ trace = ["koto/trace"]
 
 [dependencies]
 koto = { path = "../koto" }
+koto_json = {path = "../json" }
+koto_toml = {path = "../toml" }
+
 termion = "1.5.5"
 
 [dependencies.clap]

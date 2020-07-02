@@ -1,6 +1,7 @@
 use {
-    crate::{external_error, serializable_value::SerializableValue, single_arg_fn},
     koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
+    koto_serialize::SerializableValue,
+    koto_std::{external_error, single_arg_fn},
     serde_json::Value as JsonValue,
     std::sync::Arc,
 };
@@ -37,7 +38,7 @@ fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> 
     Ok(result)
 }
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut json = ValueMap::new();
@@ -63,5 +64,5 @@ pub fn register(global: &mut ValueMap) {
         _ => external_error!("number expects a single argument, found {}", args.len()),
     });
 
-    global.add_value("json", Map(json));
+    prelude.add_value("json", Map(json));
 }

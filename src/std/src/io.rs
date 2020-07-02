@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::{Bool, Empty, Map, Number, Str};
 
     let mut io = ValueMap::new();
@@ -250,7 +250,7 @@ pub fn register(global: &mut ValueMap) {
         }
     });
 
-    global.add_map("io", io);
+    prelude.add_map("io", io);
 }
 
 #[derive(Debug)]

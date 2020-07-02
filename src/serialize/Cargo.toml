@@ -1,12 +1,11 @@
 [package]
-name = "koto_std"
+name = "koto_serialize"
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 
-[dependencies]
-koto_parser = { path = "../parser" }
-koto_runtime = { path = "../runtime" }
-koto_serialize = { path = "../serialize" }
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-tempfile = "3.1.0"
+[dependencies]
+koto_runtime = { path = "../runtime" }
+serde = "1.0.0"

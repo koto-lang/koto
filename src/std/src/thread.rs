@@ -2,7 +2,7 @@ use crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue}
 use koto_runtime::{external_error, value, Error, Value, ValueMap};
 use std::{fmt, thread, thread::JoinHandle, time::Duration};
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::{Empty, Function, Number};
 
     let mut thread = ValueMap::new();
@@ -37,7 +37,7 @@ pub fn register(global: &mut ValueMap) {
         _ => external_error!("thread.create: Expected function as argument"),
     });
 
-    global.add_map("thread", thread);
+    prelude.add_map("thread", thread);
 }
 
 #[derive(Debug)]

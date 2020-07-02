@@ -1,6 +1,6 @@
 use koto_runtime::{external_error, type_as_string, Value, ValueMap};
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut test = ValueMap::new();
@@ -76,5 +76,5 @@ pub fn register(global: &mut ValueMap) {
         _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
     });
 
-    global.add_value("test", Map(test));
+    prelude.add_value("test", Map(test));
 }

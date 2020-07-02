@@ -4,7 +4,7 @@ use {
     std::sync::Arc,
 };
 
-pub fn register(global: &mut ValueMap) {
+pub fn register(prelude: &mut ValueMap) {
     use Value::*;
 
     let mut string = ValueMap::new();
@@ -28,5 +28,5 @@ pub fn register(global: &mut ValueMap) {
         }
     });
 
-    global.add_value("string", Map(string));
+    prelude.add_value("string", Map(string));
 }
