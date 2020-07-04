@@ -6,9 +6,10 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import env io.print list math string
+import env io.print list string
+from math import pi sqrt sum
 
-solar_mass = 4 * math.pi * math.pi
+solar_mass = 4 * pi * pi
 days_per_year = 365.24
 
 sun =
@@ -61,9 +62,6 @@ neptune =
   mass: 5.15138902046611451e-05 * solar_mass
 
 bodies = [sun jupiter saturn uranus neptune]
-
-sqrt = math.sqrt # TODO use statement
-sum = math.sum
 
 advance = |bodies nbodies dt|
     for bi, i in bodies, 0..nbodies
