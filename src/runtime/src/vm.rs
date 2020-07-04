@@ -1067,7 +1067,7 @@ impl Vm {
                     }
                 };
 
-                self.set_register(register, Str(Arc::new(result.to_string())));
+                self.set_register(register, Str(Arc::new(result)));
             }
             Instruction::IteratorNext {
                 register,

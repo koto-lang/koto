@@ -1001,8 +1001,8 @@ impl Compiler {
     fn compile_import_expression(
         &mut self,
         result_register: Option<u8>,
-        from: &Vec<ConstantIndex>,
-        items: &Vec<Vec<ConstantIndex>>,
+        from: &[ConstantIndex],
+        items: &[Vec<ConstantIndex>],
     ) -> Result<(), String> {
         use Op::*;
 
