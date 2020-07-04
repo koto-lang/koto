@@ -1,10 +1,6 @@
 use {
     crate::{Chunk, Op},
-    std::{
-        convert::{TryFrom, TryInto},
-        fmt,
-        sync::Arc,
-    },
+    std::{convert::TryInto, fmt, sync::Arc},
 };
 
 #[derive(Debug)]
@@ -643,22 +639,11 @@ impl Iterator for InstructionReader {
             }};
         }
 
-        let byte = match self.chunk.bytes.get(self.ip) {
-            Some(byte) => *byte,
+        let op = match self.chunk.bytes.get(self.ip) {
+            Some(byte) => Op::from(*byte),
             None => return None,
         };
-
-        let op = match Op::try_from(byte) {
-            Ok(op) => op,
-            Err(_) => {
-                return Some(Error {
-                    message: format!(
-                        "Unexpected opcode {} found at instruction {}",
-                        byte, self.ip
-                    ),
-                });
-            }
-        };
+        let op_ip = self.ip;
 
         self.ip += 1;
 
@@ -959,6 +944,9 @@ impl Iterator for InstructionReader {
             Op::Debug => Some(Debug {
                 register: get_byte!(),
                 constant: get_u32!() as usize,
+            }),
+            _ => Some(Error {
+                message: format!("Unexpected opcode {:?} found at instruction {}", op, op_ip),
             }),
         }
     }

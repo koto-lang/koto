@@ -1996,7 +1996,7 @@ impl Compiler {
     }
 
     fn push_op_without_span(&mut self, op: Op, bytes: &[u8]) {
-        self.bytes.push(op.into());
+        self.bytes.push(op as u8);
         self.bytes.extend_from_slice(bytes);
     }
 
