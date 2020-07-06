@@ -246,47 +246,7 @@ impl Vm {
                     .insert(Id::from_str(global_name), self.get_register(source).clone());
             }
             Instruction::Import { register, constant } => {
-                let import_name = self.get_constant_string(constant);
-                let maybe_global = self.global.data().get(import_name).cloned();
-                if let Some(value) = maybe_global {
-                    self.set_register(register, value);
-                } else {
-                    let maybe_in_prelude = self.prelude.data().get(import_name).cloned();
-                    if let Some(value) = maybe_in_prelude {
-                        self.set_register(register, value);
-                    } else {
-                        let module_name = self.get_constant_string(constant).to_string();
-                        let source_path = self.reader.chunk.source_path.clone();
-                        let (module_chunk, module_path) =
-                            match self.loader.compile_module(&module_name, source_path) {
-                                Ok(chunk) => chunk,
-                                Err(e) => {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Error while importing '{}': {}",
-                                        module_name,
-                                        e
-                                    )
-                                }
-                            };
-                        let maybe_module = self.modules.get(&module_path).cloned();
-                        match maybe_module {
-                            Some(module) => self.set_register(register, Value::Map(module)),
-                            None => {
-                                // Run the chunk, and cache the resulting global map
-                                let mut vm = Vm::new();
-                                vm.prelude = self.prelude.clone();
-                                vm.run(module_chunk)?;
-                                if let Some(main) = vm.get_global_function("main") {
-                                    vm.run_function(&main, &[])?;
-                                }
-                                self.modules.insert(module_path, vm.global.clone());
-                                self.set_register(register, Value::Map(vm.global));
-                            }
-                        }
-                    }
-                }
+                self.run_import(register, constant, instruction_ip)?;
             }
             Instruction::RegisterList {
                 register,
@@ -312,116 +272,14 @@ impl Vm {
                 count,
                 element_register,
             } => {
-                let result = if count == 1 {
-                    match self.get_register(element_register) {
-                        Number(n) => num2::Num2(*n, *n),
-                        Num2(v) => *v,
-                        List(list) => {
-                            let mut v = num2::Num2::default();
-                            for (i, value) in list.data().iter().take(2).enumerate() {
-                                match value {
-                                    Number(n) => v[i] = *n,
-                                    unexpected => {
-                                        return vm_error!(
-                                            self.chunk(),
-                                            instruction_ip,
-                                            "num2 only accepts Numbers as arguments, - found {}",
-                                            unexpected
-                                        )
-                                    }
-                                }
-                            }
-                            v
-                        }
-                        unexpected => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "num2 only accepts a Number, Num2, or List as first argument \
-                                - found {}",
-                                unexpected
-                            );
-                        }
-                    }
-                } else {
-                    let mut v = num2::Num2::default();
-                    for i in 0..count {
-                        match self.get_register(element_register + i) {
-                            Number(n) => v[i as usize] = *n,
-                            unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "num2 only accepts Numbers as arguments, \
-                                     or Num2 or List as first argument - found {}",
-                                    unexpected
-                                );
-                            }
-                        }
-                    }
-                    v
-                };
-                self.set_register(register, Num2(result));
+                self.run_make_num2(register, count, element_register, instruction_ip)?;
             }
             Instruction::MakeNum4 {
                 register,
                 count,
                 element_register,
             } => {
-                let result = if count == 1 {
-                    match self.get_register(element_register) {
-                        Number(n) => {
-                            let n = *n as f32;
-                            num4::Num4(n, n, n, n)
-                        }
-                        Num2(n) => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
-                        Num4(n) => *n,
-                        List(list) => {
-                            let mut v = num4::Num4::default();
-                            for (i, value) in list.data().iter().take(4).enumerate() {
-                                match value {
-                                    Number(n) => v[i] = *n as f32,
-                                    unexpected => {
-                                        return vm_error!(
-                                            self.chunk(),
-                                            instruction_ip,
-                                            "num4 only accepts Numbers as arguments, - found {}",
-                                            unexpected
-                                        )
-                                    }
-                                }
-                            }
-                            v
-                        }
-                        unexpected => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "num4 only accepts a Number, Num4, or List as first argument \
-                                - found {}",
-                                unexpected
-                            );
-                        }
-                    }
-                } else {
-                    let mut v = num4::Num4::default();
-                    for i in 0..count {
-                        match self.get_register(element_register + i) {
-                            Number(n) => v[i as usize] = *n as f32,
-                            unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "num4 only accepts Numbers as arguments, \
-                                            or Num4 or List as first argument - found {}",
-                                    unexpected
-                                );
-                            }
-                        }
-                    }
-                    v
-                };
-                self.set_register(register, Num4(result));
+                self.run_make_num4(register, count, element_register, instruction_ip)?;
             }
             Instruction::Range {
                 register,
@@ -1161,243 +1019,15 @@ impl Vm {
                     }
                 };
             }
-            Instruction::ListUpdate {
-                list,
-                index,
-                value: value_register,
-            } => {
-                let index_value = self.get_register(index).clone();
-                let value = self.get_register(value_register).clone();
-
-                match self.get_register_mut(list) {
-                    List(list) => {
-                        let list_len = list.len();
-                        match index_value {
-                            Number(index) => {
-                                let u_index = index as usize;
-                                if index >= 0.0 && u_index < list_len {
-                                    list.data_mut()[u_index] = value;
-                                } else {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Index '{}' not in List",
-                                        index
-                                    );
-                                }
-                            }
-                            Range(IntRange { start, end }) => {
-                                let ustart = start as usize;
-                                let uend = end as usize;
-
-                                if start < 0 || end < 0 {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with negative indices isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > end {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if ustart > list_len || uend > list_len {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                        list_len,
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    let mut list_data = list.data_mut();
-                                    for i in ustart..uend {
-                                        list_data[i] = value.clone();
-                                    }
-                                }
-                            }
-                            IndexRange { start, end } => {
-                                let end = end.unwrap_or(list_len);
-                                if start > end {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > list_len || end > list_len {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                        list_len,
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    let mut list_data = list.data_mut();
-                                    for i in start..end {
-                                        list_data[i] = value.clone();
-                                    }
-                                }
-                            }
-                            unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "Unexpected type for List index: '{}'",
-                                    type_as_string(&unexpected)
-                                );
-                            }
-                        }
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected List, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
+            Instruction::ListUpdate { list, index, value } => {
+                self.run_list_update(list, index, value, instruction_ip)?;
             }
             Instruction::ListIndex {
                 register,
                 list,
                 index,
             } => {
-                let list_value = self.get_register(list).clone();
-                let index_value = self.get_register(index).clone();
-
-                match list_value {
-                    List(l) => {
-                        let list_len = l.len();
-
-                        match index_value {
-                            Number(n) => {
-                                if n < 0.0 {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Negative list indices aren't allowed (found '{}')",
-                                        n
-                                    );
-                                }
-                                match l.data().get(n as usize) {
-                                    Some(value) => {
-                                        self.set_register(register, value.clone());
-                                    }
-                                    None => {
-                                        return vm_error!(
-                                            self.chunk(),
-                                            instruction_ip,
-                                            "List index out of bounds - index: {}, list size: {}",
-                                            n,
-                                            list_len
-                                        )
-                                    }
-                                }
-                            }
-                            Range(IntRange { start, end }) => {
-                                let ustart = start as usize;
-                                let uend = end as usize;
-
-                                if start < 0 || end < 0 {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with negative indices isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > end {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if ustart > list_len || uend > list_len {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                        list_len,
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    // TODO Avoid allocating new vec,
-                                    // introduce 'slice' value type
-                                    self.set_register(
-                                        register,
-                                        List(ValueList::from_slice(&l.data()[ustart..uend])),
-                                    )
-                                }
-                            }
-                            IndexRange { start, end } => {
-                                let end = end.unwrap_or(list_len);
-                                if start > end {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                        start,
-                                        end
-                                    );
-                                } else if start > list_len || end > list_len {
-                                    return vm_error!(
-                                        self.chunk(),
-                                        instruction_ip,
-                                        "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                        list_len,
-                                        start,
-                                        end
-                                    );
-                                } else {
-                                    self.set_register(
-                                        register,
-                                        List(ValueList::from_slice(&l.data()[start..end])),
-                                    )
-                                }
-                            }
-                            unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "Expected Number or Range, found '{}'",
-                                    type_as_string(&unexpected),
-                                )
-                            }
-                        }
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected List, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
+                self.run_list_index(register, list, index, instruction_ip)?;
             }
             Instruction::MapInsert {
                 register,
@@ -1492,6 +1122,439 @@ impl Vm {
         }
 
         Ok(result)
+    }
+
+    fn run_import(
+        &mut self,
+        result_register: u8,
+        import_constant: usize,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        let import_name = self.get_constant_string(import_constant);
+
+        let maybe_global = self.global.data().get(import_name).cloned();
+        if let Some(value) = maybe_global {
+            self.set_register(result_register, value);
+        } else {
+            let maybe_in_prelude = self.prelude.data().get(import_name).cloned();
+            if let Some(value) = maybe_in_prelude {
+                self.set_register(result_register, value);
+            } else {
+                let module_name = self.get_constant_string(import_constant).to_string();
+                let source_path = self.reader.chunk.source_path.clone();
+                let (module_chunk, module_path) =
+                    match self.loader.compile_module(&module_name, source_path) {
+                        Ok(chunk) => chunk,
+                        Err(e) => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Error while importing '{}': {}",
+                                module_name,
+                                e
+                            )
+                        }
+                    };
+                let maybe_module = self.modules.get(&module_path).cloned();
+                match maybe_module {
+                    Some(module) => self.set_register(result_register, Value::Map(module)),
+                    None => {
+                        // Run the chunk, and cache the resulting global map
+                        let mut vm = Vm::new();
+                        vm.prelude = self.prelude.clone();
+                        vm.run(module_chunk)?;
+                        if let Some(main) = vm.get_global_function("main") {
+                            vm.run_function(&main, &[])?;
+                        }
+                        self.modules.insert(module_path, vm.global.clone());
+                        self.set_register(result_register, Value::Map(vm.global));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn run_make_num2(
+        &mut self,
+        result_register: u8,
+        element_count: u8,
+        element_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let result = if element_count == 1 {
+            match self.get_register(element_register) {
+                Number(n) => num2::Num2(*n, *n),
+                Num2(n) => *n,
+                List(list) => {
+                    let mut result = num2::Num2::default();
+                    for (i, value) in list.data().iter().take(2).enumerate() {
+                        match value {
+                            Number(n) => result[i] = *n,
+                            unexpected => {
+                                return vm_error!(
+                                    self.chunk(),
+                                    instruction_ip,
+                                    "num2 only accepts Numbers as arguments, - found {}",
+                                    unexpected
+                                )
+                            }
+                        }
+                    }
+                    result
+                }
+                unexpected => {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "num2 only accepts a Number, Num2, or List as first argument \
+                         - found {}",
+                        unexpected
+                    );
+                }
+            }
+        } else {
+            let mut result = num2::Num2::default();
+            for i in 0..element_count {
+                match self.get_register(element_register + i) {
+                    Number(n) => result[i as usize] = *n,
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "num2 only accepts Numbers as arguments, \
+                             or Num2 or List as first argument - found {}",
+                            unexpected
+                        );
+                    }
+                }
+            }
+            result
+        };
+
+        self.set_register(result_register, Num2(result));
+        Ok(())
+    }
+
+    fn run_make_num4(
+        &mut self,
+        result_register: u8,
+        element_count: u8,
+        element_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+        let result = if element_count == 1 {
+            match self.get_register(element_register) {
+                Number(n) => {
+                    let n = *n as f32;
+                    num4::Num4(n, n, n, n)
+                }
+                Num2(n) => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
+                Num4(n) => *n,
+                List(list) => {
+                    let mut result = num4::Num4::default();
+                    for (i, value) in list.data().iter().take(4).enumerate() {
+                        match value {
+                            Number(n) => result[i] = *n as f32,
+                            unexpected => {
+                                return vm_error!(
+                                    self.chunk(),
+                                    instruction_ip,
+                                    "num4 only accepts Numbers as arguments, - found {}",
+                                    unexpected
+                                )
+                            }
+                        }
+                    }
+                    result
+                }
+                unexpected => {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "num4 only accepts a Number, Num4, or List as first argument \
+                         - found {}",
+                        unexpected
+                    );
+                }
+            }
+        } else {
+            let mut result = num4::Num4::default();
+            for i in 0..element_count {
+                match self.get_register(element_register + i) {
+                    Number(n) => result[i as usize] = *n as f32,
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "num4 only accepts Numbers as arguments, \
+                             or Num4 or List as first argument - found {}",
+                            unexpected
+                        );
+                    }
+                }
+            }
+            result
+        };
+
+        self.set_register(result_register, Num4(result));
+        Ok(())
+    }
+
+    fn run_list_update(
+        &mut self,
+        list_register: u8,
+        index_register: u8,
+        value_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let index_value = self.get_register(index_register).clone();
+        let value = self.get_register(value_register).clone();
+
+        match self.get_register_mut(list_register) {
+            List(list) => {
+                let list_len = list.len();
+                match index_value {
+                    Number(index) => {
+                        let u_index = index as usize;
+                        if index >= 0.0 && u_index < list_len {
+                            list.data_mut()[u_index] = value;
+                        } else {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index '{}' not in List",
+                                index
+                            );
+                        }
+                    }
+                    Range(IntRange { start, end }) => {
+                        let ustart = start as usize;
+                        let uend = end as usize;
+
+                        if start < 0 || end < 0 {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with negative indices isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if start > end {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with a descending range isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if ustart > list_len || uend > list_len {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds, \
+                                                List has a length of {} - start: {}, end: {}",
+                                list_len,
+                                start,
+                                end
+                            );
+                        } else {
+                            let mut list_data = list.data_mut();
+                            for i in ustart..uend {
+                                list_data[i] = value.clone();
+                            }
+                        }
+                    }
+                    IndexRange { start, end } => {
+                        let end = end.unwrap_or(list_len);
+                        if start > end {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with a descending range isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if start > list_len || end > list_len {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds, \
+                                                List has a length of {} - start: {}, end: {}",
+                                list_len,
+                                start,
+                                end
+                            );
+                        } else {
+                            let mut list_data = list.data_mut();
+                            for i in start..end {
+                                list_data[i] = value.clone();
+                            }
+                        }
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Unexpected type for List index: '{}'",
+                            type_as_string(&unexpected)
+                        );
+                    }
+                }
+            }
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected List, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
+
+        Ok(())
+    }
+
+    fn run_list_index(
+        &mut self,
+        result_register: u8,
+        list_register: u8,
+        index_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let list_value = self.get_register(list_register).clone();
+        let index_value = self.get_register(index_register).clone();
+
+        match list_value {
+            List(l) => {
+                let list_len = l.len();
+
+                match index_value {
+                    Number(n) => {
+                        if n < 0.0 {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Negative list indices aren't allowed (found '{}')",
+                                n
+                            );
+                        }
+                        match l.data().get(n as usize) {
+                            Some(value) => {
+                                self.set_register(result_register, value.clone());
+                            }
+                            None => {
+                                return vm_error!(
+                                    self.chunk(),
+                                    instruction_ip,
+                                    "List index out of bounds - index: {}, list size: {}",
+                                    n,
+                                    list_len
+                                )
+                            }
+                        }
+                    }
+                    Range(IntRange { start, end }) => {
+                        let ustart = start as usize;
+                        let uend = end as usize;
+
+                        if start < 0 || end < 0 {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with negative indices isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if start > end {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with a descending range isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if ustart > list_len || uend > list_len {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds, \
+                                                List has a length of {} - start: {}, end: {}",
+                                list_len,
+                                start,
+                                end
+                            );
+                        } else {
+                            // TODO Avoid allocating new vec,
+                            // introduce 'slice' value type
+                            self.set_register(
+                                result_register,
+                                List(ValueList::from_slice(&l.data()[ustart..uend])),
+                            )
+                        }
+                    }
+                    IndexRange { start, end } => {
+                        let end = end.unwrap_or(list_len);
+                        if start > end {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Indexing with a descending range isn't supported, \
+                                                start: {}, end: {}",
+                                start,
+                                end
+                            );
+                        } else if start > list_len || end > list_len {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds, \
+                                                List has a length of {} - start: {}, end: {}",
+                                list_len,
+                                start,
+                                end
+                            );
+                        } else {
+                            self.set_register(
+                                result_register,
+                                List(ValueList::from_slice(&l.data()[start..end])),
+                            )
+                        }
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Expected Number or Range, found '{}'",
+                            type_as_string(&unexpected),
+                        )
+                    }
+                }
+            }
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected List, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
+
+        Ok(())
     }
 
     fn call_function(
