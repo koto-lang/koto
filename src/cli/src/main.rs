@@ -10,24 +10,20 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
             Arg::with_name("show_bytecode")
-                .short("b")
+                .short('b')
                 .long("show_bytecode")
-                .help("Show the script's compiled bytecode"),
+                .about("Show the script's compiled bytecode"),
         )
         .arg(
             Arg::with_name("show_annotated")
-                .short("B")
+                .short('B')
                 .long("show_annotated")
-                .help("Show compiled bytecode annotated with source lines"),
+                .about("Show compiled bytecode annotated with source lines"),
         )
-        .arg(
-            Arg::with_name("script")
-                .help("The koto script to run")
-                .index(1),
-        )
+        .arg(Arg::with_name("script").about("The koto script to run"))
         .arg(
             Arg::with_name("args")
-                .help("Arguments to pass into the script")
+                .about("Arguments to pass into the script")
                 .multiple(true)
                 .last(true),
         )

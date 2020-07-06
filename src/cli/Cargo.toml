@@ -21,4 +21,6 @@ koto_toml = {path = "../toml" }
 termion = "1.5.5"
 
 [dependencies.clap]
-version = "2.33.0"
+version = "3.0.0-beta.1"
+default-features = false
+features = ["std"]
