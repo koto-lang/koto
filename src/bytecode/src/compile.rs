@@ -2,7 +2,7 @@ use {
     crate::{DebugInfo, Op},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, LookupNode, Node, Scope, Span,
+        ConstantIndex, Function, LookupNode, Node, Scope, Span,
     },
     smallvec::SmallVec,
     std::convert::TryFrom,
@@ -297,40 +297,7 @@ impl Compiler {
                 self.compile_make_list(result_register, &elements, ast)?;
             }
             Node::Map(entries) => {
-                if let Some(result_register) = result_register {
-                    let size_hint = entries.len();
-                    if size_hint <= u8::MAX as usize {
-                        self.push_op(MakeMap, &[result_register, size_hint as u8]);
-                    } else {
-                        self.push_op(MakeMapLong, &[result_register]);
-                        self.push_bytes(&size_hint.to_le_bytes());
-                    }
-
-                    for (key, value_node) in entries.iter() {
-                        // Push the map entry's span in advance of loading the key string, it makes
-                        // for better bytecode output to have the key and value in the same span.
-                        let value_node = ast.node(*value_node);
-                        self.span_stack.push(*ast.span(value_node.span));
-
-                        let key_register = self.push_register()?;
-                        self.load_string(key_register, *key);
-
-                        let value_register = self.push_register()?;
-                        self.compile_node(Some(value_register), value_node, ast)?;
-
-                        self.push_op(MapInsert, &[result_register, key_register, value_register]);
-
-                        self.span_stack.pop();
-
-                        self.pop_register()?;
-                        self.pop_register()?;
-                    }
-                } else {
-                    // Evaluate value nodes to ensure functions are called as expected
-                    for (_key, value_node) in entries.iter() {
-                        self.compile_node(None, ast.node(*value_node), ast)?;
-                    }
-                }
+                self.compile_make_map(result_register, &entries, ast)?;
             }
             Node::Range {
                 start,
@@ -458,70 +425,7 @@ impl Compiler {
                 }
             }
             Node::Function(f) => {
-                if let Some(result_register) = result_register {
-                    let arg_count = match u8::try_from(f.args.len()) {
-                        Ok(x) => x,
-                        Err(_) => {
-                            return Err(format!(
-                                "Function has too many arguments: {}",
-                                f.args.len()
-                            ));
-                        }
-                    };
-
-                    let captures = self
-                        .frame()
-                        .captures_for_nested_frame(&f.accessed_non_locals);
-                    if captures.len() > u8::MAX as usize {
-                        return Err(format!(
-                            "Function captures too many values: {}",
-                            captures.len(),
-                        ));
-                    }
-                    let capture_count = captures.len() as u8;
-
-                    if f.is_instance_function {
-                        self.push_op(
-                            InstanceFunction,
-                            &[result_register, arg_count - 1, capture_count],
-                        );
-                    } else {
-                        self.push_op(Function, &[result_register, arg_count, capture_count]);
-                    }
-
-                    let function_size_ip = self.push_offset_placeholder();
-
-                    let local_count = match u8::try_from(f.local_count) {
-                        Ok(x) => x,
-                        Err(_) => {
-                            return Err(format!("Function has too many locals: {}", f.args.len()));
-                        }
-                    };
-
-                    match &ast.node(f.body).node {
-                        Node::Block(expressions) => {
-                            self.compile_frame(local_count, &expressions, &f.args, &captures, ast)?;
-                        }
-                        _ => {
-                            self.compile_frame(local_count, &[f.body], &f.args, &captures, ast)?;
-                        }
-                    };
-
-                    self.update_offset_placeholder(function_size_ip);
-
-                    for (i, capture) in captures.iter().enumerate() {
-                        if let Some(local_register) = self.frame().get_local_register(*capture) {
-                            self.push_op(Capture, &[result_register, i as u8, local_register]);
-                        } else {
-                            let capture_register = self.push_register()?;
-                            self.compile_load_non_local_id(capture_register, *capture)?;
-
-                            self.push_op(Capture, &[result_register, i as u8, capture_register]);
-
-                            self.pop_register()?;
-                        }
-                    }
-                }
+                self.compile_function(result_register, f, ast)?;
             }
             Node::Call { function, args } => {
                 match &ast.node(*function).node {
@@ -974,11 +878,9 @@ impl Compiler {
     }
 
     fn compile_load_id(&mut self, result_register: u8, id: ConstantIndex) -> Result<(), String> {
-        use Op::*;
-
         if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             if local_register != result_register {
-                self.push_op(Copy, &[result_register, local_register]);
+                self.push_op(Op::Copy, &[result_register, local_register]);
             }
             Ok(())
         } else {
@@ -1086,8 +988,6 @@ impl Compiler {
         result_register: u8,
         item: &[ConstantIndex],
     ) -> Result<(), String> {
-        use Op::*;
-
         match item {
             [] => return Err("Missing item to import".to_string()),
             [import_id] => self.compile_import_id(result_register, *import_id),
@@ -1098,7 +998,7 @@ impl Compiler {
 
                 for nested_item in nested.iter() {
                     self.load_string(key_register, *nested_item);
-                    self.push_op(MapAccess, &[result_register, result_register, key_register]);
+                    self.push_op(Op::MapAccess, &[result_register, result_register, key_register]);
                 }
 
                 self.pop_register()?; // key_register
@@ -1403,8 +1303,6 @@ impl Compiler {
         elements: &[AstIndex],
         ast: &Ast,
     ) -> Result<(), String> {
-        use Op::*;
-
         if elements.is_empty() || elements.len() > 2 {
             return Err(format!(
                 "compile_make_num2: unexpected number of elements: {}",
@@ -1422,7 +1320,7 @@ impl Compiler {
 
             let first_element_register = self.frame().peek_register(elements.len() - 1)?;
             self.push_op(
-                MakeNum2,
+                Op::MakeNum2,
                 &[
                     result_register,
                     elements.len() as u8,
@@ -1446,8 +1344,6 @@ impl Compiler {
         elements: &[AstIndex],
         ast: &Ast,
     ) -> Result<(), String> {
-        use Op::*;
-
         if elements.is_empty() || elements.len() > 4 {
             return Err(format!(
                 "compile_make_num4: unexpected number of elements: {}",
@@ -1465,7 +1361,7 @@ impl Compiler {
 
             let first_element_register = self.frame().peek_register(elements.len() - 1)?;
             self.push_op(
-                MakeNum4,
+                Op::MakeNum4,
                 &[
                     result_register,
                     elements.len() as u8,
@@ -1542,6 +1438,137 @@ impl Compiler {
         } else {
             for element_node in elements.iter() {
                 self.compile_node(None, ast.node(*element_node), ast)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_make_map(
+        &mut self,
+        result_register: Option<u8>,
+        entries: &[(ConstantIndex, AstIndex)],
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if let Some(result_register) = result_register {
+            let size_hint = entries.len();
+            if size_hint <= u8::MAX as usize {
+                self.push_op(MakeMap, &[result_register, size_hint as u8]);
+            } else {
+                self.push_op(MakeMapLong, &[result_register]);
+                self.push_bytes(&size_hint.to_le_bytes());
+            }
+
+            for (key, value_node) in entries.iter() {
+                // Push the map entry's span in advance of loading the key string, it makes
+                // for better bytecode output to have the key and value in the same span.
+                let value_node = ast.node(*value_node);
+                self.span_stack.push(*ast.span(value_node.span));
+
+                let key_register = self.push_register()?;
+                self.load_string(key_register, *key);
+
+                let value_register = self.push_register()?;
+                self.compile_node(Some(value_register), value_node, ast)?;
+
+                self.push_op(MapInsert, &[result_register, key_register, value_register]);
+
+                self.span_stack.pop();
+
+                self.pop_register()?;
+                self.pop_register()?;
+            }
+        } else {
+            // Evaluate value nodes to ensure functions are called as expected
+            for (_key, value_node) in entries.iter() {
+                self.compile_node(None, ast.node(*value_node), ast)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn compile_function(
+        &mut self,
+        result_register: Option<u8>,
+        function: &Function,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        if let Some(result_register) = result_register {
+            let arg_count = match u8::try_from(function.args.len()) {
+                Ok(x) => x,
+                Err(_) => {
+                    return Err(format!(
+                        "Function has too many arguments: {}",
+                        function.args.len()
+                    ));
+                }
+            };
+
+            let captures = self
+                .frame()
+                .captures_for_nested_frame(&function.accessed_non_locals);
+            if captures.len() > u8::MAX as usize {
+                return Err(format!(
+                    "Function captures too many values: {}",
+                    captures.len(),
+                ));
+            }
+            let capture_count = captures.len() as u8;
+
+            if function.is_instance_function {
+                self.push_op(
+                    InstanceFunction,
+                    &[result_register, arg_count - 1, capture_count],
+                );
+            } else {
+                self.push_op(Function, &[result_register, arg_count, capture_count]);
+            }
+
+            let function_size_ip = self.push_offset_placeholder();
+
+            let local_count = match u8::try_from(function.local_count) {
+                Ok(x) => x,
+                Err(_) => {
+                    return Err(format!(
+                        "Function has too many locals: {}",
+                        function.args.len()
+                    ));
+                }
+            };
+
+            match &ast.node(function.body).node {
+                Node::Block(expressions) => {
+                    self.compile_frame(local_count, &expressions, &function.args, &captures, ast)?;
+                }
+                _ => {
+                    self.compile_frame(
+                        local_count,
+                        &[function.body],
+                        &function.args,
+                        &captures,
+                        ast,
+                    )?;
+                }
+            };
+
+            self.update_offset_placeholder(function_size_ip);
+
+            for (i, capture) in captures.iter().enumerate() {
+                if let Some(local_register) = self.frame().get_local_register(*capture) {
+                    self.push_op(Capture, &[result_register, i as u8, local_register]);
+                } else {
+                    let capture_register = self.push_register()?;
+                    self.compile_load_non_local_id(capture_register, *capture)?;
+
+                    self.push_op(Capture, &[result_register, i as u8, capture_register]);
+
+                    self.pop_register()?;
+                }
             }
         }
 
