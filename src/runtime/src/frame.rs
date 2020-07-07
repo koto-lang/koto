@@ -22,12 +22,12 @@ impl Frame {
     pub fn new(
         chunk: Arc<Chunk>,
         register_base: usize,
-        captures: ValueList,
+        captures: Option<ValueList>,
     ) -> Self {
         Self {
             chunk,
             register_base,
-            captures: Some(captures),
+            captures: captures,
             ..Default::default()
         }
     }

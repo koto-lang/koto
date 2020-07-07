@@ -76,7 +76,7 @@ impl Vm {
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
         self.reset();
-        self.push_frame(chunk, 0, 0, ValueList::default());
+        self.push_frame(chunk, 0, 0, None);
         self.execute_instructions()
     }
 
@@ -435,14 +435,19 @@ impl Vm {
                 capture_count,
                 size,
             } => {
-                let mut captures = ValueVec::new();
-                captures.resize(capture_count as usize, Empty);
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
 
                 let function = Function(RuntimeFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
-                    captures: ValueList::with_data(captures),
+                    captures,
                     is_instance_function: false,
                 });
                 self.jump_ip(size);
@@ -454,14 +459,19 @@ impl Vm {
                 capture_count,
                 size,
             } => {
-                let mut captures = ValueVec::new();
-                captures.resize(capture_count as usize, Empty);
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
 
                 let function = Function(RuntimeFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
-                    captures: ValueList::with_data(captures),
+                    captures,
                     is_instance_function: true,
                 });
                 self.jump_ip(size);
@@ -472,9 +482,18 @@ impl Vm {
                 target,
                 source,
             } => match self.get_register(function) {
-                Function(f) => {
-                    f.captures.data_mut()[target as usize] = self.get_register(source).clone();
-                }
+                Function(f) => match &f.captures {
+                    Some(captures) => {
+                        captures.data_mut()[target as usize] = self.get_register(source).clone()
+                    }
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Capture: missing capture list for function"
+                        )
+                    }
+                },
                 unexpected => {
                     return vm_error!(
                         self.chunk(),
@@ -1679,7 +1698,13 @@ impl Vm {
         self.call_stack.last_mut().unwrap()
     }
 
-    fn push_frame(&mut self, chunk: Arc<Chunk>, ip: usize, arg_register: u8, captures: ValueList) {
+    fn push_frame(
+        &mut self,
+        chunk: Arc<Chunk>,
+        ip: usize,
+        arg_register: u8,
+        captures: Option<ValueList>,
+    ) {
         let previous_frame_base = if let Some(frame) = self.call_stack.last() {
             frame.register_base
         } else {

@@ -171,7 +171,7 @@ pub struct RuntimeFunction {
     pub ip: usize,
     pub arg_count: u8,
     pub is_instance_function: bool,
-    pub captures: ValueList,
+    pub captures: Option<ValueList>,
 }
 
 pub fn deep_copy_value(value: &Value) -> Value {
