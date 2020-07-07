@@ -998,7 +998,10 @@ impl Compiler {
 
                 for nested_item in nested.iter() {
                     self.load_string(key_register, *nested_item);
-                    self.push_op(Op::MapAccess, &[result_register, result_register, key_register]);
+                    self.push_op(
+                        Op::MapAccess,
+                        &[result_register, result_register, key_register],
+                    );
                 }
 
                 self.pop_register()?; // key_register
@@ -1624,7 +1627,7 @@ impl Compiler {
                         let key_register = self.push_register()?;
 
                         self.load_string(key_register, *id);
-                        let map_register = *node_registers.last().unwrap();
+                        let map_register = *node_registers.last().expect("Empty node registers");
 
                         if is_last_node {
                             if let Some(set_value) = set_value {
@@ -1647,7 +1650,7 @@ impl Compiler {
 
                     let (index_register, _) =
                         self.compile_node_or_get_local(None, ast.node(*index_node), ast)?;
-                    let list_register = *node_registers.last().unwrap();
+                    let list_register = *node_registers.last().expect("Empty node registers");
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
@@ -1677,7 +1680,7 @@ impl Compiler {
                         None
                     };
 
-                    let function_register = *node_registers.last().unwrap();
+                    let function_register = *node_registers.last().expect("Empty node registers");
 
                     if is_last_node {
                         self.compile_call(
@@ -1784,7 +1787,6 @@ impl Compiler {
         let if_jump_ip = self.push_offset_placeholder();
         self.pop_register()?;
 
-        // let stack_count = self.frame().register_stack.len();
         self.compile_node(result_register, ast.node(*then_node), ast)?;
 
         let then_jump_ip = {
@@ -1810,8 +1812,6 @@ impl Compiler {
 
                     self.pop_register()?; // condition register
 
-                    // re-use registers from if block - TODO, still necessary with result registers?
-                    // self.frame_mut().truncate_register_stack(stack_count)?;
                     self.compile_node(result_register, ast.node(*else_if_node), ast)?;
 
                     let else_if_jump_ip = if else_node.is_some() {
@@ -1956,11 +1956,16 @@ impl Compiler {
         self.compile_node(result_register, ast.node(*body), ast)?;
 
         if let Some(list_register) = list_register {
-            if result_register.is_none() {
-                return Err("compile_for: Missing result register for list expansion".to_string());
+            match result_register {
+                Some(result_register) => {
+                    self.push_op_without_span(ListPush, &[list_register, result_register])
+                }
+                None => {
+                    return Err(
+                        "compile_for: Missing result register for list expansion".to_string()
+                    )
+                }
             }
-
-            self.push_op_without_span(ListPush, &[list_register, result_register.unwrap()]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -2007,11 +2012,18 @@ impl Compiler {
         self.compile_node(result_register, ast.node(body), ast)?;
 
         if let Some(list_register) = list_register {
-            if result_register.is_none() {
-                return Err("compile_while: Missing result register for list expansion".to_string());
+            match result_register {
+                Some(result_register) => {
+                    self.push_op_without_span(ListPush, &[list_register, result_register]);
+                }
+                None => {
+                    if result_register.is_none() {
+                        return Err(
+                            "compile_while: Missing result register for list expansion".to_string()
+                        );
+                    }
+                }
             }
-
-            self.push_op_without_span(ListPush, &[list_register, result_register.unwrap()]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -2089,8 +2101,10 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
-        self.debug_info
-            .push(self.bytes.len(), &self.span_stack.last().unwrap());
+        self.debug_info.push(
+            self.bytes.len(),
+            &self.span_stack.last().expect("Empty span stack"),
+        );
         self.push_op_without_span(op, bytes);
     }
 

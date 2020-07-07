@@ -1691,11 +1691,11 @@ impl Vm {
     }
 
     fn frame(&self) -> &Frame {
-        self.call_stack.last().unwrap()
+        self.call_stack.last().expect("Empty call stack")
     }
 
     fn frame_mut(&mut self) -> &mut Frame {
-        self.call_stack.last_mut().unwrap()
+        self.call_stack.last_mut().expect("Empty call stack")
     }
 
     fn push_frame(
