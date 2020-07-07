@@ -2,3 +2,5 @@
 export foo = 42
 export bar = -1
 export baz = import baz
+
+export square = |x| x * x

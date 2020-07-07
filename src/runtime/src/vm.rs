@@ -2,6 +2,7 @@
 
 use {
     crate::{
+        frame::Frame,
         type_as_string,
         value::{deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
@@ -17,51 +18,6 @@ use {
 pub enum ControlFlow {
     Continue,
     ReturnValue(Value),
-}
-
-#[derive(Debug, Default)]
-struct Frame {
-    base: usize,
-    captures: Option<ValueList>,
-    result_register: u8,
-    result: Value,
-    return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
-    catch_stack: Vec<(u8, usize)>,
-}
-
-impl Frame {
-    fn new(
-        base: usize,
-        return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
-        result_register: u8,
-        captures: ValueList,
-    ) -> Self {
-        Self {
-            base,
-            captures: Some(captures),
-            return_chunk_and_ip,
-            result_register,
-            ..Default::default()
-        }
-    }
-
-    fn get_capture(&self, capture: u8) -> Option<Value> {
-        if let Some(captures) = &self.captures {
-            captures.data().get(capture as usize).cloned()
-        } else {
-            None
-        }
-    }
-
-    fn set_capture(&self, capture_index: u8, value: Value) -> bool {
-        if let Some(captures) = &self.captures {
-            if let Some(capture) = captures.data_mut().get_mut(capture_index as usize) {
-                *capture = value;
-                return true;
-            }
-        }
-        false
-    }
 }
 
 #[derive(Default)]
@@ -116,17 +72,17 @@ impl Vm {
     pub fn reset(&mut self) {
         self.value_stack.clear();
         self.call_stack.clear();
-        self.call_stack.push(Frame::default());
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
         self.reset();
-        self.set_chunk_and_ip(chunk, 0);
+        self.push_frame(chunk, 0, 0, ValueList::default());
         self.execute_instructions()
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
-        println!("run_function");
+        let current_chunk = self.chunk();
+        let current_ip = self.ip();
 
         if function.is_instance_function {
             return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
@@ -142,25 +98,30 @@ impl Vm {
             );
         }
 
-        if self.call_stack.is_empty() {
-            self.call_stack.push(Frame::default());
-        }
+        let frame_base = if let Some(frame) = self.call_stack.last() {
+            frame.register_base
+        } else {
+            0
+        };
 
-        let arg_register = (self.value_stack.len() - self.frame().base) as u8;
+        let arg_register = (self.value_stack.len() - frame_base) as u8;
         self.value_stack.extend_from_slice(args);
 
-        self.push_frame(None, arg_register, arg_register, function.captures.clone());
+        self.push_frame(
+            function.chunk.clone(),
+            function.ip,
+            arg_register,
+            function.captures.clone(),
+        );
 
-        let chunk = self.chunk();
-        let ip = self.ip();
-        self.set_chunk_and_ip(function.chunk.clone(), function.ip);
+        self.frame_mut().catch_barrier = true;
 
         let result = self.execute_instructions();
         if result.is_err() {
-            self.pop_frame()?;
+            self.pop_frame(Value::Empty)?;
         }
 
-        self.set_chunk_and_ip(chunk, ip);
+        self.set_chunk_and_ip(current_chunk, current_ip);
 
         result
     }
@@ -168,17 +129,14 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
-        let mut ip = self.ip();
-
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction, ip) {
+            match self.execute_instruction(instruction) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::ReturnValue(return_value)) => {
                     result = return_value;
                     break;
                 }
                 Err(error) => {
-                    let mut recover_chunk = self.chunk();
                     let mut recover_register_and_ip = None;
 
                     while let Some(frame) = self.call_stack.last() {
@@ -186,24 +144,22 @@ impl Vm {
                             recover_register_and_ip = Some((*error_register, *catch_ip));
                             break;
                         } else {
-                            match &frame.return_chunk_and_ip {
-                                Some((chunk, _)) => recover_chunk = chunk.clone(),
-                                None => return Err(error),
+                            if frame.catch_barrier {
+                                return Err(error);
                             }
-                            self.pop_frame()?;
+
+                            self.pop_frame(Value::Empty)?;
                         }
                     }
 
                     if let Some((register, ip)) = recover_register_and_ip {
                         self.set_register(register, Value::Str(Arc::new(error.to_string())));
-                        self.set_chunk_and_ip(recover_chunk, ip);
+                        self.set_ip(ip);
                     } else {
                         return Err(error);
                     }
                 }
             }
-
-            ip = self.ip();
         }
 
         Ok(result)
@@ -222,13 +178,10 @@ impl Vm {
         }
     }
 
-    fn execute_instruction(
-        &mut self,
-        instruction: Instruction,
-        instruction_ip: usize,
-    ) -> Result<ControlFlow, Error> {
+    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow, Error> {
         use Value::*;
 
+        let instruction_ip = self.ip();
         let mut result = ControlFlow::Continue;
 
         match instruction {
@@ -897,18 +850,10 @@ impl Vm {
                 )?;
             }
             Instruction::Return { register } => {
-                let frame_result = self.get_register(register).clone();
-                self.frame_mut().result = frame_result.clone();
-
-                let return_chunk_and_ip = self.frame().return_chunk_and_ip.clone();
-
-                if let Some(return_chunk_and_ip) = return_chunk_and_ip {
-                    self.set_chunk_and_ip(return_chunk_and_ip.0, return_chunk_and_ip.1);
-                } else {
-                    result = ControlFlow::ReturnValue(self.copy_value(&frame_result));
+                if let Some(return_value) = self.pop_frame(self.get_register(register).clone())? {
+                    // If pop_frame returns a new return_value, then execution should stop.
+                    result = ControlFlow::ReturnValue(return_value);
                 }
-
-                self.pop_frame()?;
             }
             Instruction::Size { register } => {
                 let size = match self.get_register(register) {
@@ -1685,14 +1630,9 @@ impl Vm {
                     );
                 }
 
-                self.push_frame(
-                    Some((self.chunk(), self.ip())),
-                    arg_register,
-                    result_register,
-                    captures.clone(),
-                );
+                self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
 
-                self.set_chunk_and_ip(chunk.clone(), *function_ip);
+                self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
             }
             unexpected => {
                 return vm_error!(
@@ -1739,19 +1679,20 @@ impl Vm {
         self.call_stack.last_mut().unwrap()
     }
 
-    fn push_frame(
-        &mut self,
-        return_ip: Option<(Arc<Chunk>, usize)>,
-        arg_register: u8,
-        result_register: u8,
-        captures: ValueList,
-    ) {
-        let frame_base = self.register_index(arg_register);
+    fn push_frame(&mut self, chunk: Arc<Chunk>, ip: usize, arg_register: u8, captures: ValueList) {
+        let previous_frame_base = if let Some(frame) = self.call_stack.last() {
+            frame.register_base
+        } else {
+            0
+        };
+        let new_frame_base = previous_frame_base + arg_register as usize;
+
         self.call_stack
-            .push(Frame::new(frame_base, return_ip, result_register, captures));
+            .push(Frame::new(chunk.clone(), new_frame_base, captures));
+        self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self) -> RuntimeResult {
+    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, Error> {
         let frame = match self.call_stack.pop() {
             Some(frame) => frame,
             None => {
@@ -1759,10 +1700,8 @@ impl Vm {
             }
         };
 
-        let return_value = frame.result.clone();
-
-        if !self.call_stack.is_empty() && frame.return_chunk_and_ip.is_some() {
-            let return_value = match return_value.clone() {
+        if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
+            let return_value = match return_value {
                 Value::RegisterList { start, count } => {
                     // If the return value is a register list (i.e. when returning multiple values),
                     // then copy the list's values to the frame base,
@@ -1770,36 +1709,52 @@ impl Vm {
                     if start != 0 {
                         let start = start as usize;
                         for i in 0..count as usize {
-                            let source = frame.base + start + i;
-                            let target = frame.base + i;
+                            let source = frame.register_base + start + i;
+                            let target = frame.register_base + i;
                             self.value_stack[target] = self.value_stack[source].clone();
                         }
                     }
 
                     // Keep the register list values around after the frame has been popped
-                    self.value_stack.truncate(frame.base + count as usize);
+                    self.value_stack
+                        .truncate(frame.register_base + count as usize);
 
                     Value::RegisterList {
-                        start: frame.base as u8,
+                        start: frame.register_base as u8,
                         count,
                     }
                 }
                 other => {
-                    self.value_stack.truncate(frame.base);
+                    self.value_stack.truncate(frame.register_base);
                     other
                 }
             };
 
-            self.set_register(frame.result_register, return_value);
-        } else {
-            self.value_stack.truncate(frame.base);
-        }
+            let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
 
-        Ok(return_value)
+            self.set_register(return_register, return_value);
+            self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
+
+            Ok(None)
+        } else {
+            // If there's no return register, then make a copy of the value to return out of the VM
+            // (i.e. we need to make sure we've collected a RegisterList into a List).
+            let return_value = self.copy_value(&return_value);
+            self.value_stack.truncate(frame.register_base);
+
+            Ok(Some(return_value))
+        }
+    }
+
+    fn register_base(&self) -> usize {
+        match self.call_stack.last() {
+            Some(frame) => frame.register_base,
+            None => 0,
+        }
     }
 
     fn register_index(&self, register: u8) -> usize {
-        self.frame().base + register as usize
+        self.register_base() + register as usize
     }
 
     fn set_register(&mut self, register: u8, value: Value) {

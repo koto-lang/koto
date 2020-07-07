@@ -5,6 +5,7 @@ import test.assert_eq
 import test_module
 assert_eq (type test_module) "map"
 assert_eq test_module.foo 42
+assert_eq (test_module.square 9) 81
 
 # import statements can appear at any point in a script, and can refer directly to items
 x = import test_module.bar
@@ -22,3 +23,4 @@ assert_eq y -1
 a, b = import test_module.foo test_module.bar
 assert_eq a x
 assert_eq b y
+
