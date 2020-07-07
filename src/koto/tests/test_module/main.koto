@@ -1,4 +1,6 @@
-# A simple test module, accessed from ../import.koto
+# A simple test module, used by ../import.koto
 export foo = 42
 export bar = -1
 export baz = import baz
+
+export square = |x| x * x

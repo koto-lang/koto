@@ -1,8 +1,8 @@
 use {
     crate::{DebugInfo, Op},
     koto_parser::{
-        AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, ConstantIndex,
-        LookupNode, Node, Scope, Span,
+        AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
+        ConstantIndex, LookupNode, Node, Scope, Span,
     },
     smallvec::SmallVec,
     std::convert::TryFrom,
@@ -598,6 +598,9 @@ impl Compiler {
             Node::Type(expression) => {
                 self.compile_single_register_op(Type, result_register, *expression, ast)?
             }
+            Node::Try(try_expression) => {
+                self.compile_try_expression(result_register, try_expression, ast)?
+            }
             Node::Debug {
                 expression_string,
                 expression,
@@ -1116,6 +1119,58 @@ impl Compiler {
                 self.push_bytes(&id.to_le_bytes());
             }
         }
+    }
+
+    fn compile_try_expression(
+        &mut self,
+        result_register: Option<u8>,
+        try_expression: &AstTry,
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        let AstTry {
+            try_block,
+            catch_arg,
+            catch_block,
+            finally_block,
+        } = &try_expression;
+
+        // The argument register for the catch block needs to be assigned now
+        // so that it can be included in the TryStart op.
+        let catch_register = self.frame_mut().assign_local_register(*catch_arg)?;
+        self.push_op(TryStart, &[catch_register]);
+        // The catch block start point is defined via an offset from the current byte
+        let catch_offset = self.push_offset_placeholder();
+
+        // If there's a finally block then the result of the expression is derived from there
+        let try_result_register = if finally_block.is_none() {
+            result_register
+        } else {
+            None
+        };
+        self.compile_node(try_result_register, ast.node(*try_block), ast)?;
+
+        // Clear the catch point at the end of the try block
+        // - if the end of the try block has been reached then the catch block is no longer needed.
+        self.push_op(TryEnd, &[]);
+        // jump to the finally block
+        self.push_op(Jump, &[]);
+        let finally_offset = self.push_offset_placeholder();
+
+        self.update_offset_placeholder(catch_offset);
+        // Clear the catch point at the start of the catch block
+        // - if the catch block has been entered, then it needs to be de-registered in case there
+        //   are errors thrown in the catch block.
+        self.push_op(TryEnd, &[]);
+        self.compile_node(try_result_register, ast.node(*catch_block), ast)?;
+
+        self.update_offset_placeholder(finally_offset);
+        if let Some(finally_block) = finally_block {
+            self.compile_node(result_register, ast.node(*finally_block), ast)?;
+        }
+
+        Ok(())
     }
 
     fn compile_binary_op(

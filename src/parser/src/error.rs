@@ -62,6 +62,11 @@ pub enum SyntaxError {
     UnexpectedTokenAfterExportId,
     TooManyNum2Terms,
     TooManyNum4Terms,
+    ExpectedTryBody,
+    ExpectedCatchBlock,
+    ExpectedCatchBody,
+    ExpectedCatchArgument,
+    ExpectedFinallyBody,
 }
 
 #[derive(Debug)]
@@ -189,6 +194,11 @@ impl fmt::Display for SyntaxError {
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
+            ExpectedTryBody => f.write_str("Expected indented block for try expression"),
+            ExpectedCatchBlock => f.write_str("Expected catch expression after try"),
+            ExpectedCatchBody => f.write_str("Expected indented block for catch expression"),
+            ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
+            ExpectedFinallyBody => f.write_str("Expected indented block for finally expression"),
         }
     }
 }

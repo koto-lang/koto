@@ -260,6 +260,11 @@ pub enum Instruction {
         map: u8,
         key: u8,
     },
+    TryStart {
+        arg_register: u8,
+        catch_offset: usize,
+    },
+    TryEnd,
     Debug {
         register: u8,
         constant: usize,
@@ -566,6 +571,15 @@ impl fmt::Display for Instruction {
                 "MapAccess\tresult: {}\tmap: {}\t\tkey: {}",
                 register, map, key
             ),
+            TryStart {
+                arg_register,
+                catch_offset,
+            } => write!(
+                f,
+                "TryStart\targ register: {}\tcatch offset: {}",
+                arg_register, catch_offset
+            ),
+            TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
                 write!(f, "Debug\t\tresult: {}\tconstant: {}", register, constant)
             }
@@ -941,6 +955,11 @@ impl Iterator for InstructionReader {
                 map: get_byte!(),
                 key: get_byte!(),
             }),
+            Op::TryStart => Some(TryStart {
+                arg_register: get_byte!(),
+                catch_offset: get_u16!() as usize,
+            }),
+            Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_byte!(),
                 constant: get_u32!() as usize,

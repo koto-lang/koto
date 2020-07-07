@@ -2,6 +2,7 @@
 
 use {
     crate::{
+        frame::Frame,
         type_as_string,
         value::{deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
@@ -17,50 +18,6 @@ use {
 pub enum ControlFlow {
     Continue,
     ReturnValue(Value),
-}
-
-#[derive(Debug, Default)]
-struct Frame {
-    base: usize,
-    captures: Option<ValueList>,
-    result_register: u8,
-    result: Value,
-    return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
-}
-
-impl Frame {
-    fn new(
-        base: usize,
-        return_chunk_and_ip: Option<(Arc<Chunk>, usize)>,
-        result_register: u8,
-        captures: ValueList,
-    ) -> Self {
-        Self {
-            base,
-            captures: Some(captures),
-            return_chunk_and_ip,
-            result_register,
-            ..Default::default()
-        }
-    }
-
-    fn get_capture(&self, capture: u8) -> Option<Value> {
-        if let Some(captures) = &self.captures {
-            captures.data().get(capture as usize).cloned()
-        } else {
-            None
-        }
-    }
-
-    fn set_capture(&self, capture_index: u8, value: Value) -> bool {
-        if let Some(captures) = &self.captures {
-            if let Some(capture) = captures.data_mut().get_mut(capture_index as usize) {
-                *capture = value;
-                return true;
-            }
-        }
-        false
-    }
 }
 
 #[derive(Default)]
@@ -115,16 +72,18 @@ impl Vm {
     pub fn reset(&mut self) {
         self.value_stack.clear();
         self.call_stack.clear();
-        self.call_stack.push(Frame::default());
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
         self.reset();
-        self.set_chunk_and_ip(chunk, 0);
+        self.push_frame(chunk, 0, 0, None);
         self.execute_instructions()
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
+        let current_chunk = self.chunk();
+        let current_ip = self.ip();
+
         if function.is_instance_function {
             return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
         }
@@ -139,38 +98,68 @@ impl Vm {
             );
         }
 
-        if self.call_stack.is_empty() {
-            self.call_stack.push(Frame::default());
-        }
+        let frame_base = if let Some(frame) = self.call_stack.last() {
+            frame.register_base
+        } else {
+            0
+        };
 
-        let arg_register = (self.value_stack.len() - self.frame().base) as u8;
+        let arg_register = (self.value_stack.len() - frame_base) as u8;
         self.value_stack.extend_from_slice(args);
 
-        self.push_frame(None, arg_register, arg_register, function.captures.clone());
+        self.push_frame(
+            function.chunk.clone(),
+            function.ip,
+            arg_register,
+            function.captures.clone(),
+        );
 
-        let chunk = self.chunk();
-        let ip = self.ip();
-        self.set_chunk_and_ip(function.chunk.clone(), function.ip);
+        self.frame_mut().catch_barrier = true;
 
-        let result = self.execute_instructions()?;
-        self.set_chunk_and_ip(chunk, ip);
+        let result = self.execute_instructions();
+        if result.is_err() {
+            self.pop_frame(Value::Empty)?;
+        }
 
-        Ok(result)
+        self.set_chunk_and_ip(current_chunk, current_ip);
+
+        result
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
-        let mut ip = self.ip();
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction, ip)? {
-                ControlFlow::Continue => {}
-                ControlFlow::ReturnValue(return_value) => {
+            match self.execute_instruction(instruction) {
+                Ok(ControlFlow::Continue) => {}
+                Ok(ControlFlow::ReturnValue(return_value)) => {
                     result = return_value;
                     break;
                 }
+                Err(error) => {
+                    let mut recover_register_and_ip = None;
+
+                    while let Some(frame) = self.call_stack.last() {
+                        if let Some((error_register, catch_ip)) = frame.catch_stack.last() {
+                            recover_register_and_ip = Some((*error_register, *catch_ip));
+                            break;
+                        } else {
+                            if frame.catch_barrier {
+                                return Err(error);
+                            }
+
+                            self.pop_frame(Value::Empty)?;
+                        }
+                    }
+
+                    if let Some((register, ip)) = recover_register_and_ip {
+                        self.set_register(register, Value::Str(Arc::new(error.to_string())));
+                        self.set_ip(ip);
+                    } else {
+                        return Err(error);
+                    }
+                }
             }
-            ip = self.ip();
         }
 
         Ok(result)
@@ -189,13 +178,10 @@ impl Vm {
         }
     }
 
-    fn execute_instruction(
-        &mut self,
-        instruction: Instruction,
-        instruction_ip: usize,
-    ) -> Result<ControlFlow, Error> {
+    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow, Error> {
         use Value::*;
 
+        let instruction_ip = self.ip();
         let mut result = ControlFlow::Continue;
 
         match instruction {
@@ -449,14 +435,19 @@ impl Vm {
                 capture_count,
                 size,
             } => {
-                let mut captures = ValueVec::new();
-                captures.resize(capture_count as usize, Empty);
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
 
                 let function = Function(RuntimeFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
-                    captures: ValueList::with_data(captures),
+                    captures,
                     is_instance_function: false,
                 });
                 self.jump_ip(size);
@@ -468,14 +459,19 @@ impl Vm {
                 capture_count,
                 size,
             } => {
-                let mut captures = ValueVec::new();
-                captures.resize(capture_count as usize, Empty);
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
 
                 let function = Function(RuntimeFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
-                    captures: ValueList::with_data(captures),
+                    captures,
                     is_instance_function: true,
                 });
                 self.jump_ip(size);
@@ -486,9 +482,18 @@ impl Vm {
                 target,
                 source,
             } => match self.get_register(function) {
-                Function(f) => {
-                    f.captures.data_mut()[target as usize] = self.get_register(source).clone();
-                }
+                Function(f) => match &f.captures {
+                    Some(captures) => {
+                        captures.data_mut()[target as usize] = self.get_register(source).clone()
+                    }
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Capture: missing capture list for function"
+                        )
+                    }
+                },
                 unexpected => {
                     return vm_error!(
                         self.chunk(),
@@ -864,18 +869,10 @@ impl Vm {
                 )?;
             }
             Instruction::Return { register } => {
-                let frame_result = self.get_register(register).clone();
-                self.frame_mut().result = frame_result.clone();
-
-                let return_chunk_and_ip = self.frame().return_chunk_and_ip.clone();
-
-                if let Some(return_chunk_and_ip) = return_chunk_and_ip {
-                    self.set_chunk_and_ip(return_chunk_and_ip.0, return_chunk_and_ip.1);
-                } else {
-                    result = ControlFlow::ReturnValue(self.copy_value(&frame_result));
+                if let Some(return_value) = self.pop_frame(self.get_register(register).clone())? {
+                    // If pop_frame returns a new return_value, then execution should stop.
+                    result = ControlFlow::ReturnValue(return_value);
                 }
-
-                self.pop_frame()?;
             }
             Instruction::Size { register } => {
                 let size = match self.get_register(register) {
@@ -1098,6 +1095,16 @@ impl Vm {
                         )
                     }
                 };
+            }
+            Instruction::TryStart {
+                arg_register,
+                catch_offset,
+            } => {
+                let catch_ip = self.ip() + catch_offset;
+                self.frame_mut().catch_stack.push((arg_register, catch_ip));
+            }
+            Instruction::TryEnd => {
+                self.frame_mut().catch_stack.pop();
             }
             Instruction::Debug { register, constant } => {
                 let prefix = match (
@@ -1642,14 +1649,9 @@ impl Vm {
                     );
                 }
 
-                self.push_frame(
-                    Some((self.chunk(), self.ip())),
-                    arg_register,
-                    result_register,
-                    captures.clone(),
-                );
+                self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
 
-                self.set_chunk_and_ip(chunk.clone(), *function_ip);
+                self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
             }
             unexpected => {
                 return vm_error!(
@@ -1698,17 +1700,24 @@ impl Vm {
 
     fn push_frame(
         &mut self,
-        return_ip: Option<(Arc<Chunk>, usize)>,
+        chunk: Arc<Chunk>,
+        ip: usize,
         arg_register: u8,
-        result_register: u8,
-        captures: ValueList,
+        captures: Option<ValueList>,
     ) {
-        let frame_base = self.register_index(arg_register);
+        let previous_frame_base = if let Some(frame) = self.call_stack.last() {
+            frame.register_base
+        } else {
+            0
+        };
+        let new_frame_base = previous_frame_base + arg_register as usize;
+
         self.call_stack
-            .push(Frame::new(frame_base, return_ip, result_register, captures));
+            .push(Frame::new(chunk.clone(), new_frame_base, captures));
+        self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self) -> RuntimeResult {
+    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, Error> {
         let frame = match self.call_stack.pop() {
             Some(frame) => frame,
             None => {
@@ -1716,10 +1725,8 @@ impl Vm {
             }
         };
 
-        let return_value = frame.result.clone();
-
-        if !self.call_stack.is_empty() && frame.return_chunk_and_ip.is_some() {
-            let return_value = match return_value.clone() {
+        if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
+            let return_value = match return_value {
                 Value::RegisterList { start, count } => {
                     // If the return value is a register list (i.e. when returning multiple values),
                     // then copy the list's values to the frame base,
@@ -1727,36 +1734,52 @@ impl Vm {
                     if start != 0 {
                         let start = start as usize;
                         for i in 0..count as usize {
-                            let source = frame.base + start + i;
-                            let target = frame.base + i;
+                            let source = frame.register_base + start + i;
+                            let target = frame.register_base + i;
                             self.value_stack[target] = self.value_stack[source].clone();
                         }
                     }
 
                     // Keep the register list values around after the frame has been popped
-                    self.value_stack.truncate(frame.base + count as usize);
+                    self.value_stack
+                        .truncate(frame.register_base + count as usize);
 
                     Value::RegisterList {
-                        start: frame.base as u8,
+                        start: frame.register_base as u8,
                         count,
                     }
                 }
                 other => {
-                    self.value_stack.truncate(frame.base);
+                    self.value_stack.truncate(frame.register_base);
                     other
                 }
             };
 
-            self.set_register(frame.result_register, return_value);
-        } else {
-            self.value_stack.truncate(frame.base);
-        }
+            let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
 
-        Ok(return_value)
+            self.set_register(return_register, return_value);
+            self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
+
+            Ok(None)
+        } else {
+            // If there's no return register, then make a copy of the value to return out of the VM
+            // (i.e. we need to make sure we've collected a RegisterList into a List).
+            let return_value = self.copy_value(&return_value);
+            self.value_stack.truncate(frame.register_base);
+
+            Ok(Some(return_value))
+        }
+    }
+
+    fn register_base(&self) -> usize {
+        match self.call_stack.last() {
+            Some(frame) => frame.register_base,
+            None => 0,
+        }
     }
 
     fn register_index(&self, register: u8) -> usize {
-        self.frame().base + register as usize
+        self.register_base() + register as usize
     }
 
     fn set_register(&mut self, register: u8, value: Value) {
@@ -3168,6 +3191,54 @@ assert "Hello" in "Hello, World!"
 assert not "Hello" in "World!"
 "#;
             test_script(script, Empty);
+        }
+    }
+
+    mod error_recovery {
+        use super::*;
+
+        #[test]
+        fn try_catch() {
+            let script = "
+x = 1
+try
+  x += 1
+  a + b
+catch _
+  x + 1
+";
+            test_script(script, Number(3.0));
+        }
+
+        #[test]
+        fn try_catch_finally() {
+            let script = "
+try
+  x
+catch e
+  -1
+finally
+  99
+";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
+        fn try_catch_nested() {
+            let script = "
+x = 0
+try
+  x += 1
+  try
+    x += 1
+    a + b
+  catch _
+    x += 1
+  a + b
+catch _
+  x += 1
+";
+            test_script(script, Number(4.0));
         }
     }
 }

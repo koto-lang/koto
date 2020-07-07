@@ -78,6 +78,7 @@ pub enum Node {
     Negate(AstIndex),
     Type(AstIndex),
     Size(AstIndex),
+    Try(AstTry),
     Debug {
         expression_string: ConstantIndex,
         expression: AstIndex,
@@ -132,6 +133,7 @@ impl fmt::Display for Node {
             ReturnExpression(_) => write!(f, "ReturnExpression"),
             Size(_) => write!(f, "Size"),
             Type(_) => write!(f, "Type"),
+            Try { .. } => write!(f, "Try"),
             Debug { .. } => write!(f, "Debug"),
         }
     }
@@ -181,6 +183,14 @@ pub enum AstOp {
     And,
     Or,
     In,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AstTry {
+    pub try_block: AstIndex,
+    pub catch_arg: ConstantIndex,
+    pub catch_block: AstIndex,
+    pub finally_block: Option<AstIndex>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
