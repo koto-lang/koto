@@ -27,7 +27,7 @@ impl Frame {
         Self {
             chunk,
             register_base,
-            captures: captures,
+            captures,
             ..Default::default()
         }
     }
