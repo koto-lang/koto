@@ -307,13 +307,20 @@ impl Compiler {
                     }
 
                     for (key, value_node) in entries.iter() {
+                        // Push the map entry's span in advance of loading the key string, it makes
+                        // for better bytecode output to have the key and value in the same span.
+                        let value_node = ast.node(*value_node);
+                        self.span_stack.push(*ast.span(value_node.span));
+
                         let key_register = self.push_register()?;
                         self.load_string(key_register, *key);
 
                         let value_register = self.push_register()?;
-                        self.compile_node(Some(value_register), ast.node(*value_node), ast)?;
+                        self.compile_node(Some(value_register), value_node, ast)?;
 
                         self.push_op(MapInsert, &[result_register, key_register, value_register]);
+
+                        self.span_stack.pop();
 
                         self.pop_register()?;
                         self.pop_register()?;
@@ -658,7 +665,7 @@ impl Compiler {
 
         let result_register = self.push_register()?;
         self.compile_block(Some(result_register), expressions, ast)?;
-        self.push_op(Op::Return, &[result_register]);
+        self.push_op_without_span(Op::Return, &[result_register]);
 
         self.frame_stack.pop();
 
@@ -1136,6 +1143,8 @@ impl Compiler {
             finally_block,
         } = &try_expression;
 
+        let try_node = ast.node(*try_block);
+
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
         let catch_register = self.frame_mut().assign_local_register(*catch_arg)?;
@@ -1149,21 +1158,26 @@ impl Compiler {
         } else {
             None
         };
-        self.compile_node(try_result_register, ast.node(*try_block), ast)?;
+        self.compile_node(try_result_register, try_node, ast)?;
 
         // Clear the catch point at the end of the try block
         // - if the end of the try block has been reached then the catch block is no longer needed.
         self.push_op(TryEnd, &[]);
         // jump to the finally block
         self.push_op(Jump, &[]);
-        let finally_offset = self.push_offset_placeholder();
 
+        let finally_offset = self.push_offset_placeholder();
         self.update_offset_placeholder(catch_offset);
+
+        let catch_node = ast.node(*catch_block);
+        self.span_stack.push(*ast.span(catch_node.span));
+
         // Clear the catch point at the start of the catch block
         // - if the catch block has been entered, then it needs to be de-registered in case there
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
-        self.compile_node(try_result_register, ast.node(*catch_block), ast)?;
+        self.compile_node(try_result_register, catch_node, ast)?;
+        self.span_stack.pop();
 
         self.update_offset_placeholder(finally_offset);
         if let Some(finally_block) = finally_block {
@@ -1520,7 +1534,7 @@ impl Compiler {
                     }
                     _ => {
                         self.compile_node(Some(element_register), ast.node(*element_node), ast)?;
-                        self.push_op(ListPush, &[result_register, element_register]);
+                        self.push_op_without_span(ListPush, &[result_register, element_register]);
                     }
                 }
             }
@@ -1854,7 +1868,7 @@ impl Compiler {
                 let range_register = self.push_register()?;
                 self.compile_node(Some(range_register), ast.node(*range_node), ast)?;
 
-                self.push_op(MakeIterator, &[iterator_register, range_register]);
+                self.push_op_without_span(MakeIterator, &[iterator_register, range_register]);
                 self.pop_register()?; // range register
 
                 iterator_register
@@ -1866,7 +1880,7 @@ impl Compiler {
                     let range_register = self.push_register()?;
                     self.compile_node(Some(range_register), ast.node(*range_node), ast)?;
 
-                    self.push_op(MakeIterator, &[iterator_register, range_register]);
+                    self.push_op_without_span(MakeIterator, &[iterator_register, range_register]);
                     self.pop_register()?; // range register
 
                     if first_iterator_register.is_none() {
@@ -1885,19 +1899,22 @@ impl Compiler {
             // e.g. for key, value in map
             let temp_register = self.push_register()?;
 
-            self.push_op(IteratorNext, &[temp_register, iterator_register]);
+            self.push_op_without_span(IteratorNext, &[temp_register, iterator_register]);
             self.push_loop_jump_placeholder()?;
 
             for (i, arg) in args.iter().enumerate() {
                 let arg_register = self.frame_mut().assign_local_register(*arg)?;
-                self.push_op(ValueIndex, &[arg_register, temp_register, i as u8]);
+                self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
             }
 
             self.pop_register()?; // temp_register
         } else {
             for (i, arg) in args.iter().enumerate() {
                 let arg_register = self.frame_mut().assign_local_register(*arg)?;
-                self.push_op(IteratorNext, &[arg_register, iterator_register + i as u8]);
+                self.push_op_without_span(
+                    IteratorNext,
+                    &[arg_register, iterator_register + i as u8],
+                );
                 self.push_loop_jump_placeholder()?;
             }
         }
@@ -1916,7 +1933,7 @@ impl Compiler {
                 return Err("compile_for: Missing result register for list expansion".to_string());
             }
 
-            self.push_op(ListPush, &[list_register, result_register.unwrap()]);
+            self.push_op_without_span(ListPush, &[list_register, result_register.unwrap()]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -1967,7 +1984,7 @@ impl Compiler {
                 return Err("compile_while: Missing result register for list expansion".to_string());
             }
 
-            self.push_op(ListPush, &[list_register, result_register.unwrap()]);
+            self.push_op_without_span(ListPush, &[list_register, result_register.unwrap()]);
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -2009,7 +2026,7 @@ impl Compiler {
 
     fn push_jump_back_op(&mut self, op: Op, bytes: &[u8], target_ip: usize) {
         let offset = self.bytes.len() + 3 + bytes.len() - target_ip;
-        self.push_op(op, bytes);
+        self.push_op_without_span(op, bytes);
         self.push_bytes(&(offset as u16).to_le_bytes());
     }
 

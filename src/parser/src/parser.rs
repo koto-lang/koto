@@ -680,6 +680,8 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
+        let start_span = self.lexer.span();
+
         lookup.push(LookupNode::Id(id));
 
         loop {
@@ -797,7 +799,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Ok(self.push_node(Node::Lookup(lookup))?)
+        Ok(self.push_node_with_start_span(Node::Lookup(lookup), start_span)?)
     }
 
     fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
@@ -997,6 +999,7 @@ impl<'source> Parser<'source> {
                 Token::ListStart => return self.parse_list(),
                 Token::MapStart => {
                     self.consume_token();
+                    let start_span = self.lexer.span();
 
                     let mut entries = Vec::new();
 
@@ -1029,10 +1032,11 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedMapEnd, self);
                     }
 
-                    self.push_node(Map(entries))?
+                    self.push_node_with_start_span(Map(entries), start_span)?
                 }
                 Token::Num2 => {
                     self.consume_token();
+                    let start_span = self.lexer.span();
 
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
@@ -1050,10 +1054,11 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum2Terms, self);
                     }
 
-                    self.push_node(Num2(args))?
+                    self.push_node_with_start_span(Num2(args), start_span)?
                 }
                 Token::Num4 => {
                     self.consume_token();
+                    let start_span = self.lexer.span();
 
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
@@ -1071,7 +1076,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum4Terms, self);
                     }
 
-                    self.push_node(Num4(args))?
+                    self.push_node_with_start_span(Num4(args), start_span)?
                 }
                 Token::If => return self.parse_if_expression(),
                 Token::Function => return self.parse_function(),
@@ -1122,6 +1127,7 @@ impl<'source> Parser<'source> {
 
     fn parse_list(&mut self) -> Result<Option<AstIndex>, ParserError> {
         self.consume_token();
+        let start_span = self.lexer.span();
 
         let mut entries = Vec::new();
 
@@ -1178,7 +1184,7 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedListEnd, self);
         }
 
-        Ok(Some(self.push_node(Node::List(entries))?))
+        Ok(Some(self.push_node_with_start_span(Node::List(entries), start_span)?))
     }
 
     fn parse_indented_map_or_block(
@@ -1233,6 +1239,8 @@ impl<'source> Parser<'source> {
             return Ok(None);
         }
 
+        let start_span = self.lexer.span();
+
         let mut entries = Vec::new();
 
         while let Some(key) = self.parse_id_or_string() {
@@ -1263,7 +1271,10 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Ok(Some(self.ast.push(Node::Map(entries), Span::default())?))
+        Ok(Some(self.push_node_with_start_span(
+            Node::Map(entries),
+            start_span,
+        )?))
     }
 
     fn parse_for_loop(
@@ -1549,6 +1560,9 @@ impl<'source> Parser<'source> {
     fn parse_try_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
         let current_indent = self.lexer.current_indent();
         self.consume_token();
+
+        let start_span = self.lexer.span();
+
         let try_block = if let Some(try_block) = self.parse_indented_block(current_indent, None)? {
             try_block
         } else {
@@ -1584,12 +1598,15 @@ impl<'source> Parser<'source> {
             None
         };
 
-        let result = self.push_node(Node::Try(AstTry {
-            try_block,
-            catch_arg,
-            catch_block,
-            finally_block,
-        }))?;
+        let result = self.push_node_with_start_span(
+            Node::Try(AstTry {
+                try_block,
+                catch_arg,
+                catch_block,
+                finally_block,
+            }),
+            start_span,
+        )?;
 
         Ok(Some(result))
     }
@@ -1649,6 +1666,8 @@ impl<'source> Parser<'source> {
         let mut body = Vec::new();
         self.consume_until_next_token();
 
+        let start_span = self.lexer.span();
+
         while let Some(expression) = self.parse_line()? {
             body.push(expression);
 
@@ -1666,7 +1685,10 @@ impl<'source> Parser<'source> {
         if body.len() == 1 {
             Ok(Some(*body.first().unwrap()))
         } else {
-            Ok(Some(self.ast.push(Node::Block(body), Span::default())?))
+            Ok(Some(self.push_node_with_start_span(
+                Node::Block(body),
+                start_span,
+            )?))
         }
     }
 
