@@ -594,13 +594,13 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id(&mut self, allow_placeholders: bool) -> Option<ConstantIndex> {
+    fn parse_id(&mut self, allow_wildcards: bool) -> Option<ConstantIndex> {
         match self.skip_whitespace_and_peek() {
             Some(Token::Id) => {
                 self.consume_token();
                 Some(self.constants.add_string(self.lexer.slice()) as u32)
             }
-            Some(Token::Placeholder) if allow_placeholders => {
+            Some(Token::Wildcard) if allow_wildcards => {
                 self.consume_token();
                 Some(self.constants.add_string(self.lexer.slice()) as u32)
             }
@@ -1079,6 +1079,7 @@ impl<'source> Parser<'source> {
                     self.push_node_with_start_span(Num4(args), start_span)?
                 }
                 Token::If => return self.parse_if_expression(),
+                Token::Match => return self.parse_match_expression(),
                 Token::Function => return self.parse_function(),
                 Token::Copy => {
                     self.consume_token();
@@ -1184,7 +1185,10 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedListEnd, self);
         }
 
-        Ok(Some(self.push_node_with_start_span(Node::List(entries), start_span)?))
+        Ok(Some(self.push_node_with_start_span(
+            Node::List(entries),
+            start_span,
+        )?))
     }
 
     fn parse_indented_map_or_block(
@@ -1518,6 +1522,118 @@ impl<'source> Parser<'source> {
         };
 
         Ok(Some(result))
+    }
+
+    fn parse_match_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.peek_token() != Some(Token::Match) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.current_indent();
+        let start_span = self.lexer.span();
+
+        self.consume_token();
+        let expression = match self.parse_primary_expressions(false)? {
+            Some(expression) => expression,
+            None => return syntax_error!(ExpectedMatchExpression, self),
+        };
+
+        self.consume_until_next_token();
+
+        let match_indent = self.lexer.current_indent();
+        if match_indent <= current_indent {
+            return syntax_error!(ExpectedMatchArm, self);
+        }
+
+        let mut arms = Vec::new();
+
+        while self.peek_token().is_some() {
+            let mut patterns = Vec::new();
+
+            while let Some(pattern) = self.parse_match_pattern()? {
+                patterns.push(pattern);
+
+                if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                    self.consume_token();
+                }
+            }
+
+            if patterns.is_empty() {
+                return syntax_error!(ExpectedMatchPattern, self);
+            }
+
+            let condition = if self.skip_whitespace_and_peek() == Some(Token::If) {
+                self.consume_token();
+                match self.parse_primary_expression()? {
+                    Some(expression) => Some(expression),
+                    None => return syntax_error!(ExpectedMatchCondition, self),
+                }
+            } else {
+                None
+            };
+
+            let expression = if self.skip_whitespace_and_peek() == Some(Token::Then) {
+                self.consume_token();
+                match self.parse_primary_expressions(false)? {
+                    Some(expression) => expression,
+                    None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
+                }
+            } else if let Some(indented_expression) =
+                self.parse_indented_map_or_block(match_indent)?
+            {
+                indented_expression
+            } else {
+                return syntax_error!(ExpectedMatchArmExpression, self);
+            };
+
+            arms.push(MatchArm {
+                patterns,
+                condition,
+                expression,
+            });
+
+            self.consume_until_next_token();
+
+            let next_indent = self.lexer.next_indent();
+            match next_indent.cmp(&match_indent) {
+                Ordering::Less => break,
+                Ordering::Equal => {}
+                Ordering::Greater => return syntax_error!(UnexpectedIndentation, self),
+            }
+        }
+
+        Ok(Some(self.push_node_with_start_span(
+            Node::Match { expression, arms },
+            start_span,
+        )?))
+    }
+
+    fn parse_match_pattern(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        use Token::*;
+
+        let result = if let Some(token) = self.skip_whitespace_and_peek() {
+            match token {
+                True | False | Number | String | Id => return self.parse_term(false),
+                ParenOpen => {
+                    if self.peek_token_n(1) == Some(ParenClose) {
+                        self.consume_token();
+                        self.consume_token();
+                        Some(self.push_node(Node::Empty)?)
+                    } else {
+                        None
+                    }
+                }
+                Wildcard => {
+                    self.consume_token();
+                    Some(self.push_node(Node::Wildcard)?)
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        Ok(result)
     }
 
     fn parse_import_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -2482,7 +2598,7 @@ x";
         }
 
         #[test]
-        fn multi_1_to_3_with_placeholder() {
+        fn multi_1_to_3_with_wildcard() {
             let source = "x, _, y = f()";
             check_ast(
                 source,
@@ -4326,6 +4442,150 @@ finally
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("e")]),
+            )
+        }
+    }
+
+    mod match_expression {
+        use super::*;
+
+        #[test]
+        fn match_single_expression() {
+            let source = r#"\
+x = match y
+  0 then 42
+  "foo" then 99
+  z if z < 10
+    123
+  z then -1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Number0,
+                    Number(2),
+                    Str(3),
+                    Number(4), // index 5
+                    Id(5),
+                    Id(5),
+                    Number(6),
+                    BinaryOp {
+                        op: AstOp::Less,
+                        lhs: 7,
+                        rhs: 8,
+                    },
+                    Number(7), // 10
+                    Id(5),
+                    Number(8),
+                    Match {
+                        expression: 1,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![2],
+                                condition: None,
+                                expression: 3,
+                            },
+                            MatchArm {
+                                patterns: vec![4],
+                                condition: None,
+                                expression: 5,
+                            },
+                            MatchArm {
+                                patterns: vec![6],
+                                condition: Some(9),
+                                expression: 10,
+                            },
+                            MatchArm {
+                                patterns: vec![11],
+                                condition: None,
+                                expression: 12,
+                            },
+                        ],
+                    },
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 13,
+                    },
+                    MainBlock {
+                        body: vec![14],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Number(42.0),
+                    Constant::Str("foo"),
+                    Constant::Number(99.0),
+                    Constant::Str("z"),
+                    Constant::Number(10.0),
+                    Constant::Number(123.0),
+                    Constant::Number(-1.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_multi_expression() {
+            let source = r#"\
+match x, y
+  0, 1 if z then 0
+  a, ()
+    1
+  _ then 0
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Expressions(vec![0, 1]),
+                    Number0,
+                    Number1,
+                    Id(2), // 5
+                    Number0,
+                    Id(3),
+                    Empty,
+                    Number1,
+                    Wildcard, // 10
+                    Number0,
+                    Match {
+                        expression: 2,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![3, 4],
+                                condition: Some(5),
+                                expression: 6,
+                            },
+                            MatchArm {
+                                patterns: vec![7, 8],
+                                condition: None,
+                                expression: 9,
+                            },
+                            MatchArm {
+                                patterns: vec![10],
+                                condition: None,
+                                expression: 11,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![12],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                    Constant::Str("a"),
+                ]),
             )
         }
     }

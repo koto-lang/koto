@@ -128,6 +128,6 @@ make_map = |n|
     n: n
 
 p = make_map 100
-assert_eq p.sign "positive" # TODO (make_map 100).type
+assert_eq p.sign "positive"
 n = make_map -100
 assert_eq n.sign "negative"

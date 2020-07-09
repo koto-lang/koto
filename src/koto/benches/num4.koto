@@ -1,11 +1,9 @@
-import env list test.assert_eq
+import env list string test.assert_eq
 
 export main = ||
-  n = list.get env.args 0
-  if n == ()
-    n = 10
-  else
-    n = number n
+  n = match list.get env.args 0
+    () then 10
+    arg then string.to_number arg
 
   for _ in 0..n
     assert_eq (num4 0) (num4 0 0 0 0)

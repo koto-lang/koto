@@ -35,11 +35,9 @@ AtAv = |x y t n|
   Atv t y n
 
 export main = ||
-  n = list.get env.args 0
-  if n == ()
-    n = 4
-  else
-    n = string.to_number n
+  n = match list.get env.args 0
+    () then 4
+    arg then string.to_number arg
 
   u = [1 for _ in 0..n]
   v = [0 for _ in 0..n]

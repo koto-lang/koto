@@ -61,6 +61,11 @@ pub enum Node {
         rhs: AstIndex,
     },
     If(AstIf),
+    Match {
+        expression: AstIndex,
+        arms: Vec<MatchArm>,
+    },
+    Wildcard,
     For(AstFor),
     While {
         condition: AstIndex,
@@ -124,6 +129,8 @@ impl fmt::Display for Node {
             MultiAssign { .. } => write!(f, "MultiAssign"),
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
+            Match { .. } => write!(f, "Match"),
+            Wildcard => write!(f, "Wildcard"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
             Until { .. } => write!(f, "Until"),
@@ -220,4 +227,11 @@ pub enum LookupNode {
 pub struct AssignTarget {
     pub target_index: AstIndex,
     pub scope: Scope,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MatchArm {
+    pub patterns: Vec<AstIndex>,
+    pub condition: Option<AstIndex>,
+    pub expression: AstIndex,
 }

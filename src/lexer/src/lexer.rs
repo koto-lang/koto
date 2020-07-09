@@ -28,7 +28,7 @@ pub enum Token {
     ListEnd,
     MapStart,
     MapEnd,
-    Placeholder,
+    Wildcard,
     Range,
     RangeInclusive,
     Separator,
@@ -71,6 +71,7 @@ pub enum Token {
     If,
     Import,
     In,
+    Match,
     Not,
     Num2,
     Num4,
@@ -363,6 +364,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("if", If);
         check_keyword!("import", Import);
         check_keyword!("in", In);
+        check_keyword!("match", Match);
         check_keyword!("not", Not);
         check_keyword!("num2", Num2);
         check_keyword!("num4", Num4);
@@ -425,8 +427,8 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("]", ListEnd);
         check_symbol!("{", MapStart);
         check_symbol!("}", MapEnd);
-        check_symbol!("_", Placeholder);
         check_symbol!(",", Separator);
+        check_symbol!("_", Wildcard);
 
         None
     }
@@ -711,7 +713,7 @@ mod tests {
                 (Id, Some("ïd_ƒôûr"), 1),
                 (If, None, 1),
                 (Id, Some("iff"), 1),
-                (Placeholder, None, 1),
+                (Wildcard, None, 1),
             ],
         );
     }

@@ -2,7 +2,7 @@ use {
     crate::{DebugInfo, Op},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, LookupNode, Node, Scope, Span,
+        ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span,
     },
     smallvec::SmallVec,
     std::convert::TryFrom,
@@ -396,9 +396,9 @@ impl Compiler {
                             expressions.len() as u8,
                         ],
                     );
+                } else {
+                    self.frame_mut().truncate_register_stack(stack_count)?;
                 }
-
-                self.frame_mut().truncate_register_stack(stack_count)?;
             }
             Node::CopyExpression(expression) => {
                 if let Some(result_register) = result_register {
@@ -475,6 +475,10 @@ impl Compiler {
                 self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?;
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
+            Node::Match { expression, arms } => {
+                self.compile_match(result_register, *expression, arms, ast)?
+            }
+            Node::Wildcard => {}
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
             Node::While { condition, body } => {
                 self.compile_while(result_register, None, *condition, *body, false, ast)?
@@ -1845,6 +1849,120 @@ impl Compiler {
                 self.update_offset_placeholder(*else_if_jump_ip);
             }
         }
+
+        Ok(())
+    }
+
+    fn compile_match(
+        &mut self,
+        result_register: Option<u8>,
+        expression: AstIndex,
+        arms: &[MatchArm],
+        ast: &Ast,
+    ) -> Result<(), String> {
+        use Op::*;
+
+        let stack_count = self.frame().register_stack.len();
+
+        let match_register = self.push_register()?;
+        self.compile_node(Some(match_register), ast.node(expression), ast)?;
+
+        let mut result_jump_placeholders = Vec::new();
+
+        for (arm_index, arm) in arms.iter().enumerate() {
+            let mut arm_jump_placeholders = Vec::new();
+
+            for (pattern_index, pattern) in arm.patterns.iter().enumerate() {
+                let pattern_node = ast.node(*pattern);
+
+                match pattern_node.node {
+                    Node::Empty
+                    | Node::BoolTrue
+                    | Node::BoolFalse
+                    | Node::Number0
+                    | Node::Number1
+                    | Node::Number(_)
+                    | Node::Str(_) => {
+                        let pattern_register = self.push_register()?;
+                        self.compile_node(Some(pattern_register), pattern_node, ast)?;
+                        let comparison_register = self.push_register()?;
+
+                        if arm.patterns.len() == 1 {
+                            self.push_op_without_span(
+                                Equal,
+                                &[comparison_register, pattern_register, match_register],
+                            );
+                        } else {
+                            let element_register = self.push_register()?;
+
+                            self.push_op_without_span(
+                                ValueIndex,
+                                &[element_register, match_register, pattern_index as u8],
+                            );
+
+                            self.push_op_without_span(
+                                Equal,
+                                &[comparison_register, pattern_register, element_register],
+                            );
+
+                            self.pop_register()?; // element_register
+                        }
+
+                        self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
+                        arm_jump_placeholders.push(self.push_offset_placeholder());
+
+                        self.pop_register()?; // comparison_register
+                        self.pop_register()?; // pattern_register
+                    }
+                    Node::Id(id) => {
+                        self.span_stack.push(*ast.span(pattern_node.span));
+
+                        let id_register = self.frame_mut().assign_local_register(id)?;
+                        if arm.patterns.len() == 1 {
+                            self.push_op(Copy, &[id_register, match_register]);
+                        } else {
+                            self.push_op(
+                                ValueIndex,
+                                &[id_register, match_register, pattern_index as u8],
+                            );
+                        }
+
+                        self.span_stack.pop();
+                    }
+                    Node::Wildcard => {}
+                    _ => {
+                        return Err("Internal error: invalid match pattern".to_string());
+                    }
+                }
+            }
+
+            if let Some(condition) = arm.condition {
+                let condition_register = self.push_register()?;
+                self.compile_node(Some(condition_register), ast.node(condition), ast)?;
+
+                self.push_op(Op::JumpFalse, &[condition_register]);
+                arm_jump_placeholders.push(self.push_offset_placeholder());
+
+                self.pop_register()?; // condition_register
+            }
+
+            self.compile_node(result_register, ast.node(arm.expression), ast)?;
+
+            if arm_index < arms.len() - 1 {
+                self.push_op_without_span(Op::Jump, &[]);
+                result_jump_placeholders.push(self.push_offset_placeholder());
+            }
+
+            for jump_placeholder in arm_jump_placeholders.iter() {
+                self.update_offset_placeholder(*jump_placeholder);
+            }
+        }
+
+        for jump_placeholder in result_jump_placeholders.iter() {
+            self.update_offset_placeholder(*jump_placeholder);
+        }
+
+        self.frame_mut().truncate_register_stack(stack_count)?;
 
         Ok(())
     }

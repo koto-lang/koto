@@ -99,11 +99,9 @@ offset_momentum = |bodies nbody|
     bodies[0].vel = -pos / solar_mass
 
 export main = ||
-  n = list.get env.args 0
-  if n == ()
-    n = 100
-  else
-    n = string.to_number n
+  n = match list.get env.args 0
+    () then 100
+    arg then string.to_number arg
 
   nbody = size bodies
 
