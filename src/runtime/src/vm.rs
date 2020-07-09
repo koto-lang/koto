@@ -2429,6 +2429,7 @@ x
 x = "hello"
 match x
   "goodbye" then 1
+  () then 99
   y if y == "O_o" then -1
   y if y == "hello"
     42

@@ -1611,18 +1611,29 @@ impl<'source> Parser<'source> {
     fn parse_match_pattern(&mut self) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        if let Some(token) = self.skip_whitespace_and_peek() {
+        let result = if let Some(token) = self.skip_whitespace_and_peek() {
             match token {
-                True | False | Number | String | Id => self.parse_term(false),
+                True | False | Number | String | Id => return self.parse_term(false),
+                ParenOpen => {
+                    if self.peek_token_n(1) == Some(ParenClose) {
+                        self.consume_token();
+                        self.consume_token();
+                        Some(self.push_node(Node::Empty)?)
+                    } else {
+                        None
+                    }
+                }
                 Wildcard => {
                     self.consume_token();
-                    Ok(Some(self.push_node(Node::Wildcard)?))
+                    Some(self.push_node(Node::Wildcard)?)
                 }
-                _ => Ok(None),
+                _ => None,
             }
         } else {
-            Ok(None)
-        }
+            None
+        };
+
+        Ok(result)
     }
 
     fn parse_import_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -4525,7 +4536,7 @@ x = match y
             let source = r#"\
 match x, y
   0, 1 if z then 0
-  a, b
+  a, ()
     1
   _ then 0
 "#;
@@ -4540,7 +4551,7 @@ match x, y
                     Id(2), // 5
                     Number0,
                     Id(3),
-                    Id(4),
+                    Empty,
                     Number1,
                     Wildcard, // 10
                     Number0,
@@ -4574,7 +4585,6 @@ match x, y
                     Constant::Str("y"),
                     Constant::Str("z"),
                     Constant::Str("a"),
-                    Constant::Str("b"),
                 ]),
             )
         }

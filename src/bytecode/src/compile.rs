@@ -1876,7 +1876,8 @@ impl Compiler {
                 let pattern_node = ast.node(*pattern);
 
                 match pattern_node.node {
-                    Node::BoolTrue
+                    Node::Empty
+                    | Node::BoolTrue
                     | Node::BoolFalse
                     | Node::Number0
                     | Node::Number1
