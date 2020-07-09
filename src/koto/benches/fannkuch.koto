@@ -62,13 +62,11 @@ fannkuch = |n|
         list.insert p (i + 1) t
 
 export main = ||
-  n = list.get env.args 0
-  if n == ()
-    n = 4
-  else
-    n = string.to_number n
+  n = match list.get env.args 0
+    () then 4
+    arg then string.to_number arg
 
-  sum, flips = fannkuch(n)
+  sum, flips = fannkuch n
 
   if (list.get env.args 1) != "quiet"
     print sum

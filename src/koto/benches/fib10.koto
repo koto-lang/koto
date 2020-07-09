@@ -1,18 +1,14 @@
-import env list
+import env list string
 
 fib = |n|
-  if n <= 0
-    0
-  else if n == 1
-    1
-  else
-    (fib n - 1) + (fib n - 2)
+  match n
+    _ if n <= 0 then 0
+    1 then 1
+    _ then (fib n - 1) + (fib n - 2)
 
 export main = ||
-  n = list.get env.args 0
-  if n == ()
-    n = 8
-  else
-    n = number n
+  n = match list.get env.args 0
+    () then 8
+    arg then string.to_number arg
 
   fib n
