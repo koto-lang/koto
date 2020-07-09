@@ -28,7 +28,7 @@ pub enum Token {
     ListEnd,
     MapStart,
     MapEnd,
-    Placeholder,
+    Wildcard,
     Range,
     RangeInclusive,
     Separator,
@@ -427,8 +427,8 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("]", ListEnd);
         check_symbol!("{", MapStart);
         check_symbol!("}", MapEnd);
-        check_symbol!("_", Placeholder);
         check_symbol!(",", Separator);
+        check_symbol!("_", Wildcard);
 
         None
     }
@@ -713,7 +713,7 @@ mod tests {
                 (Id, Some("ïd_ƒôûr"), 1),
                 (If, None, 1),
                 (Id, Some("iff"), 1),
-                (Placeholder, None, 1),
+                (Wildcard, None, 1),
             ],
         );
     }

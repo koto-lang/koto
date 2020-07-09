@@ -594,13 +594,13 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id(&mut self, allow_placeholders: bool) -> Option<ConstantIndex> {
+    fn parse_id(&mut self, allow_wildcards: bool) -> Option<ConstantIndex> {
         match self.skip_whitespace_and_peek() {
             Some(Token::Id) => {
                 self.consume_token();
                 Some(self.constants.add_string(self.lexer.slice()) as u32)
             }
-            Some(Token::Placeholder) if allow_placeholders => {
+            Some(Token::Wildcard) if allow_wildcards => {
                 self.consume_token();
                 Some(self.constants.add_string(self.lexer.slice()) as u32)
             }
@@ -1614,7 +1614,7 @@ impl<'source> Parser<'source> {
         if let Some(token) = self.skip_whitespace_and_peek() {
             match token {
                 True | False | Number | String | Id => self.parse_term(false),
-                Placeholder => {
+                Wildcard => {
                     self.consume_token();
                     Ok(Some(self.push_node(Node::Wildcard)?))
                 }
@@ -2587,7 +2587,7 @@ x";
         }
 
         #[test]
-        fn multi_1_to_3_with_placeholder() {
+        fn multi_1_to_3_with_wildcard() {
             let source = "x, _, y = f()";
             check_ast(
                 source,
