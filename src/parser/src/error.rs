@@ -40,6 +40,12 @@ pub enum SyntaxError {
     ExpectedElseIfBlock,
     ExpectedElseExpression,
     ExpectedElseBlock,
+    ExpectedMatchExpression,
+    ExpectedMatchArm,
+    ExpectedMatchPattern,
+    ExpectedMatchCondition,
+    ExpectedMatchArmExpression,
+    ExpectedMatchArmExpressionAfterThen,
     ExpectedAssignmentTarget,
     ExpectedFunctionArgsEnd,
     ExpectedFunctionBody,
@@ -170,6 +176,14 @@ impl fmt::Display for SyntaxError {
             ExpectedElseIfBlock => f.write_str("Expected indented block for 'else if'."),
             ExpectedElseExpression => f.write_str("Expected 'else' expression."),
             ExpectedElseBlock => f.write_str("Expected indented block for 'else'."),
+            ExpectedMatchExpression => f.write_str("Expected expression after match"),
+            ExpectedMatchArm => f.write_str("Expected indented arm for match expression"),
+            ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
+            ExpectedMatchCondition => f.write_str("Expected condition after if in match arm"),
+            ExpectedMatchArmExpression => f.write_str("Expected expression in match arm"),
+            ExpectedMatchArmExpressionAfterThen => {
+                f.write_str("Expected expression after then in match arm")
+            }
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedFunctionBody => f.write_str("Expected function body"),

@@ -71,6 +71,7 @@ pub enum Token {
     If,
     Import,
     In,
+    Match,
     Not,
     Num2,
     Num4,
@@ -363,6 +364,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("if", If);
         check_keyword!("import", Import);
         check_keyword!("in", In);
+        check_keyword!("match", Match);
         check_keyword!("not", Not);
         check_keyword!("num2", Num2);
         check_keyword!("num4", Num4);

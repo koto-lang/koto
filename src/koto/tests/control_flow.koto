@@ -1,6 +1,6 @@
 from test import assert assert_eq
 
-# Single line if statement
+# Single line if expression
 is_zero = |x| x == 0
 if is_zero 0 then assert true
 assert if is_zero 0 then true else false
@@ -8,7 +8,7 @@ a, b = if true then 10, 20 else 30, 40
 assert_eq b 20
 
 
-# Multiline if statement
+# Multiline if expression
 x = true
 if x
   a = 42
@@ -26,42 +26,23 @@ else
       # or this one
     assert true
 
-if true
-  # functions in nested local scope can be called recursively
-  fib = |n|
-    if n <= 0
-      0
-    else if n == 1
-      1
-    else
-      (fib n - 1) + (fib n - 2)
-  assert_eq 13 (fib 7)
 
+# match expression
+fib = |n|
+  match n
+    _ if n <= 0 then 0
+    1 then 1
+    _ then (fib n - 1) + (fib n - 2)
 
-####### return allows for early exit from functions
-match_digit = |n|
-  match_digit_nested = |n|
-    for i in 0..10
-      if i == n
-        return i
+assert_eq 13 (fib 7)
 
-  for i in 0..10
-    if i == n
-      return match_digit_nested n
+# match with multiple expressions
+fizz_buzz = |n|
+  match n % 3, n % 5
+    0, 0 then "Fizz Buzz"
+    0, _ then "Fizz"
+    _, 0 then "Buzz"
+    _ then n
 
-x = [(match_digit i) for i in 0..3]
-assert_eq x [0 1 2]
-
-###### return supports returning multiple values
-f = ||
-  return -1, 1
-a, b = f()
-assert_eq a -1
-assert_eq b 1
-
-##### return can also be used without a value
-f = ||
-  if true
-    return
-  assert false
-f()
+x = [fizz_buzz n for n in 10..=15]
+assert_eq x ["Buzz" 11 "Fizz" 13 14 "Fizz Buzz"]

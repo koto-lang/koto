@@ -979,7 +979,8 @@ impl Vm {
                                 count
                             );
                         }
-                        self.set_register(register, self.get_register(start + index).clone());
+                        let value = self.get_register(start + index).clone();
+                        self.set_register(register, value);
                     }
                     other => {
                         if index == 0 {
@@ -2405,6 +2406,65 @@ else
   0
 x";
             test_script(script, Number(100.0));
+        }
+    }
+
+    mod match_expressions {
+        use super::*;
+
+        #[test]
+        fn match_assignment() {
+            let script = "
+x = match 0 == 1
+  true then 42
+  false then 99
+x
+";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
+        fn match_with_condition() {
+            let script = r#"
+x = "hello"
+match x
+  "goodbye" then 1
+  y if y == "O_o" then -1
+  y if y == "hello"
+    42
+"#;
+            test_script(script, Number(42.0));
+        }
+
+        #[test]
+        fn match_multiple() {
+            let script = r#"
+x = 11
+match x % 3, x % 5
+  0, 0 then "Fizz Buzz"
+  0, _ then "Fizz"
+  _, 0 then "Buzz"
+  _ then x
+"#;
+            test_script(script, Number(11.0));
+        }
+
+        #[test]
+        fn match_map_result() {
+            let script = r#"
+m = match "hello"
+  "foo"
+    value_1: -1
+    value_2: 99
+  "hello"
+    value_1: 4
+    value_2: 20
+  _
+    value_1: 10
+    value_2: 7
+m.value_1 + m.value_2
+"#;
+            test_script(script, Number(24.0));
         }
     }
 
