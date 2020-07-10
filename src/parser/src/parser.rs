@@ -2866,6 +2866,39 @@ x %= 4";
                 Some(&[Constant::Str("hello"), Constant::Str("x")]),
             )
         }
+
+        #[test]
+        fn function_call_on_rhs() {
+            let source = "x = 1 + (f y)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Id(1),
+                    Id(2),
+                    Call{ function: 2, args: vec![3] },
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 4,
+                    }, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
+            )
+        }
     }
 
     mod logic {
