@@ -37,6 +37,11 @@ pub fn register(prelude: &mut ValueMap) {
     math_fn_1!(tan);
     math_fn_1!(tanh);
 
+    math.add_fn("pow", |_, args| match args {
+        [Number(x), Number(y)] => Ok(Number(x.powf(*y))),
+        _ => external_error!("math.pow: Expected two numbers as arguments"),
+    });
+
     math.add_fn("sum", |_, args| match args {
         [] => external_error!("sum: Missing argument"),
         [Num2(n)] => Ok(Number(n[0] + n[1])),
