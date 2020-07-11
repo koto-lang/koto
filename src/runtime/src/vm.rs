@@ -129,8 +129,10 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
+        let mut instruction_ip = self.ip();
+
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction) {
+            match self.execute_instruction(instruction, instruction_ip) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::ReturnValue(return_value)) => {
                     result = return_value;
@@ -160,6 +162,8 @@ impl Vm {
                     }
                 }
             }
+
+            instruction_ip = self.ip();
         }
 
         Ok(result)
@@ -178,10 +182,13 @@ impl Vm {
         }
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow, Error> {
+    fn execute_instruction(
+        &mut self,
+        instruction: Instruction,
+        instruction_ip: usize,
+    ) -> Result<ControlFlow, Error> {
         use Value::*;
 
-        let instruction_ip = self.ip();
         let mut result = ControlFlow::Continue;
 
         match instruction {
