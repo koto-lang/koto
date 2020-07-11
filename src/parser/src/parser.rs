@@ -1094,7 +1094,7 @@ impl<'source> Parser<'source> {
 
                     self.push_node_with_start_span(Num4(args), start_span)?
                 }
-                Token::If => return self.parse_if_expression(),
+                Token::If if primary_expression => return self.parse_if_expression(),
                 Token::Match => return self.parse_match_expression(),
                 Token::Function => return self.parse_function(),
                 Token::Copy => {
@@ -1329,7 +1329,7 @@ impl<'source> Parser<'source> {
         }
 
         let mut ranges = Vec::new();
-        while let Some(range) = self.parse_non_primary_expression()? {
+        while let Some(range) = self.parse_primary_expression()? {
             ranges.push(range);
 
             if self.skip_whitespace_and_peek() != Some(Token::Separator) {
@@ -3181,31 +3181,36 @@ a";
 
         #[test]
         fn for_inline_conditional() {
-            let source = "x for x in y if x == 0";
+            let source = "x for x in f y if x == 0";
             check_ast(
                 source,
                 &[
                     Id(0),
                     Id(1),
+                    Id(2),
+                    Call {
+                        function: 1,
+                        args: vec![2],
+                    },
                     Id(0),
-                    Number0,
+                    Number0, // 5
                     BinaryOp {
                         op: AstOp::Equal,
-                        lhs: 2,
-                        rhs: 3,
+                        lhs: 4,
+                        rhs: 5,
                     },
                     For(AstFor {
                         args: vec![0],
-                        ranges: vec![1],
-                        condition: Some(4),
+                        ranges: vec![3],
+                        condition: Some(6),
                         body: 0,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
+                Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
             )
         }
 
