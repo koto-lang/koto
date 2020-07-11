@@ -1316,16 +1316,20 @@ impl<'source> Parser<'source> {
             self.frame_mut()?
                 .ids_assigned_in_scope
                 .insert(constant_index);
-            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
-                self.consume_token();
+
+            match self.skip_whitespace_and_peek() {
+                Some(Token::Separator) => {
+                    self.consume_token();
+                }
+                Some(Token::In) => {
+                    self.consume_token();
+                    break;
+                }
+                _ => return syntax_error!(ExpectedForInKeyword, self),
             }
         }
         if args.is_empty() {
             return syntax_error!(ExpectedForArgs, self);
-        }
-
-        if self.skip_whitespace_and_next() != Some(Token::In) {
-            return syntax_error!(ExpectedForInKeyword, self);
         }
 
         let mut ranges = Vec::new();
