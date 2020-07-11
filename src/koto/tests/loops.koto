@@ -7,7 +7,7 @@ for x in 0..10
     assert_eq x y
 
     # loop bodies share scope of statement
-    count = count + 1
+    count += 1
 
 assert_eq count 3
 
@@ -16,7 +16,7 @@ assert_eq count 3
 
 # List comprehensions - for loop assignment captures values in a list
 square = |x| x * x
-c = [square(x) for x in [1 2 3]]
+c = [square x for x in [1 2 3]]
 assert_eq c [1 4 9]
 
 filter = |xs f| [x for x in xs if f x]

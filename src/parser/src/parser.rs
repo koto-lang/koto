@@ -409,24 +409,23 @@ impl<'source> Parser<'source> {
         &mut self,
         lhs: Option<&[AstIndex]>,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(lhs, 0)
+        self.parse_expression_start(lhs, 0, true)
     }
 
     fn parse_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(None, 0)
+        self.parse_expression_start(None, 0, true)
     }
 
     fn parse_non_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(None, 1)
+        self.parse_expression_start(None, 0, false)
     }
 
     fn parse_expression_start(
         &mut self,
         lhs: Option<&[AstIndex]>,
         min_precedence: u8,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let primary_expression = min_precedence == 0;
-
         let start_line = self.lexer.line_number();
 
         let expression_start = {
@@ -456,9 +455,17 @@ impl<'source> Parser<'source> {
             if let Some(lhs) = lhs {
                 let mut lhs_with_expression_start = lhs.to_vec();
                 lhs_with_expression_start.push(expression_start);
-                self.parse_expression_continued(&lhs_with_expression_start, min_precedence)
+                self.parse_expression_continued(
+                    &lhs_with_expression_start,
+                    min_precedence,
+                    primary_expression,
+                )
             } else {
-                self.parse_expression_continued(&[expression_start], min_precedence)
+                self.parse_expression_continued(
+                    &[expression_start],
+                    min_precedence,
+                    primary_expression,
+                )
             }
         } else {
             Ok(Some(expression_start))
@@ -469,9 +476,8 @@ impl<'source> Parser<'source> {
         &mut self,
         lhs: &[AstIndex],
         min_precedence: u8,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let primary_expression = min_precedence == 0;
-
         use Token::*;
 
         let last_lhs = match lhs {
@@ -486,7 +492,11 @@ impl<'source> Parser<'source> {
                     if let Some(maybe_operator) = self.peek_until_next_token() {
                         if operator_precedence(maybe_operator).is_some() {
                             self.consume_until_next_token();
-                            return self.parse_expression_continued(lhs, min_precedence);
+                            return self.parse_expression_continued(
+                                lhs,
+                                min_precedence,
+                                primary_expression,
+                            );
                         }
                     }
                 }
@@ -513,16 +523,22 @@ impl<'source> Parser<'source> {
                                     self.parse_map_block(current_indent, None)?
                                 {
                                     map_block
-                                } else if let Some(rhs_expression) =
-                                    self.parse_expression_start(None, right_priority)?
-                                {
+                                } else if let Some(rhs_expression) = self.parse_expression_start(
+                                    None,
+                                    right_priority,
+                                    primary_expression,
+                                )? {
                                     rhs_expression
                                 } else {
                                     return syntax_error!(ExpectedRhsExpression, self);
                                 };
 
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                                return self.parse_expression_continued(&[op_node], min_precedence);
+                                return self.parse_expression_continued(
+                                    &[op_node],
+                                    min_precedence,
+                                    primary_expression,
+                                );
                             }
                         }
                     }
@@ -2869,7 +2885,7 @@ x %= 4";
 
         #[test]
         fn function_call_on_rhs() {
-            let source = "x = 1 + (f y)";
+            let source = "x = 1 + f y";
             check_ast(
                 source,
                 &[
@@ -2877,7 +2893,10 @@ x %= 4";
                     Number1,
                     Id(1),
                     Id(2),
-                    Call{ function: 2, args: vec![3] },
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
                     BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
