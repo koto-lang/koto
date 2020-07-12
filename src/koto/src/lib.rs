@@ -268,7 +268,7 @@ impl Koto {
 
             let padding = " ".repeat(number_width + 2);
 
-            if excerpt_lines.len() == 1 {
+            if start_pos.line == end_pos.line {
                 let mut excerpt = format!(
                     " {:>width$} | {}\n",
                     line_numbers.first().unwrap(),
