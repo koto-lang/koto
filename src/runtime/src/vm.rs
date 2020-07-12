@@ -2825,7 +2825,7 @@ f()";
             let script = "
 sum = 0
 for a, b in [[1 2] [3 4]]
-    sum += a + b
+  sum += a + b
 sum
 ";
             test_script(script, Number(10.0));
@@ -2836,7 +2836,7 @@ sum
             let script = "
 sum = 0
 for a, b in [1 2 3], [4 5 6]
-    sum += a + b
+  sum += a + b
 sum
 ";
             test_script(script, Number(21.0));

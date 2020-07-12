@@ -501,9 +501,15 @@ impl<'source> Parser<'source> {
                         }
                     }
                 }
-                For => return self.parse_for_loop(Some(lhs), primary_expression),
-                While => return self.parse_while_loop(Some(lhs), primary_expression),
-                Until => return self.parse_until_loop(Some(lhs), primary_expression),
+                For if primary_expression => {
+                    return self.parse_for_loop(Some(lhs), primary_expression)
+                }
+                While if primary_expression => {
+                    return self.parse_while_loop(Some(lhs), primary_expression)
+                }
+                Until if primary_expression => {
+                    return self.parse_until_loop(Some(lhs), primary_expression)
+                }
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -3150,6 +3156,40 @@ a";
                     },
                 ],
                 Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn for_inline_call_in_body() {
+            let source = "f x for x in 0..1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 3,
+                        end: 4,
+                        inclusive: false,
+                    }, // 5
+                    For(AstFor {
+                        args: vec![1],
+                        ranges: vec![5],
+                        condition: None,
+                        body: 2,
+                    }),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
             )
         }
 

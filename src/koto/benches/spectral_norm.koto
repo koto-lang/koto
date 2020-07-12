@@ -24,11 +24,11 @@ Av = |x y n|
 Atv = |x y n|
   i = 0
   list.transform y |n|
-      i += 1
-      j = 0
-      list.fold x 0 |result n|
-          j += 1
-          result + n * (A j i)
+    i += 1
+    j = 0
+    list.fold x 0 |result n|
+      j += 1
+      result + n * (A j i)
 
 AtAv = |x y t n|
   Av x t n
