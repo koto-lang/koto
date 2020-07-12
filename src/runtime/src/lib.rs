@@ -16,7 +16,7 @@ use {
 
 pub use {
     external::{ExternalFunction, ExternalValue},
-    loader::Loader,
+    loader::{Loader, LoaderError},
     value::{make_external_value, type_as_string, RuntimeFunction, Value},
     value_iterator::IntRange,
     value_list::{ValueList, ValueVec},
@@ -36,6 +36,7 @@ pub enum Error {
     ExternalError {
         message: String,
     },
+    LoaderError(loader::LoaderError),
 }
 
 impl fmt::Display for Error {
@@ -43,6 +44,7 @@ impl fmt::Display for Error {
         match self {
             Error::VmError { message, .. } => f.write_str(message),
             Error::ExternalError { message } => f.write_str(message),
+            Error::LoaderError(error) => f.write_str(&error.message),
         }
     }
 }

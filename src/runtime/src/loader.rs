@@ -1,8 +1,14 @@
 use {
     koto_bytecode::{Chunk, Compiler},
-    koto_parser::Parser,
+    koto_parser::{Parser, Span},
     std::{collections::HashMap, path::PathBuf, sync::Arc},
 };
+
+#[derive(Clone, Debug)]
+pub struct LoaderError {
+    pub message: String,
+    pub span: Option<Span>,
+}
 
 #[derive(Clone, Default)]
 pub struct Loader {
@@ -15,11 +21,21 @@ impl Loader {
         script: &str,
         script_path: Option<PathBuf>,
         parser_options: koto_parser::Options,
-    ) -> Result<Arc<Chunk>, String> {
+    ) -> Result<Arc<Chunk>, LoaderError> {
         match Parser::parse(&script, parser_options) {
             Ok((ast, constants)) => {
-                let (bytes, mut debug_info) = Compiler::compile(&ast)?;
+                let (bytes, mut debug_info) = match Compiler::compile(&ast) {
+                    Ok((bytes, debug_info)) => (bytes, debug_info),
+                    Err(e) => {
+                        return Err(LoaderError {
+                            message: e.message,
+                            span: Some(e.span),
+                        })
+                    }
+                };
+
                 debug_info.source = script.to_string();
+
                 Ok(Arc::new(Chunk::new(
                     bytes,
                     constants,
@@ -27,16 +43,14 @@ impl Loader {
                     debug_info,
                 )))
             }
-            Err(e) => Err(format!(
-                "{} - ({}, {})",
-                e.to_string(),
-                e.span.start,
-                e.span.end
-            )),
+            Err(e) => Err(LoaderError {
+                message: e.to_string(),
+                span: Some(e.span),
+            }),
         }
     }
 
-    pub fn compile_repl(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
+    pub fn compile_repl(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
         self.compile(
             script,
             None,
@@ -50,7 +64,7 @@ impl Loader {
         &mut self,
         script: &str,
         script_path: &Option<PathBuf>,
-    ) -> Result<Arc<Chunk>, String> {
+    ) -> Result<Arc<Chunk>, LoaderError> {
         if let Some(script_path) = script_path {
             if let Some(chunk) = self.chunks.get(script_path) {
                 return Ok(chunk.clone());
@@ -76,7 +90,7 @@ impl Loader {
         &mut self,
         name: &str,
         load_from_path: Option<PathBuf>,
-    ) -> Result<(Arc<Chunk>, PathBuf), String> {
+    ) -> Result<(Arc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let path = match load_from_path {
             Some(path) => {
@@ -91,13 +105,23 @@ impl Loader {
             }
             None => match std::env::current_dir() {
                 Ok(path) => path,
-                Err(e) => return Err(e.to_string()),
+                Err(e) => {
+                    return Err(LoaderError {
+                        message: e.to_string(),
+                        span: None,
+                    })
+                }
             },
         };
 
         let path = match path.canonicalize() {
             Ok(canonicalized) => canonicalized,
-            Err(e) => return Err(e.to_string()),
+            Err(e) => {
+                return Err(LoaderError {
+                    message: e.to_string(),
+                    span: None,
+                })
+            }
         };
 
         let mut load_module_from_path = |module_path: PathBuf| match self.chunks.get(&module_path) {
@@ -111,10 +135,14 @@ impl Loader {
                             export_all_top_level: false,
                         },
                     )?;
+
                     self.chunks.insert(module_path.clone(), chunk.clone());
                     Ok((chunk, module_path))
                 }
-                Err(_) => Err("File not found".to_string()),
+                Err(_) => Err(LoaderError {
+                    message: format!("File not found: {}", module_path.to_string_lossy()),
+                    span: None,
+                }),
             },
         };
 
@@ -133,7 +161,10 @@ impl Loader {
         if module_path.exists() {
             load_module_from_path(module_path)
         } else {
-            Err(format!("Unable to find module '{}'", name))
+            Err(LoaderError {
+                message: format!("Unable to find module '{}'", name),
+                span: None,
+            })
         }
     }
 }

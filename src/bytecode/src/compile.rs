@@ -8,6 +8,29 @@ use {
     std::convert::TryFrom,
 };
 
+pub struct CompilerError {
+    pub message: String,
+    pub span: Span,
+}
+
+macro_rules! make_compiler_error {
+    ($span:expr, $message:expr) => {{
+        CompilerError {
+            message: $message,
+            span: $span,
+        }
+    }};
+}
+
+macro_rules! compiler_error {
+    ($compiler:expr, $error:expr) => {
+        Err(make_compiler_error!($compiler.span(), String::from($error)))
+    };
+    ($compiler:expr, $error:expr, $($args:expr),+ $(,)?) => {
+        Err(make_compiler_error!($compiler.span(), format!($error, $($args),+)))
+    };
+}
+
 #[derive(Clone, Debug, Default)]
 struct Loop {
     start_ip: usize,
@@ -104,8 +127,7 @@ impl Frame {
                 let new_local_register = self.local_registers.len() - 1;
 
                 if new_local_register > self.temporary_base as usize {
-                    panic!();
-                    // return Err("reserve_local_register: Locals overflowed".to_string());
+                    return Err("reserve_local_register: Locals overflowed".to_string());
                 }
 
                 Ok(new_local_register as u8)
@@ -155,8 +177,7 @@ impl Frame {
         let register = match self.register_stack.pop() {
             Some(register) => register,
             None => {
-                panic!();
-                // return Err("pop_register: Empty register stack".to_string());
+                return Err("pop_register: Empty register stack".to_string());
             }
         };
 
@@ -219,7 +240,7 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(ast: &Ast) -> Result<(Vec<u8>, DebugInfo), String> {
+    pub fn compile(ast: &Ast) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
         let mut compiler = Compiler::default();
 
         if let Some(entry_point) = ast.entry_point() {
@@ -234,7 +255,7 @@ impl Compiler {
         result_register: Option<u8>,
         node: &AstNode,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         self.span_stack.push(*ast.span(node.span));
@@ -386,7 +407,7 @@ impl Compiler {
                 }
 
                 if let Some(result_register) = result_register {
-                    let start_register = self.frame().peek_register(expressions.len() - 1)?;
+                    let start_register = self.peek_register(expressions.len() - 1)?;
 
                     self.push_op(
                         RegisterList,
@@ -397,7 +418,7 @@ impl Compiler {
                         ],
                     );
                 } else {
-                    self.frame_mut().truncate_register_stack(stack_count)?;
+                    self.truncate_register_stack(stack_count)?;
                 }
             }
             Node::CopyExpression(expression) => {
@@ -447,7 +468,9 @@ impl Compiler {
                         call_lookup.push(LookupNode::Call(args.clone()));
                         self.compile_lookup(result_register, &call_lookup, None, ast)?
                     }
-                    _ => return Err(format!("Call: unexpected node at index {}", function)),
+                    _ => {
+                        return compiler_error!(self, "Call: unexpected node at index {}", function)
+                    }
                 };
             }
             Node::Import { from, items } => {
@@ -538,7 +561,7 @@ impl Compiler {
         result_register: Option<u8>,
         node: &AstNode,
         ast: &Ast,
-    ) -> Result<(u8, bool), String> {
+    ) -> Result<(u8, bool), CompilerError> {
         if let Node::Id(id) = node.node {
             if let Some(local_register) = self.frame().get_local_assigned_register(id) {
                 Ok((local_register, false))
@@ -567,7 +590,7 @@ impl Compiler {
         args: &[ConstantIndex],
         captures: &[ConstantIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         self.frame_stack
             .push(Frame::new(local_count, args, captures));
 
@@ -585,7 +608,7 @@ impl Compiler {
         result_register: Option<u8>,
         expressions: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         match expressions {
@@ -613,18 +636,20 @@ impl Compiler {
         &mut self,
         target: AssignTarget,
         ast: &Ast,
-    ) -> Result<Option<u8>, String> {
+    ) -> Result<Option<u8>, CompilerError> {
         let result = match target.scope {
             Scope::Local => match &ast.node(target.target_index).node {
                 Node::Id(constant_index) => {
                     if self.frame().capture_slot(*constant_index).is_some() {
                         None
                     } else {
-                        Some(self.frame_mut().reserve_local_register(*constant_index)?)
+                        Some(self.reserve_local_register(*constant_index)?)
                     }
                 }
                 Node::Lookup(_) => None,
-                unexpected => return Err(format!("Expected Id in AST, found {}", unexpected)),
+                unexpected => {
+                    return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
+                }
             },
             Scope::Global => None,
         };
@@ -639,7 +664,7 @@ impl Compiler {
         op: AssignOp,
         expression: AstIndex,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let local_assign_register = self.local_register_for_assign_target(target, ast)?;
@@ -697,7 +722,7 @@ impl Compiler {
                             // To ensure that global rhs ids with the same name as a local that's
                             // currently being assigned can be loaded correctly, only commit the
                             // reserved local as assigned after the rhs has been compiled.
-                            self.frame_mut().commit_local_register(assign_register)?;
+                            self.commit_local_register(assign_register)?;
                         }
 
                         if let Some(capture) = self.frame().capture_slot(*id_index) {
@@ -724,10 +749,7 @@ impl Compiler {
                 self.compile_lookup(result_register, &lookup, Some(assign_register), ast)?;
             }
             unexpected => {
-                return Err(format!(
-                    "Expected Lookup or Id in AST, found {}",
-                    unexpected
-                ))
+                return compiler_error!(self, "Expected Lookup or Id in AST, found {}", unexpected)
             }
         };
 
@@ -744,7 +766,7 @@ impl Compiler {
         targets: &[AssignTarget],
         expressions: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         assert!(targets.len() < u8::MAX as usize);
@@ -752,7 +774,7 @@ impl Compiler {
 
         match expressions {
             [] => {
-                return Err("compile_multi_assign: Missing expression".to_string());
+                return compiler_error!(self, "compile_multi_assign: Missing expression");
             }
             [expression] => {
                 let rhs_register = self.push_register()?;
@@ -772,8 +794,7 @@ impl Compiler {
 
                                 self.pop_register()?;
                             } else {
-                                let local_register =
-                                    self.frame_mut().assign_local_register(*id_index)?;
+                                let local_register = self.assign_local_register(*id_index)?;
 
                                 self.push_op(ValueIndex, &[local_register, rhs_register, i as u8]);
                             }
@@ -787,10 +808,11 @@ impl Compiler {
                             self.pop_register()?;
                         }
                         unexpected => {
-                            return Err(format!(
+                            return compiler_error!(
+                                self,
                                 "Expected ID or lookup in AST, found {}",
                                 unexpected
-                            ));
+                            );
                         }
                     };
                 }
@@ -842,7 +864,7 @@ impl Compiler {
                                         self.push_op(SetCapture, &[capture, temp_register]);
                                     } else {
                                         let local_register =
-                                            self.frame_mut().assign_local_register(*id_index)?;
+                                            self.assign_local_register(*id_index)?;
                                         self.push_op(SetEmpty, &[local_register]);
                                     }
                                 }
@@ -852,10 +874,11 @@ impl Compiler {
                                     self.pop_register()?;
                                 }
                                 unexpected => {
-                                    return Err(format!(
+                                    return compiler_error!(
+                                        self,
                                         "Expected ID or lookup in AST, found {}",
                                         unexpected
-                                    ));
+                                    );
                                 }
                             }
 
@@ -881,7 +904,11 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_load_id(&mut self, result_register: u8, id: ConstantIndex) -> Result<(), String> {
+    fn compile_load_id(
+        &mut self,
+        result_register: u8,
+        id: ConstantIndex,
+    ) -> Result<(), CompilerError> {
         if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             if local_register != result_register {
                 self.push_op(Op::Copy, &[result_register, local_register]);
@@ -896,7 +923,7 @@ impl Compiler {
         &mut self,
         result_register: u8,
         id: ConstantIndex,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         if let Some(capture_slot) = self.frame().capture_slot(id) {
@@ -919,7 +946,7 @@ impl Compiler {
         result_register: Option<u8>,
         from: &[ConstantIndex],
         items: &[Vec<ConstantIndex>],
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let mut imported = vec![];
@@ -928,17 +955,17 @@ impl Compiler {
             for item in items.iter() {
                 let import_id = match item.last() {
                     Some(id) => id,
-                    None => return Err("Missing ID in import item".to_string()),
+                    None => return compiler_error!(self, "Missing ID in import item"),
                 };
 
                 // Reserve a local for the imported item
                 // (only reserve the register otherwise it'll show up in the import search)
-                let import_register = self.frame_mut().reserve_local_register(*import_id)?;
+                let import_register = self.reserve_local_register(*import_id)?;
 
                 self.compile_import_item(import_register, item)?;
 
                 imported.push(import_register);
-                self.frame_mut().commit_local_register(import_register)?;
+                self.commit_local_register(import_register)?;
             }
         } else {
             let from_register = self.push_register()?;
@@ -950,11 +977,11 @@ impl Compiler {
                 let mut access_register = from_register;
                 let import_id = match item.last() {
                     Some(id) => id,
-                    None => return Err("Missing ID in import item".to_string()),
+                    None => return compiler_error!(self, "Missing ID in import item"),
                 };
 
                 // assign the leaf item to a local with a matching name
-                let import_register = self.frame_mut().assign_local_register(*import_id)?;
+                let import_register = self.assign_local_register(*import_id)?;
 
                 for id in item.iter() {
                     self.load_string(key_register, *id);
@@ -971,7 +998,7 @@ impl Compiler {
 
         if let Some(result_register) = result_register {
             match imported.as_slice() {
-                [] => return Err("Missing item to import".to_string()),
+                [] => return compiler_error!(self, "Missing item to import"),
                 [single_item] => {
                     self.push_op(Copy, &[result_register, *single_item]);
                 }
@@ -991,9 +1018,9 @@ impl Compiler {
         &mut self,
         result_register: u8,
         item: &[ConstantIndex],
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         match item {
-            [] => return Err("Missing item to import".to_string()),
+            [] => return compiler_error!(self, "Missing item to import"),
             [import_id] => self.compile_import_id(result_register, *import_id),
             [import_id, nested @ ..] => {
                 self.compile_import_id(result_register, *import_id);
@@ -1040,7 +1067,7 @@ impl Compiler {
         result_register: Option<u8>,
         try_expression: &AstTry,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let AstTry {
@@ -1054,7 +1081,7 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let catch_register = self.frame_mut().assign_local_register(*catch_arg)?;
+        let catch_register = self.assign_local_register(*catch_arg)?;
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
         let catch_offset = self.push_offset_placeholder();
@@ -1101,7 +1128,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use AstOp::*;
 
         let lhs_node = ast.node(lhs);
@@ -1125,7 +1152,7 @@ impl Compiler {
         lhs: &AstNode,
         rhs: &AstNode,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use AstOp::*;
 
         let op = match op {
@@ -1135,7 +1162,7 @@ impl Compiler {
             Divide => Op::Divide,
             Modulo => Op::Modulo,
             In => Op::In,
-            _ => return Err("Internal error: invalid op".to_string()),
+            _ => return compiler_error!(self, "Internal error: invalid op"),
         };
 
         let (lhs_register, pop_lhs) = self.compile_node_or_get_local(result_register, lhs, ast)?;
@@ -1171,7 +1198,7 @@ impl Compiler {
         lhs: &AstNode,
         rhs: &AstNode,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use AstOp::*;
 
         let get_comparision_op = |ast_op| {
@@ -1221,7 +1248,7 @@ impl Compiler {
                         self.compile_node_or_get_local(None, ast.node(rhs_lhs), ast)?;
 
                     // Place the lhs comparison result in the result_register
-                    let op = get_comparision_op(ast_op)?;
+                    let op = get_comparision_op(ast_op).map_err(|e| self.make_error(e))?;
                     self.push_op(op, &[result_register, lhs_register, rhs_lhs_register]);
 
                     // Skip evaluating the rhs if the lhs result is false
@@ -1238,14 +1265,14 @@ impl Compiler {
 
         // Compile the rhs and op for the final rhs in the comparison chain
         let (rhs_register, _) = self.compile_node_or_get_local(None, rhs, ast)?;
-        let op = get_comparision_op(ast_op)?;
+        let op = get_comparision_op(ast_op).map_err(|e| self.make_error(e))?;
         self.push_op(op, &[result_register, lhs_register, rhs_register]);
 
         for jump_offset in jump_offsets.iter() {
             self.update_offset_placeholder(*jump_offset);
         }
 
-        self.frame_mut().truncate_register_stack(stack_count)?;
+        self.truncate_register_stack(stack_count)?;
 
         Ok(())
     }
@@ -1257,7 +1284,7 @@ impl Compiler {
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         let register = if let Some(result_register) = result_register {
             result_register
         } else {
@@ -1290,7 +1317,7 @@ impl Compiler {
         result_register: Option<u8>,
         expression: AstIndex,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         if let Some(result_register) = result_register {
             self.compile_node(Some(result_register), ast.node(expression), ast)?;
             self.push_op(op, &[result_register]);
@@ -1309,12 +1336,13 @@ impl Compiler {
         result_register: Option<u8>,
         elements: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         if elements.is_empty() || elements.len() > 2 {
-            return Err(format!(
+            return compiler_error!(
+                self,
                 "compile_make_num2: unexpected number of elements: {}",
                 elements.len()
-            ));
+            );
         }
 
         if let Some(result_register) = result_register {
@@ -1325,7 +1353,7 @@ impl Compiler {
                 self.compile_node(Some(element_register), ast.node(*element_node), ast)?;
             }
 
-            let first_element_register = self.frame().peek_register(elements.len() - 1)?;
+            let first_element_register = self.peek_register(elements.len() - 1)?;
             self.push_op(
                 Op::MakeNum2,
                 &[
@@ -1335,7 +1363,7 @@ impl Compiler {
                 ],
             );
 
-            self.frame_mut().truncate_register_stack(stack_count)?;
+            self.truncate_register_stack(stack_count)?;
         } else {
             for element_node in elements.iter() {
                 self.compile_node(None, ast.node(*element_node), ast)?;
@@ -1350,12 +1378,13 @@ impl Compiler {
         result_register: Option<u8>,
         elements: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         if elements.is_empty() || elements.len() > 4 {
-            return Err(format!(
+            return compiler_error!(
+                self,
                 "compile_make_num4: unexpected number of elements: {}",
                 elements.len()
-            ));
+            );
         }
 
         if let Some(result_register) = result_register {
@@ -1366,7 +1395,7 @@ impl Compiler {
                 self.compile_node(Some(element_register), ast.node(*element_node), ast)?;
             }
 
-            let first_element_register = self.frame().peek_register(elements.len() - 1)?;
+            let first_element_register = self.peek_register(elements.len() - 1)?;
             self.push_op(
                 Op::MakeNum4,
                 &[
@@ -1376,7 +1405,7 @@ impl Compiler {
                 ],
             );
 
-            self.frame_mut().truncate_register_stack(stack_count)?;
+            self.truncate_register_stack(stack_count)?;
         } else {
             for element_node in elements.iter() {
                 self.compile_node(None, ast.node(*element_node), ast)?;
@@ -1391,7 +1420,7 @@ impl Compiler {
         result_register: Option<u8>,
         elements: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         if let Some(result_register) = result_register {
@@ -1456,7 +1485,7 @@ impl Compiler {
         result_register: Option<u8>,
         entries: &[(ConstantIndex, AstIndex)],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         if let Some(result_register) = result_register {
@@ -1502,17 +1531,18 @@ impl Compiler {
         result_register: Option<u8>,
         function: &Function,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         if let Some(result_register) = result_register {
             let arg_count = match u8::try_from(function.args.len()) {
                 Ok(x) => x,
                 Err(_) => {
-                    return Err(format!(
+                    return compiler_error!(
+                        self,
                         "Function has too many arguments: {}",
                         function.args.len()
-                    ));
+                    );
                 }
             };
 
@@ -1520,10 +1550,11 @@ impl Compiler {
                 .frame()
                 .captures_for_nested_frame(&function.accessed_non_locals);
             if captures.len() > u8::MAX as usize {
-                return Err(format!(
+                return compiler_error!(
+                    self,
                     "Function captures too many values: {}",
                     captures.len(),
-                ));
+                );
             }
             let capture_count = captures.len() as u8;
 
@@ -1541,10 +1572,11 @@ impl Compiler {
             let local_count = match u8::try_from(function.local_count) {
                 Ok(x) => x,
                 Err(_) => {
-                    return Err(format!(
+                    return compiler_error!(
+                        self,
                         "Function has too many locals: {}",
                         function.args.len()
-                    ));
+                    );
                 }
             };
 
@@ -1588,15 +1620,16 @@ impl Compiler {
         lookup: &[LookupNode],
         set_value: Option<u8>,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let lookup_len = lookup.len();
         if lookup_len < 2 {
-            return Err(format!(
+            return compiler_error!(
+                self,
                 "compile_lookup: lookup requires at least 2 elements, found {}",
                 lookup_len
-            ));
+            );
         }
 
         // Keep track of a register for each lookup node.
@@ -1675,7 +1708,7 @@ impl Compiler {
                     // Function call
 
                     if is_last_node && set_value.is_some() {
-                        return Err("Assigning to temporary value".to_string());
+                        return compiler_error!(self, "Assigning to temporary value");
                     }
 
                     let parent_register = if i > 1 {
@@ -1709,7 +1742,7 @@ impl Compiler {
             }
         }
 
-        self.frame_mut().truncate_register_stack(stack_count)?;
+        self.truncate_register_stack(stack_count)?;
 
         Ok(())
     }
@@ -1721,7 +1754,7 @@ impl Compiler {
         args: &[AstIndex],
         parent: Option<u8>,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let stack_count = self.frame().register_stack.len();
@@ -1765,7 +1798,7 @@ impl Compiler {
             }
         }
 
-        self.frame_mut().truncate_register_stack(stack_count)?;
+        self.truncate_register_stack(stack_count)?;
 
         Ok(())
     }
@@ -1775,7 +1808,7 @@ impl Compiler {
         result_register: Option<u8>,
         ast_if: &AstIf,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let AstIf {
@@ -1807,7 +1840,7 @@ impl Compiler {
         let else_if_jump_ips = else_if_blocks
             .iter()
             .map(
-                |(else_if_condition, else_if_node)| -> Result<Option<usize>, String> {
+                |(else_if_condition, else_if_node)| -> Result<Option<usize>, CompilerError> {
                     let condition_register = self.push_register()?;
                     self.compile_node(Some(condition_register), ast.node(*else_if_condition), ast)?;
 
@@ -1832,8 +1865,6 @@ impl Compiler {
             .collect::<Result<Vec<_>, _>>()?;
 
         if let Some(else_node) = else_node {
-            // re-use registers from if/else if blocks - TODO, still necessary?
-            // self.frame_mut().truncate_register_stack(stack_count)?;
             self.compile_node(result_register, ast.node(*else_node), ast)?;
         } else if let Some(result_register) = result_register {
             self.push_op_without_span(SetEmpty, &[result_register]);
@@ -1859,7 +1890,7 @@ impl Compiler {
         expression: AstIndex,
         arms: &[MatchArm],
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let stack_count = self.frame().register_stack.len();
@@ -1917,7 +1948,7 @@ impl Compiler {
                     Node::Id(id) => {
                         self.span_stack.push(*ast.span(pattern_node.span));
 
-                        let id_register = self.frame_mut().assign_local_register(id)?;
+                        let id_register = self.assign_local_register(id)?;
                         if arm.patterns.len() == 1 {
                             self.push_op(Copy, &[id_register, match_register]);
                         } else {
@@ -1931,7 +1962,7 @@ impl Compiler {
                     }
                     Node::Wildcard => {}
                     _ => {
-                        return Err("Internal error: invalid match pattern".to_string());
+                        return compiler_error!(self, "Internal error: invalid match pattern");
                     }
                 }
             }
@@ -1962,7 +1993,7 @@ impl Compiler {
             self.update_offset_placeholder(*jump_placeholder);
         }
 
-        self.frame_mut().truncate_register_stack(stack_count)?;
+        self.truncate_register_stack(stack_count)?;
 
         Ok(())
     }
@@ -1973,7 +2004,7 @@ impl Compiler {
         list_register: Option<u8>,   // list that receives each iteration's result
         ast_for: &AstFor,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let AstFor {
@@ -1995,18 +2026,19 @@ impl Compiler {
         // end:
 
         if ranges.len() > 1 && args.len() != ranges.len() {
-            return Err(format!(
+            return compiler_error!(
+                self,
                 "compile_for: argument and range count mismatch: {} vs {}",
                 args.len(),
                 ranges.len()
-            ));
+            );
         }
 
         let stack_count = self.frame().register_stack.len();
 
         let iterator_register = match ranges.as_slice() {
             [] => {
-                return Err("compile_for: Missing range".to_string());
+                return compiler_error!(self, "compile_for: Missing range");
             }
             [range_node] => {
                 let iterator_register = self.push_register()?;
@@ -2048,14 +2080,14 @@ impl Compiler {
             self.push_loop_jump_placeholder()?;
 
             for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.frame_mut().assign_local_register(*arg)?;
+                let arg_register = self.assign_local_register(*arg)?;
                 self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
             }
 
             self.pop_register()?; // temp_register
         } else {
             for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.frame_mut().assign_local_register(*arg)?;
+                let arg_register = self.assign_local_register(*arg)?;
                 self.push_op_without_span(
                     IteratorNext,
                     &[arg_register, iterator_register + i as u8],
@@ -2079,8 +2111,9 @@ impl Compiler {
                     self.push_op_without_span(ListPush, &[list_register, result_register])
                 }
                 None => {
-                    return Err(
-                        "compile_for: Missing result register for list expansion".to_string()
+                    return compiler_error!(
+                        self,
+                        "compile_for: Missing result register for list expansion"
                     )
                 }
             }
@@ -2094,10 +2127,10 @@ impl Compiler {
                     self.update_offset_placeholder(*placeholder);
                 }
             }
-            None => return Err("Empty loop info stack".to_string()),
+            None => return compiler_error!(self, "Empty loop info stack"),
         }
 
-        self.frame_mut().truncate_register_stack(stack_count)?;
+        self.truncate_register_stack(stack_count)?;
 
         Ok(())
     }
@@ -2110,7 +2143,7 @@ impl Compiler {
         body: AstIndex,
         negate_condition: bool,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         let loop_start_ip = self.bytes.len();
@@ -2136,8 +2169,9 @@ impl Compiler {
                 }
                 None => {
                     if result_register.is_none() {
-                        return Err(
-                            "compile_while: Missing result register for list expansion".to_string()
+                        return compiler_error!(
+                            self,
+                            "compile_while: Missing result register for list expansion"
                         );
                     }
                 }
@@ -2152,7 +2186,7 @@ impl Compiler {
                     self.update_offset_placeholder(*placeholder);
                 }
             }
-            None => return Err("Empty loop info stack".to_string()),
+            None => return compiler_error!(self, "Empty loop info stack"),
         }
 
         Ok(())
@@ -2174,7 +2208,7 @@ impl Compiler {
         result_register: Option<u8>,
         node: &AstNode,
         ast: &Ast,
-    ) -> Result<(), String> {
+    ) -> Result<(), CompilerError> {
         let offset_ip = self.push_offset_placeholder();
         self.compile_node(result_register, node, ast)?;
         self.update_offset_placeholder(offset_ip);
@@ -2193,21 +2227,21 @@ impl Compiler {
         offset_ip
     }
 
-    fn current_loop(&self) -> Result<&Loop, String> {
+    fn current_loop(&self) -> Result<&Loop, CompilerError> {
         self.frame()
             .loop_stack
             .last()
-            .ok_or_else(|| "Missing loop info".to_string())
+            .ok_or_else(|| self.make_error("Missing loop info".to_string()))
     }
 
-    fn push_loop_jump_placeholder(&mut self) -> Result<(), String> {
+    fn push_loop_jump_placeholder(&mut self) -> Result<(), CompilerError> {
         let placeholder = self.push_offset_placeholder();
         match self.frame_mut().loop_stack.last_mut() {
             Some(loop_info) => {
                 loop_info.jump_placeholders.push(placeholder);
                 Ok(())
             }
-            None => Err("Missing loop info".to_string()),
+            None => compiler_error!(self, "Missing loop info"),
         }
     }
 
@@ -2219,10 +2253,7 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
-        self.debug_info.push(
-            self.bytes.len(),
-            &self.span_stack.last().expect("Empty span stack"),
-        );
+        self.debug_info.push(self.bytes.len(), self.span());
         self.push_op_without_span(op, bytes);
     }
 
@@ -2243,11 +2274,56 @@ impl Compiler {
         self.frame_stack.last_mut().expect("Frame stack is empty")
     }
 
-    fn push_register(&mut self) -> Result<u8, String> {
-        self.frame_mut().push_register()
+    fn push_register(&mut self) -> Result<u8, CompilerError> {
+        self.frame_mut()
+            .push_register()
+            .map_err(|e| self.make_error(e))
     }
 
-    fn pop_register(&mut self) -> Result<u8, String> {
-        self.frame_mut().pop_register()
+    fn pop_register(&mut self) -> Result<u8, CompilerError> {
+        self.frame_mut()
+            .pop_register()
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn peek_register(&mut self, n: usize) -> Result<u8, CompilerError> {
+        self.frame_mut()
+            .peek_register(n)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn truncate_register_stack(&mut self, stack_count: usize) -> Result<(), CompilerError> {
+        self.frame_mut()
+            .truncate_register_stack(stack_count)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+        self.frame_mut()
+            .assign_local_register(local)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, CompilerError> {
+        self.frame_mut()
+            .reserve_local_register(local)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn commit_local_register(&mut self, local_register: u8) -> Result<(), CompilerError> {
+        self.frame_mut()
+            .commit_local_register(local_register)
+            .map_err(|e| self.make_error(e))
+    }
+
+    fn make_error(&self, message: String) -> CompilerError {
+        CompilerError {
+            message,
+            span: self.span(),
+        }
+    }
+
+    fn span(&self) -> Span {
+        *self.span_stack.last().expect("Empty span stack")
     }
 }

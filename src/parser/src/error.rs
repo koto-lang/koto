@@ -79,10 +79,6 @@ pub enum SyntaxError {
 pub enum ErrorType {
     InternalError(InternalError),
     SyntaxError(SyntaxError),
-
-    // To be removed
-    PestSyntaxError(String),
-    OldParserError(String),
 }
 
 impl From<InternalError> for ErrorType {
@@ -116,9 +112,6 @@ impl fmt::Display for ParserError {
         match &self.error {
             InternalError(error) => write!(f, "Internal error: {}", error),
             SyntaxError(error) => write!(f, "Syntax error: {}", error),
-
-            PestSyntaxError(error) => f.write_str(&error),
-            OldParserError(error) => f.write_str(&error),
         }
     }
 }

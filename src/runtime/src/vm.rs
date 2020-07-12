@@ -1143,7 +1143,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         import_constant: usize,
-        instruction_ip: usize,
+        _instruction_ip: usize,
     ) -> Result<(), Error> {
         let import_name = self.get_constant_string(import_constant);
 
@@ -1160,15 +1160,7 @@ impl Vm {
                 let (module_chunk, module_path) =
                     match self.loader.compile_module(&module_name, source_path) {
                         Ok(chunk) => chunk,
-                        Err(e) => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Error while importing '{}': {}",
-                                module_name,
-                                e
-                            )
-                        }
+                        Err(e) => return Err(Error::LoaderError(e)),
                     };
                 let maybe_module = self.modules.get(&module_path).cloned();
                 match maybe_module {

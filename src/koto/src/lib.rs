@@ -5,7 +5,8 @@ pub use {
     koto_parser::{num4::Num4, Ast, Function, Parser, Position},
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
-        RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+        LoaderError, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,
+        ValueVec,
     },
     koto_std::{get_external_instance, visit_external_value},
 };
@@ -74,8 +75,7 @@ impl Koto {
                 }
                 Ok(chunk)
             }
-            Err(e) => Err(e),
-            // Err(e) => Err(self.format_error(&e.to_string(), &self.script, e.span.start, e.span.end)),
+            Err(error) => Err(self.format_loader_error(error, script)),
         }
     }
 
@@ -93,7 +93,7 @@ impl Koto {
     }
 
     pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
-        let result = match self.runtime.run(chunk) {
+        let result = match self.runtime.run(chunk.clone()) {
             Ok(result) => result,
             Err(e) => {
                 return Err(match e {
@@ -103,6 +103,9 @@ impl Koto {
                         instruction,
                     } => self.format_vm_error(&message, chunk, instruction),
                     Error::ExternalError { message } => format!("Error: {}\n", message),
+                    Error::LoaderError(error) => {
+                        self.format_loader_error(error, &chunk.debug_info.source)
+                    }
                 })
             }
         };
@@ -206,7 +209,23 @@ impl Koto {
                     instruction,
                 } => self.format_vm_error(&message, chunk, instruction),
                 Error::ExternalError { message } => format!("Error: {}\n", message,),
+                Error::LoaderError(error) => {
+                    self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
+                }
             }),
+        }
+    }
+
+    fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
+        match error.span {
+            Some(span) => self.format_error(
+                &error.message,
+                &self.script_path,
+                source,
+                span.start,
+                span.end,
+            ),
+            None => error.message,
         }
     }
 

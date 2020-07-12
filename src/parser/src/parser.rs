@@ -381,6 +381,7 @@ impl<'source> Parser<'source> {
                         | Node::For(_)
                         | Node::While { .. }
                         | Node::Until { .. } => {
+                            // TODO improve comment
                             // These nodes will have consumed the expressions parsed expressions,
                             // so there's no further work to do.
                             // e.g.
