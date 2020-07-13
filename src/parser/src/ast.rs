@@ -82,6 +82,15 @@ impl Ast {
         self.nodes.get(self.entry_point as usize)
     }
 
+    pub fn reset_point(&self) -> (usize, usize) {
+        (self.nodes.len(), self.spans.len())
+    }
+
+    pub fn reset(&mut self, reset_point: (usize, usize)) {
+        self.nodes.truncate(reset_point.0);
+        self.spans.truncate(reset_point.1);
+    }
+
     #[cfg(test)]
     pub fn nodes(&self) -> &[AstNode] {
         &self.nodes
