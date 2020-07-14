@@ -2890,6 +2890,15 @@ m.bar";
         }
 
         #[test]
+        fn implicit_values() {
+            let script = "
+foo, baz = 42, -1
+m = {foo, bar: 99, baz}
+m.baz";
+            test_script(script, Number(-1.0));
+        }
+
+        #[test]
         fn instance_function_no_args() {
             let script = "
 make_o = || {foo: 42, get_foo: |self| self.foo}
