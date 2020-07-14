@@ -286,16 +286,16 @@ pub struct DebugInfo {
 }
 
 impl DebugInfo {
-    fn push(&mut self, ip: usize, span: &Span) {
+    fn push(&mut self, ip: usize, span: Span) {
         if let Some(entry) = self.source_map.last() {
-            if entry.1 == *span {
+            if entry.1 == span {
                 // Don't add entries with matching spans, a search is performed in
                 // get_source_span which will find the correct span
                 // for intermediate ips.
                 return;
             }
         }
-        self.source_map.push((ip, *span));
+        self.source_map.push((ip, span));
     }
 
     pub fn get_source_span(&self, ip: usize) -> Option<Span> {

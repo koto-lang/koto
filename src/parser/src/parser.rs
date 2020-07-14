@@ -278,11 +278,11 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(for_loop) = self.parse_for_loop(None, true)? {
+        let result = if let Some(for_loop) = self.parse_for_loop(None)? {
             for_loop
-        } else if let Some(while_loop) = self.parse_while_loop(None, true)? {
+        } else if let Some(while_loop) = self.parse_while_loop(None)? {
             while_loop
-        } else if let Some(until_loop) = self.parse_until_loop(None, true)? {
+        } else if let Some(until_loop) = self.parse_until_loop(None)? {
             until_loop
         } else if let Some(export_id) = self.parse_export_id()? {
             export_id
@@ -381,6 +381,7 @@ impl<'source> Parser<'source> {
                         | Node::For(_)
                         | Node::While { .. }
                         | Node::Until { .. } => {
+                            // TODO improve comment
                             // These nodes will have consumed the expressions parsed expressions,
                             // so there's no further work to do.
                             // e.g.
@@ -409,24 +410,23 @@ impl<'source> Parser<'source> {
         &mut self,
         lhs: Option<&[AstIndex]>,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(lhs, 0)
+        self.parse_expression_start(lhs, 0, true)
     }
 
     fn parse_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(None, 0)
+        self.parse_expression_start(None, 0, true)
     }
 
     fn parse_non_primary_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(None, 1)
+        self.parse_expression_start(None, 0, false)
     }
 
     fn parse_expression_start(
         &mut self,
         lhs: Option<&[AstIndex]>,
         min_precedence: u8,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let primary_expression = min_precedence == 0;
-
         let start_line = self.lexer.line_number();
 
         let expression_start = {
@@ -456,9 +456,17 @@ impl<'source> Parser<'source> {
             if let Some(lhs) = lhs {
                 let mut lhs_with_expression_start = lhs.to_vec();
                 lhs_with_expression_start.push(expression_start);
-                self.parse_expression_continued(&lhs_with_expression_start, min_precedence)
+                self.parse_expression_continued(
+                    &lhs_with_expression_start,
+                    min_precedence,
+                    primary_expression,
+                )
             } else {
-                self.parse_expression_continued(&[expression_start], min_precedence)
+                self.parse_expression_continued(
+                    &[expression_start],
+                    min_precedence,
+                    primary_expression,
+                )
             }
         } else {
             Ok(Some(expression_start))
@@ -469,9 +477,8 @@ impl<'source> Parser<'source> {
         &mut self,
         lhs: &[AstIndex],
         min_precedence: u8,
+        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let primary_expression = min_precedence == 0;
-
         use Token::*;
 
         let last_lhs = match lhs {
@@ -486,13 +493,17 @@ impl<'source> Parser<'source> {
                     if let Some(maybe_operator) = self.peek_until_next_token() {
                         if operator_precedence(maybe_operator).is_some() {
                             self.consume_until_next_token();
-                            return self.parse_expression_continued(lhs, min_precedence);
+                            return self.parse_expression_continued(
+                                lhs,
+                                min_precedence,
+                                primary_expression,
+                            );
                         }
                     }
                 }
-                For => return self.parse_for_loop(Some(lhs), primary_expression),
-                While => return self.parse_while_loop(Some(lhs), primary_expression),
-                Until => return self.parse_until_loop(Some(lhs), primary_expression),
+                For if primary_expression => return self.parse_for_loop(Some(lhs)),
+                While if primary_expression => return self.parse_while_loop(Some(lhs)),
+                Until if primary_expression => return self.parse_until_loop(Some(lhs)),
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -513,16 +524,22 @@ impl<'source> Parser<'source> {
                                     self.parse_map_block(current_indent, None)?
                                 {
                                     map_block
-                                } else if let Some(rhs_expression) =
-                                    self.parse_expression_start(None, right_priority)?
-                                {
+                                } else if let Some(rhs_expression) = self.parse_expression_start(
+                                    None,
+                                    right_priority,
+                                    primary_expression,
+                                )? {
                                     rhs_expression
                                 } else {
                                     return syntax_error!(ExpectedRhsExpression, self);
                                 };
 
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                                return self.parse_expression_continued(&[op_node], min_precedence);
+                                return self.parse_expression_continued(
+                                    &[op_node],
+                                    min_precedence,
+                                    primary_expression,
+                                );
                             }
                         }
                     }
@@ -1078,7 +1095,7 @@ impl<'source> Parser<'source> {
 
                     self.push_node_with_start_span(Num4(args), start_span)?
                 }
-                Token::If => return self.parse_if_expression(),
+                Token::If if primary_expression => return self.parse_if_expression(),
                 Token::Match => return self.parse_match_expression(),
                 Token::Function => return self.parse_function(),
                 Token::Copy => {
@@ -1130,57 +1147,66 @@ impl<'source> Parser<'source> {
         self.consume_token();
         let start_span = self.lexer.span();
 
-        let mut entries = Vec::new();
+        let lexer_reset_state = self.lexer.clone();
+        let ast_reset_point = self.ast.reset_point();
 
-        loop {
-            if self.consume_until_next_token() == Some(Token::ListEnd) {
-                break;
-            }
-
-            if let Some(range) = self.parse_range(None)? {
-                entries.push(range);
-            } else {
-                if !entries.is_empty() {
-                    let comprehension = if let Some(for_loop) =
-                        self.parse_for_loop(Some(&entries), false)?
-                    {
+        // A comprehension has to be parsed differently to a plain list of entries.
+        // Any expression can appear at the start as the inline body of a loop, so first look for
+        // any kind of expression, and then see if a loop follows.
+        let list_comprehension = if let Some(expression) = self.parse_primary_expression()? {
+            match self.ast.node(expression).node {
+                Node::For(_) | Node::While { .. } | Node::Until { .. } => Some(expression),
+                _ => {
+                    let loop_body = vec![expression];
+                    if let Some(for_loop) = self.parse_for_loop(Some(&loop_body))? {
                         Some(for_loop)
-                    } else if let Some(while_loop) = self.parse_while_loop(Some(&entries), false)? {
+                    } else if let Some(while_loop) = self.parse_while_loop(Some(&loop_body))? {
                         Some(while_loop)
-                    } else if let Some(until_loop) = self.parse_until_loop(Some(&entries), false)? {
+                    } else if let Some(until_loop) = self.parse_until_loop(Some(&loop_body))? {
                         Some(until_loop)
                     } else {
                         None
-                    };
+                    }
+                }
+            }
+        } else {
+            None
+        };
 
-                    if let Some(comprehension) = comprehension {
-                        entries.clear();
-                        entries.push(comprehension);
+        let entries = match list_comprehension {
+            Some(comprehension) => vec![comprehension],
+            None => {
+                // No comprehension was found, so reset the lexer and AST to where things were
+                // before trying to parse a comprehension, and then parse list entries.
+                self.lexer = lexer_reset_state;
+                self.ast.reset(ast_reset_point);
+
+                let mut entries = Vec::new();
+
+                while self.consume_until_next_token() != Some(Token::ListEnd) {
+                    if let Some(term) = self.parse_term(false)? {
+                        if matches!(
+                            self.peek_token(),
+                            Some(Token::Range) | Some(Token::RangeInclusive)
+                        ) {
+                            if let Some(range) = self.parse_range(Some(term))? {
+                                entries.push(range);
+                            } else {
+                                return internal_error!(RangeParseFailure, self);
+                            }
+                        } else {
+                            entries.push(term);
+                        }
+                    } else {
                         break;
                     }
                 }
 
-                if let Some(term) = self.parse_term(false)? {
-                    if matches!(
-                        self.peek_token(),
-                        Some(Token::Range) | Some(Token::RangeInclusive)
-                    ) {
-                        if let Some(range) = self.parse_range(Some(term))? {
-                            entries.push(range);
-                        } else {
-                            return internal_error!(RangeParseFailure, self);
-                        }
-                    } else {
-                        entries.push(term);
-                    }
-                } else {
-                    break;
-                }
+                entries
             }
-        }
+        };
 
         self.consume_until_next_token();
-
         if self.consume_token() != Some(Token::ListEnd) {
             return syntax_error!(ExpectedListEnd, self);
         }
@@ -1284,7 +1310,6 @@ impl<'source> Parser<'source> {
     fn parse_for_loop(
         &mut self,
         inline_body: Option<&[AstIndex]>,
-        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::For) {
             return Ok(None);
@@ -1300,20 +1325,24 @@ impl<'source> Parser<'source> {
             self.frame_mut()?
                 .ids_assigned_in_scope
                 .insert(constant_index);
-            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
-                self.consume_token();
+
+            match self.skip_whitespace_and_peek() {
+                Some(Token::Separator) => {
+                    self.consume_token();
+                }
+                Some(Token::In) => {
+                    self.consume_token();
+                    break;
+                }
+                _ => return syntax_error!(ExpectedForInKeyword, self),
             }
         }
         if args.is_empty() {
             return syntax_error!(ExpectedForArgs, self);
         }
 
-        if self.skip_whitespace_and_next() != Some(Token::In) {
-            return syntax_error!(ExpectedForInKeyword, self);
-        }
-
         let mut ranges = Vec::new();
-        while let Some(range) = self.parse_non_primary_expression()? {
+        while let Some(range) = self.parse_primary_expression()? {
             ranges.push(range);
 
             if self.skip_whitespace_and_peek() != Some(Token::Separator) {
@@ -1341,10 +1370,6 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
-                    function: *function,
-                    args: args.to_vec(),
-                })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
@@ -1366,7 +1391,6 @@ impl<'source> Parser<'source> {
     fn parse_while_loop(
         &mut self,
         inline_body: Option<&[AstIndex]>,
-        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::While) {
             return Ok(None);
@@ -1385,10 +1409,6 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
-                    function: *function,
-                    args: args.to_vec(),
-                })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
@@ -1404,7 +1424,6 @@ impl<'source> Parser<'source> {
     fn parse_until_loop(
         &mut self,
         inline_body: Option<&[AstIndex]>,
-        primary_expression: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::Until) {
             return Ok(None);
@@ -1423,10 +1442,6 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                [function, args @ ..] if !primary_expression => self.push_node(Node::Call {
-                    function: *function,
-                    args: args.to_vec(),
-                })?,
                 _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
@@ -2866,6 +2881,42 @@ x %= 4";
                 Some(&[Constant::Str("hello"), Constant::Str("x")]),
             )
         }
+
+        #[test]
+        fn function_call_on_rhs() {
+            let source = "x = 1 + f y";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Id(1),
+                    Id(2),
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 4,
+                    }, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
+            )
+        }
     }
 
     mod logic {
@@ -3097,6 +3148,40 @@ a";
         }
 
         #[test]
+        fn for_inline_call_in_body() {
+            let source = "f x for x in 0..1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 3,
+                        end: 4,
+                        inclusive: false,
+                    }, // 5
+                    For(AstFor {
+                        args: vec![1],
+                        ranges: vec![5],
+                        condition: None,
+                        body: 2,
+                    }),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
         fn for_inline_multi() {
             let source = "x, y for x, y in a, b";
             check_ast(
@@ -3129,31 +3214,36 @@ a";
 
         #[test]
         fn for_inline_conditional() {
-            let source = "x for x in y if x == 0";
+            let source = "x for x in f y if x == 0";
             check_ast(
                 source,
                 &[
                     Id(0),
                     Id(1),
+                    Id(2),
+                    Call {
+                        function: 1,
+                        args: vec![2],
+                    },
                     Id(0),
-                    Number0,
+                    Number0, // 5
                     BinaryOp {
                         op: AstOp::Equal,
-                        lhs: 2,
-                        rhs: 3,
+                        lhs: 4,
+                        rhs: 5,
                     },
                     For(AstFor {
                         args: vec![0],
-                        ranges: vec![1],
-                        condition: Some(4),
+                        ranges: vec![3],
+                        condition: Some(6),
                         body: 0,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
+                Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
             )
         }
 
@@ -3312,22 +3402,22 @@ until x < y
                 &[
                     Id(0),
                     Id(1),
-                    Number0,
-                    Number1,
-                    Range {
-                        start: 2,
-                        end: 3,
-                        inclusive: false,
-                    },
                     Call {
                         function: 0,
                         args: vec![1],
+                    },
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 3,
+                        end: 4,
+                        inclusive: false,
                     }, // 5
                     For(AstFor {
                         args: vec![0],
-                        ranges: vec![4],
+                        ranges: vec![5],
                         condition: None,
-                        body: 5,
+                        body: 2,
                     }),
                     List(vec![6]),
                     MainBlock {
@@ -3347,25 +3437,25 @@ until x < y
                 &[
                     Id(0),
                     Id(1),
-                    Id(0),
-                    Id(2),
-                    Call {
-                        function: 2,
-                        args: vec![3],
-                    },
-                    Number(3), // 5
-                    BinaryOp {
-                        op: AstOp::Less,
-                        lhs: 4,
-                        rhs: 5,
-                    },
                     Call {
                         function: 0,
                         args: vec![1],
                     },
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    Number(3),
+                    BinaryOp {
+                        op: AstOp::Less,
+                        lhs: 5,
+                        rhs: 6,
+                    },
                     While {
-                        condition: 6,
-                        body: 7,
+                        condition: 7,
+                        body: 2,
                     },
                     List(vec![8]),
                     MainBlock {
@@ -3390,25 +3480,25 @@ until x < y
                 &[
                     Id(0),
                     Id(1),
-                    Id(0),
-                    Id(2),
-                    Call {
-                        function: 2,
-                        args: vec![3],
-                    },
-                    Number(3), // 5
-                    BinaryOp {
-                        op: AstOp::GreaterOrEqual,
-                        lhs: 4,
-                        rhs: 5,
-                    },
                     Call {
                         function: 0,
                         args: vec![1],
                     },
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    Number(3),
+                    BinaryOp {
+                        op: AstOp::GreaterOrEqual,
+                        lhs: 5,
+                        rhs: 6,
+                    },
                     Until {
-                        condition: 6,
-                        body: 7,
+                        condition: 7,
+                        body: 2,
                     },
                     List(vec![8]),
                     MainBlock {

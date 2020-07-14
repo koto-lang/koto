@@ -129,8 +129,10 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
+        let mut instruction_ip = self.ip();
+
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction) {
+            match self.execute_instruction(instruction, instruction_ip) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::ReturnValue(return_value)) => {
                     result = return_value;
@@ -160,6 +162,8 @@ impl Vm {
                     }
                 }
             }
+
+            instruction_ip = self.ip();
         }
 
         Ok(result)
@@ -178,10 +182,13 @@ impl Vm {
         }
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) -> Result<ControlFlow, Error> {
+    fn execute_instruction(
+        &mut self,
+        instruction: Instruction,
+        instruction_ip: usize,
+    ) -> Result<ControlFlow, Error> {
         use Value::*;
 
-        let instruction_ip = self.ip();
         let mut result = ControlFlow::Continue;
 
         match instruction {
@@ -1136,7 +1143,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         import_constant: usize,
-        instruction_ip: usize,
+        _instruction_ip: usize,
     ) -> Result<(), Error> {
         let import_name = self.get_constant_string(import_constant);
 
@@ -1153,15 +1160,7 @@ impl Vm {
                 let (module_chunk, module_path) =
                     match self.loader.compile_module(&module_name, source_path) {
                         Ok(chunk) => chunk,
-                        Err(e) => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Error while importing '{}': {}",
-                                module_name,
-                                e
-                            )
-                        }
+                        Err(e) => return Err(Error::LoaderError(e)),
                     };
                 let maybe_module = self.modules.get(&module_path).cloned();
                 match maybe_module {
@@ -2826,7 +2825,7 @@ f()";
             let script = "
 sum = 0
 for a, b in [[1 2] [3 4]]
-    sum += a + b
+  sum += a + b
 sum
 ";
             test_script(script, Number(10.0));
@@ -2837,7 +2836,7 @@ sum
             let script = "
 sum = 0
 for a, b in [1 2 3], [4 5 6]
-    sum += a + b
+  sum += a + b
 sum
 ";
             test_script(script, Number(21.0));

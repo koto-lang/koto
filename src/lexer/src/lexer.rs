@@ -86,6 +86,7 @@ pub enum Token {
     While,
 }
 
+#[derive(Clone)]
 struct TokenLexer<'a> {
     source: &'a str,
     previous: usize,
@@ -519,6 +520,7 @@ fn consume_and_count_utf8(
     (char_bytes, char_count)
 }
 
+#[derive(Clone)]
 struct PeekedToken<'a> {
     token: Option<Token>,
     slice: &'a str,
@@ -527,6 +529,7 @@ struct PeekedToken<'a> {
     source_position: usize,
 }
 
+#[derive(Clone)]
 pub struct KotoLexer<'a> {
     lexer: TokenLexer<'a>,
     peeked_tokens: Vec<PeekedToken<'a>>,
