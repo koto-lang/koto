@@ -1,10 +1,14 @@
-use koto_runtime::Value;
+use {
+    koto_lexer::{is_id_continue, is_id_start},
+    koto_runtime::Value,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum FormatToken<'a> {
     String(&'a str),
     Placeholder,
     Positional(u32),
+    Identifier(&'a str),
     Error,
 }
 
@@ -53,19 +57,41 @@ impl<'a> Iterator for FormatLexer<'a> {
 
                                 while let Some(c) = chars.next() {
                                     match c {
-                                        '}' => {
-                                            self.position += 1;
-                                            break;
-                                        }
                                         n2 @ '0'..='9' => {
                                             self.position += 1;
                                             n *= 10;
                                             n += n2.to_digit(10).unwrap();
                                         }
+                                        '}' => {
+                                            self.position += 1;
+                                            break;
+                                        }
                                         _ => return Some(Error),
                                     }
                                 }
+
                                 Some(Positional(n))
+                            }
+                            Some(c) if is_id_start(c) => {
+                                let start = self.position;
+                                let mut end = start + 1;
+                                self.position += 1;
+
+                                while let Some(c) = chars.next() {
+                                    match c {
+                                        _ if is_id_continue(c) => {
+                                            end += 1;
+                                            self.position += 1;
+                                        }
+                                        '}' => {
+                                            self.position += 1;
+                                            break;
+                                        }
+                                        _ => return Some(Error),
+                                    }
+                                }
+
+                                Some(Identifier(&self.format_string[start..end]))
                             }
                             _ => Some(Error),
                         }
@@ -136,6 +162,16 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
                 Some(arg) => result.push_str(&arg.to_string()),
                 None => return Err(format!("Missing argument for index {}", n)),
             },
+            FormatToken::Identifier(id) => match format_args.first() {
+                Some(Value::Map(map)) => match map.data().get(id) {
+                    Some(value) => result.push_str(&value.to_string()),
+                    None => return Err(format!("Key '{}' not found in map", id)),
+                },
+                Some(other) => {
+                    return Err(format!("Expected map as first argument, found {}", other))
+                }
+                None => return Err(format!("Expected map as first argument")),
+            },
             FormatToken::Error => return Err("Error while parsing format string".to_string()),
         }
     }
@@ -145,7 +181,10 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        koto_runtime::{Id, ValueHashMap, ValueMap},
+    };
 
     mod lexer {
         use super::*;
@@ -236,6 +275,16 @@ mod tests {
                 ],
             )
         }
+
+        #[test]
+        fn identifier_placeholders() {
+            let input = "x = {foo}";
+
+            check_lexer_output(
+                input,
+                &[FormatToken::String("x = "), FormatToken::Identifier("foo")],
+            )
+        }
     }
 
     mod format_string {
@@ -256,6 +305,16 @@ mod tests {
                 &[Value::Number(2.0), Value::Empty],
                 "() - 2 2 - ()",
             );
+        }
+
+        #[test]
+        fn identifier_placeholders() {
+            let mut map_data = ValueHashMap::new();
+            map_data.insert(Id::from_str("x"), Value::Number(42.0));
+            map_data.insert(Id::from_str("y"), Value::Number(-1.0));
+            let map = Value::Map(ValueMap::with_data(map_data));
+
+            check_format_output("{x} - {y}", &[map], "42 - -1");
         }
     }
 }

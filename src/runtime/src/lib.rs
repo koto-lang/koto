@@ -9,13 +9,13 @@ mod value_map;
 mod vm;
 
 use {
-    id::Id,
     koto_bytecode::Chunk,
     std::{fmt, sync::Arc},
 };
 
 pub use {
     external::{ExternalFunction, ExternalValue},
+    id::Id,
     loader::{Loader, LoaderError},
     value::{make_external_value, type_as_string, RuntimeFunction, Value},
     value_iterator::IntRange,

@@ -22,9 +22,15 @@ world = "World"
 
 # A string literal is expected as first argument
 assert_eq "Hello, World!" (string.format "Hello, World!")
+
 # {} is a placeholder for an argument to be included in the string
 assert_eq "Hello, World!" (string.format "{}, {}!" hello world)
+
 # Curly braces can be included in the output by escaping them with another curly brace
 assert_eq "{Hello}, World!" (string.format "{{{}}}, {}!" hello world)
+
 # Positional placeholders can be used to reference arguments by index
 assert_eq "Hello World, Hello World!" (string.format "{0} {1}, {0} {1}!" hello world)
+
+# Identifier placeholders are looked up in a map argument
+assert_eq "O_o" (string.format "{first}_{second}" {first: "O", second: "o"})

@@ -5,6 +5,7 @@ authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+koto_lexer = { path = "../lexer" }
 koto_parser = { path = "../parser" }
 koto_runtime = { path = "../runtime" }
 koto_serialize = { path = "../serialize" }
