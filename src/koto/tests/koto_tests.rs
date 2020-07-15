@@ -60,6 +60,7 @@ koto_test!(maps_and_lists);
 koto_test!(maps_nested_assignments);
 koto_test!(math);
 koto_test!(num2_4);
+koto_test!(primes);
 koto_test!(ranges);
 koto_test!(strings);
 koto_test!(threads);

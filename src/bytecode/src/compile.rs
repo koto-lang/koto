@@ -2167,7 +2167,7 @@ impl Compiler {
         } else {
             JumpFalse
         };
-        self.push_op(op, &[condition_register]);
+        self.push_op_without_span(op, &[condition_register]);
         self.push_loop_jump_placeholder()?;
         self.pop_register()?; // condition register
 
