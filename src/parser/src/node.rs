@@ -30,7 +30,7 @@ pub enum Node {
         inclusive: bool,
     },
     RangeFull,
-    Map(Vec<(ConstantIndex, AstIndex)>),
+    Map(Vec<(ConstantIndex, Option<AstIndex>)>),
     MainBlock {
         body: Vec<AstIndex>,
         local_count: usize,

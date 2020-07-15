@@ -1014,43 +1014,7 @@ impl<'source> Parser<'source> {
                 }
                 Token::Id => return self.parse_id_expression(primary_expression),
                 Token::ListStart => return self.parse_list(),
-                Token::MapStart => {
-                    self.consume_token();
-                    let start_span = self.lexer.span();
-
-                    let mut entries = Vec::new();
-
-                    loop {
-                        self.consume_until_next_token();
-
-                        if let Some(key) = self.parse_id_or_string() {
-                            if self.consume_token() != Some(Token::Colon) {
-                                return syntax_error!(ExpectedMapSeparator, self);
-                            }
-
-                            self.consume_until_next_token();
-                            if let Some(value) = self.parse_primary_expression()? {
-                                entries.push((key, value));
-                            } else {
-                                return syntax_error!(ExpectedMapValue, self);
-                            }
-
-                            if self.skip_whitespace_and_peek() == Some(Token::Separator) {
-                                self.consume_token();
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-
-                    if self.skip_whitespace_and_next() != Some(Token::MapEnd) {
-                        return syntax_error!(ExpectedMapEnd, self);
-                    }
-
-                    self.push_node_with_start_span(Map(entries), start_span)?
-                }
+                Token::MapStart => return self.parse_map_inline(),
                 Token::Num2 => {
                     self.consume_token();
                     let start_span = self.lexer.span();
@@ -1274,21 +1238,21 @@ impl<'source> Parser<'source> {
         let mut entries = Vec::new();
 
         while let Some(key) = self.parse_id_or_string() {
-            if self.skip_whitespace_and_next() != Some(Token::Colon) {
-                return syntax_error!(ExpectedMapSeparator, self);
-            }
-
-            if let Some(value) = self.parse_primary_expression()? {
-                entries.push((key, value));
-            } else {
-                // If a value wasn't found on the same line as the key, scan ahead to the next
-                // token (skipping newlines) and try again
-                self.consume_until_next_token();
+            if self.skip_whitespace_and_next() == Some(Token::Colon) {
                 if let Some(value) = self.parse_primary_expression()? {
-                    entries.push((key, value));
+                    entries.push((key, Some(value)));
                 } else {
-                    return syntax_error!(ExpectedMapValue, self);
+                    // If a value wasn't found on the same line as the key, scan ahead to the next
+                    // token (skipping newlines) and try again
+                    self.consume_until_next_token();
+                    if let Some(value) = self.parse_primary_expression()? {
+                        entries.push((key, Some(value)));
+                    } else {
+                        return syntax_error!(ExpectedMapValue, self);
+                    }
                 }
+            } else {
+                entries.push((key, None));
             }
 
             self.consume_until_next_token();
@@ -1305,6 +1269,46 @@ impl<'source> Parser<'source> {
             Node::Map(entries),
             start_span,
         )?))
+    }
+
+    fn parse_map_inline(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        self.consume_token();
+        let start_span = self.lexer.span();
+
+        let mut entries = Vec::new();
+
+        loop {
+            self.consume_until_next_token();
+
+            if let Some(key) = self.parse_id_or_string() {
+                if self.peek_token() == Some(Token::Colon) {
+                    self.consume_token();
+                    self.consume_until_next_token();
+                    if let Some(value) = self.parse_primary_expression()? {
+                        entries.push((key, Some(value)));
+                    } else {
+                        return syntax_error!(ExpectedMapValue, self);
+                    }
+                } else {
+                    entries.push((key, None));
+                }
+
+                if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                    self.consume_token();
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        if self.skip_whitespace_and_next() != Some(Token::MapEnd) {
+            return syntax_error!(ExpectedMapEnd, self);
+        }
+
+        let result = self.push_node_with_start_span(Node::Map(entries), start_span)?;
+        Ok(Some(result))
     }
 
     fn parse_for_loop(
@@ -2187,14 +2191,15 @@ x = [
         fn map_inline() {
             let source = r#"
 {}
-{"foo": 42, bar: "hello"}"#;
+{"foo": 42, bar, baz: "hello"}"#;
             check_ast(
                 source,
                 &[
                     Map(vec![]),
                     Number(1),
-                    Str(3),
-                    Map(vec![(0, 1), (2, 2)]), // map entries are constant/ast index pairs
+                    Str(4),
+                    // map entries are constant/ast index pairs
+                    Map(vec![(0, Some(1)), (2, None), (3, Some(2))]),
                     MainBlock {
                         body: vec![0, 3],
                         local_count: 0,
@@ -2204,6 +2209,7 @@ x = [
                     Constant::Str("foo"),
                     Constant::Number(42.0),
                     Constant::Str("bar"),
+                    Constant::Str("baz"),
                     Constant::Str("hello"),
                 ]),
             )
@@ -2214,7 +2220,7 @@ x = [
             let source = r#"
 x =
   foo: 42
-  bar: "hello"
+  bar
   "baz":
     foo: 0
 x"#;
@@ -2223,21 +2229,21 @@ x"#;
                 &[
                     Id(0),     // x
                     Number(2), // 42
-                    Str(4),    // "hello"
                     Number0,
-                    Map(vec![(1, 3)]),                 // baz nested map
-                    Map(vec![(1, 1), (3, 2), (5, 4)]), // 5 - map entries are constant/ast pairs
+                    // map entries are constant/ast pairs
+                    Map(vec![(1, Some(2))]), // baz, nested map
+                    Map(vec![(1, Some(1)), (3, None), (4, Some(3))]),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 5,
-                    },
+                        expression: 4,
+                    }, // 5
                     Id(0),
                     MainBlock {
-                        body: vec![6, 7],
+                        body: vec![5, 6],
                         local_count: 1,
                     },
                 ],
@@ -2246,7 +2252,6 @@ x"#;
                     Constant::Str("foo"),
                     Constant::Number(42.0),
                     Constant::Str("bar"),
-                    Constant::Str("hello"),
                     Constant::Str("baz"),
                 ]),
             )
@@ -3779,7 +3784,8 @@ f 0 -x";
                         body: 3,
                         is_instance_function: true,
                     }),
-                    Map(vec![(0, 0), (2, 4)]), // Map entries are constant/ast index pairs
+                    // Map entries are constant/ast index pairs
+                    Map(vec![(0, Some(0)), (2, Some(4))]),
                     MainBlock {
                         body: vec![5],
                         local_count: 0,
@@ -3824,7 +3830,8 @@ f()";
                         body: 4,
                         is_instance_function: true,
                     }), // 5
-                    Map(vec![(1, 1), (3, 5)]), // Map entries are constant/ast index pairs
+                    // Map entries are constant/ast index pairs
+                    Map(vec![(1, Some(1)), (3, Some(5))]),
                     Function(Function {
                         args: vec![],
                         local_count: 0,

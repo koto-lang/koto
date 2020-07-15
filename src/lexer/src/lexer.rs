@@ -479,11 +479,11 @@ fn is_whitespace(c: char) -> bool {
     matches!(c, ' ' | '\t')
 }
 
-fn is_id_start(c: char) -> bool {
+pub fn is_id_start(c: char) -> bool {
     UnicodeXID::is_xid_start(c)
 }
 
-fn is_id_continue(c: char) -> bool {
+pub fn is_id_continue(c: char) -> bool {
     UnicodeXID::is_xid_continue(c)
 }
 

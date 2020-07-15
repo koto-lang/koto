@@ -1483,7 +1483,7 @@ impl Compiler {
     fn compile_make_map(
         &mut self,
         result_register: Option<u8>,
-        entries: &[(ConstantIndex, AstIndex)],
+        entries: &[(ConstantIndex, Option<AstIndex>)],
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         use Op::*;
@@ -1497,29 +1497,40 @@ impl Compiler {
                 self.push_bytes(&size_hint.to_le_bytes());
             }
 
-            for (key, value_node) in entries.iter() {
-                // Push the map entry's span in advance of loading the key string, it makes
-                // for better bytecode output to have the key and value in the same span.
-                let value_node = ast.node(*value_node);
-                self.span_stack.push(*ast.span(value_node.span));
+            for (key, maybe_value_node) in entries.iter() {
+                let (value_register, pop_value_register) = match maybe_value_node {
+                    Some(value_node) => {
+                        let value_node = ast.node(*value_node);
+                        let register = self.push_register()?;
+                        self.compile_node(Some(register), value_node, ast)?;
+                        (register, true)
+                    }
+                    None => {
+                        if let Some(register) = self.frame().get_local_assigned_register(*key) {
+                            (register, false)
+                        } else {
+                            let register = self.push_register()?;
+                            self.compile_load_non_local_id(register, *key)?;
+                            (register, true)
+                        }
+                    }
+                };
 
                 let key_register = self.push_register()?;
                 self.load_string(key_register, *key);
 
-                let value_register = self.push_register()?;
-                self.compile_node(Some(value_register), value_node, ast)?;
-
                 self.push_op(MapInsert, &[result_register, key_register, value_register]);
 
-                self.span_stack.pop();
-
-                self.pop_register()?;
-                self.pop_register()?;
+                self.pop_register()?; // key register
+                if pop_value_register {
+                    self.pop_register()?;
+                }
             }
         } else {
             // Evaluate value nodes to ensure functions are called as expected
             for (_key, value_node) in entries.iter() {
-                self.compile_node(None, ast.node(*value_node), ast)?;
+                let value_node = value_node.unwrap(); // TODO
+                self.compile_node(None, ast.node(value_node), ast)?;
             }
         }
 

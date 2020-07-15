@@ -1,3 +1,5 @@
+mod format;
+
 use {
     crate::{external_error, single_arg_fn},
     koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
@@ -11,6 +13,15 @@ pub fn register(prelude: &mut ValueMap) {
 
     single_arg_fn!(string, "escape", Str, s, {
         Ok(Str(Arc::new(s.escape_default().to_string())))
+    });
+
+    string.add_fn("format", |_, args| match args {
+        [result @ Str(_)] => Ok(result.clone()),
+        [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
+            Ok(result) => Ok(Str(Arc::new(result))),
+            Err(error) => external_error!("string.format: {}", error),
+        },
+        _ => external_error!("string.format: Expected a string as first argument"),
     });
 
     single_arg_fn!(string, "lines", Str, s, {
