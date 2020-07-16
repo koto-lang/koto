@@ -8,7 +8,7 @@ impl Id {
         Self(id)
     }
 
-    pub fn from_str(id: &str) -> Self {
+    pub fn with_str(id: &str) -> Self {
         Self::new(Arc::new(id.to_string()))
     }
 
