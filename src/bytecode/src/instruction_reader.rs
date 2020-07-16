@@ -252,13 +252,13 @@ pub enum Instruction {
     },
     MapInsert {
         register: u8,
-        key: u8,
         value: u8,
+        key: usize,
     },
     MapAccess {
         register: u8,
         map: u8,
-        key: u8,
+        key: usize,
     },
     TryStart {
         arg_register: u8,
@@ -559,12 +559,12 @@ impl fmt::Display for Instruction {
             ),
             MapInsert {
                 register,
-                key,
                 value,
+                key,
             } => write!(
                 f,
-                "MapInsert\tresult: {}\tkey: {}\t\tvalue: {}",
-                register, key, value
+                "MapInsert\tresult: {}\tvalue: {}\tkey: {}",
+                register, value, key
             ),
             MapAccess { register, map, key } => write!(
                 f,
@@ -947,13 +947,23 @@ impl Iterator for InstructionReader {
             }),
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),
-                key: get_byte!(),
                 value: get_byte!(),
+                key: get_byte!() as usize,
+            }),
+            Op::MapInsertLong => Some(MapInsert {
+                register: get_byte!(),
+                value: get_byte!(),
+                key: get_u32!() as usize,
             }),
             Op::MapAccess => Some(MapAccess {
                 register: get_byte!(),
                 map: get_byte!(),
-                key: get_byte!(),
+                key: get_byte!() as usize,
+            }),
+            Op::MapAccessLong => Some(MapAccess {
+                register: get_byte!(),
+                map: get_byte!(),
+                key: get_u32!() as usize,
             }),
             Op::TryStart => Some(TryStart {
                 arg_register: get_byte!(),

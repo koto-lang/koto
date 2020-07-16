@@ -74,15 +74,15 @@ pub enum Op {
     ListPush,         // list, value
     ListUpdate,       // list, index, value
     ListIndex,        // result, list register, index register
-    MapInsert,        // map, key, value
-    MapAccess,        // register, map, key
+    MapInsert,        // map register, value register, key constant
+    MapInsertLong,    // map register, value register, key constant[4]
+    MapAccess,        // register, map register, key
+    MapAccessLong,    // register, map register, key[4]
     Size,             // register
     Type,             // register
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused69,
-    Unused70,
     Unused71,
     Unused72,
     Unused73,

@@ -1036,26 +1036,14 @@ impl Vm {
             }
             Instruction::MapInsert {
                 register,
-                key,
                 value,
+                key,
             } => {
-                let key = self.get_register(key).clone();
+                let key_string = self.arc_string_from_constant(key);
                 let value = self.get_register(value).clone();
 
                 match self.get_register_mut(register) {
-                    Map(map) => match key {
-                        Str(id_string) => {
-                            map.data_mut().insert(Id::new(id_string), value);
-                        }
-                        unexpected => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Expected String for Map key, found '{}'",
-                                type_as_string(&unexpected),
-                            );
-                        }
-                    },
+                    Map(map) => map.data_mut().insert(Id::new(key_string), value),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -1068,29 +1056,19 @@ impl Vm {
             }
             Instruction::MapAccess { register, map, key } => {
                 let map_value = self.get_register(map).clone();
-                let key_value = self.get_register(key).clone();
+                let key_string = self.arc_string_from_constant(key);
 
                 match map_value {
-                    Map(map) => match key_value {
-                        Str(id_string) => match map.data().get(&id_string) {
-                            Some(value) => {
-                                self.set_register(register, value.clone());
-                            }
-                            None => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "Map entry '{}' not found",
-                                    id_string,
-                                );
-                            }
-                        },
-                        unexpected => {
+                    Map(map) => match map.data().get(&key_string) {
+                        Some(value) => {
+                            self.set_register(register, value.clone());
+                        }
+                        None => {
                             return vm_error!(
                                 self.chunk(),
                                 instruction_ip,
-                                "Expected String for Map key, found '{}'",
-                                type_as_string(&unexpected),
+                                "Map entry '{}' not found",
+                                key_string,
                             );
                         }
                     },

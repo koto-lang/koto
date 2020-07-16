@@ -969,7 +969,6 @@ impl Compiler {
             }
         } else {
             let from_register = self.push_register()?;
-            let key_register = self.push_register()?;
 
             self.compile_import_item(from_register, from)?;
 
@@ -984,15 +983,13 @@ impl Compiler {
                 let import_register = self.assign_local_register(*import_id)?;
 
                 for id in item.iter() {
-                    self.load_string(key_register, *id);
-                    self.push_op(MapAccess, &[import_register, access_register, key_register]);
+                    self.compile_map_access(import_register, access_register, *id);
                     access_register = import_register;
                 }
 
                 imported.push(import_register);
             }
 
-            self.pop_register()?; // key_register
             self.pop_register()?; // from_register
         }
 
@@ -1025,17 +1022,9 @@ impl Compiler {
             [import_id, nested @ ..] => {
                 self.compile_import_id(result_register, *import_id);
 
-                let key_register = self.push_register()?;
-
                 for nested_item in nested.iter() {
-                    self.load_string(key_register, *nested_item);
-                    self.push_op(
-                        Op::MapAccess,
-                        &[result_register, result_register, key_register],
-                    );
+                    self.compile_map_access(result_register, result_register, *nested_item);
                 }
-
-                self.pop_register()?; // key_register
             }
         }
 
@@ -1516,12 +1505,8 @@ impl Compiler {
                     }
                 };
 
-                let key_register = self.push_register()?;
-                self.load_string(key_register, *key);
+                self.compile_map_insert(result_register, value_register, *key);
 
-                self.push_op(MapInsert, &[result_register, key_register, value_register]);
-
-                self.pop_register()?; // key register
                 if pop_value_register {
                     self.pop_register()?;
                 }
@@ -1669,27 +1654,18 @@ impl Compiler {
                         }
                     } else {
                         // Map access
-
-                        // Don't worry about popping the temporary key register,
-                        // it gets removed at the end of the lookup.
-                        let key_register = self.push_register()?;
-
-                        self.load_string(key_register, *id);
                         let map_register = *node_registers.last().expect("Empty node registers");
 
                         if is_last_node {
                             if let Some(set_value) = set_value {
-                                self.push_op(MapInsert, &[map_register, key_register, set_value]);
+                                self.compile_map_insert(map_register, set_value, *id);
                             } else if let Some(result_register) = result_register {
-                                self.push_op(
-                                    MapAccess,
-                                    &[result_register, map_register, key_register],
-                                );
+                                self.compile_map_access(result_register, map_register, *id);
                             }
                         } else {
                             let node_register = self.push_register()?;
                             node_registers.push(node_register);
-                            self.push_op(MapAccess, &[node_register, map_register, key_register]);
+                            self.compile_map_access(node_register, map_register, *id);
                         }
                     }
                 }
@@ -1756,6 +1732,24 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         Ok(())
+    }
+
+    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: ConstantIndex) {
+        if key <= u8::MAX as u32 {
+            self.push_op(Op::MapInsert, &[map_register, value_register, key as u8]);
+        } else {
+            self.push_op(Op::MapInsertLong, &[map_register, value_register]);
+            self.push_bytes(&key.to_le_bytes());
+        }
+    }
+
+    fn compile_map_access(&mut self, result_register: u8, map_register: u8, key: ConstantIndex) {
+        if key <= u8::MAX as u32 {
+            self.push_op(Op::MapAccess, &[result_register, map_register, key as u8]);
+        } else {
+            self.push_op(Op::MapAccessLong, &[result_register, map_register]);
+            self.push_bytes(&key.to_le_bytes());
+        }
     }
 
     fn compile_call(
