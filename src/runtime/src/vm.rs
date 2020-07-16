@@ -239,7 +239,7 @@ impl Vm {
                     .insert(Id::from_str(global_name), self.get_register(source).clone());
             }
             Instruction::Import { register, constant } => {
-                self.run_import(register, constant, instruction_ip)?;
+                self.run_import(register, constant)?;
             }
             Instruction::RegisterList {
                 register,
@@ -1121,7 +1121,6 @@ impl Vm {
         &mut self,
         result_register: u8,
         import_constant: usize,
-        _instruction_ip: usize,
     ) -> Result<(), Error> {
         let import_name = self.get_constant_string(import_constant);
 
