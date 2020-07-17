@@ -232,16 +232,26 @@ impl Frame {
 }
 
 #[derive(Default)]
+pub struct Options {
+    /// Causes all top level identifiers to be exported to global
+    pub repl_mode: bool,
+}
+
+#[derive(Default)]
 pub struct Compiler {
     bytes: Vec<u8>,
     debug_info: DebugInfo,
     frame_stack: Vec<Frame>,
     span_stack: Vec<Span>,
+    options: Options,
 }
 
 impl Compiler {
-    pub fn compile(ast: &Ast) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
-        let mut compiler = Compiler::default();
+    pub fn compile(ast: &Ast, options: Options) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
+        let mut compiler = Compiler {
+            options,
+            ..Default::default()
+        };
 
         if let Some(entry_point) = ast.entry_point() {
             compiler.compile_node(None, entry_point, ast)?;
@@ -481,7 +491,7 @@ impl Compiler {
                 op,
                 expression,
             } => {
-                self.compile_assign(result_register, *target, *op, *expression, ast)?;
+                self.compile_assign(result_register, target, *op, *expression, ast)?;
             }
             Node::MultiAssign {
                 targets,
@@ -632,12 +642,20 @@ impl Compiler {
         Ok(())
     }
 
+    fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
+        if self.options.repl_mode && self.frame_stack.len() == 1 {
+            Scope::Global
+        } else {
+            target.scope
+        }
+    }
+
     fn local_register_for_assign_target(
         &mut self,
-        target: AssignTarget,
+        target: &AssignTarget,
         ast: &Ast,
     ) -> Result<Option<u8>, CompilerError> {
-        let result = match target.scope {
+        let result = match self.scope_for_assign_target(target) {
             Scope::Local => match &ast.node(target.target_index).node {
                 Node::Id(constant_index) => {
                     if self.frame().capture_slot(*constant_index).is_some() {
@@ -660,7 +678,7 @@ impl Compiler {
     fn compile_assign(
         &mut self,
         result_register: Option<u8>,
-        target: AssignTarget,
+        target: &AssignTarget,
         op: AssignOp,
         expression: AstIndex,
         ast: &Ast,
@@ -716,7 +734,7 @@ impl Compiler {
 
         match &ast.node(target.target_index).node {
             Node::Id(id_index) => {
-                match target.scope {
+                match self.scope_for_assign_target(target) {
                     Scope::Local => {
                         if local_assign_register.is_some() {
                             // To ensure that global rhs ids with the same name as a local that's
@@ -840,7 +858,7 @@ impl Compiler {
                             if let Some(result_register) = result_register {
                                 self.compile_assign(
                                     Some(temp_register),
-                                    *target,
+                                    target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,
@@ -849,7 +867,7 @@ impl Compiler {
                             } else {
                                 self.compile_assign(
                                     None,
-                                    *target,
+                                    target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,

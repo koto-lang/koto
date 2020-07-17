@@ -125,21 +125,16 @@ pub struct Parser<'source> {
     constants: ConstantPool,
     lexer: Lexer<'source>,
     frame_stack: Vec<Frame>,
-    options: Options,
 }
 
 impl<'source> Parser<'source> {
-    pub fn parse(
-        source: &'source str,
-        options: Options,
-    ) -> Result<(Ast, ConstantPool), ParserError> {
+    pub fn parse(source: &'source str) -> Result<(Ast, ConstantPool), ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
             constants: ConstantPool::new(),
             lexer: Lexer::new(source),
             frame_stack: Vec::new(),
-            options,
         };
 
         let main_block = parser.parse_main_block()?;
@@ -559,12 +554,6 @@ impl<'source> Parser<'source> {
 
         let mut targets = Vec::new();
 
-        let scope = if self.options.export_all_top_level && self.frame()?.top_level {
-            Scope::Global
-        } else {
-            Scope::Local
-        };
-
         for lhs_expression in lhs.iter() {
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
@@ -573,9 +562,7 @@ impl<'source> Parser<'source> {
                             .decrement_expression_access_for_id(id_index)
                             .map_err(|_| make_internal_error!(UnexpectedIdInExpression, self))?;
 
-                        if matches!(scope, Scope::Local) {
-                            self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                        }
+                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
                     }
                 }
                 Node::Lookup(_) => {}
@@ -584,7 +571,7 @@ impl<'source> Parser<'source> {
 
             targets.push(AssignTarget {
                 target_index: *lhs_expression,
-                scope,
+                scope: Scope::Local,
             });
         }
 
@@ -2012,19 +1999,14 @@ mod tests {
     use super::*;
     use {crate::constant_pool::Constant, Node::*};
 
-    fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
-        check_ast_with_options(source, expected_ast, expected_constants, Options::default());
-    }
-
-    fn check_ast_with_options(
+    fn check_ast(
         source: &str,
         expected_ast: &[Node],
         expected_constants: Option<&[Constant]>,
-        options: Options,
     ) {
         println!("{}", source);
 
-        match Parser::parse(source, options) {
+        match Parser::parse(source) {
             Ok((ast, constants)) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
@@ -2456,34 +2438,6 @@ num4 x 0 1 x";
                     },
                 ],
                 Some(&[Constant::Str("a")]),
-            )
-        }
-
-        #[test]
-        fn single_with_export_top_level_option() {
-            let source = "a = 1";
-            check_ast_with_options(
-                source,
-                &[
-                    Id(0),
-                    Number1,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Global,
-                        },
-                        op: AssignOp::Equal,
-                        expression: 1,
-                    },
-                    MainBlock {
-                        body: vec![2],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("a")]),
-                crate::Options {
-                    export_all_top_level: true,
-                },
             )
         }
 

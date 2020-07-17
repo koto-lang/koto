@@ -14,7 +14,3 @@ pub use error::ParserError;
 pub use node::*;
 pub use parser::Parser;
 
-#[derive(Default)]
-pub struct Options {
-    pub export_all_top_level: bool,
-}
