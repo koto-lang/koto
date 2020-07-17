@@ -2167,6 +2167,16 @@ impl Compiler {
 
         self.truncate_register_stack(stack_count)?;
 
+        if self.options.repl_mode && self.frame_stack.len() == 1 {
+            for arg in args.iter() {
+                let arg_register = match self.frame().get_local_register(*arg) {
+                    Some(register) => register,
+                    None => return compiler_error!(self, "Missing arg register"),
+                };
+                self.compile_set_global(*arg, arg_register);
+            }
+        }
+
         Ok(())
     }
 

@@ -39,6 +39,12 @@ fn basic_arithmetic() {
 }
 
 #[test]
+fn for_loop() {
+    run_koto_repl_test(&["x for x in 1..=5", "x * x"], &["5", "25"]);
+}
+
+#[test]
 fn import_assert() {
     run_koto_repl_test(&["import test.assert", "assert true"], &["External Function", "()"]);
 }
+
