@@ -59,7 +59,7 @@ impl ValueHashMap {
     }
 
     pub fn add_value(&mut self, id: &str, value: Value) {
-        self.insert(Id::from_str(id), value);
+        self.insert(Id::with_str(id), value);
     }
 
     pub fn insert(&mut self, id: Id, value: Value) {
@@ -173,7 +173,7 @@ impl ValueMap {
     }
 
     pub fn add_value(&mut self, id: &str, value: Value) {
-        self.insert(Id::from_str(id), value);
+        self.insert(Id::with_str(id), value);
     }
 
     pub fn set_external_value(&mut self, data: impl ExternalValue) {

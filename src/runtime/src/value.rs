@@ -74,11 +74,8 @@ impl fmt::Display for Value {
                 start,
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
-            Function(function) => write!(f, "Function: {}", function.ip),
-            ExternalFunction(function) => {
-                let raw = Arc::into_raw(function.function.clone());
-                write!(f, "External function: {:?}", raw)
-            }
+            Function(_) => write!(f, "Function"),
+            ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             Iterator(_) => write!(f, "Iterator"),
             RegisterList { start, count } => {

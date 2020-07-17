@@ -236,10 +236,10 @@ impl Vm {
                 let global_name = self.get_constant_string(global);
                 self.global
                     .data_mut()
-                    .insert(Id::from_str(global_name), self.get_register(source).clone());
+                    .insert(Id::with_str(global_name), self.get_register(source).clone());
             }
             Instruction::Import { register, constant } => {
-                self.run_import(register, constant, instruction_ip)?;
+                self.run_import(register, constant)?;
             }
             Instruction::RegisterList {
                 register,
@@ -1121,7 +1121,6 @@ impl Vm {
         &mut self,
         result_register: u8,
         import_constant: usize,
-        _instruction_ip: usize,
     ) -> Result<(), Error> {
         let import_name = self.get_constant_string(import_constant);
 
@@ -2832,8 +2831,8 @@ sum
         #[test]
         fn from_literals() {
             let mut result_data = ValueHashMap::new();
-            result_data.insert(Id::from_str("foo"), Number(42.0));
-            result_data.insert(Id::from_str("bar"), Str(Arc::new("baz".to_string())));
+            result_data.insert(Id::with_str("foo"), Number(42.0));
+            result_data.insert(Id::with_str("bar"), Str(Arc::new("baz".to_string())));
 
             test_script(
                 "{foo: 42, bar: \"baz\"}",

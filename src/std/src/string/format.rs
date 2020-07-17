@@ -170,7 +170,7 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
                 Some(other) => {
                     return Err(format!("Expected map as first argument, found {}", other))
                 }
-                None => return Err(format!("Expected map as first argument")),
+                None => return Err(String::from("Expected map as first argument")),
             },
             FormatToken::Error => return Err("Error while parsing format string".to_string()),
         }
@@ -310,8 +310,8 @@ mod tests {
         #[test]
         fn identifier_placeholders() {
             let mut map_data = ValueHashMap::new();
-            map_data.insert(Id::from_str("x"), Value::Number(42.0));
-            map_data.insert(Id::from_str("y"), Value::Number(-1.0));
+            map_data.insert(Id::with_str("x"), Value::Number(42.0));
+            map_data.insert(Id::with_str("y"), Value::Number(-1.0));
             let map = Value::Map(ValueMap::with_data(map_data));
 
             check_format_output("{x} - {y}", &[map], "42 - -1");
