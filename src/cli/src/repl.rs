@@ -1,14 +1,17 @@
-use koto::{Koto, Options};
-use std::{
-    fmt,
-    io::{stdin, stdout, Write},
-};
-use termion::{
-    clear, color, cursor, cursor::DetectCursorPos, event::Key, input::TermRead, raw::IntoRawMode,
-    raw::RawTerminal, style,
+use {
+    koto::{Koto, Options},
+    std::{
+        fmt,
+        io::{self, Stdout, Write},
+    },
+    termion::{
+        clear, color, cursor, cursor::DetectCursorPos, event::Key, input::TermRead,
+        raw::IntoRawMode, raw::RawTerminal, style,
+    },
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const PROMPT: &str = "» ";
 
 pub struct Repl {
     koto: Koto,
@@ -32,31 +35,42 @@ impl Repl {
     }
 
     pub fn run(&mut self) {
-        let stdin = stdin();
-        let mut stdout = stdout().into_raw_mode().unwrap();
+        let stdin = io::stdin();
+        let mut stdout = io::stdout();
+        let mut tty = if termion::is_tty(&stdout) {
+            match termion::get_tty() {
+                Ok(tty) => Some(tty.into_raw_mode().expect("Failed to activate raw mode")),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
 
-        write!(stdout, "Welcome to Koto v{}\r\n» ", VERSION).unwrap();
+        write!(stdout, "Welcome to Koto v{}\r\n{}", VERSION, PROMPT).unwrap();
         stdout.flush().unwrap();
 
         for c in stdin.keys() {
-            self.handle_keypress(c.unwrap(), &mut stdout);
+            self.handle_keypress(c.unwrap(), &mut stdout, &mut tty);
 
-            let (_, cursor_y) = stdout.cursor_pos().unwrap();
+            if let Some(ref mut tty) = tty {
+                let (_, cursor_y) = stdout.cursor_pos().unwrap();
 
-            write!(
-                stdout,
-                "{}{}» {}",
-                cursor::Goto(1, cursor_y),
-                clear::CurrentLine,
-                self.input
-            )
-            .unwrap();
+                write!(
+                    tty,
+                    "{}{}{}{}",
+                    cursor::Goto(1, cursor_y),
+                    clear::CurrentLine,
+                    PROMPT,
+                    self.input
+                )
+                .unwrap();
 
-            if let Some(position) = self.cursor {
-                if position < self.input.len() {
-                    let x_offset = (self.input.len() - position) as u16;
-                    let (cursor_x, cursor_y) = stdout.cursor_pos().unwrap();
-                    write!(stdout, "{}", cursor::Goto(cursor_x - x_offset, cursor_y),).unwrap();
+                if let Some(position) = self.cursor {
+                    if position < self.input.len() {
+                        let x_offset = (self.input.len() - position) as u16;
+                        let (cursor_x, cursor_y) = stdout.cursor_pos().unwrap();
+                        write!(tty, "{}", cursor::Goto(cursor_x - x_offset, cursor_y),).unwrap();
+                    }
                 }
             }
 
@@ -64,8 +78,12 @@ impl Repl {
         }
     }
 
-    fn handle_keypress<T>(&mut self, key: Key, stdout: &mut RawTerminal<T>)
-    where
+    fn handle_keypress<T>(
+        &mut self,
+        key: Key,
+        stdout: &mut Stdout,
+        tty: &mut Option<RawTerminal<T>>,
+    ) where
         T: Write,
     {
         match key {
@@ -145,20 +163,29 @@ impl Repl {
             Key::Char(c) => match c {
                 '\n' => {
                     write!(stdout, "\r\n").unwrap();
-                    stdout.suspend_raw_mode().unwrap();
+
+                    if let Some(tty) = tty {
+                        tty.suspend_raw_mode().unwrap();
+                    }
+
                     match self.koto.compile(&self.input) {
                         Ok(_) => match self.koto.run() {
-                            Ok(result) => println!("{}", result),
-                            Err(error) => self.print_error(stdout, &error),
+                            Ok(result) => write!(stdout, "{}\n", result).unwrap(),
+                            Err(error) => self.print_error(stdout, tty, &error),
                         },
-                        Err(e) => self.print_error(stdout, &e),
+                        Err(e) => self.print_error(stdout, tty, &e),
                     }
-                    stdout.activate_raw_mode().unwrap();
+
+                    if let Some(tty) = tty {
+                        tty.activate_raw_mode().unwrap();
+                    }
+
                     if self.input_history.is_empty()
                         || self.input_history.last().unwrap() != &self.input
                     {
                         self.input_history.push(self.input.clone());
                     }
+
                     self.history_position = None;
                     self.cursor = None;
                     self.input.clear();
@@ -196,22 +223,26 @@ impl Repl {
         }
     }
 
-    fn print_error<T, E>(&self, stdout: &mut RawTerminal<T>, error: &E)
+    fn print_error<T, E>(&self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>, error: &E)
     where
         T: Write,
         E: fmt::Display,
     {
-        write!(
-            stdout,
-            "{red}error{reset}: {bold}",
-            red = color::Fg(color::Red),
-            bold = style::Bold,
-            reset = style::Reset,
-        )
-        .unwrap();
-        stdout.suspend_raw_mode().unwrap();
-        println!("{}", error);
-        stdout.activate_raw_mode().unwrap();
-        write!(stdout, "{}", style::Reset).unwrap();
+        if let Some(tty) = tty {
+            write!(
+                tty,
+                "{red}error{reset}: {bold}",
+                red = color::Fg(color::Red),
+                bold = style::Bold,
+                reset = style::Reset,
+            )
+            .unwrap();
+            tty.suspend_raw_mode().unwrap();
+            println!("{}", error);
+            tty.activate_raw_mode().unwrap();
+            write!(tty, "{}", style::Reset).unwrap();
+        } else {
+            write!(stdout, "{}", error).unwrap();
+        }
     }
 }
