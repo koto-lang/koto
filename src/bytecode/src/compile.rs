@@ -748,12 +748,7 @@ impl Compiler {
                         }
                     }
                     Scope::Global => {
-                        if *id_index <= u8::MAX as u32 {
-                            self.push_op(SetGlobal, &[*id_index as u8, assign_register]);
-                        } else {
-                            self.push_op(SetGlobalLong, &id_index.to_le_bytes());
-                            self.push_bytes(&[assign_register]);
-                        }
+                        self.compile_set_global(*id_index, assign_register);
                     }
                 }
 
@@ -937,6 +932,15 @@ impl Compiler {
         }
     }
 
+    fn compile_set_global(&mut self, id: ConstantIndex, register: u8) {
+        if id <= u8::MAX as u32 {
+            self.push_op(Op::SetGlobal, &[id as u8, register]);
+        } else {
+            self.push_op(Op::SetGlobalLong, &id.to_le_bytes());
+            self.push_bytes(&[register]);
+        }
+    }
+
     fn compile_load_non_local_id(
         &mut self,
         result_register: u8,
@@ -984,6 +988,10 @@ impl Compiler {
 
                 imported.push(import_register);
                 self.commit_local_register(import_register)?;
+
+                if self.options.repl_mode && self.frame_stack.len() == 1 {
+                    self.compile_set_global(*import_id, import_register);
+                }
             }
         } else {
             let from_register = self.push_register()?;
@@ -1006,6 +1014,10 @@ impl Compiler {
                 }
 
                 imported.push(import_register);
+
+                if self.options.repl_mode && self.frame_stack.len() == 1 {
+                    self.compile_set_global(*import_id, import_register);
+                }
             }
 
             self.pop_register()?; // from_register

@@ -38,7 +38,7 @@ fn basic_arithmetic() {
     run_koto_repl_test(&["a = 2", "a + a"], &["2", "4"]);
 }
 
-// #[test]
-// fn import_assert() {
-//     run_koto_repl_test(&["import test.assert", "assert true"], &["External Function", "()"]);
-// }
+#[test]
+fn import_assert() {
+    run_koto_repl_test(&["import test.assert", "assert true"], &["External Function", "()"]);
+}
