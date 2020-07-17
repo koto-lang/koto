@@ -39,30 +39,34 @@ macro_rules! koto_test {
     };
 }
 
-koto_test!(arithmetic);
-koto_test!(assignment);
-koto_test!(comments);
-koto_test!(control_flow);
-koto_test!(error_handling);
-koto_test!(function_closures);
-koto_test!(functions);
-koto_test!(functions_in_lookups);
-koto_test!(import);
-koto_test!(io);
-koto_test!(json);
-koto_test!(line_breaks);
-koto_test!(lists);
-koto_test!(list_ops);
-koto_test!(logic);
-koto_test!(loops);
-koto_test!(maps);
-koto_test!(maps_and_lists);
-koto_test!(maps_nested_assignments);
-koto_test!(math);
-koto_test!(num2_4);
-koto_test!(primes);
-koto_test!(ranges);
-koto_test!(strings);
-koto_test!(threads);
-koto_test!(toml);
-koto_test!(types);
+mod koto_tests {
+    use super::*;
+
+    koto_test!(arithmetic);
+    koto_test!(assignment);
+    koto_test!(comments);
+    koto_test!(control_flow);
+    koto_test!(error_handling);
+    koto_test!(function_closures);
+    koto_test!(functions);
+    koto_test!(functions_in_lookups);
+    koto_test!(import);
+    koto_test!(io);
+    koto_test!(json);
+    koto_test!(line_breaks);
+    koto_test!(lists);
+    koto_test!(list_ops);
+    koto_test!(logic);
+    koto_test!(loops);
+    koto_test!(maps);
+    koto_test!(maps_and_lists);
+    koto_test!(maps_nested_assignments);
+    koto_test!(math);
+    koto_test!(num2_4);
+    koto_test!(primes);
+    koto_test!(ranges);
+    koto_test!(strings);
+    koto_test!(threads);
+    koto_test!(toml);
+    koto_test!(types);
+}
