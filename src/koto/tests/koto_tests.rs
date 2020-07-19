@@ -64,6 +64,7 @@ mod koto_tests {
     koto_test!(math);
     koto_test!(num2_4);
     koto_test!(primes);
+    koto_test!(random);
     koto_test!(ranges);
     koto_test!(strings);
     koto_test!(threads);

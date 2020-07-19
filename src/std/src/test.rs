@@ -56,7 +56,36 @@ pub fn register(prelude: &mut ValueMap) {
 
     test.add_fn("assert_near", |_, args| match &args {
         [Number(a), Number(b), Number(allowed_diff)] => {
-            if (a - b).abs() <= *allowed_diff {
+            if f64_near(*a, *b, *allowed_diff) {
+                Ok(Empty)
+            } else {
+                external_error!(
+                    "Assertion failed, '{}' and '{}' are not within {} of each other",
+                    a,
+                    b,
+                    allowed_diff,
+                )
+            }
+        }
+        [Num2(a), Num2(b), Number(allowed_diff)] => {
+            if f64_near(a.0, b.0, *allowed_diff) && f64_near(a.1, b.1, *allowed_diff) {
+                Ok(Empty)
+            } else {
+                external_error!(
+                    "Assertion failed, '{}' and '{}' are not within {} of each other",
+                    a,
+                    b,
+                    allowed_diff,
+                )
+            }
+        }
+        [Num4(a), Num4(b), Number(allowed_diff)] => {
+            let allowed_diff = *allowed_diff as f32;
+            if f32_near(a.0, b.0, allowed_diff)
+                && f32_near(a.1, b.1, allowed_diff)
+                && f32_near(a.2, b.2, allowed_diff)
+                && f32_near(a.3, b.3, allowed_diff)
+            {
                 Ok(Empty)
             } else {
                 external_error!(
@@ -77,4 +106,12 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     prelude.add_value("test", Map(test));
+}
+
+fn f32_near(a: f32, b: f32, allowed_diff: f32) -> bool {
+    (a - b).abs() <= allowed_diff
+}
+
+fn f64_near(a: f64, b: f64, allowed_diff: f64) -> bool {
+    (a - b).abs() <= allowed_diff
 }

@@ -1,7 +1,19 @@
-use std::ops;
+use std::{fmt, ops};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Num2(pub f64, pub f64);
+
+impl Num2 {
+    pub fn abs(&self) -> Self {
+        Num2(self.0.abs(), self.1.abs())
+    }
+}
+
+impl fmt::Display for Num2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
 
 impl ops::Index<usize> for Num2 {
     type Output = f64;

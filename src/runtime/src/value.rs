@@ -48,8 +48,8 @@ impl fmt::Display for Value {
             Empty => f.write_str("()"),
             Bool(b) => f.write_str(&b.to_string()),
             Number(n) => f.write_str(&n.to_string()),
-            Num2(v) => write!(f, "({} {})", v.0, v.1),
-            Num4(v) => write!(f, "({} {} {} {})", v.0, v.1, v.2, v.3),
+            Num2(n) => f.write_str(&n.to_string()),
+            Num4(n) => f.write_str(&n.to_string()),
             Str(s) => f.write_str(&s),
             List(l) => f.write_str(&l.to_string()),
             Map(m) => {

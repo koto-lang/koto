@@ -8,6 +8,9 @@ parser_tests:
   cargo watch -x "test --package koto_lexer --package koto_parser"
 
 test:
+  cargo watch -x "test --lib --test koto_tests"
+
+test_all:
   cargo watch -x "test --tests"
 
 test_benches:

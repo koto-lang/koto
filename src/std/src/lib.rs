@@ -2,6 +2,7 @@ mod io;
 mod list;
 mod map;
 mod math;
+mod random;
 mod string;
 mod test;
 mod thread;
@@ -96,6 +97,7 @@ pub fn register(prelude: &mut ValueMap) {
     list::register(prelude);
     map::register(prelude);
     math::register(prelude);
+    random::register(prelude);
     string::register(prelude);
     test::register(prelude);
     thread::register(prelude);
