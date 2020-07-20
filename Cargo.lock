@@ -340,7 +340,6 @@ dependencies = [
  "koto_lexer",
  "koto_parser",
  "koto_runtime",
- "koto_serialize",
  "rand",
  "rand_chacha",
  "tempfile",
