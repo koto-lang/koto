@@ -1119,11 +1119,7 @@ impl Vm {
         Ok(result)
     }
 
-    fn run_import(
-        &mut self,
-        result_register: u8,
-        import_constant: usize,
-    ) -> Result<(), Error> {
+    fn run_import(&mut self, result_register: u8, import_constant: usize) -> Result<(), Error> {
         let import_name = self.get_constant_string(import_constant);
 
         let maybe_global = self.global.data().get(import_name).cloned();
@@ -1576,10 +1572,11 @@ impl Vm {
                     }
                 };
 
-                let mut args = ValueVec::new();
-                for arg_value in self.register_slice(arg_register, call_arg_count).iter() {
-                    args.push(arg_value.clone());
-                }
+                let args = self
+                    .register_slice(arg_register, call_arg_count)
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>();
 
                 let result = (&*function)(self, &args);
                 match result {
@@ -1791,8 +1788,12 @@ impl Vm {
     }
 
     fn register_slice(&self, register: u8, count: u8) -> &[Value] {
-        let start = self.register_index(register);
-        &self.value_stack[start..start + count as usize]
+        if count > 0 {
+            let start = self.register_index(register);
+            &self.value_stack[start..start + count as usize]
+        } else {
+            &[]
+        }
     }
 
     fn get_constant_string(&self, constant_index: usize) -> &str {
