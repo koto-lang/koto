@@ -1,5 +1,5 @@
 use {
-    koto::{Koto, Options},
+    koto::{Koto, Settings},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -22,11 +22,11 @@ pub struct Repl {
 }
 
 impl Repl {
-    pub fn with_options(mut options: Options) -> Self {
-        options.repl_mode = true;
+    pub fn with_settings(mut settings: Settings) -> Self {
+        settings.repl_mode = true;
 
         Self {
-            koto: Koto::with_options(options),
+            koto: Koto::with_settings(settings),
             input_history: Vec::new(),
             history_position: None,
             input: String::new(),

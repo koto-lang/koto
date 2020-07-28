@@ -17,7 +17,7 @@ use {
 };
 
 #[derive(Copy, Clone, Default)]
-pub struct Options {
+pub struct Settings {
     pub show_annotated: bool,
     pub show_bytecode: bool,
     pub repl_mode: bool,
@@ -27,7 +27,7 @@ pub struct Options {
 pub struct Koto {
     script_path: Option<PathBuf>,
     runtime: Vm,
-    options: Options,
+    settings: Settings,
     loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }
@@ -48,14 +48,14 @@ impl Koto {
         result
     }
 
-    pub fn with_options(options: Options) -> Self {
+    pub fn with_settings(settings: Settings) -> Self {
         let mut result = Self::new();
-        result.options = options;
+        result.settings = settings;
         result
     }
 
     pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
-        let compile_result = if self.options.repl_mode {
+        let compile_result = if self.settings.repl_mode {
             self.loader.compile_repl(script)
         } else {
             self.loader.compile_script(script, &self.script_path)
@@ -64,13 +64,13 @@ impl Koto {
         match compile_result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
-                if self.options.show_annotated {
+                if self.settings.show_annotated {
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
                         "{}",
                         chunk_to_string_annotated(chunk.clone(), &script_lines)
                     );
-                } else if self.options.show_bytecode {
+                } else if self.settings.show_bytecode {
                     println!("{}", chunk_to_string(chunk.clone()));
                 }
                 Ok(chunk)
@@ -110,7 +110,7 @@ impl Koto {
             }
         };
 
-        if self.options.repl_mode {
+        if self.settings.repl_mode {
             Ok(result)
         } else if let Some(main) = self.runtime.get_global_function("main") {
             self.call_function(&main, &[])

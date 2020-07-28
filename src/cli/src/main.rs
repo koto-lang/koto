@@ -29,12 +29,12 @@ fn main() {
         )
         .get_matches();
 
-    let mut options = koto::Options::default();
-    options.show_bytecode = matches.is_present("show_bytecode");
-    options.show_annotated = matches.is_present("show_annotated");
+    let mut settings = koto::Settings::default();
+    settings.show_bytecode = matches.is_present("show_bytecode");
+    settings.show_annotated = matches.is_present("show_annotated");
 
     if let Some(path) = matches.value_of("script") {
-        let mut koto = Koto::with_options(options);
+        let mut koto = Koto::with_settings(settings);
 
         let args = match matches.values_of("args") {
             Some(args) => args.map(|s| s.to_string()).collect::<Vec<_>>(),
@@ -55,7 +55,7 @@ fn main() {
             }
         }
     } else {
-        let mut repl = Repl::with_options(options);
+        let mut repl = Repl::with_settings(settings);
         repl.run();
     }
 }
