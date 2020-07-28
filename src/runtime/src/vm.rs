@@ -70,8 +70,10 @@ impl Vm {
     }
 
     pub fn reset(&mut self) {
-        self.value_stack.clear();
-        self.call_stack.clear();
+        self.reader = Default::default();
+        self.value_stack = Default::default();
+        self.call_stack = Default::default();
+        self.string_constants = Default::default();
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
