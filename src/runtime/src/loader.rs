@@ -59,23 +59,11 @@ impl Loader {
         script: &str,
         script_path: &Option<PathBuf>,
     ) -> Result<Arc<Chunk>, LoaderError> {
-        if let Some(script_path) = script_path {
-            if let Some(chunk) = self.chunks.get(script_path) {
-                return Ok(chunk.clone());
-            }
-        }
-
-        let chunk = self.compile(
+        self.compile(
             script,
             script_path.clone(),
             koto_bytecode::Options::default(),
-        )?;
-
-        if let Some(script_path) = script_path {
-            self.chunks.insert(script_path.clone(), chunk.clone());
-        }
-
-        Ok(chunk)
+        )
     }
 
     pub fn compile_module(
