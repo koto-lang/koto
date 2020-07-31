@@ -883,8 +883,8 @@ impl Vm {
                     result = ControlFlow::ReturnValue(return_value);
                 }
             }
-            Instruction::Size { register } => {
-                let size = match self.get_register(register) {
+            Instruction::Size { register, source } => {
+                let size = match self.get_register(source) {
                     Empty => 0.0,
                     List(list) => list.data().len() as f64,
                     Map(map) => map.data().len() as f64,
@@ -907,8 +907,8 @@ impl Vm {
 
                 self.set_register(register, Number(size));
             }
-            Instruction::Type { register } => {
-                let result = match self.get_register(register) {
+            Instruction::Type { register, source } => {
+                let result = match self.get_register(source) {
                     Bool(_) => "bool".to_string(),
                     Empty => "empty".to_string(),
                     Function(_) => "function".to_string(),

@@ -432,28 +432,10 @@ impl Compiler {
                 }
             }
             Node::CopyExpression(expression) => {
-                if let Some(result_register) = result_register {
-                    let source_register = self.push_register()?;
-                    self.compile_node(Some(source_register), ast.node(*expression), ast)?;
-
-                    self.push_op(DeepCopy, &[result_register, source_register]);
-
-                    self.pop_register()?;
-                } else {
-                    self.compile_node(None, ast.node(*expression), ast)?;
-                }
+                self.compile_source_target_op(DeepCopy, result_register, *expression, ast)?;
             }
             Node::Negate(expression) => {
-                if let Some(result_register) = result_register {
-                    let source_register = self.push_register()?;
-                    self.compile_node(Some(source_register), ast.node(*expression), ast)?;
-
-                    self.push_op(Negate, &[result_register, source_register]);
-
-                    self.pop_register()?;
-                } else {
-                    self.compile_node(None, ast.node(*expression), ast)?;
-                }
+                self.compile_source_target_op(Negate, result_register, *expression, ast)?;
             }
             Node::Function(f) => {
                 self.compile_function(result_register, f, ast)?;
@@ -538,13 +520,20 @@ impl Compiler {
                 }
             }
             Node::ReturnExpression(expression) => {
-                self.compile_single_register_op(Return, result_register, *expression, ast)?
+                let (register, pop_register) =
+                    self.compile_node_or_get_local(result_register, ast.node(*expression), ast)?;
+
+                self.push_op(Return, &[register]);
+
+                if pop_register {
+                    self.pop_register()?;
+                }
             }
             Node::Size(expression) => {
-                self.compile_single_register_op(Size, result_register, *expression, ast)?
+                self.compile_source_target_op(Size, result_register, *expression, ast)?
             }
             Node::Type(expression) => {
-                self.compile_single_register_op(Type, result_register, *expression, ast)?
+                self.compile_source_target_op(Type, result_register, *expression, ast)?
             }
             Node::Try(try_expression) => {
                 self.compile_try_expression(result_register, try_expression, ast)?
@@ -1330,20 +1319,21 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_single_register_op(
+    fn compile_source_target_op(
         &mut self,
         op: Op,
         result_register: Option<u8>,
         expression: AstIndex,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
-        if let Some(result_register) = result_register {
-            self.compile_node(Some(result_register), ast.node(expression), ast)?;
-            self.push_op(op, &[result_register]);
-        } else {
-            let register = self.push_register()?;
-            self.compile_node(Some(register), ast.node(expression), ast)?;
-            self.push_op(op, &[register]);
+        let (source_register, pop_register) =
+            self.compile_node_or_get_local(result_register, ast.node(expression), ast)?;
+
+        if let Some(target_register) = result_register {
+            self.push_op(op, &[target_register, source_register]);
+        }
+
+        if pop_register {
             self.pop_register()?;
         }
 
