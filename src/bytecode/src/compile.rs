@@ -211,6 +211,10 @@ impl Frame {
         self.temporary_count + self.temporary_base
     }
 
+    fn available_registers_count(&self) -> u8 {
+        u8::MAX - self.next_temporary_register()
+    }
+
     fn captures_for_nested_frame(
         &self,
         accessed_non_locals: &[ConstantIndex],
@@ -847,7 +851,7 @@ impl Compiler {
                                     *expression,
                                     ast,
                                 )?;
-                                self.push_op(ListPush, &[result_register, temp_register]);
+                                self.push_op(ListPushValue, &[result_register, temp_register]);
                             } else {
                                 self.compile_assign(
                                     None,
@@ -886,7 +890,7 @@ impl Compiler {
 
                             if let Some(result_register) = result_register {
                                 self.push_op(SetEmpty, &[temp_register]);
-                                self.push_op(ListPush, &[result_register, temp_register]);
+                                self.push_op(ListPushValue, &[result_register, temp_register]);
                             }
                         }
                     }
@@ -1021,7 +1025,7 @@ impl Compiler {
                 _ => {
                     self.push_op(MakeList, &[result_register, imported.len() as u8]);
                     for item in imported.iter() {
-                        self.push_op(ListPush, &[result_register, *item]);
+                        self.push_op(ListPushValue, &[result_register, *item]);
                     }
                 }
             }
@@ -1442,44 +1446,79 @@ impl Compiler {
                 self.push_bytes(&size_hint.to_le_bytes());
             }
 
-            let element_register = self.push_register()?;
-            for element_node in elements.iter() {
-                match &ast.node(*element_node).node {
-                    Node::For(for_loop) => {
-                        self.compile_for(
-                            Some(element_register),
-                            Some(result_register),
-                            &for_loop,
-                            ast,
-                        )?;
+            match elements {
+                [] => {}
+                [single_element] => {
+                    let element_register = self.push_register()?;
+
+                    match &ast.node(*single_element).node {
+                        Node::For(for_loop) => {
+                            self.compile_for(
+                                Some(element_register),
+                                Some(result_register),
+                                &for_loop,
+                                ast,
+                            )?;
+                        }
+                        Node::While { condition, body } => {
+                            self.compile_while(
+                                Some(element_register),
+                                Some(result_register),
+                                *condition,
+                                *body,
+                                false,
+                                ast,
+                            )?;
+                        }
+                        Node::Until { condition, body } => {
+                            self.compile_while(
+                                Some(element_register),
+                                Some(result_register),
+                                *condition,
+                                *body,
+                                true,
+                                ast,
+                            )?;
+                        }
+                        _ => {
+                            self.compile_node(
+                                Some(element_register),
+                                ast.node(*single_element),
+                                ast,
+                            )?;
+                            self.push_op_without_span(
+                                ListPushValue,
+                                &[result_register, element_register],
+                            );
+                        }
                     }
-                    Node::While { condition, body } => {
-                        self.compile_while(
-                            Some(element_register),
-                            Some(result_register),
-                            *condition,
-                            *body,
-                            false,
-                            ast,
-                        )?;
-                    }
-                    Node::Until { condition, body } => {
-                        self.compile_while(
-                            Some(element_register),
-                            Some(result_register),
-                            *condition,
-                            *body,
-                            true,
-                            ast,
-                        )?;
-                    }
-                    _ => {
-                        self.compile_node(Some(element_register), ast.node(*element_node), ast)?;
-                        self.push_op_without_span(ListPush, &[result_register, element_register]);
+
+                    self.pop_register()?; // element_register
+                }
+                _ => {
+                    let max_batch_size = self.frame().available_registers_count() as usize;
+                    for elements_batch in elements.chunks(max_batch_size) {
+                        let stack_count = self.frame().register_stack.len();
+                        let start_register = self.frame().next_temporary_register();
+
+                        for element_node in elements_batch {
+                            let element_register = self.push_register()?;
+                            self.compile_node(
+                                Some(element_register),
+                                ast.node(*element_node),
+                                ast,
+                            )?;
+                        }
+
+                        self.push_op_without_span(
+                            ListPushValues,
+                            &[result_register, start_register, elements_batch.len() as u8],
+                        );
+
+                        self.truncate_register_stack(stack_count)?;
                     }
                 }
             }
-            self.pop_register()?; // element_register
         } else {
             for element_node in elements.iter() {
                 self.compile_node(None, ast.node(*element_node), ast)?;
@@ -2133,7 +2172,7 @@ impl Compiler {
         if let Some(list_register) = list_register {
             match result_register {
                 Some(result_register) => {
-                    self.push_op_without_span(ListPush, &[list_register, result_register])
+                    self.push_op_without_span(ListPushValue, &[list_register, result_register])
                 }
                 None => {
                     return compiler_error!(
@@ -2200,7 +2239,7 @@ impl Compiler {
         if let Some(list_register) = list_register {
             match result_register {
                 Some(result_register) => {
-                    self.push_op_without_span(ListPush, &[list_register, result_register]);
+                    self.push_op_without_span(ListPushValue, &[list_register, result_register]);
                 }
                 None => {
                     if result_register.is_none() {

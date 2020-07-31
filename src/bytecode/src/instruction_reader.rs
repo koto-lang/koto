@@ -238,9 +238,14 @@ pub enum Instruction {
         expression: u8,
         index: u8,
     },
-    ListPush {
-        register: u8,
+    ListPushValue {
+        list: u8,
         value: u8,
+    },
+    ListPushValues {
+        list: u8,
+        values_start: u8,
+        count: u8,
     },
     ListUpdate {
         list: u8,
@@ -546,9 +551,18 @@ impl fmt::Display for Instruction {
                 "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
                 register, expression, index
             ),
-            ListPush { register, value } => {
-                write!(f, "ListPush\tresult: {}\tvalue: {}", register, value)
+            ListPushValue { list, value } => {
+                write!(f, "ListPushValue\tlist: {}\t\tvalue: {}", list, value)
             }
+            ListPushValues {
+                list,
+                values_start,
+                count,
+            } => write!(
+                f,
+                "ListPushValues\tlist: {}\t\tstart: {}\tcount: {}",
+                list, values_start, count
+            ),
             ListUpdate { list, index, value } => write!(
                 f,
                 "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
@@ -939,9 +953,14 @@ impl Iterator for InstructionReader {
                 expression: get_byte!(),
                 index: get_byte!(),
             }),
-            Op::ListPush => Some(ListPush {
-                register: get_byte!(),
+            Op::ListPushValue => Some(ListPushValue {
+                list: get_byte!(),
                 value: get_byte!(),
+            }),
+            Op::ListPushValues => Some(ListPushValues {
+                list: get_byte!(),
+                values_start: get_byte!(),
+                count: get_byte!(),
             }),
             Op::ListUpdate => Some(ListUpdate {
                 list: get_byte!(),

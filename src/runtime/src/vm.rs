@@ -1000,31 +1000,17 @@ impl Vm {
                     }
                 };
             }
-            Instruction::ListPush { register, value } => {
-                let value = self.get_register(value).clone();
-
-                match self.get_register_mut(register) {
-                    List(list) => match value {
-                        Range(range) => {
-                            list.data_mut()
-                                .extend(ValueIterator::new(Iterable::Range(range)).map(
-                                    |iterator_output| match iterator_output {
-                                        ValueIteratorOutput::Value(value) => value,
-                                        ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
-                                    },
-                                ));
-                        }
-                        _ => list.data_mut().push(value),
-                    },
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected List, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
+            Instruction::ListPushValue { list, value } => {
+                self.run_list_push(list, value, instruction_ip)?;
+            }
+            Instruction::ListPushValues {
+                list,
+                values_start,
+                count,
+            } => {
+                for value_register in values_start..(values_start + count) {
+                    self.run_list_push(list, value_register, instruction_ip)?;
+                }
             }
             Instruction::ListUpdate { list, index, value } => {
                 self.run_list_update(list, index, value, instruction_ip)?;
@@ -1284,6 +1270,41 @@ impl Vm {
         };
 
         self.set_register(result_register, Num4(result));
+        Ok(())
+    }
+
+    fn run_list_push(
+        &mut self,
+        list_register: u8,
+        value_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let value = self.get_register(value_register).clone();
+
+        match self.get_register_mut(list_register) {
+            List(list) => match value {
+                Range(range) => {
+                    list.data_mut()
+                        .extend(ValueIterator::new(Iterable::Range(range)).map(
+                            |iterator_output| match iterator_output {
+                                ValueIteratorOutput::Value(value) => value,
+                                ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
+                            },
+                        ));
+                }
+                _ => list.data_mut().push(value),
+            },
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected List, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
         Ok(())
     }
 

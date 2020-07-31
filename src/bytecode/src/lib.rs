@@ -71,7 +71,8 @@ pub enum Op {
     Return,           // register
     IteratorNext,     // output, iterator, jump offset[2]
     ValueIndex,       // result, value register, index
-    ListPush,         // list, value
+    ListPushValue,    // list, value
+    ListPushValues,   // list, start register, count
     ListUpdate,       // list, index, value
     ListIndex,        // result, list register, index register
     MapInsert,        // map register, value register, key constant
@@ -83,7 +84,6 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused71,
     Unused72,
     Unused73,
     Unused74,
