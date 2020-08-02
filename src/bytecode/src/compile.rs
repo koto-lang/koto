@@ -2185,20 +2185,15 @@ impl Compiler {
             self.pop_register()?;
         }
 
-        self.compile_node(result_register, ast.node(*body), ast)?;
+        let (body_register, pop_register) =
+            self.compile_node_or_get_local(result_register, ast.node(*body), ast)?;
 
         if let Some(list_register) = list_register {
-            match result_register {
-                Some(result_register) => {
-                    self.push_op_without_span(ListPushValue, &[list_register, result_register])
-                }
-                None => {
-                    return compiler_error!(
-                        self,
-                        "compile_for: Missing result register for list expansion"
-                    )
-                }
-            }
+            self.push_op_without_span(ListPushValue, &[list_register, body_register])
+        }
+
+        if pop_register {
+            self.pop_register()?; // body_register
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
@@ -2252,22 +2247,15 @@ impl Compiler {
         self.push_loop_jump_placeholder()?;
         self.pop_register()?; // condition register
 
-        self.compile_node(result_register, ast.node(body), ast)?;
+        let (body_register, pop_register) =
+            self.compile_node_or_get_local(result_register, ast.node(body), ast)?;
 
         if let Some(list_register) = list_register {
-            match result_register {
-                Some(result_register) => {
-                    self.push_op_without_span(ListPushValue, &[list_register, result_register]);
-                }
-                None => {
-                    if result_register.is_none() {
-                        return compiler_error!(
-                            self,
-                            "compile_while: Missing result register for list expansion"
-                        );
-                    }
-                }
-            }
+            self.push_op_without_span(ListPushValue, &[list_register, body_register]);
+        }
+
+        if pop_register {
+            self.pop_register()?;
         }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
