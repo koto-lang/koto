@@ -410,7 +410,18 @@ impl Compiler {
                 self.compile_frame(*local_count as u8, body, &[], &[], ast)?;
             }
             Node::Block(expressions) => {
-                self.compile_block(result_register, expressions, ast)?;
+                let (register, pop_register) =
+                    self.compile_block(result_register, expressions, ast)?;
+
+                if let Some(result_register) = result_register {
+                    if register != result_register {
+                        self.push_op(Copy, &[result_register, register]);
+                    }
+                }
+
+                if pop_register {
+                    self.pop_register()?;
+                }
             }
             Node::Expressions(expressions) => {
                 let stack_count = self.frame().register_stack.len();
@@ -597,9 +608,12 @@ impl Compiler {
         self.frame_stack
             .push(Frame::new(local_count, args, captures));
 
-        let result_register = self.push_register()?;
-        self.compile_block(Some(result_register), expressions, ast)?;
+        let (result_register, pop_register) = self.compile_block(None, expressions, ast)?;
         self.push_op_without_span(Op::Return, &[result_register]);
+
+        if pop_register {
+            self.pop_register()?;
+        }
 
         self.frame_stack.pop();
 
@@ -611,28 +625,32 @@ impl Compiler {
         result_register: Option<u8>,
         expressions: &[AstIndex],
         ast: &Ast,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<(u8, bool), CompilerError> {
         use Op::*;
 
         match expressions {
-            [] => {
-                if let Some(result_register) = result_register {
+            [] => match result_register {
+                Some(result_register) => {
                     self.push_op(SetEmpty, &[result_register]);
+                    Ok((result_register, false))
                 }
-            }
+                None => {
+                    let register = self.push_register()?;
+                    self.push_op(SetEmpty, &[register]);
+                    Ok((register, true))
+                }
+            },
             [expression] => {
-                self.compile_node(result_register, ast.node(*expression), ast)?;
+                self.compile_node_or_get_local(result_register, ast.node(*expression), ast)
             }
             [expressions @ .., last_expression] => {
                 for expression in expressions.iter() {
                     self.compile_node(None, ast.node(*expression), ast)?;
                 }
 
-                self.compile_node(result_register, ast.node(*last_expression), ast)?;
+                self.compile_node_or_get_local(result_register, ast.node(*last_expression), ast)
             }
         }
-
-        Ok(())
     }
 
     fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
@@ -1823,11 +1841,7 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
-        let frame_base = if args.is_empty() {
-            self.push_register()?
-        } else {
-            self.frame().next_temporary_register()
-        };
+        let frame_base = self.frame().next_temporary_register();
 
         for arg in args.iter() {
             let arg_register = self.push_register()?;
