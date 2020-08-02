@@ -60,6 +60,7 @@ struct Frame {
     captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
+    last_op: Option<Op>, // used to decide if an additional return statement is needed
 }
 
 impl Frame {
@@ -609,7 +610,10 @@ impl Compiler {
             .push(Frame::new(local_count, args, captures));
 
         let (result_register, pop_register) = self.compile_block(None, expressions, ast)?;
-        self.push_op_without_span(Op::Return, &[result_register]);
+
+        if self.frame().last_op != Some(Op::Return) {
+            self.push_op_without_span(Op::Return, &[result_register]);
+        }
 
         if pop_register {
             self.pop_register()?;
@@ -2348,6 +2352,7 @@ impl Compiler {
     fn push_op_without_span(&mut self, op: Op, bytes: &[u8]) {
         self.bytes.push(op as u8);
         self.bytes.extend_from_slice(bytes);
+        self.frame_mut().last_op = Some(op);
     }
 
     fn push_bytes(&mut self, bytes: &[u8]) {
