@@ -63,17 +63,27 @@ struct Frame {
     //
     // e.g.
     //
-    // a is a local, it's on lhs of expression, so its a local assignment
+    // a is a local, it's on lhs of expression, so its a local assignment.
     // || a = 1
     // (access count == 0: +1 -1)
     //
-    // a is first accessed as a non-local before being assigned locally
+    // a is first accessed as a non-local before being assigned locally.
     // || a = a
     // (access count == 1: +1 -1 +1)
     //
-    // a is assigned locally twice from a non-local
+    // a is assigned locally twice from a non-local.
     // || a = a = a
     // (access count == 1: +1 -1 +1 -1 +1)
+    //
+    // a is a non-local in the inner frame, so is also a non-local in the outer frame
+    // (|| a) for b in 0..10
+    // (access count of a == 1: +1)
+    //
+    // a is a non-local in the inner frame, but a local in the outer frame.
+    // The inner-frame non-local access counts as an outer access,
+    // but the loop arg is a local assignment so the non-local access doesn't need to propagate out.
+    // (|| a) for a in 0..10
+    // (access count == 0: +1 -1)
     expression_id_accesses: HashMap<ConstantIndex, usize>,
 }
 
@@ -88,12 +98,9 @@ impl Frame {
     // frame. This ensures that captures from the outer frame will be available when
     // creating the nested inner scope.
     fn add_nested_accessed_non_locals(&mut self, nested_frame: &Frame) {
-        self.accessed_non_locals.extend(
-            nested_frame
-                .accessed_non_locals
-                .difference(&self.ids_assigned_in_scope)
-                .cloned(),
-        );
+        for non_local in nested_frame.accessed_non_locals.iter() {
+            self.increment_expression_access_for_id(*non_local);
+        }
     }
 
     fn increment_expression_access_for_id(&mut self, id: ConstantIndex) {
@@ -2006,11 +2013,7 @@ mod tests {
     use super::*;
     use {crate::constant_pool::Constant, Node::*};
 
-    fn check_ast(
-        source: &str,
-        expected_ast: &[Node],
-        expected_constants: Option<&[Constant]>,
-    ) {
+    fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
         println!("{}", source);
 
         match Parser::parse(source) {
@@ -3392,6 +3395,43 @@ until x < y
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn list_comprehension_for_with_capture_in_body() {
+            let source = "[(|| x) for x in 0..=1]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![0],
+                        body: 0,
+                        is_instance_function: false,
+                    }),
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 2,
+                        end: 3,
+                        inclusive: true,
+                    },
+                    For(AstFor {
+                        args: vec![0],
+                        ranges: vec![4],
+                        condition: None,
+                        body: 1,
+                    }), // 5
+                    List(vec![5]),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
 
