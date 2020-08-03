@@ -1,7 +1,7 @@
 import env
 import io
 import json
-import test.assert_eq
+from test import assert assert_eq
 
 file_data = try
   io.read_to_string env.script_dir + "/data/test.json"

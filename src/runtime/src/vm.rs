@@ -1800,7 +1800,18 @@ impl Vm {
     }
 
     fn get_register(&self, register: u8) -> &Value {
-        &self.value_stack[self.register_index(register)]
+        let index = self.register_index(register);
+        match self.value_stack.get(index) {
+            Some(value) => value,
+            None => {
+                panic!(
+                    "Out of bounds access, index: {}, register: {}, ip: {}",
+                    index,
+                    register,
+                    self.ip()
+                );
+            }
+        }
     }
 
     fn get_register_mut(&mut self, register: u8) -> &mut Value {
@@ -1895,9 +1906,10 @@ mod tests {
         };
 
         let print_chunk = |script: &str, chunk| {
-            eprintln!("{}\n", script);
+            println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
-            eprintln!("{}", chunk_to_string_annotated(chunk, &script_lines));
+
+            println!("{}", chunk_to_string_annotated(chunk, &script_lines));
         };
 
         match vm.run(chunk) {
@@ -3273,7 +3285,7 @@ assert not "Hello" in "World!"
 x = 1
 try
   x += 1
-  a + b
+  x += y
 catch _
   x + 1
 ";
@@ -3301,10 +3313,10 @@ try
   x += 1
   try
     x += 1
-    a + b
+    x += y
   catch _
     x += 1
-  a + b
+  x += y
 catch _
   x += 1
 ";

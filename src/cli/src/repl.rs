@@ -25,8 +25,14 @@ impl Repl {
     pub fn with_settings(mut settings: Settings) -> Self {
         settings.repl_mode = true;
 
+        let mut koto = Koto::with_settings(settings);
+
+        let prelude = koto.prelude_mut();
+        koto_json::register(prelude);
+        koto_toml::register(prelude);
+
         Self {
-            koto: Koto::with_settings(settings),
+            koto,
             input_history: Vec::new(),
             history_position: None,
             input: String::new(),

@@ -310,7 +310,7 @@ impl fmt::Display for Instruction {
                 register, constant
             ),
             SetGlobal { global, source } => {
-                write!(f, "SetGlobal\tconstant: {}\tsource: {}", global, source)
+                write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
             }
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
@@ -560,7 +560,7 @@ impl fmt::Display for Instruction {
                 count,
             } => write!(
                 f,
-                "ListPushValues\tlist: {}\t\tstart: {}\tcount: {}",
+                "ListPushValues\tlist: {}\tstart: {}\tcount: {}",
                 list, values_start, count
             ),
             ListUpdate { list, index, value } => write!(
@@ -583,7 +583,7 @@ impl fmt::Display for Instruction {
                 key,
             } => write!(
                 f,
-                "MapInsert\tresult: {}\tvalue: {}\tkey: {}",
+                "MapInsert\tmap: {}\t\tvalue: {}\tkey: {}",
                 register, value, key
             ),
             MapAccess { register, map, key } => write!(
