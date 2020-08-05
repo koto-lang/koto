@@ -1619,7 +1619,18 @@ impl<'source> Parser<'source> {
 
         let result = if let Some(token) = self.skip_whitespace_and_peek() {
             match token {
-                True | False | Number | String | Id => return self.parse_term(false),
+                True | False | Number | String => return self.parse_term(false),
+                Id => match self.parse_id(false) {
+                    Some(id) => {
+                        self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                        Some(self.push_node(Node::Id(id))?)
+                    }
+                    None => return internal_error!(IdParseFailure, self),
+                },
+                Wildcard => {
+                    self.consume_token();
+                    Some(self.push_node(Node::Wildcard)?)
+                }
                 ParenOpen => {
                     if self.peek_token_n(1) == Some(ParenClose) {
                         self.consume_token();
@@ -1628,10 +1639,6 @@ impl<'source> Parser<'source> {
                     } else {
                         None
                     }
-                }
-                Wildcard => {
-                    self.consume_token();
-                    Some(self.push_node(Node::Wildcard)?)
                 }
                 _ => None,
             }
@@ -4565,7 +4572,7 @@ x = match y
                     },
                     MainBlock {
                         body: vec![14],
-                        local_count: 1,
+                        local_count: 2,
                     },
                 ],
                 Some(&[
@@ -4588,7 +4595,7 @@ x = match y
 match x, y
   0, 1 if z then 0
   a, ()
-    1
+    a
   _ then 0
 "#;
             check_ast(
@@ -4603,7 +4610,7 @@ match x, y
                     Number0,
                     Id(3),
                     Empty,
-                    Number1,
+                    Id(3),
                     Wildcard, // 10
                     Number0,
                     Match {
@@ -4628,7 +4635,7 @@ match x, y
                     },
                     MainBlock {
                         body: vec![12],
-                        local_count: 0,
+                        local_count: 1,
                     },
                 ],
                 Some(&[
