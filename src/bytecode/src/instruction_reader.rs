@@ -222,9 +222,11 @@ pub enum Instruction {
     },
     Size {
         register: u8,
+        source: u8,
     },
     Type {
         register: u8,
+        source: u8,
     },
     IteratorNext {
         register: u8,
@@ -236,9 +238,14 @@ pub enum Instruction {
         expression: u8,
         index: u8,
     },
-    ListPush {
-        register: u8,
+    ListPushValue {
+        list: u8,
         value: u8,
+    },
+    ListPushValues {
+        list: u8,
+        values_start: u8,
+        count: u8,
     },
     ListUpdate {
         list: u8,
@@ -303,7 +310,7 @@ impl fmt::Display for Instruction {
                 register, constant
             ),
             SetGlobal { global, source } => {
-                write!(f, "SetGlobal\tconstant: {}\tsource: {}", global, source)
+                write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
             }
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
@@ -520,8 +527,12 @@ impl fmt::Display for Instruction {
                 result, function, arg_register, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
-            Size { register } => write!(f, "Size\t\tresult: {}", register),
-            Type { register } => write!(f, "Type\t\tresult: {}", register),
+            Size { register, source } => {
+                write!(f, "Size\t\tresult: {}\tsource: {}", register, source)
+            }
+            Type { register, source } => {
+                write!(f, "Type\t\tresult: {}\tsource: {}", register, source)
+            }
             IteratorNext {
                 register,
                 iterator,
@@ -540,9 +551,18 @@ impl fmt::Display for Instruction {
                 "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
                 register, expression, index
             ),
-            ListPush { register, value } => {
-                write!(f, "ListPush\tresult: {}\tvalue: {}", register, value)
+            ListPushValue { list, value } => {
+                write!(f, "ListPushValue\tlist: {}\t\tvalue: {}", list, value)
             }
+            ListPushValues {
+                list,
+                values_start,
+                count,
+            } => write!(
+                f,
+                "ListPushValues\tlist: {}\tstart: {}\tcount: {}",
+                list, values_start, count
+            ),
             ListUpdate { list, index, value } => write!(
                 f,
                 "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
@@ -563,7 +583,7 @@ impl fmt::Display for Instruction {
                 key,
             } => write!(
                 f,
-                "MapInsert\tresult: {}\tvalue: {}\tkey: {}",
+                "MapInsert\tmap: {}\t\tvalue: {}\tkey: {}",
                 register, value, key
             ),
             MapAccess { register, map, key } => write!(
@@ -917,9 +937,11 @@ impl Iterator for InstructionReader {
             }),
             Op::Size => Some(Size {
                 register: get_byte!(),
+                source: get_byte!(),
             }),
             Op::Type => Some(Type {
                 register: get_byte!(),
+                source: get_byte!(),
             }),
             Op::IteratorNext => Some(IteratorNext {
                 register: get_byte!(),
@@ -931,9 +953,14 @@ impl Iterator for InstructionReader {
                 expression: get_byte!(),
                 index: get_byte!(),
             }),
-            Op::ListPush => Some(ListPush {
-                register: get_byte!(),
+            Op::ListPushValue => Some(ListPushValue {
+                list: get_byte!(),
                 value: get_byte!(),
+            }),
+            Op::ListPushValues => Some(ListPushValues {
+                list: get_byte!(),
+                values_start: get_byte!(),
+                count: get_byte!(),
             }),
             Op::ListUpdate => Some(ListUpdate {
                 list: get_byte!(),

@@ -63,17 +63,27 @@ struct Frame {
     //
     // e.g.
     //
-    // a is a local, it's on lhs of expression, so its a local assignment
+    // a is a local, it's on lhs of expression, so its a local assignment.
     // || a = 1
     // (access count == 0: +1 -1)
     //
-    // a is first accessed as a non-local before being assigned locally
+    // a is first accessed as a non-local before being assigned locally.
     // || a = a
     // (access count == 1: +1 -1 +1)
     //
-    // a is assigned locally twice from a non-local
+    // a is assigned locally twice from a non-local.
     // || a = a = a
     // (access count == 1: +1 -1 +1 -1 +1)
+    //
+    // a is a non-local in the inner frame, so is also a non-local in the outer frame
+    // (|| a) for b in 0..10
+    // (access count of a == 1: +1)
+    //
+    // a is a non-local in the inner frame, but a local in the outer frame.
+    // The inner-frame non-local access counts as an outer access,
+    // but the loop arg is a local assignment so the non-local access doesn't need to propagate out.
+    // (|| a) for a in 0..10
+    // (access count == 0: +1 -1)
     expression_id_accesses: HashMap<ConstantIndex, usize>,
 }
 
@@ -88,12 +98,9 @@ impl Frame {
     // frame. This ensures that captures from the outer frame will be available when
     // creating the nested inner scope.
     fn add_nested_accessed_non_locals(&mut self, nested_frame: &Frame) {
-        self.accessed_non_locals.extend(
-            nested_frame
-                .accessed_non_locals
-                .difference(&self.ids_assigned_in_scope)
-                .cloned(),
-        );
+        for non_local in nested_frame.accessed_non_locals.iter() {
+            self.increment_expression_access_for_id(*non_local);
+        }
     }
 
     fn increment_expression_access_for_id(&mut self, id: ConstantIndex) {
@@ -1619,7 +1626,18 @@ impl<'source> Parser<'source> {
 
         let result = if let Some(token) = self.skip_whitespace_and_peek() {
             match token {
-                True | False | Number | String | Id => return self.parse_term(false),
+                True | False | Number | String => return self.parse_term(false),
+                Id => match self.parse_id(false) {
+                    Some(id) => {
+                        self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                        Some(self.push_node(Node::Id(id))?)
+                    }
+                    None => return internal_error!(IdParseFailure, self),
+                },
+                Wildcard => {
+                    self.consume_token();
+                    Some(self.push_node(Node::Wildcard)?)
+                }
                 ParenOpen => {
                     if self.peek_token_n(1) == Some(ParenClose) {
                         self.consume_token();
@@ -1628,10 +1646,6 @@ impl<'source> Parser<'source> {
                     } else {
                         None
                     }
-                }
-                Wildcard => {
-                    self.consume_token();
-                    Some(self.push_node(Node::Wildcard)?)
                 }
                 _ => None,
             }
@@ -1999,11 +2013,7 @@ mod tests {
     use super::*;
     use {crate::constant_pool::Constant, Node::*};
 
-    fn check_ast(
-        source: &str,
-        expected_ast: &[Node],
-        expected_constants: Option<&[Constant]>,
-    ) {
+    fn check_ast(source: &str, expected_ast: &[Node], expected_constants: Option<&[Constant]>) {
         println!("{}", source);
 
         match Parser::parse(source) {
@@ -3389,6 +3399,43 @@ until x < y
         }
 
         #[test]
+        fn list_comprehension_for_with_capture_in_body() {
+            let source = "[(|| x) for x in 0..=1]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![0],
+                        body: 0,
+                        is_instance_function: false,
+                    }),
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 2,
+                        end: 3,
+                        inclusive: true,
+                    },
+                    For(AstFor {
+                        args: vec![0],
+                        ranges: vec![4],
+                        condition: None,
+                        body: 1,
+                    }), // 5
+                    List(vec![5]),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
         fn list_comprehension_while() {
             let source = "[f x while (f y) < 10]";
             check_ast(
@@ -4565,7 +4612,7 @@ x = match y
                     },
                     MainBlock {
                         body: vec![14],
-                        local_count: 1,
+                        local_count: 2,
                     },
                 ],
                 Some(&[
@@ -4588,7 +4635,7 @@ x = match y
 match x, y
   0, 1 if z then 0
   a, ()
-    1
+    a
   _ then 0
 "#;
             check_ast(
@@ -4603,7 +4650,7 @@ match x, y
                     Number0,
                     Id(3),
                     Empty,
-                    Number1,
+                    Id(3),
                     Wildcard, // 10
                     Number0,
                     Match {
@@ -4628,7 +4675,7 @@ match x, y
                     },
                     MainBlock {
                         body: vec![12],
-                        local_count: 0,
+                        local_count: 1,
                     },
                 ],
                 Some(&[

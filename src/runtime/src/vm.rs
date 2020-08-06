@@ -883,8 +883,8 @@ impl Vm {
                     result = ControlFlow::ReturnValue(return_value);
                 }
             }
-            Instruction::Size { register } => {
-                let size = match self.get_register(register) {
+            Instruction::Size { register, source } => {
+                let size = match self.get_register(source) {
                     Empty => 0.0,
                     List(list) => list.data().len() as f64,
                     Map(map) => map.data().len() as f64,
@@ -907,8 +907,8 @@ impl Vm {
 
                 self.set_register(register, Number(size));
             }
-            Instruction::Type { register } => {
-                let result = match self.get_register(register) {
+            Instruction::Type { register, source } => {
+                let result = match self.get_register(source) {
                     Bool(_) => "bool".to_string(),
                     Empty => "empty".to_string(),
                     Function(_) => "function".to_string(),
@@ -1000,31 +1000,17 @@ impl Vm {
                     }
                 };
             }
-            Instruction::ListPush { register, value } => {
-                let value = self.get_register(value).clone();
-
-                match self.get_register_mut(register) {
-                    List(list) => match value {
-                        Range(range) => {
-                            list.data_mut()
-                                .extend(ValueIterator::new(Iterable::Range(range)).map(
-                                    |iterator_output| match iterator_output {
-                                        ValueIteratorOutput::Value(value) => value,
-                                        ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
-                                    },
-                                ));
-                        }
-                        _ => list.data_mut().push(value),
-                    },
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected List, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
+            Instruction::ListPushValue { list, value } => {
+                self.run_list_push(list, value, instruction_ip)?;
+            }
+            Instruction::ListPushValues {
+                list,
+                values_start,
+                count,
+            } => {
+                for value_register in values_start..(values_start + count) {
+                    self.run_list_push(list, value_register, instruction_ip)?;
+                }
             }
             Instruction::ListUpdate { list, index, value } => {
                 self.run_list_update(list, index, value, instruction_ip)?;
@@ -1284,6 +1270,41 @@ impl Vm {
         };
 
         self.set_register(result_register, Num4(result));
+        Ok(())
+    }
+
+    fn run_list_push(
+        &mut self,
+        list_register: u8,
+        value_register: u8,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let value = self.get_register(value_register).clone();
+
+        match self.get_register_mut(list_register) {
+            List(list) => match value {
+                Range(range) => {
+                    list.data_mut()
+                        .extend(ValueIterator::new(Iterable::Range(range)).map(
+                            |iterator_output| match iterator_output {
+                                ValueIteratorOutput::Value(value) => value,
+                                ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
+                            },
+                        ));
+                }
+                _ => list.data_mut().push(value),
+            },
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected List, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
         Ok(())
     }
 
@@ -1779,7 +1800,18 @@ impl Vm {
     }
 
     fn get_register(&self, register: u8) -> &Value {
-        &self.value_stack[self.register_index(register)]
+        let index = self.register_index(register);
+        match self.value_stack.get(index) {
+            Some(value) => value,
+            None => {
+                panic!(
+                    "Out of bounds access, index: {}, register: {}, ip: {}",
+                    index,
+                    register,
+                    self.ip()
+                );
+            }
+        }
     }
 
     fn get_register_mut(&mut self, register: u8) -> &mut Value {
@@ -1874,9 +1906,10 @@ mod tests {
         };
 
         let print_chunk = |script: &str, chunk| {
-            eprintln!("{}\n", script);
+            println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
-            eprintln!("{}", chunk_to_string_annotated(chunk, &script_lines));
+
+            println!("{}", chunk_to_string_annotated(chunk, &script_lines));
         };
 
         match vm.run(chunk) {
@@ -3252,7 +3285,7 @@ assert not "Hello" in "World!"
 x = 1
 try
   x += 1
-  a + b
+  x += y
 catch _
   x + 1
 ";
@@ -3280,10 +3313,10 @@ try
   x += 1
   try
     x += 1
-    a + b
+    x += y
   catch _
     x += 1
-  a + b
+  x += y
 catch _
   x += 1
 ";

@@ -6,6 +6,7 @@ pub enum InternalError {
     AstCapacityOverflow,
     MissingScope,
     NumberParseFailure,
+    IdParseFailure,
     FunctionParseFailure,
     RangeParseFailure,
     ForParseFailure,
@@ -125,6 +126,7 @@ impl fmt::Display for InternalError {
             }
             MissingScope => f.write_str("Scope unavailable during parsing"),
             NumberParseFailure => f.write_str("Failed to parse number"),
+            IdParseFailure => f.write_str("Failed to parse ID"),
             FunctionParseFailure => f.write_str("Failed to parse function"),
             RangeParseFailure => f.write_str("Failed to parse range"),
             ForParseFailure => f.write_str("Failed to parse for loop"),
