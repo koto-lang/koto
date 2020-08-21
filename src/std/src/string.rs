@@ -32,6 +32,16 @@ pub fn register(prelude: &mut ValueMap) {
         )))
     });
 
+    string.add_fn("split", |_, args| match args {
+        [Str(input), Str(pattern)] => {
+            let result = input
+                .split(pattern.as_ref())
+                .map(|s| Str(Arc::new(s.to_string())))
+                .collect::<ValueVec>();
+            Ok(List(ValueList::with_data(result)))
+        }
+        _ => external_error!("string.split: Expected two strings as arguments"),
+    });
     single_arg_fn!(string, "to_number", Str, s, {
         match s.parse::<f64>() {
             Ok(n) => Ok(Number(n)),
