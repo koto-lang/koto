@@ -1547,11 +1547,59 @@ impl Vm {
                     }
                 }
             }
+            Num2(n) => match index_value {
+                Number(i) => {
+                    let i = i.floor() as usize;
+                    match i {
+                        0 | 1 => self.set_register(result_register, Number(n[i])),
+                        other => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds for Num2, {}",
+                                other
+                            )
+                        }
+                    }
+                }
+                unexpected => {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "Expected Number as index for Num2, found '{}'",
+                        type_as_string(&unexpected),
+                    )
+                }
+            },
+            Num4(n) => match index_value {
+                Number(i) => {
+                    let i = i.floor() as usize;
+                    match i {
+                        0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
+                        other => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Index out of bounds for Num4, {}",
+                                other
+                            )
+                        }
+                    }
+                }
+                unexpected => {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "Expected Number as index for Num4, found '{}'",
+                        type_as_string(&unexpected),
+                    )
+                }
+            },
             unexpected => {
                 return vm_error!(
                     self.chunk(),
                     instruction_ip,
-                    "Expected List, found '{}'",
+                    "Expected indexable value, found '{}'",
                     type_as_string(&unexpected),
                 )
             }
@@ -3183,6 +3231,14 @@ x = num2 1 -2
 -x";
             test_script(script, num2(-1.0, 2.0));
         }
+
+        #[test]
+        fn index() {
+            let script = "
+x = num2 4 5
+x[1]";
+            test_script(script, Number(5.0));
+        }
     }
 
     mod num4_test {
@@ -3255,6 +3311,14 @@ x = num2 1 -2
 x = num4 1 -2 3 -4
 -x";
             test_script(script, num4(-1.0, 2.0, -3.0, 4.0));
+        }
+
+        #[test]
+        fn index() {
+            let script = "
+x = num4 9 8 7 6
+x[3]";
+            test_script(script, Number(6.0));
         }
     }
 
