@@ -32,6 +32,22 @@ pub fn register(prelude: &mut ValueMap) {
         )))
     });
 
+    string.add_fn("slice", |_, args| match args {
+        [Str(input), Number(from)] => {
+            let result = input.get((*from as usize)..)
+                .map(|s| Str(Arc::new(s.to_string())))
+                .unwrap_or(Empty);
+            Ok(result)
+        }
+        [Str(input), Number(from), Number(to)] => {
+            let result = input.get((*from as usize)..(*to as usize))
+                .map(|s| Str(Arc::new(s.to_string())))
+                .unwrap_or(Empty);
+            Ok(result)
+        }
+        _ => external_error!("string.slice: Expected a string and slice index as arguments"),
+    });
+
     string.add_fn("split", |_, args| match args {
         [Str(input), Str(pattern)] => {
             let result = input

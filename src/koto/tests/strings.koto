@@ -18,6 +18,7 @@ assert not "@" in "O_o"
 hello = "Hello"
 world = "World"
 
+
 ####### string.format
 
 # A string literal is expected as first argument
@@ -35,10 +36,18 @@ assert_eq "Hello World, Hello World!" (string.format "{0} {1}, {0} {1}!" hello w
 # Identifier placeholders are looked up in a map argument
 assert_eq "O_o" (string.format "{first}_{second}" {first: "O", second: "o"})
 
+
+####### string.slice
+
+assert_eq "cde" (string.slice "abcdef" 2 5)
+assert_eq "cdef" (string.slice "abcdef" 2)
+
+
 ####### string.split
 
 assert_eq ["a" "b" "c"] (string.split "a,b,c" ",")
 assert_eq ["" "x" ""] (string.split "oxo" "o")
+
 
 ####### string.trim
 
