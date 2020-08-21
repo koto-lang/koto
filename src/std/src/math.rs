@@ -29,18 +29,18 @@ pub fn register(prelude: &mut ValueMap) {
     math_fn_1!(log10);
     math_fn_1!(log2);
     math_fn_1!(ln);
+
+    math.add_value("pi", Number(std::f64::consts::PI));
+    math.add_fn("pow", |_, args| match args {
+        [Number(x), Number(y)] => Ok(Number(x.powf(*y))),
+        _ => external_error!("math.pow: Expected two numbers as arguments"),
+    });
+
     math_fn_1!("radians", to_radians);
     math_fn_1!(recip);
     math_fn_1!(sin);
     math_fn_1!(sinh);
     math_fn_1!(sqrt);
-    math_fn_1!(tan);
-    math_fn_1!(tanh);
-
-    math.add_fn("pow", |_, args| match args {
-        [Number(x), Number(y)] => Ok(Number(x.powf(*y))),
-        _ => external_error!("math.pow: Expected two numbers as arguments"),
-    });
 
     math.add_fn("sum", |_, args| match args {
         [] => external_error!("sum: Missing argument"),
@@ -53,7 +53,9 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("math.sum: Expected a single Num2 or Num4 argument"),
     });
 
-    math.add_value("pi", Number(std::f64::consts::PI));
+    math_fn_1!(tan);
+    math_fn_1!(tanh);
+
     math.add_value("tau", Number(std::f64::consts::PI * 2.0));
 
     prelude.add_map("math", math);
