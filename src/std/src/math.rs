@@ -54,6 +54,7 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     math.add_value("pi", Number(std::f64::consts::PI));
+    math.add_value("tau", Number(std::f64::consts::PI * 2.0));
 
     prelude.add_map("math", math);
 }
