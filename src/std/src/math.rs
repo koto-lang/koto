@@ -20,6 +20,12 @@ pub fn register(prelude: &mut ValueMap) {
     math_fn_1!(asin);
     math_fn_1!(atan);
     math_fn_1!(ceil);
+
+    math.add_fn("clamp", |_, args| match args {
+        [Number(x), Number(a), Number(b)] => Ok(Number(a.max(b.min(*x)))),
+        _ => external_error!("math.clamp: Expected three numbers as arguments"),
+    });
+
     math_fn_1!(cos);
     math_fn_1!(cosh);
     math_fn_1!("degrees", to_degrees);
@@ -30,9 +36,19 @@ pub fn register(prelude: &mut ValueMap) {
     math_fn_1!(log2);
     math_fn_1!(ln);
 
+    math.add_fn("max", |_, args| match args {
+        [Number(a), Number(b)] => Ok(Number(a.max(*b))),
+        _ => external_error!("math.max: Expected two numbers as arguments"),
+    });
+
+    math.add_fn("min", |_, args| match args {
+        [Number(a), Number(b)] => Ok(Number(a.min(*b))),
+        _ => external_error!("math.min: Expected two numbers as arguments"),
+    });
+
     math.add_value("pi", Number(std::f64::consts::PI));
     math.add_fn("pow", |_, args| match args {
-        [Number(x), Number(y)] => Ok(Number(x.powf(*y))),
+        [Number(a), Number(b)] => Ok(Number(a.powf(*b))),
         _ => external_error!("math.pow: Expected two numbers as arguments"),
     });
 

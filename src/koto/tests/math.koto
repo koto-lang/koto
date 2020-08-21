@@ -6,3 +6,9 @@ assert_eq (math.cos math.pi) -1
 assert_eq (math.cos math.tau) 1
 
 assert_eq (math.pow 2 8) 256
+
+assert_eq (math.min 1 2) 1
+assert_eq (math.max 1 2) 2
+
+assert_eq (math.clamp 0 1 2) 1
+assert_eq (math.clamp 3 1 2) 2
