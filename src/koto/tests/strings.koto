@@ -39,3 +39,9 @@ assert_eq "O_o" (string.format "{first}_{second}" {first: "O", second: "o"})
 
 assert_eq ["a" "b" "c"] (string.split "a,b,c" ",")
 assert_eq ["" "x" ""] (string.split "oxo" "o")
+
+####### string.trim
+
+assert_eq "x" (string.trim "   x    ")
+assert_eq "foo" (string.trim "foo    ")
+assert_eq "bar" (string.trim "     bar")
