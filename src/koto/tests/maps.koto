@@ -35,6 +35,8 @@ assert_eq x.ƒöó 123
 
 # 'in' can be used to check if a key is in a map
 assert "ƒöó" in x
+key = "while"
+assert key in x
 
 # Any Koto value can be placed in a map, for example, functions
 o = {min: 0, max: || 42}
@@ -77,7 +79,19 @@ assert_eq m2.baz 99
 m2 += { extra: -1 }
 assert_eq m2.extra -1
 
+# map.insert can also be used to add values to a map
+old_value = map.insert m "foo" 99
+assert_eq m.foo 99
+assert_eq old_value 42
+
+# map.insert without a value inserts ()
+old_value = map.insert m "foo"
+assert "foo" in m
+assert_eq m.foo ()
+assert_eq old_value 99
+
 # Modification of map values
+m.foo = 42
 m.foo /= 2
 assert_eq m.foo 21
 assert_eq m2.foo 42
@@ -96,6 +110,8 @@ assert_eq (map.keys m2) ["foo" "square" "baz" "extra"]
 # iteration and map.get
 for key, value in m
   assert_eq (map.get m key) value
+
+
 
 ###### Maps as classes
 

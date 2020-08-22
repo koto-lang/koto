@@ -58,12 +58,12 @@ impl ValueHashMap {
         self.add_value(id, Value::Map(map));
     }
 
-    pub fn add_value(&mut self, id: &str, value: Value) {
-        self.insert(Id::with_str(id), value);
+    pub fn add_value(&mut self, id: &str, value: Value) -> Option<Value> {
+        self.insert(Id::with_str(id), value)
     }
 
-    pub fn insert(&mut self, id: Id, value: Value) {
-        self.0.insert(id, value);
+    pub fn insert(&mut self, id: Id, value: Value) -> Option<Value> {
+        self.0.insert(id, value)
     }
 
     pub fn extend(&mut self, other: &ValueHashMap) {

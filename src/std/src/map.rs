@@ -28,5 +28,23 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
+    map.add_fn("insert", |_, args|{
+        match args {
+            [Map(m), Str(key)] => {
+                match m.data_mut().add_value(key.as_ref(), Empty) {
+                    Some(old_value) => Ok(old_value),
+                    None => Ok(Empty),
+                }
+            }
+            [Map(m), Str(key), value] => {
+                match m.data_mut().add_value(key.as_ref(), value.clone()) {
+                    Some(old_value) => Ok(old_value),
+                    None => Ok(Empty),
+                }
+            }
+            _ => external_error!("map.insert: Expected map and key as arguments"),
+        }
+    });
+
     prelude.add_value("map", Map(map));
 }
