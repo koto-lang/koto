@@ -10,9 +10,10 @@ trace = []
 panic_on_runtime_error = []
 
 [dependencies]
-downcast-rs = "1.1.1"
-indexmap = "1.4.0"
 koto_bytecode = { path = "../bytecode" }
 koto_parser = { path = "../parser" }
+
+downcast-rs = "1.1.1"
+indexmap = "1.4.0"
 rustc-hash = "1.1.0"
 smallvec = "1.2.0"

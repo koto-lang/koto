@@ -24,7 +24,7 @@ impl<'a> Serialize for SerializableValue<'a> {
             Value::Map(m) => {
                 let mut seq = s.serialize_map(Some(m.data().len()))?;
                 for (key, value) in m.data().iter() {
-                    seq.serialize_entry(key.as_str(), &SerializableValue(value))?;
+                    seq.serialize_entry(&key.to_string(), &SerializableValue(value))?;
                 }
                 seq.end()
             }

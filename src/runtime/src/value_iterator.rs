@@ -68,10 +68,9 @@ impl Iterator for ValueIterator {
             }
             Iterable::Map(map) => {
                 let result = match map.data().get_index(self.index) {
-                    Some((key, value)) => Some(ValueIteratorOutput::ValuePair(
-                        Value::Str(key.as_arc_string().clone()),
-                        value.clone(),
-                    )),
+                    Some((key, value)) => {
+                        Some(ValueIteratorOutput::ValuePair(key.clone(), value.clone()))
+                    }
                     None => None,
                 };
 

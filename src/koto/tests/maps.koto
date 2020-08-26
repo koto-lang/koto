@@ -23,6 +23,11 @@ assert_eq m.foo 42
 assert_eq m.bar 99
 assert_eq m.baz -1
 
+# map keys and values can be iterated over with a for loop
+for key, value in m
+  assert_ne key ()
+  assert_ne value ()
+
 # Quoted strings can be used for keys that would otherwise be disallowed
 x = {"for": -1, "while": 99, "20": "twenty"}
 assert_eq x."for" -1
@@ -78,39 +83,6 @@ m2 = m + { baz: 99 }
 assert_eq m2.baz 99
 m2 += { extra: -1 }
 assert_eq m2.extra -1
-
-# map.insert can also be used to add values to a map
-old_value = map.insert m "foo" 99
-assert_eq m.foo 99
-assert_eq old_value 42
-
-# map.insert without a value inserts ()
-old_value = map.insert m "foo"
-assert "foo" in m
-assert_eq m.foo ()
-assert_eq old_value 99
-
-# Modification of map values
-m.foo = 42
-m.foo /= 2
-assert_eq m.foo 21
-assert_eq m2.foo 42
-
-m.baz.child_foo = -1
-assert_eq m.baz.child_foo -1
-
-# size returns number of map entries
-assert_eq (size m) 3
-assert_eq (size m2) 4
-
-# map.keys
-assert_eq (map.keys m) ["foo" "square" "baz"]
-assert_eq (map.keys m2) ["foo" "square" "baz" "extra"]
-
-# iteration and map.get
-for key, value in m
-  assert_eq (map.get m key) value
-
 
 
 ###### Maps as classes

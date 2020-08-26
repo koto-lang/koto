@@ -6,7 +6,7 @@ use {
         type_as_string,
         value::{deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, Error, Id, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::{num2, num4},
@@ -59,7 +59,7 @@ impl Vm {
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.global.data().get(id).cloned()
+        self.global.data().get(&id.into()).cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
@@ -220,8 +220,8 @@ impl Vm {
                 self.set_register(register, Str(string))
             }
             Instruction::LoadGlobal { register, constant } => {
-                let global_name = self.get_constant_string(constant);
-                let global = self.global.data().get(global_name).cloned();
+                let global_name = self.arc_string_from_constant(constant);
+                let global = self.global.data().get(&Str(global_name.clone())).cloned();
                 match global {
                     Some(value) => self.set_register(register, value),
                     None => {
@@ -235,10 +235,10 @@ impl Vm {
                 }
             }
             Instruction::SetGlobal { global, source } => {
-                let global_name = self.get_constant_string(global);
+                let global_name = self.arc_string_from_constant(global);
                 self.global
                     .data_mut()
-                    .insert(Id::with_str(global_name), self.get_register(source).clone());
+                    .insert(Str(global_name), self.get_register(source).clone());
             }
             Instruction::Import { register, constant } => {
                 self.run_import(register, constant)?;
@@ -785,7 +785,7 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (_, List(l)) => l.data().contains(lhs_value).into(),
-                    (Str(s), Map(m)) => m.data().contains_key(s).into(),
+                    (key @ Str(_), Map(m)) => m.data().contains_key(key).into(),
                     (Str(s1), Str(s2)) => s2.contains(s1.as_ref()).into(),
                     (Number(n), Range(r)) => (r.start..r.end).contains(&(*n as isize)).into(),
                     _ => {
@@ -1031,7 +1031,7 @@ impl Vm {
                 let value = self.get_register(value).clone();
 
                 match self.get_register_mut(register) {
-                    Map(map) => map.data_mut().insert(Id::new(key_string), value),
+                    Map(map) => map.data_mut().insert(Str(key_string), value),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -1047,7 +1047,7 @@ impl Vm {
                 let key_string = self.arc_string_from_constant(key);
 
                 match map_value {
-                    Map(map) => match map.data().get(&key_string) {
+                    Map(map) => match map.data().get(&Str(key_string.clone())) {
                         Some(value) => {
                             self.set_register(register, value.clone());
                         }
@@ -1106,13 +1106,13 @@ impl Vm {
     }
 
     fn run_import(&mut self, result_register: u8, import_constant: usize) -> Result<(), Error> {
-        let import_name = self.get_constant_string(import_constant);
+        let import_name = Value::Str(self.arc_string_from_constant(import_constant));
 
-        let maybe_global = self.global.data().get(import_name).cloned();
+        let maybe_global = self.global.data().get(&import_name).cloned();
         if let Some(value) = maybe_global {
             self.set_register(result_register, value);
         } else {
-            let maybe_in_prelude = self.prelude.data().get(import_name).cloned();
+            let maybe_in_prelude = self.prelude.data().get(&import_name).cloned();
             if let Some(value) = maybe_in_prelude {
                 self.set_register(result_register, value);
             } else {
@@ -2915,8 +2915,8 @@ sum
         #[test]
         fn from_literals() {
             let mut result_data = ValueHashMap::new();
-            result_data.insert(Id::with_str("foo"), Number(42.0));
-            result_data.insert(Id::with_str("bar"), Str(Arc::new("baz".to_string())));
+            result_data.add_value("foo", Number(42.0));
+            result_data.add_value("bar", Str(Arc::new("baz".to_string())));
 
             test_script(
                 "{foo: 42, bar: \"baz\"}",

@@ -1,4 +1,8 @@
-use std::{fmt, ops};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    ops,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Num2(pub f64, pub f64);
@@ -6,6 +10,13 @@ pub struct Num2(pub f64, pub f64);
 impl Num2 {
     pub fn abs(&self) -> Self {
         Num2(self.0.abs(), self.1.abs())
+    }
+}
+
+impl Hash for Num2 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.0.to_bits());
+        state.write_u64(self.1.to_bits());
     }
 }
 

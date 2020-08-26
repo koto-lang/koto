@@ -1,6 +1,5 @@
 mod external;
 mod frame;
-mod id;
 mod loader;
 pub mod value;
 mod value_iterator;
@@ -15,16 +14,13 @@ use {
 
 pub use {
     external::{ExternalFunction, ExternalValue},
-    id::Id,
     loader::{Loader, LoaderError},
-    value::{make_external_value, type_as_string, RuntimeFunction, Value},
+    value::{make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value},
     value_iterator::IntRange,
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap},
     vm::Vm,
 };
-
-pub const EXTERNAL_DATA_ID: &str = "_external_data";
 
 #[derive(Clone, Debug)]
 pub enum Error {

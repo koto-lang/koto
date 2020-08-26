@@ -7,7 +7,7 @@ mod string;
 mod test;
 mod thread;
 
-pub use koto_runtime::{external_error, EXTERNAL_DATA_ID};
+pub use koto_runtime::external_error;
 
 use koto_runtime::{value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap};
 
@@ -47,7 +47,7 @@ pub fn visit_external_value<T>(
 where
     T: ExternalValue,
 {
-    match map.data().get(EXTERNAL_DATA_ID) {
+    match map.data().get(&Value::ExternalDataId) {
         Some(Value::ExternalValue(maybe_external)) => {
             let mut value = maybe_external.as_ref().write().unwrap();
             match value.downcast_mut::<T>() {

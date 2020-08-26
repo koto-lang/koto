@@ -10,6 +10,7 @@ use {
     std::{
         cmp::Ordering,
         fmt,
+        hash::{Hash, Hasher},
         iter::FromIterator,
         sync::{Arc, RwLock},
     },
@@ -33,6 +34,7 @@ pub enum Value {
     IndexRange { start: usize, end: Option<usize> },
     Iterator(ValueIterator),
     RegisterList { start: u8, count: u8 },
+    ExternalDataId,
 }
 
 impl Default for Value {
@@ -81,6 +83,7 @@ impl fmt::Display for Value {
             RegisterList { start, count } => {
                 write!(f, "RegisterList [{}..{}]", start, start + count)
             }
+            ExternalDataId => write!(f, "External Data ID"),
         }
     }
 }
@@ -119,6 +122,7 @@ impl PartialEq for Value {
             ) => start_a == start_b && end_a == end_b,
             (Function(a), Function(b)) => a == b,
             (Empty, Empty) => true,
+            (ExternalDataId, ExternalDataId) => true,
             _ => false,
         }
     }
@@ -156,9 +160,56 @@ impl Ord for Value {
     }
 }
 
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        use Value::*;
+
+        assert!(
+            value_is_immutable(self),
+            "Only immutable values should need to be hashed (attempting to hash '{}')",
+            self
+        );
+
+        std::mem::discriminant(self).hash(state);
+
+        match self {
+            Empty | ExternalDataId => {}
+            Bool(b) => b.hash(state),
+            Number(n) => state.write_u64(n.to_bits()),
+            Num2(n) => n.hash(state),
+            Num4(n) => n.hash(state),
+            Str(s) => s.hash(state),
+            Range(IntRange { start, end }) => {
+                state.write_isize(*start);
+                state.write_isize(*end);
+            }
+            IndexRange { start, end } => {
+                state.write_usize(*start);
+                if let Some(end) = end {
+                    state.write_usize(*end);
+                }
+            }
+            Function(f) => f.hash(state),
+            ExternalFunction(f) => f.hash(state),
+            ExternalValue(value) => {
+                // TODO This is wrong, external values can change behind their address.
+                // Find a way to allow external values to be hashed.
+                state.write_usize(Arc::as_ptr(value) as *const () as usize);
+            }
+            _ => panic!("{} values can't be used as map keys", self),
+        }
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::Str(Arc::new(value.to_string()))
     }
 }
 
@@ -169,6 +220,18 @@ pub struct RuntimeFunction {
     pub arg_count: u8,
     pub is_instance_function: bool,
     pub captures: Option<ValueList>,
+}
+
+impl Hash for RuntimeFunction {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(Arc::as_ptr(&self.chunk) as *const () as usize);
+        self.ip.hash(state);
+        self.arg_count.hash(state);
+        self.is_instance_function.hash(state);
+        if let Some(captures) = &self.captures {
+            captures.data().hash(state);
+        }
+    }
 }
 
 pub fn deep_copy_value(value: &Value) -> Value {
@@ -213,9 +276,18 @@ pub fn type_as_string(value: &Value) -> String {
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
         RegisterList { .. } => "RegisterList".to_string(),
+        ExternalDataId => "ExternalDataId".to_string(),
     }
 }
 
 pub fn make_external_value(value: impl ExternalValue) -> Value {
     Value::ExternalValue(Arc::new(RwLock::new(value)))
+}
+
+pub fn value_is_immutable(value: &Value) -> bool {
+    use Value::*;
+
+    matches!(
+        value,
+        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_))
 }
