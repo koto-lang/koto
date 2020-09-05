@@ -52,23 +52,9 @@ impl fmt::Display for Value {
             Number(n) => f.write_str(&n.to_string()),
             Num2(n) => f.write_str(&n.to_string()),
             Num4(n) => f.write_str(&n.to_string()),
-            Str(s) => f.write_str(&s),
+            Str(s) => f.write_str(s),
             List(l) => f.write_str(&l.to_string()),
-            Map(m) => {
-                write!(f, "Map: ")?;
-                write!(f, "{{")?;
-                let mut first = true;
-                for (key, _value) in m.data().iter() {
-                    if first {
-                        write!(f, " ")?;
-                    } else {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", key)?;
-                    first = false;
-                }
-                write!(f, " }}")
-            }
+            Map(m) => f.write_str(&m.to_string()),
             Range(IntRange { start, end }) => write!(f, "[{}..{}]", start, end),
             IndexRange { start, end } => write!(
                 f,

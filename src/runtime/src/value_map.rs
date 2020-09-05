@@ -1,13 +1,12 @@
 use {
-    crate::{
-        external::ExternalFunction, RuntimeResult, Value, ValueList, Vm,
-    },
+    crate::{external::ExternalFunction, RuntimeResult, Value, ValueList, Vm},
     indexmap::{
         map::{Iter, Keys, Values},
         IndexMap,
     },
     rustc_hash::FxHasher,
     std::{
+        fmt,
         hash::BuildHasherDefault,
         iter::{FromIterator, IntoIterator},
         sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -181,6 +180,21 @@ impl ValueMap {
 
     pub fn add_value(&mut self, id: &str, value: Value) {
         self.insert(id.into(), value);
+    }
+}
+
+impl fmt::Display for ValueMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        let mut first = true;
+        for (key, _value) in self.data().iter() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", key)?;
+            first = false;
+        }
+        write!(f, "}}")
     }
 }
 
