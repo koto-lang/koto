@@ -1,6 +1,7 @@
 use {
     koto_lexer::{is_id_continue, is_id_start},
     koto_runtime::Value,
+    std::sync::Arc,
 };
 
 #[derive(Debug, PartialEq)]
@@ -163,10 +164,13 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
                 None => return Err(format!("Missing argument for index {}", n)),
             },
             FormatToken::Identifier(id) => match format_args.first() {
-                Some(Value::Map(map)) => match map.data().get(id) {
-                    Some(value) => result.push_str(&value.to_string()),
-                    None => return Err(format!("Key '{}' not found in map", id)),
-                },
+                Some(Value::Map(map)) => {
+                    // TODO pass in runtime's string cache
+                    match map.data().get(&Value::Str(Arc::new(id.to_string()))) {
+                        Some(value) => result.push_str(&value.to_string()),
+                        None => return Err(format!("Key '{}' not found in map", id)),
+                    }
+                }
                 Some(other) => {
                     return Err(format!("Expected map as first argument, found {}", other))
                 }
@@ -183,7 +187,7 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
 mod tests {
     use {
         super::*,
-        koto_runtime::{Id, ValueHashMap, ValueMap},
+        koto_runtime::{ValueHashMap, ValueMap},
     };
 
     mod lexer {
@@ -310,8 +314,8 @@ mod tests {
         #[test]
         fn identifier_placeholders() {
             let mut map_data = ValueHashMap::new();
-            map_data.insert(Id::with_str("x"), Value::Number(42.0));
-            map_data.insert(Id::with_str("y"), Value::Number(-1.0));
+            map_data.insert("x".into(), Value::Number(42.0));
+            map_data.insert("y".into(), Value::Number(-1.0));
             let map = Value::Map(ValueMap::with_data(map_data));
 
             check_format_output("{x} - {y}", &[map], "42 - -1");

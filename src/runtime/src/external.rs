@@ -1,7 +1,14 @@
-use crate::{RuntimeResult, Value, Vm};
-use downcast_rs::impl_downcast;
+use {
+    crate::{RuntimeResult, Value, Vm},
+    downcast_rs::impl_downcast,
+    std::{
+        fmt,
+        hash::{Hash, Hasher},
+        sync::Arc,
+    },
+};
+
 pub use downcast_rs::Downcast;
-use std::{fmt, sync::Arc};
 
 pub trait ExternalValue: fmt::Debug + fmt::Display + Send + Sync + Downcast {
     fn value_type(&self) -> String;
@@ -11,7 +18,6 @@ impl_downcast!(ExternalValue);
 
 // Once Trait aliases are stabilized this can be simplified a bit,
 // see: https://github.com/rust-lang/rust/issues/55628
-// TODO: rename to ExternalFunction
 #[allow(clippy::type_complexity)]
 pub struct ExternalFunction {
     pub function: Arc<dyn Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static>,
@@ -52,5 +58,11 @@ impl fmt::Debug for ExternalFunction {
             },
             raw
         )
+    }
+}
+
+impl Hash for ExternalFunction {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(Arc::as_ptr(&self.function) as *const () as usize);
     }
 }

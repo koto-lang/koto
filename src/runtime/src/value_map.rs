@@ -1,23 +1,19 @@
 use {
-    crate::{
-        external::{ExternalFunction, ExternalValue},
-        value::make_external_value,
-        Id, RuntimeResult, Value, ValueList, Vm, EXTERNAL_DATA_ID,
-    },
+    crate::{external::ExternalFunction, RuntimeResult, Value, ValueList, Vm},
     indexmap::{
-        map::{Iter, Keys},
+        map::{Iter, Keys, Values},
         IndexMap,
     },
     rustc_hash::FxHasher,
     std::{
-        borrow::Borrow,
-        hash::{BuildHasherDefault, Hash},
+        fmt,
+        hash::BuildHasherDefault,
         iter::{FromIterator, IntoIterator},
         sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     },
 };
 
-type ValueHashMapType = IndexMap<Id, Value, BuildHasherDefault<FxHasher>>;
+type ValueHashMapType = IndexMap<Value, Value, BuildHasherDefault<FxHasher>>;
 
 #[derive(Clone, Debug, Default)]
 pub struct ValueHashMap(ValueHashMapType);
@@ -39,7 +35,10 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
+        self.add_value(
+            id.into(),
+            Value::ExternalFunction(ExternalFunction::new(f, false)),
+        );
     }
 
     pub fn add_instance_fn(
@@ -47,58 +46,61 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
+        self.add_value(
+            id.into(),
+            Value::ExternalFunction(ExternalFunction::new(f, true)),
+        );
     }
 
     pub fn add_list(&mut self, id: &str, list: ValueList) {
-        self.add_value(id, Value::List(list));
+        self.add_value(id.into(), Value::List(list));
     }
 
     pub fn add_map(&mut self, id: &str, map: ValueMap) {
-        self.add_value(id, Value::Map(map));
+        self.add_value(id.into(), Value::Map(map));
     }
 
     pub fn add_value(&mut self, id: &str, value: Value) -> Option<Value> {
-        self.insert(Id::with_str(id), value)
+        self.insert(id.into(), value)
     }
 
-    pub fn insert(&mut self, id: Id, value: Value) -> Option<Value> {
-        self.0.insert(id, value)
+    pub fn insert(&mut self, key: Value, value: Value) -> Option<Value> {
+        self.0.insert(key, value)
+    }
+
+    pub fn remove(&mut self, key: &Value) -> Option<Value> {
+        self.0.remove(key)
     }
 
     pub fn extend(&mut self, other: &ValueHashMap) {
         self.0.extend(other.0.clone().into_iter());
     }
 
-    pub fn get<K: ?Sized>(&self, id: &K) -> Option<&Value>
-    where
-        Id: Borrow<K>,
-        K: Hash + Eq,
-    {
-        self.0.get(id)
+    pub fn get(&self, key: &Value) -> Option<&Value> {
+        self.0.get(key)
     }
 
-    pub fn get_mut<K: ?Sized>(&mut self, id: &K) -> Option<&mut Value>
-    where
-        Id: Borrow<K>,
-        K: Hash + Eq,
-    {
-        self.0.get_mut(id)
+    pub fn get_mut(&mut self, key: &Value) -> Option<&mut Value> {
+        self.0.get_mut(key)
     }
 
-    pub fn get_index(&self, index: usize) -> Option<(&Id, &Value)> {
+    pub fn get_index(&self, index: usize) -> Option<(&Value, &Value)> {
         self.0.get_index(index)
     }
 
-    pub fn contains_key(&self, id: &str) -> bool {
-        self.0.contains_key(id)
+    pub fn contains_key(&self, key: &Value) -> bool {
+        self.0.contains_key(key)
     }
 
-    pub fn keys(&self) -> Keys<'_, Id, Value> {
+    pub fn keys(&self) -> Keys<'_, Value, Value> {
         self.0.keys()
     }
 
-    pub fn iter(&self) -> Iter<'_, Id, Value> {
+    pub fn values(&self) -> Values<'_, Value, Value> {
+        self.0.values()
+    }
+
+    pub fn iter(&self) -> Iter<'_, Value, Value> {
         self.0.iter()
     }
 
@@ -111,8 +113,8 @@ impl ValueHashMap {
     }
 }
 
-impl FromIterator<(Id, Value)> for ValueHashMap {
-    fn from_iter<T: IntoIterator<Item = (Id, Value)>>(iter: T) -> ValueHashMap {
+impl FromIterator<(Value, Value)> for ValueHashMap {
+    fn from_iter<T: IntoIterator<Item = (Value, Value)>>(iter: T) -> ValueHashMap {
         Self(ValueHashMapType::from_iter(iter))
     }
 }
@@ -148,6 +150,10 @@ impl ValueMap {
         self.0.write().unwrap()
     }
 
+    pub fn insert(&mut self, key: Value, value: Value) {
+        self.data_mut().insert(key, value);
+    }
+
     pub fn add_fn(
         &mut self,
         id: &str,
@@ -173,15 +179,22 @@ impl ValueMap {
     }
 
     pub fn add_value(&mut self, id: &str, value: Value) {
-        self.insert(Id::with_str(id), value);
+        self.insert(id.into(), value);
     }
+}
 
-    pub fn set_external_value(&mut self, data: impl ExternalValue) {
-        self.add_value(EXTERNAL_DATA_ID, make_external_value(data));
-    }
-
-    pub fn insert(&mut self, name: Id, value: Value) {
-        self.data_mut().insert(name, value);
+impl fmt::Display for ValueMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        let mut first = true;
+        for (key, _value) in self.data().iter() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", key)?;
+            first = false;
+        }
+        write!(f, "}}")
     }
 }
 

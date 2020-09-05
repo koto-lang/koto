@@ -1,6 +1,7 @@
 use crate::{get_external_instance, single_arg_fn};
 use koto_runtime::{
-    external_error, value, value::type_as_string, ExternalValue, RuntimeResult, Value, ValueMap,
+    external_error, make_external_value, value, value::type_as_string, ExternalValue,
+    RuntimeResult, Value, ValueMap,
 };
 use std::{
     fmt, fs,
@@ -138,13 +139,16 @@ pub fn register(prelude: &mut ValueMap) {
                 let path = Path::new(path.as_ref());
                 match fs::File::open(&path) {
                     Ok(file) => {
-                        let mut file_map = make_file_map();
+                        let file_map = make_file_map();
 
-                        file_map.set_external_value(File {
-                            file,
-                            path: path.to_path_buf(),
-                            temporary: false,
-                        });
+                        file_map.data_mut().insert(
+                            Value::ExternalDataId,
+                            make_external_value(File {
+                                file,
+                                path: path.to_path_buf(),
+                                temporary: false,
+                            }),
+                        );
 
                         Ok(Map(file_map))
                     }
@@ -169,11 +173,14 @@ pub fn register(prelude: &mut ValueMap) {
                     Ok(file) => {
                         let mut file_map = make_file_map();
 
-                        file_map.set_external_value(File {
-                            file,
-                            path: path.to_path_buf(),
-                            temporary: false,
-                        });
+                        file_map.insert(
+                            Value::ExternalDataId,
+                            make_external_value(File {
+                                file,
+                                path: path.to_path_buf(),
+                                temporary: false,
+                            }),
+                        );
 
                         Ok(Map(file_map))
                     }
@@ -219,11 +226,14 @@ pub fn register(prelude: &mut ValueMap) {
 
             let mut file_map = make_file_map();
 
-            file_map.set_external_value(File {
-                file: temp_file,
-                path,
-                temporary: true,
-            });
+            file_map.insert(
+                Value::ExternalDataId,
+                make_external_value(File {
+                    file: temp_file,
+                    path,
+                    temporary: true,
+                }),
+            );
 
             Ok(Map(file_map))
         }

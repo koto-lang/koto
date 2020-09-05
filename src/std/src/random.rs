@@ -1,7 +1,7 @@
 use {
     crate::{get_external_instance, ExternalValue},
     koto_parser::{num2, num4},
-    koto_runtime::{external_error, Value, ValueMap},
+    koto_runtime::{external_error, make_external_value, Value, ValueMap},
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::fmt,
@@ -97,7 +97,7 @@ impl ChaChaRng {
             })
         });
 
-        result.set_external_value(Self(rng));
+        result.insert(Value::ExternalDataId, make_external_value(Self(rng)));
         result
     }
 }

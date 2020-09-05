@@ -54,10 +54,11 @@ mod koto_tests {
     koto_test!(io);
     koto_test!(json);
     koto_test!(line_breaks);
-    koto_test!(lists);
     koto_test!(list_ops);
+    koto_test!(lists);
     koto_test!(logic);
     koto_test!(loops);
+    koto_test!(map_ops);
     koto_test!(maps);
     koto_test!(maps_and_lists);
     koto_test!(maps_nested_assignments);

@@ -1,4 +1,8 @@
-use std::{fmt, ops};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    ops,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Num4(pub f32, pub f32, pub f32, pub f32);
@@ -6,6 +10,15 @@ pub struct Num4(pub f32, pub f32, pub f32, pub f32);
 impl Num4 {
     pub fn abs(&self) -> Self {
         Self(self.0.abs(), self.1.abs(), self.2.abs(), self.3.abs())
+    }
+}
+
+impl Hash for Num4 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u32(self.0.to_bits());
+        state.write_u32(self.1.to_bits());
+        state.write_u32(self.2.to_bits());
+        state.write_u32(self.3.to_bits());
     }
 }
 

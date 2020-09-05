@@ -1,6 +1,8 @@
-use crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue};
-use koto_runtime::{external_error, value, Error, Value, ValueMap};
-use std::{fmt, thread, thread::JoinHandle, time::Duration};
+use {
+    crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue},
+    koto_runtime::{external_error, make_external_value, value, Error, Value, ValueMap},
+    std::{fmt, thread, thread::JoinHandle, time::Duration},
+};
 
 pub fn register(prelude: &mut ValueMap) {
     use Value::{Empty, Function, Number};
@@ -60,9 +62,12 @@ impl Thread {
             })
         });
 
-        result.set_external_value(Self {
-            join_handle: Some(join_handle),
-        });
+        result.insert(
+            Value::ExternalDataId,
+            make_external_value(Self {
+                join_handle: Some(join_handle),
+            }),
+        );
 
         Value::Map(result)
     }

@@ -32,6 +32,12 @@ assert_eq (list.get z 5) 5
 assert_eq (list.get z 15) ()
 
 
+###### list.contains
+x = [0..10]
+assert (list.contains x 5)
+assert not (list.contains z 15)
+
+
 ###### list.filter
 
 # Passing a value into list.filter will leave only matching elements in the list
