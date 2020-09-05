@@ -87,6 +87,12 @@ assert_eq m2.baz 99
 m2 += { extra: -1 }
 assert_eq m2.extra -1
 
+# Modification of map values
+m.foo = 42
+m.foo /= 2
+assert_eq m.foo 21
+assert_eq m2.foo 42
+
 
 ###### Maps as classes
 

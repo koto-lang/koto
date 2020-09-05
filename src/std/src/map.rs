@@ -44,5 +44,11 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("map.remove: Expected map and key as arguments"),
     });
 
+    single_arg_fn!(map, "values", Map, m, {
+        Ok(List(ValueList::with_data(
+            m.data().values().cloned().collect::<ValueVec>(),
+        )))
+    });
+
     prelude.add_value("map", Map(map));
 }

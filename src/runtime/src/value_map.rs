@@ -3,7 +3,7 @@ use {
         external::ExternalFunction, RuntimeResult, Value, ValueList, Vm,
     },
     indexmap::{
-        map::{Iter, Keys},
+        map::{Iter, Keys, Values},
         IndexMap,
     },
     rustc_hash::FxHasher,
@@ -95,6 +95,10 @@ impl ValueHashMap {
 
     pub fn keys(&self) -> Keys<'_, Value, Value> {
         self.0.keys()
+    }
+
+    pub fn values(&self) -> Values<'_, Value, Value> {
+        self.0.values()
     }
 
     pub fn iter(&self) -> Iter<'_, Value, Value> {

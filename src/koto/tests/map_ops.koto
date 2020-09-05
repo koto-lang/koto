@@ -1,17 +1,9 @@
 import map
 from test import assert assert_eq
 
-m =
-  foo: 42
-  square: |x| x * x
-  baz:
-    child_foo: 99
+m = { foo: 42 }
 
-m2 = m +
-  baz: 99
-  extra: -1
-
-# map.insert can also be used to add values to a map
+# map.insert can be used to add or replace values to a map
 old_value = map.insert m "foo" 99
 assert_eq m.foo 99
 assert_eq old_value 42
@@ -35,18 +27,12 @@ assert_eq (map.remove m 1) "one"
 assert_eq (map.remove m 2) "two"
 assert_eq (map.remove m 1) ()
 
-# Modification of map values
-m.foo = 42
-m.foo /= 2
-assert_eq m.foo 21
-assert_eq m2.foo 42
-
-m.baz.child_foo = -1
-assert_eq m.baz.child_foo -1
-
 # map.keys
-assert_eq (map.keys m) ["foo" "square" "baz"]
-assert_eq (map.keys m2) ["foo" "square" "baz" "extra"]
-
+assert_eq (map.keys m) ["foo"]
 map.insert m 0 "zero"
-assert_eq (map.keys m) ["foo" "square" "baz" 0]
+assert_eq (map.keys m) ["foo" 0]
+
+# map.values
+assert_eq (map.values m) [() "zero"]
+m.foo = 123
+assert_eq (map.values m) [123 "zero"]
