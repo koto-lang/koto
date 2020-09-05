@@ -36,5 +36,13 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("map.insert: Expected map and key as arguments"),
     });
 
+    map.add_fn("remove", |_, args| match args {
+        [Map(m), key] if value_is_immutable(key) => match m.data_mut().remove(key) {
+            Some(old_value) => Ok(old_value),
+            None => Ok(Empty),
+        },
+        _ => external_error!("map.remove: Expected map and key as arguments"),
+    });
+
     prelude.add_value("map", Map(map));
 }

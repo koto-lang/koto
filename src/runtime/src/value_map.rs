@@ -69,6 +69,10 @@ impl ValueHashMap {
         self.0.insert(key, value)
     }
 
+    pub fn remove(&mut self, key: &Value) -> Option<Value> {
+        self.0.remove(key)
+    }
+
     pub fn extend(&mut self, other: &ValueHashMap) {
         self.0.extend(other.0.clone().into_iter());
     }

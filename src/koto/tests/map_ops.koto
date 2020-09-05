@@ -30,6 +30,11 @@ map.insert m 2 "two"
 assert_eq (map.get m 1) "one"
 assert_eq (map.get m 3) ()
 
+# map.remove removes a value from the map if present
+assert_eq (map.remove m 1) "one"
+assert_eq (map.remove m 2) "two"
+assert_eq (map.remove m 1) ()
+
 # Modification of map values
 m.foo = 42
 m.foo /= 2
@@ -40,5 +45,8 @@ m.baz.child_foo = -1
 assert_eq m.baz.child_foo -1
 
 # map.keys
-assert_eq (map.keys m) ["foo" "square" "baz" 1 2]
+assert_eq (map.keys m) ["foo" "square" "baz"]
 assert_eq (map.keys m2) ["foo" "square" "baz" "extra"]
+
+map.insert m 0 "zero"
+assert_eq (map.keys m) ["foo" "square" "baz" 0]
