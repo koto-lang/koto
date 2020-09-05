@@ -22,6 +22,10 @@ map.insert m 2 "two"
 assert_eq (map.get m 1) "one"
 assert_eq (map.get m 3) ()
 
+# map.contains_key can be used to check for the presence of a key
+assert (map.contains_key m 1)
+assert not (map.contains_key m 3)
+
 # map.remove removes a value from the map if present
 assert_eq (map.remove m 1) "one"
 assert_eq (map.remove m 2) "two"

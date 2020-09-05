@@ -8,6 +8,11 @@ pub fn register(prelude: &mut ValueMap) {
 
     let mut map = ValueMap::new();
 
+    map.add_fn("contains_key", |_, args| match args {
+        [Map(m), key] => Ok(Bool(m.data().contains_key(key))),
+        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+    });
+
     single_arg_fn!(map, "keys", Map, m, {
         Ok(List(ValueList::with_data(
             m.data().keys().cloned().collect::<ValueVec>(),
