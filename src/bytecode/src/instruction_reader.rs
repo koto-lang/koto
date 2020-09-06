@@ -601,7 +601,7 @@ impl fmt::Display for Instruction {
             ),
             TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
-                write!(f, "Debug\t\tresult: {}\tconstant: {}", register, constant)
+                write!(f, "Debug\t\tregister: {}\tconstant: {}", register, constant)
             }
         }
     }

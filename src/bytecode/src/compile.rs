@@ -650,21 +650,20 @@ impl Compiler {
             } => {
                 let result = self.get_result_register(result_register)?;
 
-                let temp_register = self.push_register()?;
+                let expression_register = self
+                    .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
+                    .unwrap();
 
-                self.compile_node(
-                    ResultRegister::Fixed(temp_register),
-                    ast.node(*expression),
-                    ast,
-                )?;
-                self.push_op(Debug, &[temp_register]);
+                self.push_op(Debug, &[expression_register.register]);
                 self.push_bytes(&expression_string.to_le_bytes());
 
                 if let Some(result) = result {
-                    self.push_op(Copy, &[result.register, temp_register]);
+                    self.push_op(Copy, &[result.register, expression_register.register]);
                 }
 
-                self.pop_register()?; // temp_register
+                if expression_register.is_temporary {
+                    self.pop_register()?;
+                }
 
                 result
             }
