@@ -2,7 +2,7 @@
 
 use {
     crate::ConstantIndex,
-    std::{collections::HashMap, convert::TryInto},
+    std::{collections::HashMap, convert::TryInto, fmt},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -88,6 +88,20 @@ impl<'a> Iterator for ConstantPoolIterator<'a> {
         let result = self.pool.get(self.index);
         self.index += 1;
         result
+    }
+}
+
+impl fmt::Display for ConstantPool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, constant) in self.iter().enumerate() {
+            write!(f, "{}\t", i)?;
+            match constant {
+                Constant::Number(n) => write!(f, "Number\t{}", n)?,
+                Constant::Str(s) => write!(f, "String\t{}", s)?,
+            }
+            write!(f, "\n")?;
+        }
+        Ok(())
     }
 }
 

@@ -561,7 +561,7 @@ impl fmt::Display for Instruction {
                 count,
             } => write!(
                 f,
-                "ListPushValues\tlist: {}\tstart: {}\tcount: {}",
+                "ListPushValues\tlist: {}\t\tstart: {}\tcount: {}",
                 list, values_start, count
             ),
             ListUpdate { list, index, value } => write!(
