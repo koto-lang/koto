@@ -73,16 +73,24 @@ impl Loader {
     ) -> Result<(Arc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let path = match load_from_path {
-            Some(path) => {
-                if path.is_file() {
-                    match path.parent() {
-                        Some(parent_dir) => parent_dir.to_path_buf(),
-                        None => path,
+            Some(path) => match path.canonicalize() {
+                Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
+                    Some(parent_dir) => parent_dir.to_path_buf(),
+                    None => {
+                        return Err(LoaderError {
+                            message: "Failed to get parent of provided path".to_string(),
+                            span: None,
+                        });
                     }
-                } else {
-                    path
+                },
+                Ok(canonicalized) => canonicalized,
+                Err(e) => {
+                    return Err(LoaderError {
+                        message: e.to_string(),
+                        span: None,
+                    });
                 }
-            }
+            },
             None => match std::env::current_dir() {
                 Ok(path) => path,
                 Err(e) => {
@@ -92,16 +100,6 @@ impl Loader {
                     })
                 }
             },
-        };
-
-        let path = match path.canonicalize() {
-            Ok(canonicalized) => canonicalized,
-            Err(e) => {
-                return Err(LoaderError {
-                    message: e.to_string(),
-                    span: None,
-                })
-            }
         };
 
         let mut load_module_from_path = |module_path: PathBuf| match self.chunks.get(&module_path) {

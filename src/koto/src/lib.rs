@@ -65,9 +65,11 @@ impl Koto {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
                 if self.settings.show_annotated {
+                    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
-                        "{}",
+                        "Instructions\n------------\n{}",
                         chunk_to_string_annotated(chunk.clone(), &script_lines)
                     );
                 } else if self.settings.show_bytecode {

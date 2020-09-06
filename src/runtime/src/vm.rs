@@ -9,7 +9,7 @@ use {
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
-    koto_parser::{num2, num4},
+    koto_parser::{num2, num4, ConstantIndex},
     rustc_hash::FxHashMap,
     std::{collections::HashMap, path::PathBuf, sync::Arc},
 };
@@ -28,7 +28,7 @@ pub struct Vm {
     modules: HashMap<PathBuf, ValueMap>,
 
     reader: InstructionReader,
-    string_constants: FxHashMap<usize, Arc<String>>,
+    string_constants: FxHashMap<(u64, ConstantIndex), Arc<String>>,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
 }
@@ -1108,7 +1108,7 @@ impl Vm {
     fn run_import(
         &mut self,
         result_register: u8,
-        import_constant: usize,
+        import_constant: ConstantIndex,
         instruction_ip: usize,
     ) -> Result<(), Error> {
         let import_name = Value::Str(self.arc_string_from_constant(import_constant));
@@ -1889,12 +1889,17 @@ impl Vm {
         }
     }
 
-    fn get_constant_string(&self, constant_index: usize) -> &str {
+    fn get_constant_string(&self, constant_index: ConstantIndex) -> &str {
         self.reader.chunk.constants.get_string(constant_index)
     }
 
-    fn arc_string_from_constant(&mut self, constant_index: usize) -> Arc<String> {
-        let maybe_string = self.string_constants.get(&constant_index).cloned();
+    fn arc_string_from_constant(&mut self, constant_index: ConstantIndex) -> Arc<String> {
+        let constants_hash = self.reader.chunk.constants_hash;
+
+        let maybe_string = self
+            .string_constants
+            .get(&(constants_hash, constant_index))
+            .cloned();
 
         match maybe_string {
             Some(s) => s,
@@ -1906,7 +1911,8 @@ impl Vm {
                         .get_string(constant_index)
                         .to_string(),
                 );
-                self.string_constants.insert(constant_index, s.clone());
+                self.string_constants
+                    .insert((constants_hash, constant_index), s.clone());
                 s
             }
         }
