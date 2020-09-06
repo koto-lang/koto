@@ -1,5 +1,5 @@
 use {
-    crate::{error::*, *},
+    crate::{constant_pool::ConstantPoolBuilder, error::*, *},
     koto_lexer::{Lexer, Span, Token},
     std::{
         cmp::Ordering,
@@ -129,7 +129,7 @@ impl Frame {
 
 pub struct Parser<'source> {
     ast: Ast,
-    constants: ConstantPool,
+    constants: ConstantPoolBuilder,
     lexer: Lexer<'source>,
     frame_stack: Vec<Frame>,
 }
@@ -139,7 +139,7 @@ impl<'source> Parser<'source> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
-            constants: ConstantPool::new(),
+            constants: ConstantPoolBuilder::new(),
             lexer: Lexer::new(source),
             frame_stack: Vec::new(),
         };
@@ -147,7 +147,7 @@ impl<'source> Parser<'source> {
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
 
-        Ok((parser.ast, parser.constants))
+        Ok((parser.ast, parser.constants.pool))
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {
@@ -224,7 +224,7 @@ impl<'source> Parser<'source> {
         }
 
         let is_instance_function = match args.as_slice() {
-            [first, ..] => self.constants.get_string(*first as usize) == "self",
+            [first, ..] => self.constants.pool.get_string(*first) == "self",
             _ => false,
         };
 

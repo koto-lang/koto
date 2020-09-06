@@ -1,5 +1,6 @@
 use {
     crate::{Chunk, Op},
+    koto_parser::ConstantIndex,
     std::{convert::TryInto, fmt, sync::Arc},
 };
 
@@ -29,23 +30,23 @@ pub enum Instruction {
     },
     LoadNumber {
         register: u8,
-        constant: usize,
+        constant: ConstantIndex,
     },
     LoadString {
         register: u8,
-        constant: usize,
+        constant: ConstantIndex,
     },
     LoadGlobal {
         register: u8,
-        constant: usize,
+        constant: ConstantIndex,
     },
     SetGlobal {
-        global: usize,
+        global: ConstantIndex,
         source: u8,
     },
     Import {
         register: u8,
-        constant: usize,
+        constant: ConstantIndex,
     },
     RegisterList {
         register: u8,
@@ -260,12 +261,12 @@ pub enum Instruction {
     MapInsert {
         register: u8,
         value: u8,
-        key: usize,
+        key: ConstantIndex,
     },
     MapAccess {
         register: u8,
         map: u8,
-        key: usize,
+        key: ConstantIndex,
     },
     TryStart {
         arg_register: u8,
@@ -274,7 +275,7 @@ pub enum Instruction {
     TryEnd,
     Debug {
         register: u8,
-        constant: usize,
+        constant: ConstantIndex,
     },
 }
 
@@ -711,43 +712,43 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),
-                constant: get_byte!() as usize,
+                constant: get_byte!() as ConstantIndex,
             }),
             Op::LoadNumberLong => Some(LoadNumber {
                 register: get_byte!(),
-                constant: get_u32!() as usize,
+                constant: get_u32!() as ConstantIndex,
             }),
             Op::LoadString => Some(LoadString {
                 register: get_byte!(),
-                constant: get_byte!() as usize,
+                constant: get_byte!() as ConstantIndex,
             }),
             Op::LoadStringLong => Some(LoadString {
                 register: get_byte!(),
-                constant: get_u32!() as usize,
+                constant: get_u32!() as ConstantIndex,
             }),
             Op::LoadGlobal => Some(LoadGlobal {
                 register: get_byte!(),
-                constant: get_byte!() as usize,
+                constant: get_byte!() as ConstantIndex,
             }),
             Op::LoadGlobalLong => Some(LoadGlobal {
                 register: get_byte!(),
-                constant: get_u32!() as usize,
+                constant: get_u32!() as ConstantIndex,
             }),
             Op::SetGlobal => Some(SetGlobal {
-                global: get_byte!() as usize,
+                global: get_byte!() as ConstantIndex,
                 source: get_byte!(),
             }),
             Op::SetGlobalLong => Some(SetGlobal {
-                global: get_u32!() as usize,
+                global: get_u32!() as ConstantIndex,
                 source: get_byte!(),
             }),
             Op::Import => Some(Import {
                 register: get_byte!(),
-                constant: get_byte!() as usize,
+                constant: get_byte!() as ConstantIndex,
             }),
             Op::ImportLong => Some(Import {
                 register: get_byte!(),
-                constant: get_u32!() as usize,
+                constant: get_u32!() as ConstantIndex,
             }),
             Op::RegisterList => Some(RegisterList {
                 register: get_byte!(),
@@ -975,22 +976,22 @@ impl Iterator for InstructionReader {
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),
                 value: get_byte!(),
-                key: get_byte!() as usize,
+                key: get_byte!() as ConstantIndex,
             }),
             Op::MapInsertLong => Some(MapInsert {
                 register: get_byte!(),
                 value: get_byte!(),
-                key: get_u32!() as usize,
+                key: get_u32!() as ConstantIndex,
             }),
             Op::MapAccess => Some(MapAccess {
                 register: get_byte!(),
                 map: get_byte!(),
-                key: get_byte!() as usize,
+                key: get_byte!() as ConstantIndex,
             }),
             Op::MapAccessLong => Some(MapAccess {
                 register: get_byte!(),
                 map: get_byte!(),
-                key: get_u32!() as usize,
+                key: get_u32!() as ConstantIndex,
             }),
             Op::TryStart => Some(TryStart {
                 arg_register: get_byte!(),
@@ -999,7 +1000,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_byte!(),
-                constant: get_u32!() as usize,
+                constant: get_u32!() as ConstantIndex,
             }),
             _ => Some(Error {
                 message: format!("Unexpected opcode {:?} found at instruction {}", op, op_ip),
