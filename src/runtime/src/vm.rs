@@ -241,7 +241,7 @@ impl Vm {
                     .insert(Str(global_name), self.get_register(source).clone());
             }
             Instruction::Import { register, constant } => {
-                self.run_import(register, constant)?;
+                self.run_import(register, constant, instruction_ip)?;
             }
             Instruction::RegisterList {
                 register,
@@ -1105,7 +1105,12 @@ impl Vm {
         Ok(result)
     }
 
-    fn run_import(&mut self, result_register: u8, import_constant: usize) -> Result<(), Error> {
+    fn run_import(
+        &mut self,
+        result_register: u8,
+        import_constant: usize,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
         let import_name = Value::Str(self.arc_string_from_constant(import_constant));
 
         let maybe_global = self.global.data().get(&import_name).cloned();
@@ -1121,7 +1126,15 @@ impl Vm {
                 let (module_chunk, module_path) =
                     match self.loader.compile_module(&module_name, source_path) {
                         Ok(chunk) => chunk,
-                        Err(e) => return Err(Error::LoaderError(e)),
+                        Err(e) => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Failed to import '{}': {}",
+                                import_name,
+                                e.message
+                            )
+                        }
                     };
                 let maybe_module = self.modules.get(&module_path).cloned();
                 match maybe_module {
