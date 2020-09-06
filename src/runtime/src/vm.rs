@@ -3130,6 +3130,18 @@ m.get_foo().bar = 99
 m2.bar";
             test_script(script, Number(88.0));
         }
+
+        #[test]
+        fn capture_in_map_block() {
+            let script = "
+x = 42
+make_map = ||
+  foo: x
+m = make_map()
+m.foo
+";
+            test_script(script, Number(42.0));
+        }
     }
 
     mod placeholders {

@@ -1233,13 +1233,13 @@ impl<'source> Parser<'source> {
 
         while let Some(key) = self.parse_id_or_string() {
             if self.skip_whitespace_and_next() == Some(Token::Colon) {
-                if let Some(value) = self.parse_primary_expression()? {
+                if let Some(value) = self.parse_line()? {
                     entries.push((key, Some(value)));
                 } else {
                     // If a value wasn't found on the same line as the key, scan ahead to the next
                     // token (skipping newlines) and try again
                     self.consume_until_next_token();
-                    if let Some(value) = self.parse_primary_expression()? {
+                    if let Some(value) = self.parse_line()? {
                         entries.push((key, Some(value)));
                     } else {
                         return syntax_error!(ExpectedMapValue, self);
