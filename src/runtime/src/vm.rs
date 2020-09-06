@@ -28,7 +28,7 @@ pub struct Vm {
     modules: HashMap<PathBuf, ValueMap>,
 
     reader: InstructionReader,
-    string_constants: FxHashMap<ConstantIndex, Arc<String>>,
+    string_constants: FxHashMap<(u64, ConstantIndex), Arc<String>>,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
 }
@@ -1894,7 +1894,12 @@ impl Vm {
     }
 
     fn arc_string_from_constant(&mut self, constant_index: ConstantIndex) -> Arc<String> {
-        let maybe_string = self.string_constants.get(&constant_index).cloned();
+        let constants_hash = self.reader.chunk.constants_hash;
+
+        let maybe_string = self
+            .string_constants
+            .get(&(constants_hash, constant_index))
+            .cloned();
 
         match maybe_string {
             Some(s) => s,
@@ -1906,7 +1911,8 @@ impl Vm {
                         .get_string(constant_index)
                         .to_string(),
                 );
-                self.string_constants.insert(constant_index, s.clone());
+                self.string_constants
+                    .insert((constants_hash, constant_index), s.clone());
                 s
             }
         }

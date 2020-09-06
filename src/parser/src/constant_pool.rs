@@ -2,10 +2,15 @@
 
 use {
     crate::ConstantIndex,
-    std::{collections::HashMap, convert::TryInto, fmt},
+    std::{
+        collections::HashMap,
+        convert::TryInto,
+        fmt,
+        hash::{Hash, Hasher},
+    },
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 enum ConstantType {
     Number,
     Str,
@@ -102,6 +107,13 @@ impl fmt::Display for ConstantPool {
             write!(f, "\n")?;
         }
         Ok(())
+    }
+}
+
+impl Hash for ConstantPool {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.data.hash(state);
+        self.index.hash(state);
     }
 }
 
