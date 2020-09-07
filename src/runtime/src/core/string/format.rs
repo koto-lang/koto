@@ -1,6 +1,6 @@
 use {
+    crate::Value,
     koto_lexer::{is_id_continue, is_id_start},
-    koto_runtime::Value,
     std::sync::Arc,
 };
 
@@ -19,7 +19,7 @@ pub struct FormatLexer<'a> {
 }
 
 impl<'a> FormatLexer<'a> {
-    pub fn new(format_string: &'a str) -> Self {
+    fn new(format_string: &'a str) -> Self {
         Self {
             format_string,
             position: 0,
@@ -187,7 +187,7 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
 mod tests {
     use {
         super::*,
-        koto_runtime::{ValueHashMap, ValueMap},
+        crate::{ValueHashMap, ValueMap},
     };
 
     mod lexer {

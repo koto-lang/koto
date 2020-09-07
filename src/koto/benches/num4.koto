@@ -1,9 +1,9 @@
-import env string test.assert_eq
+import env test.assert_eq
 
 export main = ||
   n = match env.args.get 0
     () then 10
-    arg then string.to_number arg
+    arg then arg.to_number()
 
   for _ in 0..n
     assert_eq (num4 0) (num4 0 0 0 0)

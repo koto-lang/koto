@@ -25,6 +25,7 @@ pub enum ControlFlow {
 struct CoreLib {
     list: ValueMap,
     map: ValueMap,
+    string: ValueMap,
 }
 
 impl Default for CoreLib {
@@ -32,6 +33,7 @@ impl Default for CoreLib {
         Self {
             list: core::list::make_module(),
             map: core::map::make_module(),
+            string: core::string::make_module(),
         }
     }
 }
@@ -57,6 +59,7 @@ impl Vm {
         let mut prelude = ValueMap::default();
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("string", core_lib.string.clone());
 
         Self {
             core_lib,
@@ -1701,6 +1704,37 @@ impl Vm {
                             self.chunk(),
                             instruction_ip,
                             "List operation '{}' not found",
+                            key_string,
+                        );
+                    }
+                }
+            }
+            Str(_) => {
+                let maybe_string_op = self
+                    .core_lib
+                    .string
+                    .data()
+                    .get_with_string(&key_string)
+                    .cloned();
+                match maybe_string_op {
+                    Some(string_op) => match string_op {
+                        ExternalFunction(f) => {
+                            let f_as_instance_function = external::ExternalFunction {
+                                is_instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::ExternalFunction(f_as_instance_function),
+                            );
+                        }
+                        other => self.set_register(result_register, other.clone()),
+                    },
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "String operation '{}' not found",
                             key_string,
                         );
                     }

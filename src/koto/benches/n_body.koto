@@ -6,7 +6,7 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import env io.print list string
+import env io.print list
 from math import pi sqrt sum
 
 solar_mass = 4 * pi * pi
@@ -101,7 +101,7 @@ offset_momentum = |bodies nbody|
 export main = ||
   n = match env.args.get 0
     () then 100
-    arg then string.to_number arg
+    arg then arg.to_number()
 
   nbody = size bodies
 
