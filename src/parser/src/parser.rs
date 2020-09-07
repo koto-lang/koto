@@ -648,15 +648,15 @@ impl<'source> Parser<'source> {
                     self.consume_token();
 
                     let id_index = self.push_node(Node::Id(constant_index))?;
+                    let current_line = self.lexer.line_number();
 
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
-                        let current_line = self.lexer.line_number();
-                        while let Some(expression) = self.parse_non_primary_expression()? {
-                            args.push(expression);
-
-                            if self.lexer.line_number() != current_line {
+                        while self.lexer.line_number() == current_line {
+                            if let Some(expression) = self.parse_non_primary_expression()? {
+                                args.push(expression);
+                            } else {
                                 break;
                             }
                         }
@@ -788,15 +788,15 @@ impl<'source> Parser<'source> {
                 }
                 Some(Token::Whitespace) if primary_expression => {
                     self.consume_token();
+                    let current_line = self.lexer.line_number();
 
                     if let Some(expression) = self.parse_non_primary_expression()? {
                         let mut args = vec![expression];
 
-                        let current_line = self.lexer.line_number();
-                        while let Some(expression) = self.parse_non_primary_expression()? {
-                            args.push(expression);
-
-                            if self.lexer.line_number() != current_line {
+                        while self.lexer.line_number() == current_line {
+                            if let Some(expression) = self.parse_non_primary_expression()? {
+                                args.push(expression);
+                            } else {
                                 break;
                             }
                         }

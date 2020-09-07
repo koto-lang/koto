@@ -2763,6 +2763,34 @@ a, b = f 1, f 2
 a";
             test_script(script, Number(1.0));
         }
+
+        #[test]
+        fn function_blocks_as_args_dont_break_assignment() {
+            // The nested block (as first arg to a call to f) in f2 broke parsing,
+            // so that f3 wasn't assigned correctly,
+            // and then couldn't be found after assignment.
+            let script = "
+f = |x| x
+f2 = ||
+  f |x|
+    x
+f3 = |x| f2() x
+f3 1";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
+        fn function_blocks_as_args_dont_break_assignment_during_lookup() {
+            // See comment in test above, the same applies to args in the lookup call to f.g
+            let script = "
+f = { g: |x| x }
+f2 = ||
+  f.g |x|
+    x
+f3 = |x| f2() x
+f3 1";
+            test_script(script, Number(1.0));
+        }
     }
 
     mod loops {
