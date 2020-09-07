@@ -1,4 +1,4 @@
-import env list string
+import env
 
 fib = |n|
   match n
@@ -7,8 +7,8 @@ fib = |n|
     _ then (fib n - 1) + (fib n - 2)
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 8
-    arg then string.to_number arg
+    arg then arg.to_number()
 
   fib n

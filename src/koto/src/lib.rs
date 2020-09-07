@@ -34,7 +34,10 @@ pub struct Koto {
 
 impl Koto {
     pub fn new() -> Self {
-        let mut result = Self::default();
+        let mut result = Self {
+            runtime: Vm::new(),
+            ..Self::default()
+        };
 
         let prelude = result.prelude_mut();
         koto_std::register(prelude);

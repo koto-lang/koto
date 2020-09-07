@@ -6,7 +6,7 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
-import env io.print list math string
+import env io.print list math
 
 A = |i j|
   ij = i + j - 1
@@ -14,19 +14,19 @@ A = |i j|
 
 Av = |x y n|
   i = 0
-  list.transform y |n|
+  y.transform |n|
     i += 1
     j = 0
-    list.fold x 0 |result n|
+    x.fold 0 |result n|
       j += 1
       result + n * (A i j)
 
 Atv = |x y n|
   i = 0
-  list.transform y |n|
+  y.transform |n|
     i += 1
     j = 0
-    list.fold x 0 |result n|
+    x.fold 0 |result n|
       j += 1
       result + n * (A j i)
 
@@ -35,9 +35,9 @@ AtAv = |x y t n|
   Atv t y n
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 4
-    arg then string.to_number arg
+    arg then arg.to_number()
 
   u = [1 for _ in 0..n]
   v = [0 for _ in 0..n]
@@ -51,5 +51,5 @@ export main = ||
     vv = vv + vi * vi
   result = math.sqrt vBv / vv
 
-  if (list.get env.args 1) != "quiet"
+  if (env.args.get 1) != "quiet"
     print result

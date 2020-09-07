@@ -1,9 +1,6 @@
 mod io;
-mod list;
-mod map;
 mod math;
 mod random;
-mod string;
 mod test;
 mod thread;
 
@@ -94,11 +91,8 @@ macro_rules! get_external_instance {
 
 pub fn register(prelude: &mut ValueMap) {
     io::register(prelude);
-    list::register(prelude);
-    map::register(prelude);
     math::register(prelude);
     random::register(prelude);
-    string::register(prelude);
     test::register(prelude);
     thread::register(prelude);
 }

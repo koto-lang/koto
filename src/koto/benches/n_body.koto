@@ -6,7 +6,7 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import env io.print list string
+import env io.print list
 from math import pi sqrt sum
 
 solar_mass = 4 * pi * pi
@@ -99,15 +99,15 @@ offset_momentum = |bodies nbody|
     bodies[0].vel = -pos / solar_mass
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 100
-    arg then string.to_number arg
+    arg then arg.to_number()
 
   nbody = size bodies
 
   offset_momentum bodies nbody
 
-  quiet = (list.get env.args 1) == "quiet"
+  quiet = (env.args.get 1) == "quiet"
 
   energy = get_energy bodies nbody
   if not quiet

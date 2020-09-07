@@ -80,6 +80,10 @@ impl ValueHashMap {
         self.0.get(key)
     }
 
+    pub fn get_with_string(&self, key: &Arc<String>) -> Option<&Value> {
+        self.0.get(&Value::Str(key.clone()))
+    }
+
     pub fn get_mut(&mut self, key: &Value) -> Option<&mut Value> {
         self.0.get_mut(key)
     }

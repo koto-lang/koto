@@ -39,8 +39,9 @@ assert_eq "O_o" (string.format "{first}_{second}" {first: "O", second: "o"})
 
 ####### string.slice
 
-assert_eq "cde" (string.slice "abcdef" 2 5)
-assert_eq "cdef" (string.slice "abcdef" 2)
+x = "abcdef"
+assert_eq "cde" (x.slice 2 5)
+assert_eq "cdef" (x.slice 2)
 
 
 ####### string.split

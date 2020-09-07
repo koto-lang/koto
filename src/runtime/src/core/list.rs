@@ -1,17 +1,16 @@
-use crate::single_arg_fn;
-use koto_runtime::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
+use crate::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut list = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    list.add_fn("contains", |_, args| match args {
+    result.add_fn("contains", |_, args| match args {
         [List(l), value] => Ok(Bool(l.data().contains(value))),
         _ => external_error!("list.contains: Expected list and value as arguments"),
     });
 
-    list.add_fn("fill", |_, args| {
+    result.add_fn("fill", |_, args| {
         list_op(args, 2, "fill", |list| {
             let value = args[1].clone();
             for v in list.data_mut().iter_mut() {
@@ -21,7 +20,7 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    list.add_fn("filter", |runtime, args| {
+    result.add_fn("filter", |runtime, args| {
         list_op(args, 2, "filter", |list| {
             match &args[1] {
                 Function(f) => {
@@ -62,7 +61,7 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    list.add_fn("fold", |runtime, args| {
+    result.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args {
             [_, result, Function(f)] => {
                 if f.arg_count != 2 {
@@ -87,7 +86,7 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    list.add_fn("get", |_, args: &[Value]| {
+    result.add_fn("get", |_, args: &[Value]| {
         list_op(args, 2, "get", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
@@ -106,7 +105,7 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    list.add_fn("insert", |_, args: &[Value]| {
+    result.add_fn("insert", |_, args: &[Value]| {
         list_op(args, 3, "insert", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
@@ -127,25 +126,25 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    single_arg_fn!(list, "is_sortable", List, l, {
-        Ok(Bool(list_is_sortable(&l)))
+    result.add_fn("is_sortable", |_, args: &[Value]| {
+        list_op(args, 1, "is_sortable", |list| Ok(Bool(list_is_sortable(list))))
     });
 
-    list.add_fn("pop", |_, args: &[Value]| {
+    result.add_fn("pop", |_, args: &[Value]| {
         list_op(args, 1, "pop", |list| match list.data_mut().pop() {
             Some(value) => Ok(value),
             None => Ok(Value::Empty),
         })
     });
 
-    list.add_fn("push", |_, args: &[Value]| {
+    result.add_fn("push", |_, args: &[Value]| {
         list_op(args, 2, "push", |list| {
             list.data_mut().extend(args[1..].iter().cloned());
             Ok(Value::Empty)
         })
     });
 
-    list.add_fn("remove", |_, args: &[Value]| {
+    result.add_fn("remove", |_, args: &[Value]| {
         list_op(args, 2, "remove", |list| match &args[1] {
             Number(n) => {
                 if *n < 0.0 {
@@ -170,24 +169,33 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    list.add_fn("sort", |_, args: &[Value]| {
+    result.add_fn("reverse", |_, args: &[Value]| {
+        list_op(args, 1, "sort", |list| {
+            list.data_mut().reverse();
+            Ok(Value::Empty)
+        })
+    });
+
+    result.add_fn("sort", |_, args: &[Value]| {
         list_op(args, 1, "sort", |list| {
             list.data_mut().sort();
             Ok(Value::Empty)
         })
     });
 
-    single_arg_fn!(list, "sort_copy", List, l, {
-        if list_is_sortable(&l) {
-            let mut result = l.data().clone();
-            result.sort();
-            Ok(List(ValueList::with_data(result)))
-        } else {
-            external_error!("list.sort_copy can only sort lists of numbers or strings")
-        }
+    result.add_fn("sort_copy", |_, args: &[Value]| {
+        list_op(args, 1, "sort_copy", |list| {
+            if list_is_sortable(&list) {
+                let mut result = list.data().clone();
+                result.sort();
+                Ok(List(ValueList::with_data(result)))
+            } else {
+                external_error!("list.sort_copy can only sort lists of numbers or strings")
+            }
+        })
     });
 
-    list.add_fn("transform", |runtime, args| {
+    result.add_fn("transform", |runtime, args| {
         list_op(args, 2, "transform", |list| match &args[1] {
             Function(f) => {
                 if f.arg_count != 1 {
@@ -211,7 +219,7 @@ pub fn register(prelude: &mut ValueMap) {
         })
     });
 
-    prelude.add_value("list", Map(list));
+    result
 }
 
 fn list_op(

@@ -2,6 +2,7 @@
 
 use {
     crate::{
+        core, external,
         frame::Frame,
         type_as_string,
         value::{deep_copy_value, RuntimeFunction},
@@ -20,8 +21,26 @@ pub enum ControlFlow {
     ReturnValue(Value),
 }
 
+#[derive(Clone)]
+struct CoreLib {
+    list: ValueMap,
+    map: ValueMap,
+    string: ValueMap,
+}
+
+impl Default for CoreLib {
+    fn default() -> Self {
+        Self {
+            list: core::list::make_module(),
+            map: core::map::make_module(),
+            string: core::string::make_module(),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Vm {
+    core_lib: CoreLib,
     prelude: ValueMap,
     global: ValueMap,
     loader: Loader,
@@ -35,15 +54,29 @@ pub struct Vm {
 
 impl Vm {
     pub fn new() -> Self {
+        let core_lib = CoreLib::default();
+
+        let mut prelude = ValueMap::default();
+        prelude.add_map("list", core_lib.list.clone());
+        prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("string", core_lib.string.clone());
+
         Self {
+            core_lib,
+            prelude,
+            global: Default::default(),
+            loader: Default::default(),
+            modules: Default::default(),
+            reader: Default::default(),
+            string_constants: FxHashMap::with_capacity_and_hasher(16, Default::default()),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![Frame::default()],
-            ..Default::default()
         }
     }
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
+            core_lib: self.core_lib.clone(),
             prelude: self.prelude.clone(),
             global: self.global.clone(),
             loader: self.loader.clone(),
@@ -785,7 +818,7 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (_, List(l)) => l.data().contains(lhs_value).into(),
-                    (key @ Str(_), Map(m)) => m.data().contains_key(key).into(),
+                    (key, Map(m)) => m.data().contains_key(key).into(),
                     (Str(s1), Str(s2)) => s2.contains(s1.as_ref()).into(),
                     (Number(n), Range(r)) => (r.start..r.end).contains(&(*n as isize)).into(),
                     _ => {
@@ -1043,32 +1076,7 @@ impl Vm {
                 };
             }
             Instruction::MapAccess { register, map, key } => {
-                let map_value = self.get_register(map).clone();
-                let key_string = self.arc_string_from_constant(key);
-
-                match map_value {
-                    Map(map) => match map.data().get(&Str(key_string.clone())) {
-                        Some(value) => {
-                            self.set_register(register, value.clone());
-                        }
-                        None => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Map entry '{}' not found",
-                                key_string,
-                            );
-                        }
-                    },
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "MapAccess: Expected Map, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
+                self.run_map_access(register, map, key, instruction_ip)?;
             }
             Instruction::TryStart {
                 arg_register,
@@ -1617,6 +1625,130 @@ impl Vm {
                 )
             }
         };
+
+        Ok(())
+    }
+
+    fn run_map_access(
+        &mut self,
+        result_register: u8,
+        map_register: u8,
+        key: ConstantIndex,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::*;
+
+        let map_value = self.get_register(map_register).clone();
+        let key_string = self.arc_string_from_constant(key);
+
+        match map_value {
+            Map(map) => match map.data().get_with_string(&key_string) {
+                Some(value) => {
+                    self.set_register(result_register, value.clone());
+                }
+                None => {
+                    let maybe_map_op = self
+                        .core_lib
+                        .map
+                        .data()
+                        .get_with_string(&key_string)
+                        .cloned();
+                    match maybe_map_op {
+                        Some(map_op) => match map_op {
+                            ExternalFunction(f) => {
+                                let f_as_instance_function = external::ExternalFunction {
+                                    is_instance_function: true,
+                                    ..f.clone()
+                                };
+                                self.set_register(
+                                    result_register,
+                                    Value::ExternalFunction(f_as_instance_function),
+                                );
+                            }
+                            other => self.set_register(result_register, other.clone()),
+                        },
+                        None => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Map entry '{}' not found",
+                                key_string,
+                            );
+                        }
+                    }
+                }
+            },
+            List(_) => {
+                let maybe_list_op = self
+                    .core_lib
+                    .list
+                    .data()
+                    .get_with_string(&key_string)
+                    .cloned();
+                match maybe_list_op {
+                    Some(list_op) => match list_op {
+                        ExternalFunction(f) => {
+                            let f_as_instance_function = external::ExternalFunction {
+                                is_instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::ExternalFunction(f_as_instance_function),
+                            );
+                        }
+                        other => self.set_register(result_register, other.clone()),
+                    },
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "List operation '{}' not found",
+                            key_string,
+                        );
+                    }
+                }
+            }
+            Str(_) => {
+                let maybe_string_op = self
+                    .core_lib
+                    .string
+                    .data()
+                    .get_with_string(&key_string)
+                    .cloned();
+                match maybe_string_op {
+                    Some(string_op) => match string_op {
+                        ExternalFunction(f) => {
+                            let f_as_instance_function = external::ExternalFunction {
+                                is_instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::ExternalFunction(f_as_instance_function),
+                            );
+                        }
+                        other => self.set_register(result_register, other.clone()),
+                    },
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "String operation '{}' not found",
+                            key_string,
+                        );
+                    }
+                }
+            }
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "MapAccess: Expected Map, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        }
 
         Ok(())
     }
@@ -2761,6 +2893,34 @@ x";
 f = |n| n
 a, b = f 1, f 2
 a";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
+        fn function_blocks_as_args_dont_break_assignment() {
+            // The nested block (as first arg to a call to f) in f2 broke parsing,
+            // so that f3 wasn't assigned correctly,
+            // and then couldn't be found after assignment.
+            let script = "
+f = |x| x
+f2 = ||
+  f |x|
+    x
+f3 = |x| f2() x
+f3 1";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
+        fn function_blocks_as_args_dont_break_assignment_during_lookup() {
+            // See comment in test above, the same applies to args in the lookup call to f.g
+            let script = "
+f = { g: |x| x }
+f2 = ||
+  f.g |x|
+    x
+f3 = |x| f2() x
+f3 1";
             test_script(script, Number(1.0));
         }
     }
