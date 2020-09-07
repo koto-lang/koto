@@ -99,7 +99,7 @@ offset_momentum = |bodies nbody|
     bodies[0].vel = -pos / solar_mass
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 100
     arg then string.to_number arg
 
@@ -107,7 +107,7 @@ export main = ||
 
   offset_momentum bodies nbody
 
-  quiet = (list.get env.args 1) == "quiet"
+  quiet = (env.args.get 1) == "quiet"
 
   energy = get_energy bodies nbody
   if not quiet

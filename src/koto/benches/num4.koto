@@ -1,7 +1,7 @@
-import env list string test.assert_eq
+import env string test.assert_eq
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 10
     arg then string.to_number arg
 

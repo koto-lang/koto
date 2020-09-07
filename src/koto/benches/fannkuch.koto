@@ -6,7 +6,7 @@ Based on the Ruby implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-yarv-1.html
 -#
 
-import env io.print list string test.assert
+import env io.print string test.assert
 
 fannkuch = |n|
   assert n >= 4
@@ -58,16 +58,16 @@ fannkuch = |n|
           return sum, max_flips
         s[i] = i
         # Rotate 1<-...<-i+1.
-        t = list.remove p 1
-        list.insert p (i + 1) t
+        t = p.remove 1
+        p.insert (i + 1) t
 
 export main = ||
-  n = match list.get env.args 0
+  n = match env.args.get 0
     () then 4
     arg then string.to_number arg
 
   sum, flips = fannkuch n
 
-  if (list.get env.args 1) != "quiet"
+  if (env.args.get 1) != "quiet"
     print sum
     print "Pfannkuchen(" n ") = " flips
