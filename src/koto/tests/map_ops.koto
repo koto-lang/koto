@@ -22,6 +22,9 @@ assert_eq old_value -1
 m.insert 1 "one"
 m.insert 2 "two"
 
+assert 1 in m
+assert not 3 in m
+
 # map.get returns the corresponding value if the key is present
 assert_eq (m.get 1) "one"
 assert_eq (m.get 3) ()

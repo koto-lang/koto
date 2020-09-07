@@ -818,7 +818,7 @@ impl Vm {
                 let rhs_value = self.get_register(rhs);
                 let result = match (lhs_value, rhs_value) {
                     (_, List(l)) => l.data().contains(lhs_value).into(),
-                    (key @ Str(_), Map(m)) => m.data().contains_key(key).into(),
+                    (key, Map(m)) => m.data().contains_key(key).into(),
                     (Str(s1), Str(s2)) => s2.contains(s1.as_ref()).into(),
                     (Number(n), Range(r)) => (r.start..r.end).contains(&(*n as isize)).into(),
                     _ => {
