@@ -1,9 +1,9 @@
-import list map error_handling_module
+import error_handling_module
 from test import assert assert_eq
 
 # List passed to function expecting a map
 x = try
-  map.keys [0 1 2]
+  [0 1 2].keys()
   99
 catch error
   -1
@@ -12,7 +12,7 @@ assert_eq x -1
 
 # Error in functor passed to external function
 try
-  list.filter [0..10] |x| x + error_in_functor
+  [0..10].filter |x| x + error_in_functor
   assert false
 catch error
   x = 0

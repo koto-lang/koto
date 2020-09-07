@@ -642,12 +642,12 @@ impl<'source> Parser<'source> {
             self.frame_mut()?
                 .increment_expression_access_for_id(constant_index);
 
+            let id_index = self.push_node(Node::Id(constant_index))?;
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if primary_expression => {
                     let start_span = self.lexer.span();
                     self.consume_token();
 
-                    let id_index = self.push_node(Node::Id(constant_index))?;
                     let current_line = self.lexer.line_number();
 
                     if let Some(expression) = self.parse_non_primary_expression()? {
@@ -673,9 +673,9 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Some(Token::ParenOpen) | Some(Token::ListStart) | Some(Token::Dot) => {
-                    self.parse_lookup(constant_index, primary_expression)?
+                    self.parse_lookup(id_index, primary_expression)?
                 }
-                _ => self.push_node(Node::Id(constant_index))?,
+                _ => id_index,
             };
 
             Ok(Some(result))
@@ -686,14 +686,14 @@ impl<'source> Parser<'source> {
 
     fn parse_lookup(
         &mut self,
-        id: ConstantIndex,
+        root: AstIndex,
         primary_expression: bool,
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
         let start_span = self.lexer.span();
 
-        lookup.push(LookupNode::Id(id));
+        lookup.push(LookupNode::Root(root));
 
         loop {
             match self.peek_token() {
@@ -1004,11 +1004,16 @@ impl<'source> Parser<'source> {
                     self.consume_token();
                     let s = trim_str(self.lexer.slice(), 1, 1);
                     let constant_index = self.constants.add_string(s) as u32;
-                    self.push_node(Str(constant_index))?
+                    let string_node = self.push_node(Str(constant_index))?;
+                    if self.next_token_is_lookup_start() {
+                        self.parse_lookup(string_node, primary_expression)?
+                    } else {
+                        string_node
+                    }
                 }
                 Token::Id => return self.parse_id_expression(primary_expression),
-                Token::ListStart => return self.parse_list(),
-                Token::MapStart => return self.parse_map_inline(),
+                Token::ListStart => return self.parse_list(primary_expression),
+                Token::MapStart => return self.parse_map_inline(primary_expression),
                 Token::Num2 => {
                     self.consume_token();
                     let start_span = self.lexer.span();
@@ -1101,7 +1106,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_list(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_list(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
         self.consume_token();
         let start_span = self.lexer.span();
 
@@ -1169,10 +1174,15 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedListEnd, self);
         }
 
-        Ok(Some(self.push_node_with_start_span(
-            Node::List(entries),
-            start_span,
-        )?))
+        let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
+
+        let result = if self.next_token_is_lookup_start() {
+            self.parse_lookup(list_node, primary_expression)?
+        } else {
+            list_node
+        };
+
+        Ok(Some(result))
     }
 
     fn parse_indented_map_or_block(
@@ -1265,7 +1275,10 @@ impl<'source> Parser<'source> {
         )?))
     }
 
-    fn parse_map_inline(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_map_inline(
+        &mut self,
+        primary_expression: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
         self.consume_token();
         let start_span = self.lexer.span();
 
@@ -1301,7 +1314,14 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedMapEnd, self);
         }
 
-        let result = self.push_node_with_start_span(Node::Map(entries), start_span)?;
+        let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
+
+        let result = if self.next_token_is_lookup_start() {
+            self.parse_lookup(map_node, primary_expression)?
+        } else {
+            map_node
+        };
+
         Ok(Some(result))
     }
 
@@ -1829,7 +1849,9 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_nested_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if self.skip_whitespace_and_peek() != Some(Token::ParenOpen) {
+        use Token::*;
+
+        if self.skip_whitespace_and_peek() != Some(ParenOpen) {
             return Ok(None);
         }
 
@@ -1841,9 +1863,14 @@ impl<'source> Parser<'source> {
             self.push_node(Node::Empty)?
         };
 
-        if let Some(Token::ParenClose) = self.peek_token() {
+        if let Some(ParenClose) = self.peek_token() {
             self.consume_token();
-            Ok(Some(expression))
+            let result = if self.next_token_is_lookup_start() {
+                self.parse_lookup(expression, false)?
+            } else {
+                expression
+            };
+            Ok(Some(result))
         } else {
             syntax_error!(ExpectedCloseParen, self)
         }
@@ -1882,6 +1909,13 @@ impl<'source> Parser<'source> {
             lhs,
             rhs,
         })
+    }
+
+    fn next_token_is_lookup_start(&mut self) -> bool {
+        matches!(
+            self.peek_token(),
+            Some(Token::Dot) | Some(Token::ListStart) | Some(Token::ParenOpen)
+        )
     }
 
     fn peek_token(&mut self) -> Option<Token> {
@@ -2095,19 +2129,20 @@ a
                     Number(0),
                     Id(1),
                     Negate(1),
+                    Id(2),
                     Number0,
-                    Lookup(vec![LookupNode::Id(2), LookupNode::Index(3)]),
-                    Negate(4), // 5
+                    Lookup(vec![LookupNode::Root(3), LookupNode::Index(4)]), // 5
+                    Negate(5),
                     Number1,
                     Number1,
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 6,
-                        rhs: 7,
+                        lhs: 7,
+                        rhs: 8,
                     },
-                    Negate(8),
+                    Negate(9), // 10
                     MainBlock {
-                        body: vec![0, 2, 5, 9],
+                        body: vec![0, 2, 6, 10],
                         local_count: 0,
                     },
                 ],
@@ -2292,15 +2327,17 @@ foo.bar..foo.baz";
                         end: 11,
                         inclusive: false,
                     },
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(2)]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(13), LookupNode::Id(1)]),
+                    Id(0), // 15
+                    Lookup(vec![LookupNode::Root(15), LookupNode::Id(2)]),
                     Range {
-                        start: 13,
-                        end: 14,
+                        start: 14,
+                        end: 16,
                         inclusive: false,
-                    }, //15
+                    },
                     MainBlock {
-                        body: vec![2, 5, 12, 15],
+                        body: vec![2, 5, 12, 17],
                         local_count: 0,
                     },
                 ],
@@ -2516,11 +2553,12 @@ num4 x 0 1 x";
                 source,
                 &[
                     Id(0),
+                    Id(1),
                     Number0,
-                    Lookup(vec![LookupNode::Id(1), LookupNode::Index(1)]),
+                    Lookup(vec![LookupNode::Root(1), LookupNode::Index(2)]),
                     Number1,
-                    Number0,
-                    Expressions(vec![3, 4]),
+                    Number0, // 5
+                    Expressions(vec![4, 5]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -2528,14 +2566,14 @@ num4 x 0 1 x";
                                 scope: Scope::Local,
                             },
                             AssignTarget {
-                                target_index: 2,
+                                target_index: 3,
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 5,
+                        expressions: 6,
                     },
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 1, // y is assumed to be non-local
                     },
                 ],
@@ -2590,7 +2628,8 @@ x";
                     Id(0),
                     Id(1),
                     Id(2),
-                    Lookup(vec![LookupNode::Id(3), LookupNode::Call(vec![])]),
+                    Id(3),
+                    Lookup(vec![LookupNode::Root(3), LookupNode::Call(vec![])]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -2606,10 +2645,10 @@ x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 3,
+                        expressions: 4,
                     },
                     MainBlock {
-                        body: vec![4],
+                        body: vec![5],
                         local_count: 3,
                     },
                 ],
@@ -3551,9 +3590,10 @@ a()";
                         op: AssignOp::Equal,
                         expression: 2,
                     },
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(4), LookupNode::Call(vec![])]), // 5
                     MainBlock {
-                        body: vec![3, 4],
+                        body: vec![3, 5],
                         local_count: 1,
                     },
                 ],
@@ -3768,27 +3808,28 @@ f 0 -x";
                 source,
                 &[
                     Number(1),
-                    Lookup(vec![LookupNode::Id(3), LookupNode::Id(0)]),
+                    Id(3), // x
+                    Lookup(vec![LookupNode::Root(1), LookupNode::Id(0)]),
                     Id(4), // x
                     Assign {
                         target: AssignTarget {
-                            target_index: 1,
+                            target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 2,
+                        expression: 3,
                     },
                     Function(Function {
                         args: vec![3, 4],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 3,
+                        body: 4,
                         is_instance_function: true,
-                    }),
+                    }), // 5
                     // Map entries are constant/ast index pairs
-                    Map(vec![(0, Some(0)), (2, Some(4))]),
+                    Map(vec![(0, Some(0)), (2, Some(5))]),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -3814,30 +3855,31 @@ f()";
                 &[
                     Id(0),
                     Number(2),
-                    Lookup(vec![LookupNode::Id(4), LookupNode::Id(1)]),
+                    Id(4),
+                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(1)]),
                     Id(5), // x
                     Assign {
                         target: AssignTarget {
-                            target_index: 2,
+                            target_index: 3,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
-                    },
+                        expression: 4,
+                    }, // 5
                     Function(Function {
                         args: vec![4, 5],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 4,
+                        body: 5,
                         is_instance_function: true,
-                    }), // 5
+                    }),
                     // Map entries are constant/ast index pairs
-                    Map(vec![(1, Some(1)), (3, Some(5))]),
+                    Map(vec![(1, Some(1)), (3, Some(6))]),
                     Function(Function {
                         args: vec![],
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 6,
+                        body: 7,
                         is_instance_function: false,
                     }),
                     Assign {
@@ -3846,11 +3888,12 @@ f()";
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 7,
+                        expression: 8,
                     },
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(0), // 10
+                    Lookup(vec![LookupNode::Root(10), LookupNode::Call(vec![])]),
                     MainBlock {
-                        body: vec![8, 9],
+                        body: vec![9, 11],
                         local_count: 1,
                     },
                 ],
@@ -4107,36 +4150,41 @@ z[10..][0]";
             check_ast(
                 source,
                 &[
+                    Id(0),
                     Number0,
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Index(0)]),
+                    Lookup(vec![LookupNode::Root(0), LookupNode::Index(1)]),
+                    Id(0),
                     Number1,
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Index(2)]),
+                    Lookup(vec![LookupNode::Root(3), LookupNode::Index(4)]), // 5
                     Assign {
                         target: AssignTarget {
-                            target_index: 1,
+                            target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
+                        expression: 5,
                     },
-                    RangeFull, // 5
-                    Lookup(vec![LookupNode::Id(1), LookupNode::Index(5)]),
+                    Id(1),
+                    RangeFull,
+                    Lookup(vec![LookupNode::Root(7), LookupNode::Index(8)]),
+                    Id(2), // 10
                     Number(3),
                     RangeTo {
-                        end: 7,
+                        end: 11,
                         inclusive: false,
                     },
-                    Lookup(vec![LookupNode::Id(2), LookupNode::Index(8)]),
-                    Number(5), // 10
-                    RangeFrom { start: 10 },
+                    Lookup(vec![LookupNode::Root(10), LookupNode::Index(12)]),
+                    Id(4),
+                    Number(5), // 15
+                    RangeFrom { start: 15 },
                     Number0,
                     Lookup(vec![
-                        LookupNode::Id(4),
-                        LookupNode::Index(11),
-                        LookupNode::Index(12),
+                        LookupNode::Root(14),
+                        LookupNode::Index(16),
+                        LookupNode::Index(17),
                     ]),
                     MainBlock {
-                        body: vec![4, 6, 9, 13],
+                        body: vec![6, 9, 13, 18],
                         local_count: 0,
                     },
                 ],
@@ -4161,35 +4209,39 @@ x.foo 42"#;
             check_ast(
                 source,
                 &[
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(0), LookupNode::Id(1)]),
+                    Id(0),
                     Lookup(vec![
-                        LookupNode::Id(0),
+                        LookupNode::Root(2),
                         LookupNode::Id(2),
                         LookupNode::Call(vec![]),
                     ]),
+                    Id(0),
                     Lookup(vec![
-                        LookupNode::Id(0),
+                        LookupNode::Root(4),
                         LookupNode::Id(2),
                         LookupNode::Call(vec![]),
                         LookupNode::Id(3),
-                    ]),
+                    ]), // 5
                     Number1,
                     Assign {
                         target: AssignTarget {
-                            target_index: 2,
+                            target_index: 5,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
+                        expression: 6,
                     },
-                    Number(4), // 5
+                    Id(0),
+                    Number(4),
                     Lookup(vec![
-                        LookupNode::Id(0),
+                        LookupNode::Root(8),
                         LookupNode::Id(1),
-                        LookupNode::Call(vec![5]),
-                    ]),
+                        LookupNode::Call(vec![9]),
+                    ]), // 10
                     MainBlock {
-                        body: vec![0, 1, 4, 6],
+                        body: vec![1, 3, 7, 10],
                         local_count: 0,
                     },
                 ],
@@ -4209,11 +4261,13 @@ x.foo 42"#;
             check_ast(
                 source,
                 &[
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(1)]),
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Id(2)]),
-                    List(vec![0, 1]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(0), LookupNode::Id(1)]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(2)]),
+                    List(vec![1, 3]),
                     MainBlock {
-                        body: vec![2],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
@@ -4221,6 +4275,100 @@ x.foo 42"#;
                     Constant::Str("m"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn lookups_on_temporaries() {
+            let source = "\
+(f x).foo
+(f x)[0]
+(f x)(y)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(2)]),
+                    Id(0),
+                    Id(1), // 5
+                    Call {
+                        function: 4,
+                        args: vec![5],
+                    },
+                    Number0,
+                    Lookup(vec![LookupNode::Root(6), LookupNode::Index(7)]),
+                    Id(0),
+                    Id(1), // 10
+                    Call {
+                        function: 9,
+                        args: vec![10],
+                    },
+                    Id(3),
+                    Lookup(vec![LookupNode::Root(11), LookupNode::Call(vec![12])]),
+                    MainBlock {
+                        body: vec![3, 8, 13],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("y"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn lookups_on_literals() {
+            let source = r#"\
+"{}".format x
+[0 1].contains y
+{x}.values()
+"#;
+            check_ast(
+                source,
+                &[
+                    Str(0),
+                    Id(2),
+                    Lookup(vec![
+                        LookupNode::Root(0),
+                        LookupNode::Id(1),
+                        LookupNode::Call(vec![1]),
+                    ]),
+                    Number0,
+                    Number1,
+                    List(vec![3, 4]), // 5
+                    Id(4),
+                    Lookup(vec![
+                        LookupNode::Root(5),
+                        LookupNode::Id(3),
+                        LookupNode::Call(vec![6]),
+                    ]),
+                    Map(vec![(2, None)]),
+                    Lookup(vec![
+                        LookupNode::Root(8),
+                        LookupNode::Id(5),
+                        LookupNode::Call(vec![]),
+                    ]),
+                    MainBlock {
+                        body: vec![2, 7, 9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("{}"),
+                    Constant::Str("format"),
+                    Constant::Str("x"),
+                    Constant::Str("contains"),
+                    Constant::Str("y"),
+                    Constant::Str("values"),
                 ]),
             )
         }
@@ -4487,20 +4635,21 @@ catch e
             check_ast(
                 source,
                 &[
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(0), LookupNode::Call(vec![])]),
                     Id(1),
                     Debug {
                         expression_string: 1,
-                        expression: 1,
+                        expression: 2,
                     },
                     Try(AstTry {
-                        try_block: 0,
+                        try_block: 1,
                         catch_arg: 1,
-                        catch_block: 2,
+                        catch_block: 3,
                         finally_block: None,
                     }),
                     MainBlock {
-                        body: vec![3],
+                        body: vec![4],
                         local_count: 1,
                     },
                 ],
@@ -4521,21 +4670,22 @@ finally
             check_ast(
                 source,
                 &[
-                    Lookup(vec![LookupNode::Id(0), LookupNode::Call(vec![])]),
+                    Id(0),
+                    Lookup(vec![LookupNode::Root(0), LookupNode::Call(vec![])]),
                     Id(1),
                     Debug {
                         expression_string: 1,
-                        expression: 1,
+                        expression: 2,
                     },
                     Number0,
                     Try(AstTry {
-                        try_block: 0,
+                        try_block: 1,
                         catch_arg: 1,
-                        catch_block: 2,
-                        finally_block: Some(3),
-                    }),
+                        catch_block: 3,
+                        finally_block: Some(4),
+                    }), // 5
                     MainBlock {
-                        body: vec![4],
+                        body: vec![5],
                         local_count: 1,
                     },
                 ],

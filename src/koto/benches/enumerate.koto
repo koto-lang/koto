@@ -5,7 +5,7 @@ enumerate = |xs| [[i x] for i, x in 0..size(xs), xs]
 export main = ||
   n = match env.args.get 0
     () then 10
-    arg then number arg
+    arg then arg.to_number()
 
   a = []
   for i in 0..n

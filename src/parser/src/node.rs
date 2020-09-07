@@ -218,6 +218,7 @@ pub enum Scope {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LookupNode {
+    Root(AstIndex),
     Id(ConstantIndex),
     Index(AstIndex),
     Call(Vec<AstIndex>),

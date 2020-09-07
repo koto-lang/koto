@@ -1,6 +1,7 @@
 import list string
 from test import assert assert_eq
 
+
 ###### list.push + pop
 z = [1]
 z.push 2
@@ -28,15 +29,13 @@ assert_eq z [1 42 3 -1]
 
 
 ###### list.get
-z = [0..10]
-assert_eq (z.get 5) 5
-assert_eq (z.get 15) ()
+assert_eq ([0..10].get 5) 5
+assert_eq ([0..10].get 15) ()
 
 
 ###### list.contains (see also the 'in' operator)
-x = [0..10]
-assert (x.contains 5)
-assert not (x.contains 15)
+assert ([0..10].contains 5)
+assert not ([0..10].contains 15)
 
 
 ###### list.filter
@@ -54,7 +53,7 @@ assert_eq z [0 2 4 6 8]
 
 ###### list.transform
 z = ["1" "2" "3"]
-z.transform |x| string.to_number x
+z.transform |x| x.to_number()
 assert_eq z [1 2 3]
 
 
@@ -62,6 +61,7 @@ assert_eq z [1 2 3]
 z = [2 3 4]
 x = z.fold 1 |x y| x * y
 assert_eq x 24
+
 
 ###### list.is_sortable + sort_copy
 
@@ -71,7 +71,7 @@ assert (list.is_sortable ["42" "10" "9"])
 
 
 ###### list.sort + sort_copy
-assert_eq [9 10 42] (list.sort_copy [42 10 9])
+assert_eq [42 10 9].sort_copy() [9 10 42]
 
 z = [3 2 1]
 z.sort()
@@ -82,6 +82,7 @@ assert_eq z [1 2 3]
 a = [1 2 3]
 a.fill 42
 assert_eq a [42 42 42]
+
 
 ###### list.reverse
 a = [1 2 3]

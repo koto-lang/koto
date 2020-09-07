@@ -5,8 +5,11 @@ assert_eq "Hello" "Hello"
 assert_ne "Hello" "Héllö"
 assert_eq ("Hello" + ", " + "World!") "Hello, World!"
 
+
+####### string.to_number
+
 assert_eq 42.0 (string.to_number "42")
-assert_eq -1.5 (string.to_number "-1.5")
+assert_eq -1.5 "-1.5".to_number()
 
 x = "^"
 x += "_" + "^"
@@ -15,43 +18,42 @@ assert_eq x "^_^"
 assert "_" in "O_o"
 assert not "@" in "O_o"
 
-hello = "Hello"
-world = "World"
-
 
 ####### string.format
+
+hello = "Hello"
+world = "World"
 
 # A string literal is expected as first argument
 assert_eq "Hello, World!" (string.format "Hello, World!")
 
 # {} is a placeholder for an argument to be included in the string
-assert_eq "Hello, World!" (string.format "{}, {}!" hello world)
+assert_eq "Hello, World!" ("{}, {}!".format hello world)
 
 # Curly braces can be included in the output by escaping them with another curly brace
-assert_eq "{Hello}, World!" (string.format "{{{}}}, {}!" hello world)
+assert_eq "{Hello}, World!" ("{{{}}}, {}!".format hello world)
 
 # Positional placeholders can be used to reference arguments by index
-assert_eq "Hello World, Hello World!" (string.format "{0} {1}, {0} {1}!" hello world)
+assert_eq "Hello World, Hello World!" ("{0} {1}, {0} {1}!".format hello world)
 
 # Identifier placeholders are looked up in a map argument
-assert_eq "O_o" (string.format "{first}_{second}" {first: "O", second: "o"})
+assert_eq "O_o" ("{first}_{second}".format {first: "O", second: "o"})
 
 
 ####### string.slice
 
-x = "abcdef"
-assert_eq "cde" (x.slice 2 5)
-assert_eq "cdef" (x.slice 2)
+assert_eq "cde" ("abcdef".slice 2 5)
+assert_eq "cdef" ("abcdef".slice 2)
 
 
 ####### string.split
 
-assert_eq ["a" "b" "c"] (string.split "a,b,c" ",")
-assert_eq ["" "x" ""] (string.split "oxo" "o")
+assert_eq ["a" "b" "c"] ("a,b,c".split ",")
+assert_eq ["" "x" ""] ("oxo".split "o")
 
 
 ####### string.trim
 
 assert_eq "x" (string.trim "   x    ")
-assert_eq "foo" (string.trim "foo    ")
-assert_eq "bar" (string.trim "     bar")
+assert_eq "foo" "foo    ".trim()
+assert_eq "bar" "     bar".trim()

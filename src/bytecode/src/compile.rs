@@ -1922,33 +1922,28 @@ impl Compiler {
             let is_last_node = i == lookup.len() - 1;
 
             match lookup_node {
-                LookupNode::Id(id) => {
-                    if i == 0 {
-                        // Root node
+                LookupNode::Root(root_node) => {
+                    assert!(i == 0, "Root node not in first position");
 
-                        if let Some(local_register) = self.frame().get_local_assigned_register(*id)
-                        {
-                            node_registers.push(local_register);
-                        } else {
-                            let node_register = self.push_register()?;
-                            node_registers.push(node_register);
-                            self.compile_load_non_local_id(node_register, *id);
+                    let root = self
+                        .compile_node(ResultRegister::Any, ast.node(*root_node), ast)?
+                        .unwrap();
+                    node_registers.push(root.register);
+                }
+                LookupNode::Id(id) => {
+                    // Map access
+                    let map_register = *node_registers.last().expect("Empty node registers");
+
+                    if is_last_node {
+                        if let Some(set_value) = set_value {
+                            self.compile_map_insert(map_register, set_value, *id);
+                        } else if let Some(result) = result {
+                            self.compile_map_access(result.register, map_register, *id);
                         }
                     } else {
-                        // Map access
-                        let map_register = *node_registers.last().expect("Empty node registers");
-
-                        if is_last_node {
-                            if let Some(set_value) = set_value {
-                                self.compile_map_insert(map_register, set_value, *id);
-                            } else if let Some(result) = result {
-                                self.compile_map_access(result.register, map_register, *id);
-                            }
-                        } else {
-                            let node_register = self.push_register()?;
-                            node_registers.push(node_register);
-                            self.compile_map_access(node_register, map_register, *id);
-                        }
+                        let node_register = self.push_register()?;
+                        node_registers.push(node_register);
+                        self.compile_map_access(node_register, map_register, *id);
                     }
                 }
                 LookupNode::Index(index_node) => {
