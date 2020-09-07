@@ -169,6 +169,13 @@ pub fn make_module() -> ValueMap {
         })
     });
 
+    result.add_fn("reverse", |_, args: &[Value]| {
+        list_op(args, 1, "sort", |list| {
+            list.data_mut().reverse();
+            Ok(Value::Empty)
+        })
+    });
+
     result.add_fn("sort", |_, args: &[Value]| {
         list_op(args, 1, "sort", |list| {
             list.data_mut().sort();

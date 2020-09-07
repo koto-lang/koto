@@ -82,3 +82,8 @@ assert_eq z [1 2 3]
 a = [1 2 3]
 a.fill 42
 assert_eq a [42 42 42]
+
+###### list.reverse
+a = [1 2 3]
+a.reverse()
+assert_eq a [3 2 1]
