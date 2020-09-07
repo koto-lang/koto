@@ -24,12 +24,14 @@ pub enum ControlFlow {
 #[derive(Clone)]
 struct CoreLib {
     list: ValueMap,
+    map: ValueMap,
 }
 
 impl Default for CoreLib {
     fn default() -> Self {
         Self {
             list: core::list::make_module(),
+            map: core::map::make_module(),
         }
     }
 }
@@ -54,6 +56,7 @@ impl Vm {
 
         let mut prelude = ValueMap::default();
         prelude.add_map("list", core_lib.list.clone());
+        prelude.add_map("map", core_lib.map.clone());
 
         Self {
             core_lib,
@@ -1641,12 +1644,35 @@ impl Vm {
                     self.set_register(result_register, value.clone());
                 }
                 None => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Map entry '{}' not found",
-                        key_string,
-                    );
+                    let maybe_map_op = self
+                        .core_lib
+                        .map
+                        .data()
+                        .get_with_string(&key_string)
+                        .cloned();
+                    match maybe_map_op {
+                        Some(map_op) => match map_op {
+                            ExternalFunction(f) => {
+                                let f_as_instance_function = external::ExternalFunction {
+                                    is_instance_function: true,
+                                    ..f.clone()
+                                };
+                                self.set_register(
+                                    result_register,
+                                    Value::ExternalFunction(f_as_instance_function),
+                                );
+                            }
+                            other => self.set_register(result_register, other.clone()),
+                        },
+                        None => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Map entry '{}' not found",
+                                key_string,
+                            );
+                        }
+                    }
                 }
             },
             List(_) => {

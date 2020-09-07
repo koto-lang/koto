@@ -4,39 +4,44 @@ from test import assert assert_eq
 m = { foo: 42 }
 
 # map.insert can be used to add or replace values to a map
-old_value = map.insert m "foo" 99
+old_value = m.insert "foo" 99
 assert_eq m.foo 99
 assert_eq old_value 42
+# map ops are also available in the map module,
+# which allows access to ops when a key might have a matching name.
+map.insert m "foo" -1
+assert_eq m.foo -1
 
 # map.insert without a value inserts ()
-old_value = map.insert m "foo"
+old_value = m.insert "foo"
 assert "foo" in m
 assert_eq m.foo ()
-assert_eq old_value 99
+assert_eq old_value -1
 
 # map.insert can also insert non-string values as keys
-map.insert m 1 "one"
-map.insert m 2 "two"
+m.insert 1 "one"
+m.insert 2 "two"
 
 # map.get returns the corresponding value if the key is present
-assert_eq (map.get m 1) "one"
-assert_eq (map.get m 3) ()
+assert_eq (m.get 1) "one"
+assert_eq (m.get 3) ()
 
 # map.contains_key can be used to check for the presence of a key
-assert (map.contains_key m 1)
-assert not (map.contains_key m 3)
+# (see also the 'in' operator)
+assert (m.contains_key 1)
+assert not (m.contains_key 3)
 
 # map.remove removes a value from the map if present
-assert_eq (map.remove m 1) "one"
-assert_eq (map.remove m 2) "two"
-assert_eq (map.remove m 1) ()
+assert_eq (m.remove 1) "one"
+assert_eq (m.remove 2) "two"
+assert_eq (m.remove 1) ()
 
 # map.keys
-assert_eq (map.keys m) ["foo"]
-map.insert m 0 "zero"
-assert_eq (map.keys m) ["foo" 0]
+assert_eq m.keys() ["foo"]
+m.insert 0 "zero"
+assert_eq m.keys() ["foo" 0]
 
 # map.values
-assert_eq (map.values m) [() "zero"]
+assert_eq m.values() [() "zero"]
 m.foo = 123
-assert_eq (map.values m) [123 "zero"]
+assert_eq m.values() [123 "zero"]
