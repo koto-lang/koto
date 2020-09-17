@@ -2212,78 +2212,85 @@ impl Compiler {
         for (arm_index, arm) in arms.iter().enumerate() {
             let mut arm_jump_placeholders = Vec::new();
 
-            for (pattern_index, pattern) in arm.patterns.iter().enumerate() {
-                let pattern_node = ast.node(*pattern);
+            for arm_pattern in arm.patterns.iter() {
+                let patterns = match &ast.node(*arm_pattern).node {
+                    Node::Expressions(patterns) => patterns.clone(),
+                    _ => vec![*arm_pattern],
+                };
 
-                match pattern_node.node {
-                    Node::Empty
-                    | Node::BoolTrue
-                    | Node::BoolFalse
-                    | Node::Number0
-                    | Node::Number1
-                    | Node::Number(_)
-                    | Node::Str(_) => {
-                        let pattern_register = self.push_register()?;
-                        self.compile_node(
-                            ResultRegister::Fixed(pattern_register),
-                            pattern_node,
-                            ast,
-                        )?;
-                        let comparison_register = self.push_register()?;
+                for (pattern_index, pattern) in patterns.iter().enumerate() {
+                    let pattern_node = ast.node(*pattern);
 
-                        if arm.patterns.len() == 1 {
-                            self.push_op_without_span(
-                                Equal,
-                                &[
-                                    comparison_register,
-                                    pattern_register,
-                                    match_register.register,
-                                ],
-                            );
-                        } else {
-                            let element_register = self.push_register()?;
+                    match pattern_node.node {
+                        Node::Empty
+                        | Node::BoolTrue
+                        | Node::BoolFalse
+                        | Node::Number0
+                        | Node::Number1
+                        | Node::Number(_)
+                        | Node::Str(_) => {
+                            let pattern_register = self.push_register()?;
+                            self.compile_node(
+                                ResultRegister::Fixed(pattern_register),
+                                pattern_node,
+                                ast,
+                            )?;
+                            let comparison_register = self.push_register()?;
 
-                            self.push_op_without_span(
-                                ValueIndex,
-                                &[
-                                    element_register,
-                                    match_register.register,
-                                    pattern_index as u8,
-                                ],
-                            );
+                            if patterns.len() == 1 {
+                                self.push_op_without_span(
+                                    Equal,
+                                    &[
+                                        comparison_register,
+                                        pattern_register,
+                                        match_register.register,
+                                    ],
+                                );
+                            } else {
+                                let element_register = self.push_register()?;
 
-                            self.push_op_without_span(
-                                Equal,
-                                &[comparison_register, pattern_register, element_register],
-                            );
+                                self.push_op_without_span(
+                                    ValueIndex,
+                                    &[
+                                        element_register,
+                                        match_register.register,
+                                        pattern_index as u8,
+                                    ],
+                                );
 
-                            self.pop_register()?; // element_register
+                                self.push_op_without_span(
+                                    Equal,
+                                    &[comparison_register, pattern_register, element_register],
+                                );
+
+                                self.pop_register()?; // element_register
+                            }
+
+                            self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
+                            arm_jump_placeholders.push(self.push_offset_placeholder());
+
+                            self.pop_register()?; // comparison_register
+                            self.pop_register()?; // pattern_register
                         }
+                        Node::Id(id) => {
+                            self.span_stack.push(*ast.span(pattern_node.span));
 
-                        self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
-                        arm_jump_placeholders.push(self.push_offset_placeholder());
+                            let id_register = self.assign_local_register(id)?;
+                            if patterns.len() == 1 {
+                                self.push_op(Copy, &[id_register, match_register.register]);
+                            } else {
+                                self.push_op(
+                                    ValueIndex,
+                                    &[id_register, match_register.register, pattern_index as u8],
+                                );
+                            }
 
-                        self.pop_register()?; // comparison_register
-                        self.pop_register()?; // pattern_register
-                    }
-                    Node::Id(id) => {
-                        self.span_stack.push(*ast.span(pattern_node.span));
-
-                        let id_register = self.assign_local_register(id)?;
-                        if arm.patterns.len() == 1 {
-                            self.push_op(Copy, &[id_register, match_register.register]);
-                        } else {
-                            self.push_op(
-                                ValueIndex,
-                                &[id_register, match_register.register, pattern_index as u8],
-                            );
+                            self.span_stack.pop();
                         }
-
-                        self.span_stack.pop();
-                    }
-                    Node::Wildcard => {}
-                    _ => {
-                        return compiler_error!(self, "Internal error: invalid match pattern");
+                        Node::Wildcard => {}
+                        _ => {
+                            return compiler_error!(self, "Internal error: invalid match pattern");
+                        }
                     }
                 }
             }

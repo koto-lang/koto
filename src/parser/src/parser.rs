@@ -1591,9 +1591,13 @@ impl<'source> Parser<'source> {
                 }
             }
 
-            if patterns.is_empty() {
+            let pattern = match patterns.as_slice() {
+                [] => {
                 return syntax_error!(ExpectedMatchPattern, self);
-            }
+                }
+                [single] => *single,
+                _ => self.push_node(Node::Expressions(patterns))?
+            };
 
             let condition = if self.skip_whitespace_and_peek() == Some(Token::If) {
                 self.consume_token();
@@ -1620,7 +1624,7 @@ impl<'source> Parser<'source> {
             };
 
             arms.push(MatchArm {
-                patterns,
+                patterns: vec![pattern],
                 condition,
                 expression,
             });
@@ -4796,35 +4800,37 @@ match x, y
                     Expressions(vec![0, 1]),
                     Number0,
                     Number1,
-                    Id(2), // 5
+                    Expressions(vec![3, 4]), // 5
+                    Id(2),
                     Number0,
                     Id(3),
                     Empty,
+                    Expressions(vec![8, 9]), // 10
                     Id(3),
-                    Wildcard, // 10
+                    Wildcard,
                     Number0,
                     Match {
                         expression: 2,
                         arms: vec![
                             MatchArm {
-                                patterns: vec![3, 4],
-                                condition: Some(5),
-                                expression: 6,
-                            },
-                            MatchArm {
-                                patterns: vec![7, 8],
-                                condition: None,
-                                expression: 9,
+                                patterns: vec![5],
+                                condition: Some(6),
+                                expression: 7,
                             },
                             MatchArm {
                                 patterns: vec![10],
                                 condition: None,
                                 expression: 11,
                             },
+                            MatchArm {
+                                patterns: vec![12],
+                                condition: None,
+                                expression: 13,
+                            },
                         ],
                     },
                     MainBlock {
-                        body: vec![12],
+                        body: vec![14],
                         local_count: 1,
                     },
                 ],
