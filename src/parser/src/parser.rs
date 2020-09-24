@@ -1077,14 +1077,6 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
-                Token::Size => {
-                    self.consume_token();
-                    if let Some(expression) = self.parse_primary_expression()? {
-                        self.push_node(Node::Size(expression))?
-                    } else {
-                        return syntax_error!(ExpectedExpression, self);
-                    }
-                }
                 Token::Type => {
                     self.consume_token();
                     if let Some(expression) = self.parse_primary_expression()? {

@@ -4,7 +4,7 @@ endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
 syntax keyword kotoKeywords
-  \ catch copy debug export finally from import not num2 num4 return self size try type
+  \ catch copy debug export finally from import not num2 num4 return self try type
 syntax keyword kotoConditionals if else match then
 syntax keyword kotoRepeating break continue for in until while
 syntax keyword kotoStdLib

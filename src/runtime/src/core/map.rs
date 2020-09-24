@@ -47,6 +47,11 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("map.remove: Expected map and key as arguments"),
     });
 
+    result.add_fn("size", |_, args| match args {
+        [Map(m)] => Ok(Number(m.data().len() as f64)),
+        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+    });
+
     result.add_fn("values", |_, args| match args {
         [Map(m)] => Ok(List(ValueList::with_data(
             m.data().values().cloned().collect::<ValueVec>(),

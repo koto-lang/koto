@@ -127,7 +127,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("is_sortable", |_, args: &[Value]| {
-        list_op(args, 1, "is_sortable", |list| Ok(Bool(list_is_sortable(list))))
+        list_op(args, 1, "is_sortable", |list| {
+            Ok(Bool(list_is_sortable(list)))
+        })
+    });
+
+    result.add_fn("length", |_, args: &[Value]| {
+        list_op(args, 1, "is_sortable", |list| Ok(Number(list.len() as f64)))
     });
 
     result.add_fn("pop", |_, args: &[Value]| {

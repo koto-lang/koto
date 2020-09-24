@@ -28,9 +28,6 @@ for key, value in m
   assert_ne key ()
   assert_ne value ()
 
-# size returns number of map entries
-assert_eq (size m) 3
-
 # Quoted strings can be used for keys that would otherwise be disallowed
 x = {"for": -1, "while": 99, "20": "twenty"}
 assert_eq x."for" -1

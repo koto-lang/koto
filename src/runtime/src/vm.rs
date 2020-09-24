@@ -916,30 +916,6 @@ impl Vm {
                     result = ControlFlow::ReturnValue(return_value);
                 }
             }
-            Instruction::Size { register, source } => {
-                let size = match self.get_register(source) {
-                    Empty => 0.0,
-                    List(list) => list.data().len() as f64,
-                    Map(map) => map.data().len() as f64,
-                    Range(IntRange { start, end }) => {
-                        (if end >= start {
-                            end - start
-                        } else {
-                            start - end
-                        }) as f64
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "size - '{}' is unsupported",
-                            unexpected
-                        );
-                    }
-                };
-
-                self.set_register(register, Number(size));
-            }
             Instruction::Type { register, source } => {
                 let result = match self.get_register(source) {
                     Bool(_) => "bool".to_string(),
@@ -2473,16 +2449,6 @@ l2[1]";
         }
 
         #[test]
-        fn size() {
-            let script = "
-a = []
-b = [1 2 3]
-c = [0..10]
-[(size a) (size b) (size c)]";
-            test_script(script, number_list(&[0, 3, 10]));
-        }
-
-        #[test]
         fn in_operator() {
             let script = r#"
 assert -1 in [2 -1 5]
@@ -3240,14 +3206,6 @@ m2 = copy m
 m.foo = -1
 m2.foo";
             test_script(script, Number(42.0));
-        }
-
-        #[test]
-        fn size() {
-            let script = "
-m = {foo: 42, bar: 0, baz: 1}
-size m";
-            test_script(script, Number(3.0));
         }
 
         #[test]

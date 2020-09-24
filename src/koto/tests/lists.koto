@@ -9,8 +9,6 @@ assert_ne z []
 
 assert_eq (z + z) [10 20 30 10 20 30]
 
-assert_eq 3 (size z)
-
 a, b, c = [10 20 30 40]
 assert a == 10 and b == 20 and c == 30
 

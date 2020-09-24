@@ -1,6 +1,6 @@
 import env
 
-enumerate = |xs| [[i x] for i, x in 0..size(xs), xs]
+enumerate = |xs| [[i x] for i, x in 0..xs.length(), xs]
 
 export main = ||
   n = match env.args.get 0
@@ -9,4 +9,4 @@ export main = ||
 
   a = []
   for i in 0..n
-    a = [[c d] for c, d in (enumerate 10..20)]
+    a = [[c d] for c, d in (enumerate [10..20])]

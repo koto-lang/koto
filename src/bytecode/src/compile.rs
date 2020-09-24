@@ -635,9 +635,6 @@ impl Compiler {
                     }
                 }
             }
-            Node::Size(expression) => {
-                self.compile_source_target_op(Size, result_register, *expression, ast)?
-            }
             Node::Type(expression) => {
                 self.compile_source_target_op(Type, result_register, *expression, ast)?
             }

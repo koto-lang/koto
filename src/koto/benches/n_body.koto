@@ -103,7 +103,7 @@ export main = ||
     () then 100
     arg then arg.to_number()
 
-  nbody = size bodies
+  nbody = bodies.length()
 
   offset_momentum bodies nbody
 

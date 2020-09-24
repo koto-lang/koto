@@ -84,11 +84,11 @@ pub enum Op {
     MapInsertLong,    // map register, value register, key constant[4]
     MapAccess,        // register, map register, key
     MapAccessLong,    // register, map register, key[4]
-    Size,             // register
     Type,             // register
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
+    Unused71,
     Unused72,
     Unused73,
     Unused74,

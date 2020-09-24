@@ -3,6 +3,9 @@ from test import assert assert_eq
 
 m = { foo: 42 }
 
+# map.size returns the number of entries in the map
+assert_eq m.size() 1
+
 # map.insert can be used to add or replace values to a map
 old_value = m.insert "foo" 99
 assert_eq m.foo 99
