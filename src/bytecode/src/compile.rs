@@ -2239,6 +2239,7 @@ impl Compiler {
                         | Node::Number0
                         | Node::Number1
                         | Node::Number(_)
+                        | Node::List(_)
                         | Node::Str(_) => {
                             let pattern_register = self.push_register()?;
                             self.compile_node(

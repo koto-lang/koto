@@ -1676,6 +1676,7 @@ impl<'source> Parser<'source> {
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
+                ListStart => return self.parse_list(false),
                 Wildcard => {
                     self.consume_token();
                     Some(self.push_node(Node::Wildcard)?)
@@ -4724,7 +4725,7 @@ finally
             let source = r#"
 x = match y
   0 or 1 then 42
-  "foo" or "bar" then 99
+  "foo" or ["bar"] then 99
   z if z < 10
     123
   z then -1
@@ -4739,18 +4740,19 @@ x = match y
                     Number(2),
                     Str(3), // 5
                     Str(4),
+                    List(vec![6]),
                     Number(5),
                     Id(6),
-                    Id(6),
-                    Number(7),// 10
+                    Id(6), // 10
+                    Number(7),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 9,
-                        rhs: 10,
+                        lhs: 10,
+                        rhs: 11,
                     },
                     Number(8),
                     Id(6),
-                    Number(9),
+                    Number(9), // 15
                     Match {
                         expression: 1,
                         arms: vec![
@@ -4760,32 +4762,32 @@ x = match y
                                 expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![5, 6],
+                                patterns: vec![5, 7],
                                 condition: None,
-                                expression: 7,
+                                expression: 8,
                             },
                             MatchArm {
-                                patterns: vec![8],
-                                condition: Some(11),
-                                expression: 12,
+                                patterns: vec![9],
+                                condition: Some(12),
+                                expression: 13,
                             },
                             MatchArm {
-                                patterns: vec![13],
+                                patterns: vec![14],
                                 condition: None,
-                                expression: 14,
+                                expression: 15,
                             },
                         ],
-                    }, // 15
+                    },
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 15,
+                        expression: 16,
                     },
                     MainBlock {
-                        body: vec![16],
+                        body: vec![17],
                         local_count: 2,
                     },
                 ],
