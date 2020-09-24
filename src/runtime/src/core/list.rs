@@ -61,6 +61,13 @@ pub fn make_module() -> ValueMap {
         })
     });
 
+    result.add_fn("first", |_, args: &[Value]| {
+        list_op(args, 1, "first", |list| match list.data().first() {
+            Some(value) => Ok(value.clone()),
+            None => Ok(Value::Empty),
+        })
+    });
+
     result.add_fn("fold", |runtime, args| {
         list_op(args, 3, "fold", |list| match &args {
             [_, result, Function(f)] => {
@@ -129,6 +136,13 @@ pub fn make_module() -> ValueMap {
     result.add_fn("is_sortable", |_, args: &[Value]| {
         list_op(args, 1, "is_sortable", |list| {
             Ok(Bool(list_is_sortable(list)))
+        })
+    });
+
+    result.add_fn("last", |_, args: &[Value]| {
+        list_op(args, 1, "last", |list| match list.data().last() {
+            Some(value) => Ok(value.clone()),
+            None => Ok(Value::Empty),
         })
     });
 

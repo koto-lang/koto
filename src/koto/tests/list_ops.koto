@@ -23,6 +23,18 @@ list.pop z
 assert_eq z []
 
 
+###### list.first + last
+z = []
+assert_eq z.first() ()
+assert_eq z.last() ()
+
+z = [99]
+assert_eq z.first() 99
+assert_eq z.last() 99
+
+z = [1 2 3]
+assert_eq z.first() 1
+assert_eq z.last() 3
 
 
 ###### list.remove + insert
