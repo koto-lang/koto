@@ -11,7 +11,7 @@ test:
   cargo watch -x "test --lib --test koto_tests"
 
 test_all:
-  cargo watch -x "test --tests"
+  cargo watch -x "test --all-targets"
 
 test_benches:
   cargo watch -x "test --benches"

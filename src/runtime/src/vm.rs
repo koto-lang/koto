@@ -2635,6 +2635,19 @@ x
         }
 
         #[test]
+        fn match_multiple() {
+            let script = r#"
+x = 11
+match x % 3, x % 5
+  0, 0 then "Fizz Buzz"
+  0, _ then "Fizz"
+  _, 0 then "Buzz"
+  _ then x
+"#;
+            test_script(script, Number(11.0));
+        }
+
+        #[test]
         fn match_with_condition() {
             let script = r#"
 x = "hello"
@@ -2649,16 +2662,41 @@ match x
         }
 
         #[test]
-        fn match_multiple() {
-            let script = r#"
-x = 11
-match x % 3, x % 5
-  0, 0 then "Fizz Buzz"
-  0, _ then "Fizz"
-  _, 0 then "Buzz"
-  _ then x
-"#;
-            test_script(script, Number(11.0));
+        fn match_on_alternative() {
+            let script = "
+match 42
+  1 or 2 then 11
+  3 or 4 or 5 then 22
+  21 or 42 then 33
+  _ then 44
+";
+            test_script(script, Number(33.0));
+        }
+
+        #[test]
+        fn match_on_multiple_expressions_with_alternatives_wildcard() {
+            let script = "
+match 0, 1
+  0, 0 or 1, 1 then -1
+  _, 0 or _, 99 then -2
+  x, 0 or x, 123 then -3
+  0, _ or 1, _ then -4 # The first alternative (0, _) should match
+  _ then -5
+";
+            test_script(script, Number(-4.0));
+        }
+
+        #[test]
+        fn match_on_multiple_expressions_with_alternatives_id() {
+            let script = "
+match 0, 1
+  0, 0 or 1, 1 then -1
+  _, 0 or _, 99 then -2
+  x, 1 or x, 123 then -3 # The first alternative (x, 1) should match
+  0, _ or 1, _ then -4
+  _ then -5
+";
+            test_script(script, Number(-3.0));
         }
 
         #[test]

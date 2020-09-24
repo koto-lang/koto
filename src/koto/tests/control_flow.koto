@@ -46,3 +46,12 @@ fizz_buzz = |n|
 
 x = [fizz_buzz n for n in 10..=15]
 assert_eq x ["Buzz" 11 "Fizz" 13 14 "Fizz Buzz"]
+
+# match with alternative patterns
+inspect = |n|
+  match n
+    x if x < 0 then "negative"
+    0 or 2 or 4 or 6 or 8 then "even"
+    1 or 3 or 5 or 7 or 9 then "odd"
+    _ then ">= 10"
+assert_eq (inspect 7) "odd"

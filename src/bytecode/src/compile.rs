@@ -2210,15 +2210,26 @@ impl Compiler {
         let mut result_jump_placeholders = Vec::new();
 
         for (arm_index, arm) in arms.iter().enumerate() {
-            let mut arm_jump_placeholders = Vec::new();
+            let last_arm = arm_index == arms.len() - 1;
 
-            for arm_pattern in arm.patterns.iter() {
+            // Jumps to the end of the arm
+            let mut arm_end_jump_placeholders = Vec::new();
+            // Jumps to the end of the arm's match patterns,
+            // used after a successful match to skip over remaining alternatives
+            let mut match_end_jump_placeholders = Vec::new();
+
+            for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
+                let last_alternative = alternative_index == arm.patterns.len() - 1;
+
+                let mut next_alternative_jump_placeholder = None;
+
                 let patterns = match &ast.node(*arm_pattern).node {
                     Node::Expressions(patterns) => patterns.clone(),
                     _ => vec![*arm_pattern],
                 };
 
                 for (pattern_index, pattern) in patterns.iter().enumerate() {
+                    let last_pattern = pattern_index == patterns.len() - 1;
                     let pattern_node = ast.node(*pattern);
 
                     match pattern_node.node {
@@ -2266,8 +2277,23 @@ impl Compiler {
                                 self.pop_register()?; // element_register
                             }
 
-                            self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
-                            arm_jump_placeholders.push(self.push_offset_placeholder());
+                            if last_alternative {
+                                // If there's no match on the last alternative,
+                                // then jump to the end of the arm
+                                self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
+                                arm_end_jump_placeholders.push(self.push_offset_placeholder());
+                            } else if last_pattern {
+                                // If there's a match with remaining alternative matches,
+                                // then jump to the end of the alternatives
+                                self.push_op_without_span(Op::JumpTrue, &[comparison_register]);
+                                match_end_jump_placeholders.push(self.push_offset_placeholder());
+                            } else {
+                                // If there's no match but there remaining alternative matches,
+                                // then jump to the next alternative
+                                self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
+                                next_alternative_jump_placeholder =
+                                    Some(self.push_offset_placeholder());
+                            }
 
                             self.pop_register()?; // comparison_register
                             self.pop_register()?; // pattern_register
@@ -2285,14 +2311,37 @@ impl Compiler {
                                 );
                             }
 
+                            if last_pattern && !last_alternative {
+                                // Ids match unconditionally, so if we're at the end of a
+                                // multi-expression match, then skip over the remaining alternatives
+                                self.push_op_without_span(Op::Jump, &[]);
+                                match_end_jump_placeholders.push(self.push_offset_placeholder());
+                            }
+
                             self.span_stack.pop();
                         }
-                        Node::Wildcard => {}
+                        Node::Wildcard => {
+                            if last_pattern && !last_alternative {
+                                // Wildcards match unconditionally, so if we're at the end of a
+                                // multi-expression match, then skip over the remaining alternatives
+                                self.push_op_without_span(Op::Jump, &[]);
+                                match_end_jump_placeholders.push(self.push_offset_placeholder());
+                            }
+                        }
                         _ => {
                             return compiler_error!(self, "Internal error: invalid match pattern");
                         }
                     }
                 }
+
+                if let Some(jump_placeholder) = next_alternative_jump_placeholder {
+                    self.update_offset_placeholder(jump_placeholder);
+                }
+            }
+
+            // Update the match end jump placeholders before the condition
+            for jump_placeholder in match_end_jump_placeholders.iter() {
+                self.update_offset_placeholder(*jump_placeholder);
             }
 
             if let Some(condition) = arm.condition {
@@ -2301,7 +2350,7 @@ impl Compiler {
                     .unwrap();
 
                 self.push_op(Op::JumpFalse, &[condition_register.register]);
-                arm_jump_placeholders.push(self.push_offset_placeholder());
+                arm_end_jump_placeholders.push(self.push_offset_placeholder());
 
                 if condition_register.is_temporary {
                     self.pop_register()?;
@@ -2316,12 +2365,12 @@ impl Compiler {
 
             self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
 
-            if arm_index < arms.len() - 1 {
+            if !last_arm {
                 self.push_op_without_span(Op::Jump, &[]);
                 result_jump_placeholders.push(self.push_offset_placeholder());
             }
 
-            for jump_placeholder in arm_jump_placeholders.iter() {
+            for jump_placeholder in arm_end_jump_placeholders.iter() {
                 self.update_offset_placeholder(*jump_placeholder);
             }
         }
