@@ -1581,17 +1581,39 @@ impl<'source> Parser<'source> {
         let mut arms = Vec::new();
 
         while self.peek_token().is_some() {
-            let mut patterns = Vec::new();
+            // Match patterns for a single arm, with alternatives separated by 'or'
+            // e.g. match x, y
+            //   0, 1 then ...
+            //   2, 3 or 4, 5 then ...
+            //   other then ...
+            let mut arm_patterns = Vec::new();
+            let mut expected_arm_count = 1;
 
             while let Some(pattern) = self.parse_match_pattern()? {
-                patterns.push(pattern);
+                // Match patterns, separated by commas in the case of matching multi-expressions
+                let mut patterns = vec![pattern];
 
-                if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                while let Some(Token::Separator) = self.skip_whitespace_and_peek() {
                     self.consume_token();
+
+                    match self.parse_match_pattern()? {
+                        Some(pattern) => patterns.push(pattern),
+                        None => return syntax_error!(ExpectedMatchPattern, self),
+                    }
+                }
+
+                arm_patterns.push(match patterns.as_slice() {
+                    [single_pattern] => *single_pattern,
+                    _ => self.push_node(Node::Expressions(patterns))?,
+                });
+
+                if let Some(Token::Or) = self.skip_whitespace_and_peek() {
+                    self.consume_token();
+                    expected_arm_count += 1;
                 }
             }
 
-            if patterns.is_empty() {
+            if arm_patterns.len() != expected_arm_count {
                 return syntax_error!(ExpectedMatchPattern, self);
             }
 
@@ -1620,7 +1642,7 @@ impl<'source> Parser<'source> {
             };
 
             arms.push(MatchArm {
-                patterns,
+                patterns: arm_patterns,
                 condition,
                 expression,
             });
@@ -1654,6 +1676,7 @@ impl<'source> Parser<'source> {
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
+                ListStart => return self.parse_list(false),
                 Wildcard => {
                     self.consume_token();
                     Some(self.push_node(Node::Wildcard)?)
@@ -4699,10 +4722,10 @@ finally
 
         #[test]
         fn match_single_expression() {
-            let source = r#"\
+            let source = r#"
 x = match y
-  0 then 42
-  "foo" then 99
+  0 or 1 then 42
+  "foo" or ["bar"] then 99
   z if z < 10
     123
   z then -1
@@ -4713,42 +4736,45 @@ x = match y
                     Id(0),
                     Id(1),
                     Number0,
+                    Number1,
                     Number(2),
-                    Str(3),
-                    Number(4), // index 5
-                    Id(5),
-                    Id(5),
-                    Number(6),
+                    Str(3), // 5
+                    Str(4),
+                    List(vec![6]),
+                    Number(5),
+                    Id(6),
+                    Id(6), // 10
+                    Number(7),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 7,
-                        rhs: 8,
+                        lhs: 10,
+                        rhs: 11,
                     },
-                    Number(7), // 10
-                    Id(5),
                     Number(8),
+                    Id(6),
+                    Number(9), // 15
                     Match {
                         expression: 1,
                         arms: vec![
                             MatchArm {
-                                patterns: vec![2],
+                                patterns: vec![2, 3],
                                 condition: None,
-                                expression: 3,
+                                expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![4],
+                                patterns: vec![5, 7],
                                 condition: None,
-                                expression: 5,
+                                expression: 8,
                             },
                             MatchArm {
-                                patterns: vec![6],
-                                condition: Some(9),
-                                expression: 10,
+                                patterns: vec![9],
+                                condition: Some(12),
+                                expression: 13,
                             },
                             MatchArm {
-                                patterns: vec![11],
+                                patterns: vec![14],
                                 condition: None,
-                                expression: 12,
+                                expression: 15,
                             },
                         ],
                     },
@@ -4758,10 +4784,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 13,
+                        expression: 16,
                     },
                     MainBlock {
-                        body: vec![14],
+                        body: vec![17],
                         local_count: 2,
                     },
                 ],
@@ -4770,6 +4796,7 @@ x = match y
                     Constant::Str("y"),
                     Constant::Number(42.0),
                     Constant::Str("foo"),
+                    Constant::Str("bar"),
                     Constant::Number(99.0),
                     Constant::Str("z"),
                     Constant::Number(10.0),
@@ -4781,13 +4808,13 @@ x = match y
 
         #[test]
         fn match_multi_expression() {
-            let source = r#"\
+            let source = "
 match x, y
-  0, 1 if z then 0
+  0, 1 or 2, 3 if z then 0
   a, ()
     a
   _ then 0
-"#;
+";
             check_ast(
                 source,
                 &[
@@ -4796,41 +4823,48 @@ match x, y
                     Expressions(vec![0, 1]),
                     Number0,
                     Number1,
-                    Id(2), // 5
-                    Number0,
-                    Id(3),
+                    Expressions(vec![3, 4]), // 5
+                    Number(2),
+                    Number(3),
+                    Expressions(vec![6, 7]),
+                    Id(4),
+                    Number0, // 10
+                    Id(5),
                     Empty,
-                    Id(3),
-                    Wildcard, // 10
+                    Expressions(vec![11, 12]),
+                    Id(5),
+                    Wildcard, // 15
                     Number0,
                     Match {
                         expression: 2,
                         arms: vec![
                             MatchArm {
-                                patterns: vec![3, 4],
-                                condition: Some(5),
-                                expression: 6,
+                                patterns: vec![5, 8],
+                                condition: Some(9),
+                                expression: 10,
                             },
                             MatchArm {
-                                patterns: vec![7, 8],
+                                patterns: vec![13],
                                 condition: None,
-                                expression: 9,
+                                expression: 14,
                             },
                             MatchArm {
-                                patterns: vec![10],
+                                patterns: vec![15],
                                 condition: None,
-                                expression: 11,
+                                expression: 16,
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![12],
+                        body: vec![17],
                         local_count: 1,
                     },
                 ],
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("y"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
                     Constant::Str("z"),
                     Constant::Str("a"),
                 ]),
