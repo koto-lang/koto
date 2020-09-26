@@ -106,24 +106,31 @@ impl Koto {
 
         if self.settings.repl_mode {
             Ok(result)
-        } else if self.settings.run_tests {
-            match self.runtime.get_global_value("tests") {
-                Some(Value::Map(tests)) => self
-                    .runtime
-                    .run_tests(tests)
-                    .map_err(|e| self.format_error(e)),
-                Some(other) => Err(format!(
-                    "Expected a Map for the exported 'tests' value, found '{}'",
-                    type_as_string(&other)
-                )),
-                None => Ok(result),
-            }
-        } else if let Some(main) = self.runtime.get_global_function("main") {
-            self.runtime
-                .run_function(&main, &[])
-                .map_err(|e| self.format_error(e))
         } else {
-            Ok(result)
+            if self.settings.run_tests {
+                let _test_result = match self.runtime.get_global_value("tests") {
+                    Some(Value::Map(tests)) => {
+                        if let Err(error) = self.runtime.run_tests(tests) {
+                            return Err(self.format_error(error));
+                        }
+                    }
+                    Some(other) => {
+                        return Err(format!(
+                            "Expected a Map for the exported 'tests', found '{}'",
+                            type_as_string(&other)
+                        ))
+                    }
+                    None => {}
+                };
+            }
+
+            if let Some(main) = self.runtime.get_global_function("main") {
+                self.runtime
+                    .run_function(&main, &[])
+                    .map_err(|e| self.format_error(e))
+            } else {
+                Ok(result)
+            }
         }
     }
 
