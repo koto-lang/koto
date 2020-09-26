@@ -189,6 +189,13 @@ impl ValueMap {
     pub fn add_value(&mut self, id: &str, value: Value) {
         self.insert(id.into(), value);
     }
+
+    // An iterator that clones the map's keys and values
+    //
+    // Useful for avoiding holding on to the underlying RwLock while iterating
+    pub fn cloned_iter(&self) -> ValueMapIter {
+        ValueMapIter::new(&self.0)
+    }
 }
 
 impl fmt::Display for ValueMap {
@@ -212,3 +219,28 @@ impl PartialEq for ValueMap {
     }
 }
 impl Eq for ValueMap {}
+
+pub struct ValueMapIter<'map> {
+    map: &'map RwLock<ValueHashMap>,
+    index: usize,
+}
+
+impl<'map> ValueMapIter<'map> {
+    fn new(map: &'map RwLock<ValueHashMap>) -> Self {
+        Self { map, index: 0 }
+    }
+}
+
+impl<'map> Iterator for ValueMapIter<'map> {
+    type Item = (Value, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.map.read().unwrap().get_index(self.index) {
+            Some((key, value)) => {
+                self.index += 1;
+                Some((key.clone(), value.clone()))
+            }
+            None => None,
+        }
+    }
+}

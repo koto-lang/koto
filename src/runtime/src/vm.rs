@@ -171,13 +171,7 @@ impl Vm {
         let pre_test = tests.data().get(&"pre_test".into()).cloned();
         let post_test = tests.data().get(&"post_test".into()).cloned();
 
-        for key_index in 0..tests.len() {
-            let (key, value) = tests
-                .data()
-                .get_index(key_index)
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .unwrap();
-
+        for (key, value) in tests.cloned_iter() {
             match (key, value) {
                 (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
                     let wrap_error_message = |error, wrapper_message| {
