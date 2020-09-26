@@ -92,7 +92,7 @@ impl Vm {
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.global.data().get(&id.into()).cloned()
+        self.global.data().get_with_string(id).cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
@@ -168,8 +168,8 @@ impl Vm {
         // test map data while calling the test functions, otherwise we'll end up in deadlocks.
         let self_arg = [Value::Map(tests.clone())];
 
-        let pre_test = tests.data().get(&"pre_test".into()).cloned();
-        let post_test = tests.data().get(&"post_test".into()).cloned();
+        let pre_test = tests.data().get_with_string("pre_test").cloned();
+        let post_test = tests.data().get_with_string("post_test").cloned();
 
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
@@ -333,8 +333,8 @@ impl Vm {
                 self.set_register(register, Str(string))
             }
             Instruction::LoadGlobal { register, constant } => {
-                let global_name = self.arc_string_from_constant(constant);
-                let global = self.global.data().get(&Str(global_name.clone())).cloned();
+                let global_name = self.get_constant_string(constant);
+                let global = self.global.data().get_with_string(global_name).cloned();
                 match global {
                     Some(value) => self.set_register(register, value),
                     None => {
@@ -1175,31 +1175,32 @@ impl Vm {
         import_constant: ConstantIndex,
         instruction_ip: usize,
     ) -> Result<(), Error> {
-        let import_name = Value::Str(self.arc_string_from_constant(import_constant));
+        let import_name = self.arc_string_from_constant(import_constant);
 
-        let maybe_global = self.global.data().get(&import_name).cloned();
+        let maybe_global = self.global.data().get_with_string(&import_name).cloned();
         if let Some(value) = maybe_global {
             self.set_register(result_register, value);
         } else {
-            let maybe_in_prelude = self.prelude.data().get(&import_name).cloned();
+            let maybe_in_prelude = self.prelude.data().get_with_string(&import_name).cloned();
             if let Some(value) = maybe_in_prelude {
                 self.set_register(result_register, value);
             } else {
-                let module_name = self.get_constant_string(import_constant).to_string();
                 let source_path = self.reader.chunk.source_path.clone();
-                let (module_chunk, module_path) =
-                    match self.loader.compile_module(&module_name, source_path) {
-                        Ok(chunk) => chunk,
-                        Err(e) => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Failed to import '{}': {}",
-                                import_name,
-                                e.message
-                            )
-                        }
-                    };
+                let (module_chunk, module_path) = match self
+                    .loader
+                    .compile_module(&import_name.as_str(), source_path)
+                {
+                    Ok(chunk) => chunk,
+                    Err(e) => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Failed to import '{}': {}",
+                            import_name,
+                            e.message
+                        )
+                    }
+                };
                 let maybe_module = self.modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(module) => self.set_register(result_register, Value::Map(module)),
@@ -1695,7 +1696,7 @@ impl Vm {
         use Value::*;
 
         let map_value = self.get_register(map_register).clone();
-        let key_string = self.arc_string_from_constant(key);
+        let key_string = self.get_constant_string(key);
 
         match map_value {
             Map(map) => match map.data().get_with_string(&key_string) {

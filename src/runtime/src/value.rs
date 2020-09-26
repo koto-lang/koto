@@ -37,6 +37,49 @@ pub enum Value {
     ExternalDataId,
 }
 
+#[derive(Clone, Debug)]
+pub enum ValueRef<'a> {
+    Empty,
+    Bool(&'a bool),
+    Number(&'a f64),
+    Num2(&'a num2::Num2),
+    Num4(&'a num4::Num4),
+    Range(&'a IntRange),
+    List(&'a ValueList),
+    Map(&'a ValueMap),
+    Str(&'a str),
+    Function(&'a RuntimeFunction),
+    ExternalFunction(&'a ExternalFunction),
+    ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
+    IndexRange(&'a IndexRange),
+    Iterator(&'a ValueIterator),
+    RegisterList(&'a RegisterList),
+    ExternalDataId,
+}
+
+impl Value {
+    pub fn as_ref(&self) -> ValueRef {
+        match self {
+            Value::Empty => ValueRef::Empty,
+            Value::Bool(b) => ValueRef::Bool(b),
+            Value::Number(n) => ValueRef::Number(n),
+            Value::Num2(n) => ValueRef::Num2(n),
+            Value::Num4(n) => ValueRef::Num4(n),
+            Value::Str(s) => ValueRef::Str(s.as_str()),
+            Value::List(l) => ValueRef::List(l),
+            Value::Map(m) => ValueRef::Map(m),
+            Value::Range(r) => ValueRef::Range(r),
+            Value::IndexRange(r) => ValueRef::IndexRange(r),
+            Value::Function(f) => ValueRef::Function(f),
+            Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
+            Value::ExternalValue(v) => ValueRef::ExternalValue(v),
+            Value::Iterator(i) => ValueRef::Iterator(i),
+            Value::RegisterList(l) => ValueRef::RegisterList(l),
+            Value::ExternalDataId => ValueRef::ExternalDataId,
+        }
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Value::Empty
@@ -95,6 +138,29 @@ impl PartialEq for Value {
         }
     }
 }
+
+impl<'a> PartialEq for ValueRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        use ValueRef::*;
+
+        match (self, other) {
+            (Number(a), Number(b)) => a == b,
+            (Num2(a), Num2(b)) => a == b,
+            (Num4(a), Num4(b)) => a == b,
+            (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a == b,
+            (List(a), List(b)) => a == b,
+            (Map(a), Map(b)) => a == b,
+            (Range(a), Range(b)) => a == b,
+            (IndexRange(a), IndexRange(b)) => a == b,
+            (Function(a), Function(b)) => a == b,
+            (Empty, Empty) => true,
+            (ExternalDataId, ExternalDataId) => true,
+            _ => false,
+        }
+    }
+}
+
 impl Eq for Value {}
 
 impl PartialOrd for Value {
@@ -130,13 +196,13 @@ impl Ord for Value {
 
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        use Value::*;
+        self.as_ref().hash(state)
+    }
+}
 
-        assert!(
-            value_is_immutable(self),
-            "Only immutable values should need to be hashed (attempting to hash '{}')",
-            self
-        );
+impl<'a> Hash for ValueRef<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        use ValueRef::*;
 
         std::mem::discriminant(self).hash(state);
 
@@ -157,14 +223,7 @@ impl Hash for Value {
                     state.write_usize(*end);
                 }
             }
-            Function(f) => f.hash(state),
-            ExternalFunction(f) => f.hash(state),
-            ExternalValue(value) => {
-                // TODO This is wrong, external values can change behind their address.
-                // Find a way to allow external values to be hashed.
-                state.write_usize(Arc::as_ptr(value) as *const () as usize);
-            }
-            _ => panic!("{} values can't be used as map keys", self),
+            _ => panic!("Hash is only supported for immutable value types"),
         }
     }
 }

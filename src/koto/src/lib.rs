@@ -143,7 +143,7 @@ impl Koto {
             .runtime
             .prelude_mut()
             .data_mut()
-            .get_mut(&"env".into())
+            .get_with_string_mut("env")
             .unwrap()
         {
             Map(map) => map
@@ -177,7 +177,7 @@ impl Koto {
             .runtime
             .prelude_mut()
             .data_mut()
-            .get_mut(&"env".into())
+            .get_with_string_mut("env")
             .unwrap()
         {
             Map(map) => {
