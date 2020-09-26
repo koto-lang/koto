@@ -4,7 +4,7 @@ use {
     crate::{
         core, external,
         frame::Frame,
-        type_as_string,
+        loader, type_as_string,
         value::{deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
@@ -119,11 +119,13 @@ impl Vm {
         let current_chunk = self.chunk();
         let current_ip = self.ip();
 
-        if function.is_instance_function {
-            return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
-        }
+        let expected_arg_count = if function.is_instance_function {
+            function.arg_count + 1
+        } else {
+            function.arg_count
+        };
 
-        if function.arg_count != args.len() as u8 {
+        if expected_arg_count != args.len() as u8 {
             return vm_error!(
                 self.chunk(),
                 self.ip(),
@@ -159,6 +161,90 @@ impl Vm {
         self.set_chunk_and_ip(current_chunk, current_ip);
 
         result
+    }
+
+    pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
+        // It's important here to make sure we don't hang on to any references to the internal
+        // test map data while calling the test functions, otherwise we'll end up in deadlocks.
+        let self_arg = [Value::Map(tests.clone())];
+
+        let pre_test = tests.data().get(&"pre_test".into()).cloned();
+        let post_test = tests.data().get(&"post_test".into()).cloned();
+
+        for key_index in 0..tests.len() {
+            let (key, value) = tests
+                .data()
+                .get_index(key_index)
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .unwrap();
+
+            match (key, value) {
+                (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
+                    let wrap_error_message = |error, wrapper_message| {
+                        let wrap_message =
+                            |message| format!("{} '{}': {}", wrapper_message, &id[5..], message);
+
+                        Err(match error {
+                            Error::VmError {
+                                message,
+                                chunk,
+                                instruction,
+                            } => Error::VmError {
+                                message: wrap_message(message),
+                                chunk,
+                                instruction,
+                            },
+                            Error::ExternalError { message } => Error::ExternalError {
+                                message: wrap_message(message),
+                            },
+                            Error::LoaderError(loader::LoaderError { message, span }) => {
+                                Error::LoaderError(loader::LoaderError {
+                                    message: wrap_message(message),
+                                    span,
+                                })
+                            }
+                        })
+                    };
+
+                    if let Some(Value::Function(pre_test)) = &pre_test {
+                        let pre_test_result = if pre_test.is_instance_function {
+                            self.run_function(&pre_test.clone(), &self_arg)
+                        } else {
+                            self.run_function(&pre_test.clone(), &[])
+                        };
+
+                        if let Err(error) = pre_test_result {
+                            return wrap_error_message(error, "Error while preparing to run test");
+                        }
+                    }
+
+                    let test_result = if test.is_instance_function {
+                        self.run_function(&test, &self_arg)
+                    } else {
+                        self.run_function(&test, &[])
+                    };
+
+                    if let Err(error) = test_result {
+                        return wrap_error_message(error, "Error while running test");
+                    }
+
+                    if let Some(Value::Function(post_test)) = &post_test {
+                        let post_test_result = if post_test.is_instance_function {
+                            self.run_function(&post_test.clone(), &self_arg)
+                        } else {
+                            self.run_function(&post_test.clone(), &[])
+                        };
+
+                        if let Err(error) = post_test_result {
+                            return wrap_error_message(error, "Error after running test");
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Value::Empty)
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {

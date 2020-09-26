@@ -11,7 +11,10 @@ fn run_script(script_path: &str) {
     }
     let script = read_to_string(&path).expect(&format!("Unable to load path '{:?}'", &path));
 
-    let mut koto = Koto::new();
+    let mut koto = Koto::with_settings(koto::Settings {
+        run_tests: true,
+        ..Default::default()
+    });
     koto.set_script_path(Some(path));
 
     let prelude = koto.prelude_mut();

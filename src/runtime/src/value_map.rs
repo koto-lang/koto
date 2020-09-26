@@ -158,6 +158,10 @@ impl ValueMap {
         self.data_mut().insert(key, value);
     }
 
+    pub fn len(&self) -> usize {
+        self.data().len()
+    }
+
     pub fn add_fn(
         &mut self,
         id: &str,

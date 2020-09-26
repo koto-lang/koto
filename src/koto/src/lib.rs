@@ -18,6 +18,7 @@ use {
 
 #[derive(Copy, Clone, Default)]
 pub struct Settings {
+    pub run_tests: bool,
     pub show_annotated: bool,
     pub show_bytecode: bool,
     pub repl_mode: bool,
@@ -98,27 +99,29 @@ impl Koto {
     }
 
     pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
-        let result = match self.runtime.run(chunk.clone()) {
-            Ok(result) => result,
-            Err(e) => {
-                return Err(match e {
-                    Error::VmError {
-                        message,
-                        chunk,
-                        instruction,
-                    } => self.format_vm_error(&message, chunk, instruction),
-                    Error::ExternalError { message } => format!("Error: {}\n", message),
-                    Error::LoaderError(error) => {
-                        self.format_loader_error(error, &chunk.debug_info.source)
-                    }
-                })
-            }
-        };
+        let result = self
+            .runtime
+            .run(chunk.clone())
+            .map_err(|e| self.format_error(e))?;
 
         if self.settings.repl_mode {
             Ok(result)
+        } else if self.settings.run_tests {
+            match self.runtime.get_global_value("tests") {
+                Some(Value::Map(tests)) => self
+                    .runtime
+                    .run_tests(tests)
+                    .map_err(|e| self.format_error(e)),
+                Some(other) => Err(format!(
+                    "Expected a Map for the exported 'tests' value, found '{}'",
+                    type_as_string(&other)
+                )),
+                None => Ok(result),
+            }
         } else if let Some(main) = self.runtime.get_global_function("main") {
-            self.call_function(&main, &[])
+            self.runtime
+                .run_function(&main, &[])
+                .map_err(|e| self.format_error(e))
         } else {
             Ok(result)
         }
@@ -205,38 +208,28 @@ impl Koto {
         function: &RuntimeFunction,
         args: &[Value],
     ) -> Result<Value, String> {
-        match self.runtime.run_function(function, args) {
-            Ok(result) => Ok(result),
-            Err(e) => Err(match e {
-                Error::VmError {
-                    message,
-                    chunk,
-                    instruction,
-                } => self.format_vm_error(&message, chunk, instruction),
-                Error::ExternalError { message } => format!("Error: {}\n", message,),
-                Error::LoaderError(error) => {
-                    self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
-                }
-            }),
-        }
+        self.runtime
+            .run_function(function, args)
+            .map_err(|e| self.format_error(e))
     }
 
-    fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
-        match error.span {
-            Some(span) => self.format_error(
-                &error.message,
-                &self.script_path,
-                source,
-                span.start,
-                span.end,
-            ),
-            None => error.message,
+    fn format_error(&self, error: Error) -> String {
+        match error {
+            Error::VmError {
+                message,
+                chunk,
+                instruction,
+            } => self.format_vm_error(&message, chunk, instruction),
+            Error::ExternalError { message } => format!("Error: {}\n", message,),
+            Error::LoaderError(error) => {
+                self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
+            }
         }
     }
 
     fn format_vm_error(&self, message: &str, chunk: Arc<Chunk>, instruction: usize) -> String {
         match chunk.debug_info.get_source_span(instruction) {
-            Some(span) => self.format_error(
+            Some(span) => self.format_error_with_excerpt(
                 message,
                 &chunk.source_path,
                 &chunk.debug_info.source,
@@ -250,7 +243,20 @@ impl Koto {
         }
     }
 
-    fn format_error(
+    fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
+        match error.span {
+            Some(span) => self.format_error_with_excerpt(
+                &error.message,
+                &self.script_path,
+                source,
+                span.start,
+                span.end,
+            ),
+            None => error.message,
+        }
+    }
+
+    fn format_error_with_excerpt(
         &self,
         message: &str,
         source_path: &Option<PathBuf>,
