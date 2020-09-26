@@ -1,80 +1,84 @@
 from test import assert assert_eq
 
-# For statement blocks
-count = 0
-for x in 0..10
-  for y in -5..5 if x == y and x < 3
-    assert_eq x y
+export tests =
+  test_for_block: ||
+    count = 0
+    for x in 0..10
+      for y in -5..5 if x == y and x < 3
+        assert_eq x y
 
-    # loop bodies share scope of statement
-    count += 1
+        # loop bodies share scope of statement
+        count += 1
 
-assert_eq count 3
+    assert_eq count 3
 
-# Inline for statement
-assert i >= 0 and i < 3 for i in 0..3
+  test_for_inline: ||
+    assert i >= 0 and i < 3 for i in 0..3
 
-# List comprehensions - for loop assignment captures values in a list
-square = |x| x * x
-c = [square x for x in [1 2 3]]
-assert_eq c [1 4 9]
+  test_for_list_comprehension: ||
+    square = |x| x * x
+    z = [square x for x in [1 2 3]]
+    assert_eq z [1 4 9]
 
-filter = |xs f| [x for x in xs if f x]
-a = filter [0..20] |x| not x <= 15
-assert_eq a [16 17 18 19]
+  test_for_list_comprehension_conditional: ||
+    filter = |xs f| [x for x in xs if f x]
+    a = filter [0..20] |x| not x <= 15
+    assert_eq a [16 17 18 19]
 
-# Iterating works over multiple ranges
-enumerate = |xs| [[i x] for i, x in 0..xs.length(), xs]
+  test_for_list_comprehension_multiple_ranges: ||
+    enumerate = |xs| [[i x] for i, x in 0..xs.length(), xs]
 
-z = [c for c in enumerate [100..103]]
-assert_eq z [[0 100] [1 101] [2 102]]
-z2 = [[c d] for c, d in enumerate [100..103]]
-assert_eq z z2
+    z = [c for c in enumerate [100..103]]
+    assert_eq z [[0 100] [1 101] [2 102]]
 
-###### While loops
-count = 0
-while count < 5
-  count += 1
-  assert not count > 5
+    z2 = [[c d] for c, d in enumerate [100..103]]
+    assert_eq z z2
 
-count = 5
-assert (count -= 1) < 5 while count >= 0
+  test_for_break_continue: ||
+    count = 0
+    for i in 0..100
+      if i % 2 == 0
+        continue
+      else if i == 5
+        break
+      else
+        count += 1
+    assert_eq count 2 # 2 odd numbers less than 5
 
-# while used in a list comprehension
-count = 0
-x = [(count += 1) while count < 5]
-assert_eq x [1..=5]
+  test_while_block: ||
+    count = 0
+    while count < 5
+      count += 1
+      assert not count > 5
 
+  test_while_inline: ||
+    count = 5
+    assert (count -= 1) < 5 while count >= 0
 
-###### Until loops
-count = 5
-until count == 0
-  count -= 1
-  assert count < 5
+  test_while_list_comprehension: ||
+    count = 0
+    x = [(count += 1) while count < 5]
+    assert_eq x [1..=5]
 
-# until used in a list comprehension
-count = 100
-x = [(count += 1) until count == 105]
-assert_eq x [101..=105]
+  test_while_break_continue: ||
+    count = 0
+    while true
+      count += 1
+      if count < 10
+        continue
+      else
+        break
+      assert false
+    assert_eq count 10
 
+  test_until_block: ||
+    count = 5
+    until count == 0
+      count -= 1
+      assert count < 5
+    assert_eq count 0
 
-###### Break and continue
-count = 0
-while true
-  count += 1
-  if count < 10
-    continue
-  else
-    break
-  assert false
-assert_eq count 10
-
-count = 0
-for i in 0..100
-  if i % 2 == 0
-    continue
-  else if i == 5
-    break
-  else
-    count += 1
-assert_eq count 2 # 2 odd numbers less than 5
+  test_until_list_comprehension: ||
+    count = 100
+    x = [(count += 1) until count == 105]
+    assert_eq x [101..=105]

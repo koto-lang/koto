@@ -64,7 +64,6 @@ mod koto_tests {
     koto_test!(map_ops);
     koto_test!(maps);
     koto_test!(maps_and_lists);
-    koto_test!(maps_nested_assignments);
     koto_test!(math);
     koto_test!(num2_4);
     koto_test!(primes);

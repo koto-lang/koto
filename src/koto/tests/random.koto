@@ -1,40 +1,40 @@
 import random
-from test import assert assert_eq assert_near
+from test import assert assert_eq assert_ne assert_near
 
-# random.seed seeds the default generator
-random.seed 0
+export tests =
+  pre_test: ||
+    # random.seed seeds the default generator
+    random.seed 0
 
-# random.bool
-assert random.bool()
-assert not random.bool()
+  test_bool: ||
+    assert random.bool()
+    assert not random.bool()
 
-# random.number
-assert_near random.number() 0.982 0.001
-assert_near random.number() 0.861 0.001
+  test_number: ||
+    assert_near random.number() 0.024 0.001
+    assert_near random.number() 0.982 0.001
 
-# random.num2
-random.seed 0
-assert_near random.number2() (num2 0.024 0.982) 0.001
-assert_near random.number4() (num4 0.006 0.861 0.823 0.186) 0.001
+  test_num2_num4: ||
+    assert_near random.number2() (num2 0.024 0.982) 0.001
+    assert_near random.number4() (num4 0.006 0.861 0.823 0.186) 0.001
 
-# random.pick picks a value from list
-x = ["foo" "bar" "baz"]
-assert (random.pick x) in x
+  test_pick: ||
+    x = ["foo" "bar" "baz"]
+    assert (random.pick x) in x
+    x = 0..10
+    assert (random.pick x) in x
 
-# random.pick also works with ranges
-x = 0..10
-assert (random.pick x) in x
+  test_generator: ||
+    get_rng_output = |rng| [rng.pick 0..5 for _ in 0..10]
+    rng1 = random.generator 0
+    rng2 = random.generator 0
+    rng3 = random.generator 99
 
-# random.generator provides a unique generator, optionally with a seed value
-rng = random.generator 0
-assert_eq [0 2 0] [rng.pick 0..3 for _ in 0..3]
+    output1 = get_rng_output rng1
 
-rng2 = random.generator 0
-assert_eq [0 2 0] [rng2.pick 0..3 for _ in 0..3]
+    assert_eq output1 (get_rng_output rng2)
+    assert_ne output1 (get_rng_output rng3)
 
-rng3 = random.generator 99
-assert_eq [1 2 0] [rng3.pick 0..3 for _ in 0..3]
-
-# seed can be used to reseed the unique generator
-rng3.seed 0
-assert_eq [0 2 0] [rng3.pick 0..3 for _ in 0..3]
+    # seed can be used to reseed the unique generator
+    rng3.seed 0
+    assert_eq output1 (get_rng_output rng3)

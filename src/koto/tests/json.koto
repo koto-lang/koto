@@ -3,27 +3,29 @@ import io
 import json
 from test import assert assert_eq
 
-file_data = try
-  io.read_to_string env.script_dir + "/data/test.json"
-catch error
-  io.print "Error reading file data: " error
-  assert false
+export tests =
+  test_serialize_and_deserialize_json: ||
+    file_data = try
+      io.read_to_string env.script_dir + "/data/test.json"
+    catch error
+      io.print "Error reading file data: " error
+      assert false
 
-data = try
-  json.from_string file_data
-catch error
-  io.print "Error reading decoding json data: " error
-  assert false
+    data = try
+      json.from_string file_data
+    catch error
+      io.print "Error reading decoding json data: " error
+      assert false
 
-assert_eq data.empty ()
-assert_eq data.number 99
-assert_eq data.bool true
-assert_eq data.string "O_o"
-assert_eq data.nested.number -1
-assert_eq data.nested.string "hello"
-assert_eq data.entries[0].foo "bar"
-assert_eq data.entries[1].foo "baz"
+    assert_eq data.empty ()
+    assert_eq data.number 99
+    assert_eq data.bool true
+    assert_eq data.string "O_o"
+    assert_eq data.nested.number -1
+    assert_eq data.nested.string "hello"
+    assert_eq data.entries[0].foo "bar"
+    assert_eq data.entries[1].foo "baz"
 
-serialized = json.to_string data
-data_2 = json.from_string serialized
-assert_eq data data_2
+    serialized = json.to_string data
+    data_2 = json.from_string serialized
+    assert_eq data data_2

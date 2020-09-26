@@ -1,13 +1,15 @@
 import thread
 import test.assert_eq
 
-data = [0 for _ in 0..8]
+export tests =
+  test_spawn_4_threads_and_join: ||
+    data = [0 for _ in 0..8]
 
-worker = |i|
-  data[i] = i
-  data[i + 4] = i + 4
+    worker = |i|
+      data[i] = i
+      data[i + 4] = i + 4
 
-threads = [(thread.create || worker i) for i in 0..4]
+    threads = [(thread.create || worker i) for i in 0..4]
 
-t.join() for t in threads
-assert_eq data [0..8]
+    t.join() for t in threads
+    assert_eq data [0..8]
