@@ -5,7 +5,7 @@ use {
         core, external,
         frame::Frame,
         loader, type_as_string,
-        value::{deep_copy_value, RuntimeFunction},
+        value::{self, deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
@@ -286,7 +286,7 @@ impl Vm {
 
     fn copy_value(&self, value: &Value) -> Value {
         match value.clone() {
-            Value::RegisterList { start, count } => {
+            Value::RegisterList(value::RegisterList { start, count }) => {
                 let mut copied = ValueVec::with_capacity(count as usize);
                 for register in start..start + count {
                     copied.push(self.get_register(register).clone());
@@ -361,7 +361,7 @@ impl Vm {
                 start,
                 count,
             } => {
-                self.set_register(register, RegisterList { start, count });
+                self.set_register(register, RegisterList(value::RegisterList { start, count }));
             }
             Instruction::MakeList {
                 register,
@@ -456,10 +456,10 @@ impl Vm {
                                 end
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: 0,
                             end: Some(*end as usize),
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -483,10 +483,10 @@ impl Vm {
                                 end
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: 0,
                             end: Some(*end as usize + 1),
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -510,10 +510,10 @@ impl Vm {
                                 start
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: *start as usize,
                             end: None,
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -529,10 +529,10 @@ impl Vm {
             Instruction::RangeFull { register } => {
                 self.set_register(
                     register,
-                    IndexRange {
+                    IndexRange(value::IndexRange {
                         start: 0,
                         end: None,
-                    },
+                    }),
                 );
             }
             Instruction::MakeIterator { register, range } => {
@@ -1044,10 +1044,10 @@ impl Vm {
                     Some(ValueIteratorOutput::ValuePair(first, second)) => {
                         self.set_register(
                             register,
-                            Value::RegisterList {
+                            Value::RegisterList(value::RegisterList {
                                 start: register + 1,
                                 count: 2,
-                            },
+                            }),
                         );
                         self.set_register(register + 1, first);
                         self.set_register(register + 2, second);
@@ -1067,7 +1067,7 @@ impl Vm {
                         let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
                         self.set_register(register, value);
                     }
-                    RegisterList { start, count } => {
+                    RegisterList(value::RegisterList { start, count }) => {
                         if index >= count {
                             return vm_error!(
                                 self.chunk(),
@@ -1453,7 +1453,7 @@ impl Vm {
                             }
                         }
                     }
-                    IndexRange { start, end } => {
+                    IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
                         if start > end {
                             return vm_error!(
@@ -1586,7 +1586,7 @@ impl Vm {
                             )
                         }
                     }
-                    IndexRange { start, end } => {
+                    IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
                         if start > end {
                             return vm_error!(
@@ -1973,7 +1973,7 @@ impl Vm {
 
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
             let return_value = match return_value {
-                Value::RegisterList { start, count } => {
+                Value::RegisterList(value::RegisterList { start, count }) => {
                     // If the return value is a register list (i.e. when returning multiple values),
                     // then copy the list's values to the frame base,
                     // and adjust the list's start register to match their new position.
@@ -1990,10 +1990,10 @@ impl Vm {
                     self.value_stack
                         .truncate(frame.register_base + count as usize);
 
-                    Value::RegisterList {
+                    Value::RegisterList(value::RegisterList {
                         start: frame.register_base as u8,
                         count,
-                    }
+                    })
                 }
                 other => {
                     self.value_stack.truncate(frame.register_base);

@@ -31,9 +31,9 @@ pub enum Value {
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     // Internal value types
-    IndexRange { start: usize, end: Option<usize> },
+    IndexRange(IndexRange),
     Iterator(ValueIterator),
-    RegisterList { start: u8, count: u8 },
+    RegisterList(RegisterList),
     ExternalDataId,
 }
 
@@ -56,7 +56,7 @@ impl fmt::Display for Value {
             List(l) => f.write_str(&l.to_string()),
             Map(m) => f.write_str(&m.to_string()),
             Range(IntRange { start, end }) => write!(f, "[{}..{}]", start, end),
-            IndexRange { start, end } => write!(
+            IndexRange(self::IndexRange { start, end }) => write!(
                 f,
                 "[{}..{}]",
                 start,
@@ -66,7 +66,7 @@ impl fmt::Display for Value {
             ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             Iterator(_) => write!(f, "Iterator"),
-            RegisterList { start, count } => {
+            RegisterList(self::RegisterList { start, count }) => {
                 write!(f, "RegisterList [{}..{}]", start, start + count)
             }
             ExternalDataId => write!(f, "External Data ID"),
@@ -86,26 +86,8 @@ impl PartialEq for Value {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
-            (
-                Range(IntRange {
-                    start: start_a,
-                    end: end_a,
-                }),
-                Range(IntRange {
-                    start: start_b,
-                    end: end_b,
-                }),
-            ) => start_a == start_b && end_a == end_b,
-            (
-                IndexRange {
-                    start: start_a,
-                    end: end_a,
-                },
-                IndexRange {
-                    start: start_b,
-                    end: end_b,
-                },
-            ) => start_a == start_b && end_a == end_b,
+            (Range(a), Range(b)) => a == b,
+            (IndexRange(a), IndexRange(b)) => a == b,
             (Function(a), Function(b)) => a == b,
             (Empty, Empty) => true,
             (ExternalDataId, ExternalDataId) => true,
@@ -169,7 +151,7 @@ impl Hash for Value {
                 state.write_isize(*start);
                 state.write_isize(*end);
             }
-            IndexRange { start, end } => {
+            IndexRange(self::IndexRange { start, end }) => {
                 state.write_usize(*start);
                 if let Some(end) = end {
                     state.write_usize(*end);
@@ -220,6 +202,17 @@ impl Hash for RuntimeFunction {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct IndexRange {
+    pub start: usize,
+    pub end: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegisterList {
+    pub start: u8,
+    pub count: u8,
+}
 
 pub fn deep_copy_value(value: &Value) -> Value {
     use Value::{List, Map};
