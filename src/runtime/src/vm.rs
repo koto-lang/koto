@@ -25,6 +25,7 @@ pub enum ControlFlow {
 struct CoreLib {
     list: ValueMap,
     map: ValueMap,
+    range: ValueMap,
     string: ValueMap,
 }
 
@@ -33,6 +34,7 @@ impl Default for CoreLib {
         Self {
             list: core::list::make_module(),
             map: core::map::make_module(),
+            range: core::range::make_module(),
             string: core::string::make_module(),
         }
     }
@@ -59,6 +61,7 @@ impl Vm {
         let mut prelude = ValueMap::default();
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
 
         Self {
@@ -1698,105 +1701,56 @@ impl Vm {
         let map_value = self.get_register(map_register).clone();
         let key_string = self.get_constant_string(key);
 
+        macro_rules! get_core_op {
+            ($module:ident, $module_name:expr) => {{
+                let maybe_op = self
+                    .core_lib
+                    .$module
+                    .data()
+                    .get_with_string(&key_string)
+                    .cloned();
+
+                match maybe_op {
+                    Some(op) => match op {
+                        ExternalFunction(f) => {
+                            let f_as_instance_function = external::ExternalFunction {
+                                is_instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::ExternalFunction(f_as_instance_function),
+                            );
+                        }
+                        other => {
+                            self.set_register(result_register, other.clone());
+                        }
+                    },
+                    None => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "{} operation '{}' not found",
+                            $module_name,
+                            key_string,
+                        );
+                    }
+                }
+
+                Ok(())
+            }};
+        };
+
         match map_value {
             Map(map) => match map.data().get_with_string(&key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => {
-                    let maybe_map_op = self
-                        .core_lib
-                        .map
-                        .data()
-                        .get_with_string(&key_string)
-                        .cloned();
-                    match maybe_map_op {
-                        Some(map_op) => match map_op {
-                            ExternalFunction(f) => {
-                                let f_as_instance_function = external::ExternalFunction {
-                                    is_instance_function: true,
-                                    ..f.clone()
-                                };
-                                self.set_register(
-                                    result_register,
-                                    Value::ExternalFunction(f_as_instance_function),
-                                );
-                            }
-                            other => self.set_register(result_register, other.clone()),
-                        },
-                        None => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Map entry '{}' not found",
-                                key_string,
-                            );
-                        }
-                    }
-                }
+                None => get_core_op!(map, "Map")?,
             },
-            List(_) => {
-                let maybe_list_op = self
-                    .core_lib
-                    .list
-                    .data()
-                    .get_with_string(&key_string)
-                    .cloned();
-                match maybe_list_op {
-                    Some(list_op) => match list_op {
-                        ExternalFunction(f) => {
-                            let f_as_instance_function = external::ExternalFunction {
-                                is_instance_function: true,
-                                ..f.clone()
-                            };
-                            self.set_register(
-                                result_register,
-                                Value::ExternalFunction(f_as_instance_function),
-                            );
-                        }
-                        other => self.set_register(result_register, other.clone()),
-                    },
-                    None => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "List operation '{}' not found",
-                            key_string,
-                        );
-                    }
-                }
-            }
-            Str(_) => {
-                let maybe_string_op = self
-                    .core_lib
-                    .string
-                    .data()
-                    .get_with_string(&key_string)
-                    .cloned();
-                match maybe_string_op {
-                    Some(string_op) => match string_op {
-                        ExternalFunction(f) => {
-                            let f_as_instance_function = external::ExternalFunction {
-                                is_instance_function: true,
-                                ..f.clone()
-                            };
-                            self.set_register(
-                                result_register,
-                                Value::ExternalFunction(f_as_instance_function),
-                            );
-                        }
-                        other => self.set_register(result_register, other.clone()),
-                    },
-                    None => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "String operation '{}' not found",
-                            key_string,
-                        );
-                    }
-                }
-            }
+            List(_) => get_core_op!(list, "List")?,
+            Range(_) => get_core_op!(range, "Range")?,
+            Str(_) => get_core_op!(string, "String")?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),
