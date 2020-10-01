@@ -13,7 +13,10 @@ impl BenchmarkRunner {
         path.push(script_path);
         let script = read_to_string(path).expect("Unable to load path");
 
-        let mut koto = Koto::new();
+        let mut koto = Koto::with_settings(koto::Settings {
+            run_tests: true,
+            ..Default::default()
+        });
         match koto.compile(&script) {
             Ok(_) => {
                 if let Err(error) = koto.run_with_args(&args) {
@@ -34,8 +37,8 @@ impl BenchmarkRunner {
 }
 
 pub fn koto_benchmark(c: &mut Criterion) {
-    c.bench_function("fib10", |b| {
-        let mut runner = BenchmarkRunner::new("fib10.koto", &[]);
+    c.bench_function("fib", |b| {
+        let mut runner = BenchmarkRunner::new("fib_recursive.koto", &[]);
         b.iter(|| {
             runner.run();
         })

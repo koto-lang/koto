@@ -1,30 +1,40 @@
 import error_handling_module
 from test import assert assert_eq
 
-# List passed to function expecting a map
-x = try
-  [0 1 2].keys()
-  99
-catch error
-  -1
+export tests =
+  test_try: ||
+    x = try
+      42
+    catch error
+      assert false
+    assert_eq x 42
 
-assert_eq x -1
+  test_catch: ||
+    x = try
+      # List passed to function expecting a map
+      [0 1 2].keys()
+      99
+    catch error
+      -1
+    assert_eq x -1
 
-# Error in functor passed to external function
-try
-  [0..10].filter |x| x + error_in_functor
-  assert false
-catch error
-  x = 0
-finally
-  x = 42
+  test_finally: ||
+    error_caught = false
+    x = 0
+    try
+      # Error in functor passed to external function
+      [0..10].filter |x| x + error_in_functor
+    catch error
+      error_caught = true
+    finally
+      x = 42
+    assert error_caught
+    assert_eq x 42
 
-assert_eq x 42
-
-# Error in function in another module
-try
-  error_handling_module.error_function()
-catch error
-  x = 99
-
-assert_eq x 99
+  test_error_in_other_module: ||
+    x = 0
+    try
+      error_handling_module.error_function()
+    catch error
+      x = 99
+    assert_eq x 99

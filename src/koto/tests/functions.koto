@@ -1,57 +1,62 @@
 from test import assert assert_eq
 
-square = |x| x * x
-assert_eq 49 (square 7)
-assert_eq 100 (square -10)
+export tests =
+  test_square: ||
+    square = |x| x * x
+    assert_eq 49 (square 7)
+    assert_eq 100 (square -10)
 
-add = |x y|
-  x2 = x
-  do_add = |x y|
-    x = x + y # Nested trailing comment
-    x # implicit return of last expression
-  result = do_add x y
-  # function arguments are locally scoped
-  assert_eq x x2
-  result # implicit return
-assert_eq 3 (add 1 2)
+  test_nested_function: ||
+    add = |x y|
+      x2 = x
+      do_add = |x y|
+        x = x + y # Nested trailing comment
+        x # implicit return of last expression
+      result = do_add x y
+      # function arguments are locally scoped
+      assert_eq x x2
+      result # implicit return
+    assert_eq 3 (add 1 2)
 
-# functions can call globally defined functions
-add2 = |x y| add x y
-assert_eq 0 (add2 4 -4)
+  test_captured_function: ||
+    add = |x y| x + y
+    add2 = |x y| add x y
+    assert_eq (add2 90 9) 99
 
-# nested function calls behave correctly
-assert_eq 0 (add (add 1 1) (add -1 -1))
+  test_nested_calls: ||
+    add = |x y| x + y
+    assert_eq (add (add 1 1) (add -1 -1)) 0
 
-# functions can return multiple values
-f = |x| x - 1, x + 1
-a, b = f 0
-assert a == -1 and b == 1
+  test_function_returning_multiple_values: ||
+    f = |x| x - 1, x + 1
+    a, b = f 0
+    assert_eq a -1
+    assert_eq b 1
 
-####### return allows for early exit from functions
+  test_early_return: ||
+    match_digit = |n|
+      match_digit_nested = |n|
+        for i in 0..10
+          if i == n
+            return i
 
-match_digit = |n|
-  match_digit_nested = |n|
-    for i in 0..10
-      if i == n
-        return i
+      for i in 0..10
+        if i == n
+          return match_digit_nested n
 
-  for i in 0..10
-    if i == n
-      return match_digit_nested n
+    x = [(match_digit i) for i in 0..3]
+    assert_eq x [0 1 2]
 
-x = [(match_digit i) for i in 0..3]
-assert_eq x [0 1 2]
+  test_return_multiple_values: ||
+    f = ||
+      return -1, 1
+    a, b = f()
+    assert_eq a -1
+    assert_eq b 1
 
-###### return supports returning multiple values
-f = ||
-  return -1, 1
-a, b = f()
-assert_eq a -1
-assert_eq b 1
-
-##### return can also be used without a value
-f = ||
-  if true
-    return
-  assert false
-f()
+  test_return_no_value: ||
+    f = ||
+      if true
+        return
+      assert false
+    f()

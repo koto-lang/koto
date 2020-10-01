@@ -4,8 +4,8 @@ use {
     crate::{
         core, external,
         frame::Frame,
-        type_as_string,
-        value::{deep_copy_value, RuntimeFunction},
+        loader, type_as_string,
+        value::{self, deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
@@ -92,7 +92,7 @@ impl Vm {
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.global.data().get(&id.into()).cloned()
+        self.global.data().get_with_string(id).cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
@@ -119,11 +119,13 @@ impl Vm {
         let current_chunk = self.chunk();
         let current_ip = self.ip();
 
-        if function.is_instance_function {
-            return vm_error!(self.chunk(), self.ip(), "Unexpected instance function");
-        }
+        let expected_arg_count = if function.is_instance_function {
+            function.arg_count + 1
+        } else {
+            function.arg_count
+        };
 
-        if function.arg_count != args.len() as u8 {
+        if expected_arg_count != args.len() as u8 {
             return vm_error!(
                 self.chunk(),
                 self.ip(),
@@ -159,6 +161,84 @@ impl Vm {
         self.set_chunk_and_ip(current_chunk, current_ip);
 
         result
+    }
+
+    pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
+        // It's important here to make sure we don't hang on to any references to the internal
+        // test map data while calling the test functions, otherwise we'll end up in deadlocks.
+        let self_arg = [Value::Map(tests.clone())];
+
+        let pre_test = tests.data().get_with_string("pre_test").cloned();
+        let post_test = tests.data().get_with_string("post_test").cloned();
+
+        for (key, value) in tests.cloned_iter() {
+            match (key, value) {
+                (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
+                    let wrap_error_message = |error, wrapper_message| {
+                        let wrap_message =
+                            |message| format!("{} '{}': {}", wrapper_message, &id[5..], message);
+
+                        Err(match error {
+                            Error::VmError {
+                                message,
+                                chunk,
+                                instruction,
+                            } => Error::VmError {
+                                message: wrap_message(message),
+                                chunk,
+                                instruction,
+                            },
+                            Error::ExternalError { message } => Error::ExternalError {
+                                message: wrap_message(message),
+                            },
+                            Error::LoaderError(loader::LoaderError { message, span }) => {
+                                Error::LoaderError(loader::LoaderError {
+                                    message: wrap_message(message),
+                                    span,
+                                })
+                            }
+                        })
+                    };
+
+                    if let Some(Value::Function(pre_test)) = &pre_test {
+                        let pre_test_result = if pre_test.is_instance_function {
+                            self.run_function(&pre_test.clone(), &self_arg)
+                        } else {
+                            self.run_function(&pre_test.clone(), &[])
+                        };
+
+                        if let Err(error) = pre_test_result {
+                            return wrap_error_message(error, "Error while preparing to run test");
+                        }
+                    }
+
+                    let test_result = if test.is_instance_function {
+                        self.run_function(&test, &self_arg)
+                    } else {
+                        self.run_function(&test, &[])
+                    };
+
+                    if let Err(error) = test_result {
+                        return wrap_error_message(error, "Error while running test");
+                    }
+
+                    if let Some(Value::Function(post_test)) = &post_test {
+                        let post_test_result = if post_test.is_instance_function {
+                            self.run_function(&post_test.clone(), &self_arg)
+                        } else {
+                            self.run_function(&post_test.clone(), &[])
+                        };
+
+                        if let Err(error) = post_test_result {
+                            return wrap_error_message(error, "Error after running test");
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Value::Empty)
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
@@ -206,7 +286,7 @@ impl Vm {
 
     fn copy_value(&self, value: &Value) -> Value {
         match value.clone() {
-            Value::RegisterList { start, count } => {
+            Value::RegisterList(value::RegisterList { start, count }) => {
                 let mut copied = ValueVec::with_capacity(count as usize);
                 for register in start..start + count {
                     copied.push(self.get_register(register).clone());
@@ -253,8 +333,8 @@ impl Vm {
                 self.set_register(register, Str(string))
             }
             Instruction::LoadGlobal { register, constant } => {
-                let global_name = self.arc_string_from_constant(constant);
-                let global = self.global.data().get(&Str(global_name.clone())).cloned();
+                let global_name = self.get_constant_string(constant);
+                let global = self.global.data().get_with_string(global_name).cloned();
                 match global {
                     Some(value) => self.set_register(register, value),
                     None => {
@@ -281,7 +361,7 @@ impl Vm {
                 start,
                 count,
             } => {
-                self.set_register(register, RegisterList { start, count });
+                self.set_register(register, RegisterList(value::RegisterList { start, count }));
             }
             Instruction::MakeList {
                 register,
@@ -376,10 +456,10 @@ impl Vm {
                                 end
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: 0,
                             end: Some(*end as usize),
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -403,10 +483,10 @@ impl Vm {
                                 end
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: 0,
                             end: Some(*end as usize + 1),
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -430,10 +510,10 @@ impl Vm {
                                 start
                             );
                         }
-                        IndexRange {
+                        IndexRange(value::IndexRange {
                             start: *start as usize,
                             end: None,
-                        }
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -449,10 +529,10 @@ impl Vm {
             Instruction::RangeFull { register } => {
                 self.set_register(
                     register,
-                    IndexRange {
+                    IndexRange(value::IndexRange {
                         start: 0,
                         end: None,
-                    },
+                    }),
                 );
             }
             Instruction::MakeIterator { register, range } => {
@@ -964,10 +1044,10 @@ impl Vm {
                     Some(ValueIteratorOutput::ValuePair(first, second)) => {
                         self.set_register(
                             register,
-                            Value::RegisterList {
+                            Value::RegisterList(value::RegisterList {
                                 start: register + 1,
                                 count: 2,
-                            },
+                            }),
                         );
                         self.set_register(register + 1, first);
                         self.set_register(register + 2, second);
@@ -987,7 +1067,7 @@ impl Vm {
                         let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
                         self.set_register(register, value);
                     }
-                    RegisterList { start, count } => {
+                    RegisterList(value::RegisterList { start, count }) => {
                         if index >= count {
                             return vm_error!(
                                 self.chunk(),
@@ -1095,31 +1175,32 @@ impl Vm {
         import_constant: ConstantIndex,
         instruction_ip: usize,
     ) -> Result<(), Error> {
-        let import_name = Value::Str(self.arc_string_from_constant(import_constant));
+        let import_name = self.arc_string_from_constant(import_constant);
 
-        let maybe_global = self.global.data().get(&import_name).cloned();
+        let maybe_global = self.global.data().get_with_string(&import_name).cloned();
         if let Some(value) = maybe_global {
             self.set_register(result_register, value);
         } else {
-            let maybe_in_prelude = self.prelude.data().get(&import_name).cloned();
+            let maybe_in_prelude = self.prelude.data().get_with_string(&import_name).cloned();
             if let Some(value) = maybe_in_prelude {
                 self.set_register(result_register, value);
             } else {
-                let module_name = self.get_constant_string(import_constant).to_string();
                 let source_path = self.reader.chunk.source_path.clone();
-                let (module_chunk, module_path) =
-                    match self.loader.compile_module(&module_name, source_path) {
-                        Ok(chunk) => chunk,
-                        Err(e) => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Failed to import '{}': {}",
-                                import_name,
-                                e.message
-                            )
-                        }
-                    };
+                let (module_chunk, module_path) = match self
+                    .loader
+                    .compile_module(&import_name.as_str(), source_path)
+                {
+                    Ok(chunk) => chunk,
+                    Err(e) => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Failed to import '{}': {}",
+                            import_name,
+                            e.message
+                        )
+                    }
+                };
                 let maybe_module = self.modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(module) => self.set_register(result_register, Value::Map(module)),
@@ -1373,7 +1454,7 @@ impl Vm {
                             }
                         }
                     }
-                    IndexRange { start, end } => {
+                    IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
                         if start > end {
                             return vm_error!(
@@ -1506,7 +1587,7 @@ impl Vm {
                             )
                         }
                     }
-                    IndexRange { start, end } => {
+                    IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
                         if start > end {
                             return vm_error!(
@@ -1615,7 +1696,7 @@ impl Vm {
         use Value::*;
 
         let map_value = self.get_register(map_register).clone();
-        let key_string = self.arc_string_from_constant(key);
+        let key_string = self.get_constant_string(key);
 
         match map_value {
             Map(map) => match map.data().get_with_string(&key_string) {
@@ -1893,7 +1974,7 @@ impl Vm {
 
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
             let return_value = match return_value {
-                Value::RegisterList { start, count } => {
+                Value::RegisterList(value::RegisterList { start, count }) => {
                     // If the return value is a register list (i.e. when returning multiple values),
                     // then copy the list's values to the frame base,
                     // and adjust the list's start register to match their new position.
@@ -1910,10 +1991,10 @@ impl Vm {
                     self.value_stack
                         .truncate(frame.register_base + count as usize);
 
-                    Value::RegisterList {
+                    Value::RegisterList(value::RegisterList {
                         start: frame.register_base as u8,
                         count,
-                    }
+                    })
                 }
                 other => {
                     self.value_stack.truncate(frame.register_base);

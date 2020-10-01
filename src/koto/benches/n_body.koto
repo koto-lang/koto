@@ -6,62 +6,65 @@ Adapted from the lua implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.html
 -#
 
-import env io.print list
+# TODO Using num4 for pos/vel reduces precision compared to the original
+
+import env io.print list test.assert_near
 from math import pi sqrt sum
 
 solar_mass = 4 * pi * pi
 days_per_year = 365.24
 
-sun =
-  pos: num4 0
-  vel: num4 0
-  mass: solar_mass
+sun, jupiter, saturn, uranus, neptune = {}, {}, {}, {}, {}
 
-jupiter =
-  pos:
-    num4 4.84143144246472090e+00 \
-         -1.16032004402742839e+00 \
-         -1.03622044471123109e-01
-  vel:
-    num4 (1.66007664274403694e-03 * days_per_year) \
-         (7.69901118419740425e-03 * days_per_year) \
-         (-6.90460016972063023e-05 * days_per_year)
-  mass: 9.54791938424326609e-04 * solar_mass
 
-saturn =
-  pos:
+init_bodies = ||
+  sun.pos = num4 0
+  sun.vel = num4 0
+  sun.mass = solar_mass
+
+  jupiter.pos =
+      num4 4.84143144246472090e+00 \
+           -1.16032004402742839e+00 \
+           -1.03622044471123109e-01
+  jupiter.vel =
+      num4 (1.66007664274403694e-03 * days_per_year) \
+           (7.69901118419740425e-03 * days_per_year) \
+           (-6.90460016972063023e-05 * days_per_year)
+  jupiter.mass = 9.54791938424326609e-04 * solar_mass
+
+  saturn.pos =
     num4 8.34336671824457987e+00 \
          4.12479856412430479e+00 \
          -4.03523417114321381e-01
-  vel:
-    num4 (-2.76742510726862411e-03 * days_per_year) \
-         (4.99852801234917238e-03 * days_per_year) \
-         (2.30417297573763929e-05 * days_per_year)
-  mass: 2.85885980666130812e-04 * solar_mass
+  saturn.vel =
+      num4 (-2.76742510726862411e-03 * days_per_year) \
+           (4.99852801234917238e-03 * days_per_year) \
+           (2.30417297573763929e-05 * days_per_year)
+  saturn.mass = 2.85885980666130812e-04 * solar_mass
 
-uranus =
-  pos:
+  uranus.pos =
     num4 1.28943695621391310e+01 \
          -1.51111514016986312e+01 \
          -2.23307578892655734e-01
-  vel:
-    num4 (2.96460137564761618e-03 * days_per_year) \
-         (2.37847173959480950e-03 * days_per_year) \
-         (-2.96589568540237556e-05 * days_per_year)
-  mass: 4.36624404335156298e-05 * solar_mass
+  uranus.vel =
+      num4 (2.96460137564761618e-03 * days_per_year) \
+           (2.37847173959480950e-03 * days_per_year) \
+           (-2.96589568540237556e-05 * days_per_year)
+  uranus.mass = 4.36624404335156298e-05 * solar_mass
 
-neptune =
-  pos:
+  neptune.pos =
     num4 1.53796971148509165e+01 \
          -2.59193146099879641e+01 \
          1.79258772950371181e-01
-  vel:
+  neptune.vel =
     num4 (2.68067772490389322e-03 * days_per_year) \
          (1.62824170038242295e-03 * days_per_year) \
          (-9.51592254519715870e-05 * days_per_year)
-  mass: 5.15138902046611451e-05 * solar_mass
+  neptune.mass = 5.15138902046611451e-05 * solar_mass
+
 
 bodies = [sun jupiter saturn uranus neptune]
+
 
 advance = |bodies nbodies dt|
     for bi, i in bodies, 0..nbodies
@@ -79,6 +82,7 @@ advance = |bodies nbodies dt|
         bi.vel = bi_vel
         bi.pos = bi.pos + dt * bi_vel
 
+
 get_energy = |bodies nbody|
     energy = 0
     for bi, i in bodies, 0..nbody
@@ -92,30 +96,40 @@ get_energy = |bodies nbody|
             energy -= (bi_mass * bj.mass) / distance
     energy
 
+
 offset_momentum = |bodies nbody|
     pos = num4 0
     for body in bodies
         pos += body.vel * body.mass
     bodies[0].vel = -pos / solar_mass
 
+
+run_nbody = |n|
+  init_bodies()
+  nbody = bodies.length()
+  offset_momentum bodies nbody
+  initial_energy = get_energy bodies nbody
+  for _ in 0..n
+      advance bodies nbody 0.01
+  end_energy = get_energy bodies nbody
+  initial_energy, end_energy
+
+
 export main = ||
   n = match env.args.get 0
     () then 100
     arg then arg.to_number()
 
-  nbody = bodies.length()
-
-  offset_momentum bodies nbody
+  initial_energy, end_energy = run_nbody n
 
   quiet = (env.args.get 1) == "quiet"
 
-  energy = get_energy bodies nbody
   if not quiet
-    print energy # TODO format to 9dp
+    print initial_energy # TODO format to 9dp
+    print end_energy # TODO format to 9dp
 
-  for _ in 0..n
-      advance bodies nbody 0.01
-
-  energy = get_energy bodies nbody
-  if not quiet
-    print energy # TODO format to 9dp
+export tests =
+  test_100: ||
+    initial_energy, end_energy = run_nbody 100
+    assert_near initial_energy -0.16907513 1e-8
+    assert_near end_energy -0.16904987 1e-8

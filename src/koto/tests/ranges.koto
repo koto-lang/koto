@@ -1,41 +1,46 @@
 from test import assert assert_eq
 
-# Assigning a range to a value
-r = 0..2
-# Ranges can be compared
-assert_eq r 0..2
+export tests =
+  test_assignment: ||
+    # Assigning a range to a value
+    r = 0..2
+    # Ranges can be compared
+    assert_eq r 0..2
 
-# Ranges are exclusive by default, ..= creates an inclusive range
-r = 0..=2
-assert_eq [r] [0 1 2]
+    # Ranges are exclusive by default, ..= creates an inclusive range
+    r = 0..=2
+    assert_eq [r] [0 1 2]
 
-# Indexing lists with ranges produces sub-lists
-n = [0..10]
-assert_eq n[2..5] [2 3 4]
-assert_eq n[2..=4] [2 3 4]
+  test_indexing: ||
+    # Indexing lists with ranges produces sub-lists
+    n = [0..10]
+    assert_eq n[2..5] [2 3 4]
+    assert_eq n[2..=4] [2 3 4]
 
-# Function calls can be evaluated to find range boundaries
-z = |n| n
-x = [(z 10)..=(z 20)]
-y = x[z(5)..(10 + 0)]
-assert_eq 15 y[0]
+  test_evaluated_boundaries: ||
+    z = |n| n
+    x = [(z 10)..=(z 20)]
+    y = x[z(5)..(10 + 0)]
+    assert_eq 15 y[0]
 
-# Leaving off either range boundary creates a From/To range
-n = [0..=10]
-assert_eq n[..=2] [0 1 2]
-assert_eq n[8..] [8 9 10]
+  test_from_and_to_ranges: ||
+    n = [0..=10]
+    assert_eq n[..=2] [0 1 2]
+    assert_eq n[8..] [8 9 10]
 
-# One-past-the-end can be used as a range position
-assert_eq n[11..11] []
+  test_empty_range: ||
+    n = [0..10]
+    assert_eq n[10..10] []
 
-# Descending ranges can also be used
-r = 2..0
-assert_eq [r] [2 1]
-assert_eq [2..=0] [2 1 0]
+  test_descending_range: ||
+    r = 2..0
+    assert_eq [r] [2 1]
+    assert_eq [2..=0] [2 1 0]
 
-a = [x for x in 4..=1]
-assert_eq a [4 3 2 1]
+  test_range_list_comprehension: ||
+    a = [x for x in 4..=1]
+    assert_eq a [4 3 2 1]
 
-# The in operator can be used to check if a number is in a range
-assert 10 in 0..20
-assert not 10 in 0..10
+  test_range_in_operator: ||
+    assert 10 in 0..20
+    assert not 10 in 0..10

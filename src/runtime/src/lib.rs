@@ -16,10 +16,12 @@ use {
 pub use {
     external::{ExternalFunction, ExternalValue},
     loader::{Loader, LoaderError},
-    value::{make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value},
+    value::{
+        make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
+    },
     value_iterator::IntRange,
     value_list::{ValueList, ValueVec},
-    value_map::{ValueHashMap, ValueMap},
+    value_map::{ValueHashMap, ValueMap, ValueMapKey},
     vm::Vm,
 };
 

@@ -1,134 +1,137 @@
 import map
 from test import assert assert_eq assert_ne
 
-# Maps are a collection of key/value pairs
-m = {key: "value", another_key: "another_value"}
+export tests =
+  test_access_by_key: ||
+    m = {key: "value", another_key: "another_value"}
+    assert_eq m.key "value"
+    assert_eq m.another_key "another_value"
 
-# A map's values can be accessed via their keys using '.', known as a 'lookup'
-assert_eq m.key "value"
-assert_eq m.another_key "another_value"
+  test_assign_by_key: ||
+    m = {key: -1}
+    m.key = 42
+    assert_eq m.key 42
 
-# Map values can be updated via lookups
-m.key = 42
-assert_eq m.key 42
+  test_implict_key_values: ||
+    foo, baz = 42, -1
+    m = {foo, bar: 99, baz}
+    assert_eq m.foo 42
+    assert_eq m.bar 99
+    assert_eq m.baz -1
 
-# New key/value pairs can be added to the map via lookup
-m.new_key = -1
-assert_eq m.new_key -1
+  test_map_iteration: ||
+    m = {foo: 42, bar: -1}
+    for key, value in m
+      assert_ne key ()
+      assert_ne value ()
 
-# Keys without values are looked up implicitly
-foo, baz = 42, -1
-m = {foo, bar: 99, baz}
-assert_eq m.foo 42
-assert_eq m.bar 99
-assert_eq m.baz -1
+  test_map_quoted_keys: ||
+    # Quoted strings can be used for keys that would otherwise be disallowed
+    x = {"for": -1, "while": 99, "20": "twenty"}
+    assert_eq x."for" -1
+    assert_eq x."while" 99
+    assert_eq x."20" "twenty"
 
-# map keys and values can be iterated over with a for loop
-for key, value in m
-  assert_ne key ()
-  assert_ne value ()
+  test_unicode_keys: ||
+    x = {}
+    x.ƒöó = 123
+    assert_eq x.ƒöó 123
 
-# Quoted strings can be used for keys that would otherwise be disallowed
-x = {"for": -1, "while": 99, "20": "twenty"}
-assert_eq x."for" -1
-assert_eq x."while" 99
-assert_eq x."20" "twenty"
+  test_function_value: ||
+    o = {}
+    o.min = || 0
+    o.max = || 42
+    sum = 0
+    for i in o.min()..o.max()
+      sum += i
+    assert_eq sum 861
 
-# Unicode can be used in map keys
-x.ƒöó = 123
-assert_eq x.ƒöó 123
+  test_equality_and_shared_data: ||
+    m = {foo: 42, bar: -1}
+    m2 = m
+    assert_eq m m2
+    m2.foo = -1
+    assert_eq m m2
+    m3 = copy m
+    m3.foo = 99
+    assert_ne m m3
 
-# 'in' can be used to check if a key is in a map
-assert "ƒöó" in x
-key = "while"
-assert key in x
+  test_map_block: ||
+    m =
+      foo: 42
+      square: |x| x * x
+      baz:
+        child_foo: 99
+    assert_eq m.foo 42
+    assert_eq (m.square 9) 81
+    assert_eq m.baz.child_foo 99
 
-# Any Koto value can be placed in a map, for example, functions
-o = {min: 0, max: || 42}
-assert_eq 42 o.max()
+  test_addition: ||
+    m = {foo: 42}
+    m2 = m + {bar: -1}
+    assert_eq m2.bar -1
+    m2 += {extra: 99}
+    assert_eq m2.extra 99
 
-sum = 0
-for i in o.min..o.max()
-  sum += i
-assert_eq sum 861
+  test_value_mutation: ||
+    m = {}
+    m.foo = 42
+    m.foo /= 2
+    assert_eq m.foo 21
 
-# Maps can be assigned to new identifiers
-o2 = o
-# Maps can be compared for equality
-assert_eq o o2
+  test_instance_functions: ||
+    make_map = ||
+      foo: 42
+      get_foo: |self| self.foo # self refers to map instance
 
-# Maps share their data by default, but you can make a separate copy of the data if needed
-o2.min = -1
-assert_eq o o2 # o and o2 share the same data
-o3 = copy o
-o3.min = 99
-assert_ne o o3 # o and o3 have separate data
+    m = make_map()
+    assert_eq 42 m.get_foo() # implicit self
 
-# Maps can be defined using nested blocks
-m =
-  foo: 42
-  # Functions can be initialized as map values
-  square: |x| x * x
-  # Child maps can be defined inline
-  baz:
-    child_foo: 99
+    make_map_2 = ||
+      make_map() +
+        foo_2: 57
+        get_foo_2: |self| self.foo_2
+        set_foo_2: |self x| self.foo_2 = x
+        sum_foo: |self| self.foo + self.foo_2
 
-# Access
-assert_eq m.foo 42
-assert_eq (m.square 9) 81
-assert_eq m.baz.child_foo 99
+    m2 = make_map_2()
+    assert_eq m2.foo 42
+    assert_eq m2.get_foo_2() 57
+    m2.set_foo_2 58
+    assert_eq m2.sum_foo() 100
 
-# Adding values to a map
-m2 = m + { baz: 99 }
-assert_eq m2.baz 99
-m2 += { extra: -1 }
-assert_eq m2.extra -1
+  test_map_in_list_comprehension: ||
+    a = [{foo, bar} for foo, bar in 1..=3, 4..=6]
+    assert_eq a [{foo: 1, bar: 4} {foo: 2, bar: 5} {foo: 3, bar: 6}]
 
-# Modification of map values
-m.foo = 42
-m.foo /= 2
-assert_eq m.foo 21
-assert_eq m2.foo 42
+  test_map_blocks_in_if_expression: ||
+    make_map = |n|
+      if n >= 0
+        sign: "positive"
+        n: n
+      else
+        sign: "negative"
+        n: n
 
+    p = make_map 100
+    assert_eq p.sign "positive"
+    n = make_map -100
+    assert_eq n.sign "negative"
 
-###### Maps as classes
+  test_nested_inline: ||
+    deep = {a: {b: {c: {d: {e: {f: 42}}}}}}
+    assert_eq deep.a.b.c.d.e.f 42
+    deep.a.b.c.d.e.f = 99
+    assert_eq deep.a.b.c.d.e.f 99
 
-make_o = ||
-  foo: 42
-  get_foo: |self| self.foo # self refers to table instance
-
-o = make_o()
-assert_eq 42 o.get_foo() # implicit self
-
-make_o2 = ||
-  make_o() +
-    foo_2: 57
-    get_foo_2: |self| self.foo_2
-    set_foo_2: |self x| self.foo_2 = x
-    sum_foo: |self| self.foo + self.foo_2
-
-o2 = make_o2()
-assert_eq o2.foo 42
-assert_eq o2.get_foo_2() 57
-o2.set_foo_2 58
-assert_eq o2.sum_foo() 100
-
-
-###### Maps captured from for loops and control flow
-
-a = [{foo, bar} for foo, bar in 1..=3, 4..=6]
-
-assert_eq a [{foo: 1, bar: 4} {foo: 2, bar: 5} {foo: 3, bar: 6}]
-
-make_map = |n|
-  if n >= 0
-    sign: "positive"
-    n: n
-  else
-    sign: "negative"
-    n: n
-
-p = make_map 100
-assert_eq p.sign "positive"
-n = make_map -100
-assert_eq n.sign "negative"
+  test_nested_block: ||
+    deep =
+      a:
+        b:
+          c:
+            d:
+              foo: -1
+              set_foo: |self x| self.foo = x
+    assert_eq deep.a.b.c.d.foo -1
+    deep.a.b.c.d.set_foo(42)
+    assert_eq deep.a.b.c.d.foo 42

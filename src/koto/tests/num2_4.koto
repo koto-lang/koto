@@ -1,24 +1,40 @@
 import math
 import test.assert_eq
 
-assert_eq (num4 0) (num4 0 0 0 0)
-assert_eq (num2 1) (num2 1 1)
-assert_eq (num4 (num2 1)) (num4 1 1 0 0)
+export tests =
+  test_creating: ||
+    assert_eq (num4 0) (num4 0 0 0 0)
+    assert_eq (num2 1) (num2 1 1)
+    assert_eq (num4 (num2 1)) (num4 1 1 0 0)
 
-x = num4 5 6 7 8
-x *= 2
-assert_eq x (num4 10 12 14 16)
-assert_eq x (num4 10 12 14 16)
-x %= 5
-assert_eq x (num4 0 2 4 1)
+  test_mutation_num2: ||
+    x = num2 10 11
+    x *= 2
+    assert_eq x (num2 20 22)
+    x %= 5
+    assert_eq x (num2 0 2)
+    x += num2 10
+    assert_eq x (num2 10 12)
 
-assert_eq (math.sum (num2 1 2)) 3
-assert_eq (math.sum (num4 1 2 3 4)) 10
+  test_mutation_num4: ||
+    x = num4 5 6 7 8
+    x *= 2
+    assert_eq x (num4 10 12 14 16)
+    x %= 5
+    assert_eq x (num4 0 2 4 1)
+    x += num4 10
+    assert_eq x (num4 10 12 14 11)
 
-x = num2 10 20
-assert_eq x[0] 10
-assert_eq x[1] 20
+  test_sum: ||
+    assert_eq (math.sum (num2 1 2)) 3
+    assert_eq (math.sum (num4 1 2 3 4)) 10
 
-x = num4 2 3 4 5
-assert_eq x[0] 2
-assert_eq x[3] 5
+  test_element_access_num2: ||
+    x = num2 10 20
+    assert_eq x[0] 10
+    assert_eq x[1] 20
+
+  test_element_access_num4: ||
+    x = num4 2 3 4 5
+    assert_eq x[0] 2
+    assert_eq x[3] 5

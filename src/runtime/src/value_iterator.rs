@@ -1,6 +1,6 @@
 use crate::{Value, ValueList, ValueMap};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct IntRange {
     pub start: isize,
     pub end: isize,

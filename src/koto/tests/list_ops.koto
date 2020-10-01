@@ -1,109 +1,96 @@
 import list string
 from test import assert assert_eq
 
-###### list.length
 
-assert_eq [].length() 0
-assert_eq [1 2 3].length() 3
+export tests =
+  test_length: ||
+    assert_eq [].length() 0
+    assert_eq [1 2 3].length() 3
 
+  test_push_pop: ||
+    z = [1]
+    z.push 2
+    assert_eq z [1 2]
+    # list ops are also available in the list module
+    list.push z 3
+    assert_eq z [1 2 3]
+    assert_eq z.pop() 3
+    assert_eq z [1 2]
+    z.pop()
+    z.pop()
+    assert_eq z []
+    list.pop z
+    assert_eq z []
 
-###### list.push + pop
-z = [1]
-z.push 2
-assert_eq z [1 2]
-# list ops are also available in the list module
-list.push z 3
-assert_eq z [1 2 3]
-assert_eq z.pop() 3
-assert_eq z [1 2]
-z.pop()
-z.pop()
-assert_eq z []
-list.pop z
-assert_eq z []
+  test_first_last: ||
+    z = []
+    assert_eq z.first() ()
+    assert_eq z.last() ()
 
+    z = [99]
+    assert_eq z.first() 99
+    assert_eq z.last() 99
 
-###### list.first + last
-z = []
-assert_eq z.first() ()
-assert_eq z.last() ()
+    z = [1 2 3]
+    assert_eq z.first() 1
+    assert_eq z.last() 3
 
-z = [99]
-assert_eq z.first() 99
-assert_eq z.last() 99
+  test_remove_insert: ||
+    z = [1 2 3]
+    assert_eq (z.remove 1) 2
+    assert_eq z [1 3]
+    z.insert 1 42
+    assert_eq z [1 42 3]
+    z.insert 3 -1
+    assert_eq z [1 42 3 -1]
 
-z = [1 2 3]
-assert_eq z.first() 1
-assert_eq z.last() 3
+  test_get: ||
+    assert_eq ([0..10].get 5) 5
+    assert_eq ([0..10].get 15) ()
 
+  test_contains: ||
+    assert ([0..10].contains 5)
+    assert not ([0..10].contains 15)
 
-###### list.remove + insert
-z = [1 2 3]
-assert_eq (z.remove 1) 2
-assert_eq z [1 3]
-z.insert 1 42
-assert_eq z [1 42 3]
-z.insert 3 -1
-assert_eq z [1 42 3 -1]
+  test_filter_value: ||
+    z = ["hello" 42 (num4 0) "hello"]
+    z.filter "hello"
+    assert_eq z ["hello" "hello"]
 
+  test_filter_predicate: ||
+    z = [0..10]
+    z.filter |n| n % 2 == 0
+    assert_eq z [0 2 4 6 8]
 
-###### list.get
-assert_eq ([0..10].get 5) 5
-assert_eq ([0..10].get 15) ()
+  test_transform: ||
+    z = ["1" "2" "3"]
+    z.transform |x| x.to_number()
+    assert_eq z [1 2 3]
 
+  test_fold: ||
+    z = [2 3 4]
+    x = z.fold 1 |x y| x * y
+    assert_eq x 24
 
-###### list.contains (see also the 'in' operator)
-assert ([0..10].contains 5)
-assert not ([0..10].contains 15)
+  test_is_sortable: ||
+    assert (list.is_sortable [42 10 9])
+    assert not list.is_sortable ["42" 10 9]
+    assert (list.is_sortable ["42" "10" "9"])
 
+  test_sort: ||
+    z = [3 2 1]
+    z.sort()
+    assert_eq z [1 2 3]
 
-###### list.filter
+  test_sort_copy: ||
+    assert_eq [42 10 9].sort_copy() [9 10 42]
 
-# Passing a value into list.filter will leave only matching elements in the list
-z = ["hello" 42 (num4 0) "hello"]
-z.filter "hello"
-assert_eq z ["hello" "hello"]
+  test_fill: ||
+    a = [1 2 3]
+    a.fill 42
+    assert_eq a [42 42 42]
 
-# Passing z predicate will leave elements in the list for which the predicate returns true
-z = [0..10]
-z.filter |n| n % 2 == 0
-assert_eq z [0 2 4 6 8]
-
-
-###### list.transform
-z = ["1" "2" "3"]
-z.transform |x| x.to_number()
-assert_eq z [1 2 3]
-
-
-###### list.fold
-z = [2 3 4]
-x = z.fold 1 |x y| x * y
-assert_eq x 24
-
-
-###### list.is_sortable + sort_copy
-
-assert (list.is_sortable [42 10 9])
-assert not list.is_sortable ["42" 10 9]
-assert (list.is_sortable ["42" "10" "9"])
-
-
-###### list.sort + sort_copy
-assert_eq [42 10 9].sort_copy() [9 10 42]
-
-z = [3 2 1]
-z.sort()
-assert_eq z [1 2 3]
-
-
-###### list.fill
-a = [1 2 3]
-a.fill 42
-assert_eq a [42 42 42]
-
-
-###### list.reverse
-a = [1 2 3]
-a.reverse()
-assert_eq a [3 2 1]
+  test_reverse: ||
+    a = [1 2 3]
+    a.reverse()
+    assert_eq a [3 2 1]

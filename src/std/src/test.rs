@@ -105,6 +105,11 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
     });
 
+    test.add_fn("run_tests", |runtime, args| match &args {
+        [Map(tests)] => runtime.run_tests(tests.clone()),
+        _ => external_error!("run_tests expects a map as argument"),
+    });
+
     prelude.add_value("test", Map(test));
 }
 
