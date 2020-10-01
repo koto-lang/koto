@@ -20,9 +20,9 @@ export tests =
 
   test_pick: ||
     x = ["foo" "bar" "baz"]
-    assert (random.pick x) in x
+    assert (x.contains (random.pick x))
     x = 0..10
-    assert (random.pick x) in x
+    assert (x.contains (random.pick x))
 
   test_generator: ||
     get_rng_output = |rng| [rng.pick 0..5 for _ in 0..10]

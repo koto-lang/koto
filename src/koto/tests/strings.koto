@@ -16,9 +16,9 @@ export tests =
     x += "_" + "^"
     assert_eq x "^_^"
 
-  test_in_operator: ||
-    assert "_" in "O_o"
-    assert not "@" in "O_o"
+  test_contains: ||
+    assert "O_o".contains("_")
+    assert not "O_o".contains("@")
 
   test_slice: ||
     assert_eq "cde" ("abcdef".slice 2 5)
@@ -52,5 +52,3 @@ export tests =
 
     # Identifier placeholders are looked up in a map argument
     assert_eq "O_o" ("{first}_{second}".format {first: "O", second: "o"})
-
-

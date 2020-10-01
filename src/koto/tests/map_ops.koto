@@ -61,8 +61,3 @@ export tests =
     assert_eq (m.remove "foo") 42
     assert_eq (m.remove "bar") 99
     assert_eq (m.remove "foo") ()
-
-  test_in_operator: ||
-    m = {foo: 42}
-    assert "foo" in m
-    assert not 0 in m

@@ -54,7 +54,3 @@ export tests =
     assert_eq a[1][1] 42
     a[1][1] = -1
     assert_eq a[1][1] -1
-
-  test_in_operator: ||
-    assert 42 in [1 42 99]
-    assert not -1 in [1 42 99]

@@ -10,6 +10,11 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("contains", |_, args| match args {
+        [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_ref()))),
+        _ => external_error!("string.contains: Expected two strings as arguments"),
+    });
+
     result.add_fn("escape", |_, args| match args {
         [Str(s)] => Ok(Str(Arc::new(s.escape_default().to_string()))),
         _ => external_error!("string.escape: Expected string as argument"),

@@ -51,7 +51,3 @@ export tests =
 
     assert not (0..10).contains(10)
     assert (0..=10).contains(10)
-
-  test_range_in_operator: ||
-    assert 10 in 0..20
-    assert not 10 in 0..10

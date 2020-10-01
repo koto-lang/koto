@@ -65,7 +65,6 @@ pub enum Op {
     GreaterOrEqual,   // result, lhs, rhs
     Equal,            // result, lhs, rhs
     NotEqual,         // result, lhs, rhs
-    In,               // result, lhs, rhs
     Jump,             // offset[2]
     JumpTrue,         // condition, offset[2]
     JumpFalse,        // condition, offset[2]
@@ -88,6 +87,7 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
+    Unused70,
     Unused71,
     Unused72,
     Unused73,

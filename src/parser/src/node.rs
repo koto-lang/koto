@@ -187,7 +187,6 @@ pub enum AstOp {
     GreaterOrEqual,
     And,
     Or,
-    In,
 }
 
 #[derive(Clone, Debug, PartialEq)]
