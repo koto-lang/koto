@@ -26,7 +26,7 @@ export tests =
     assert_eq a [16 17 18 19]
 
   test_for_list_comprehension_multiple_ranges: ||
-    enumerate = |xs| [[i x] for i, x in 0..xs.length(), xs]
+    enumerate = |xs| [[i x] for i, x in 0..xs.size(), xs]
 
     z = [c for c in enumerate [100..103]]
     assert_eq z [[0 100] [1 101] [2 102]]

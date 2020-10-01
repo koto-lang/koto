@@ -10,9 +10,9 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("range.contains: Expected range and number as arguments"),
     });
 
-    result.add_fn("length", |_, args| match args {
+    result.add_fn("size", |_, args| match args {
         [Range(r)] => Ok(Number((r.end - r.start) as f64)),
-        _ => external_error!("range.length: Expected range as argument"),
+        _ => external_error!("range.size: Expected range as argument"),
     });
 
     result

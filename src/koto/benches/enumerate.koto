@@ -1,6 +1,6 @@
 import env test.assert_eq
 
-enumerate = |xs| [[i x] for i, x in 0..xs.length(), xs]
+enumerate = |xs| [[i x] for i, x in 0..xs.size(), xs]
 
 export main = ||
   n = match env.args.get 0

@@ -106,7 +106,7 @@ offset_momentum = |bodies nbody|
 
 run_nbody = |n|
   init_bodies()
-  nbody = bodies.length()
+  nbody = bodies.size()
   offset_momentum bodies nbody
   initial_energy = get_energy bodies nbody
   for _ in 0..n

@@ -146,10 +146,6 @@ pub fn make_module() -> ValueMap {
         })
     });
 
-    result.add_fn("length", |_, args: &[Value]| {
-        list_op(args, 1, "is_sortable", |list| Ok(Number(list.len() as f64)))
-    });
-
     result.add_fn("pop", |_, args: &[Value]| {
         list_op(args, 1, "pop", |list| match list.data_mut().pop() {
             Some(value) => Ok(value),
@@ -194,6 +190,10 @@ pub fn make_module() -> ValueMap {
             list.data_mut().reverse();
             Ok(Value::Empty)
         })
+    });
+
+    result.add_fn("size", |_, args: &[Value]| {
+        list_op(args, 1, "size", |list| Ok(Number(list.len() as f64)))
     });
 
     result.add_fn("sort", |_, args: &[Value]| {

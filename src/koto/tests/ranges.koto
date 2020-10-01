@@ -41,9 +41,9 @@ export tests =
     a = [x for x in 4..=1]
     assert_eq a [4 3 2 1]
 
-  test_range_length: ||
-    assert_eq (0..10).length() 10
-    assert_eq (0..=10).length() 11
+  test_range_size: ||
+    assert_eq (0..10).size() 10
+    assert_eq (0..=10).size() 11
 
   test_range_contains: ||
     assert (0..10).contains(5)
