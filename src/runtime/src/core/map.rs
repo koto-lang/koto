@@ -39,6 +39,11 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("map.insert: Expected map and key as arguments"),
     });
 
+    result.add_fn("is_empty", |_, args| match args {
+        [Map(m)] => Ok(Bool(m.data().is_empty())),
+        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+    });
+
     result.add_fn("remove", |_, args| match args {
         [Map(m), key] if value_is_immutable(key) => match m.data_mut().remove(key) {
             Some(old_value) => Ok(old_value),

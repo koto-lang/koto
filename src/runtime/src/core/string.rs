@@ -20,6 +20,11 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("string.escape: Expected string as argument"),
     });
 
+    result.add_fn("is_empty", |_, args| match args {
+        [Str(s)] => Ok(Bool(s.is_empty())),
+        _ => external_error!("string.is_empty: Expected string as argument"),
+    });
+
     result.add_fn("format", |_, args| match args {
         [result @ Str(_)] => Ok(result.clone()),
         [Str(format), format_args @ ..] => match format::format_string(format, format_args) {

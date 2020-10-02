@@ -2,6 +2,10 @@ import map
 from test import assert assert_eq
 
 export tests =
+  test_is_empty: ||
+    assert {}.is_empty()
+    assert not {foo: 42}.is_empty()
+
   test_size: ||
     assert_eq {}.size() 0
     assert_eq {foo: 42}.size() 1

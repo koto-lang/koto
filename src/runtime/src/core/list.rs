@@ -10,6 +10,11 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.contains: Expected list and value as arguments"),
     });
 
+    result.add_fn("is_empty", |_, args| match args {
+        [List(l)] => Ok(Bool(l.data().is_empty())),
+        _ => external_error!("list.is_empty: Expected list as argument"),
+    });
+
     result.add_fn("fill", |_, args| {
         list_op(args, 2, "fill", |list| {
             let value = args[1].clone();
