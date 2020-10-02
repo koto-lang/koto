@@ -28,7 +28,7 @@ pub struct Settings {
 pub struct Koto {
     script_path: Option<PathBuf>,
     runtime: Vm,
-    settings: Settings,
+    pub settings: Settings,
     loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }

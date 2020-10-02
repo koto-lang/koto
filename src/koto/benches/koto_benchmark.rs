@@ -1,9 +1,11 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use koto::Koto;
-use std::{env::current_dir, fs::read_to_string};
+use {
+    criterion::{criterion_group, criterion_main, Criterion},
+    koto::Koto,
+    std::{env::current_dir, fs::read_to_string},
+};
 
 struct BenchmarkRunner {
-    koto: Koto,
+    runtime: Koto,
 }
 
 impl BenchmarkRunner {
@@ -13,24 +15,25 @@ impl BenchmarkRunner {
         path.push(script_path);
         let script = read_to_string(path).expect("Unable to load path");
 
-        let mut koto = Koto::with_settings(koto::Settings {
-            run_tests: true,
-            ..Default::default()
-        });
-        match koto.compile(&script) {
+        let mut runtime = Koto::new();
+        match runtime.compile(&script) {
             Ok(_) => {
-                if let Err(error) = koto.run_with_args(&args) {
+                runtime.settings.run_tests = true;
+
+                if let Err(error) = runtime.run_with_args(&args) {
                     panic!(error);
                 }
+
+                runtime.settings.run_tests = false;
             }
             Err(error) => panic!(error),
         }
 
-        Self { koto }
+        Self { runtime }
     }
 
     fn run(&mut self) {
-        if let Err(error) = self.koto.run() {
+        if let Err(error) = self.runtime.run() {
             panic!(error);
         }
     }
