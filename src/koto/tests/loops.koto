@@ -82,3 +82,11 @@ export tests =
     count = 100
     x = [(count += 1) until count == 105]
     assert_eq x [101..=105]
+
+  test_loop_break: ||
+    count = 0
+    loop
+      count += 1
+      if count == 5
+        break
+    assert_eq count 5

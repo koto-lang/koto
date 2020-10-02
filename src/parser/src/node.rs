@@ -67,6 +67,9 @@ pub enum Node {
     },
     Wildcard,
     For(AstFor),
+    Loop {
+        body: AstIndex,
+    },
     While {
         condition: AstIndex,
         body: AstIndex,
@@ -133,6 +136,7 @@ impl fmt::Display for Node {
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
             Until { .. } => write!(f, "Until"),
+            Loop { .. } => write!(f, "Loop"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),

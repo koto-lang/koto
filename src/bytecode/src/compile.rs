@@ -570,11 +570,12 @@ impl Compiler {
             Node::Wildcard => None,
             Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
             Node::While { condition, body } => {
-                self.compile_while(result_register, None, *condition, *body, false, ast)?
+                self.compile_loop(result_register, None, Some((*condition, false)), *body, ast)?
             }
             Node::Until { condition, body } => {
-                self.compile_while(result_register, None, *condition, *body, true, ast)?
+                self.compile_loop(result_register, None, Some((*condition, true)), *body, ast)?
             }
+            Node::Loop { body } => self.compile_loop(result_register, None, None, *body, ast)?,
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -1298,7 +1299,7 @@ impl Compiler {
         let rhs_node = ast.node(rhs);
 
         match op {
-            Add | Subtract | Multiply | Divide | Modulo  => {
+            Add | Subtract | Multiply | Divide | Modulo => {
                 self.compile_op(result_register, op, lhs_node, rhs_node, ast)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
@@ -1657,22 +1658,20 @@ impl Compiler {
                             )?;
                         }
                         Node::While { condition, body } => {
-                            self.compile_while(
+                            self.compile_loop(
                                 ResultRegister::None,
                                 Some(result.register),
-                                *condition,
+                                Some((*condition, false)),
                                 *body,
-                                false,
                                 ast,
                             )?;
                         }
                         Node::Until { condition, body } => {
-                            self.compile_while(
+                            self.compile_loop(
                                 ResultRegister::None,
                                 Some(result.register),
-                                *condition,
+                                Some((*condition, true)),
                                 *body,
-                                true,
                                 ast,
                             )?;
                         }
@@ -2552,13 +2551,12 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_while(
+    fn compile_loop(
         &mut self,
         result_register: ResultRegister, // register that gets the last iteration's result
         list_register: Option<u8>,       // list that receives each iteration's result
-        condition: AstIndex,
+        condition: Option<(AstIndex, bool)>, // condition, negate condition
         body: AstIndex,
-        negate_condition: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -2568,19 +2566,21 @@ impl Compiler {
 
         let result = self.get_result_register(result_register)?;
 
-        // Condition
-        let condition_register = self
-            .compile_node(ResultRegister::Any, ast.node(condition), ast)?
-            .unwrap();
-        let op = if negate_condition {
-            JumpTrue
-        } else {
-            JumpFalse
-        };
-        self.push_op_without_span(op, &[condition_register.register]);
-        self.push_loop_jump_placeholder()?;
-        if condition_register.is_temporary {
-            self.pop_register()?;
+        if let Some((condition, negate_condition)) = condition {
+            // Condition
+            let condition_register = self
+                .compile_node(ResultRegister::Any, ast.node(condition), ast)?
+                .unwrap();
+            let op = if negate_condition {
+                JumpTrue
+            } else {
+                JumpFalse
+            };
+            self.push_op_without_span(op, &[condition_register.register]);
+            self.push_loop_jump_placeholder()?;
+            if condition_register.is_temporary {
+                self.pop_register()?;
+            }
         }
 
         let body_result_register = if let Some(result) = result {

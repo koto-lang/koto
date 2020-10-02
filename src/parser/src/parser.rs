@@ -282,6 +282,8 @@ impl<'source> Parser<'source> {
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
         let result = if let Some(for_loop) = self.parse_for_loop(None)? {
             for_loop
+        } else if let Some(loop_block) = self.parse_loop_block()? {
+            loop_block
         } else if let Some(while_loop) = self.parse_while_loop(None)? {
             while_loop
         } else if let Some(until_loop) = self.parse_until_loop(None)? {
@@ -1396,6 +1398,22 @@ impl<'source> Parser<'source> {
         }))?;
 
         Ok(Some(result))
+    }
+
+    fn parse_loop_block(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.skip_whitespace_and_peek() != Some(Token::Loop) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.current_indent();
+        self.consume_token();
+
+        if let Some(body) = self.parse_indented_block(current_indent, None)? {
+            let result = self.push_node(Node::Loop { body })?;
+            Ok(Some(result))
+        } else {
+            return syntax_error!(ExpectedLoopBody, self);
+        }
     }
 
     fn parse_while_loop(

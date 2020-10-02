@@ -3047,6 +3047,20 @@ sum";
         }
 
         #[test]
+        fn loop_break_continue() {
+            let script = "
+i = 0
+loop
+  i += 1
+  if i < 5
+    continue
+  else
+    break
+i";
+            test_script(script, Number(5.0));
+        }
+
+        #[test]
         fn return_from_nested_loop() {
             let script = "
 f = ||
