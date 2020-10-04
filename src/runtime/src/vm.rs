@@ -12,13 +12,14 @@ use {
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::{num2, num4, ConstantIndex},
     rustc_hash::FxHashMap,
-    std::{collections::HashMap, path::PathBuf, sync::Arc},
+    std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
 };
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow {
     Continue,
-    ReturnValue(Value),
+    Return(Value),
+    Yield(Value),
 }
 
 #[derive(Clone)]
@@ -118,6 +119,14 @@ impl Vm {
         self.execute_instructions()
     }
 
+    pub fn continue_running(&mut self) -> RuntimeResult {
+        if self.call_stack.is_empty() {
+            Ok(Value::Empty)
+        } else {
+            self.execute_instructions()
+        }
+    }
+
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
         let current_chunk = self.chunk();
         let current_ip = self.ip();
@@ -191,7 +200,7 @@ impl Vm {
                                 chunk,
                                 instruction,
                             },
-                            Error::ExternalError { message } => Error::ExternalError {
+                            Error::ErrorWithoutLocation { message } => Error::ErrorWithoutLocation {
                                 message: wrap_message(message),
                             },
                             Error::LoaderError(loader::LoaderError { message, span }) => {
@@ -252,8 +261,12 @@ impl Vm {
         while let Some(instruction) = self.reader.next() {
             match self.execute_instruction(instruction, instruction_ip) {
                 Ok(ControlFlow::Continue) => {}
-                Ok(ControlFlow::ReturnValue(return_value)) => {
-                    result = return_value;
+                Ok(ControlFlow::Return(value)) => {
+                    result = value;
+                    break;
+                }
+                Ok(ControlFlow::Yield(value)) => {
+                    result = value;
                     break;
                 }
                 Err(error) => {
@@ -538,11 +551,12 @@ impl Vm {
                     }),
                 );
             }
-            Instruction::MakeIterator { register, range } => {
-                let iterator = match self.get_register(range) {
-                    Range(int_range) => Iterator(ValueIterator::new(Iterable::Range(*int_range))),
-                    List(list) => Iterator(ValueIterator::new(Iterable::List(list.clone()))),
-                    Map(map) => Iterator(ValueIterator::new(Iterable::Map(map.clone()))),
+            Instruction::MakeIterator { register, iterable } => {
+                let iterator = match self.get_register(iterable) {
+                    Range(int_range) => ValueIterator::with_range(*int_range),
+                    List(list) => ValueIterator::with_list(list.clone()),
+                    Map(map) => ValueIterator::with_map(map.clone()),
+                    Iterator(iterator) => iterator.clone(),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -552,13 +566,16 @@ impl Vm {
                         );
                     }
                 };
-                self.set_register(register, iterator);
+
+                self.set_register(register, Iterator(iterator));
             }
             Instruction::Function {
                 register,
                 arg_count,
                 capture_count,
                 size,
+                is_instance_function,
+                is_generator,
             } => {
                 let captures = if capture_count > 0 {
                     let mut captures = ValueVec::new();
@@ -573,31 +590,8 @@ impl Vm {
                     ip: self.ip(),
                     arg_count,
                     captures,
-                    is_instance_function: false,
-                });
-                self.jump_ip(size);
-                self.set_register(register, function);
-            }
-            Instruction::InstanceFunction {
-                register,
-                arg_count,
-                capture_count,
-                size,
-            } => {
-                let captures = if capture_count > 0 {
-                    let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Empty);
-                    Some(ValueList::with_data(captures))
-                } else {
-                    None
-                };
-
-                let function = Function(RuntimeFunction {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                    captures,
-                    is_instance_function: true,
+                    is_instance_function,
+                    is_generator,
                 });
                 self.jump_ip(size);
                 self.set_register(register, function);
@@ -976,8 +970,11 @@ impl Vm {
             Instruction::Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.get_register(register).clone())? {
                     // If pop_frame returns a new return_value, then execution should stop.
-                    result = ControlFlow::ReturnValue(return_value);
+                    result = ControlFlow::Return(return_value);
                 }
+            }
+            Instruction::Yield { register } => {
+                result = ControlFlow::Yield(self.get_register(register).clone());
             }
             Instruction::Type { register, source } => {
                 let result = match self.get_register(source) {
@@ -1023,8 +1020,10 @@ impl Vm {
                 };
 
                 match result {
-                    Some(ValueIteratorOutput::Value(value)) => self.set_register(register, value),
-                    Some(ValueIteratorOutput::ValuePair(first, second)) => {
+                    Some(Ok(ValueIteratorOutput::Value(value))) => {
+                        self.set_register(register, value)
+                    }
+                    Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
                         self.set_register(
                             register,
                             Value::RegisterList(value::RegisterList {
@@ -1035,6 +1034,12 @@ impl Vm {
                         self.set_register(register + 1, first);
                         self.set_register(register + 2, second);
                     }
+                    Some(Err(error)) => match error {
+                        Error::ErrorWithoutLocation { message } => {
+                            return vm_error!(self.chunk(), instruction_ip, message)
+                        }
+                        _ => return Err(error),
+                    },
                     None => self.jump_ip(jump_offset),
                 };
             }
@@ -1350,8 +1355,8 @@ impl Vm {
                     list.data_mut()
                         .extend(ValueIterator::new(Iterable::Range(range)).map(
                             |iterator_output| match iterator_output {
-                                ValueIteratorOutput::Value(value) => value,
-                                ValueIteratorOutput::ValuePair(_, _) => unreachable!(),
+                                Ok(ValueIteratorOutput::Value(value)) => value,
+                                _ => unreachable!(),
                             },
                         ));
                 }
@@ -1790,7 +1795,7 @@ impl Vm {
                     }
                     Err(error) => {
                         match error {
-                            Error::ExternalError { message } => {
+                            Error::ErrorWithoutLocation { message } => {
                                 return vm_error!(self.chunk(), instruction_ip, message)
                             }
                             _ => return Err(error), // TODO extract external error and enforce its use
@@ -1804,35 +1809,81 @@ impl Vm {
                 arg_count: function_arg_count,
                 captures,
                 is_instance_function,
+                is_generator,
             }) => {
-                if *is_instance_function {
-                    if let Some(parent_register) = parent_register {
-                        self.insert_register(
-                            arg_register,
-                            self.get_register(parent_register).clone(),
-                        );
-                    } else {
+                if *is_generator {
+                    let mut generator_vm = self.spawn_shared_vm();
+
+                    generator_vm.call_stack.clear();
+                    generator_vm.push_frame(
+                        chunk.clone(),
+                        *function_ip,
+                        0, // arguments will be copied starting in register 0
+                        captures.clone(),
+                    );
+
+                    for arg in 0..*function_arg_count {
+                        generator_vm
+                            .set_register(arg as u8, self.get_register(arg_register + arg).clone());
+                    }
+
+                    if *is_instance_function {
+                        if let Some(parent_register) = parent_register {
+                            generator_vm
+                                .insert_register(0, self.get_register(parent_register).clone());
+                        } else {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Expected self for function"
+                            );
+                        }
+                    }
+
+                    if *function_arg_count != call_arg_count {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "Expected self for function"
+                            "Incorrect argument count, expected {}, found {}",
+                            function_arg_count,
+                            call_arg_count,
                         );
                     }
+
+                    self.set_register(
+                        result_register,
+                        Value::Iterator(ValueIterator::with_vm(generator_vm)),
+                    )
+                } else {
+                    if *is_instance_function {
+                        if let Some(parent_register) = parent_register {
+                            self.insert_register(
+                                arg_register,
+                                self.get_register(parent_register).clone(),
+                            );
+                        } else {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Expected self for function"
+                            );
+                        }
+                    }
+
+                    if *function_arg_count != call_arg_count {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Incorrect argument count, expected {}, found {}",
+                            function_arg_count,
+                            call_arg_count,
+                        );
+                    }
+
+                    self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+
+                    self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
                 }
-
-                if *function_arg_count != call_arg_count {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Incorrect argument count, expected {}, found {}",
-                        function_arg_count,
-                        call_arg_count,
-                    );
-                }
-
-                self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
-
-                self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
             }
             unexpected => {
                 return vm_error!(
@@ -1840,7 +1891,7 @@ impl Vm {
                     instruction_ip,
                     "Expected Function, found '{}'",
                     type_as_string(&unexpected),
-                )
+                );
             }
         };
 
@@ -2003,7 +2054,7 @@ impl Vm {
         &mut self.value_stack[index]
     }
 
-    fn register_slice(&self, register: u8, count: u8) -> &[Value] {
+    pub fn register_slice(&self, register: u8, count: u8) -> &[Value] {
         if count > 0 {
             let start = self.register_index(register);
             &self.value_stack[start..start + count as usize]
@@ -2039,6 +2090,12 @@ impl Vm {
                 s
             }
         }
+    }
+}
+
+impl fmt::Debug for Vm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Vm")
     }
 }
 
@@ -3364,6 +3421,53 @@ count = 0
 f = |n| n
 x = [f count while (count += 1) <= 5]";
             test_script(script, number_list(&[1, 2, 3, 4, 5]));
+        }
+    }
+
+    mod generators {
+        use super::*;
+
+        #[test]
+        fn generator_two_values() {
+            let script = "
+gen = ||
+  yield 1
+  yield 2
+[x for x in gen()]";
+            test_script(script, number_list(&[1, 2]));
+        }
+
+        #[test]
+        fn generator_loop() {
+            let script = "
+gen = ||
+  x = 1
+  while x <= 5
+    yield x
+    x += 1
+[x for x in gen()]";
+            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn generator_with_arg() {
+            let script = "
+gen = |xs|
+  for x in xs
+    yield x
+[x for x in gen(1..=5)]";
+            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn generator_returning_multiple_values() {
+            let script = "
+gen = |xs|
+  for i, x in 0..xs.size(), xs
+    yield i, x
+z = [x for x in gen(1..=5)]
+z[1]";
+            test_script(script, number_list(&[1, 2]));
         }
     }
 

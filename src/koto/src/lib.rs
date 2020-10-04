@@ -227,7 +227,7 @@ impl Koto {
                 chunk,
                 instruction,
             } => self.format_vm_error(&message, chunk, instruction),
-            Error::ExternalError { message } => format!("Error: {}\n", message,),
+            Error::ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
             Error::LoaderError(error) => {
                 self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
             }

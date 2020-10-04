@@ -84,6 +84,7 @@ pub enum Token {
     Type,
     Until,
     While,
+    Yield,
 }
 
 #[derive(Clone)]
@@ -378,6 +379,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("type", Type);
         check_keyword!("until", Until);
         check_keyword!("while", While);
+        check_keyword!("yield", Yield);
 
         // If no keyword matched, then consume as an Id
         self.advance_line_utf8(char_bytes, char_count);

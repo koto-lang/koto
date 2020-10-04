@@ -86,6 +86,7 @@ pub enum Node {
     Negate(AstIndex),
     Type(AstIndex),
     Try(AstTry),
+    Yield(AstIndex),
     Debug {
         expression_string: ConstantIndex,
         expression: AstIndex,
@@ -143,6 +144,7 @@ impl fmt::Display for Node {
             ReturnExpression(_) => write!(f, "ReturnExpression"),
             Type(_) => write!(f, "Type"),
             Try { .. } => write!(f, "Try"),
+            Yield { .. } => write!(f, "Yield"),
             Debug { .. } => write!(f, "Debug"),
         }
     }
@@ -158,6 +160,7 @@ pub struct Function {
     pub accessed_non_locals: Vec<ConstantIndex>,
     pub body: AstIndex,
     pub is_instance_function: bool,
+    pub is_generator: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

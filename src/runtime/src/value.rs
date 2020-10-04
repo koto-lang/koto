@@ -28,11 +28,11 @@ pub enum Value {
     Map(ValueMap),
     Str(Arc<String>),
     Function(RuntimeFunction),
+    Iterator(ValueIterator),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     // Internal value types
     IndexRange(IndexRange),
-    Iterator(ValueIterator),
     RegisterList(RegisterList),
     ExternalDataId,
 }
@@ -49,10 +49,10 @@ pub enum ValueRef<'a> {
     Map(&'a ValueMap),
     Str(&'a str),
     Function(&'a RuntimeFunction),
+    Iterator(&'a ValueIterator),
     ExternalFunction(&'a ExternalFunction),
     ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
     IndexRange(&'a IndexRange),
-    Iterator(&'a ValueIterator),
     RegisterList(&'a RegisterList),
     ExternalDataId,
 }
@@ -71,9 +71,9 @@ impl Value {
             Value::Range(r) => ValueRef::Range(r),
             Value::IndexRange(r) => ValueRef::IndexRange(r),
             Value::Function(f) => ValueRef::Function(f),
+            Value::Iterator(i) => ValueRef::Iterator(i),
             Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
             Value::ExternalValue(v) => ValueRef::ExternalValue(v),
-            Value::Iterator(i) => ValueRef::Iterator(i),
             Value::RegisterList(l) => ValueRef::RegisterList(l),
             Value::ExternalDataId => ValueRef::ExternalDataId,
         }
@@ -106,9 +106,9 @@ impl fmt::Display for Value {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Function(_) => write!(f, "Function"),
+            Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
-            Iterator(_) => write!(f, "Iterator"),
             RegisterList(self::RegisterList { start, count }) => {
                 write!(f, "RegisterList [{}..{}]", start, start + count)
             }
@@ -246,6 +246,7 @@ pub struct RuntimeFunction {
     pub ip: usize,
     pub arg_count: u8,
     pub is_instance_function: bool,
+    pub is_generator: bool,
     pub captures: Option<ValueList>,
 }
 

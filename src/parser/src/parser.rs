@@ -50,6 +50,7 @@ fn f64_eq(a: f64, b: f64) -> bool {
 #[derive(Debug, Default)]
 struct Frame {
     top_level: bool,
+    contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_scope: HashSet<ConstantIndex>,
     // IDs and lookup roots which have been accessed without being locally assigned previously
@@ -269,6 +270,7 @@ impl<'source> Parser<'source> {
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
                 is_instance_function,
+                is_generator: function_frame.contains_yield,
             }),
             Span {
                 start: span_start,
@@ -1083,6 +1085,16 @@ impl<'source> Parser<'source> {
                     self.consume_token();
                     if let Some(expression) = self.parse_primary_expression()? {
                         self.push_node(Node::Type(expression))?
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Yield => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expressions(true)? {
+                        let result = self.push_node(Node::Yield(expression))?;
+                        self.frame_mut()?.contains_yield = true;
+                        result
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
@@ -3481,6 +3493,7 @@ until x < y
                         accessed_non_locals: vec![0],
                         body: 0,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Number0,
                     Number1,
@@ -3612,6 +3625,7 @@ a()";
                         accessed_non_locals: vec![],
                         body: 1,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3651,6 +3665,7 @@ a()";
                         accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     MainBlock {
                         body: vec![3],
@@ -3707,6 +3722,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 10,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3756,6 +3772,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3778,6 +3795,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 8,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3856,6 +3874,7 @@ f 0 -x";
                         accessed_non_locals: vec![],
                         body: 4,
                         is_instance_function: true,
+                        is_generator: false,
                     }), // 5
                     // Map entries are constant/ast index pairs
                     Map(vec![(0, Some(0)), (2, Some(5))]),
@@ -3903,6 +3922,7 @@ f()";
                         accessed_non_locals: vec![],
                         body: 5,
                         is_instance_function: true,
+                        is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
                     Map(vec![(1, Some(1)), (3, Some(6))]),
@@ -3912,6 +3932,7 @@ f()";
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3992,6 +4013,7 @@ f 1
                         accessed_non_locals: vec![],
                         body: 11,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -4041,6 +4063,7 @@ f 1
                         accessed_non_locals: vec![],
                         body: 26,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -4093,6 +4116,7 @@ f 1
                         accessed_non_locals: vec![0], // initial read of x via capture
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     MainBlock {
                         body: vec![3],
@@ -4134,6 +4158,7 @@ y z";
                         accessed_non_locals: vec![],
                         body: 8,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Call {
                         function: 1,
@@ -4164,6 +4189,58 @@ y z";
                     Constant::Number(20.0),
                     Constant::Str("x"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn generator_function() {
+            let source = "|| yield 1";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Yield(0),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 1,
+                        is_instance_function: false,
+                        is_generator: true,
+                    }),
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn generator_multiple_values() {
+            let source = "|| yield 1, 0";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Number0,
+                    Expressions(vec![0, 1]),
+                    Yield(2),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 3,
+                        is_instance_function: false,
+                        is_generator: true,
+                    }),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                None,
             )
         }
     }

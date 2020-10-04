@@ -456,7 +456,7 @@ impl Compiler {
                 result
             }
             Node::MainBlock { body, local_count } => {
-                self.compile_frame(*local_count as u8, body, &[], &[], ast)?;
+                self.compile_frame(*local_count as u8, body, &[], &[], ast, true)?;
                 None
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
@@ -636,6 +636,25 @@ impl Compiler {
                     }
                 }
             }
+            Node::Yield(expression) => {
+                let result = self.get_result_register(result_register)?;
+
+                let expression_register = self
+                    .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
+                    .unwrap();
+
+                self.push_op(Yield, &[expression_register.register]);
+
+                if let Some(result) = result {
+                    self.push_op(Copy, &[result.register, expression_register.register]);
+                }
+
+                if expression_register.is_temporary {
+                    self.pop_register()?;
+                }
+
+                result
+            }
             Node::Type(expression) => {
                 self.compile_source_target_op(Type, result_register, *expression, ast)?
             }
@@ -689,19 +708,30 @@ impl Compiler {
         args: &[ConstantIndex],
         captures: &[ConstantIndex],
         ast: &Ast,
+        implicit_return: bool,
     ) -> Result<(), CompilerError> {
         self.frame_stack
             .push(Frame::new(local_count, args, captures));
 
-        let block_result = self
-            .compile_block(ResultRegister::Any, expressions, ast)?
-            .unwrap();
+        let result_register = if implicit_return {
+            ResultRegister::Any
+        } else {
+            ResultRegister::None
+        };
 
-        if self.frame().last_op != Some(Op::Return) {
-            self.push_op_without_span(Op::Return, &[block_result.register]);
-        }
+        let block_result = self.compile_block(result_register, expressions, ast)?;
 
-        if block_result.is_temporary {
+        if let Some(result) = block_result {
+            if self.frame().last_op != Some(Op::Return) {
+                self.push_op_without_span(Op::Return, &[result.register]);
+            }
+            if result.is_temporary {
+                self.pop_register()?;
+            }
+        } else {
+            let register = self.push_register()?;
+            self.push_op(Op::SetEmpty, &[register]);
+            self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
         }
 
@@ -1819,14 +1849,18 @@ impl Compiler {
                 }
                 let capture_count = captures.len() as u8;
 
-                if function.is_instance_function {
-                    self.push_op(
-                        InstanceFunction,
-                        &[result.register, arg_count - 1, capture_count],
-                    );
-                } else {
-                    self.push_op(Function, &[result.register, arg_count, capture_count]);
-                }
+                let (function_op, function_arg_count) =
+                    match (function.is_instance_function, function.is_generator) {
+                        (false, false) => (Function, arg_count),
+                        (true, false) => (InstanceFunction, arg_count - 1),
+                        (false, true) => (Generator, arg_count),
+                        (true, true) => (InstanceGenerator, arg_count - 1),
+                    };
+
+                self.push_op(
+                    function_op,
+                    &[result.register, function_arg_count, capture_count],
+                );
 
                 let function_size_ip = self.push_offset_placeholder();
 
@@ -1841,6 +1875,8 @@ impl Compiler {
                     }
                 };
 
+                let allow_implicit_return = !function.is_generator;
+
                 match &ast.node(function.body).node {
                     Node::Block(expressions) => {
                         self.compile_frame(
@@ -1849,6 +1885,7 @@ impl Compiler {
                             &function.args,
                             &captures,
                             ast,
+                            allow_implicit_return,
                         )?;
                     }
                     _ => {
@@ -1858,6 +1895,7 @@ impl Compiler {
                             &function.args,
                             &captures,
                             ast,
+                            allow_implicit_return,
                         )?;
                     }
                 };
