@@ -28,6 +28,21 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.collect: Expected iterator as argument"),
     });
 
+    result.add_fn("enumerate", |_, args| match args {
+        [Iterator(i)] => {
+            let mut iter =
+                i.clone()
+                    .enumerate()
+                    .map(|(i, maybe_pair)| match collect_pair(maybe_pair) {
+                        Ok(Output::Value(value)) => Ok(Output::ValuePair(Number(i as f64), value)),
+                        other => other,
+                    });
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => external_error!("iterator.enumerate: Expected iterator as argument"),
+    });
+
     result.add_fn("take", |_, args| match args {
         [Iterator(i), Number(n)] if *n >= 0.0 => {
             let mut iter = i.clone().take(*n as usize);

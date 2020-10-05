@@ -21,3 +21,6 @@ export tests =
     assert_eq ["1" "2"].iter().transform(|x| x.to_number()).collect() [1 2]
     x = {foo: 42, bar: 99}.iter().transform(|key value| [key value])
     assert_eq x.collect() [["foo" 42] ["bar" 99]]
+
+  test_enumerate: ||
+    assert_eq (10..=12).iter().enumerate().collect() [[0 10] [1 11] [2 12]]
