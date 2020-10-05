@@ -56,14 +56,14 @@ export tests =
     assert ([0..10].contains 5)
     assert not ([0..10].contains 15)
 
-  test_filter_value: ||
+  test_retain_value: ||
     z = ["hello" 42 (num4 0) "hello"]
-    z.filter "hello"
+    z.retain "hello"
     assert_eq z ["hello" "hello"]
 
-  test_filter_predicate: ||
+  test_retain_predicate: ||
     z = [0..10]
-    z.filter |n| n % 2 == 0
+    z.retain |n| n % 2 == 0
     assert_eq z [0 2 4 6 8]
 
   test_transform: ||

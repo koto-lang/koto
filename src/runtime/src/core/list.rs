@@ -30,47 +30,6 @@ pub fn make_module() -> ValueMap {
         })
     });
 
-    result.add_fn("filter", |runtime, args| {
-        list_op(args, 2, "filter", |list| {
-            match &args[1] {
-                Function(f) => {
-                    if f.arg_count != 1 {
-                        return external_error!(
-                            "The function passed to list.filter must have a \
-                                         single argument, found '{}'",
-                            f.arg_count,
-                        );
-                    }
-                    let mut write_index = 0;
-                    for read_index in 0..list.len() {
-                        let value = list.data()[read_index].clone();
-                        match runtime.run_function(f, &[value.clone()])? {
-                            Bool(result) => {
-                                if result {
-                                    list.data_mut()[write_index] = value;
-                                    write_index += 1;
-                                }
-                            }
-                            unexpected => {
-                                return external_error!(
-                                    "list.filter expects a Bool to be returned from the \
-                                     predicate, found '{}'",
-                                    value::type_as_string(&unexpected),
-                                );
-                            }
-                        }
-                    }
-                    list.data_mut().resize(write_index, Value::Empty);
-                }
-                value => {
-                    list.data_mut().retain(|x| x == value);
-                }
-            };
-
-            Ok(Value::Empty)
-        })
-    });
-
     result.add_fn("first", |_, args: &[Value]| {
         list_op(args, 1, "first", |list| match list.data().first() {
             Some(value) => Ok(value.clone()),
@@ -167,6 +126,47 @@ pub fn make_module() -> ValueMap {
                 "list.remove expects a number as its second argument, found '{}'",
                 value::type_as_string(&unexpected),
             ),
+        })
+    });
+
+    result.add_fn("retain", |runtime, args| {
+        list_op(args, 2, "retain", |list| {
+            match &args[1] {
+                Function(f) => {
+                    if f.arg_count != 1 {
+                        return external_error!(
+                            "The function passed to list.retain must have a \
+                                         single argument, found '{}'",
+                            f.arg_count,
+                        );
+                    }
+                    let mut write_index = 0;
+                    for read_index in 0..list.len() {
+                        let value = list.data()[read_index].clone();
+                        match runtime.run_function(f, &[value.clone()])? {
+                            Bool(result) => {
+                                if result {
+                                    list.data_mut()[write_index] = value;
+                                    write_index += 1;
+                                }
+                            }
+                            unexpected => {
+                                return external_error!(
+                                    "list.retain expects a Bool to be returned from the \
+                                     predicate, found '{}'",
+                                    value::type_as_string(&unexpected),
+                                );
+                            }
+                        }
+                    }
+                    list.data_mut().resize(write_index, Value::Empty);
+                }
+                value => {
+                    list.data_mut().retain(|x| x == value);
+                }
+            };
+
+            Ok(Value::Empty)
         })
     });
 
