@@ -1,4 +1,6 @@
-use crate::{external_error, value_is_immutable, Value, ValueList, ValueMap, ValueVec};
+use crate::{
+    external_error, value_is_immutable, Value, ValueIterator, ValueList, ValueMap, ValueVec,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -42,6 +44,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("is_empty", |_, args| match args {
         [Map(m)] => Ok(Bool(m.data().is_empty())),
         _ => external_error!("map.contains_key: Expected map and key as arguments"),
+    });
+
+    result.add_fn("iter", |_, args| match args {
+        [Map(m)] => Ok(Iterator(ValueIterator::with_map(m.clone()))),
+        _ => external_error!("map.iter: Expected map as argument"),
     });
 
     result.add_fn("remove", |_, args| match args {

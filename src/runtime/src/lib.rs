@@ -19,7 +19,7 @@ pub use {
     value::{
         make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
     },
-    value_iterator::IntRange,
+    value_iterator::{ValueIterator, IntRange},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
     vm::Vm,

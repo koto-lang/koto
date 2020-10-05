@@ -2,7 +2,8 @@
 
 use {
     crate::{
-        core, external,
+        core::CoreLib,
+        external,
         frame::Frame,
         loader, type_as_string,
         value::{self, deep_copy_value, RuntimeFunction},
@@ -20,25 +21,6 @@ pub enum ControlFlow {
     Continue,
     Return(Value),
     Yield(Value),
-}
-
-#[derive(Clone)]
-struct CoreLib {
-    list: ValueMap,
-    map: ValueMap,
-    range: ValueMap,
-    string: ValueMap,
-}
-
-impl Default for CoreLib {
-    fn default() -> Self {
-        Self {
-            list: core::list::make_module(),
-            map: core::map::make_module(),
-            range: core::range::make_module(),
-            string: core::string::make_module(),
-        }
-    }
 }
 
 #[derive(Default)]
@@ -200,9 +182,11 @@ impl Vm {
                                 chunk,
                                 instruction,
                             },
-                            Error::ErrorWithoutLocation { message } => Error::ErrorWithoutLocation {
-                                message: wrap_message(message),
-                            },
+                            Error::ErrorWithoutLocation { message } => {
+                                Error::ErrorWithoutLocation {
+                                    message: wrap_message(message),
+                                }
+                            }
                             Error::LoaderError(loader::LoaderError { message, span }) => {
                                 Error::LoaderError(loader::LoaderError {
                                     message: wrap_message(message),
@@ -1736,6 +1720,7 @@ impl Vm {
             List(_) => get_core_op!(list, "List")?,
             Range(_) => get_core_op!(range, "Range")?,
             Str(_) => get_core_op!(string, "String")?,
+            Iterator(_) => get_core_op!(iterator, "Iterator")?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),

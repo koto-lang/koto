@@ -56,6 +56,7 @@ mod koto_tests {
     koto_test!(generators);
     koto_test!(import);
     koto_test!(io);
+    koto_test!(iterators);
     koto_test!(json);
     koto_test!(line_breaks);
     koto_test!(list_ops);

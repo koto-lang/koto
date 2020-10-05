@@ -1,4 +1,4 @@
-use crate::{external_error, value, RuntimeResult, Value, ValueList, ValueMap};
+use crate::{external_error, value, RuntimeResult, Value, ValueIterator, ValueList, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -13,6 +13,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("is_empty", |_, args| match args {
         [List(l)] => Ok(Bool(l.data().is_empty())),
         _ => external_error!("list.is_empty: Expected list as argument"),
+    });
+
+    result.add_fn("iter", |_, args| match args {
+        [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
+        _ => external_error!("list.iter: Expected list as argument"),
     });
 
     result.add_fn("fill", |_, args| {
