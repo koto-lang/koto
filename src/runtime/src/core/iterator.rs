@@ -1,6 +1,6 @@
 use crate::{
     external_error,
-    value_iterator::{ValueIterator, ValueIteratorOutput},
+    value_iterator::{ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult},
     Value, ValueList, ValueMap, ValueVec,
 };
 
@@ -15,12 +15,10 @@ pub fn make_module() -> ValueMap {
             let mut result = ValueVec::new();
 
             loop {
-                match iterator.next() {
-                    Some(Ok(ValueIteratorOutput::Value(value))) => result.push(value),
-                    Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
-                        result.push(List(ValueList::from_slice(&[first, second])))
-                    }
+                match iterator.next().map(|maybe_pair| collect_pair(maybe_pair)) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
                     Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
                     None => break,
                 }
             }
@@ -41,5 +39,40 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("transform", |runtime, args| match args {
+        [Iterator(i), Function(f)] => {
+            let f = f.clone();
+            let mut runtime = runtime.spawn_shared_vm();
+
+            let mut iter = i.clone().map(move |iter_output| match iter_output {
+                Ok(Output::Value(value)) => match runtime.run_function(&f, &[value.clone()]) {
+                    Ok(result) => Ok(Output::Value(result)),
+                    Err(error) => Err(error),
+                },
+                Ok(Output::ValuePair(first, second)) => {
+                    match runtime.run_function(&f, &[first, second]) {
+                        Ok(result) => Ok(Output::Value(result)),
+                        Err(error) => Err(error),
+                    }
+                }
+                Err(error) => Err(error),
+            });
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => external_error!("iterator.transform: Expected iterator and function as arguments"),
+    });
+
     result
+}
+
+fn collect_pair(iterator_output: ValueIteratorResult) -> ValueIteratorResult {
+    match iterator_output {
+        Ok(Output::ValuePair(first, second)) => {
+            Ok(Output::Value(Value::List(ValueList::from_slice(&[
+                first, second,
+            ]))))
+        }
+        _ => iterator_output,
+    }
 }
