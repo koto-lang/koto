@@ -9,3 +9,10 @@ export tests =
       for x in xs
         yield x * 2
     assert_eq (doubler 1..=5).collect() [2 4 6 8 10]
+
+  test_take: ||
+    assert_eq (1..100).iter().take(5).collect() [1 2 3 4 5]
+    ones = ||
+      loop
+        yield 1
+    assert_eq ones().take(3).collect() [1 1 1]

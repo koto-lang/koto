@@ -1,6 +1,9 @@
 use {
     crate::{Error, Value, ValueList, ValueMap, Vm},
-    std::sync::{Arc, Mutex},
+    std::{
+        fmt,
+        sync::{Arc, Mutex},
+    },
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,17 +12,44 @@ pub struct IntRange {
     pub end: isize,
 }
 
+pub enum ValueIteratorOutput {
+    Value(Value),
+    ValuePair(Value, Value),
+}
+
+pub type ValueIteratorResult = Result<ValueIteratorOutput, Error>;
+
 #[derive(Clone, Debug)]
 pub enum Iterable {
     Range(IntRange),
     List(ValueList),
     Map(ValueMap),
     Generator(Arc<Mutex<Vm>>),
+    External(ExternalIterator),
 }
 
-pub enum ValueIteratorOutput {
-    Value(Value),
-    ValuePair(Value, Value),
+#[derive(Clone)]
+pub struct ExternalIterator(
+    Arc<Mutex<dyn FnMut() -> Option<ValueIteratorResult> + Send + Sync + 'static>>,
+);
+
+impl Iterator for ExternalIterator {
+    type Item = ValueIteratorResult;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0.lock() {
+            Ok(mut guard) => (guard)(),
+            Err(_) => Some(Err(Error::ErrorWithoutLocation {
+                message: "Failed to unlock iterator mutex".to_string(),
+            })),
+        }
+    }
+}
+
+impl fmt::Debug for ExternalIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ExternalIterator")
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -48,19 +78,27 @@ impl ValueIterator {
     pub fn with_vm(vm: Vm) -> Self {
         Self::new(Iterable::Generator(Arc::new(Mutex::new(vm))))
     }
+
+    pub fn make_external(
+        external: impl FnMut() -> Option<ValueIteratorResult> + Send + Sync + 'static,
+    ) -> Self {
+        Self::new(Iterable::External(ExternalIterator(Arc::new(Mutex::new(
+            external,
+        )))))
+    }
 }
 
 impl Iterator for ValueIterator {
-    type Item = Result<ValueIteratorOutput, Error>;
+    type Item = ValueIteratorResult;
 
     fn next(&mut self) -> Option<Self::Item> {
         use Value::Number;
 
-        match &self.iterable {
+        match &mut self.iterable {
             Iterable::Range(IntRange { start, end }) => {
                 if start <= end {
                     // ascending range
-                    let result = start + self.index as isize;
+                    let result = *start + self.index as isize;
                     if result < *end {
                         self.index += 1;
                         Some(Ok(ValueIteratorOutput::Value(Number(result as f64))))
@@ -69,7 +107,7 @@ impl Iterator for ValueIterator {
                     }
                 } else {
                     // descending range
-                    let result = start - self.index as isize - 1; // TODO avoid -1
+                    let result = *start - self.index as isize - 1; // TODO avoid -1
                     if result >= *end {
                         self.index += 1;
                         Some(Ok(ValueIteratorOutput::Value(Number(result as f64))))
@@ -121,6 +159,7 @@ impl Iterator for ValueIterator {
                     })),
                 }
             }
+            Iterable::External(external_iterator) => external_iterator.next(),
         }
     }
 }
