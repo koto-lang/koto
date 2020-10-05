@@ -1,5 +1,5 @@
 use crate::{
-    external_error,
+    external_error, value,
     value_iterator::{ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult},
     Value, ValueList, ValueMap, ValueVec,
 };
@@ -41,6 +41,48 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
         _ => external_error!("iterator.enumerate: Expected iterator as argument"),
+    });
+
+    result.add_fn("fold", |runtime, args| match args {
+        [Iterator(iterator), result, Function(f)] => {
+            if f.arg_count != 2 {
+                return external_error!(
+                    "iterator.fold: The fold function must have two or three arguments, found '{}'",
+                    f.arg_count,
+                );
+            }
+
+            match iterator
+                .clone()
+                .lock_internals(|iterator| {
+                    let mut fold_result = result.clone();
+                    for value in iterator {
+                        match collect_pair(value) {
+                            Ok(Output::Value(value)) => {
+                                match runtime.run_function(&f, &[fold_result, value]) {
+                                    Ok(result) => fold_result = result,
+                                    Err(error) => return Some(Err(error)),
+                                }
+                            }
+                            Err(error) => return Some(Err(error)),
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    Some(Ok(Output::Value(fold_result)))
+                })
+                .unwrap() // None is never returned from the closure
+            {
+                Ok(Output::Value(result)) => Ok(result),
+                Err(error) => Err(error),
+                _ => unreachable!(),
+            }
+        }
+        [Iterator(_), _, unexpected] => external_error!(
+            "iterator.fold: Expected Function as third argument, found '{}'",
+            value::type_as_string(&unexpected),
+        ),
+        _ => external_error!("iterator.fold: Expected initial value and function as arguments"),
     });
 
     result.add_fn("next", |_, args| match args {

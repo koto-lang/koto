@@ -78,31 +78,6 @@ pub fn make_module() -> ValueMap {
         })
     });
 
-    result.add_fn("fold", |runtime, args| {
-        list_op(args, 3, "fold", |list| match &args {
-            [_, result, Function(f)] => {
-                if f.arg_count != 2 {
-                    return external_error!(
-                        "list.fold: The fold function must have two arguments, found '{}'",
-                        f.arg_count,
-                    );
-                }
-
-                let mut result = result.clone();
-                for value in list.data().iter() {
-                    result = runtime.run_function(f, &[result, value.clone()])?;
-                }
-
-                Ok(result)
-            }
-            [_, _, unexpected] => external_error!(
-                "list.fold: Expected Function as third argument, found '{}'",
-                value::type_as_string(&unexpected),
-            ),
-            _ => external_error!("list.fold: Expected initial value and function as arguments"),
-        })
-    });
-
     result.add_fn("get", |_, args: &[Value]| {
         list_op(args, 2, "get", |list| match &args[1] {
             Number(n) => {

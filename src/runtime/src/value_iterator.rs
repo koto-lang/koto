@@ -47,7 +47,7 @@ impl fmt::Debug for ExternalIterator {
 }
 
 #[derive(Debug)]
-struct ValueIteratorInternals {
+pub struct ValueIteratorInternals {
     index: usize,
     iterable: Iterable,
 }
@@ -154,6 +154,19 @@ impl ValueIterator {
         external: impl FnMut() -> Option<ValueIteratorResult> + Send + Sync + 'static,
     ) -> Self {
         Self::new(Iterable::External(ExternalIterator(Box::new(external))))
+    }
+
+    // For internal functions that want to perform repeated iterations with a single lock
+    pub fn lock_internals(
+        &mut self,
+        mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorResult>,
+    ) -> Option<ValueIteratorResult> {
+        match self.0.lock() {
+            Ok(mut internals) => f(&mut internals),
+            Err(_) => Some(Err(Error::ErrorWithoutLocation {
+                message: "Failed to access iterator internals".to_string(),
+            })),
+        }
     }
 }
 

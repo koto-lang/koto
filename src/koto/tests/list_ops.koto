@@ -71,11 +71,6 @@ export tests =
     z.transform |x| x.to_number()
     assert_eq z [1 2 3]
 
-  test_fold: ||
-    z = [2 3 4]
-    x = z.fold 1 |x y| x * y
-    assert_eq x 24
-
   test_is_sortable: ||
     assert (list.is_sortable [42 10 9])
     assert not list.is_sortable ["42" 10 9]
