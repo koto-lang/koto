@@ -536,22 +536,26 @@ impl Vm {
                 );
             }
             Instruction::MakeIterator { register, iterable } => {
-                let iterator = match self.get_register(iterable) {
-                    Range(int_range) => ValueIterator::with_range(*int_range),
-                    List(list) => ValueIterator::with_list(list.clone()),
-                    Map(map) => ValueIterator::with_map(map.clone()),
-                    Iterator(iterator) => iterator.clone(),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected iterable value while making iterator, found '{}'",
-                            type_as_string(&unexpected)
-                        );
-                    }
-                };
+                let iterable = self.get_register(iterable).clone();
+                if matches!(iterable, Iterator(_)) {
+                    self.set_register(register, iterable);
+                } else {
+                    let iterator = match iterable {
+                        Range(int_range) => ValueIterator::with_range(int_range),
+                        List(list) => ValueIterator::with_list(list.clone()),
+                        Map(map) => ValueIterator::with_map(map.clone()),
+                        unexpected => {
+                            return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Expected iterable value while making iterator, found '{}'",
+                                type_as_string(&unexpected)
+                            );
+                        }
+                    };
 
-                self.set_register(register, Iterator(iterator));
+                    self.set_register(register, iterator.into());
+                }
             }
             Instruction::Function {
                 register,
@@ -1835,10 +1839,7 @@ impl Vm {
                         );
                     }
 
-                    self.set_register(
-                        result_register,
-                        Value::Iterator(ValueIterator::with_vm(generator_vm)),
-                    )
+                    self.set_register(result_register, ValueIterator::with_vm(generator_vm).into())
                 } else {
                     if *is_instance_function {
                         if let Some(parent_register) = parent_register {

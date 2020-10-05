@@ -240,6 +240,12 @@ impl From<&str> for Value {
     }
 }
 
+impl From<ValueIterator> for Value {
+    fn from(value: ValueIterator) -> Self {
+        Self::Iterator(value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeFunction {
     pub chunk: Arc<Chunk>,

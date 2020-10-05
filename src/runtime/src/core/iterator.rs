@@ -43,6 +43,19 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.enumerate: Expected iterator as argument"),
     });
 
+    result.add_fn("next", |_, args| match args {
+        [Iterator(i)] => {
+            let result = match i.clone().next().map(|maybe_pair| collect_pair(maybe_pair)) {
+                Some(Ok(Output::Value(value))) => value,
+                Some(Err(error)) => return Err(error),
+                None => Value::Empty,
+                _ => unreachable!(),
+            };
+            Ok(result)
+        }
+        _ => external_error!("iterator.next: Expected iterator as argument"),
+    });
+
     result.add_fn("take", |_, args| match args {
         [Iterator(i), Number(n)] if *n >= 0.0 => {
             let mut iter = i.clone().take(*n as usize);
