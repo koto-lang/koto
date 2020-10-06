@@ -2053,9 +2053,9 @@ impl Compiler {
 
     fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: ConstantIndex) {
         if key <= u8::MAX as u32 {
-            self.push_op(Op::MapInsert, &[map_register, value_register, key as u8]);
+            self.push_op_without_span(Op::MapInsert, &[map_register, value_register, key as u8]);
         } else {
-            self.push_op(Op::MapInsertLong, &[map_register, value_register]);
+            self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
             self.push_bytes(&key.to_le_bytes());
         }
     }
@@ -2383,7 +2383,7 @@ impl Compiler {
                     .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                     .unwrap();
 
-                self.push_op(Op::JumpFalse, &[condition_register.register]);
+                self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
                 arm_end_jump_placeholders.push(self.push_offset_placeholder());
 
                 if condition_register.is_temporary {
