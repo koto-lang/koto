@@ -12,7 +12,7 @@ pub fn register(prelude: &mut ValueMap) {
 
     let mut random = ChaChaRng::make_value_map(ChaCha20Rng::from_entropy());
 
-    random.add_fn("generator", |_, args| match &args {
+    random.add_fn("generator", |vm, args| match vm.get_args(args) {
         [] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::from_entropy()))),
         [Number(n)] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::seed_from_u64(
             n.to_bits(),
@@ -32,26 +32,30 @@ impl ChaChaRng {
 
         let mut result = ValueMap::new();
 
-        result.add_instance_fn("bool", |_, args| {
+        result.add_instance_fn("bool", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "bool", Self, rng, {
                 Ok(Bool(rng.0.gen::<bool>()))
             })
         });
 
-        result.add_instance_fn("number", |_, args| {
+        result.add_instance_fn("number", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "number", Self, rng, {
                 Ok(Number(rng.0.gen::<f64>()))
             })
         });
 
-        result.add_instance_fn("number2", |_, args| {
+        result.add_instance_fn("number2", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "number2", Self, rng, {
                 let result = num2::Num2(rng.0.gen::<f64>(), rng.0.gen::<f64>());
                 Ok(Num2(result))
             })
         });
 
-        result.add_instance_fn("number4", |_, args| {
+        result.add_instance_fn("number4", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "number4", Self, rng, {
                 let result = num4::Num4(
                     rng.0.gen::<f32>(),
@@ -63,7 +67,8 @@ impl ChaChaRng {
             })
         });
 
-        result.add_instance_fn("pick", |_, args| {
+        result.add_instance_fn("pick", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "number", Self, rng, {
                 match &args[1..] {
                     [List(l)] => {
@@ -85,7 +90,8 @@ impl ChaChaRng {
             })
         });
 
-        result.add_instance_fn("seed", |_, args| {
+        result.add_instance_fn("seed", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "random", "seed", Self, rng, {
                 match &args[1..] {
                     [Number(n)] => {

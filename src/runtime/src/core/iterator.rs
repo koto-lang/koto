@@ -9,7 +9,7 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("collect", |_, args| match args {
+    result.add_fn("collect", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iterator = i.clone();
             let mut result = ValueVec::new();
@@ -28,7 +28,7 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.collect: Expected iterator as argument"),
     });
 
-    result.add_fn("enumerate", |_, args| match args {
+    result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iter =
                 i.clone()
@@ -43,36 +43,34 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.enumerate: Expected iterator as argument"),
     });
 
-    result.add_fn("filter", |runtime, args| match args {
+    result.add_fn("filter", |vm, args| match vm.get_args(args) {
         [Iterator(i), Function(f)] => {
             let mut iter = i.clone();
             let f = f.clone();
-            let mut runtime = runtime.spawn_shared_vm();
+            let mut vm = vm.spawn_shared_vm();
 
             Ok(Iterator(ValueIterator::make_external(move || {
                 for output in &mut iter {
                     match output {
-                        Ok(Output::Value(value)) => {
-                            match runtime.run_function(&f, &[value.clone()]) {
-                                Ok(Bool(result)) => {
-                                    if result {
-                                        return Some(Ok(Output::Value(value)));
-                                    } else {
-                                        continue;
-                                    }
+                        Ok(Output::Value(value)) => match vm.run_function(&f, &[value.clone()]) {
+                            Ok(Bool(result)) => {
+                                if result {
+                                    return Some(Ok(Output::Value(value)));
+                                } else {
+                                    continue;
                                 }
-                                Ok(unexpected) => {
-                                    return Some(external_error!(
-                                        "iterator.filter expects a Bool to be returned from the \
-                                         predicate, found '{}'",
-                                        value::type_as_string(&unexpected),
-                                    ))
-                                }
-                                Err(error) => return Some(Err(error)),
                             }
-                        }
+                            Ok(unexpected) => {
+                                return Some(external_error!(
+                                    "iterator.filter expects a Bool to be returned from the \
+                                         predicate, found '{}'",
+                                    value::type_as_string(&unexpected),
+                                ))
+                            }
+                            Err(error) => return Some(Err(error)),
+                        },
                         Ok(Output::ValuePair(first, second)) => {
-                            match runtime.run_function(&f, &[first.clone(), second.clone()]) {
+                            match vm.run_function(&f, &[first.clone(), second.clone()]) {
                                 Ok(Bool(result)) => {
                                     if result {
                                         return Some(Ok(Output::ValuePair(first, second)));
@@ -99,23 +97,25 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.filter: Expected iterator and function as arguments"),
     });
 
-    result.add_fn("fold", |runtime, args| match args {
-        [Iterator(iterator), result, Function(f)] => {
-            if f.arg_count != 2 {
-                return external_error!(
-                    "iterator.fold: The fold function must have two or three arguments, found '{}'",
-                    f.arg_count,
-                );
-            }
+    result.add_fn("fold", |vm, args| {
+        let args = vm.get_args(args).to_vec();
+        match args.as_slice() {
+            [Iterator(iterator), result, Function(f)] => {
+                if f.arg_count != 2 {
+                    return external_error!(
+                        "iterator.fold: The fold function must have two arguments, found '{}'",
+                        f.arg_count,
+                    );
+                }
 
-            match iterator
+                match iterator
                 .clone()
                 .lock_internals(|iterator| {
                     let mut fold_result = result.clone();
                     for value in iterator {
                         match collect_pair(value) {
                             Ok(Output::Value(value)) => {
-                                match runtime.run_function(&f, &[fold_result, value]) {
+                                match vm.run_function(&f, &[fold_result, value]) {
                                     Ok(result) => fold_result = result,
                                     Err(error) => return Some(Err(error)),
                                 }
@@ -127,21 +127,22 @@ pub fn make_module() -> ValueMap {
 
                     Some(Ok(Output::Value(fold_result)))
                 })
-                .unwrap() // None is never returned from the closure
+            .unwrap() // None is never returned from the closure
             {
                 Ok(Output::Value(result)) => Ok(result),
                 Err(error) => Err(error),
                 _ => unreachable!(),
             }
+            }
+            [Iterator(_), _, unexpected] => external_error!(
+                "iterator.fold: Expected Function as third argument, found '{}'",
+                value::type_as_string(&unexpected),
+            ),
+            _ => external_error!("iterator.fold: Expected initial value and function as arguments"),
         }
-        [Iterator(_), _, unexpected] => external_error!(
-            "iterator.fold: Expected Function as third argument, found '{}'",
-            value::type_as_string(&unexpected),
-        ),
-        _ => external_error!("iterator.fold: Expected initial value and function as arguments"),
     });
 
-    result.add_fn("next", |_, args| match args {
+    result.add_fn("next", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let result = match i.clone().next().map(collect_pair) {
                 Some(Ok(Output::Value(value))) => value,
@@ -154,7 +155,7 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.next: Expected iterator as argument"),
     });
 
-    result.add_fn("take", |_, args| match args {
+    result.add_fn("take", |vm, args| match vm.get_args(args) {
         [Iterator(i), Number(n)] if *n >= 0.0 => {
             let mut iter = i.clone().take(*n as usize);
 
@@ -165,18 +166,18 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("transform", |runtime, args| match args {
+    result.add_fn("transform", |vm, args| match vm.get_args(args).to_vec().as_slice() {
         [Iterator(i), Function(f)] => {
             let f = f.clone();
-            let mut runtime = runtime.spawn_shared_vm();
+            let mut vm = vm.spawn_shared_vm();
 
             let mut iter = i.clone().map(move |iter_output| match iter_output {
-                Ok(Output::Value(value)) => match runtime.run_function(&f, &[value]) {
+                Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
                     Ok(result) => Ok(Output::Value(result)),
                     Err(error) => Err(error),
                 },
                 Ok(Output::ValuePair(first, second)) => {
-                    match runtime.run_function(&f, &[first, second]) {
+                    match vm.run_function(&f, &[first, second]) {
                         Ok(result) => Ok(Output::Value(result)),
                         Err(error) => Err(error),
                     }

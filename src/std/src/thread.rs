@@ -19,24 +19,27 @@ pub fn register(prelude: &mut ValueMap) {
         Ok(Empty)
     });
 
-    thread.add_fn("create", |runtime, args| match &args {
-        [Function(f)] => {
-            let join_handle = thread::spawn({
-                let mut thread_vm = runtime.spawn_shared_vm();
-                let f = f.clone();
-                move || match thread_vm.run_function(&f, &[]) {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            });
+    thread.add_fn("create", |vm, args| {
+        let args = vm.get_args(args).to_vec();
+        match args.as_slice() {
+            [Function(f)] => {
+                let join_handle = thread::spawn({
+                    let mut thread_vm = vm.spawn_shared_vm();
+                    let f = f.clone();
+                    move || match thread_vm.run_function(&f, &[]) {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(e),
+                    }
+                });
 
-            Ok(Thread::make_thread_map(join_handle))
+                Ok(Thread::make_thread_map(join_handle))
+            }
+            [unexpected] => external_error!(
+                "thread.create: Expected function as argument, found '{}'",
+                type_as_string(unexpected),
+            ),
+            _ => external_error!("thread.create: Expected function as argument"),
         }
-        [unexpected] => external_error!(
-            "thread.create: Expected function as argument, found '{}'",
-            type_as_string(unexpected),
-        ),
-        _ => external_error!("thread.create: Expected function as argument"),
     });
 
     prelude.add_map("thread", thread);
@@ -51,7 +54,8 @@ impl Thread {
     fn make_thread_map(join_handle: JoinHandle<Result<(), Error>>) -> Value {
         let mut result = ValueMap::new();
 
-        result.add_instance_fn("join", |_, args| {
+        result.add_instance_fn("join", |vm, args| {
+            let args = vm.get_args(args);
             get_external_instance!(args, "Thread", "join", Thread, thread, {
                 let result = thread.join_handle.take().unwrap().join();
                 match result {

@@ -11,27 +11,22 @@ use koto_runtime::{value::type_as_string, ExternalValue, RuntimeResult, Value, V
 #[macro_export]
 macro_rules! single_arg_fn {
     ($map_name: ident, $fn_name: expr, $type: ident, $match_name: ident, $body: block) => {
-        $map_name.add_fn($fn_name, |_, args| {
-            if args.len() == 1 {
-                match &args[0] {
-                    $type($match_name) => $body
-                    unexpected => {
-                        koto_runtime::external_error!(
-                            "{}.{} only accepts a {} as its argument, found {}",
-                            stringify!($map_name),
-                            $fn_name,
-                            stringify!($type),
-                            value::type_as_string(&unexpected),
-                        )
-                    }
-                }
-            } else {
-                koto_runtime::external_error!("{}.{} expects a single argument, found {}",
+        $map_name.add_fn($fn_name, |vm, args| match vm.get_args(args) {
+            [$type($match_name)] => $body
+            [unexpected] => {
+                koto_runtime::external_error!(
+                    "{}.{} only accepts a {} as its argument, found {}",
                     stringify!($map_name),
                     $fn_name,
-                    args.len(),
+                    stringify!($type),
+                    value::type_as_string(&unexpected),
                 )
             }
+            _ =>{ koto_runtime::external_error!("{}.{} expects a single argument, found {}",
+                                                stringify!($map_name),
+                                                $fn_name,
+                                                args.count,
+                                                )}
         });
     }
 }

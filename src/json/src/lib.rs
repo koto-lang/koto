@@ -56,12 +56,12 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    json.add_fn("to_string", |_, args| match &args {
+    json.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(Arc::new(result))),
             Err(e) => external_error!("json.to_string: {}", e),
         },
-        _ => external_error!("number expects a single argument, found {}", args.len()),
+        _ => external_error!("json.to_string expects a single argument"),
     });
 
     prelude.add_value("json", Map(json));

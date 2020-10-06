@@ -1,5 +1,8 @@
 use {
-    crate::{external::ExternalFunction, RuntimeResult, Value, ValueList, ValueRef, Vm},
+    crate::{
+        external::{Args, ExternalFunction},
+        RuntimeResult, Value, ValueList, ValueRef, Vm,
+    },
     indexmap::{
         map::{Iter, Keys, Values},
         IndexMap,
@@ -76,7 +79,7 @@ impl ValueHashMap {
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
     ) {
         #[allow(clippy::useless_conversion)]
         self.add_value(
@@ -88,7 +91,7 @@ impl ValueHashMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
     ) {
         #[allow(clippy::useless_conversion)]
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
@@ -219,7 +222,7 @@ impl ValueMap {
     pub fn add_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
@@ -227,7 +230,7 @@ impl ValueMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }

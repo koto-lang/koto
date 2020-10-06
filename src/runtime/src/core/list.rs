@@ -1,271 +1,217 @@
-use crate::{external_error, value, RuntimeResult, Value, ValueIterator, ValueList, ValueMap};
+use crate::{external_error, value, Value, ValueIterator, ValueList, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
 
-    result.add_fn("contains", |_, args| match args {
+    result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [List(l), value] => Ok(Bool(l.data().contains(value))),
         _ => external_error!("list.contains: Expected list and value as arguments"),
     });
 
-    result.add_fn("is_empty", |_, args| match args {
+    result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Bool(l.data().is_empty())),
         _ => external_error!("list.is_empty: Expected list as argument"),
     });
 
-    result.add_fn("iter", |_, args| match args {
+    result.add_fn("iter", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
         _ => external_error!("list.iter: Expected list as argument"),
     });
 
-    result.add_fn("fill", |_, args| {
-        list_op(args, 2, "fill", |list| {
-            let value = args[1].clone();
-            for v in list.data_mut().iter_mut() {
+    result.add_fn("fill", |vm, args| match vm.get_args(args) {
+        [List(l), value] => {
+            for v in l.data_mut().iter_mut() {
                 *v = value.clone();
             }
             Ok(Value::Empty)
-        })
+        }
+        _ => external_error!("list.fill: Expected list and value as arguments"),
     });
 
-    result.add_fn("first", |_, args: &[Value]| {
-        list_op(args, 1, "first", |list| match list.data().first() {
+    result.add_fn("first", |vm, args| match vm.get_args(args) {
+        [List(l)] => match l.data().first() {
             Some(value) => Ok(value.clone()),
             None => Ok(Value::Empty),
-        })
+        },
+        _ => external_error!("list.first: Expected list as argument"),
     });
 
-    result.add_fn("get", |_, args: &[Value]| {
-        list_op(args, 2, "get", |list| match &args[1] {
-            Number(n) => {
-                if *n < 0.0 {
-                    return external_error!("list.get: Negative indices aren't allowed");
-                }
-                let index = *n as usize;
-                match list.data().get(index) {
-                    Some(value) => Ok(value.clone()),
-                    None => Ok(Value::Empty),
-                }
+    result.add_fn("get", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n)] => {
+            if *n < 0.0 {
+                return external_error!("list.get: Negative indices aren't allowed");
             }
-            unexpected => external_error!(
-                "list.get expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected),
-            ),
-        })
-    });
-
-    result.add_fn("insert", |_, args: &[Value]| {
-        list_op(args, 3, "insert", |list| match &args[1] {
-            Number(n) => {
-                if *n < 0.0 {
-                    return external_error!("list.insert: Negative indices aren't allowed");
-                }
-                let index = *n as usize;
-                if index > list.data().len() {
-                    return external_error!("list.insert: Index out of bounds");
-                }
-
-                list.data_mut().insert(index, args[2].clone());
-                Ok(Value::Empty)
+            let index = *n as usize;
+            match l.data().get(index) {
+                Some(value) => Ok(value.clone()),
+                None => Ok(Value::Empty),
             }
-            unexpected => external_error!(
-                "list.insert expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected),
-            ),
-        })
+        }
+        _ => external_error!("list.get: Expected list and number as arguments"),
     });
 
-    result.add_fn("is_sortable", |_, args: &[Value]| {
-        list_op(args, 1, "is_sortable", |list| {
-            Ok(Bool(list_is_sortable(list)))
-        })
+    result.add_fn("insert", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n), value] => {
+            if *n < 0.0 {
+                return external_error!("list.insert: Negative indices aren't allowed");
+            }
+            let index = *n as usize;
+            if index > l.data().len() {
+                return external_error!("list.insert: Index out of bounds");
+            }
+
+            l.data_mut().insert(index, value.clone());
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.insert: Expected list, number, and value as arguments"),
     });
 
-    result.add_fn("last", |_, args: &[Value]| {
-        list_op(args, 1, "last", |list| match list.data().last() {
+    result.add_fn("last", |vm, args| match vm.get_args(args) {
+        [List(l)] => match l.data().last() {
             Some(value) => Ok(value.clone()),
             None => Ok(Value::Empty),
-        })
+        },
+        _ => external_error!("list.last: Expected list as argument"),
     });
 
-    result.add_fn("pop", |_, args: &[Value]| {
-        list_op(args, 1, "pop", |list| match list.data_mut().pop() {
+    result.add_fn("pop", |vm, args| match vm.get_args(args) {
+        [List(l)] => match l.data_mut().pop() {
             Some(value) => Ok(value),
             None => Ok(Value::Empty),
-        })
+        },
+        _ => external_error!("list.pop: Expected list as argument"),
     });
 
-    result.add_fn("push", |_, args: &[Value]| {
-        list_op(args, 2, "push", |list| {
-            list.data_mut().extend(args[1..].iter().cloned());
+    result.add_fn("push", |vm, args| match vm.get_args(args) {
+        [List(l), value] => {
+            l.data_mut().push(value.clone());
             Ok(Value::Empty)
-        })
+        }
+        _ => external_error!("list.push: Expected list and value as arguments"),
     });
 
-    result.add_fn("remove", |_, args: &[Value]| {
-        list_op(args, 2, "remove", |list| match &args[1] {
-            Number(n) => {
-                if *n < 0.0 {
-                    return external_error!("list.remove: Negative indices aren't allowed");
-                }
-                let index = *n as usize;
-                if index >= list.data().len() {
-                    return external_error!(
-                        "list.remove: Index out of bounds - \
-                         the index is {} but the List only has {} elements",
-                        index,
-                        list.data().len(),
-                    );
-                }
-
-                Ok(list.data_mut().remove(index))
+    result.add_fn("remove", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n)] => {
+            if *n < 0.0 {
+                return external_error!("list.remove: Negative indices aren't allowed");
             }
-            unexpected => external_error!(
-                "list.remove expects a number as its second argument, found '{}'",
-                value::type_as_string(&unexpected),
-            ),
-        })
-    });
-
-    result.add_fn("retain", |runtime, args| {
-        list_op(args, 2, "retain", |list| {
-            match &args[1] {
-                Function(f) => {
-                    if f.arg_count != 1 {
-                        return external_error!(
-                            "The function passed to list.retain must have a \
-                                         single argument, found '{}'",
-                            f.arg_count,
-                        );
-                    }
-                    let mut write_index = 0;
-                    for read_index in 0..list.len() {
-                        let value = list.data()[read_index].clone();
-                        match runtime.run_function(f, &[value.clone()])? {
-                            Bool(result) => {
-                                if result {
-                                    list.data_mut()[write_index] = value;
-                                    write_index += 1;
-                                }
-                            }
-                            unexpected => {
-                                return external_error!(
-                                    "list.retain expects a Bool to be returned from the \
-                                     predicate, found '{}'",
-                                    value::type_as_string(&unexpected),
-                                );
-                            }
-                        }
-                    }
-                    list.data_mut().resize(write_index, Value::Empty);
-                }
-                value => {
-                    list.data_mut().retain(|x| x == value);
-                }
-            };
-
-            Ok(Value::Empty)
-        })
-    });
-
-    result.add_fn("reverse", |_, args: &[Value]| {
-        list_op(args, 1, "sort", |list| {
-            list.data_mut().reverse();
-            Ok(Value::Empty)
-        })
-    });
-
-    result.add_fn("size", |_, args: &[Value]| {
-        list_op(args, 1, "size", |list| Ok(Number(list.len() as f64)))
-    });
-
-    result.add_fn("sort", |_, args: &[Value]| {
-        list_op(args, 1, "sort", |list| {
-            list.data_mut().sort();
-            Ok(Value::Empty)
-        })
-    });
-
-    result.add_fn("sort_copy", |_, args: &[Value]| {
-        list_op(args, 1, "sort_copy", |list| {
-            if list_is_sortable(&list) {
-                let mut result = list.data().clone();
-                result.sort();
-                Ok(List(ValueList::with_data(result)))
-            } else {
-                external_error!("list.sort_copy can only sort lists of numbers or strings")
+            let index = *n as usize;
+            if index >= l.data().len() {
+                return external_error!(
+                    "list.remove: Index out of bounds - \
+                     the index is {} but the List only has {} elements",
+                    index,
+                    l.data().len(),
+                );
             }
-        })
+
+            Ok(l.data_mut().remove(index))
+        }
+        _ => external_error!("list.remove: Expected list and index as arguments"),
     });
 
-    result.add_fn("transform", |runtime, args| {
-        list_op(args, 2, "transform", |list| match &args[1] {
-            Function(f) => {
+    result.add_fn("retain", |vm, args| {
+        match vm.get_args(args).to_vec().as_slice() {
+            [List(l), Function(f)] => {
                 if f.arg_count != 1 {
                     return external_error!(
-                        "The function passed to list.transform must have a \
-                                         single argument, found '{}'",
+                        "The function passed to list.retain must have a \
+                         single argument, found '{}'",
                         f.arg_count,
                     );
                 }
-
-                for value in list.data_mut().iter_mut() {
-                    *value = runtime.run_function(f, &[value.clone()])?;
+                let mut write_index = 0;
+                for read_index in 0..l.len() {
+                    let value = l.data()[read_index].clone();
+                    match vm.run_function(f, &[value.clone()])? {
+                        Bool(result) => {
+                            if result {
+                                l.data_mut()[write_index] = value;
+                                write_index += 1;
+                            }
+                        }
+                        unexpected => {
+                            return external_error!(
+                                "list.retain expects a Bool to be returned from the \
+                                 predicate, found '{}'",
+                                value::type_as_string(&unexpected),
+                            );
+                        }
+                    }
                 }
-
-                Ok(Value::Empty)
+                l.data_mut().resize(write_index, Value::Empty);
             }
-            unexpected => external_error!(
-                "list.transform expects a function as its second argument, found '{}'",
-                value::type_as_string(&unexpected),
-            ),
-        })
+            [List(l), value] => {
+                l.data_mut().retain(|x| x == value);
+            }
+            _ => {
+                return external_error!(
+                    "list.retain: Expected list and function or value as arguments"
+                )
+            }
+        }
+
+        Ok(Value::Empty)
+    });
+
+    result.add_fn("reverse", |vm, args| match vm.get_args(args) {
+        [List(l)] => {
+            l.data_mut().reverse();
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.reverse: Expected list as argument"),
+    });
+
+    result.add_fn("size", |vm, args| match vm.get_args(args) {
+        [List(l)] => Ok(Number(l.len() as f64)),
+        _ => external_error!("list.size: Expected list as argument"),
+    });
+
+    result.add_fn("sort", |vm, args| match vm.get_args(args) {
+        [List(l)] => {
+            l.data_mut().sort();
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.sort: Expected list as argument"),
+    });
+
+    result.add_fn("sort", |vm, args| match vm.get_args(args) {
+        [List(l)] => {
+            l.data_mut().sort();
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.sort: Expected list as argument"),
+    });
+
+    result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
+        [List(l)] => {
+            let mut result = l.data().clone();
+            result.sort();
+            Ok(List(ValueList::with_data(result)))
+        }
+        _ => external_error!("list.sort_copy: Expected list as argument"),
+    });
+
+    result.add_fn("transform", |vm, args| match vm.get_args(args).to_vec().as_slice() {
+        [List(l), Function(f)] => {
+            if f.arg_count != 1 {
+                return external_error!(
+                    "The function passed to list.transform must have a \
+                                         single argument, found '{}'",
+                    f.arg_count,
+                );
+            }
+
+            for value in l.data_mut().iter_mut() {
+                *value = vm.run_function(f, &[value.clone()])?;
+            }
+
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.transform expects a list and function as arguments"),
     });
 
     result
-}
-
-fn list_op(
-    args: &[Value],
-    arg_count: usize,
-    op_name: &str,
-    mut op: impl FnMut(&ValueList) -> RuntimeResult,
-) -> RuntimeResult {
-    if args.len() < arg_count {
-        return external_error!(
-            "list.{} expects {} arguments, found {}",
-            op_name,
-            arg_count,
-            args.len(),
-        );
-    }
-
-    match &args[0] {
-        Value::List(list) => op(&list),
-        unexpected => external_error!(
-            "list.{} expects a List as its first argument, found {}",
-            op_name,
-            value::type_as_string(&unexpected),
-        ),
-    }
-}
-
-fn list_is_sortable(list: &ValueList) -> bool {
-    use Value::*;
-
-    let data = list.data();
-
-    if data.is_empty() {
-        true
-    } else {
-        match data.first().unwrap() {
-            value @ Number(_) | value @ Str(_) => {
-                let value_type = std::mem::discriminant(value);
-                data.iter().all(|x| std::mem::discriminant(x) == value_type)
-            }
-            _ => false,
-        }
-    }
 }

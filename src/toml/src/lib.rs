@@ -60,12 +60,12 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    toml.add_fn("to_string", |_, args| match &args {
+    toml.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(Arc::new(result))),
             Err(e) => external_error!("toml.to_string: {}", e),
         },
-        _ => external_error!("number expects a single argument, found {}", args.len()),
+        _ => external_error!("toml.to_string expects a single argument"),
     });
 
     prelude.add_value("toml", Map(toml));

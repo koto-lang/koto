@@ -1,7 +1,7 @@
 use {
     crate::{
         core::CoreLib,
-        external,
+        external::{self, Args},
         frame::Frame,
         loader, type_as_string,
         value::{self, deep_copy_value, RuntimeFunction},
@@ -1773,9 +1773,13 @@ impl Vm {
                     }
                 };
 
-                let args = self.register_slice(arg_register, call_arg_count).to_vec();
-
-                let result = (&*function)(self, &args);
+                let result = (&*function)(
+                    self,
+                    &Args {
+                        register: arg_register,
+                        count: call_arg_count,
+                    },
+                );
                 match result {
                     Ok(value) => {
                         self.set_register(result_register, value);
@@ -2065,6 +2069,10 @@ impl Vm {
         }
     }
 
+    pub fn get_args(&self, args: &Args) -> &[Value] {
+        self.register_slice(args.register, args.count)
+    }
+
     fn get_constant_string(&self, constant_index: ConstantIndex) -> &str {
         self.reader.chunk.constants.get_string(constant_index)
     }
@@ -2130,8 +2138,8 @@ mod tests {
         let mut vm = Vm::new();
 
         vm.global.add_value("test_global", Number(42.0));
-        vm.global.add_fn("assert", |_, args| {
-            for value in args.iter() {
+        vm.global.add_fn("assert", |vm, args| {
+            for value in vm.get_args(args).iter() {
                 match value {
                     Bool(b) => {
                         if !b {

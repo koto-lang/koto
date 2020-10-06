@@ -5,8 +5,8 @@ pub fn register(prelude: &mut ValueMap) {
 
     let mut test = ValueMap::new();
 
-    test.add_fn("assert", |_, args| {
-        for value in args.iter() {
+    test.add_fn("assert", |vm, args| {
+        for value in vm.get_args(args).iter() {
             match value {
                 Bool(b) => {
                     if !b {
@@ -24,37 +24,29 @@ pub fn register(prelude: &mut ValueMap) {
         Ok(Empty)
     });
 
-    test.add_fn("assert_eq", |_, args| match &args {
+    test.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
         [a, b] => {
             if a == b {
                 Ok(Empty)
             } else {
-                external_error!(
-                    "Assertion failed, '{}' is not equal to '{}'",
-                    args[0],
-                    args[1],
-                )
+                external_error!("Assertion failed, '{}' is not equal to '{}'", a, b,)
             }
         }
-        _ => external_error!("assert_eq expects two arguments, found {}", args.len()),
+        _ => external_error!("assert_eq expects two arguments"),
     });
 
-    test.add_fn("assert_ne", |_, args| match &args {
+    test.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
         [a, b] => {
             if a != b {
                 Ok(Empty)
             } else {
-                external_error!(
-                    "Assertion failed, '{}' should not be equal to '{}'",
-                    args[0],
-                    args[1],
-                )
+                external_error!("Assertion failed, '{}' should not be equal to '{}'", a, b,)
             }
         }
-        _ => external_error!("assert_ne expects two arguments, found {}", args.len()),
+        _ => external_error!("assert_ne expects two arguments"),
     });
 
-    test.add_fn("assert_near", |_, args| match &args {
+    test.add_fn("assert_near", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b), Number(allowed_diff)] => {
             if f64_near(*a, *b, *allowed_diff) {
                 Ok(Empty)
@@ -102,12 +94,15 @@ pub fn register(prelude: &mut ValueMap) {
             type_as_string(&b),
             type_as_string(&c),
         ),
-        _ => external_error!("assert_eq expects three arguments, found {}", args.len()),
+        _ => external_error!("assert_eq expects three arguments"),
     });
 
-    test.add_fn("run_tests", |runtime, args| match &args {
-        [Map(tests)] => runtime.run_tests(tests.clone()),
-        _ => external_error!("run_tests expects a map as argument"),
+    test.add_fn("run_tests", |vm, args| {
+        let args = vm.get_args(args).to_vec();
+        match args.as_slice() {
+            [Map(tests)] => vm.run_tests(tests.clone()),
+            _ => external_error!("run_tests expects a map as argument"),
+        }
     });
 
     prelude.add_value("test", Map(test));

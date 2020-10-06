@@ -19,8 +19,8 @@ pub fn register(prelude: &mut ValueMap) {
         Ok(Bool(Path::new(path.as_ref()).exists()))
     });
 
-    io.add_fn("print", |_, args| {
-        for value in args.iter() {
+    io.add_fn("print", |vm, args| {
+        for value in vm.get_args(args).iter() {
             print!("{}", value);
         }
         println!();
@@ -49,31 +49,35 @@ pub fn register(prelude: &mut ValueMap) {
 
         let mut file_map = ValueMap::new();
 
-        file_map.add_instance_fn("path", |_, args| {
-            file_fn("path", args, |file_handle| {
+        file_map.add_instance_fn("path", |vm, args| {
+            file_fn("path", vm.get_args(args), |file_handle| {
                 Ok(Str(Arc::new(
                     file_handle.path.to_string_lossy().to_string(),
                 )))
             })
         });
 
-        file_map.add_instance_fn("write", |_, args| {
-            file_fn("write", args, |file_handle| match &args {
-                [_, value] => {
-                    let data = format!("{}", value);
+        file_map.add_instance_fn("write", |vm, args| {
+            file_fn("write", vm.get_args(args), |file_handle| {
+                match vm.get_args(args) {
+                    [_, value] => {
+                        let data = format!("{}", value);
 
-                    match file_handle.file.write(data.as_bytes()) {
-                        Ok(_) => Ok(Value::Empty),
-                        Err(e) => external_error!("File.write: Error while writing to file: {}", e),
+                        match file_handle.file.write(data.as_bytes()) {
+                            Ok(_) => Ok(Value::Empty),
+                            Err(e) => {
+                                external_error!("File.write: Error while writing to file: {}", e)
+                            }
+                        }
                     }
+                    _ => external_error!("File.write: Expected single value to write as argument"),
                 }
-                _ => external_error!("File.write: Expected single value to write as argument"),
             })
         });
 
-        file_map.add_instance_fn("write_line", |_, args| {
-            file_fn("write_line", args, |file_handle| {
-                let line = match &args {
+        file_map.add_instance_fn("write_line", |vm, args| {
+            file_fn("write_line", vm.get_args(args), |file_handle| {
+                let line = match vm.get_args(args) {
                     [_] => "\n".to_string(),
                     [_, value] => format!("{}\n", value),
                     _ => {
@@ -91,9 +95,11 @@ pub fn register(prelude: &mut ValueMap) {
             })
         });
 
-        file_map.add_instance_fn("read_to_string", |_, args| {
-            file_fn("read_to_string", args, |file_handle| {
-                match file_handle.file.seek(SeekFrom::Start(0)) {
+        file_map.add_instance_fn("read_to_string", |vm, args| {
+            file_fn(
+                "read_to_string",
+                vm.get_args(args),
+                |file_handle| match file_handle.file.seek(SeekFrom::Start(0)) {
                     Ok(_) => {
                         let mut buffer = String::new();
                         match file_handle.file.read_to_string(&mut buffer) {
@@ -107,26 +113,32 @@ pub fn register(prelude: &mut ValueMap) {
                     Err(e) => {
                         external_error!("File.read_to_string: Error while seeking in file: {}", e)
                     }
-                }
-            })
+                },
+            )
         });
 
-        file_map.add_instance_fn("seek", |_, args| {
-            file_fn("seek", args, |file_handle| match &args {
-                [_, Number(n)] => {
-                    if *n < 0.0 {
-                        return external_error!("File.seek: Negative seek positions not allowed");
+        file_map.add_instance_fn("seek", |vm, args| {
+            file_fn("seek", vm.get_args(args), |file_handle| {
+                match vm.get_args(args) {
+                    [_, Number(n)] => {
+                        if *n < 0.0 {
+                            return external_error!(
+                                "File.seek: Negative seek positions not allowed"
+                            );
+                        }
+                        match file_handle.file.seek(SeekFrom::Start(*n as u64)) {
+                            Ok(_) => Ok(Value::Empty),
+                            Err(e) => {
+                                external_error!("File.seek: Error while seeking in file: {}", e)
+                            }
+                        }
                     }
-                    match file_handle.file.seek(SeekFrom::Start(*n as u64)) {
-                        Ok(_) => Ok(Value::Empty),
-                        Err(e) => external_error!("File.seek: Error while seeking in file: {}", e),
-                    }
+                    [_, unexpected] => external_error!(
+                        "File.seek: Expected Number for seek position, found '{}'",
+                        type_as_string(&unexpected),
+                    ),
+                    _ => external_error!("File.seek: Expected seek position as second argument"),
                 }
-                [_, unexpected] => external_error!(
-                    "File.seek: Expected Number for seek position, found '{}'",
-                    type_as_string(&unexpected),
-                ),
-                _ => external_error!("File.seek: Expected seek position as second argument"),
             })
         });
 
@@ -134,7 +146,7 @@ pub fn register(prelude: &mut ValueMap) {
     };
 
     io.add_fn("open", {
-        move |_, args| match &args {
+        move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_ref());
                 match fs::File::open(&path) {
@@ -166,7 +178,7 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     io.add_fn("create", {
-        move |_, args| match &args {
+        move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_ref());
                 match fs::File::create(&path) {
@@ -240,7 +252,7 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     io.add_fn("remove_file", {
-        |_, args| match &args {
+        |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_ref());
                 match fs::remove_file(&path) {
