@@ -23,12 +23,15 @@ export tests =
     assert_eq z [[0 1] [1 2] [2 3]]
 
   test_custom_iterator_adaptor: ||
-    iterator.every_other = |self|
+    iterator.every_other = |iter|
       n = 0
       loop
-        match self.next()
+        match iter.next()
           () then return
           value if n % 2 == 0 then yield value
         n += 1
     z = (10..15).iter().transform(|x| "{}".format x).every_other().collect()
+    assert_eq z ["10" "12" "14"]
+    # the adaptor can also be called via iterator.adaptor
+    z = (iterator.every_other (10..15).iter().transform(|x| "{}".format x)).collect()
     assert_eq z ["10" "12" "14"]

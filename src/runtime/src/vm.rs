@@ -1685,6 +1685,9 @@ impl Vm {
                 match maybe_op {
                     Some(op) => match op {
                         ExternalFunction(f) => {
+                            // Core module functions accessed in a lookup need to be invoked as
+                            // if they were declared as instance functions. This feels a bit hacky
+                            // but I haven't found a simpler approach yet!
                             let f_as_instance_function = external::ExternalFunction {
                                 is_instance_function: true,
                                 ..f.clone()
@@ -1806,42 +1809,34 @@ impl Vm {
                         captures.clone(),
                     );
 
-                    // Copy args starting at register 0
-                    for arg in 0..*function_arg_count {
-                        if !self.register_available(arg_register + arg) {
-                            if !*is_instance_function && parent_register.is_some() {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "Insufficent arguments for generator, \
-                                 but a function parent is available. \
-                                 Did you mean to create an instance function?"
-                                );
-                            } else {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "Insufficent arguments for generator"
-                                );
-                            }
+                    // prepare args for the spawned vm
+                    let mut call_arg_count = call_arg_count;
+                    let mut set_arg_offset = 0;
+
+                    if let Some(parent_register) = parent_register {
+                        if *is_instance_function || call_arg_count < *function_arg_count {
+                            generator_vm
+                                .set_register(0, self.get_register(parent_register).clone());
+                            set_arg_offset = 1;
                         }
 
-                        generator_vm
-                            .set_register(arg as u8, self.get_register(arg_register + arg).clone());
+                        if call_arg_count < *function_arg_count {
+                            call_arg_count += 1;
+                        }
                     }
 
-                    // Insert parent at register 0 and shift other args
-                    if *is_instance_function {
-                        if let Some(parent_register) = parent_register {
-                            generator_vm
-                                .insert_register(0, self.get_register(parent_register).clone());
-                        } else {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Expected self for function"
-                            );
-                        }
+                    let args_to_copy = if *function_arg_count == 0 {
+                        0
+                    } else {
+                        *function_arg_count - set_arg_offset
+                    };
+
+                    // Copy args starting at register 0
+                    for arg in 0..args_to_copy {
+                        generator_vm.set_register(
+                            (arg + set_arg_offset) as u8,
+                            self.get_register(arg_register + arg).clone(),
+                        );
                     }
 
                     if *function_arg_count != call_arg_count {
@@ -1856,22 +1851,28 @@ impl Vm {
 
                     self.set_register(result_register, ValueIterator::with_vm(generator_vm).into())
                 } else {
-                    if *is_instance_function {
-                        if let Some(parent_register) = parent_register {
+                    let expected_count = if *is_instance_function {
+                        *function_arg_count + 1
+                    } else {
+                        *function_arg_count
+                    };
+
+                    let mut call_arg_count = call_arg_count;
+
+                    if let Some(parent_register) = parent_register {
+                        if *is_instance_function || call_arg_count < expected_count {
                             self.insert_register(
                                 arg_register,
                                 self.get_register(parent_register).clone(),
                             );
-                        } else {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Expected self for function"
-                            );
+                        }
+
+                        if call_arg_count < expected_count {
+                            call_arg_count += 1;
                         }
                     }
 
-                    if *function_arg_count != call_arg_count {
+                    if call_arg_count != expected_count {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
@@ -2053,11 +2054,6 @@ impl Vm {
     fn get_register_mut(&mut self, register: u8) -> &mut Value {
         let index = self.register_index(register);
         &mut self.value_stack[index]
-    }
-
-    fn register_available(&self, register: u8) -> bool {
-        let index = self.register_index(register);
-        self.value_stack.get(index).is_some()
     }
 
     pub fn register_slice(&self, register: u8, count: u8) -> &[Value] {
