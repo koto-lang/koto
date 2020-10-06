@@ -670,7 +670,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
-        let start_span = self.lexer.next_span();
+        let start_span = self.lexer.span();
 
         lookup.push(LookupNode::Root(root));
 
