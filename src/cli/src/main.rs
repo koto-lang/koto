@@ -43,9 +43,9 @@ fn main() {
     if let Some(path) = matches.value_of("script") {
         let mut koto = Koto::with_settings(settings);
 
-        let prelude = koto.prelude_mut();
-        koto_json::register(prelude);
-        koto_toml::register(prelude);
+        let mut prelude = koto.context().prelude.clone();
+        koto_json::register(&mut prelude);
+        koto_toml::register(&mut prelude);
 
         let args = match matches.values_of("args") {
             Some(args) => args.map(|s| s.to_string()).collect::<Vec<_>>(),

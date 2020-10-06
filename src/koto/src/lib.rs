@@ -6,14 +6,17 @@ pub use {
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
         LoaderError, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,
-        ValueVec,
+        ValueVec, VmContext,
     },
     koto_std::{get_external_instance, visit_external_value},
 };
 
 use {
     koto_runtime::Vm,
-    std::{path::PathBuf, sync::Arc},
+    std::{
+        path::PathBuf,
+        sync::{Arc, RwLockReadGuard},
+    },
 };
 
 #[derive(Copy, Clone, Default)]
@@ -40,14 +43,14 @@ impl Koto {
             ..Self::default()
         };
 
-        let prelude = result.prelude_mut();
-        koto_std::register(prelude);
+        let mut prelude = result.context().prelude.clone();
+        koto_std::register(&mut prelude);
 
         let mut env = ValueMap::new();
         env.add_value("script_dir", Value::Empty);
         env.add_value("script_path", Value::Empty);
         env.add_list("args", ValueList::default());
-        result.runtime.prelude_mut().add_map("env", env);
+        prelude.add_map("env", env);
 
         result
     }
@@ -131,8 +134,8 @@ impl Koto {
         }
     }
 
-    pub fn prelude_mut(&mut self) -> &mut ValueMap {
-        self.runtime.prelude_mut()
+    pub fn context(&mut self) -> RwLockReadGuard<VmContext> {
+        self.runtime.context()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
@@ -145,7 +148,8 @@ impl Koto {
 
         match self
             .runtime
-            .prelude_mut()
+            .context_mut()
+            .prelude
             .data_mut()
             .get_with_string_mut("env")
             .unwrap()
@@ -179,7 +183,8 @@ impl Koto {
 
         match self
             .runtime
-            .prelude_mut()
+            .context_mut()
+            .prelude
             .data_mut()
             .get_with_string_mut("env")
             .unwrap()

@@ -11,7 +11,12 @@ use {
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::{num2, num4, ConstantIndex},
     rustc_hash::FxHashMap,
-    std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
+    std::{
+        collections::HashMap,
+        fmt,
+        path::PathBuf,
+        sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -22,21 +27,17 @@ pub enum ControlFlow {
 }
 
 #[derive(Default)]
-pub struct Vm {
+pub struct VmContext {
+    pub prelude: ValueMap,
     core_lib: CoreLib,
-    prelude: ValueMap,
     global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, ValueMap>,
-
-    reader: InstructionReader,
     string_constants: FxHashMap<(u64, ConstantIndex), Arc<String>>,
-    value_stack: Vec<Value>,
-    call_stack: Vec<Frame>,
 }
 
-impl Vm {
-    pub fn new() -> Self {
+impl VmContext {
+    fn new() -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -49,11 +50,29 @@ impl Vm {
         Self {
             core_lib,
             prelude,
-            global: Default::default(),
-            loader: Default::default(),
-            modules: Default::default(),
-            reader: Default::default(),
             string_constants: FxHashMap::with_capacity_and_hasher(16, Default::default()),
+            ..Default::default()
+        }
+    }
+
+    fn reset(&mut self) {
+        self.loader = Default::default();
+    }
+}
+
+#[derive(Default)]
+pub struct Vm {
+    context: Arc<RwLock<VmContext>>,
+    reader: InstructionReader,
+    value_stack: Vec<Value>,
+    call_stack: Vec<Frame>,
+}
+
+impl Vm {
+    pub fn new() -> Self {
+        Self {
+            context: Arc::new(RwLock::new(VmContext::new())),
+            reader: Default::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![Frame::default()],
         }
@@ -61,23 +80,23 @@ impl Vm {
 
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
-            core_lib: self.core_lib.clone(),
-            prelude: self.prelude.clone(),
-            global: self.global.clone(),
-            loader: self.loader.clone(),
-            modules: self.modules.clone(),
+            context: self.context.clone(),
             reader: self.reader.clone(),
             call_stack: vec![Frame::default()],
             ..Default::default()
         }
     }
 
-    pub fn prelude_mut(&mut self) -> &mut ValueMap {
-        &mut self.prelude
+    pub fn context(&self) -> RwLockReadGuard<VmContext> {
+        self.context.read().unwrap()
+    }
+
+    pub fn context_mut(&mut self) -> RwLockWriteGuard<VmContext> {
+        self.context.write().unwrap()
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.global.data().get_with_string(id).cloned()
+        self.context().global.data().get_with_string(id).cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
@@ -88,10 +107,9 @@ impl Vm {
     }
 
     pub fn reset(&mut self) {
-        self.reader = Default::default();
+        self.context_mut().reset();
         self.value_stack = Default::default();
         self.call_stack = Default::default();
-        self.string_constants = Default::default();
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
@@ -333,7 +351,12 @@ impl Vm {
             }
             Instruction::LoadGlobal { register, constant } => {
                 let global_name = self.get_constant_string(constant);
-                let global = self.global.data().get_with_string(global_name).cloned();
+                let global = self
+                    .context()
+                    .global
+                    .data()
+                    .get_with_string(global_name)
+                    .cloned();
                 match global {
                     Some(value) => self.set_register(register, value),
                     None => {
@@ -348,9 +371,11 @@ impl Vm {
             }
             Instruction::SetGlobal { global, source } => {
                 let global_name = self.arc_string_from_constant(global);
-                self.global
+                let value = self.get_register(source).clone();
+                self.context_mut()
+                    .global
                     .data_mut()
-                    .insert(Str(global_name), self.get_register(source).clone());
+                    .insert(Str(global_name), value);
             }
             Instruction::Import { register, constant } => {
                 self.run_import(register, constant, instruction_ip)?;
@@ -1152,19 +1177,30 @@ impl Vm {
     ) -> Result<(), Error> {
         let import_name = self.arc_string_from_constant(import_constant);
 
-        let maybe_global = self.global.data().get_with_string(&import_name).cloned();
+        let maybe_global = self
+            .context()
+            .global
+            .data()
+            .get_with_string(&import_name)
+            .cloned();
         if let Some(value) = maybe_global {
             self.set_register(result_register, value);
         } else {
-            let maybe_in_prelude = self.prelude.data().get_with_string(&import_name).cloned();
+            let maybe_in_prelude = self
+                .context()
+                .prelude
+                .data()
+                .get_with_string(&import_name)
+                .cloned();
             if let Some(value) = maybe_in_prelude {
                 self.set_register(result_register, value);
             } else {
                 let source_path = self.reader.chunk.source_path.clone();
-                let (module_chunk, module_path) = match self
+                let compile_result = self
+                    .context_mut()
                     .loader
-                    .compile_module(&import_name.as_str(), source_path)
-                {
+                    .compile_module(&import_name.as_str(), source_path);
+                let (module_chunk, module_path) = match compile_result {
                     Ok(chunk) => chunk,
                     Err(e) => {
                         return vm_error!(
@@ -1176,19 +1212,21 @@ impl Vm {
                         )
                     }
                 };
-                let maybe_module = self.modules.get(&module_path).cloned();
+                let maybe_module = self.context().modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(module) => self.set_register(result_register, Value::Map(module)),
                     None => {
                         // Run the chunk, and cache the resulting global map
                         let mut vm = Vm::new();
-                        vm.prelude = self.prelude.clone();
+                        vm.context_mut().prelude = self.context().prelude.clone();
                         vm.run(module_chunk)?;
                         if let Some(main) = vm.get_global_function("main") {
                             vm.run_function(&main, &[])?;
                         }
-                        self.modules.insert(module_path, vm.global.clone());
-                        self.set_register(result_register, Value::Map(vm.global));
+                        self.context_mut()
+                            .modules
+                            .insert(module_path, vm.context().global.clone());
+                        self.set_register(result_register, Value::Map(vm.context().global.clone()));
                     }
                 }
             }
@@ -1676,6 +1714,7 @@ impl Vm {
         macro_rules! get_core_op {
             ($module:ident, $module_name:expr) => {{
                 let maybe_op = self
+                    .context()
                     .core_lib
                     .$module
                     .data()
@@ -2081,6 +2120,7 @@ impl Vm {
         let constants_hash = self.reader.chunk.constants_hash;
 
         let maybe_string = self
+            .context()
             .string_constants
             .get(&(constants_hash, constant_index))
             .cloned();
@@ -2095,7 +2135,8 @@ impl Vm {
                         .get_string(constant_index)
                         .to_string(),
                 );
-                self.string_constants
+                self.context_mut()
+                    .string_constants
                     .insert((constants_hash, constant_index), s.clone());
                 s
             }
@@ -2136,9 +2177,10 @@ mod tests {
 
     fn test_script(script: &str, expected_output: Value) {
         let mut vm = Vm::new();
+        let mut global = vm.context_mut().global.clone();
 
-        vm.global.add_value("test_global", Number(42.0));
-        vm.global.add_fn("assert", |vm, args| {
+        global.add_value("test_global", Number(42.0));
+        global.add_fn("assert", |vm, args| {
             for value in vm.get_args(args).iter() {
                 match value {
                     Bool(b) => {
@@ -2157,7 +2199,7 @@ mod tests {
             Ok(Empty)
         });
 
-        let chunk = match vm.loader.compile_script(script, &None) {
+        let chunk = match vm.context_mut().loader.compile_script(script, &None) {
             Ok(chunk) => chunk,
             Err(error) => panic!(error.message),
         };

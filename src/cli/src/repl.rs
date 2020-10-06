@@ -27,9 +27,9 @@ impl Repl {
 
         let mut koto = Koto::with_settings(settings);
 
-        let prelude = koto.prelude_mut();
-        koto_json::register(prelude);
-        koto_toml::register(prelude);
+        let mut prelude = koto.context().prelude.clone();
+        koto_json::register(&mut prelude);
+        koto_toml::register(&mut prelude);
 
         Self {
             koto,
