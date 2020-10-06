@@ -1,4 +1,4 @@
-import test.assert_eq
+import iterator test.assert_eq
 
 export tests =
   test_one_two: ||
@@ -21,3 +21,14 @@ export tests =
 
     z = [[i x] for i, x in enumerate 1..=3]
     assert_eq z [[0 1] [1 2] [2 3]]
+
+  test_custom_iterator_adaptor: ||
+    iterator.every_other = |self|
+      n = 0
+      loop
+        match self.next()
+          () then return
+          value if n % 2 == 0 then yield value
+        n += 1
+    z = (10..15).iter().transform(|x| "{}".format x).every_other().collect()
+    assert_eq z ["10" "12" "14"]

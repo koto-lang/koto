@@ -42,6 +42,7 @@ impl Vm {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
+        prelude.add_map("iterator", core_lib.iterator.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
         prelude.add_map("range", core_lib.range.clone());
@@ -1811,11 +1812,31 @@ impl Vm {
                         captures.clone(),
                     );
 
+                    // Copy args starting at register 0
                     for arg in 0..*function_arg_count {
+                        if !self.register_available(arg_register + arg) {
+                            if !*is_instance_function && parent_register.is_some() {
+                                return vm_error!(
+                                self.chunk(),
+                                instruction_ip,
+                                "Insufficent arguments for generator, \
+                                 but a function parent is available. \
+                                 Did you mean to create an instance function?"
+                                );
+                            } else {
+                                return vm_error!(
+                                    self.chunk(),
+                                    instruction_ip,
+                                    "Insufficent arguments for generator"
+                                );
+                            }
+                        }
+
                         generator_vm
                             .set_register(arg as u8, self.get_register(arg_register + arg).clone());
                     }
 
+                    // Insert parent at register 0 and shift other args
                     if *is_instance_function {
                         if let Some(parent_register) = parent_register {
                             generator_vm
@@ -2038,6 +2059,11 @@ impl Vm {
     fn get_register_mut(&mut self, register: u8) -> &mut Value {
         let index = self.register_index(register);
         &mut self.value_stack[index]
+    }
+
+    fn register_available(&self, register: u8) -> bool {
+        let index = self.register_index(register);
+        self.value_stack.get(index).is_some()
     }
 
     pub fn register_slice(&self, register: u8, count: u8) -> &[Value] {
