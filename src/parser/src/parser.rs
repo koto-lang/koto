@@ -50,6 +50,7 @@ fn f64_eq(a: f64, b: f64) -> bool {
 #[derive(Debug, Default)]
 struct Frame {
     top_level: bool,
+    contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_scope: HashSet<ConstantIndex>,
     // IDs and lookup roots which have been accessed without being locally assigned previously
@@ -269,6 +270,7 @@ impl<'source> Parser<'source> {
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
                 is_instance_function,
+                is_generator: function_frame.contains_yield,
             }),
             Span {
                 start: span_start,
@@ -292,35 +294,10 @@ impl<'source> Parser<'source> {
             export_id
         } else if let Some(debug_expression) = self.parse_debug_expression()? {
             debug_expression
+        } else if let Some(result) = self.parse_primary_expressions(false)? {
+            result
         } else {
-            match self.peek_token() {
-                Some(Token::Error) => {
-                    return syntax_error!(UnexpectedToken, self);
-                }
-                Some(Token::Break) => {
-                    self.consume_token();
-                    self.push_node(Node::Break)?
-                }
-                Some(Token::Continue) => {
-                    self.consume_token();
-                    self.push_node(Node::Continue)?
-                }
-                Some(Token::Return) => {
-                    self.consume_token();
-                    if let Some(expression) = self.parse_primary_expressions(true)? {
-                        self.push_node(Node::ReturnExpression(expression))?
-                    } else {
-                        self.push_node(Node::Return)?
-                    }
-                }
-                _ => {
-                    if let Some(result) = self.parse_primary_expressions(false)? {
-                        result
-                    } else {
-                        return Ok(None);
-                    }
-                }
-            }
+            return Ok(None);
         };
 
         self.frame_mut()?.finish_expressions();
@@ -693,7 +670,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
-        let start_span = self.lexer.span();
+        let start_span = self.lexer.next_span();
 
         lookup.push(LookupNode::Root(root));
 
@@ -1085,6 +1062,32 @@ impl<'source> Parser<'source> {
                         self.push_node(Node::Type(expression))?
                     } else {
                         return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Yield => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expressions(true)? {
+                        let result = self.push_node(Node::Yield(expression))?;
+                        self.frame_mut()?.contains_yield = true;
+                        result
+                    } else {
+                        return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Break => {
+                    self.consume_token();
+                    self.push_node(Node::Break)?
+                }
+                Token::Continue => {
+                    self.consume_token();
+                    self.push_node(Node::Continue)?
+                }
+                Token::Return => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expressions(true)? {
+                        self.push_node(Node::ReturnExpression(expression))?
+                    } else {
+                        self.push_node(Node::Return)?
                     }
                 }
                 Token::From | Token::Import => return self.parse_import_expression(),
@@ -3481,6 +3484,7 @@ until x < y
                         accessed_non_locals: vec![0],
                         body: 0,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Number0,
                     Number1,
@@ -3612,6 +3616,7 @@ a()";
                         accessed_non_locals: vec![],
                         body: 1,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3651,6 +3656,7 @@ a()";
                         accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     MainBlock {
                         body: vec![3],
@@ -3707,6 +3713,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 10,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3756,6 +3763,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3778,6 +3786,7 @@ f 42";
                         accessed_non_locals: vec![],
                         body: 8,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3856,6 +3865,7 @@ f 0 -x";
                         accessed_non_locals: vec![],
                         body: 4,
                         is_instance_function: true,
+                        is_generator: false,
                     }), // 5
                     // Map entries are constant/ast index pairs
                     Map(vec![(0, Some(0)), (2, Some(5))]),
@@ -3903,6 +3913,7 @@ f()";
                         accessed_non_locals: vec![],
                         body: 5,
                         is_instance_function: true,
+                        is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
                     Map(vec![(1, Some(1)), (3, Some(6))]),
@@ -3912,6 +3923,7 @@ f()";
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -3992,6 +4004,7 @@ f 1
                         accessed_non_locals: vec![],
                         body: 11,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -4041,6 +4054,7 @@ f 1
                         accessed_non_locals: vec![],
                         body: 26,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
@@ -4093,6 +4107,7 @@ f 1
                         accessed_non_locals: vec![0], // initial read of x via capture
                         body: 2,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     MainBlock {
                         body: vec![3],
@@ -4134,6 +4149,7 @@ y z";
                         accessed_non_locals: vec![],
                         body: 8,
                         is_instance_function: false,
+                        is_generator: false,
                     }),
                     Call {
                         function: 1,
@@ -4164,6 +4180,58 @@ y z";
                     Constant::Number(20.0),
                     Constant::Str("x"),
                 ]),
+            )
+        }
+
+        #[test]
+        fn generator_function() {
+            let source = "|| yield 1";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Yield(0),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 1,
+                        is_instance_function: false,
+                        is_generator: true,
+                    }),
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn generator_multiple_values() {
+            let source = "|| yield 1, 0";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Number0,
+                    Expressions(vec![0, 1]),
+                    Yield(2),
+                    Function(Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 3,
+                        is_instance_function: false,
+                        is_generator: true,
+                    }),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                None,
             )
         }
     }
@@ -4734,6 +4802,7 @@ finally
 x = match y
   0 or 1 then 42
   "foo" or ["bar"] then 99
+  "baz" then break
   z if z < 10
     123
   z then -1
@@ -4750,17 +4819,19 @@ x = match y
                     Str(4),
                     List(vec![6]),
                     Number(5),
-                    Id(6),
-                    Id(6), // 10
-                    Number(7),
+                    Str(6),
+                    Break, // 10
+                    Id(7),
+                    Id(7),
+                    Number(8),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 10,
-                        rhs: 11,
+                        lhs: 12,
+                        rhs: 13,
                     },
-                    Number(8),
-                    Id(6),
                     Number(9), // 15
+                    Id(7),
+                    Number(10),
                     Match {
                         expression: 1,
                         arms: vec![
@@ -4776,13 +4847,18 @@ x = match y
                             },
                             MatchArm {
                                 patterns: vec![9],
-                                condition: Some(12),
-                                expression: 13,
+                                condition: None,
+                                expression: 10,
                             },
                             MatchArm {
-                                patterns: vec![14],
-                                condition: None,
+                                patterns: vec![11],
+                                condition: Some(14),
                                 expression: 15,
+                            },
+                            MatchArm {
+                                patterns: vec![16],
+                                condition: None,
+                                expression: 17,
                             },
                         ],
                     },
@@ -4792,10 +4868,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 16,
+                        expression: 18,
                     },
                     MainBlock {
-                        body: vec![17],
+                        body: vec![19],
                         local_count: 2,
                     },
                 ],
@@ -4805,11 +4881,12 @@ x = match y
                     Constant::Number(42.0),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
-                    Constant::Number(99.0),
+                    Constant::Number(99.0), // 5
+                    Constant::Str("baz"),
                     Constant::Str("z"),
                     Constant::Number(10.0),
                     Constant::Number(123.0),
-                    Constant::Number(-1.0),
+                    Constant::Number(-1.0), // 10
                 ]),
             )
         }

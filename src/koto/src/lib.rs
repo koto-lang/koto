@@ -99,10 +99,7 @@ impl Koto {
     }
 
     pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
-        let result = self
-            .runtime
-            .run(chunk.clone())
-            .map_err(|e| self.format_error(e))?;
+        let result = self.runtime.run(chunk).map_err(|e| self.format_error(e))?;
 
         if self.settings.repl_mode {
             Ok(result)
@@ -227,7 +224,7 @@ impl Koto {
                 chunk,
                 instruction,
             } => self.format_vm_error(&message, chunk, instruction),
-            Error::ExternalError { message } => format!("Error: {}\n", message,),
+            Error::ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
             Error::LoaderError(error) => {
                 self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
             }

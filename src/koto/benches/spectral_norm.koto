@@ -17,7 +17,7 @@ Av = |x y n|
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result n|
+    x.iter().fold 0 |result n|
       j += 1
       result + n * (A i j)
 
@@ -26,7 +26,7 @@ Atv = |x y n|
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result n|
+    x.iter().fold 0 |result n|
       j += 1
       result + n * (A j i)
 

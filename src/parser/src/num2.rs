@@ -4,12 +4,18 @@ use std::{
     ops,
 };
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialOrd)]
 pub struct Num2(pub f64, pub f64);
 
 impl Num2 {
     pub fn abs(&self) -> Self {
         Num2(self.0.abs(), self.1.abs())
+    }
+}
+
+impl PartialEq for Num2 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
     }
 }
 

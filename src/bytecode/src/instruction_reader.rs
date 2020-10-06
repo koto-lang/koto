@@ -98,19 +98,15 @@ pub enum Instruction {
     },
     MakeIterator {
         register: u8,
-        range: u8,
+        iterable: u8,
     },
     Function {
         register: u8,
         arg_count: u8,
         capture_count: u8,
         size: usize,
-    },
-    InstanceFunction {
-        register: u8,
-        arg_count: u8,
-        capture_count: u8,
-        size: usize,
+        is_instance_function: bool,
+        is_generator: bool,
     },
     Capture {
         function: u8,
@@ -214,6 +210,9 @@ pub enum Instruction {
         parent: u8,
     },
     Return {
+        register: u8,
+    },
+    Yield {
         register: u8,
     },
     Type {
@@ -376,28 +375,20 @@ impl fmt::Display for Instruction {
                 write!(f, "RangeFrom\tresult: {}\tstart: {}", register, start)
             }
             RangeFull { register } => write!(f, "RangeFull\tresult: {}", register),
-            MakeIterator { register, range } => {
-                write!(f, "MakeIterator\tresult: {}\trange: {}", register, range)
+            MakeIterator { register, iterable } => {
+                write!(f, "MakeIterator\tresult: {}\titerable: {}", register, iterable)
             }
             Function {
                 register,
                 arg_count,
                 capture_count,
                 size,
+                is_instance_function,
+                is_generator,
             } => write!(
                 f,
-                "Function\tresult: {}\targ_count: {}\tcaptures: {}\tsize: {}",
-                register, arg_count, capture_count, size
-            ),
-            InstanceFunction {
-                register,
-                arg_count,
-                capture_count,
-                size,
-            } => write!(
-                f,
-                "InstanceFn\tresult: {}\targ_count: {}\tcaptures: {}\tsize: {}",
-                register, arg_count, capture_count, size
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\tinstance: {}\tgenerator: {}",
+                register, arg_count, capture_count, size, is_instance_function, is_generator
             ),
             Capture {
                 function,
@@ -514,6 +505,7 @@ impl fmt::Display for Instruction {
                 result, function, arg_register, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
+            Yield { register } => write!(f, "Yield\t\tresult: {}", register),
             Type { register, source } => {
                 write!(f, "Type\t\tresult: {}\tsource: {}", register, source)
             }
@@ -791,19 +783,39 @@ impl Iterator for InstructionReader {
             }),
             Op::MakeIterator => Some(MakeIterator {
                 register: get_byte!(),
-                range: get_byte!(),
+                iterable: get_byte!(),
             }),
             Op::Function => Some(Function {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
+                is_instance_function: false,
+                is_generator: false,
             }),
-            Op::InstanceFunction => Some(InstanceFunction {
+            Op::InstanceFunction => Some(Function {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
+                is_instance_function: true,
+                is_generator: false,
+            }),
+            Op::Generator => Some(Function {
+                register: get_byte!(),
+                arg_count: get_byte!(),
+                capture_count: get_byte!(),
+                size: get_u16!() as usize,
+                is_instance_function: false,
+                is_generator: true,
+            }),
+            Op::InstanceGenerator => Some(Function {
+                register: get_byte!(),
+                arg_count: get_byte!(),
+                capture_count: get_byte!(),
+                size: get_u16!() as usize,
+                is_instance_function: true,
+                is_generator: true,
             }),
             Op::Capture => Some(Capture {
                 function: get_byte!(),
@@ -912,6 +924,9 @@ impl Iterator for InstructionReader {
                 parent: get_byte!(),
             }),
             Op::Return => Some(Return {
+                register: get_byte!(),
+            }),
+            Op::Yield => Some(Yield {
                 register: get_byte!(),
             }),
             Op::Type => Some(Type {

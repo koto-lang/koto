@@ -19,7 +19,7 @@ pub use {
     value::{
         make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
     },
-    value_iterator::IntRange,
+    value_iterator::{ValueIterator, IntRange},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
     vm::Vm,
@@ -32,18 +32,18 @@ pub enum Error {
         chunk: Arc<Chunk>,
         instruction: usize,
     },
-    ExternalError {
+    LoaderError(loader::LoaderError),
+    ErrorWithoutLocation {
         message: String,
     },
-    LoaderError(loader::LoaderError),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::VmError { message, .. } => f.write_str(message),
-            Error::ExternalError { message } => f.write_str(message),
             Error::LoaderError(error) => f.write_str(&error.message),
+            Error::ErrorWithoutLocation { message } => f.write_str(message),
         }
     }
 }
@@ -79,7 +79,7 @@ macro_rules! vm_error {
 #[macro_export]
 macro_rules! make_external_error {
     ($message:expr) => {{
-        let error = $crate::Error::ExternalError { message: $message };
+        let error = $crate::Error::ErrorWithoutLocation { message: $message };
         #[cfg(panic_on_runtime_error)]
         {
             panic!();
