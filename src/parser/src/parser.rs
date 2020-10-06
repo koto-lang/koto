@@ -294,35 +294,10 @@ impl<'source> Parser<'source> {
             export_id
         } else if let Some(debug_expression) = self.parse_debug_expression()? {
             debug_expression
+        } else if let Some(result) = self.parse_primary_expressions(false)? {
+            result
         } else {
-            match self.peek_token() {
-                Some(Token::Error) => {
-                    return syntax_error!(UnexpectedToken, self);
-                }
-                Some(Token::Break) => {
-                    self.consume_token();
-                    self.push_node(Node::Break)?
-                }
-                Some(Token::Continue) => {
-                    self.consume_token();
-                    self.push_node(Node::Continue)?
-                }
-                Some(Token::Return) => {
-                    self.consume_token();
-                    if let Some(expression) = self.parse_primary_expressions(true)? {
-                        self.push_node(Node::ReturnExpression(expression))?
-                    } else {
-                        self.push_node(Node::Return)?
-                    }
-                }
-                _ => {
-                    if let Some(result) = self.parse_primary_expressions(false)? {
-                        result
-                    } else {
-                        return Ok(None);
-                    }
-                }
-            }
+            return Ok(None);
         };
 
         self.frame_mut()?.finish_expressions();
@@ -1097,6 +1072,22 @@ impl<'source> Parser<'source> {
                         result
                     } else {
                         return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Break => {
+                    self.consume_token();
+                    self.push_node(Node::Break)?
+                }
+                Token::Continue => {
+                    self.consume_token();
+                    self.push_node(Node::Continue)?
+                }
+                Token::Return => {
+                    self.consume_token();
+                    if let Some(expression) = self.parse_primary_expressions(true)? {
+                        self.push_node(Node::ReturnExpression(expression))?
+                    } else {
+                        self.push_node(Node::Return)?
                     }
                 }
                 Token::From | Token::Import => return self.parse_import_expression(),
@@ -4811,6 +4802,7 @@ finally
 x = match y
   0 or 1 then 42
   "foo" or ["bar"] then 99
+  "baz" then break
   z if z < 10
     123
   z then -1
@@ -4827,17 +4819,19 @@ x = match y
                     Str(4),
                     List(vec![6]),
                     Number(5),
-                    Id(6),
-                    Id(6), // 10
-                    Number(7),
+                    Str(6),
+                    Break, // 10
+                    Id(7),
+                    Id(7),
+                    Number(8),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 10,
-                        rhs: 11,
+                        lhs: 12,
+                        rhs: 13,
                     },
-                    Number(8),
-                    Id(6),
                     Number(9), // 15
+                    Id(7),
+                    Number(10),
                     Match {
                         expression: 1,
                         arms: vec![
@@ -4853,13 +4847,18 @@ x = match y
                             },
                             MatchArm {
                                 patterns: vec![9],
-                                condition: Some(12),
-                                expression: 13,
+                                condition: None,
+                                expression: 10,
                             },
                             MatchArm {
-                                patterns: vec![14],
-                                condition: None,
+                                patterns: vec![11],
+                                condition: Some(14),
                                 expression: 15,
+                            },
+                            MatchArm {
+                                patterns: vec![16],
+                                condition: None,
+                                expression: 17,
                             },
                         ],
                     },
@@ -4869,10 +4868,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 16,
+                        expression: 18,
                     },
                     MainBlock {
-                        body: vec![17],
+                        body: vec![19],
                         local_count: 2,
                     },
                 ],
@@ -4882,11 +4881,12 @@ x = match y
                     Constant::Number(42.0),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
-                    Constant::Number(99.0),
+                    Constant::Number(99.0), // 5
+                    Constant::Str("baz"),
                     Constant::Str("z"),
                     Constant::Number(10.0),
                     Constant::Number(123.0),
-                    Constant::Number(-1.0),
+                    Constant::Number(-1.0), // 10
                 ]),
             )
         }
