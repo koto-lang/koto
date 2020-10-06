@@ -24,7 +24,7 @@ pub enum Iterable {
     Range(IntRange),
     List(ValueList),
     Map(ValueMap),
-    Generator(Vm),
+    Generator(Box<Vm>),
     External(ExternalIterator),
 }
 
@@ -147,7 +147,7 @@ impl ValueIterator {
     }
 
     pub fn with_vm(vm: Vm) -> Self {
-        Self::new(Iterable::Generator(vm))
+        Self::new(Iterable::Generator(Box::new(vm)))
     }
 
     pub fn make_external(

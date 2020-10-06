@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
             let mut result = ValueVec::new();
 
             loop {
-                match iterator.next().map(|maybe_pair| collect_pair(maybe_pair)) {
+                match iterator.next().map(collect_pair) {
                     Some(Ok(Output::Value(value))) => result.push(value),
                     Some(Err(error)) => return Err(error),
                     Some(_) => unreachable!(),
@@ -50,7 +50,7 @@ pub fn make_module() -> ValueMap {
             let mut runtime = runtime.spawn_shared_vm();
 
             Ok(Iterator(ValueIterator::make_external(move || {
-                while let Some(output) = iter.next() {
+                for output in &mut iter {
                     match output {
                         Ok(Output::Value(value)) => {
                             match runtime.run_function(&f, &[value.clone()]) {
@@ -143,7 +143,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("next", |_, args| match args {
         [Iterator(i)] => {
-            let result = match i.clone().next().map(|maybe_pair| collect_pair(maybe_pair)) {
+            let result = match i.clone().next().map(collect_pair) {
                 Some(Ok(Output::Value(value))) => value,
                 Some(Err(error)) => return Err(error),
                 None => Value::Empty,
@@ -171,7 +171,7 @@ pub fn make_module() -> ValueMap {
             let mut runtime = runtime.spawn_shared_vm();
 
             let mut iter = i.clone().map(move |iter_output| match iter_output {
-                Ok(Output::Value(value)) => match runtime.run_function(&f, &[value.clone()]) {
+                Ok(Output::Value(value)) => match runtime.run_function(&f, &[value]) {
                     Ok(result) => Ok(Output::Value(result)),
                     Err(error) => Err(error),
                 },

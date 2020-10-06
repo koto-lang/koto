@@ -246,7 +246,7 @@ impl From<ValueIterator> for Value {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct RuntimeFunction {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
@@ -254,6 +254,17 @@ pub struct RuntimeFunction {
     pub is_instance_function: bool,
     pub is_generator: bool,
     pub captures: Option<ValueList>,
+}
+
+impl PartialEq for RuntimeFunction {
+    fn eq(&self, other: &Self) -> bool {
+        self.chunk == other.chunk
+            && self.ip == other.ip
+            && self.arg_count == other.arg_count
+            && self.is_instance_function == other.is_instance_function
+            && self.is_generator == other.is_generator
+            && self.captures == other.captures
+    }
 }
 
 impl Hash for RuntimeFunction {

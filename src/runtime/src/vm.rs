@@ -543,8 +543,8 @@ impl Vm {
                 } else {
                     let iterator = match iterable {
                         Range(int_range) => ValueIterator::with_range(int_range),
-                        List(list) => ValueIterator::with_list(list.clone()),
-                        Map(map) => ValueIterator::with_map(map.clone()),
+                        List(list) => ValueIterator::with_list(list),
+                        Map(map) => ValueIterator::with_map(map),
                         unexpected => {
                             return vm_error!(
                                 self.chunk(),
@@ -1772,11 +1772,7 @@ impl Vm {
                     }
                 };
 
-                let args = self
-                    .register_slice(arg_register, call_arg_count)
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let args = self.register_slice(arg_register, call_arg_count).to_vec();
 
                 let result = (&*function)(self, &args);
                 match result {
@@ -1817,9 +1813,9 @@ impl Vm {
                         if !self.register_available(arg_register + arg) {
                             if !*is_instance_function && parent_register.is_some() {
                                 return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Insufficent arguments for generator, \
+                                    self.chunk(),
+                                    instruction_ip,
+                                    "Insufficent arguments for generator, \
                                  but a function parent is available. \
                                  Did you mean to create an instance function?"
                                 );

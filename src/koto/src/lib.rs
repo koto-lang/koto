@@ -99,10 +99,7 @@ impl Koto {
     }
 
     pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> Result<Value, String> {
-        let result = self
-            .runtime
-            .run(chunk.clone())
-            .map_err(|e| self.format_error(e))?;
+        let result = self.runtime.run(chunk).map_err(|e| self.format_error(e))?;
 
         if self.settings.repl_mode {
             Ok(result)

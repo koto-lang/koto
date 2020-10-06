@@ -22,7 +22,7 @@ pub enum Constant<'a> {
     Str(&'a str),
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct ConstantPool {
     data: Vec<u8>,
     index: Vec<(usize, ConstantType)>,
@@ -104,9 +104,15 @@ impl fmt::Display for ConstantPool {
                 Constant::Number(n) => write!(f, "Number\t{}", n)?,
                 Constant::Str(s) => write!(f, "String\t{}", s)?,
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
+    }
+}
+
+impl PartialEq for ConstantPool {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data && self.index == other.index
     }
 }
 

@@ -78,6 +78,7 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
+        #[allow(clippy::useless_conversion)]
         self.add_value(
             id.into(),
             Value::ExternalFunction(ExternalFunction::new(f, false)),
@@ -89,26 +90,28 @@ impl ValueHashMap {
         id: &str,
         f: impl Fn(&mut Vm, &[Value]) -> RuntimeResult + Send + Sync + 'static,
     ) {
-        self.add_value(
-            id.into(),
-            Value::ExternalFunction(ExternalFunction::new(f, true)),
-        );
+        #[allow(clippy::useless_conversion)]
+        self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
     pub fn add_list(&mut self, id: &str, list: ValueList) {
+        #[allow(clippy::useless_conversion)]
         self.add_value(id.into(), Value::List(list));
     }
 
     pub fn add_map(&mut self, id: &str, map: ValueMap) {
+        #[allow(clippy::useless_conversion)]
         self.add_value(id.into(), Value::Map(map));
     }
 
     pub fn add_value(&mut self, id: &str, value: Value) -> Option<Value> {
+        #[allow(clippy::useless_conversion)]
         self.insert(id.into(), value)
     }
 
     pub fn insert(&mut self, key: Value, value: Value) -> Option<Value> {
-        self.0.insert(key, value)
+        #[allow(clippy::useless_conversion)]
+        self.0.insert(key.into(), value)
     }
 
     pub fn remove(&mut self, key: &Value) -> Option<Value> {
@@ -207,6 +210,10 @@ impl ValueMap {
 
     pub fn len(&self) -> usize {
         self.data().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data().is_empty()
     }
 
     pub fn add_fn(

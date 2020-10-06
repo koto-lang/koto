@@ -176,7 +176,7 @@ impl Repl {
 
                     match self.koto.compile(&self.input) {
                         Ok(_) => match self.koto.run() {
-                            Ok(result) => write!(stdout, "{}\n", result).unwrap(),
+                            Ok(result) => writeln!(stdout, "{}", result).unwrap(),
                             Err(error) => self.print_error(stdout, tty, &error),
                         },
                         Err(e) => self.print_error(stdout, tty, &e),
