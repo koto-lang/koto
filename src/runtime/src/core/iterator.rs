@@ -43,6 +43,62 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.enumerate: Expected iterator as argument"),
     });
 
+    result.add_fn("filter", |runtime, args| match args {
+        [Iterator(i), Function(f)] => {
+            let mut iter = i.clone();
+            let f = f.clone();
+            let mut runtime = runtime.spawn_shared_vm();
+
+            Ok(Iterator(ValueIterator::make_external(move || {
+                while let Some(output) = iter.next() {
+                    match output {
+                        Ok(Output::Value(value)) => {
+                            match runtime.run_function(&f, &[value.clone()]) {
+                                Ok(Bool(result)) => {
+                                    if result {
+                                        return Some(Ok(Output::Value(value)));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Ok(unexpected) => {
+                                    return Some(external_error!(
+                                        "iterator.filter expects a Bool to be returned from the \
+                                         predicate, found '{}'",
+                                        value::type_as_string(&unexpected),
+                                    ))
+                                }
+                                Err(error) => return Some(Err(error)),
+                            }
+                        }
+                        Ok(Output::ValuePair(first, second)) => {
+                            match runtime.run_function(&f, &[first.clone(), second.clone()]) {
+                                Ok(Bool(result)) => {
+                                    if result {
+                                        return Some(Ok(Output::ValuePair(first, second)));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Ok(unexpected) => {
+                                    return Some(external_error!(
+                                        "iterator.filter expects a Bool to be returned from the \
+                                         predicate, found '{}'",
+                                        value::type_as_string(&unexpected),
+                                    ))
+                                }
+                                Err(error) => return Some(Err(error)),
+                            }
+                        }
+                        Err(error) => return Some(Err(error)),
+                    }
+                }
+                None
+            })))
+        }
+        _ => external_error!("iterator.filter: Expected iterator and function as arguments"),
+    });
+
     result.add_fn("fold", |runtime, args| match args {
         [Iterator(iterator), result, Function(f)] => {
             if f.arg_count != 2 {

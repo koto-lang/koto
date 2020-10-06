@@ -13,6 +13,9 @@ export tests =
   test_enumerate: ||
     assert_eq (10..=12).iter().enumerate().collect() [[0 10] [1 11] [2 12]]
 
+  test_filter: ||
+    assert_eq (0..10).iter().filter(|x| x % 2 == 1).collect() [1 3 5 7 9]
+
   test_fold: ||
     assert_eq (1..=5).iter().fold(0 |sum x| sum + x) 15
 
