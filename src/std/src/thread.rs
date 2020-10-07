@@ -20,7 +20,7 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     thread.add_fn("create", |vm, args| {
-        let args = vm.get_args(args).to_vec();
+        let args = vm.get_args_as_vec(args);
         match args.as_slice() {
             [Function(f)] => {
                 let join_handle = thread::spawn({

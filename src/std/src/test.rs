@@ -98,7 +98,7 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     test.add_fn("run_tests", |vm, args| {
-        let args = vm.get_args(args).to_vec();
+        let args = vm.get_args_as_vec(args);
         match args.as_slice() {
             [Map(tests)] => vm.run_tests(tests.clone()),
             _ => external_error!("run_tests expects a map as argument"),

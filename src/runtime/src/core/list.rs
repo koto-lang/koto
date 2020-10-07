@@ -113,7 +113,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("retain", |vm, args| {
-        match vm.get_args(args).to_vec().as_slice() {
+        match vm.get_args_as_vec(args).as_slice() {
             [List(l), Function(f)] => {
                 if f.arg_count != 1 {
                     return external_error!(
@@ -194,7 +194,7 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.sort_copy: Expected list as argument"),
     });
 
-    result.add_fn("transform", |vm, args| match vm.get_args(args).to_vec().as_slice() {
+    result.add_fn("transform", |vm, args| match vm.get_args_as_vec(args).as_slice() {
         [List(l), Function(f)] => {
             if f.arg_count != 1 {
                 return external_error!(

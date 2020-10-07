@@ -2089,6 +2089,10 @@ impl Vm {
         self.register_slice(args.register, args.count)
     }
 
+    pub fn get_args_as_vec(&self, args: &Args) -> ValueVec {
+        self.get_args(args).iter().cloned().collect()
+    }
+
     fn get_constant_string(&self, constant_index: ConstantIndex) -> &str {
         self.reader.chunk.constants.get_string(constant_index)
     }

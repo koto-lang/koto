@@ -98,7 +98,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("fold", |vm, args| {
-        let args = vm.get_args(args).to_vec();
+        let args = vm.get_args_as_vec(args);
         match args.as_slice() {
             [Iterator(iterator), result, Function(f)] => {
                 if f.arg_count != 2 {
@@ -168,7 +168,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("transform", |vm, args| {
-        match vm.get_args(args).to_vec().as_slice() {
+        match vm.get_args_as_vec(args).as_slice() {
             [Iterator(i), Function(f)] => {
                 let f = f.clone();
                 let mut vm = vm.spawn_shared_vm();
