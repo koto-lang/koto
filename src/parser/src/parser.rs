@@ -49,6 +49,7 @@ fn f64_eq(a: f64, b: f64) -> bool {
 
 #[derive(Debug, Default)]
 struct Frame {
+    // If a frame contains yield then it represents a generator function
     contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_scope: HashSet<ConstantIndex>,
@@ -88,6 +89,7 @@ struct Frame {
 }
 
 impl Frame {
+    // Locals in a frame are assigned values that weren't first accessed non-locally
     fn local_count(&self) -> usize {
         self.ids_assigned_in_scope
             .difference(&self.accessed_non_locals)
