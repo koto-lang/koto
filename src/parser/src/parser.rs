@@ -49,7 +49,6 @@ fn f64_eq(a: f64, b: f64) -> bool {
 
 #[derive(Debug, Default)]
 struct Frame {
-    top_level: bool,
     contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_scope: HashSet<ConstantIndex>,
@@ -172,10 +171,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_main_block(&mut self) -> Result<AstIndex, ParserError> {
-        self.frame_stack.push(Frame {
-            top_level: true,
-            ..Frame::default()
-        });
+        self.frame_stack.push(Frame::default());
 
         let mut body = Vec::new();
         while self.consume_until_next_token().is_some() {
