@@ -53,7 +53,6 @@ mod koto_tests {
     koto_test!(function_closures);
     koto_test!(functions);
     koto_test!(functions_in_lookups);
-    koto_test!(generators);
     koto_test!(import);
     koto_test!(io);
     koto_test!(iterators);
