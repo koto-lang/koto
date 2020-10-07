@@ -82,10 +82,10 @@ export tests =
   test_instance_functions: ||
     make_map = ||
       foo: 42
-      get_foo: |self| self.foo # self refers to map instance
+      get_foo: |self| self.foo # self is a convention, but any name can be used
 
     m = make_map()
-    assert_eq 42 m.get_foo() # implicit self
+    assert_eq 42 m.get_foo() # m is implicitly passed to get_foo as an argument
 
     make_map_2 = ||
       make_map() +
@@ -95,9 +95,9 @@ export tests =
         sum_foo: |self| self.foo + self.foo_2
 
     m2 = make_map_2()
-    assert_eq m2.foo 42
-    assert_eq m2.get_foo_2() 57
-    m2.set_foo_2 58
+    assert_eq m2.foo 42 # .foo takes no arguments
+    assert_eq m2.get_foo_2() 57 # .get_foo_2 receives m2 as first argument
+    m2.set_foo_2 58 # .set_foo_2 receives m2 as first argument, 58 as second argument
     assert_eq m2.sum_foo() 100
 
   test_instance_function_outside_of_map: ||

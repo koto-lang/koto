@@ -43,9 +43,7 @@ pub enum Op {
     MakeNum4,          // register, element count, first element
     MakeIterator,      // register, range
     Function,          // register, arg count, capture count, size[2]
-    InstanceFunction,  // register, arg count, capture count, size[2]
     Generator,         // register, arg count, capture count, size[2]
-    InstanceGenerator, // register, arg count, capture count, size[2]
     Capture,           // function, target, source
     LoadCapture,       // register, capture
     SetCapture,        // capture, source
@@ -90,6 +88,8 @@ pub enum Op {
     TryStart,          // catch arg register, catch body offset[2]
     TryEnd,            //
     Debug,             // register, constant[4]
+    Unused71,
+    Unused72,
     Unused73,
     Unused74,
     Unused75,

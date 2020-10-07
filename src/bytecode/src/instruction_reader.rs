@@ -105,7 +105,6 @@ pub enum Instruction {
         arg_count: u8,
         capture_count: u8,
         size: usize,
-        is_instance_function: bool,
         is_generator: bool,
     },
     Capture {
@@ -383,12 +382,11 @@ impl fmt::Display for Instruction {
                 arg_count,
                 capture_count,
                 size,
-                is_instance_function,
                 is_generator,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\tinstance: {}\tgenerator: {}",
-                register, arg_count, capture_count, size, is_instance_function, is_generator
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\tgenerator: {}",
+                register, arg_count, capture_count, size, is_generator
             ),
             Capture {
                 function,
@@ -790,15 +788,6 @@ impl Iterator for InstructionReader {
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
-                is_instance_function: false,
-                is_generator: false,
-            }),
-            Op::InstanceFunction => Some(Function {
-                register: get_byte!(),
-                arg_count: get_byte!(),
-                capture_count: get_byte!(),
-                size: get_u16!() as usize,
-                is_instance_function: true,
                 is_generator: false,
             }),
             Op::Generator => Some(Function {
@@ -806,15 +795,6 @@ impl Iterator for InstructionReader {
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
-                is_instance_function: false,
-                is_generator: true,
-            }),
-            Op::InstanceGenerator => Some(Function {
-                register: get_byte!(),
-                arg_count: get_byte!(),
-                capture_count: get_byte!(),
-                size: get_u16!() as usize,
-                is_instance_function: true,
                 is_generator: true,
             }),
             Op::Capture => Some(Capture {

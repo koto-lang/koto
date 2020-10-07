@@ -224,11 +224,6 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedFunctionArgsEnd, self);
         }
 
-        let is_instance_function = match args.as_slice() {
-            [first, ..] => self.constants.pool.get_string(*first) == "self",
-            _ => false,
-        };
-
         // body
         let mut function_frame = Frame::default();
         function_frame.ids_assigned_in_scope.extend(args.clone());
@@ -269,7 +264,6 @@ impl<'source> Parser<'source> {
                 local_count,
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
-                is_instance_function,
                 is_generator: function_frame.contains_yield,
             }),
             Span {
@@ -3483,7 +3477,6 @@ until x < y
                         local_count: 0,
                         accessed_non_locals: vec![0],
                         body: 0,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Number0,
@@ -3615,7 +3608,6 @@ a()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -3655,7 +3647,6 @@ a()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 2,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -3712,7 +3703,6 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 10,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -3762,7 +3752,6 @@ f 42";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -3785,7 +3774,6 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 8,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -3864,7 +3852,6 @@ f 0 -x";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 4,
-                        is_instance_function: true,
                         is_generator: false,
                     }), // 5
                     // Map entries are constant/ast index pairs
@@ -3912,7 +3899,6 @@ f()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 5,
-                        is_instance_function: true,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
@@ -3922,7 +3908,6 @@ f()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 7,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -4003,7 +3988,6 @@ f 1
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -4053,7 +4037,6 @@ f 1
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 26,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -4106,7 +4089,6 @@ f 1
                         local_count: 0,
                         accessed_non_locals: vec![0], // initial read of x via capture
                         body: 2,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -4148,7 +4130,6 @@ y z";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
-                        is_instance_function: false,
                         is_generator: false,
                     }),
                     Call {
@@ -4196,7 +4177,6 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
-                        is_instance_function: false,
                         is_generator: true,
                     }),
                     MainBlock {
@@ -4223,7 +4203,6 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3,
-                        is_instance_function: false,
                         is_generator: true,
                     }),
                     MainBlock {

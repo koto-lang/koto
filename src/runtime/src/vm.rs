@@ -130,13 +130,7 @@ impl Vm {
         let current_chunk = self.chunk();
         let current_ip = self.ip();
 
-        let expected_arg_count = if function.is_instance_function {
-            function.arg_count + 1
-        } else {
-            function.arg_count
-        };
-
-        if expected_arg_count != args.len() as u8 {
+        if args.len() as u8 != function.arg_count {
             return vm_error!(
                 self.chunk(),
                 self.ip(),
@@ -214,10 +208,9 @@ impl Vm {
                     };
 
                     if let Some(Value::Function(pre_test)) = &pre_test {
-                        let pre_test_result = if pre_test.is_instance_function {
-                            self.run_function(&pre_test.clone(), &self_arg)
-                        } else {
-                            self.run_function(&pre_test.clone(), &[])
+                        let pre_test_result = match pre_test.arg_count {
+                            0 => self.run_function(&pre_test.clone(), &[]),
+                            _ => self.run_function(&pre_test.clone(), &self_arg),
                         };
 
                         if let Err(error) = pre_test_result {
@@ -225,10 +218,9 @@ impl Vm {
                         }
                     }
 
-                    let test_result = if test.is_instance_function {
-                        self.run_function(&test, &self_arg)
-                    } else {
-                        self.run_function(&test, &[])
+                    let test_result = match test.arg_count {
+                        0 => self.run_function(&test, &[]),
+                        _ => self.run_function(&test, &self_arg),
                     };
 
                     if let Err(error) = test_result {
@@ -236,10 +228,9 @@ impl Vm {
                     }
 
                     if let Some(Value::Function(post_test)) = &post_test {
-                        let post_test_result = if post_test.is_instance_function {
-                            self.run_function(&post_test.clone(), &self_arg)
-                        } else {
-                            self.run_function(&post_test.clone(), &[])
+                        let post_test_result = match post_test.arg_count {
+                            0 => self.run_function(&post_test.clone(), &[]),
+                            _ => self.run_function(&post_test.clone(), &self_arg),
                         };
 
                         if let Err(error) = post_test_result {
@@ -586,7 +577,6 @@ impl Vm {
                 arg_count,
                 capture_count,
                 size,
-                is_instance_function,
                 is_generator,
             } => {
                 let captures = if capture_count > 0 {
@@ -602,7 +592,6 @@ impl Vm {
                     ip: self.ip(),
                     arg_count,
                     captures,
-                    is_instance_function,
                     is_generator,
                 });
                 self.jump_ip(size);
@@ -1838,7 +1827,6 @@ impl Vm {
                 ip: function_ip,
                 arg_count: function_arg_count,
                 captures,
-                is_instance_function,
                 is_generator,
             }) => {
                 if *is_generator {
@@ -1857,13 +1845,10 @@ impl Vm {
                     let mut set_arg_offset = 0;
 
                     if let Some(parent_register) = parent_register {
-                        if *is_instance_function || call_arg_count < *function_arg_count {
+                        if call_arg_count < *function_arg_count {
                             generator_vm
                                 .set_register(0, self.get_register(parent_register).clone());
                             set_arg_offset = 1;
-                        }
-
-                        if call_arg_count < *function_arg_count {
                             call_arg_count += 1;
                         }
                     }
@@ -1894,23 +1879,15 @@ impl Vm {
 
                     self.set_register(result_register, ValueIterator::with_vm(generator_vm).into())
                 } else {
-                    let expected_count = if *is_instance_function {
-                        *function_arg_count + 1
-                    } else {
-                        *function_arg_count
-                    };
-
+                    let expected_count = *function_arg_count;
                     let mut call_arg_count = call_arg_count;
 
                     if let Some(parent_register) = parent_register {
-                        if *is_instance_function || call_arg_count < expected_count {
+                        if call_arg_count < expected_count {
                             self.insert_register(
                                 arg_register,
                                 self.get_register(parent_register).clone(),
                             );
-                        }
-
-                        if call_arg_count < expected_count {
                             call_arg_count += 1;
                         }
                     }

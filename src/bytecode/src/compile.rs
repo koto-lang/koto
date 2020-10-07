@@ -1849,18 +1849,13 @@ impl Compiler {
                 }
                 let capture_count = captures.len() as u8;
 
-                let (function_op, function_arg_count) =
-                    match (function.is_instance_function, function.is_generator) {
-                        (false, false) => (Function, arg_count),
-                        (true, false) => (InstanceFunction, arg_count - 1),
-                        (false, true) => (Generator, arg_count),
-                        (true, true) => (InstanceGenerator, arg_count - 1),
-                    };
+                let function_op = if function.is_generator {
+                    Generator
+                } else {
+                    Function
+                };
 
-                self.push_op(
-                    function_op,
-                    &[result.register, function_arg_count, capture_count],
-                );
+                self.push_op(function_op, &[result.register, arg_count, capture_count]);
 
                 let function_size_ip = self.push_offset_placeholder();
 
