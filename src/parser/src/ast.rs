@@ -91,7 +91,6 @@ impl Ast {
         self.spans.truncate(reset_point.1);
     }
 
-    #[cfg(test)]
     pub fn nodes(&self) -> &[AstNode] {
         &self.nodes
     }

@@ -8,7 +8,7 @@ mod parser;
 
 pub use {
     ast::*,
-    constant_pool::ConstantPool,
+    constant_pool::{Constant, ConstantPool},
     error::ParserError,
     koto_lexer::{Position, Span},
     node::*,
