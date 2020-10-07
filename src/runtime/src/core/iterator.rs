@@ -109,30 +109,31 @@ pub fn make_module() -> ValueMap {
                 }
 
                 match iterator
-                .clone()
-                .lock_internals(|iterator| {
-                    let mut fold_result = result.clone();
-                    for value in iterator {
-                        match collect_pair(value) {
-                            Ok(Output::Value(value)) => {
-                                match vm.run_function(&f, &[fold_result, value]) {
-                                    Ok(result) => fold_result = result,
-                                    Err(error) => return Some(Err(error)),
+                    .clone()
+                    .lock_internals(|iterator| {
+                        let mut fold_result = result.clone();
+                        for value in iterator {
+                            match collect_pair(value) {
+                                Ok(Output::Value(value)) => {
+                                    match vm.run_function(&f, &[fold_result, value]) {
+                                        Ok(result) => fold_result = result,
+                                        Err(error) => return Some(Err(error)),
+                                    }
                                 }
+                                Err(error) => return Some(Err(error)),
+                                _ => unreachable!(),
                             }
-                            Err(error) => return Some(Err(error)),
-                            _ => unreachable!(),
                         }
-                    }
 
-                    Some(Ok(Output::Value(fold_result)))
-                })
-            .unwrap() // None is never returned from the closure
-            {
-                Ok(Output::Value(result)) => Ok(result),
-                Err(error) => Err(error),
-                _ => unreachable!(),
-            }
+                        Some(Ok(Output::Value(fold_result)))
+                    })
+                    // None is never returned from the closure
+                    .unwrap()
+                {
+                    Ok(Output::Value(result)) => Ok(result),
+                    Err(error) => Err(error),
+                    _ => unreachable!(),
+                }
             }
             [Iterator(_), _, unexpected] => external_error!(
                 "iterator.fold: Expected Function as third argument, found '{}'",
@@ -166,28 +167,30 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("transform", |vm, args| match vm.get_args(args).to_vec().as_slice() {
-        [Iterator(i), Function(f)] => {
-            let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+    result.add_fn("transform", |vm, args| {
+        match vm.get_args(args).to_vec().as_slice() {
+            [Iterator(i), Function(f)] => {
+                let f = f.clone();
+                let mut vm = vm.spawn_shared_vm();
 
-            let mut iter = i.clone().map(move |iter_output| match iter_output {
-                Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
-                    Ok(result) => Ok(Output::Value(result)),
-                    Err(error) => Err(error),
-                },
-                Ok(Output::ValuePair(first, second)) => {
-                    match vm.run_function(&f, &[first, second]) {
+                let mut iter = i.clone().map(move |iter_output| match iter_output {
+                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
                         Ok(result) => Ok(Output::Value(result)),
                         Err(error) => Err(error),
+                    },
+                    Ok(Output::ValuePair(first, second)) => {
+                        match vm.run_function(&f, &[first, second]) {
+                            Ok(result) => Ok(Output::Value(result)),
+                            Err(error) => Err(error),
+                        }
                     }
-                }
-                Err(error) => Err(error),
-            });
+                    Err(error) => Err(error),
+                });
 
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+                Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            }
+            _ => external_error!("iterator.transform: Expected iterator and function as arguments"),
         }
-        _ => external_error!("iterator.transform: Expected iterator and function as arguments"),
     });
 
     result
