@@ -4,7 +4,7 @@ use std::{fs::read_to_string, path::PathBuf};
 fn run_script(script_path: &str) {
     let mut path = PathBuf::new();
     path.push(env!("CARGO_MANIFEST_DIR"));
-    path.push("tests");
+    path.push("../../koto/tests");
     path.push(script_path);
     if !path.exists() {
         panic!(format!("Path doesn't exist: {:?}", path));
