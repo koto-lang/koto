@@ -175,6 +175,8 @@ impl<'source> Parser<'source> {
     fn parse_main_block(&mut self) -> Result<AstIndex, ParserError> {
         self.frame_stack.push(Frame::default());
 
+        let start_span = self.lexer.span();
+
         let mut body = Vec::new();
         while self.consume_until_next_token().is_some() {
             if let Some(expression) = self.parse_line()? {
@@ -184,12 +186,12 @@ impl<'source> Parser<'source> {
             }
         }
 
-        let result = self.ast.push(
+        let result = self.push_node_with_start_span(
             Node::MainBlock {
                 body,
                 local_count: self.frame()?.local_count(),
             },
-            Span::default(), // TODO is there something better to do here? first->last position?
+            start_span,
         )?;
 
         self.frame_stack.pop();
@@ -354,8 +356,7 @@ impl<'source> Parser<'source> {
                         | Node::For(_)
                         | Node::While { .. }
                         | Node::Until { .. } => {
-                            // TODO improve comment
-                            // These nodes will have consumed the expressions parsed expressions,
+                            // These nodes will have consumed the parsed expressions,
                             // so there's no further work to do.
                             // e.g.
                             //   x, y for x, y in a, b
