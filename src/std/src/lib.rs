@@ -31,7 +31,6 @@ macro_rules! single_arg_fn {
     }
 }
 
-// TODO split out _mut version
 pub fn visit_external_value<T>(
     map: &ValueMap,
     mut f: impl FnMut(&mut T) -> RuntimeResult,
