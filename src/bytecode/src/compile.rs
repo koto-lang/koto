@@ -2158,7 +2158,7 @@ impl Compiler {
         self.compile_node(body_result_register, ast.node(*then_node), ast)?;
 
         let then_jump_ip = {
-            if !else_if_blocks.is_empty() || else_node.is_some() {
+            if !else_if_blocks.is_empty() || else_node.is_some() || result.is_some() {
                 self.push_op_without_span(Jump, &[]);
                 Some(self.push_offset_placeholder())
             } else {
