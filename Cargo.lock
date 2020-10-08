@@ -339,7 +339,6 @@ dependencies = [
 name = "koto_std"
 version = "0.1.0"
 dependencies = [
- "koto_lexer",
  "koto_runtime",
  "koto_types",
  "rand",
