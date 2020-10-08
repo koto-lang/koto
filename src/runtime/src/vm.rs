@@ -9,7 +9,8 @@ use {
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
-    koto_parser::{num2, num4, ConstantIndex},
+    koto_parser::ConstantIndex,
+    koto_types::{num2, num4},
     rustc_hash::FxHashMap,
     std::{
         collections::HashMap,

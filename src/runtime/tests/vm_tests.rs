@@ -5,6 +5,7 @@ mod vm {
             external_error, type_as_string, IntRange, Loader, Value, Value::*, ValueHashMap,
             ValueList, ValueMap, Vm,
         },
+        koto_types::{num2, num4},
         std::sync::Arc,
     };
 
@@ -76,11 +77,11 @@ mod vm {
     }
 
     fn num2(a: f64, b: f64) -> Value {
-        Num2(koto_parser::num2::Num2(a, b))
+        Num2(num2::Num2(a, b))
     }
 
     fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
-        Num4(koto_parser::num4::Num4(a, b, c, d))
+        Num4(num4::Num4(a, b, c, d))
     }
 
     fn string(s: &str) -> Value {

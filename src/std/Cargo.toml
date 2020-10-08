@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 koto_lexer = { path = "../lexer" }
-koto_parser = { path = "../parser" }
 koto_runtime = { path = "../runtime" }
+koto_types = { path = "../types" }
 
 rand = "0.7.3"
 rand_chacha = "0.2.1"
