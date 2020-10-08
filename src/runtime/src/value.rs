@@ -6,7 +6,7 @@ use {
         value_map::{ValueHashMap, ValueMap},
     },
     koto_bytecode::Chunk,
-    koto_parser::{num2, num4},
+    koto_types::{num2, num4},
     std::{
         cmp::Ordering,
         fmt,

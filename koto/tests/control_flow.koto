@@ -8,7 +8,7 @@ export tests =
   test_inline_if_function_call: ||
     is_zero = |x| x == 0
     x = 0
-    x = if is_zero 0 then 42 else -1 # TODO remove else
+    x = if is_zero 0 then 42
     assert_eq x 42
     assert if is_zero 0 then true else false
 

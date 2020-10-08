@@ -2,7 +2,7 @@ pub use {
     koto_bytecode::{
         chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, DebugInfo, InstructionReader,
     },
-    koto_parser::{num4::Num4, Ast, Function, Parser, Position},
+    koto_parser::{Ast, Function, Parser, Position},
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
         LoaderError, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,

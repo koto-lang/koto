@@ -57,7 +57,7 @@ pub enum Token {
     // Keywords
     And,
     Break,
-    Catch   ,
+    Catch,
     Continue,
     Copy,
     Debug,
@@ -227,8 +227,7 @@ impl<'a> TokenLexer<'a> {
             Some(if nest_count == 0 { CommentMulti } else { Error })
         } else {
             // single-line comment
-            let (comment_bytes, comment_width) =
-                consume_and_count_utf8(&mut chars, |c| c != '\n');
+            let (comment_bytes, comment_width) = consume_and_count_utf8(&mut chars, |c| c != '\n');
             self.advance_line_utf8(comment_bytes + 1, comment_width + 1);
             Some(CommentSingle)
         }
@@ -692,8 +691,11 @@ mod tests {
                         assert_eq!(
                             lex.line_number() as u32,
                             *line_number,
-                            "Line number (token {})",
-                            i
+                            "Line number - expected: {}, actual: {} - (token {} - {:?})",
+                            *line_number,
+                            lex.line_number(),
+                            i,
+                            token
                         );
                         assert_eq!(lex.current_indent() as u32, *indent, "Indent (token {})", i);
                         break;
@@ -725,31 +727,30 @@ mod tests {
 
     #[test]
     fn indent() {
-        // TODO add indentation to test
         let input = "\
 if true then
+  num4 1
 
-num4 1
 num2 2
 x
 y";
-        check_lexer_output(
+        check_lexer_output_indented(
             input,
             &[
-                (If, None, 1),
-                (True, None, 1),
-                (Then, None, 1),
-                (NewLine, None, 2),
-                (NewLine, None, 3),
-                (Num4, None, 3),
-                (Number, Some("1"), 3),
-                (NewLine, None, 4),
-                (Num2, None, 4),
-                (Number, Some("2"), 4),
-                (NewLine, None, 5),
-                (Id, Some("x"), 5),
-                (NewLine, None, 6),
-                (Id, Some("y"), 6),
+                (If, None, 1, 0),
+                (True, None, 1, 0),
+                (Then, None, 1, 0),
+                (NewLineIndented, None, 2, 2),
+                (Num4, None, 2, 2),
+                (Number, Some("1"), 2, 2),
+                (NewLine, None, 3, 0),
+                (NewLine, None, 4, 0),
+                (Num2, None, 4, 0),
+                (Number, Some("2"), 4, 0),
+                (NewLine, None, 5, 0),
+                (Id, Some("x"), 5, 0),
+                (NewLine, None, 6, 0),
+                (Id, Some("y"), 6, 0),
             ],
         );
     }

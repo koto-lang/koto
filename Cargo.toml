@@ -10,6 +10,7 @@ members = [
   "src/serialize",
   "src/std",
   "src/toml",
+  "src/types",
 ]
 
 [profile.dev]
