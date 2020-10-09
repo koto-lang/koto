@@ -8,7 +8,7 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
-        [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_ref()))),
+        [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_str()))),
         _ => external_error!("string.contains: Expected two strings as arguments"),
     });
 
@@ -61,7 +61,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("split", |vm, args| match vm.get_args(args) {
         [Str(input), Str(pattern)] => {
             let result = input
-                .split(pattern.as_ref())
+                .split(pattern.as_str())
                 .map(|s| Str(s.into()))
                 .collect::<ValueVec>();
             Ok(List(ValueList::with_data(result)))

@@ -6,6 +6,7 @@ pub mod value;
 mod value_iterator;
 mod value_list;
 mod value_map;
+mod value_string;
 mod vm;
 
 use {
@@ -15,6 +16,7 @@ use {
 
 pub use {
     external::{ExternalFunction, ExternalValue},
+    koto_types::{num2::Num2, num4::Num4},
     loader::{Loader, LoaderError},
     value::{
         make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
@@ -22,8 +24,8 @@ pub use {
     value_iterator::{IntRange, ValueIterator},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
+    value_string::ValueString,
     vm::{Vm, VmContext},
-    koto_types::{num2::Num2, num4::Num4},
 };
 
 #[derive(Clone, Debug)]

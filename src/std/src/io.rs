@@ -15,7 +15,7 @@ pub fn register(prelude: &mut ValueMap) {
     let mut io = ValueMap::new();
 
     single_arg_fn!(io, "exists", Str, path, {
-        Ok(Bool(Path::new(path.as_ref()).exists()))
+        Ok(Bool(Path::new(path.as_str()).exists()))
     });
 
     io.add_fn("print", |vm, args| {
@@ -28,7 +28,7 @@ pub fn register(prelude: &mut ValueMap) {
 
     single_arg_fn!(io, "read_to_string", Str, path, {
         {
-            match fs::read_to_string(Path::new(path.as_ref())) {
+            match fs::read_to_string(Path::new(path.as_str())) {
                 Ok(result) => Ok(Str(result.into())),
                 Err(e) => {
                     external_error!("io.read_to_string: Unable to read file '{}': {}", path, e)
@@ -50,7 +50,7 @@ pub fn register(prelude: &mut ValueMap) {
 
         file_map.add_instance_fn("path", |vm, args| {
             file_fn("path", vm.get_args(args), |file_handle| {
-                Ok(Str(file_handle.path.to_string_lossy().into()))
+                Ok(Str(file_handle.path.to_string_lossy().as_ref().into()))
             })
         });
 
@@ -145,7 +145,7 @@ pub fn register(prelude: &mut ValueMap) {
     io.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
-                let path = Path::new(path.as_ref());
+                let path = Path::new(path.as_str());
                 match fs::File::open(&path) {
                     Ok(file) => {
                         let file_map = make_file_map();
@@ -177,7 +177,7 @@ pub fn register(prelude: &mut ValueMap) {
     io.add_fn("create", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
-                let path = Path::new(path.as_ref());
+                let path = Path::new(path.as_str());
                 match fs::File::create(&path) {
                     Ok(file) => {
                         let mut file_map = make_file_map();
@@ -209,7 +209,7 @@ pub fn register(prelude: &mut ValueMap) {
     io.add_fn("temp_path", {
         |_, _| match tempfile::NamedTempFile::new() {
             Ok(file) => match file.keep() {
-                Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().into())),
+                Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().as_ref().into())),
                 Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
             },
             Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
@@ -251,7 +251,7 @@ pub fn register(prelude: &mut ValueMap) {
     io.add_fn("remove_file", {
         |vm, args| match vm.get_args(args) {
             [Str(path)] => {
-                let path = Path::new(path.as_ref());
+                let path = Path::new(path.as_str());
                 match fs::remove_file(&path) {
                     Ok(_) => Ok(Value::Empty),
                     Err(e) => external_error!(
