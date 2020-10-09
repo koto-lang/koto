@@ -17,9 +17,11 @@ fn run_script(script_path: &str) {
     });
     koto.set_script_path(Some(path));
 
-    let mut prelude = koto.context().prelude.clone();
-    koto_json::register(&mut prelude);
-    koto_toml::register(&mut prelude);
+    {
+        let prelude = &mut koto.context_mut().prelude;
+        koto_json::register(prelude);
+        koto_toml::register(prelude);
+    }
 
     match koto.compile(&script) {
         Ok(_) => {

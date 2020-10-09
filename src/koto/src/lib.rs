@@ -15,7 +15,7 @@ use {
     koto_runtime::Vm,
     std::{
         path::PathBuf,
-        sync::{Arc, RwLockReadGuard},
+        sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
     },
 };
 
@@ -136,6 +136,10 @@ impl Koto {
 
     pub fn context(&mut self) -> RwLockReadGuard<VmContext> {
         self.runtime.context()
+    }
+
+    pub fn context_mut(&mut self) -> RwLockWriteGuard<VmContext> {
+        self.runtime.context_mut()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
