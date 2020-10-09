@@ -82,7 +82,17 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Str(s.trim().to_string().into())),
+        [Str(s)] => {
+            let result = match s.find(|c: char| !c.is_whitespace()) {
+                Some(start) => {
+                    let end = s.rfind(|c: char| !c.is_whitespace()).unwrap();
+                    s.with_bounds(start..(end + 1))
+                }
+                None => s.with_bounds(0..0),
+            };
+
+            Ok(Str(result))
+        }
         _ => external_error!("string.trim: Expected string as argument"),
     });
 
