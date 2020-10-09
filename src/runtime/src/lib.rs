@@ -23,6 +23,7 @@ pub use {
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
     vm::{Vm, VmContext},
+    koto_types::{num2::Num2, num4::Num4},
 };
 
 #[derive(Clone, Debug)]

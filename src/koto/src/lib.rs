@@ -5,8 +5,8 @@ pub use {
     koto_parser::{Ast, Function, Parser, Position},
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
-        LoaderError, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap,
-        ValueVec, VmContext,
+        LoaderError, Num2, Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList,
+        ValueMap, ValueVec, VmContext,
     },
     koto_std::{get_external_instance, visit_external_value},
 };
