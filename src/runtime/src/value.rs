@@ -26,7 +26,7 @@ pub enum Value {
     Range(IntRange),
     List(ValueList),
     Map(ValueMap),
-    Str(Arc<String>),
+    Str(Arc<str>),
     Function(RuntimeFunction),
     Iterator(ValueIterator),
     ExternalFunction(ExternalFunction),
@@ -65,7 +65,7 @@ impl Value {
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
             Value::Num4(n) => ValueRef::Num4(n),
-            Value::Str(s) => ValueRef::Str(s.as_str()),
+            Value::Str(s) => ValueRef::Str(&s),
             Value::List(l) => ValueRef::List(l),
             Value::Map(m) => ValueRef::Map(m),
             Value::Range(r) => ValueRef::Range(r),
@@ -236,7 +236,7 @@ impl From<bool> for Value {
 
 impl From<&str> for Value {
     fn from(value: &str) -> Self {
-        Self::Str(Arc::new(value.to_string()))
+        Self::Str(value.into())
     }
 }
 

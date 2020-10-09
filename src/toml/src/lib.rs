@@ -2,7 +2,6 @@ use {
     koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
     koto_std::{external_error, single_arg_fn},
-    std::sync::Arc,
     toml::Value as Toml,
 };
 
@@ -18,7 +17,7 @@ fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
             }
         }
         Toml::Float(f) => Value::Number(*f),
-        Toml::String(s) => Value::Str(Arc::new(s.clone())),
+        Toml::String(s) => Value::Str(s.as_str().into()),
         Toml::Array(a) => {
             match a
                 .iter()
@@ -36,7 +35,7 @@ fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
             }
             Value::Map(map)
         }
-        Toml::Datetime(dt) => Value::Str(Arc::new(dt.to_string())),
+        Toml::Datetime(dt) => Value::Str(dt.to_string().into()),
     };
 
     Ok(result)
@@ -62,7 +61,7 @@ pub fn register(prelude: &mut ValueMap) {
 
     toml.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
-            Ok(result) => Ok(Str(Arc::new(result))),
+            Ok(result) => Ok(Str(result.into())),
             Err(e) => external_error!("toml.to_string: {}", e),
         },
         _ => external_error!("toml.to_string expects a single argument"),

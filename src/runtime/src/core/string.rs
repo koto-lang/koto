@@ -1,9 +1,6 @@
 mod format;
 
-use {
-    crate::{external_error, Value, ValueList, ValueMap, ValueVec},
-    std::sync::Arc,
-};
+use crate::{external_error, Value, ValueList, ValueMap, ValueVec};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -16,7 +13,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("escape", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Str(Arc::new(s.escape_default().to_string()))),
+        [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
         _ => external_error!("string.escape: Expected string as argument"),
     });
 
@@ -28,7 +25,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("format", |vm, args| match vm.get_args(args) {
         [result @ Str(_)] => Ok(result.clone()),
         [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
-            Ok(result) => Ok(Str(Arc::new(result))),
+            Ok(result) => Ok(Str(result.into())),
             Err(error) => external_error!("string.format: {}", error),
         },
         _ => external_error!("string.format: Expected a string as first argument"),
@@ -37,7 +34,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(List(ValueList::with_data(
             s.lines()
-                .map(|line| Str(Arc::new(line.to_string())))
+                .map(|line| Str(line.to_string().into()))
                 .collect::<ValueVec>(),
         ))),
         _ => external_error!("string.lines: Expected string as argument"),
@@ -47,14 +44,14 @@ pub fn make_module() -> ValueMap {
         [Str(input), Number(from)] => {
             let result = input
                 .get((*from as usize)..)
-                .map(|s| Str(Arc::new(s.to_string())))
+                .map(|s| Str(s.into()))
                 .unwrap_or(Empty);
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
             let result = input
                 .get((*from as usize)..(*to as usize))
-                .map(|s| Str(Arc::new(s.to_string())))
+                .map(|s| Str(s.into()))
                 .unwrap_or(Empty);
             Ok(result)
         }
@@ -65,7 +62,7 @@ pub fn make_module() -> ValueMap {
         [Str(input), Str(pattern)] => {
             let result = input
                 .split(pattern.as_ref())
-                .map(|s| Str(Arc::new(s.to_string())))
+                .map(|s| Str(s.into()))
                 .collect::<ValueVec>();
             Ok(List(ValueList::with_data(result)))
         }
@@ -81,7 +78,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Str(Arc::new(s.trim().to_string()))),
+        [Str(s)] => Ok(Str(s.trim().to_string().into())),
         _ => external_error!("string.trim: Expected string as argument"),
     });
 
