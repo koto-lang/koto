@@ -42,17 +42,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
         [Str(input), Number(from)] => {
-            let result = input
-                .get((*from as usize)..)
-                .map(|s| Str(s.into()))
-                .unwrap_or(Empty);
+            let bounds = (*from as usize)..input.len();
+            let result = if input.get(bounds.clone()).is_some() {
+                Str(input.with_bounds(bounds))
+            } else {
+                Empty
+            };
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
-            let result = input
-                .get((*from as usize)..(*to as usize))
-                .map(|s| Str(s.into()))
-                .unwrap_or(Empty);
+            let bounds = (*from as usize)..(*to as usize);
+            let result = if input.get(bounds.clone()).is_some() {
+                Str(input.with_bounds(bounds))
+            } else {
+                Empty
+            };
             Ok(result)
         }
         _ => external_error!("string.slice: Expected a string and slice index as arguments"),

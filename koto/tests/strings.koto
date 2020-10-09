@@ -21,8 +21,11 @@ export tests =
     assert not "abc".is_empty()
 
   test_slice: ||
-    assert_eq "cde" ("abcdef".slice 2 5)
-    assert_eq "cdef" ("abcdef".slice 2)
+    assert_eq ("abcdef".slice 2 5) "cde"
+    x = "abcdef".slice 2 # end index is optional
+    assert_eq x "cdef"
+    assert_eq (x.slice 1 3) "de"
+    assert_eq (x.slice 10 13) ()
 
   test_split: ||
     assert_eq ["a" "b" "c"] ("a,b,c".split ",")
