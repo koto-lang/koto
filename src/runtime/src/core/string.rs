@@ -1,6 +1,10 @@
 mod format;
 
-use crate::{external_error, Value, ValueList, ValueMap, ValueVec};
+use crate::{
+    external_error,
+    value_iterator::{ValueIterator, ValueIteratorOutput},
+    Value, ValueList, ValueMap, ValueVec,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -64,11 +68,26 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("split", |vm, args| match vm.get_args(args) {
         [Str(input), Str(pattern)] => {
-            let result = input
-                .split(pattern.as_str())
-                .map(|s| Str(s.into()))
-                .collect::<ValueVec>();
-            Ok(List(ValueList::with_data(result)))
+            let input = input.clone();
+            let pattern = pattern.clone();
+
+            let mut start = 0;
+            let iterator = ValueIterator::make_external(move || {
+                if start <= input.len() {
+                    let end = match input[start..].find(pattern.as_str()) {
+                        Some(end) => start + end,
+                        None => input.len(),
+                    };
+
+                    let result = Str(input.with_bounds(start..end));
+                    start = end + 1;
+                    Some(Ok(ValueIteratorOutput::Value(result)))
+                } else {
+                    None
+                }
+            });
+
+            Ok(Iterator(iterator))
         }
         _ => external_error!("string.split: Expected two strings as arguments"),
     });

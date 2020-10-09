@@ -28,8 +28,8 @@ export tests =
     assert_eq (x.slice 10 13) ()
 
   test_split: ||
-    assert_eq ["a" "b" "c"] ("a,b,c".split ",")
-    assert_eq ["" "x" ""] ("oxo".split "o")
+    assert_eq "a,b,c".split(",").collect() ["a" "b" "c"]
+    assert_eq "O_O".split("O").collect() ["" "_" ""]
 
   test_to_number: ||
     assert_eq 42.0 (string.to_number "42")
