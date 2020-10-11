@@ -20,6 +20,20 @@ export tests =
     assert "".is_empty()
     assert not "abc".is_empty()
 
+  test_lines: ||
+    x = "aaa
+bbb
+ccc"
+    assert_eq x.lines().collect() ["aaa" "bbb" "ccc"]
+
+    x2 = "
+xxx
+yyy
+zzz
+
+"
+    assert_eq x2.lines().collect() ["" "xxx" "yyy" "zzz" ""]
+
   test_slice: ||
     assert_eq ("abcdef".slice 2 5) "cde"
     x = "abcdef".slice 2 # end index is optional

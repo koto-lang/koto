@@ -3,7 +3,7 @@ mod format;
 use crate::{
     external_error,
     value_iterator::{ValueIterator, ValueIteratorOutput},
-    Value, ValueList, ValueMap, ValueVec,
+    Value, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -36,11 +36,34 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(List(ValueList::with_data(
-            s.lines()
-                .map(|line| Str(line.to_string().into()))
-                .collect::<ValueVec>(),
-        ))),
+        [Str(s)] => {
+            let input = s.clone();
+
+            let mut start = 0;
+
+            let iterator = ValueIterator::make_external(move || {
+                if start < input.len() {
+                    let end = match input[start..].find('\n') {
+                        Some(end) => {
+                            if end > start && input.as_bytes()[end - 1] == b'\r' {
+                                start + end - 1
+                            } else {
+                                start + end
+                            }
+                        }
+                        None => input.len(),
+                    };
+
+                    let result = Str(input.with_bounds(start..end));
+                    start = end + 1;
+                    Some(Ok(ValueIteratorOutput::Value(result)))
+                } else {
+                    None
+                }
+            });
+
+            Ok(Iterator(iterator))
+        }
         _ => external_error!("string.lines: Expected string as argument"),
     });
 
