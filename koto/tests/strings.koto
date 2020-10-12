@@ -16,6 +16,11 @@ export tests =
     assert "O_o".contains("_")
     assert not "O_o".contains("@")
 
+  test_escape: ||
+    x = "
+"
+    assert_eq x.escape() "\\n"
+
   test_is_empty: ||
     assert "".is_empty()
     assert not "abc".is_empty()
