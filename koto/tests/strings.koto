@@ -34,6 +34,9 @@ zzz
 "
     assert_eq x2.lines().collect() ["" "xxx" "yyy" "zzz" ""]
 
+    x3 = "foo\nbar\nbaz"
+    assert_eq x3.lines().collect() ["foo" "bar" "baz"]
+
   test_slice: ||
     assert_eq ("abcdef".slice 2 5) "cde"
     x = "abcdef".slice 2 # end index is optional

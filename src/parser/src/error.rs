@@ -74,6 +74,7 @@ pub enum SyntaxError {
     ExpectedCatchBody,
     ExpectedCatchArgument,
     ExpectedFinallyBody,
+    UnexpectedEscapeInString,
 }
 
 #[derive(Debug)]
@@ -208,6 +209,7 @@ impl fmt::Display for SyntaxError {
             ExpectedCatchBody => f.write_str("Expected indented block for catch expression"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedFinallyBody => f.write_str("Expected indented block for finally expression"),
+            UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
         }
     }
 }
