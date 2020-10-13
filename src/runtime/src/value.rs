@@ -4,6 +4,7 @@ use {
         value_iterator::{IntRange, ValueIterator},
         value_list::{ValueList, ValueVec},
         value_map::{ValueHashMap, ValueMap},
+        value_string::ValueString,
     },
     koto_bytecode::Chunk,
     koto_types::{num2, num4},
@@ -26,7 +27,7 @@ pub enum Value {
     Range(IntRange),
     List(ValueList),
     Map(ValueMap),
-    Str(Arc<String>),
+    Str(ValueString),
     Function(RuntimeFunction),
     Iterator(ValueIterator),
     ExternalFunction(ExternalFunction),
@@ -65,7 +66,7 @@ impl Value {
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
             Value::Num4(n) => ValueRef::Num4(n),
-            Value::Str(s) => ValueRef::Str(s.as_str()),
+            Value::Str(s) => ValueRef::Str(&s),
             Value::List(l) => ValueRef::List(l),
             Value::Map(m) => ValueRef::Map(m),
             Value::Range(r) => ValueRef::Range(r),
@@ -126,7 +127,7 @@ impl PartialEq for Value {
             (Num2(a), Num2(b)) => a == b,
             (Num4(a), Num4(b)) => a == b,
             (Bool(a), Bool(b)) => a == b,
-            (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
+            (Str(a), Str(b)) => a == b,
             (List(a), List(b)) => a == b,
             (Map(a), Map(b)) => a == b,
             (Range(a), Range(b)) => a == b,
@@ -236,7 +237,7 @@ impl From<bool> for Value {
 
 impl From<&str> for Value {
     fn from(value: &str) -> Self {
-        Self::Str(Arc::new(value.to_string()))
+        Self::Str(value.into())
     }
 }
 

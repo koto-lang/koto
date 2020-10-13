@@ -7,7 +7,7 @@ export tests =
     assert (io.exists path)
 
     contents = io.read_to_string path
-    assert_eq contents.lines() ["aaa" "bbb" "ccc"]
+    assert_eq contents.lines().collect() ["aaa" "bbb" "ccc"]
 
     file = io.open path
     assert_eq contents file.read_to_string()

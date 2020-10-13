@@ -16,26 +16,52 @@ export tests =
     assert "O_o".contains("_")
     assert not "O_o".contains("@")
 
+  test_escape: ||
+    x = "
+"
+    assert_eq x.escape() "\\n"
+
   test_is_empty: ||
     assert "".is_empty()
     assert not "abc".is_empty()
 
+  test_lines: ||
+    x = "aaa
+bbb
+ccc"
+    assert_eq x.lines().collect() ["aaa" "bbb" "ccc"]
+
+    x2 = "
+xxx
+yyy
+zzz
+
+"
+    assert_eq x2.lines().collect() ["" "xxx" "yyy" "zzz" ""]
+
+    x3 = "foo\nbar\nbaz"
+    assert_eq x3.lines().collect() ["foo" "bar" "baz"]
+
   test_slice: ||
-    assert_eq "cde" ("abcdef".slice 2 5)
-    assert_eq "cdef" ("abcdef".slice 2)
+    assert_eq ("abcdef".slice 2 5) "cde"
+    x = "abcdef".slice 2 # end index is optional
+    assert_eq x "cdef"
+    assert_eq (x.slice 1 3) "de"
+    assert_eq (x.slice 10 13) ()
 
   test_split: ||
-    assert_eq ["a" "b" "c"] ("a,b,c".split ",")
-    assert_eq ["" "x" ""] ("oxo".split "o")
+    assert_eq "a,b,c".split(",").collect() ["a" "b" "c"]
+    assert_eq "O_O".split("O").collect() ["" "_" ""]
 
   test_to_number: ||
     assert_eq 42.0 (string.to_number "42")
     assert_eq -1.5 "-1.5".to_number()
 
   test_trim: ||
-    assert_eq "x" (string.trim "   x    ")
-    assert_eq "foo" "foo    ".trim()
-    assert_eq "bar" "     bar".trim()
+    assert_eq (string.trim "   x    ") "x"
+    assert_eq "foo    ".trim() "foo"
+    assert_eq "     bar".trim() "bar"
+    assert_eq "     ".trim() ""
 
   test_format: ||
     hello = "Hello"

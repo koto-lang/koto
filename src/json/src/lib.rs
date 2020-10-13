@@ -3,7 +3,6 @@ use {
     koto_serialize::SerializableValue,
     koto_std::{external_error, single_arg_fn},
     serde_json::Value as JsonValue,
-    std::sync::Arc,
 };
 
 fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> {
@@ -14,7 +13,7 @@ fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> 
             Some(n64) => Value::Number(n64),
             None => return Err(format!("Number is out of range for an f64: {}", n)),
         },
-        JsonValue::String(s) => Value::Str(Arc::new(s.clone())),
+        JsonValue::String(s) => Value::Str(s.as_str().into()),
         JsonValue::Array(a) => {
             match a
                 .iter()
@@ -58,7 +57,7 @@ pub fn register(prelude: &mut ValueMap) {
 
     json.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
-            Ok(result) => Ok(Str(Arc::new(result))),
+            Ok(result) => Ok(Str(result.into())),
             Err(e) => external_error!("json.to_string: {}", e),
         },
         _ => external_error!("json.to_string expects a single argument"),

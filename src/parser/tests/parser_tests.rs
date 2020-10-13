@@ -40,13 +40,13 @@ mod parser {
         #[test]
         fn literals() {
             let source = "
-                true
-    false
-    1
-    1.5
-    \"hello\"
-    a
-    ()";
+true
+false
+1
+1.5
+\"hello\"
+a
+()";
             check_ast(
                 source,
                 &[
@@ -136,11 +136,11 @@ mod parser {
         #[test]
         fn list_with_line_breaks() {
             let source = "\
-    x = [
-      0
-      1 0 1
-      0
-    ]";
+x = [
+  0
+  1 0 1
+  0
+]";
             check_ast(
                 source,
                 &[
@@ -171,8 +171,8 @@ mod parser {
         #[test]
         fn map_inline() {
             let source = r#"
-    {}
-    {"foo": 42, bar, baz: "hello"}"#;
+{}
+{"foo": 42, bar, baz: "hello"}"#;
             check_ast(
                 source,
                 &[
@@ -199,12 +199,12 @@ mod parser {
         #[test]
         fn map_block() {
             let source = r#"
-    x =
-      foo: 42
-      bar
-      "baz":
-        foo: 0
-    x"#;
+x =
+  foo: 42
+  bar
+  "baz":
+    foo: 0
+x"#;
             check_ast(
                 source,
                 &[
@@ -241,10 +241,10 @@ mod parser {
         #[test]
         fn ranges() {
             let source = "\
-    0..1
-    0..=1
-    (0 + 1)..(1 + 1)
-    foo.bar..foo.baz";
+0..1
+0..=1
+(0 + 1)..(1 + 1)
+foo.bar..foo.baz";
             check_ast(
                 source,
                 &[
@@ -306,8 +306,8 @@ mod parser {
         #[test]
         fn lists_from_ranges() {
             let source = "\
-    [0..1]
-    [0..10 10..=0]";
+[0..1]
+[0..10 10..=0]";
             check_ast(
                 source,
                 &[
@@ -346,8 +346,8 @@ mod parser {
         #[test]
         fn num2() {
             let source = "\
-    num2 0
-    num2 1 x";
+num2 0
+num2 1 x";
             check_ast(
                 source,
                 &[
@@ -368,9 +368,9 @@ mod parser {
         #[test]
         fn num4() {
             let source = "\
-    num4 0
-    num4 1 x
-    num4 x 0 1 x";
+num4 0
+num4 1 x
+num4 x 0 1 x";
             check_ast(
                 source,
                 &[
@@ -537,10 +537,10 @@ mod parser {
         #[test]
         fn multi_2_to_2_with_linebreaks() {
             let source = "\
-    x, y =
-      1,
-      0,
-    x";
+x, y =
+  1,
+  0,
+x";
             check_ast(
                 source,
                 &[
@@ -617,11 +617,11 @@ mod parser {
         #[test]
         fn modify_assign() {
             let source = "\
-    x += 0
-    x -= 1
-    x *= 2
-    x /= 3
-    x %= 4";
+x += 0
+x -= 1
+x *= 2
+x /= 3
+x %= 4";
             check_ast(
                 source,
                 &[
@@ -1211,8 +1211,8 @@ a";
         #[test]
         fn for_block() {
             let source = "\
-    for x in y if x > 0
-      f x";
+for x in y if x > 0
+  f x";
             check_ast(
                 source,
                 &[
@@ -1290,8 +1290,8 @@ a";
         #[test]
         fn while_block() {
             let source = "\
-    while x > y
-      f x";
+while x > y
+  f x";
             check_ast(
                 source,
                 &[
@@ -1324,8 +1324,8 @@ a";
         #[test]
         fn until_block() {
             let source = "\
-    until x < y
-      f y";
+until x < y
+  f y";
             check_ast(
                 source,
                 &[
@@ -1520,8 +1520,8 @@ a";
         #[test]
         fn inline_no_args() {
             let source = "
-                a = || 42
-                a()";
+a = || 42
+a()";
             check_ast(
                 source,
                 &[
@@ -2027,8 +2027,8 @@ f 1
         #[test]
         fn call_with_functor() {
             let source = "\
-                          z = y [0..20] |x| x > 1
-                          y z";
+z = y [0..20] |x| x > 1
+y z";
             check_ast(
                 source,
                 &[
@@ -2145,10 +2145,10 @@ f 1
         #[test]
         fn array_indexing() {
             let source = "\
-                          a[0] = a[1]
-                          x[..]
-                          y[..3]
-                          z[10..][0]";
+a[0] = a[1]
+x[..]
+y[..3]
+z[10..][0]";
             check_ast(
                 source,
                 &[
@@ -2204,10 +2204,10 @@ f 1
         #[test]
         fn map_lookup() {
             let source = r#"
-                x.foo
-                x.bar()
-                x.bar()."baz" = 1
-                x.foo 42"#;
+x.foo
+x.bar()
+x.bar()."baz" = 1
+x.foo 42"#;
             check_ast(
                 source,
                 &[
@@ -2284,9 +2284,9 @@ f 1
         #[test]
         fn lookups_on_temporaries() {
             let source = "\
-                          (f x).foo
-                          (f x)[0]
-                          (f x)(y)";
+(f x).foo
+(f x)[0]
+(f x)(y)";
             check_ast(
                 source,
                 &[
@@ -2330,9 +2330,9 @@ f 1
         #[test]
         fn lookups_on_literals() {
             let source = r#"\
-                         "{}".format x
-                         [0 1].contains y
-                         {x}.values()
+"{}".format x
+[0 1].contains y
+{x}.values()
             "#;
             check_ast(
                 source,
@@ -2382,10 +2382,10 @@ f 1
         #[test]
         fn flow() {
             let source = "\
-                          break
-                          continue
-                          return
-                          return 1";
+break
+continue
+return
+return 1";
             check_ast(
                 source,
                 &[
@@ -2406,11 +2406,11 @@ f 1
         #[test]
         fn expressions() {
             let source = "\
-                          copy x
-                          not true
-                          debug x + x
-                          assert_eq (type true) \"bool\"
-    ";
+copy x
+not true
+debug x + x
+assert_eq (type true) \"bool\"
+";
             check_ast(
                 source,
                 &[
@@ -2458,10 +2458,10 @@ f 1
         #[test]
         fn arithmetic() {
             let source = r"
-    a = 1 + \
-        2 + \
-        3
-    ";
+a = 1 + \
+    2 + \
+    3
+";
             check_ast(
                 source,
                 &[
@@ -2629,11 +2629,11 @@ f 1
         #[test]
         fn try_catch() {
             let source = "\
-    try
-      f()
-    catch e
-      debug e
-    ";
+try
+  f()
+catch e
+  debug e
+";
             check_ast(
                 source,
                 &[
@@ -2662,13 +2662,13 @@ f 1
         #[test]
         fn try_catch_finally() {
             let source = "\
-    try
-      f()
-    catch e
-      debug e
-    finally
-      0
-    ";
+try
+  f()
+catch e
+  debug e
+finally
+  0
+";
             check_ast(
                 source,
                 &[
@@ -2702,14 +2702,14 @@ f 1
         #[test]
         fn match_single_expression() {
             let source = r#"
-    x = match y
-      0 or 1 then 42
-      "foo" or ["bar"] then 99
-      "baz" then break
-      z if z < 10
-        123
-      z then -1
-    "#;
+x = match y
+  0 or 1 then 42
+  "foo" or ["bar"] then 99
+  "baz" then break
+  z if z < 10
+    123
+  z then -1
+"#;
             check_ast(
                 source,
                 &[
@@ -2797,12 +2797,12 @@ f 1
         #[test]
         fn match_multi_expression() {
             let source = "
-    match x, y
-      0, 1 or 2, 3 if z then 0
-      a, ()
-        a
-      _ then 0
-    ";
+match x, y
+  0, 1 or 2, 3 if z then 0
+  a, ()
+    a
+  _ then 0
+";
             check_ast(
                 source,
                 &[

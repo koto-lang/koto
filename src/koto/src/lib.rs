@@ -147,7 +147,7 @@ impl Koto {
 
         let koto_args = args
             .iter()
-            .map(|arg| Str(Arc::new(arg.to_string())))
+            .map(|arg| Str(arg.as_str().into()))
             .collect::<ValueVec>();
 
         match self
@@ -172,13 +172,13 @@ impl Koto {
             Some(path) => (
                 path.parent()
                     .map(|p| {
-                        Str(Arc::new(
-                            p.to_str().expect("invalid script path").to_string(),
-                        ))
+                        Str(
+                            p.to_str().expect("invalid script path").into(),
+                        )
                     })
                     .or(Some(Empty))
                     .unwrap(),
-                Str(Arc::new(path.display().to_string())),
+                Str(path.display().to_string().into()),
             ),
             None => (Empty, Empty),
         };

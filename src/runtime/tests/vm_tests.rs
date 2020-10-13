@@ -6,7 +6,6 @@ mod vm {
             ValueList, ValueMap, Vm,
         },
         koto_types::{num2, num4},
-        std::sync::Arc,
     };
 
     fn test_script(script: &str, expected_output: Value) {
@@ -85,7 +84,7 @@ mod vm {
     }
 
     fn string(s: &str) -> Value {
-        Str(Arc::new(s.to_string()))
+        Str(s.into())
     }
 
     mod literals {
@@ -113,7 +112,7 @@ mod vm {
 
         #[test]
         fn string() {
-            test_script("\"Hello\"", Str(Arc::new("Hello".to_string())));
+            test_script("\"Hello\"", Str("Hello".into()));
         }
     }
 
@@ -1062,7 +1061,7 @@ sum
         fn from_literals() {
             let mut result_data = ValueHashMap::new();
             result_data.add_value("foo", Number(42.0));
-            result_data.add_value("bar", Str(Arc::new("baz".to_string())));
+            result_data.add_value("bar", Str("baz".into()));
 
             test_script(
                 "{foo: 42, bar: \"baz\"}",

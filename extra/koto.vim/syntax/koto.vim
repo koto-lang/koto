@@ -27,7 +27,7 @@ syntax match kotoOperator "\v\>"
 syntax match kotoOperator "\v\<"
 syntax match kotoOperator "\v\="
 
-syntax region kotoString start=/"/ end=/"/ oneline
+syntax region kotoString start=/"/ end=/"/
 
 syntax keyword kotoBoolean true false
 syntax match kotoNumber "\v<\d+>"

@@ -6,7 +6,7 @@ use {
         loader, type_as_string,
         value::{self, deep_copy_value, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::ConstantIndex,
@@ -34,7 +34,7 @@ pub struct VmContext {
     global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, ValueMap>,
-    string_constants: FxHashMap<(u64, ConstantIndex), Arc<String>>,
+    string_constants: FxHashMap<(u64, ConstantIndex), ValueString>,
 }
 
 impl VmContext {
@@ -279,7 +279,7 @@ impl Vm {
                     }
 
                     if let Some((register, ip)) = recover_register_and_ip {
-                        self.set_register(register, Value::Str(Arc::new(error.to_string())));
+                        self.set_register(register, Value::Str(error.to_string().into()));
                         self.set_ip(ip);
                     } else {
                         return Err(error);
@@ -338,7 +338,7 @@ impl Vm {
                 Number(self.reader.chunk.constants.get_f64(constant)),
             ),
             Instruction::LoadString { register, constant } => {
-                let string = self.arc_string_from_constant(constant);
+                let string = self.value_string_from_constant(constant);
                 self.set_register(register, Str(string))
             }
             Instruction::LoadGlobal { register, constant } => {
@@ -362,7 +362,7 @@ impl Vm {
                 }
             }
             Instruction::SetGlobal { global, source } => {
-                let global_name = self.arc_string_from_constant(global);
+                let global_name = self.value_string_from_constant(global);
                 let value = self.get_register(source).clone();
                 self.context_mut()
                     .global
@@ -705,8 +705,8 @@ impl Vm {
                         Map(ValueMap::with_data(result))
                     }
                     (Str(a), Str(b)) => {
-                        let result = String::clone(a) + b.as_ref();
-                        Str(Arc::new(result))
+                        let result = a.to_string() + b.as_ref();
+                        Str(result.into())
                     }
                     _ => {
                         return binary_op_error(
@@ -1002,7 +1002,7 @@ impl Vm {
                     }
                 };
 
-                self.set_register(register, Str(Arc::new(result)));
+                self.set_register(register, Str(result.into()));
             }
             Instruction::IteratorNext {
                 register,
@@ -1106,7 +1106,7 @@ impl Vm {
                 value,
                 key,
             } => {
-                let key_string = self.arc_string_from_constant(key);
+                let key_string = self.value_string_from_constant(key);
                 let value = self.get_register(value).clone();
 
                 match self.get_register_mut(register) {
@@ -1165,7 +1165,7 @@ impl Vm {
         import_constant: ConstantIndex,
         instruction_ip: usize,
     ) -> Result<(), Error> {
-        let import_name = self.arc_string_from_constant(import_constant);
+        let import_name = self.value_string_from_constant(import_constant);
 
         let maybe_global = self
             .context()
@@ -1189,7 +1189,7 @@ impl Vm {
                 let compile_result = self
                     .context_mut()
                     .loader
-                    .compile_module(&import_name.as_str(), source_path);
+                    .compile_module(&import_name, source_path);
                 let (module_chunk, module_path) = match compile_result {
                     Ok(chunk) => chunk,
                     Err(e) => {
@@ -2098,7 +2098,7 @@ impl Vm {
         self.reader.chunk.constants.get_string(constant_index)
     }
 
-    fn arc_string_from_constant(&mut self, constant_index: ConstantIndex) -> Arc<String> {
+    fn value_string_from_constant(&mut self, constant_index: ConstantIndex) -> ValueString {
         let constants_hash = self.reader.chunk.constants_hash;
 
         let maybe_string = self
@@ -2110,13 +2110,13 @@ impl Vm {
         match maybe_string {
             Some(s) => s,
             None => {
-                let s = Arc::new(
-                    self.reader
-                        .chunk
-                        .constants
-                        .get_string(constant_index)
-                        .to_string(),
-                );
+                let s: ValueString = self
+                    .reader
+                    .chunk
+                    .constants
+                    .get_string(constant_index)
+                    .to_string()
+                    .into();
                 self.context_mut()
                     .string_constants
                     .insert((constants_hash, constant_index), s.clone());

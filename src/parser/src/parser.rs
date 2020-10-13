@@ -37,12 +37,6 @@ macro_rules! syntax_error {
     }};
 }
 
-fn trim_str(s: &str, trim_from_start: usize, trim_from_end: usize) -> &str {
-    let start = trim_from_start;
-    let end = s.len() - trim_from_end;
-    &s[start..end]
-}
-
 fn f64_eq(a: f64, b: f64) -> bool {
     (a - b).abs() < std::f64::EPSILON
 }
@@ -591,19 +585,20 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id_or_string(&mut self) -> Option<ConstantIndex> {
-        match self.skip_whitespace_and_peek() {
+    fn parse_id_or_string(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        let result = match self.skip_whitespace_and_peek() {
             Some(Token::Id) => {
                 self.consume_token();
                 Some(self.constants.add_string(self.lexer.slice()) as u32)
             }
             Some(Token::String) => {
                 self.consume_token();
-                let s = trim_str(self.lexer.slice(), 1, 1);
-                Some(self.constants.add_string(s) as u32)
+                let s = self.parse_string(self.lexer.slice())?;
+                Some(self.constants.add_string(&s) as u32)
             }
             _ => None,
-        }
+        };
+        Ok(result)
     }
 
     fn parse_id_expression(
@@ -752,7 +747,7 @@ impl<'source> Parser<'source> {
                 Some(Token::Dot) => {
                     self.consume_token();
 
-                    if let Some(id_index) = self.parse_id_or_string() {
+                    if let Some(id_index) = self.parse_id_or_string()? {
                         lookup.push(LookupNode::Id(id_index));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
@@ -974,8 +969,8 @@ impl<'source> Parser<'source> {
                 }
                 Token::String => {
                     self.consume_token();
-                    let s = trim_str(self.lexer.slice(), 1, 1);
-                    let constant_index = self.constants.add_string(s) as u32;
+                    let s = self.parse_string(self.lexer.slice())?;
+                    let constant_index = self.constants.add_string(&s) as u32;
                     let string_node = self.push_node(Str(constant_index))?;
                     if self.next_token_is_lookup_start() {
                         self.parse_lookup(string_node, primary_expression)?
@@ -1231,7 +1226,7 @@ impl<'source> Parser<'source> {
 
         let mut entries = Vec::new();
 
-        while let Some(key) = self.parse_id_or_string() {
+        while let Some(key) = self.parse_id_or_string()? {
             if self.skip_whitespace_and_next() == Some(Token::Colon) {
                 if let Some(value) = self.parse_line()? {
                     entries.push((key, Some(value)));
@@ -1277,7 +1272,7 @@ impl<'source> Parser<'source> {
         loop {
             self.consume_until_next_token();
 
-            if let Some(key) = self.parse_id_or_string() {
+            if let Some(key) = self.parse_id_or_string()? {
                 if self.peek_token() == Some(Token::Colon) {
                     self.consume_token();
                     self.consume_until_next_token();
@@ -1903,6 +1898,30 @@ impl<'source> Parser<'source> {
         } else {
             syntax_error!(ExpectedCloseParen, self)
         }
+    }
+
+    fn parse_string(&self, s: &str) -> Result<String, ParserError> {
+        let without_quotes = &s[1..s.len() - 1];
+
+        let mut result = String::with_capacity(without_quotes.len());
+        let mut chars = without_quotes.chars();
+
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' => match chars.next() {
+                    Some('\\') => result.push('\\'),
+                    Some('\'') => result.push('\''),
+                    Some('"') => result.push('"'),
+                    Some('n') => result.push('\n'),
+                    Some('r') => result.push('\r'),
+                    Some('t') => result.push('\t'),
+                    _ => return syntax_error!(UnexpectedEscapeInString, self),
+                },
+                _ => result.push(c),
+            }
+        }
+
+        Ok(result)
     }
 
     fn push_ast_op(
