@@ -9,7 +9,7 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("collect", |vm, args| match vm.get_args(args) {
+    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iterator = i.clone();
             let mut result = ValueVec::new();
@@ -25,7 +25,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(List(ValueList::with_data(result)))
         }
-        _ => external_error!("iterator.collect: Expected iterator as argument"),
+        _ => external_error!("iterator.to_list: Expected iterator as argument"),
     });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
