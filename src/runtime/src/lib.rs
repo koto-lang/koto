@@ -7,6 +7,7 @@ mod value_iterator;
 mod value_list;
 mod value_map;
 mod value_string;
+mod value_tuple;
 mod vm;
 
 use {
@@ -25,6 +26,7 @@ pub use {
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
     value_string::ValueString,
+    value_tuple::ValueTuple,
     vm::{Vm, VmContext},
 };
 

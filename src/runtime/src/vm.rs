@@ -296,11 +296,11 @@ impl Vm {
     fn copy_value(&self, value: &Value) -> Value {
         match value.clone() {
             Value::RegisterTuple(value::RegisterTuple { start, count }) => {
-                let mut copied = ValueVec::with_capacity(count as usize);
+                let mut copied = Vec::with_capacity(count as usize);
                 for register in start..start + count {
                     copied.push(self.get_register(register).clone());
                 }
-                Value::List(ValueList::with_data(copied))
+                Value::Tuple(copied.into())
             }
             other => other,
         }

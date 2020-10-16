@@ -71,8 +71,24 @@ mod vm {
         value_list(&values)
     }
 
+    fn number_tuple<T>(values: &[T]) -> Value
+    where
+        T: Copy,
+        f64: From<T>,
+    {
+        let values = values
+            .iter()
+            .map(|n| Number(f64::from(*n)))
+            .collect::<Vec<_>>();
+        value_tuple(&values)
+    }
+
     fn value_list(values: &[Value]) -> Value {
         List(ValueList::from_slice(&values))
+    }
+
+    fn value_tuple(values: &[Value]) -> Value {
+        Tuple(values.into())
     }
 
     fn num2(a: f64, b: f64) -> Value {
@@ -405,7 +421,7 @@ l2[1]";
             let script = "
 a = 1, 2
 a";
-            test_script(script, number_list(&[1, 2]));
+            test_script(script, number_tuple(&[1, 2]));
         }
 
         #[test]
@@ -413,7 +429,7 @@ a";
             let script = "
 a, b = -1
 a, b";
-            test_script(script, value_list(&[Number(-1.0), Empty]));
+            test_script(script, value_tuple(&[Number(-1.0), Empty]));
         }
 
         #[test]
@@ -439,7 +455,7 @@ x";
             let script = "
 a, b, c = [7 8]
 a, b, c";
-            test_script(script, value_list(&[Number(7.0), Number(8.0), Empty]));
+            test_script(script, value_tuple(&[Number(7.0), Number(8.0), Empty]));
         }
 
         #[test]
@@ -449,7 +465,7 @@ a, b, c = [1 2], [3 4]
 a, b, c";
             test_script(
                 script,
-                value_list(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
+                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
             );
         }
     }
@@ -730,7 +746,7 @@ fib 4
 f, g = (|n| if n == 0 then 1 else f n - 1), (|n| if n == 0 then 2 else g n - 1)
 f 4, g 4
 ";
-            test_script(script, number_list(&[1, 2]));
+            test_script(script, number_tuple(&[1, 2]));
         }
 
         #[test]
@@ -739,7 +755,7 @@ f 4, g 4
 f = |x| x - 1, x + 1
 a, b = f 0
 a, b";
-            test_script(script, number_list(&[-1, 1]));
+            test_script(script, number_tuple(&[-1, 1]));
         }
 
         #[test]
@@ -1261,7 +1277,7 @@ m.foo
 f = || 1, 2, 3
 a, _, c = f()
 a, c";
-            test_script(script, number_list(&[1, 3]));
+            test_script(script, number_tuple(&[1, 3]));
         }
 
         #[test]
