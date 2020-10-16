@@ -295,7 +295,7 @@ impl Vm {
 
     fn copy_value(&self, value: &Value) -> Value {
         match value.clone() {
-            Value::RegisterList(value::RegisterList { start, count }) => {
+            Value::RegisterTuple(value::RegisterTuple { start, count }) => {
                 let mut copied = ValueVec::with_capacity(count as usize);
                 for register in start..start + count {
                     copied.push(self.get_register(register).clone());
@@ -372,12 +372,15 @@ impl Vm {
             Instruction::Import { register, constant } => {
                 self.run_import(register, constant, instruction_ip)?;
             }
-            Instruction::RegisterList {
+            Instruction::MakeTuple {
                 register,
                 start,
                 count,
             } => {
-                self.set_register(register, RegisterList(value::RegisterList { start, count }));
+                self.set_register(
+                    register,
+                    RegisterTuple(value::RegisterTuple { start, count }),
+                );
             }
             Instruction::MakeList {
                 register,
@@ -1028,7 +1031,7 @@ impl Vm {
                     Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
                         self.set_register(
                             register,
-                            Value::RegisterList(value::RegisterList {
+                            Value::RegisterTuple(value::RegisterTuple {
                                 start: register + 1,
                                 count: 2,
                             }),
@@ -1057,7 +1060,7 @@ impl Vm {
                         let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
                         self.set_register(register, value);
                     }
-                    RegisterList(value::RegisterList { start, count }) => {
+                    RegisterTuple(value::RegisterTuple { start, count }) => {
                         if index >= count {
                             return vm_error!(
                                 self.chunk(),
@@ -1982,8 +1985,8 @@ impl Vm {
 
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
             let return_value = match return_value {
-                Value::RegisterList(value::RegisterList { start, count }) => {
-                    // If the return value is a register list (i.e. when returning multiple values),
+                Value::RegisterTuple(value::RegisterTuple { start, count }) => {
+                    // If the return value is a register tuple (i.e. when returning multiple values),
                     // then copy the list's values to the frame base,
                     // and adjust the list's start register to match their new position.
                     if start != 0 {
@@ -1995,11 +1998,11 @@ impl Vm {
                         }
                     }
 
-                    // Keep the register list values around after the frame has been popped
+                    // Keep the register tuple values around after the frame has been popped
                     self.value_stack
                         .truncate(frame.register_base + count as usize);
 
-                    Value::RegisterList(value::RegisterList {
+                    Value::RegisterTuple(value::RegisterTuple {
                         start: frame.register_base as u8,
                         count,
                     })
@@ -2018,7 +2021,7 @@ impl Vm {
             Ok(None)
         } else {
             // If there's no return register, then make a copy of the value to return out of the VM
-            // (i.e. we need to make sure we've collected a RegisterList into a List).
+            // (i.e. we need to make sure we've collected a RegisterTuple into a List).
             let return_value = self.copy_value(&return_value);
             self.value_stack.truncate(frame.register_base);
 

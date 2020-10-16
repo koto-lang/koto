@@ -48,7 +48,7 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    RegisterList {
+    MakeTuple {
         register: u8,
         start: u8,
         count: u8,
@@ -305,13 +305,13 @@ impl fmt::Display for Instruction {
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
             }
-            RegisterList {
+            MakeTuple {
                 register,
                 start,
                 count,
             } => write!(
                 f,
-                "RegisterList\tresult: {}\tstart: {}\tcount: {}",
+                "MakeTuple\tresult: {}\tstart: {}\tcount: {}",
                 register, start, count
             ),
             MakeList {
@@ -374,9 +374,11 @@ impl fmt::Display for Instruction {
                 write!(f, "RangeFrom\tresult: {}\tstart: {}", register, start)
             }
             RangeFull { register } => write!(f, "RangeFull\tresult: {}", register),
-            MakeIterator { register, iterable } => {
-                write!(f, "MakeIterator\tresult: {}\titerable: {}", register, iterable)
-            }
+            MakeIterator { register, iterable } => write!(
+                f,
+                "MakeIterator\tresult: {}\titerable: {}",
+                register, iterable
+            ),
             Function {
                 register,
                 arg_count,
@@ -723,7 +725,7 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
-            Op::RegisterList => Some(RegisterList {
+            Op::MakeTuple => Some(MakeTuple {
                 register: get_byte!(),
                 start: get_byte!(),
                 count: get_byte!(),

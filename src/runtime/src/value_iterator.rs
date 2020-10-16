@@ -109,12 +109,12 @@ impl Iterator for ValueIteratorInternals {
             Iterable::Generator(vm) => {
                 match vm.continue_running() {
                     Ok(Value::Empty) => None,
-                    Ok(Value::RegisterList(register_list)) => {
+                    Ok(Value::RegisterTuple(tuple)) => {
                         // TODO, instead of capturing values into a list here,
                         // return the VM and register list, and then the caller can copy
                         // the values into registers
                         Some(Ok(ValueIteratorOutput::Value(List(ValueList::from_slice(
-                            vm.register_slice(register_list.start, register_list.count),
+                            vm.register_slice(tuple.start, tuple.count),
                         )))))
                     }
                     Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),

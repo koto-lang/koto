@@ -34,7 +34,7 @@ pub enum Value {
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     // Internal value types
     IndexRange(IndexRange),
-    RegisterList(RegisterList),
+    RegisterTuple(RegisterTuple),
     ExternalDataId,
 }
 
@@ -54,7 +54,7 @@ pub enum ValueRef<'a> {
     ExternalFunction(&'a ExternalFunction),
     ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
     IndexRange(&'a IndexRange),
-    RegisterList(&'a RegisterList),
+    RegisterTuple(&'a RegisterTuple),
     ExternalDataId,
 }
 
@@ -75,7 +75,7 @@ impl Value {
             Value::Iterator(i) => ValueRef::Iterator(i),
             Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
             Value::ExternalValue(v) => ValueRef::ExternalValue(v),
-            Value::RegisterList(l) => ValueRef::RegisterList(l),
+            Value::RegisterTuple(l) => ValueRef::RegisterTuple(l),
             Value::ExternalDataId => ValueRef::ExternalDataId,
         }
     }
@@ -110,8 +110,8 @@ impl fmt::Display for Value {
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
-            RegisterList(self::RegisterList { start, count }) => {
-                write!(f, "RegisterList [{}..{}]", start, start + count)
+            RegisterTuple(self::RegisterTuple { start, count }) => {
+                write!(f, "RegisterTuple [{}..{}]", start, start + count)
             }
             ExternalDataId => write!(f, "External Data ID"),
         }
@@ -284,7 +284,7 @@ pub struct IndexRange {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RegisterList {
+pub struct RegisterTuple {
     pub start: u8,
     pub count: u8,
 }
@@ -330,7 +330,7 @@ pub fn type_as_string(value: &Value) -> String {
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
-        RegisterList { .. } => "RegisterList".to_string(),
+        RegisterTuple { .. } => "RegisterTuple".to_string(),
         ExternalDataId => "ExternalDataId".to_string(),
     }
 }

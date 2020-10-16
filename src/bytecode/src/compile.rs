@@ -479,7 +479,7 @@ impl Compiler {
                         let start_register = self.peek_register(expressions.len() - 1)?;
 
                         self.push_op(
-                            RegisterList,
+                            MakeTuple,
                             &[
                                 result.register,
                                 start_register as u8,
