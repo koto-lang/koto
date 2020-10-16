@@ -363,7 +363,7 @@ impl Vm {
             }
             Instruction::SetGlobal { global, source } => {
                 let global_name = self.value_string_from_constant(global);
-                let value = self.get_register(source).clone();
+                let value = self.copy_value(self.get_register(source));
                 self.context_mut()
                     .global
                     .data_mut()
