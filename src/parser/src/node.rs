@@ -17,6 +17,7 @@ pub enum Node {
     Num2(Vec<AstIndex>),
     Num4(Vec<AstIndex>),
     List(Vec<AstIndex>),
+    Tuple(Vec<AstIndex>),
     Range {
         start: AstIndex,
         end: AstIndex,
@@ -36,7 +37,6 @@ pub enum Node {
         local_count: usize,
     },
     Block(Vec<AstIndex>),
-    Expressions(Vec<AstIndex>),
     Function(Function),
     Call {
         function: AstIndex,
@@ -115,6 +115,7 @@ impl fmt::Display for Node {
             Num2(_) => write!(f, "Num2"),
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
+            Tuple(_) => write!(f, "Tuple"),
             Range { .. } => write!(f, "Range"),
             RangeFrom { .. } => write!(f, "RangeFrom"),
             RangeTo { .. } => write!(f, "RangeTo"),
@@ -122,7 +123,6 @@ impl fmt::Display for Node {
             Map(_) => write!(f, "Map"),
             MainBlock { .. } => write!(f, "MainBlock"),
             Block(_) => write!(f, "Block"),
-            Expressions(_) => write!(f, "Expressions"),
             CopyExpression(_) => write!(f, "CopyExpression"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),

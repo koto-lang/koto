@@ -367,7 +367,7 @@ impl<'source> Parser<'source> {
             if expressions.len() == 1 {
                 Ok(Some(first))
             } else {
-                Ok(Some(self.push_node(Node::Expressions(expressions))?))
+                Ok(Some(self.push_node(Node::Tuple(expressions))?))
             }
         } else {
             Ok(None)
@@ -1373,7 +1373,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1428,7 +1428,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1461,7 +1461,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1605,7 +1605,7 @@ impl<'source> Parser<'source> {
 
                 arm_patterns.push(match patterns.as_slice() {
                     [single_pattern] => *single_pattern,
-                    _ => self.push_node(Node::Expressions(patterns))?,
+                    _ => self.push_node(Node::Tuple(patterns))?,
                 });
 
                 if let Some(Token::Or) = self.skip_whitespace_and_peek() {

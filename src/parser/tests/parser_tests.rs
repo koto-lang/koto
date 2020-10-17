@@ -394,7 +394,7 @@ num4 x 0 1 x";
         }
 
         #[test]
-        fn multiple_expressions() {
+        fn tuple() {
             let source = "0, 1, 0";
             check_ast(
                 source,
@@ -402,7 +402,7 @@ num4 x 0 1 x";
                     Number0,
                     Number1,
                     Number0,
-                    Expressions(vec![0, 1, 2]),
+                    Tuple(vec![0, 1, 2]),
                     MainBlock {
                         body: vec![3],
                         local_count: 0,
@@ -481,7 +481,7 @@ num4 x 0 1 x";
                     Id(0),
                     Number1,
                     Number0,
-                    Expressions(vec![1, 2]),
+                    Tuple(vec![1, 2]),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
@@ -511,7 +511,7 @@ num4 x 0 1 x";
                     Lookup(vec![LookupNode::Root(1), LookupNode::Index(2)]),
                     Number1,
                     Number0, // 5
-                    Expressions(vec![4, 5]),
+                    Tuple(vec![4, 5]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -548,7 +548,7 @@ x";
                     Id(1),
                     Number1,
                     Number0,
-                    Expressions(vec![2, 3]),
+                    Tuple(vec![2, 3]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -1043,10 +1043,10 @@ a";
                     BoolTrue,
                     Number0,
                     Number1,
-                    Expressions(vec![3, 4]), // 5
+                    Tuple(vec![3, 4]), // 5
                     Number1,
                     Number0,
-                    Expressions(vec![6, 7]),
+                    Tuple(vec![6, 7]),
                     If(AstIf {
                         condition: 2,
                         then_node: 5,
@@ -1152,7 +1152,7 @@ a";
                     Id(1),
                     Id(2),
                     Id(3),
-                    Expressions(vec![0, 1]),
+                    Tuple(vec![0, 1]),
                     For(AstFor {
                         args: vec![0, 1],
                         ranges: vec![2, 3],
@@ -2120,7 +2120,7 @@ y z";
                 &[
                     Number1,
                     Number0,
-                    Expressions(vec![0, 1]),
+                    Tuple(vec![0, 1]),
                     Yield(2),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -2808,18 +2808,18 @@ match x, y
                 &[
                     Id(0),
                     Id(1),
-                    Expressions(vec![0, 1]),
+                    Tuple(vec![0, 1]),
                     Number0,
                     Number1,
-                    Expressions(vec![3, 4]), // 5
+                    Tuple(vec![3, 4]), // 5
                     Number(2),
                     Number(3),
-                    Expressions(vec![6, 7]),
+                    Tuple(vec![6, 7]),
                     Id(4),
                     Number0, // 10
                     Id(5),
                     Empty,
-                    Expressions(vec![11, 12]),
+                    Tuple(vec![11, 12]),
                     Id(5),
                     Wildcard, // 15
                     Number0,

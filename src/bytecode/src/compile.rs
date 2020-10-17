@@ -460,7 +460,7 @@ impl Compiler {
                 None
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
-            Node::Expressions(expressions) => {
+            Node::Tuple(expressions) => {
                 let stack_count = self.frame().register_stack.len();
 
                 let result = self.get_result_register(result_register)?;
@@ -555,7 +555,7 @@ impl Compiler {
                 targets,
                 expressions,
             } => match &ast.node(*expressions).node {
-                Node::Expressions(expressions) => {
+                Node::Tuple(expressions) => {
                     self.compile_multi_assign(result_register, targets, &expressions, ast)?
                 }
                 _ => self.compile_multi_assign(result_register, targets, &[*expressions], ast)?,
@@ -2252,7 +2252,7 @@ impl Compiler {
                 let mut next_alternative_jump_placeholder = None;
 
                 let patterns = match &ast.node(*arm_pattern).node {
-                    Node::Expressions(patterns) => patterns.clone(),
+                    Node::Tuple(patterns) => patterns.clone(),
                     _ => vec![*arm_pattern],
                 };
 
