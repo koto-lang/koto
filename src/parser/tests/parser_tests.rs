@@ -411,6 +411,25 @@ num4 x 0 1 x";
                 None,
             )
         }
+
+        #[test]
+        fn tuple_in_parens() {
+            let source = "(0, 1, 0)";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Number0,
+                    Tuple(vec![0, 1, 2]),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
     }
 
     mod assignment {

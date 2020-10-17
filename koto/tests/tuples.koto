@@ -10,4 +10,4 @@ export tests =
 
   test_iter: ||
     x = 1, 2, 3
-    assert_eq x.iter().transform(|n| "{}".format n).to_list() ["1" "2" "3"]
+    assert_eq x.iter().transform(|n| "{}".format n).to_tuple() ("1", "2", "3")

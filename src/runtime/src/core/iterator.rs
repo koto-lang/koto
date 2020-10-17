@@ -44,7 +44,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        _ => external_error!("iterator.to_list: Expected iterator as argument"),
+        _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
     });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
