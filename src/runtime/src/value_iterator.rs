@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Value, ValueList, ValueMap, Vm},
+    crate::{Error, Value, ValueList, ValueMap, ValueTuple, Vm},
     std::{
         fmt,
         sync::{Arc, Mutex},
@@ -23,6 +23,7 @@ pub type ValueIteratorResult = Result<ValueIteratorOutput, Error>;
 pub enum Iterable {
     Range(IntRange),
     List(ValueList),
+    Tuple(ValueTuple),
     Map(ValueMap),
     Generator(Box<Vm>),
     External(ExternalIterator),
@@ -94,6 +95,14 @@ impl Iterator for ValueIteratorInternals {
                 self.index += 1;
                 result
             }
+            Iterable::Tuple(tuple) => {
+                let result = tuple
+                    .data()
+                    .get(self.index)
+                    .map(|value| Ok(ValueIteratorOutput::Value(value.clone())));
+                self.index += 1;
+                result
+            }
             Iterable::Map(map) => {
                 let result = match map.data().get_index(self.index) {
                     Some((key, value)) => Some(Ok(ValueIteratorOutput::ValuePair(
@@ -140,6 +149,10 @@ impl ValueIterator {
 
     pub fn with_list(list: ValueList) -> Self {
         Self::new(Iterable::List(list))
+    }
+
+    pub fn with_tuple(tuple: ValueTuple) -> Self {
+        Self::new(Iterable::Tuple(tuple))
     }
 
     pub fn with_map(map: ValueMap) -> Self {

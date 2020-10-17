@@ -320,13 +320,12 @@ impl Vm {
                 return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
-                self.set_register(target, self.copy_value(self.get_register(source)));
+                let value = self.copy_register(source);
+                self.set_register(target, value);
             }
             Instruction::DeepCopy { target, source } => {
-                self.set_register(
-                    target,
-                    deep_copy_value(&self.copy_value(self.get_register(source))),
-                );
+                let value = self.copy_register(source);
+                self.set_register(target, deep_copy_value(&value));
             }
             Instruction::SetEmpty { register } => self.set_register(register, Empty),
             Instruction::SetBool { register, value } => self.set_register(register, Bool(value)),
@@ -363,7 +362,7 @@ impl Vm {
             }
             Instruction::SetGlobal { global, source } => {
                 let global_name = self.value_string_from_constant(global);
-                let value = self.copy_value(self.get_register(source));
+                let value = self.copy_register(source);
                 self.context_mut()
                     .global
                     .data_mut()
@@ -555,7 +554,8 @@ impl Vm {
                 );
             }
             Instruction::MakeIterator { register, iterable } => {
-                let iterable = self.get_register(iterable).clone();
+                let iterable = self.copy_register(iterable);
+
                 if matches!(iterable, Iterator(_)) {
                     self.set_register(register, iterable);
                 } else {
@@ -563,6 +563,7 @@ impl Vm {
                         Range(int_range) => ValueIterator::with_range(int_range),
                         List(list) => ValueIterator::with_list(list),
                         Map(map) => ValueIterator::with_map(map),
+                        Tuple(tuple) => ValueIterator::with_tuple(tuple),
                         unexpected => {
                             return vm_error!(
                                 self.chunk(),
@@ -2058,6 +2059,23 @@ impl Vm {
         }
 
         self.value_stack.insert(index, value);
+    }
+
+    // Returns a copy of a value, while upgrading register tuples
+    fn copy_register(&mut self, register: u8) -> Value {
+        let value = self.get_register(register).clone();
+        match value {
+            Value::RegisterTuple(value::RegisterTuple { start, count }) => {
+                let mut copied = Vec::with_capacity(count as usize);
+                for register in start..start + count {
+                    copied.push(self.get_register(register).clone());
+                }
+                let tuple = Value::Tuple(copied.into());
+                self.set_register(register, tuple.clone());
+                tuple
+            }
+            other => other,
+        }
     }
 
     fn get_register(&self, register: u8) -> &Value {
