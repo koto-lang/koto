@@ -4,7 +4,7 @@ use {
         external::{self, Args},
         frame::Frame,
         loader, type_as_string,
-        value::{self, deep_copy_value, RuntimeFunction},
+        value::{self, deep_copy_value, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
     },
@@ -294,19 +294,6 @@ impl Vm {
         Ok(result)
     }
 
-    fn copy_value(&self, value: &Value) -> Value {
-        match value.clone() {
-            Value::RegisterTuple(value::RegisterTuple { start, count }) => {
-                let mut copied = Vec::with_capacity(count as usize);
-                for register in start..start + count {
-                    copied.push(self.get_register(register).clone());
-                }
-                Value::Tuple(copied.into())
-            }
-            other => other,
-        }
-    }
-
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
@@ -321,11 +308,11 @@ impl Vm {
                 return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
-                let value = self.copy_register(source);
+                let value = self.clone_register(source);
                 self.set_register(target, value);
             }
             Instruction::DeepCopy { target, source } => {
-                let value = self.copy_register(source);
+                let value = self.clone_register(source);
                 self.set_register(target, deep_copy_value(&value));
             }
             Instruction::SetEmpty { register } => self.set_register(register, Empty),
@@ -363,7 +350,7 @@ impl Vm {
             }
             Instruction::SetGlobal { global, source } => {
                 let global_name = self.value_string_from_constant(global);
-                let value = self.copy_register(source);
+                let value = self.clone_register(source);
                 self.context_mut()
                     .global
                     .data_mut()
@@ -377,10 +364,11 @@ impl Vm {
                 start,
                 count,
             } => {
-                self.set_register(
-                    register,
-                    RegisterTuple(value::RegisterTuple { start, count }),
-                );
+                let mut copied = Vec::with_capacity(count as usize);
+                for register in start..start + count {
+                    copied.push(self.get_register(register).clone());
+                }
+                self.set_register(register, Tuple(copied.into()));
             }
             Instruction::MakeList {
                 register,
@@ -555,7 +543,7 @@ impl Vm {
                 );
             }
             Instruction::MakeIterator { register, iterable } => {
-                let iterable = self.copy_register(iterable);
+                let iterable = self.clone_register(iterable);
 
                 if matches!(iterable, Iterator(_)) {
                     self.set_register(register, iterable);
@@ -1033,7 +1021,7 @@ impl Vm {
                     Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
                         self.set_register(
                             register,
-                            Value::RegisterTuple(value::RegisterTuple {
+                            Value::TemporaryTuple(RegisterSlice {
                                 start: register + 1,
                                 count: 2,
                             }),
@@ -1062,17 +1050,16 @@ impl Vm {
                         let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
                         self.set_register(register, value);
                     }
-                    RegisterTuple(value::RegisterTuple { start, count }) => {
-                        if index >= count {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Index out of range index: {}, count: {}",
-                                index,
-                                count
-                            );
-                        }
-                        let value = self.get_register(start + index).clone();
+                    Tuple(tuple) => {
+                        let value = tuple.data().get(index as usize).cloned().unwrap_or(Empty);
+                        self.set_register(register, value);
+                    }
+                    TemporaryTuple(RegisterSlice { start, count }) => {
+                        let value = if index < count {
+                            self.get_register(start + index).clone()
+                        } else {
+                            Empty
+                        };
                         self.set_register(register, value);
                     }
                     other => {
@@ -1703,7 +1690,7 @@ impl Vm {
     ) -> Result<(), Error> {
         use Value::*;
 
-        let map_value = self.copy_register(map_register);
+        let map_value = self.clone_register(map_register);
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
@@ -1794,10 +1781,8 @@ impl Vm {
 
                 if external.is_instance_function {
                     if let Some(parent_register) = parent_register {
-                        self.insert_register(
-                            arg_register,
-                            self.get_register(parent_register).clone(),
-                        );
+                        let parent = self.clone_register(parent_register);
+                        self.insert_register(arg_register, parent);
                         call_arg_count += 1;
                     } else {
                         return vm_error!(
@@ -1853,8 +1838,8 @@ impl Vm {
 
                     if let Some(parent_register) = parent_register {
                         if call_arg_count < *function_arg_count {
-                            generator_vm
-                                .set_register(0, self.get_register(parent_register).clone());
+                            let parent = self.clone_register(parent_register);
+                            generator_vm.set_register(0, parent);
                             set_arg_offset = 1;
                             call_arg_count += 1;
                         }
@@ -1870,7 +1855,7 @@ impl Vm {
                     for arg in 0..args_to_copy {
                         generator_vm.set_register(
                             (arg + set_arg_offset) as u8,
-                            self.get_register(arg_register + arg).clone(),
+                            self.clone_register(arg_register + arg),
                         );
                     }
 
@@ -1891,10 +1876,8 @@ impl Vm {
 
                     if let Some(parent_register) = parent_register {
                         if call_arg_count < expected_count {
-                            self.insert_register(
-                                arg_register,
-                                self.get_register(parent_register).clone(),
-                            );
+                            let parent = self.clone_register(parent_register);
+                            self.insert_register(arg_register, parent);
                             call_arg_count += 1;
                         }
                     }
@@ -1986,36 +1969,9 @@ impl Vm {
             }
         };
 
+        self.value_stack.truncate(frame.register_base);
+
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
-            let return_value = match return_value {
-                Value::RegisterTuple(value::RegisterTuple { start, count }) => {
-                    // If the return value is a register tuple (i.e. when returning multiple values),
-                    // then copy the list's values to the frame base,
-                    // and adjust the list's start register to match their new position.
-                    if start != 0 {
-                        let start = start as usize;
-                        for i in 0..count as usize {
-                            let source = frame.register_base + start + i;
-                            let target = frame.register_base + i;
-                            self.value_stack[target] = self.value_stack[source].clone();
-                        }
-                    }
-
-                    // Keep the register tuple values around after the frame has been popped
-                    self.value_stack
-                        .truncate(frame.register_base + count as usize);
-
-                    Value::RegisterTuple(value::RegisterTuple {
-                        start: frame.register_base as u8,
-                        count,
-                    })
-                }
-                other => {
-                    self.value_stack.truncate(frame.register_base);
-                    other
-                }
-            };
-
             let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
 
             self.set_register(return_register, return_value);
@@ -2023,11 +1979,6 @@ impl Vm {
 
             Ok(None)
         } else {
-            // If there's no return register, then make a copy of the value to return out of the VM
-            // (i.e. we need to make sure we've collected a RegisterTuple into a List).
-            let return_value = self.copy_value(&return_value);
-            self.value_stack.truncate(frame.register_base);
-
             Ok(Some(return_value))
         }
     }
@@ -2063,21 +2014,8 @@ impl Vm {
         self.value_stack.insert(index, value);
     }
 
-    // Returns a copy of a value, while upgrading register tuples
-    fn copy_register(&mut self, register: u8) -> Value {
-        let value = self.get_register(register).clone();
-        match value {
-            Value::RegisterTuple(value::RegisterTuple { start, count }) => {
-                let mut copied = Vec::with_capacity(count as usize);
-                for register in start..start + count {
-                    copied.push(self.get_register(register).clone());
-                }
-                let tuple = Value::Tuple(copied.into());
-                self.set_register(register, tuple.clone());
-                tuple
-            }
-            other => other,
-        }
+    fn clone_register(&self, register: u8) -> Value {
+        self.get_register(register).clone()
     }
 
     fn get_register(&self, register: u8) -> &Value {

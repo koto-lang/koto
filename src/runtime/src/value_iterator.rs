@@ -63,10 +63,10 @@ impl Iterator for ValueIteratorInternals {
     type Item = ValueIteratorResult;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Value::{List, Number};
-
         match &mut self.iterable {
             Iterable::Range(IntRange { start, end }) => {
+                use Value::Number;
+
                 if start <= end {
                     // ascending range
                     let result = *start + self.index as isize;
@@ -115,21 +115,14 @@ impl Iterator for ValueIteratorInternals {
                 self.index += 1;
                 result
             }
-            Iterable::Generator(vm) => {
-                match vm.continue_running() {
-                    Ok(Value::Empty) => None,
-                    Ok(Value::RegisterTuple(tuple)) => {
-                        // TODO, instead of capturing values into a list here,
-                        // return the VM and register list, and then the caller can copy
-                        // the values into registers
-                        Some(Ok(ValueIteratorOutput::Value(List(ValueList::from_slice(
-                            vm.register_slice(tuple.start, tuple.count),
-                        )))))
-                    }
-                    Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
-                    Err(error) => Some(Err(error)),
+            Iterable::Generator(vm) => match vm.continue_running() {
+                Ok(Value::Empty) => None,
+                Ok(Value::TemporaryTuple(_)) => {
+                    unreachable!("Yield shouldn't produce temporary tuples")
                 }
-            }
+                Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
+                Err(error) => Some(Err(error)),
+            },
             Iterable::External(external_iterator) => external_iterator.next(),
         }
     }

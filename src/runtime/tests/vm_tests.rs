@@ -1379,7 +1379,7 @@ gen = |xs|
     yield i, x
 z = [x for x in gen(1..=5)]
 z[1]";
-            test_script(script, number_list(&[1, 2]));
+            test_script(script, number_tuple(&[1, 2]));
         }
     }
 

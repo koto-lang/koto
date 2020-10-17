@@ -60,7 +60,7 @@ struct Frame {
     captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
-    last_op: Option<Op>, // used to decide if an additional return statement is needed
+    last_op: Option<Op>, // used to decide if an additional return instruction is needed
 }
 
 impl Frame {
@@ -694,7 +694,9 @@ impl Compiler {
     fn get_result_register(&mut self, result_register: ResultRegister) -> CompileNodeResult {
         let result = match result_register {
             ResultRegister::Fixed(register) => Some(CompileResult::with_assigned(register)),
-            ResultRegister::Any => Some(CompileResult::with_temporary(self.push_register()?)),
+            ResultRegister::Any => {
+                Some(CompileResult::with_temporary(self.push_register()?))
+            }
             ResultRegister::None => None,
         };
 
@@ -1096,7 +1098,9 @@ impl Compiler {
         let result = if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             match result_register {
                 ResultRegister::None => None,
-                ResultRegister::Any => Some(CompileResult::with_assigned(local_register)),
+                ResultRegister::Any => {
+                    Some(CompileResult::with_assigned(local_register))
+                }
                 ResultRegister::Fixed(register) => {
                     self.push_op(Op::Copy, &[register, local_register]);
                     Some(CompileResult::with_assigned(register))
