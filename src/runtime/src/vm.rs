@@ -47,6 +47,7 @@ impl VmContext {
         prelude.add_map("map", core_lib.map.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
+        prelude.add_map("tuple", core_lib.tuple.clone());
 
         Self {
             core_lib,
@@ -1702,7 +1703,7 @@ impl Vm {
     ) -> Result<(), Error> {
         use Value::*;
 
-        let map_value = self.get_register(map_register).clone();
+        let map_value = self.copy_register(map_register);
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
@@ -1759,6 +1760,7 @@ impl Vm {
             List(_) => get_core_op!(list, "List")?,
             Range(_) => get_core_op!(range, "Range")?,
             Str(_) => get_core_op!(string, "String")?,
+            Tuple(_) => get_core_op!(tuple, "Tuple")?,
             Iterator(_) => get_core_op!(iterator, "Iterator")?,
             unexpected => {
                 return vm_error!(

@@ -28,6 +28,25 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.to_list: Expected iterator as argument"),
     });
 
+    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = Vec::new();
+
+            loop {
+                match iterator.next().map(collect_pair) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
+                    Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
+                    None => break,
+                }
+            }
+
+            Ok(Tuple(result.into()))
+        }
+        _ => external_error!("iterator.to_list: Expected iterator as argument"),
+    });
+
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iter =

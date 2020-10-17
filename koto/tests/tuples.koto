@@ -1,0 +1,13 @@
+import test.assert_eq
+
+export tests =
+  test_for_loop: ||
+    a = 1, 2, 3
+    z = []
+    for x in a
+      z.push x
+    assert_eq z [1 2 3]
+
+  test_iter: ||
+    x = 1, 2, 3
+    assert_eq x.iter().transform(|n| "{}".format n).to_list() ["1" "2" "3"]
