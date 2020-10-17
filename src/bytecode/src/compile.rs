@@ -991,28 +991,21 @@ impl Compiler {
             }
             _ => {
                 let result = self.get_result_register(result_register)?;
-
-                let temp_register = self.push_register()?;
-
-                // If we have multiple expressions and a result register,
-                // capture the expression results in a list
-                if let Some(result) = result {
-                    self.push_op(MakeList, &[result.register, targets.len() as u8]);
-                }
+                let stack_count = self.frame().register_stack.len();
 
                 let mut i = 0;
                 for target in targets.iter() {
                     match expressions.get(i) {
                         Some(expression) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
+                                let register = self.push_register()?;
                                 self.compile_assign(
-                                    ResultRegister::Fixed(temp_register),
+                                    ResultRegister::Fixed(register),
                                     target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,
                                 )?;
-                                self.push_op(ListPushValue, &[result.register, temp_register]);
                             } else {
                                 self.compile_assign(
                                     ResultRegister::None,
@@ -1024,11 +1017,15 @@ impl Compiler {
                             }
                         }
                         None => {
+                            let empty_register = self.push_register()?;
+                            let mut empty_set = false;
+
                             match &ast.node(target.target_index).node {
                                 Node::Id(id_index) => {
                                     if let Some(capture) = self.frame().capture_slot(*id_index) {
-                                        self.push_op(SetEmpty, &[temp_register]);
-                                        self.push_op(SetCapture, &[capture, temp_register]);
+                                        self.push_op(SetEmpty, &[empty_register]);
+                                        empty_set = true;
+                                        self.push_op(SetCapture, &[capture, empty_register]);
                                     } else {
                                         let local_register =
                                             self.assign_local_register(*id_index)?;
@@ -1036,14 +1033,14 @@ impl Compiler {
                                     }
                                 }
                                 Node::Lookup(lookup) => {
-                                    self.push_op(SetEmpty, &[temp_register]);
+                                    self.push_op(SetEmpty, &[empty_register]);
+                                    empty_set = true;
                                     self.compile_lookup(
                                         ResultRegister::None,
                                         &lookup,
-                                        Some(temp_register),
+                                        Some(empty_register),
                                         ast,
                                     )?;
-                                    self.pop_register()?;
                                 }
                                 unexpected => {
                                     return compiler_error!(
@@ -1054,9 +1051,10 @@ impl Compiler {
                                 }
                             }
 
-                            if let Some(result) = result {
-                                self.push_op(SetEmpty, &[temp_register]);
-                                self.push_op(ListPushValue, &[result.register, temp_register]);
+                            if !empty_set {
+                                if result.is_some() {
+                                    self.push_op(SetEmpty, &[empty_register]);
+                                }
                             }
                         }
                     }
@@ -1065,11 +1063,24 @@ impl Compiler {
                 }
 
                 while i < expressions.len() {
+                    // Remaining expressions need to be evaulated even if there's no assignment
                     self.compile_node(ResultRegister::None, ast.node(expressions[i]), ast)?;
                     i += 1;
                 }
 
-                self.pop_register()?; // temp_register
+                if let Some(result) = result {
+                    // capture the assigned values in a tuple
+
+                    let start_register = self.peek_register(targets.len() - 1)?;
+
+                    self.push_op(
+                        MakeTuple,
+                        &[result.register, start_register as u8, targets.len() as u8],
+                    );
+                }
+
+                self.truncate_register_stack(stack_count)?;
+
                 result
             }
         };
