@@ -10,5 +10,10 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("tuple.iter: Expected tuple as argument"),
     });
 
+    result.add_fn("size", |vm, args| match vm.get_args(args) {
+        [Tuple(t)] => Ok(Number(t.data().len() as f64)),
+        _ => external_error!("tuple.size: Expected tuple as argument"),
+    });
+
     result
 }
