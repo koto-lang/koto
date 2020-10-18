@@ -32,6 +32,13 @@ export tests =
         yield x * 2
     assert_eq (doubler 1..=5).to_list() [2 4 6 8 10]
 
+  test_to_map: ||
+    x = ("1", "2", "3").iter().to_map()
+    assert_eq x {"1": (), "2": (), "3": ()}
+
+    x = (1..=3).iter().transform(|n| "{}".format n, n).to_map()
+    assert_eq x {"1": 1, "2": 2, "3": 3}
+
   test_to_tuple: ||
     assert_eq (1..=3).iter().to_tuple() (1, 2, 3)
     assert_eq [2 4 6].iter().to_tuple() (2, 4, 6)

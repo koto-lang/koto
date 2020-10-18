@@ -1,7 +1,7 @@
 use crate::{
     external_error, value,
     value_iterator::{ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult},
-    Value, ValueList, ValueMap, ValueVec,
+    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 
 pub fn make_module() -> ValueMap {
@@ -165,6 +165,34 @@ pub fn make_module() -> ValueMap {
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("iterator.to_list: Expected iterator as argument"),
+    });
+
+    result.add_fn("to_map", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = ValueHashMap::new();
+
+            loop {
+                match iterator.next() {
+                    Some(Ok(Output::Value(Tuple(t)))) if t.data().len() == 2 => {
+                        let key = t.data()[0].clone();
+                        let value = t.data()[1].clone();
+                        result.insert(key, value);
+                    }
+                    Some(Ok(Output::Value(value))) => {
+                        result.insert(value, Value::Empty);
+                    }
+                    Some(Ok(Output::ValuePair(key, value))) => {
+                        result.insert(key, value);
+                    }
+                    Some(Err(error)) => return Err(error),
+                    None => break,
+                }
+            }
+
+            Ok(Map(ValueMap::with_data(result)))
+        }
+        _ => external_error!("iterator.to_map: Expected iterator as argument"),
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
