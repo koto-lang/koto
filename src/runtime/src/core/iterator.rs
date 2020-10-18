@@ -9,44 +9,6 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
-        [Iterator(i)] => {
-            let mut iterator = i.clone();
-            let mut result = ValueVec::new();
-
-            loop {
-                match iterator.next().map(collect_pair) {
-                    Some(Ok(Output::Value(value))) => result.push(value),
-                    Some(Err(error)) => return Err(error),
-                    Some(_) => unreachable!(),
-                    None => break,
-                }
-            }
-
-            Ok(List(ValueList::with_data(result)))
-        }
-        _ => external_error!("iterator.to_list: Expected iterator as argument"),
-    });
-
-    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
-        [Iterator(i)] => {
-            let mut iterator = i.clone();
-            let mut result = Vec::new();
-
-            loop {
-                match iterator.next().map(collect_pair) {
-                    Some(Ok(Output::Value(value))) => result.push(value),
-                    Some(Err(error)) => return Err(error),
-                    Some(_) => unreachable!(),
-                    None => break,
-                }
-            }
-
-            Ok(Tuple(result.into()))
-        }
-        _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
-    });
-
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iter =
@@ -186,6 +148,44 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = ValueVec::new();
+
+            loop {
+                match iterator.next().map(collect_pair) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
+                    Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
+                    None => break,
+                }
+            }
+
+            Ok(List(ValueList::with_data(result)))
+        }
+        _ => external_error!("iterator.to_list: Expected iterator as argument"),
+    });
+
+    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = Vec::new();
+
+            loop {
+                match iterator.next().map(collect_pair) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
+                    Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
+                    None => break,
+                }
+            }
+
+            Ok(Tuple(result.into()))
+        }
+        _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
+    });
+
     result.add_fn("transform", |vm, args| {
         match vm.get_args_as_vec(args).as_slice() {
             [Iterator(i), Function(f)] => {
@@ -218,9 +218,7 @@ pub fn make_module() -> ValueMap {
 fn collect_pair(iterator_output: ValueIteratorResult) -> ValueIteratorResult {
     match iterator_output {
         Ok(Output::ValuePair(first, second)) => {
-            Ok(Output::Value(Value::List(ValueList::from_slice(&[
-                first, second,
-            ]))))
+            Ok(Output::Value(Value::Tuple(vec![first, second].into())))
         }
         _ => iterator_output,
     }
