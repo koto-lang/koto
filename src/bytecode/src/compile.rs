@@ -461,9 +461,8 @@ impl Compiler {
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
             Node::Tuple(expressions) => {
-                let stack_count = self.frame().register_stack.len();
-
                 let result = self.get_result_register(result_register)?;
+                let stack_count = self.frame().register_stack.len();
 
                 for expression in expressions.iter() {
                     let expression_register = self.push_register()?;
@@ -474,26 +473,25 @@ impl Compiler {
                     )?;
                 }
 
-                match result {
-                    Some(result) => {
-                        let start_register = self.peek_register(expressions.len() - 1)?;
+                let result = if let Some(result) = result {
+                    let start_register = self.peek_register(expressions.len() - 1)?;
 
-                        self.push_op(
-                            MakeTuple,
-                            &[
-                                result.register,
-                                start_register as u8,
-                                expressions.len() as u8,
-                            ],
-                        );
+                    self.push_op(
+                        MakeTuple,
+                        &[
+                            result.register,
+                            start_register as u8,
+                            expressions.len() as u8,
+                        ],
+                    );
 
-                        Some(result)
-                    }
-                    None => {
-                        self.truncate_register_stack(stack_count)?;
-                        None
-                    }
-                }
+                    Some(result)
+                } else {
+                    None
+                };
+
+                self.truncate_register_stack(stack_count)?;
+                result
             }
             Node::CopyExpression(expression) => {
                 self.compile_source_target_op(DeepCopy, result_register, *expression, ast)?
@@ -694,9 +692,7 @@ impl Compiler {
     fn get_result_register(&mut self, result_register: ResultRegister) -> CompileNodeResult {
         let result = match result_register {
             ResultRegister::Fixed(register) => Some(CompileResult::with_assigned(register)),
-            ResultRegister::Any => {
-                Some(CompileResult::with_temporary(self.push_register()?))
-            }
+            ResultRegister::Any => Some(CompileResult::with_temporary(self.push_register()?)),
             ResultRegister::None => None,
         };
 
@@ -1098,9 +1094,7 @@ impl Compiler {
         let result = if let Some(local_register) = self.frame().get_local_assigned_register(id) {
             match result_register {
                 ResultRegister::None => None,
-                ResultRegister::Any => {
-                    Some(CompileResult::with_assigned(local_register))
-                }
+                ResultRegister::Any => Some(CompileResult::with_assigned(local_register)),
                 ResultRegister::Fixed(register) => {
                     self.push_op(Op::Copy, &[register, local_register]);
                     Some(CompileResult::with_assigned(register))

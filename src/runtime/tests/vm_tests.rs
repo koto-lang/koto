@@ -245,6 +245,32 @@ a = 99
         }
     }
 
+    mod tuples {
+        use super::*;
+
+        #[test]
+        fn two_entries() {
+            test_script("1, 2", number_tuple(&[1, 2]));
+        }
+
+        #[test]
+        fn two_entries_in_parens() {
+            test_script("(1, 2)", number_tuple(&[1, 2]));
+        }
+
+        #[test]
+        fn tuple_of_tuples() {
+            test_script(
+                "(1, 2), (3, 4, 5), (6, 7, 8, 9)",
+                value_tuple(&[
+                    number_tuple(&[1, 2]),
+                    number_tuple(&[3, 4, 5]),
+                    number_tuple(&[6, 7, 8, 9]),
+                ]),
+            );
+        }
+    }
+
     mod lists {
         use super::*;
 
@@ -417,7 +443,7 @@ l2[1]";
         use super::*;
 
         #[test]
-        fn assign_2_to_1() {
+        fn assign_tuple() {
             let script = "
 a = 1, 2
 a";

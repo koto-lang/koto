@@ -492,7 +492,7 @@ num4 x 0 1 x";
         }
 
         #[test]
-        fn multi_2_to_1() {
+        fn tuple() {
             let source = "x = 1, 0";
             check_ast(
                 source,
@@ -519,7 +519,42 @@ num4 x 0 1 x";
         }
 
         #[test]
-        fn multi_2_to_2() {
+        fn tuple_of_tuples() {
+            let source = "x = (0, 1), (2, 3)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Number1,
+                    Tuple(vec![1, 2]),
+                    Number(1),
+                    Number(2), // 5
+                    Tuple(vec![4, 5]),
+                    Tuple(vec![3, 6]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 7,
+                    },
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn unpack_tuple() {
             let source = "x, y[0] = 1, 0";
             check_ast(
                 source,
@@ -554,7 +589,7 @@ num4 x 0 1 x";
         }
 
         #[test]
-        fn multi_2_to_2_with_linebreaks() {
+        fn tuple_with_linebreaks() {
             let source = "\
 x, y =
   1,
