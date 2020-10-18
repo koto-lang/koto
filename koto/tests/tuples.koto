@@ -14,6 +14,15 @@ export tests =
     assert_eq (x.get 2) 3
     assert_eq (x.get 4) ()
 
+  test_indexing: ||
+    x = 1, 2, 3
+    assert_eq x[0] 1
+    assert_eq x[2] 3
+    assert_eq x[..] x
+    assert_eq x[0..2] (1, 2)
+    assert_eq x[1..] (2, 3)
+    assert_eq x[..=1] (1, 2)
+
   test_iter: ||
     x = 1, 2, 3
     assert_eq x.iter().transform(|n| "{}".format n).to_tuple() ("1", "2", "3")

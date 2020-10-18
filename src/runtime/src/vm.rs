@@ -1627,6 +1627,23 @@ impl Vm {
                     List(ValueList::from_slice(&l.data()[start..end])),
                 )
             }
+            (Tuple(t), Number(n)) => {
+                self.validate_index(n, t.data().len(), instruction_ip)?;
+                self.set_register(result_register, t.data()[n as usize].clone());
+            }
+
+            (Tuple(t), Range(IntRange { start, end })) => {
+                self.validate_int_range(start, end, t.data().len(), instruction_ip)?;
+                self.set_register(
+                    result_register,
+                    Tuple(t.data()[(start as usize)..(end as usize)].into()),
+                )
+            }
+            (Tuple(t), IndexRange(value::IndexRange { start, end })) => {
+                let end = end.unwrap_or(t.data().len());
+                self.validate_index_range(start, end, t.data().len(), instruction_ip)?;
+                self.set_register(result_register, Tuple(t.data()[start..end].into()))
+            }
             (Num2(n), Number(i)) => {
                 let i = i.floor() as usize;
                 match i {
