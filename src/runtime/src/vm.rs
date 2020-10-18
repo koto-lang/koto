@@ -581,13 +581,21 @@ impl Vm {
                     None
                 };
 
-                let function = Function(RuntimeFunction {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                    captures,
-                    is_generator,
-                });
+                let function = if is_generator {
+                    Generator(RuntimeFunction {
+                        chunk: self.chunk(),
+                        ip: self.ip(),
+                        arg_count,
+                        captures,
+                    })
+                } else {
+                    Function(RuntimeFunction {
+                        chunk: self.chunk(),
+                        ip: self.ip(),
+                        arg_count,
+                        captures,
+                    })
+                };
                 self.jump_ip(size);
                 self.set_register(register, function);
             }
@@ -1824,83 +1832,86 @@ impl Vm {
                 ip: function_ip,
                 arg_count: function_arg_count,
                 captures,
-                is_generator,
             }) => {
-                if *is_generator {
-                    let mut generator_vm = self.spawn_shared_vm();
+                let expected_count = *function_arg_count;
+                let mut call_arg_count = call_arg_count;
 
-                    generator_vm.call_stack.clear();
-                    generator_vm.push_frame(
-                        chunk.clone(),
-                        *function_ip,
-                        0, // arguments will be copied starting in register 0
-                        captures.clone(),
-                    );
-
-                    // prepare args for the spawned vm
-                    let mut call_arg_count = call_arg_count;
-                    let mut set_arg_offset = 0;
-
-                    if let Some(parent_register) = parent_register {
-                        if call_arg_count < *function_arg_count {
-                            let parent = self.clone_register(parent_register);
-                            generator_vm.set_register(0, parent);
-                            set_arg_offset = 1;
-                            call_arg_count += 1;
-                        }
+                if let Some(parent_register) = parent_register {
+                    if call_arg_count < expected_count {
+                        let parent = self.clone_register(parent_register);
+                        self.insert_register(arg_register, parent);
+                        call_arg_count += 1;
                     }
-
-                    let args_to_copy = if *function_arg_count == 0 {
-                        0
-                    } else {
-                        *function_arg_count - set_arg_offset
-                    };
-
-                    // Copy args starting at register 0
-                    for arg in 0..args_to_copy {
-                        generator_vm.set_register(
-                            (arg + set_arg_offset) as u8,
-                            self.clone_register(arg_register + arg),
-                        );
-                    }
-
-                    if *function_arg_count != call_arg_count {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Incorrect argument count, expected {}, found {}",
-                            function_arg_count,
-                            call_arg_count,
-                        );
-                    }
-
-                    self.set_register(result_register, ValueIterator::with_vm(generator_vm).into())
-                } else {
-                    let expected_count = *function_arg_count;
-                    let mut call_arg_count = call_arg_count;
-
-                    if let Some(parent_register) = parent_register {
-                        if call_arg_count < expected_count {
-                            let parent = self.clone_register(parent_register);
-                            self.insert_register(arg_register, parent);
-                            call_arg_count += 1;
-                        }
-                    }
-
-                    if call_arg_count != expected_count {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Incorrect argument count, expected {}, found {}",
-                            function_arg_count,
-                            call_arg_count,
-                        );
-                    }
-
-                    self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
-
-                    self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
                 }
+
+                if call_arg_count != expected_count {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "Incorrect argument count, expected {}, found {}",
+                        function_arg_count,
+                        call_arg_count,
+                    );
+                }
+
+                self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+
+                self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
+            }
+            Generator(RuntimeFunction {
+                chunk,
+                ip: function_ip,
+                arg_count: function_arg_count,
+                captures,
+            }) => {
+                let mut generator_vm = self.spawn_shared_vm();
+
+                generator_vm.call_stack.clear();
+                generator_vm.push_frame(
+                    chunk.clone(),
+                    *function_ip,
+                    0, // arguments will be copied starting in register 0
+                    captures.clone(),
+                );
+
+                // prepare args for the spawned vm
+                let mut call_arg_count = call_arg_count;
+                let mut set_arg_offset = 0;
+
+                if let Some(parent_register) = parent_register {
+                    if call_arg_count < *function_arg_count {
+                        let parent = self.clone_register(parent_register);
+                        generator_vm.set_register(0, parent);
+                        set_arg_offset = 1;
+                        call_arg_count += 1;
+                    }
+                }
+
+                let args_to_copy = if *function_arg_count == 0 {
+                    0
+                } else {
+                    *function_arg_count - set_arg_offset
+                };
+
+                // Copy args starting at register 0
+                for arg in 0..args_to_copy {
+                    generator_vm.set_register(
+                        (arg + set_arg_offset) as u8,
+                        self.clone_register(arg_register + arg),
+                    );
+                }
+
+                if *function_arg_count != call_arg_count {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "Incorrect argument count, expected {}, found {}",
+                        function_arg_count,
+                        call_arg_count,
+                    );
+                }
+
+                self.set_register(result_register, ValueIterator::with_vm(generator_vm).into())
             }
             unexpected => {
                 return vm_error!(

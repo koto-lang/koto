@@ -27,6 +27,7 @@ pub enum Value {
     Map(ValueMap),
     Str(ValueString),
     Function(RuntimeFunction),
+    Generator(RuntimeFunction),
     Iterator(ValueIterator),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
@@ -49,6 +50,7 @@ pub enum ValueRef<'a> {
     Map(&'a ValueMap),
     Str(&'a str),
     Function(&'a RuntimeFunction),
+    Generator(&'a RuntimeFunction),
     Iterator(&'a ValueIterator),
     ExternalFunction(&'a ExternalFunction),
     ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
@@ -72,6 +74,7 @@ impl Value {
             Value::Range(r) => ValueRef::Range(r),
             Value::IndexRange(r) => ValueRef::IndexRange(r),
             Value::Function(f) => ValueRef::Function(f),
+            Value::Generator(g) => ValueRef::Generator(g),
             Value::Iterator(i) => ValueRef::Iterator(i),
             Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
             Value::ExternalValue(v) => ValueRef::ExternalValue(v),
@@ -108,6 +111,7 @@ impl fmt::Display for Value {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Function(_) => write!(f, "Function"),
+            Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
@@ -255,7 +259,6 @@ pub struct RuntimeFunction {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub arg_count: u8,
-    pub is_generator: bool,
     pub captures: Option<ValueList>,
 }
 
@@ -264,7 +267,6 @@ impl PartialEq for RuntimeFunction {
         self.chunk == other.chunk
             && self.ip == other.ip
             && self.arg_count == other.arg_count
-            && self.is_generator == other.is_generator
             && self.captures == other.captures
     }
 }
@@ -331,6 +333,7 @@ pub fn type_as_string(value: &Value) -> String {
         Str(_) => "String".to_string(),
         Tuple(_) => "Tuple".to_string(),
         Function { .. } => "Function".to_string(),
+        Generator { .. } => "Generator".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
