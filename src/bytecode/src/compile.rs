@@ -1984,8 +1984,6 @@ impl Compiler {
                     }
                 }
                 LookupNode::Index(index_node) => {
-                    // List index
-
                     let index = self
                         .compile_node(ResultRegister::Any, ast.node(*index_node), ast)?
                         .unwrap();
@@ -1996,14 +1994,14 @@ impl Compiler {
                             self.push_op(ListUpdate, &[list_register, index.register, set_value]);
                         } else if let Some(result) = result {
                             self.push_op(
-                                ListIndex,
+                                Index,
                                 &[result.register, list_register, index.register],
                             );
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.push_op(ListIndex, &[node_register, list_register, index.register]);
+                        self.push_op(Index, &[node_register, list_register, index.register]);
                     }
                 }
                 LookupNode::Call(args) => {

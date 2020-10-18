@@ -242,9 +242,9 @@ pub enum Instruction {
         index: u8,
         value: u8,
     },
-    ListIndex {
+    Index {
         register: u8,
-        list: u8,
+        value: u8,
         index: u8,
     },
     MapInsert {
@@ -544,14 +544,14 @@ impl fmt::Display for Instruction {
                 "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
                 list, index, value
             ),
-            ListIndex {
+            Index {
                 register,
-                list,
+                value,
                 index,
             } => write!(
                 f,
-                "ListIndex\tresult: {}\tlist: {}\t\tindex: {}",
-                register, list, index
+                "Index\tresult: {}\tvalue: {}\t\tindex: {}",
+                register, value, index
             ),
             MapInsert {
                 register,
@@ -939,9 +939,9 @@ impl Iterator for InstructionReader {
                 index: get_byte!(),
                 value: get_byte!(),
             }),
-            Op::ListIndex => Some(ListIndex {
+            Op::Index => Some(Index {
                 register: get_byte!(),
-                list: get_byte!(),
+                value: get_byte!(),
                 index: get_byte!(),
             }),
             Op::MapInsert => Some(MapInsert {

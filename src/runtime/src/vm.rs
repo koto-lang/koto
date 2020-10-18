@@ -1086,12 +1086,12 @@ impl Vm {
             Instruction::ListUpdate { list, index, value } => {
                 self.run_list_update(list, index, value, instruction_ip)?;
             }
-            Instruction::ListIndex {
+            Instruction::Index {
                 register,
-                list,
+                value,
                 index,
             } => {
-                self.run_list_index(register, list, index, instruction_ip)?;
+                self.run_index(register, value, index, instruction_ip)?;
             }
             Instruction::MapInsert {
                 register,
@@ -1500,180 +1500,168 @@ impl Vm {
         Ok(())
     }
 
-    fn run_list_index(
+    fn validate_index(&self, n: f64, size: usize, instruction_ip: usize) -> Result<(), Error> {
+        let index = n as usize;
+
+        if n < 0.0 {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Negative indices aren't allowed ('{}')",
+                n
+            )
+        } else if index >= size {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Index out of bounds - index: {}, size: {}",
+                n,
+                size
+            )
+        } else {
+            Ok(())
+        }
+    }
+
+    fn validate_int_range(
+        &self,
+        start: isize,
+        end: isize,
+        size: usize,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        let ustart = start as usize;
+        let uend = end as usize;
+
+        if start < 0 || end < 0 {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Indexing with negative indices isn't supported, start: {}, end: {}",
+                start,
+                end
+            )
+        } else if start > end {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Indexing with a descending range isn't supported, start: {}, end: {}",
+                start,
+                end
+            )
+        } else if ustart > size || uend > size {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Index out of bounds, size of {} - start: {}, end: {}",
+                size,
+                start,
+                end
+            )
+        } else {
+            Ok(())
+        }
+    }
+
+    fn validate_index_range(
+        &self,
+        start: usize,
+        end: usize,
+        size: usize,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        if start > end {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Indexing with a descending range isn't supported, start: {}, end: {}",
+                start,
+                end
+            )
+        } else if start > size || end > size {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Index out of bounds, size of {} - start: {}, end: {}",
+                size,
+                start,
+                end
+            )
+        } else {
+            Ok(())
+        }
+    }
+
+    fn run_index(
         &mut self,
         result_register: u8,
-        list_register: u8,
+        value_register: u8,
         index_register: u8,
         instruction_ip: usize,
     ) -> Result<(), Error> {
         use Value::*;
 
-        let list_value = self.get_register(list_register).clone();
-        let index_value = self.get_register(index_register).clone();
+        let value = self.get_register(value_register).clone();
+        let index = self.get_register(index_register).clone();
 
-        match list_value {
-            List(l) => {
-                let list_len = l.len();
+        match (value, index) {
+            (List(l), Number(n)) => {
+                self.validate_index(n, l.len(), instruction_ip)?;
+                self.set_register(result_register, l.data()[n as usize].clone());
+            }
 
-                match index_value {
-                    Number(n) => {
-                        if n < 0.0 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Negative list indices aren't allowed (found '{}')",
-                                n
-                            );
-                        }
-                        match l.data().get(n as usize) {
-                            Some(value) => {
-                                self.set_register(result_register, value.clone());
-                            }
-                            None => {
-                                return vm_error!(
-                                    self.chunk(),
-                                    instruction_ip,
-                                    "List index out of bounds - index: {}, list size: {}",
-                                    n,
-                                    list_len
-                                )
-                            }
-                        }
-                    }
-                    Range(IntRange { start, end }) => {
-                        let ustart = start as usize;
-                        let uend = end as usize;
-
-                        if start < 0 || end < 0 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Indexing with negative indices isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if start > end {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if ustart > list_len || uend > list_len {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                list_len,
-                                start,
-                                end
-                            );
-                        } else {
-                            // TODO Avoid allocating new vec,
-                            // introduce 'slice' value type
-                            self.set_register(
-                                result_register,
-                                List(ValueList::from_slice(&l.data()[ustart..uend])),
-                            )
-                        }
-                    }
-                    IndexRange(value::IndexRange { start, end }) => {
-                        let end = end.unwrap_or(list_len);
-                        if start > end {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if start > list_len || end > list_len {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                list_len,
-                                start,
-                                end
-                            );
-                        } else {
-                            self.set_register(
-                                result_register,
-                                List(ValueList::from_slice(&l.data()[start..end])),
-                            )
-                        }
-                    }
-                    unexpected => {
+            (List(l), Range(IntRange { start, end })) => {
+                self.validate_int_range(start, end, l.len(), instruction_ip)?;
+                self.set_register(
+                    result_register,
+                    List(ValueList::from_slice(
+                        &l.data()[(start as usize)..(end as usize)],
+                    )),
+                )
+            }
+            (List(l), IndexRange(value::IndexRange { start, end })) => {
+                let end = end.unwrap_or_else(|| l.len());
+                self.validate_index_range(start, end, l.len(), instruction_ip)?;
+                self.set_register(
+                    result_register,
+                    List(ValueList::from_slice(&l.data()[start..end])),
+                )
+            }
+            (Num2(n), Number(i)) => {
+                let i = i.floor() as usize;
+                match i {
+                    0 | 1 => self.set_register(result_register, Number(n[i])),
+                    other => {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "Expected Number or Range, found '{}'",
-                            type_as_string(&unexpected),
+                            "Index out of bounds for Num2, {}",
+                            other
                         )
                     }
                 }
             }
-            Num2(n) => match index_value {
-                Number(i) => {
-                    let i = i.floor() as usize;
-                    match i {
-                        0 | 1 => self.set_register(result_register, Number(n[i])),
-                        other => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Index out of bounds for Num2, {}",
-                                other
-                            )
-                        }
+            (Num4(n), Number(i)) => {
+                let i = i.floor() as usize;
+                match i {
+                    0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
+                    other => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Index out of bounds for Num4, {}",
+                            other
+                        )
                     }
                 }
-                unexpected => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Expected Number as index for Num2, found '{}'",
-                        type_as_string(&unexpected),
-                    )
-                }
-            },
-            Num4(n) => match index_value {
-                Number(i) => {
-                    let i = i.floor() as usize;
-                    match i {
-                        0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
-                        other => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Index out of bounds for Num4, {}",
-                                other
-                            )
-                        }
-                    }
-                }
-                unexpected => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Expected Number as index for Num4, found '{}'",
-                        type_as_string(&unexpected),
-                    )
-                }
-            },
-            unexpected => {
+            }
+            (unexpected_value, unexpected_index) => {
                 return vm_error!(
                     self.chunk(),
                     instruction_ip,
-                    "Expected indexable value, found '{}'",
-                    type_as_string(&unexpected),
+                    "Unable to index '{}' with '{}'",
+                    type_as_string(&unexpected_value),
+                    type_as_string(&unexpected_index),
                 )
             }
         };
