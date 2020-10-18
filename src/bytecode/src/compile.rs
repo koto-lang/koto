@@ -112,9 +112,10 @@ impl Frame {
     fn get_local_assigned_register(&self, index: ConstantIndex) -> Option<u8> {
         self.local_registers
             .iter()
-            .position(|local_register| match local_register {
-                LocalRegister::Assigned(assigned_index) if *assigned_index == index => true,
-                _ => false,
+            .position(|local_register| {
+                matches!(local_register,
+                    LocalRegister::Assigned(assigned_index) if *assigned_index == index
+                )
             })
             .map(|position| position as u8)
     }
@@ -1049,10 +1050,8 @@ impl Compiler {
                                 }
                             }
 
-                            if !empty_set {
-                                if result.is_some() {
-                                    self.push_op(SetEmpty, &[empty_register]);
-                                }
+                            if !empty_set && result.is_some() {
+                                self.push_op(SetEmpty, &[empty_register]);
                             }
                         }
                     }
@@ -1993,10 +1992,7 @@ impl Compiler {
                         if let Some(set_value) = set_value {
                             self.push_op(ListUpdate, &[list_register, index.register, set_value]);
                         } else if let Some(result) = result {
-                            self.push_op(
-                                Index,
-                                &[result.register, list_register, index.register],
-                            );
+                            self.push_op(Index, &[result.register, list_register, index.register]);
                         }
                     } else {
                         let node_register = self.push_register()?;

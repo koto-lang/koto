@@ -1,10 +1,11 @@
 use std::{
     fmt,
+    hash::{Hash, Hasher},
     ops::{Deref, Range},
     sync::Arc,
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct ValueString {
     string: Arc<str>,
     bounds: Option<Range<usize>>,
@@ -40,6 +41,12 @@ impl ValueString {
 impl PartialEq for ValueString {
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
+    }
+}
+
+impl Hash for ValueString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
     }
 }
 
