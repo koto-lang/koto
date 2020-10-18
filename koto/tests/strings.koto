@@ -29,7 +29,7 @@ export tests =
     x = "aaa
 bbb
 ccc"
-    assert_eq x.lines().to_list() ["aaa" "bbb" "ccc"]
+    assert_eq x.lines().to_tuple() ("aaa", "bbb", "ccc")
 
     x2 = "
 xxx
@@ -37,10 +37,10 @@ yyy
 zzz
 
 "
-    assert_eq x2.lines().to_list() ["" "xxx" "yyy" "zzz" ""]
+    assert_eq x2.lines().to_tuple() ("", "xxx", "yyy", "zzz", "")
 
     x3 = "foo\nbar\nbaz"
-    assert_eq x3.lines().to_list() ["foo" "bar" "baz"]
+    assert_eq x3.lines().to_tuple() ("foo", "bar", "baz")
 
   test_slice: ||
     assert_eq ("abcdef".slice 2 5) "cde"
@@ -50,8 +50,8 @@ zzz
     assert_eq (x.slice 10 13) ()
 
   test_split: ||
-    assert_eq "a,b,c".split(",").to_list() ["a" "b" "c"]
-    assert_eq "O_O".split("O").to_list() ["" "_" ""]
+    assert_eq "a,b,c".split(",").to_tuple() ("a", "b", "c")
+    assert_eq "O_O".split("O").to_tuple() ("", "_", "")
 
   test_to_number: ||
     assert_eq 42.0 (string.to_number "42")
