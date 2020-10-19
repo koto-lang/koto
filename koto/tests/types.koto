@@ -4,7 +4,7 @@ export tests =
   test_type_returns_type_name: ||
     assert_eq (type true) "bool"
     assert_eq (type |x| x * x) "function"
-    assert_eq (type [1 2 3]) "list"
+    assert_eq (type [1, 2, 3]) "list"
     assert_eq (type {foo: 42}) "map"
     assert_eq (type 0) "number"
     assert_eq (type (num2 0)) "num2"

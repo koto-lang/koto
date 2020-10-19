@@ -110,7 +110,7 @@ a
 
         #[test]
         fn list() {
-            let source = "[0 n \"test\" n -1]";
+            let source = "[0, n, \"test\", n, -1]";
             check_ast(
                 source,
                 &[
@@ -137,8 +137,8 @@ a
         fn list_with_line_breaks() {
             let source = "\
 x = [
-  0
-  1 0 1
+  0,
+  1, 0, 1,
   0
 ]";
             check_ast(
@@ -307,7 +307,7 @@ foo.bar..foo.baz";
         fn lists_from_ranges() {
             let source = "\
 [0..1]
-[0..10 10..=0]";
+[0..10, 10..=0]";
             check_ast(
                 source,
                 &[
@@ -2313,7 +2313,7 @@ x.foo 42"#;
 
         #[test]
         fn map_lookup_in_list() {
-            let source = "[m.foo m.bar]";
+            let source = "[m.foo, m.bar]";
             check_ast(
                 source,
                 &[
@@ -2385,7 +2385,7 @@ x.foo 42"#;
         fn lookups_on_literals() {
             let source = r#"\
 "{}".format x
-[0 1].contains y
+[0, 1].contains y
 {x}.values()
             "#;
             check_ast(

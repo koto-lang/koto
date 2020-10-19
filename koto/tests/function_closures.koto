@@ -3,7 +3,7 @@ import test.assert_eq
 export tests =
   test_value_capture_on_function_creation: ||
     multipliers = [(|n| n * i) for i in 1..=4]
-    assert_eq [2 4 6 8] [(multiplier 2) for multiplier in multipliers]
+    assert_eq [2, 4, 6, 8] [(multiplier 2) for multiplier in multipliers]
 
   test_outer_value_captured_in_nested_function: ||
     capture_test = |a b c|

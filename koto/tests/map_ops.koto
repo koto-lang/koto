@@ -54,11 +54,11 @@ export tests =
     m = {foo: 42}
     assert_eq m.keys() ["foo"]
     m.insert 0 "zero"
-    assert_eq m.keys() ["foo" 0]
+    assert_eq m.keys() ["foo", 0]
 
   test_values: ||
     m = {foo: 42, bar: "O_o"}
-    assert_eq m.values() [42 "O_o"]
+    assert_eq m.values() [42, "O_o"]
 
   test_remove: ||
     m = {foo: 42, bar: 99}

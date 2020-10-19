@@ -12,7 +12,7 @@ export tests =
   test_catch: ||
     x = try
       # List passed to function expecting a map
-      [0 1 2].keys()
+      [0, 1, 2].keys()
       99
     catch error
       -1

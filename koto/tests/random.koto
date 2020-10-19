@@ -19,7 +19,7 @@ export tests =
     assert_near random.number4() (num4 0.006 0.861 0.823 0.186) 0.001
 
   test_pick: ||
-    x = ["foo" "bar" "baz"]
+    x = ["foo", "bar", "baz"]
     assert (x.contains (random.pick x))
     x = 0..10
     assert (x.contains (random.pick x))

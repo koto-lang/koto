@@ -14,5 +14,5 @@ get_primes = |n|
 
   [x for x in 2..=n if sieve[x]]
 
-primes = get_primes 30
-assert_eq primes [2 3 5 7 11 13 17 19 23 29]
+primes = get_primes 20
+assert_eq primes [2, 3, 5, 7, 11, 13, 17, 19]

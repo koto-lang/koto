@@ -1132,19 +1132,12 @@ impl<'source> Parser<'source> {
                 let mut entries = Vec::new();
 
                 while self.consume_until_next_token() != Some(Token::ListEnd) {
-                    if let Some(term) = self.parse_term(false)? {
-                        if matches!(
-                            self.peek_token(),
-                            Some(Token::Range) | Some(Token::RangeInclusive)
-                        ) {
-                            if let Some(range) = self.parse_range(Some(term))? {
-                                entries.push(range);
-                            } else {
-                                return internal_error!(RangeParseFailure, self);
-                            }
-                        } else {
-                            entries.push(term);
-                        }
+                    if let Some(entry) = self.parse_primary_expression()? {
+                        entries.push(entry);
+                    }
+
+                    if self.skip_whitespace_and_peek() == Some(Token::Separator) {
+                        self.consume_token();
                     } else {
                         break;
                     }

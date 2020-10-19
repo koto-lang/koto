@@ -7,7 +7,7 @@ test_map = ||
   get_child_map: |self| self.child_map
 
 # Make a list of two test maps
-maps = [test_map() test_map()]
+maps = [test_map(), test_map()]
 
 export tests =
   test_call_setter_in_child_map_in_list: ||
