@@ -1908,7 +1908,7 @@ impl<'source> Parser<'source> {
         let without_quotes = &s[1..s.len() - 1];
 
         let mut result = String::with_capacity(without_quotes.len());
-        let mut chars = without_quotes.chars();
+        let mut chars = without_quotes.chars().peekable();
 
         while let Some(c) = chars.next() {
             match c {
@@ -1919,6 +1919,15 @@ impl<'source> Parser<'source> {
                     Some('n') => result.push('\n'),
                     Some('r') => result.push('\r'),
                     Some('t') => result.push('\t'),
+                    Some('\n') | Some('\r') => {
+                        while let Some(c) = chars.peek() {
+                            if c.is_whitespace() {
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                    }
                     _ => return syntax_error!(UnexpectedEscapeInString, self),
                 },
                 _ => result.push(c),

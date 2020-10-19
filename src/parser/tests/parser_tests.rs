@@ -71,6 +71,33 @@ a
         }
 
         #[test]
+        fn multiline_strings() {
+            let source = r#"
+"    foo
+     bar
+"
+"foo \
+     bar\
+"
+"#;
+            check_ast(
+                source,
+                &[
+                    Str(0),
+                    Str(1),
+                    MainBlock {
+                        body: vec![0, 1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("    foo\n     bar\n"),
+                    Constant::Str("foo bar"),
+                ]),
+            )
+        }
+
+        #[test]
         fn negatives() {
             let source = "\
 -12.0
