@@ -2455,6 +2455,32 @@ x.foo 42"#;
                 ]),
             )
         }
+
+        #[test]
+        fn nested_lookup_call() {
+            let source = "((x).contains y)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(2),
+                    Lookup(vec![
+                        LookupNode::Root(0),
+                        LookupNode::Id(1),
+                        LookupNode::Call(vec![1]),
+                    ]),
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("contains"),
+                    Constant::Str("y"),
+                ]),
+            )
+        }
     }
 
     mod keywords {

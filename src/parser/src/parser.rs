@@ -399,13 +399,14 @@ impl<'source> Parser<'source> {
 
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
-            let expression = if let Some(expression) = self.parse_negatable_expression()? {
-                Some(expression)
-            } else if let Some(expression) = self.parse_id_expression(primary_expression)? {
-                Some(expression)
-            } else {
-                self.parse_term(primary_expression)?
-            };
+            let expression =
+                if let Some(expression) = self.parse_negatable_expression(primary_expression)? {
+                    Some(expression)
+                } else if let Some(expression) = self.parse_id_expression(primary_expression)? {
+                    Some(expression)
+                } else {
+                    self.parse_term(primary_expression)?
+                };
 
             match self.peek_token() {
                 Some(Token::Range) | Some(Token::RangeInclusive) => {
@@ -807,7 +808,10 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_negatable_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_negatable_expression(
+        &mut self,
+        primary_expression: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
         if self.skip_whitespace_and_peek() != Some(Token::Subtract) {
             return Ok(None);
         }
@@ -819,8 +823,8 @@ impl<'source> Parser<'source> {
         self.consume_token();
 
         let expression = match self.peek_token() {
-            Some(Token::Id) => self.parse_id_expression(false)?,
-            Some(Token::ParenOpen) => self.parse_nested_expressions()?,
+            Some(Token::Id) => self.parse_id_expression(primary_expression)?,
+            Some(Token::ParenOpen) => self.parse_nested_expressions(primary_expression)?,
             _ => None,
         };
 
@@ -948,7 +952,7 @@ impl<'source> Parser<'source> {
                     self.consume_token();
                     self.push_node(BoolFalse)?
                 }
-                Token::ParenOpen => return self.parse_nested_expressions(),
+                Token::ParenOpen => return self.parse_nested_expressions(primary_expression),
                 Token::Number => {
                     self.consume_token();
                     match f64::from_str(self.lexer.slice()) {
@@ -1865,7 +1869,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_nested_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_nested_expressions(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
         if self.skip_whitespace_and_peek() != Some(ParenOpen) {
@@ -1894,7 +1898,7 @@ impl<'source> Parser<'source> {
         if let Some(ParenClose) = self.peek_token() {
             self.consume_token();
             let result = if self.next_token_is_lookup_start() {
-                self.parse_lookup(result, false)?
+                self.parse_lookup(result, primary_expression)?
             } else {
                 result
             };
