@@ -398,7 +398,7 @@ pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, source_lines: &[&str]) -> St
             span = Some(instruction_span);
         }
 
-        result += &format!("{}\t{}\n", ip, &instruction.to_string());
+        result += &format!("{}\t{:?}\n", ip, &instruction);
         ip = reader.ip;
     }
 

@@ -4,7 +4,6 @@ use {
     std::{convert::TryInto, fmt, sync::Arc},
 };
 
-#[derive(Debug)]
 pub enum Instruction {
     Error {
         message: String,
@@ -269,6 +268,73 @@ pub enum Instruction {
 }
 
 impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Instruction::*;
+        match self {
+            Error { .. } => unreachable!(),
+            Copy { .. } => write!(f, "Copy"),
+            DeepCopy { .. } => write!(f, "DeepCopy"),
+            SetEmpty { .. } => write!(f, "SetEmpty"),
+            SetBool { .. } => write!(f, "SetBool"),
+            SetNumber { .. } => write!(f, "SetNumber"),
+            LoadNumber { .. } => write!(f, "LoadNumber"),
+            LoadString { .. } => write!(f, "LoadString"),
+            LoadGlobal { .. } => write!(f, "LoadGlobal"),
+            SetGlobal { .. } => write!(f, "SetGlobal"),
+            Import { .. } => write!(f, "Import"),
+            MakeTuple { .. } => write!(f, "MakeTuple"),
+            MakeList { .. } => write!(f, "MakeList"),
+            MakeMap { .. } => write!(f, "MakeMap"),
+            MakeNum2 { .. } => write!(f, "MakeNum2"),
+            MakeNum4 { .. } => write!(f, "MakeNum4"),
+            Range { .. } => write!(f, "Range"),
+            RangeInclusive { .. } => write!(f, "RangeInclusive"),
+            RangeTo { .. } => write!(f, "RangeTo"),
+            RangeToInclusive { .. } => write!(f, "RangeToInclusive"),
+            RangeFrom { .. } => write!(f, "RangeFrom"),
+            RangeFull { .. } => write!(f, "RangeFull"),
+            MakeIterator { .. } => write!(f, "MakeIterator"),
+            Function { .. } => write!(f, "Function"),
+            Capture { .. } => write!(f, "Capture"),
+            LoadCapture { .. } => write!(f, "LoadCapture"),
+            SetCapture { .. } => write!(f, "SetCapture"),
+            Negate { .. } => write!(f, "Negate"),
+            Add { .. } => write!(f, "Add"),
+            Subtract { .. } => write!(f, "Subtract"),
+            Multiply { .. } => write!(f, "Multiply"),
+            Divide { .. } => write!(f, "Divide"),
+            Modulo { .. } => write!(f, "Modulo"),
+            Less { .. } => write!(f, "Less"),
+            LessOrEqual { .. } => write!(f, "LessOrEqual"),
+            Greater { .. } => write!(f, "Greater"),
+            GreaterOrEqual { .. } => write!(f, "GreaterOrEqual"),
+            Equal { .. } => write!(f, "Equal"),
+            NotEqual { .. } => write!(f, "NotEqual"),
+            Jump { .. } => write!(f, "Jump"),
+            JumpIf { .. } => write!(f, "JumpIf"),
+            JumpBack { .. } => write!(f, "JumpBack"),
+            JumpBackIf { .. } => write!(f, "JumpBackIf"),
+            Call { .. } => write!(f, "Call"),
+            CallChild { .. } => write!(f, "CallChild"),
+            Return { .. } => write!(f, "Return"),
+            Yield { .. } => write!(f, "Yield"),
+            Type { .. } => write!(f, "Type"),
+            IteratorNext { .. } => write!(f, "IteratorNext"),
+            ValueIndex { .. } => write!(f, "ValueIndex"),
+            ListPushValue { .. } => write!(f, "ListPushValue"),
+            ListPushValues { .. } => write!(f, "ListPushValues"),
+            ListUpdate { .. } => write!(f, "ListUpdate"),
+            Index { .. } => write!(f, "Index"),
+            MapInsert { .. } => write!(f, "MapInsert"),
+            MapAccess { .. } => write!(f, "MapAccess"),
+            TryStart { .. } => write!(f, "TryStart"),
+            TryEnd => write!(f, "TryEnd"),
+            Debug { .. } => write!(f, "Debug"),
+        }
+    }
+}
+
+impl fmt::Debug for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {

@@ -2156,9 +2156,9 @@ fn binary_op_error(
     vm_error!(
         chunk,
         ip,
-        "Unable to perform operation {:?} with lhs: '{}' and rhs: '{}'",
+        "Unable to perform operation {} with '{}' and '{}'",
         op,
-        lhs,
-        rhs,
+        type_as_string(lhs),
+        type_as_string(rhs),
     )
 }
