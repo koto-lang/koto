@@ -60,7 +60,7 @@ struct Frame {
     captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
-    last_op: Option<Op>, // used to decide if an additional return statement is needed
+    last_op: Option<Op>, // used to decide if an additional return instruction is needed
 }
 
 impl Frame {
@@ -112,9 +112,10 @@ impl Frame {
     fn get_local_assigned_register(&self, index: ConstantIndex) -> Option<u8> {
         self.local_registers
             .iter()
-            .position(|local_register| match local_register {
-                LocalRegister::Assigned(assigned_index) if *assigned_index == index => true,
-                _ => false,
+            .position(|local_register| {
+                matches!(local_register,
+                    LocalRegister::Assigned(assigned_index) if *assigned_index == index
+                )
             })
             .map(|position| position as u8)
     }
@@ -460,10 +461,9 @@ impl Compiler {
                 None
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
-            Node::Expressions(expressions) => {
-                let stack_count = self.frame().register_stack.len();
-
+            Node::Tuple(expressions) => {
                 let result = self.get_result_register(result_register)?;
+                let stack_count = self.frame().register_stack.len();
 
                 for expression in expressions.iter() {
                     let expression_register = self.push_register()?;
@@ -474,26 +474,25 @@ impl Compiler {
                     )?;
                 }
 
-                match result {
-                    Some(result) => {
-                        let start_register = self.peek_register(expressions.len() - 1)?;
+                let result = if let Some(result) = result {
+                    let start_register = self.peek_register(expressions.len() - 1)?;
 
-                        self.push_op(
-                            RegisterList,
-                            &[
-                                result.register,
-                                start_register as u8,
-                                expressions.len() as u8,
-                            ],
-                        );
+                    self.push_op(
+                        MakeTuple,
+                        &[
+                            result.register,
+                            start_register as u8,
+                            expressions.len() as u8,
+                        ],
+                    );
 
-                        Some(result)
-                    }
-                    None => {
-                        self.truncate_register_stack(stack_count)?;
-                        None
-                    }
-                }
+                    Some(result)
+                } else {
+                    None
+                };
+
+                self.truncate_register_stack(stack_count)?;
+                result
             }
             Node::CopyExpression(expression) => {
                 self.compile_source_target_op(DeepCopy, result_register, *expression, ast)?
@@ -555,7 +554,7 @@ impl Compiler {
                 targets,
                 expressions,
             } => match &ast.node(*expressions).node {
-                Node::Expressions(expressions) => {
+                Node::Tuple(expressions) => {
                     self.compile_multi_assign(result_register, targets, &expressions, ast)?
                 }
                 _ => self.compile_multi_assign(result_register, targets, &[*expressions], ast)?,
@@ -991,28 +990,21 @@ impl Compiler {
             }
             _ => {
                 let result = self.get_result_register(result_register)?;
-
-                let temp_register = self.push_register()?;
-
-                // If we have multiple expressions and a result register,
-                // capture the expression results in a list
-                if let Some(result) = result {
-                    self.push_op(MakeList, &[result.register, targets.len() as u8]);
-                }
+                let stack_count = self.frame().register_stack.len();
 
                 let mut i = 0;
                 for target in targets.iter() {
                     match expressions.get(i) {
                         Some(expression) => {
-                            if let Some(result) = result {
+                            if result.is_some() {
+                                let register = self.push_register()?;
                                 self.compile_assign(
-                                    ResultRegister::Fixed(temp_register),
+                                    ResultRegister::Fixed(register),
                                     target,
                                     AssignOp::Equal,
                                     *expression,
                                     ast,
                                 )?;
-                                self.push_op(ListPushValue, &[result.register, temp_register]);
                             } else {
                                 self.compile_assign(
                                     ResultRegister::None,
@@ -1024,11 +1016,15 @@ impl Compiler {
                             }
                         }
                         None => {
+                            let empty_register = self.push_register()?;
+                            let mut empty_set = false;
+
                             match &ast.node(target.target_index).node {
                                 Node::Id(id_index) => {
                                     if let Some(capture) = self.frame().capture_slot(*id_index) {
-                                        self.push_op(SetEmpty, &[temp_register]);
-                                        self.push_op(SetCapture, &[capture, temp_register]);
+                                        self.push_op(SetEmpty, &[empty_register]);
+                                        empty_set = true;
+                                        self.push_op(SetCapture, &[capture, empty_register]);
                                     } else {
                                         let local_register =
                                             self.assign_local_register(*id_index)?;
@@ -1036,14 +1032,14 @@ impl Compiler {
                                     }
                                 }
                                 Node::Lookup(lookup) => {
-                                    self.push_op(SetEmpty, &[temp_register]);
+                                    self.push_op(SetEmpty, &[empty_register]);
+                                    empty_set = true;
                                     self.compile_lookup(
                                         ResultRegister::None,
                                         &lookup,
-                                        Some(temp_register),
+                                        Some(empty_register),
                                         ast,
                                     )?;
-                                    self.pop_register()?;
                                 }
                                 unexpected => {
                                     return compiler_error!(
@@ -1054,9 +1050,8 @@ impl Compiler {
                                 }
                             }
 
-                            if let Some(result) = result {
-                                self.push_op(SetEmpty, &[temp_register]);
-                                self.push_op(ListPushValue, &[result.register, temp_register]);
+                            if !empty_set && result.is_some() {
+                                self.push_op(SetEmpty, &[empty_register]);
                             }
                         }
                     }
@@ -1065,11 +1060,24 @@ impl Compiler {
                 }
 
                 while i < expressions.len() {
+                    // Remaining expressions need to be evaulated even if there's no assignment
                     self.compile_node(ResultRegister::None, ast.node(expressions[i]), ast)?;
                     i += 1;
                 }
 
-                self.pop_register()?; // temp_register
+                if let Some(result) = result {
+                    // capture the assigned values in a tuple
+
+                    let start_register = self.peek_register(targets.len() - 1)?;
+
+                    self.push_op(
+                        MakeTuple,
+                        &[result.register, start_register as u8, targets.len() as u8],
+                    );
+                }
+
+                self.truncate_register_stack(stack_count)?;
+
                 result
             }
         };
@@ -1975,8 +1983,6 @@ impl Compiler {
                     }
                 }
                 LookupNode::Index(index_node) => {
-                    // List index
-
                     let index = self
                         .compile_node(ResultRegister::Any, ast.node(*index_node), ast)?
                         .unwrap();
@@ -1986,15 +1992,12 @@ impl Compiler {
                         if let Some(set_value) = set_value {
                             self.push_op(ListUpdate, &[list_register, index.register, set_value]);
                         } else if let Some(result) = result {
-                            self.push_op(
-                                ListIndex,
-                                &[result.register, list_register, index.register],
-                            );
+                            self.push_op(Index, &[result.register, list_register, index.register]);
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.push_op(ListIndex, &[node_register, list_register, index.register]);
+                        self.push_op(Index, &[node_register, list_register, index.register]);
                     }
                 }
                 LookupNode::Call(args) => {
@@ -2252,7 +2255,7 @@ impl Compiler {
                 let mut next_alternative_jump_placeholder = None;
 
                 let patterns = match &ast.node(*arm_pattern).node {
-                    Node::Expressions(patterns) => patterns.clone(),
+                    Node::Tuple(patterns) => patterns.clone(),
                     _ => vec![*arm_pattern],
                 };
 

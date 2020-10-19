@@ -367,7 +367,7 @@ impl<'source> Parser<'source> {
             if expressions.len() == 1 {
                 Ok(Some(first))
             } else {
-                Ok(Some(self.push_node(Node::Expressions(expressions))?))
+                Ok(Some(self.push_node(Node::Tuple(expressions))?))
             }
         } else {
             Ok(None)
@@ -820,7 +820,7 @@ impl<'source> Parser<'source> {
 
         let expression = match self.peek_token() {
             Some(Token::Id) => self.parse_id_expression(false)?,
-            Some(Token::ParenOpen) => self.parse_nested_expression()?,
+            Some(Token::ParenOpen) => self.parse_nested_expressions()?,
             _ => None,
         };
 
@@ -948,7 +948,7 @@ impl<'source> Parser<'source> {
                     self.consume_token();
                     self.push_node(BoolFalse)?
                 }
-                Token::ParenOpen => return self.parse_nested_expression(),
+                Token::ParenOpen => return self.parse_nested_expressions(),
                 Token::Number => {
                     self.consume_token();
                     match f64::from_str(self.lexer.slice()) {
@@ -1373,7 +1373,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1428,7 +1428,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1461,7 +1461,7 @@ impl<'source> Parser<'source> {
             match expressions {
                 [] => return internal_error!(ForParseFailure, self),
                 [expression] => *expression,
-                _ => self.push_node(Node::Expressions(expressions.to_vec()))?,
+                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
             }
         } else if let Some(body) = self.parse_indented_block(current_indent, None)? {
             body
@@ -1605,7 +1605,7 @@ impl<'source> Parser<'source> {
 
                 arm_patterns.push(match patterns.as_slice() {
                     [single_pattern] => *single_pattern,
-                    _ => self.push_node(Node::Expressions(patterns))?,
+                    _ => self.push_node(Node::Tuple(patterns))?,
                 });
 
                 if let Some(Token::Or) = self.skip_whitespace_and_peek() {
@@ -1872,7 +1872,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_nested_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_nested_expressions(&mut self) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
         if self.skip_whitespace_and_peek() != Some(ParenOpen) {
@@ -1881,18 +1881,29 @@ impl<'source> Parser<'source> {
 
         self.consume_token();
 
-        let expression = if let Some(expression) = self.parse_primary_expression()? {
-            expression
-        } else {
-            self.push_node(Node::Empty)?
+        let mut expressions = vec![];
+        while let Some(expression) = self.parse_primary_expression()? {
+            expressions.push(expression);
+
+            if self.peek_token() == Some(Token::Separator) {
+                self.consume_token();
+            } else {
+                break;
+            }
+        }
+
+        let result = match expressions.as_slice() {
+            [] => self.push_node(Node::Empty)?,
+            [single] => *single,
+            _ => self.push_node(Node::Tuple(expressions))?,
         };
 
         if let Some(ParenClose) = self.peek_token() {
             self.consume_token();
             let result = if self.next_token_is_lookup_start() {
-                self.parse_lookup(expression, false)?
+                self.parse_lookup(result, false)?
             } else {
-                expression
+                result
             };
             Ok(Some(result))
         } else {

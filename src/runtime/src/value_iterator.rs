@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Value, ValueList, ValueMap, Vm},
+    crate::{Error, Value, ValueList, ValueMap, ValueTuple, Vm},
     std::{
         fmt,
         sync::{Arc, Mutex},
@@ -23,6 +23,7 @@ pub type ValueIteratorResult = Result<ValueIteratorOutput, Error>;
 pub enum Iterable {
     Range(IntRange),
     List(ValueList),
+    Tuple(ValueTuple),
     Map(ValueMap),
     Generator(Box<Vm>),
     External(ExternalIterator),
@@ -62,10 +63,10 @@ impl Iterator for ValueIteratorInternals {
     type Item = ValueIteratorResult;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Value::{List, Number};
-
         match &mut self.iterable {
             Iterable::Range(IntRange { start, end }) => {
+                use Value::Number;
+
                 if start <= end {
                     // ascending range
                     let result = *start + self.index as isize;
@@ -94,6 +95,14 @@ impl Iterator for ValueIteratorInternals {
                 self.index += 1;
                 result
             }
+            Iterable::Tuple(tuple) => {
+                let result = tuple
+                    .data()
+                    .get(self.index)
+                    .map(|value| Ok(ValueIteratorOutput::Value(value.clone())));
+                self.index += 1;
+                result
+            }
             Iterable::Map(map) => {
                 let result = match map.data().get_index(self.index) {
                     Some((key, value)) => Some(Ok(ValueIteratorOutput::ValuePair(
@@ -106,21 +115,14 @@ impl Iterator for ValueIteratorInternals {
                 self.index += 1;
                 result
             }
-            Iterable::Generator(vm) => {
-                match vm.continue_running() {
-                    Ok(Value::Empty) => None,
-                    Ok(Value::RegisterList(register_list)) => {
-                        // TODO, instead of capturing values into a list here,
-                        // return the VM and register list, and then the caller can copy
-                        // the values into registers
-                        Some(Ok(ValueIteratorOutput::Value(List(ValueList::from_slice(
-                            vm.register_slice(register_list.start, register_list.count),
-                        )))))
-                    }
-                    Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
-                    Err(error) => Some(Err(error)),
+            Iterable::Generator(vm) => match vm.continue_running() {
+                Ok(Value::Empty) => None,
+                Ok(Value::TemporaryTuple(_)) => {
+                    unreachable!("Yield shouldn't produce temporary tuples")
                 }
-            }
+                Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
+                Err(error) => Some(Err(error)),
+            },
             Iterable::External(external_iterator) => external_iterator.next(),
         }
     }
@@ -140,6 +142,10 @@ impl ValueIterator {
 
     pub fn with_list(list: ValueList) -> Self {
         Self::new(Iterable::List(list))
+    }
+
+    pub fn with_tuple(tuple: ValueTuple) -> Self {
+        Self::new(Iterable::Tuple(tuple))
     }
 
     pub fn with_map(map: ValueMap) -> Self {

@@ -75,5 +75,6 @@ mod koto_tests {
     koto_test!(strings);
     koto_test!(threads);
     koto_test!(toml);
+    koto_test!(tuples);
     koto_test!(types);
 }

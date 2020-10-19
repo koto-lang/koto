@@ -3,6 +3,7 @@ pub mod list;
 pub mod map;
 pub mod range;
 pub mod string;
+pub mod tuple;
 
 use crate::ValueMap;
 
@@ -13,6 +14,7 @@ pub struct CoreLib {
     pub map: ValueMap,
     pub range: ValueMap,
     pub string: ValueMap,
+    pub tuple: ValueMap,
 }
 
 impl Default for CoreLib {
@@ -23,6 +25,7 @@ impl Default for CoreLib {
             map: map::make_module(),
             range: range::make_module(),
             string: string::make_module(),
+            tuple: tuple::make_module(),
         }
     }
 }

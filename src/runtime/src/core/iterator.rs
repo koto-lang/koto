@@ -1,32 +1,13 @@
 use crate::{
     external_error, value,
     value_iterator::{ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult},
-    Value, ValueList, ValueMap, ValueVec,
+    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
 };
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
-
-    result.add_fn("collect", |vm, args| match vm.get_args(args) {
-        [Iterator(i)] => {
-            let mut iterator = i.clone();
-            let mut result = ValueVec::new();
-
-            loop {
-                match iterator.next().map(collect_pair) {
-                    Some(Ok(Output::Value(value))) => result.push(value),
-                    Some(Err(error)) => return Err(error),
-                    Some(_) => unreachable!(),
-                    None => break,
-                }
-            }
-
-            Ok(List(ValueList::with_data(result)))
-        }
-        _ => external_error!("iterator.collect: Expected iterator as argument"),
-    });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
@@ -167,6 +148,72 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = ValueVec::new();
+
+            loop {
+                match iterator.next().map(collect_pair) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
+                    Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
+                    None => break,
+                }
+            }
+
+            Ok(List(ValueList::with_data(result)))
+        }
+        _ => external_error!("iterator.to_list: Expected iterator as argument"),
+    });
+
+    result.add_fn("to_map", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = ValueHashMap::new();
+
+            loop {
+                match iterator.next() {
+                    Some(Ok(Output::Value(Tuple(t)))) if t.data().len() == 2 => {
+                        let key = t.data()[0].clone();
+                        let value = t.data()[1].clone();
+                        result.insert(key, value);
+                    }
+                    Some(Ok(Output::Value(value))) => {
+                        result.insert(value, Value::Empty);
+                    }
+                    Some(Ok(Output::ValuePair(key, value))) => {
+                        result.insert(key, value);
+                    }
+                    Some(Err(error)) => return Err(error),
+                    None => break,
+                }
+            }
+
+            Ok(Map(ValueMap::with_data(result)))
+        }
+        _ => external_error!("iterator.to_map: Expected iterator as argument"),
+    });
+
+    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
+        [Iterator(i)] => {
+            let mut iterator = i.clone();
+            let mut result = Vec::new();
+
+            loop {
+                match iterator.next().map(collect_pair) {
+                    Some(Ok(Output::Value(value))) => result.push(value),
+                    Some(Err(error)) => return Err(error),
+                    Some(_) => unreachable!(),
+                    None => break,
+                }
+            }
+
+            Ok(Tuple(result.into()))
+        }
+        _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
+    });
+
     result.add_fn("transform", |vm, args| {
         match vm.get_args_as_vec(args).as_slice() {
             [Iterator(i), Function(f)] => {
@@ -199,9 +246,7 @@ pub fn make_module() -> ValueMap {
 fn collect_pair(iterator_output: ValueIteratorResult) -> ValueIteratorResult {
     match iterator_output {
         Ok(Output::ValuePair(first, second)) => {
-            Ok(Output::Value(Value::List(ValueList::from_slice(&[
-                first, second,
-            ]))))
+            Ok(Output::Value(Value::Tuple(vec![first, second].into())))
         }
         _ => iterator_output,
     }

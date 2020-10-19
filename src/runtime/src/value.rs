@@ -1,10 +1,7 @@
 use {
     crate::{
-        external::{ExternalFunction, ExternalValue},
-        value_iterator::{IntRange, ValueIterator},
-        value_list::{ValueList, ValueVec},
-        value_map::{ValueHashMap, ValueMap},
-        value_string::ValueString,
+        ExternalFunction, ExternalValue, IntRange, ValueHashMap, ValueIterator, ValueList,
+        ValueMap, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     koto_types::{num2, num4},
@@ -26,15 +23,17 @@ pub enum Value {
     Num4(num4::Num4),
     Range(IntRange),
     List(ValueList),
+    Tuple(ValueTuple),
     Map(ValueMap),
     Str(ValueString),
     Function(RuntimeFunction),
+    Generator(RuntimeFunction),
     Iterator(ValueIterator),
     ExternalFunction(ExternalFunction),
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
     // Internal value types
     IndexRange(IndexRange),
-    RegisterList(RegisterList),
+    TemporaryTuple(RegisterSlice),
     ExternalDataId,
 }
 
@@ -47,14 +46,16 @@ pub enum ValueRef<'a> {
     Num4(&'a num4::Num4),
     Range(&'a IntRange),
     List(&'a ValueList),
+    Tuple(&'a ValueTuple),
     Map(&'a ValueMap),
     Str(&'a str),
     Function(&'a RuntimeFunction),
+    Generator(&'a RuntimeFunction),
     Iterator(&'a ValueIterator),
     ExternalFunction(&'a ExternalFunction),
     ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
     IndexRange(&'a IndexRange),
-    RegisterList(&'a RegisterList),
+    TemporaryTuple(&'a RegisterSlice),
     ExternalDataId,
 }
 
@@ -69,13 +70,15 @@ impl Value {
             Value::Str(s) => ValueRef::Str(&s),
             Value::List(l) => ValueRef::List(l),
             Value::Map(m) => ValueRef::Map(m),
+            Value::Tuple(m) => ValueRef::Tuple(m),
             Value::Range(r) => ValueRef::Range(r),
             Value::IndexRange(r) => ValueRef::IndexRange(r),
             Value::Function(f) => ValueRef::Function(f),
+            Value::Generator(g) => ValueRef::Generator(g),
             Value::Iterator(i) => ValueRef::Iterator(i),
             Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
             Value::ExternalValue(v) => ValueRef::ExternalValue(v),
-            Value::RegisterList(l) => ValueRef::RegisterList(l),
+            Value::TemporaryTuple(t) => ValueRef::TemporaryTuple(t),
             Value::ExternalDataId => ValueRef::ExternalDataId,
         }
     }
@@ -98,6 +101,7 @@ impl fmt::Display for Value {
             Num4(n) => f.write_str(&n.to_string()),
             Str(s) => f.write_str(s),
             List(l) => f.write_str(&l.to_string()),
+            Tuple(t) => f.write_str(&t.to_string()),
             Map(m) => f.write_str(&m.to_string()),
             Range(IntRange { start, end }) => write!(f, "[{}..{}]", start, end),
             IndexRange(self::IndexRange { start, end }) => write!(
@@ -107,11 +111,12 @@ impl fmt::Display for Value {
                 end.map_or("".to_string(), |n| n.to_string()),
             ),
             Function(_) => write!(f, "Function"),
+            Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "External Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
-            RegisterList(self::RegisterList { start, count }) => {
-                write!(f, "RegisterList [{}..{}]", start, start + count)
+            TemporaryTuple(RegisterSlice { start, count }) => {
+                write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
             ExternalDataId => write!(f, "External Data ID"),
         }
@@ -129,6 +134,7 @@ impl PartialEq for Value {
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (List(a), List(b)) => a == b,
+            (Tuple(a), Tuple(b)) => a == b,
             (Map(a), Map(b)) => a == b,
             (Range(a), Range(b)) => a == b,
             (IndexRange(a), IndexRange(b)) => a == b,
@@ -151,6 +157,7 @@ impl<'a> PartialEq for ValueRef<'a> {
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (List(a), List(b)) => a == b,
+            (Tuple(a), Tuple(b)) => a == b,
             (Map(a), Map(b)) => a == b,
             (Range(a), Range(b)) => a == b,
             (IndexRange(a), IndexRange(b)) => a == b,
@@ -252,7 +259,6 @@ pub struct RuntimeFunction {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub arg_count: u8,
-    pub is_generator: bool,
     pub captures: Option<ValueList>,
 }
 
@@ -261,7 +267,6 @@ impl PartialEq for RuntimeFunction {
         self.chunk == other.chunk
             && self.ip == other.ip
             && self.arg_count == other.arg_count
-            && self.is_generator == other.is_generator
             && self.captures == other.captures
     }
 }
@@ -284,7 +289,7 @@ pub struct IndexRange {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RegisterList {
+pub struct RegisterSlice {
     pub start: u8,
     pub count: u8,
 }
@@ -326,11 +331,13 @@ pub fn type_as_string(value: &Value) -> String {
         IndexRange { .. } => "IndexRange".to_string(),
         Map(_) => "Map".to_string(),
         Str(_) => "String".to_string(),
+        Tuple(_) => "Tuple".to_string(),
         Function { .. } => "Function".to_string(),
+        Generator { .. } => "Generator".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
         ExternalValue(value) => value.read().unwrap().value_type(),
         Iterator(_) => "Iterator".to_string(),
-        RegisterList { .. } => "RegisterList".to_string(),
+        TemporaryTuple { .. } => "TemporaryTuple".to_string(),
         ExternalDataId => "ExternalDataId".to_string(),
     }
 }

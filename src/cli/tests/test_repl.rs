@@ -47,6 +47,11 @@ mod repl_tests {
     }
 
     #[test]
+    fn tuple_assignment() {
+        run_koto_repl_test(&[("x = 1, 2, 3", "(1 2 3)"), ("x", "(1 2 3)")]);
+    }
+
+    #[test]
     fn import_assert() {
         run_koto_repl_test(&[
             ("import test.assert", "External Function"),

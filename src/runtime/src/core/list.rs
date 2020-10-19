@@ -10,16 +10,6 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.contains: Expected list and value as arguments"),
     });
 
-    result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(Bool(l.data().is_empty())),
-        _ => external_error!("list.is_empty: Expected list as argument"),
-    });
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
-        _ => external_error!("list.iter: Expected list as argument"),
-    });
-
     result.add_fn("fill", |vm, args| match vm.get_args(args) {
         [List(l), value] => {
             for v in l.data_mut().iter_mut() {
@@ -66,6 +56,16 @@ pub fn make_module() -> ValueMap {
             Ok(Value::Empty)
         }
         _ => external_error!("list.insert: Expected list, number, and value as arguments"),
+    });
+
+    result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
+        [List(l)] => Ok(Bool(l.data().is_empty())),
+        _ => external_error!("list.is_empty: Expected list as argument"),
+    });
+
+    result.add_fn("iter", |vm, args| match vm.get_args(args) {
+        [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
+        _ => external_error!("list.iter: Expected list as argument"),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {

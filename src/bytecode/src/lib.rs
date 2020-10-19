@@ -17,77 +17,77 @@ pub use instruction_reader::*;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Op {
-    Copy,              // target, source
-    DeepCopy,          // target, source
-    SetEmpty,          // register
-    SetFalse,          // register
-    SetTrue,           // register
-    Set0,              // register
-    Set1,              // register
-    LoadNumber,        // register, constant
-    LoadNumberLong,    // register, constant[4]
-    LoadString,        // register, constant
-    LoadStringLong,    // register, constant[4]
-    LoadGlobal,        // register, constant
-    LoadGlobalLong,    // register, constant[4]
-    SetGlobal,         // global, source
-    SetGlobalLong,     // global[4], source
-    Import,            // register, constant
-    ImportLong,        // register, constant[4]
-    RegisterList,      // register, start register, count
-    MakeList,          // register, size hint
-    MakeListLong,      // register, size hint[4]
-    MakeMap,           // register, size hint
-    MakeMapLong,       // register, size hint[4]
-    MakeNum2,          // register, element count, first element
-    MakeNum4,          // register, element count, first element
-    MakeIterator,      // register, range
-    Function,          // register, arg count, capture count, size[2]
-    Generator,         // register, arg count, capture count, size[2]
-    Capture,           // function, target, source
-    LoadCapture,       // register, capture
-    SetCapture,        // capture, source
-    Range,             // register, start, end
-    RangeInclusive,    // register, start, end
-    RangeTo,           // register, end
-    RangeToInclusive,  // register, end
-    RangeFrom,         // register, start
-    RangeFull,         // register
-    Negate,            // register, source
-    Add,               // result, lhs, rhs
-    Subtract,          // result, lhs, rhs
-    Multiply,          // result, lhs, rhs
-    Divide,            // result, lhs, rhs
-    Modulo,            // result, lhs, rhs
-    Less,              // result, lhs, rhs
-    LessOrEqual,       // result, lhs, rhs
-    Greater,           // result, lhs, rhs
-    GreaterOrEqual,    // result, lhs, rhs
-    Equal,             // result, lhs, rhs
-    NotEqual,          // result, lhs, rhs
-    Jump,              // offset[2]
-    JumpTrue,          // condition, offset[2]
-    JumpFalse,         // condition, offset[2]
-    JumpBack,          // offset[2]
-    JumpBackFalse,     // offset[2]
-    Call,              // result, function, arg register, arg count
-    CallChild,         // result, function, arg register, arg count, parent
-    Return,            // register
-    Yield,             // register
-    IteratorNext,      // output, iterator, jump offset[2]
-    ValueIndex,        // result, value register, index
-    ListPushValue,     // list, value
-    ListPushValues,    // list, start register, count
-    ListUpdate,        // list, index, value
-    ListIndex,         // result, list register, index register
-    MapInsert,         // map register, value register, key constant
-    MapInsertLong,     // map register, value register, key constant[4]
-    MapAccess,         // register, map register, key
-    MapAccessLong,     // register, map register, key[4]
-    Type,              // register
-    TryStart,          // catch arg register, catch body offset[2]
-    TryEnd,            //
-    Debug,             // register, constant[4]
+    Copy,             // target, source
+    DeepCopy,         // target, source
+    SetEmpty,         // register
+    SetFalse,         // register
+    SetTrue,          // register
+    Set0,             // register
+    Set1,             // register
+    LoadNumber,       // register, constant
+    LoadNumberLong,   // register, constant[4]
+    LoadString,       // register, constant
+    LoadStringLong,   // register, constant[4]
+    LoadGlobal,       // register, constant
+    LoadGlobalLong,   // register, constant[4]
+    SetGlobal,        // global, source
+    SetGlobalLong,    // global[4], source
+    Import,           // register, constant
+    ImportLong,       // register, constant[4]
+    MakeTuple,        // register, start register, count
+    MakeList,         // register, size hint
+    MakeListLong,     // register, size hint[4]
+    MakeMap,          // register, size hint
+    MakeMapLong,      // register, size hint[4]
+    MakeNum2,         // register, element count, first element
+    MakeNum4,         // register, element count, first element
+    MakeIterator,     // register, range
+    Function,         // register, arg count, capture count, size[2]
+    Generator,        // register, arg count, capture count, size[2]
+    Capture,          // function, target, source
+    LoadCapture,      // register, capture
+    SetCapture,       // capture, source
+    Range,            // register, start, end
+    RangeInclusive,   // register, start, end
+    RangeTo,          // register, end
+    RangeToInclusive, // register, end
+    RangeFrom,        // register, start
+    RangeFull,        // register
+    Negate,           // register, source
+    Add,              // result, lhs, rhs
+    Subtract,         // result, lhs, rhs
+    Multiply,         // result, lhs, rhs
+    Divide,           // result, lhs, rhs
+    Modulo,           // result, lhs, rhs
+    Less,             // result, lhs, rhs
+    LessOrEqual,      // result, lhs, rhs
+    Greater,          // result, lhs, rhs
+    GreaterOrEqual,   // result, lhs, rhs
+    Equal,            // result, lhs, rhs
+    NotEqual,         // result, lhs, rhs
+    Jump,             // offset[2]
+    JumpTrue,         // condition, offset[2]
+    JumpFalse,        // condition, offset[2]
+    JumpBack,         // offset[2]
+    JumpBackFalse,    // offset[2]
+    Call,             // result, function, arg register, arg count
+    CallChild,        // result, function, arg register, arg count, parent
+    Return,           // register
+    Yield,            // register
+    IteratorNext,     // output, iterator, jump offset[2]
+    ValueIndex,       // result, value register, index
+    ListPushValue,    // list, value
+    ListPushValues,   // list, start register, count
+    ListUpdate,       // list, index, value
+    Index,            // result, list register, index register
+    MapInsert,        // map register, value register, key constant
+    MapInsertLong,    // map register, value register, key constant[4]
+    MapAccess,        // register, map register, key
+    MapAccessLong,    // register, map register, key[4]
+    Type,             // register
+    TryStart,         // catch arg register, catch body offset[2]
+    TryEnd,           //
+    Debug,            // register, constant[4]
     Unused71,
     Unused72,
     Unused73,
