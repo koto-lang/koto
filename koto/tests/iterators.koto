@@ -78,7 +78,11 @@ export tests =
           () then return
           value if n % 2 == 0 then yield value
         n += 1
-    z = (10..15).iter().transform(|x| "{}".format x).every_other().to_tuple()
+    z = (10..15)
+      .iter()
+      .transform(|x| "{}".format x)
+      .every_other()
+      .to_tuple()
     assert_eq z ("10", "12", "14")
     # the adaptor can also be called via iterator.adaptor
     z = (iterator.every_other (10..15).iter().transform(|x| "{}".format x)).to_tuple()

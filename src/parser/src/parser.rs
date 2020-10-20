@@ -640,7 +640,7 @@ impl<'source> Parser<'source> {
                         id_index
                     }
                 }
-                Some(Token::ParenOpen) | Some(Token::ListStart) | Some(Token::Dot) => {
+                _ if self.next_token_is_lookup_start(primary_expression) => {
                     self.parse_lookup(id_index, primary_expression)?
                 }
                 _ => id_index,
@@ -660,6 +660,8 @@ impl<'source> Parser<'source> {
         let mut lookup = Vec::new();
 
         let start_span = self.lexer.span();
+        let start_indent = self.lexer.current_indent();
+        let mut lookup_indent = None;
 
         lookup.push(LookupNode::Root(root));
 
@@ -773,6 +775,21 @@ impl<'source> Parser<'source> {
                     }
 
                     break;
+                }
+                _ if self.next_token_is_lookup_continuation() => {
+                    self.consume_until_next_token();
+                    if let Some(lookup_indent) = lookup_indent {
+                        if self.lexer.current_indent() != lookup_indent {
+                            return syntax_error!(UnexpectedIndentation, self);
+                        }
+                    } else {
+                        let current_indent = self.lexer.current_indent();
+                        if current_indent > start_indent {
+                            lookup_indent = Some(current_indent);
+                        } else {
+                            return syntax_error!(ExpectedIndentedLookupContinuation, self);
+                        }
+                    }
                 }
                 _ => break,
             }
@@ -976,7 +993,7 @@ impl<'source> Parser<'source> {
                     let s = self.parse_string(self.lexer.slice())?;
                     let constant_index = self.constants.add_string(&s) as u32;
                     let string_node = self.push_node(Str(constant_index))?;
-                    if self.next_token_is_lookup_start() {
+                    if self.next_token_is_lookup_start(primary_expression) {
                         self.parse_lookup(string_node, primary_expression)?
                     } else {
                         string_node
@@ -1158,7 +1175,7 @@ impl<'source> Parser<'source> {
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
 
-        let result = if self.next_token_is_lookup_start() {
+        let result = if self.next_token_is_lookup_start(primary_expression) {
             self.parse_lookup(list_node, primary_expression)?
         } else {
             list_node
@@ -1298,7 +1315,7 @@ impl<'source> Parser<'source> {
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
 
-        let result = if self.next_token_is_lookup_start() {
+        let result = if self.next_token_is_lookup_start(primary_expression) {
             self.parse_lookup(map_node, primary_expression)?
         } else {
             map_node
@@ -1869,7 +1886,10 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_nested_expressions(&mut self, primary_expression: bool) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_nested_expressions(
+        &mut self,
+        primary_expression: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
         if self.skip_whitespace_and_peek() != Some(ParenOpen) {
@@ -1897,7 +1917,7 @@ impl<'source> Parser<'source> {
 
         if let Some(ParenClose) = self.peek_token() {
             self.consume_token();
-            let result = if self.next_token_is_lookup_start() {
+            let result = if self.next_token_is_lookup_start(primary_expression) {
                 self.parse_lookup(result, primary_expression)?
             } else {
                 result
@@ -1975,11 +1995,31 @@ impl<'source> Parser<'source> {
         })
     }
 
-    fn next_token_is_lookup_start(&mut self) -> bool {
-        matches!(
-            self.peek_token(),
-            Some(Token::Dot) | Some(Token::ListStart) | Some(Token::ParenOpen)
-        )
+    fn next_token_is_lookup_start(&mut self, primary_expression: bool) -> bool {
+        use Token::*;
+
+        if primary_expression {
+            let start_line = self.lexer.line_number();
+            let next_token = self.peek_until_next_token();
+            let next_line = self.lexer.peeked_line_number();
+            if next_line == start_line {
+                matches!(next_token, Some(Dot) | Some(ListStart) | Some(ParenOpen))
+            } else {
+                matches!(next_token, Some(Dot))
+            }
+        } else {
+            matches!(
+                self.peek_token(),
+                Some(Dot) | Some(ListStart) | Some(ParenOpen)
+            )
+        }
+    }
+
+    fn next_token_is_lookup_continuation(&mut self) -> bool {
+        let start_line = self.lexer.line_number();
+        let next_token = self.peek_until_next_token();
+        let next_line = self.lexer.peeked_line_number();
+        next_line > start_line && next_token == Some(Token::Dot)
     }
 
     fn peek_token(&mut self) -> Option<Token> {

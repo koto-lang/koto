@@ -630,6 +630,10 @@ impl<'a> KotoLexer<'a> {
     pub fn line_number(&self) -> u32 {
         self.span().end.line
     }
+
+    pub fn peeked_line_number(&self) -> u32 {
+        self.lexer.span.end.line
+    }
 }
 
 impl<'a> Iterator for KotoLexer<'a> {

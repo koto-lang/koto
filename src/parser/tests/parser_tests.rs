@@ -2481,6 +2481,41 @@ x.foo 42"#;
                 ]),
             )
         }
+
+        #[test]
+        fn multiline_lookup() {
+            let source = "
+x.iter()
+  .skip(1)
+  .to_tuple()
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Lookup(vec![
+                        LookupNode::Root(0),
+                        LookupNode::Id(1),
+                        LookupNode::Call(vec![]),
+                        LookupNode::Id(2),
+                        LookupNode::Call(vec![1]),
+                        LookupNode::Id(3),
+                        LookupNode::Call(vec![]),
+                    ]), // 5
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("iter"),
+                    Constant::Str("skip"),
+                    Constant::Str("to_tuple"),
+                ]),
+            )
+        }
     }
 
     mod keywords {
