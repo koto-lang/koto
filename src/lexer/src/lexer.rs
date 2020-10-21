@@ -627,12 +627,19 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    pub fn peek_indent(&self, peek_index: usize) -> usize {
+        self.peeked_tokens[self.current_peek_index + peek_index].indent
+    }
+
     pub fn line_number(&self) -> u32 {
         self.span().end.line
     }
 
-    pub fn peeked_line_number(&self) -> u32 {
-        self.lexer.span.end.line
+    pub fn peek_line_number(&self, peek_index: usize) -> u32 {
+        self.peeked_tokens[self.current_peek_index + peek_index]
+            .span
+            .end
+            .line
     }
 }
 

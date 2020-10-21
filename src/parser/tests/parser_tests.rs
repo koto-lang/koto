@@ -1812,13 +1812,12 @@ f 42";
 
         #[test]
         fn call_negative_arg() {
-            let source = "\
-                          f 0 -x";
+            let source = "f x -x";
             check_ast(
                 source,
                 &[
                     Id(0),
-                    Number0,
+                    Id(1),
                     Id(1),
                     Negate(2),
                     Call {
@@ -1827,6 +1826,61 @@ f 42";
                     },
                     MainBlock {
                         body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn call_over_lines() {
+            let source = "
+foo
+  x
+  y";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Call {
+                        function: 0,
+                        args: vec![1, 2],
+                    },
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn calls_with_comment_between() {
+            let source = "
+f x
+  # Indented comment shouldn't break parsing
+f x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    MainBlock {
+                        body: vec![2, 5],
                         local_count: 0,
                     },
                 ],
