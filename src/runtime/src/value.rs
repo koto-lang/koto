@@ -60,6 +60,7 @@ pub enum ValueRef<'a> {
 }
 
 impl Value {
+    #[inline]
     pub fn as_ref(&self) -> ValueRef {
         match self {
             Value::Empty => ValueRef::Empty,
