@@ -791,8 +791,8 @@ impl<'source> Parser<'source> {
                     ));
                 }
                 Token::ListStart => {
-                    node_start_span = self.lexer.span();
                     self.consume_token();
+                    node_start_span = self.lexer.span();
 
                     let index_context = ExpressionContext {
                         allow_function_start: false, // TODO true?
@@ -886,8 +886,8 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Dot => {
-                    node_start_span = self.lexer.span();
                     self.consume_token();
+                    node_start_span = self.lexer.span();
 
                     if let Some(id_index) = self.parse_id_or_string()? {
                         lookup.push((
