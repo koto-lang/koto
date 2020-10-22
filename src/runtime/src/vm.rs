@@ -1779,7 +1779,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         external_function: &ExternalFunction,
-        arg_register: u8,
+        frame_base: u8,
         call_arg_count: u8,
         parent_register: Option<u8>,
         instruction_ip: usize,
@@ -1788,11 +1788,12 @@ impl Vm {
 
         let mut call_arg_count = call_arg_count;
 
-        if external_function.is_instance_function {
+        let frame_base = if external_function.is_instance_function {
             if let Some(parent_register) = parent_register {
                 let parent = self.clone_register(parent_register);
-                self.insert_register(arg_register, parent);
+                self.set_register(frame_base, parent);
                 call_arg_count += 1;
+                frame_base
             } else {
                 return vm_error!(
                     self.chunk(),
@@ -1800,12 +1801,14 @@ impl Vm {
                     "Expected self for external instance function"
                 );
             }
+        } else {
+            frame_base + 1
         };
 
         let result = (&*function)(
             self,
             &Args {
-                register: arg_register,
+                register: frame_base,
                 count: call_arg_count,
             },
         );
@@ -1831,7 +1834,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         function: &RuntimeFunction,
-        arg_register: u8,
+        frame_base: u8,
         call_arg_count: u8,
         parent_register: Option<u8>,
         instruction_ip: usize,
@@ -1853,18 +1856,25 @@ impl Vm {
             captures.clone(),
         );
 
-        // prepare args for the spawned vm
-        let mut call_arg_count = call_arg_count;
-        let mut set_arg_offset = 0;
-
-        if let Some(parent_register) = parent_register {
+        // Prepare args for the spawned vm
+        let parent_assigned = if let Some(parent_register) = parent_register {
             if call_arg_count < *function_arg_count {
                 let parent = self.clone_register(parent_register);
+                // Set the parent to be the first arg in the generator vm
                 generator_vm.set_register(0, parent);
-                set_arg_offset = 1;
-                call_arg_count += 1;
+                true
+            } else {
+                false
             }
-        }
+        } else {
+            false
+        };
+
+        let (frame_base, call_arg_count, set_arg_offset) = if parent_assigned {
+            (frame_base, call_arg_count + 1, 1)
+        } else {
+            (frame_base + 1, call_arg_count, 0)
+        };
 
         let args_to_copy = if *function_arg_count == 0 {
             0
@@ -1872,13 +1882,14 @@ impl Vm {
             *function_arg_count - set_arg_offset
         };
 
-        // Copy args starting at register 0
+        // Copy args, starting at register 0
         for arg in 0..args_to_copy {
             generator_vm.set_register(
                 (arg + set_arg_offset) as u8,
-                self.clone_register(arg_register + arg),
+                self.clone_register(frame_base + arg),
             );
         }
+
 
         if *function_arg_count != call_arg_count {
             return vm_error!(
@@ -1898,7 +1909,7 @@ impl Vm {
         &mut self,
         result_register: u8,
         function: &Value,
-        arg_register: u8,
+        frame_base: u8,
         call_arg_count: u8,
         parent_register: Option<u8>,
         instruction_ip: usize,
@@ -1909,7 +1920,7 @@ impl Vm {
             ExternalFunction(external_function) => self.call_external_function(
                 result_register,
                 external_function,
-                arg_register,
+                frame_base,
                 call_arg_count,
                 parent_register,
                 instruction_ip,
@@ -1917,7 +1928,7 @@ impl Vm {
             Generator(runtime_function) => self.call_generator(
                 result_register,
                 runtime_function,
-                arg_register,
+                frame_base,
                 call_arg_count,
                 parent_register,
                 instruction_ip,
@@ -1931,13 +1942,18 @@ impl Vm {
                 let expected_count = *function_arg_count;
                 let mut call_arg_count = call_arg_count;
 
-                if let Some(parent_register) = parent_register {
+                let frame_base = if let Some(parent_register) = parent_register {
                     if call_arg_count < expected_count {
                         let parent = self.clone_register(parent_register);
-                        self.insert_register(arg_register, parent);
+                        self.set_register(frame_base, parent);
                         call_arg_count += 1;
+                        frame_base
+                    } else {
+                        frame_base + 1
                     }
-                }
+                } else {
+                    frame_base + 1
+                };
 
                 if call_arg_count != expected_count {
                     return vm_error!(
@@ -1951,7 +1967,7 @@ impl Vm {
 
                 self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
 
-                self.push_frame(chunk.clone(), *function_ip, arg_register, captures.clone());
+                self.push_frame(chunk.clone(), *function_ip, frame_base, captures.clone());
                 Ok(Empty)
             }
             unexpected => vm_error!(
@@ -1999,7 +2015,7 @@ impl Vm {
         &mut self,
         chunk: Arc<Chunk>,
         ip: usize,
-        arg_register: u8,
+        frame_base: u8,
         captures: Option<ValueList>,
     ) {
         let previous_frame_base = if let Some(frame) = self.call_stack.last() {
@@ -2007,7 +2023,7 @@ impl Vm {
         } else {
             0
         };
-        let new_frame_base = previous_frame_base + arg_register as usize;
+        let new_frame_base = previous_frame_base + frame_base as usize;
 
         self.call_stack
             .push(Frame::new(chunk.clone(), new_frame_base, captures));
@@ -2055,16 +2071,6 @@ impl Vm {
         }
 
         self.value_stack[index] = value;
-    }
-
-    fn insert_register(&mut self, register: u8, value: Value) {
-        let index = self.register_index(register);
-
-        if index >= self.value_stack.len() {
-            self.value_stack.resize(index + 1, Value::Empty);
-        }
-
-        self.value_stack.insert(index, value);
     }
 
     fn clone_register(&self, register: u8) -> Value {

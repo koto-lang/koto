@@ -2111,7 +2111,9 @@ impl Compiler {
         let result = self.get_result_register(result_register)?;
         let stack_count = self.frame().register_stack.len();
 
-        let frame_base = self.frame().next_temporary_register();
+        // The frame base is an empty register that may be used for a parent value if needed
+        // (it's decided at runtime if the parent value will be used or not).
+        let frame_base = self.push_register()?;
 
         for arg in args.iter() {
             let arg_register = self.push_register()?;
