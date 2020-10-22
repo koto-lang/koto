@@ -2540,7 +2540,7 @@ x.foo 42"#;
         fn multiline_lookup() {
             let source = "
 x.iter()
-  .skip(1)
+  .skip 1
   .to_tuple()
 ";
             check_ast(

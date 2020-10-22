@@ -84,7 +84,7 @@ export tests =
         n += 1
     z = (10..15)
       .iter()
-      .transform(|x| "{}".format x)
+      .transform |x| "{}".format x
       .every_other()
       .to_tuple()
     assert_eq z ("10", "12", "14")

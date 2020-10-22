@@ -123,7 +123,7 @@ impl Frame {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 struct ExpressionContext {
     // e.g. a = f x y
     // `x` and `y` are `f`'s arguments, and while parsing them this flag is set to false,
@@ -770,16 +770,23 @@ impl<'source> Parser<'source> {
         let start_span = self.lexer.span();
         let start_indent = self.lexer.current_indent();
         let mut lookup_indent = None;
+        let mut node_context = *context;
 
         lookup.push(LookupNode::Root(root));
 
-        loop {
-            match self.peek_token() {
-                Some(Token::ParenOpen) => {
+        while let Some(token) = self.peek_token() {
+            if let Some(lookup_indent) = lookup_indent {
+                if self.lexer.current_indent() != lookup_indent {
+                    return syntax_error!(UnexpectedIndentation, self);
+                }
+            }
+
+            match token {
+                Token::ParenOpen => {
                     let args = self.parse_parenthesized_args()?;
                     lookup.push(LookupNode::Call(args));
                 }
-                Some(Token::ListStart) => {
+                Token::ListStart => {
                     self.consume_token();
 
                     let index_context = ExpressionContext {
@@ -828,6 +835,8 @@ impl<'source> Parser<'source> {
                                 _ => index_expression,
                             }
                         } else {
+                            // Look for RangeTo/RangeFull
+                            // e.g. x[..10], y[..]
                             match self.skip_whitespace_and_peek() {
                                 Some(Token::Range) => {
                                     self.consume_token();
@@ -868,7 +877,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedIndexEnd, self);
                     }
                 }
-                Some(Token::Dot) => {
+                Token::Dot => {
                     self.consume_token();
 
                     if let Some(id_index) = self.parse_id_or_string()? {
@@ -877,7 +886,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedMapKey, self);
                     }
                 }
-                Some(Token::Whitespace) if context.allow_function_start => {
+                Token::Whitespace if node_context.allow_function_start => {
                     self.consume_token();
                     let current_line = self.lexer.line_number();
 
@@ -898,25 +907,31 @@ impl<'source> Parser<'source> {
                         }
 
                         lookup.push(LookupNode::Call(args));
-                    }
 
-                    break;
+                        node_context = ExpressionContext {
+                            allow_function_start: false,
+                            ..node_context
+                        };
+                    } else {
+                        break;
+                    }
                 }
                 _ if self.next_token_is_lookup_continuation() => {
                     self.consume_until_next_token();
+                    let new_indent = self.lexer.current_indent();
 
-                    if let Some(lookup_indent) = lookup_indent {
-                        if self.lexer.current_indent() != lookup_indent {
-                            return syntax_error!(UnexpectedIndentation, self);
-                        }
-                    } else {
-                        let current_indent = self.lexer.current_indent();
-                        if current_indent > start_indent {
-                            lookup_indent = Some(current_indent);
+                    if lookup_indent.is_none() {
+                        if new_indent > start_indent {
+                            lookup_indent = Some(new_indent);
                         } else {
-                            return syntax_error!(ExpectedIndentedLookupContinuation, self);
+                            break;
                         }
                     }
+
+                    node_context = ExpressionContext {
+                        allow_function_start: true,
+                        ..node_context
+                    };
                 }
                 _ => break,
             }
@@ -2166,9 +2181,11 @@ impl<'source> Parser<'source> {
             return true;
         } else if context.allow_linebreaks {
             let start_line = self.lexer.line_number();
+            let start_indent = self.lexer.current_indent();
             if let Some((next_token, peek_count)) = self.peek_until_next_token() {
                 let next_line = self.lexer.peek_line_number(peek_count);
-                if next_line > start_line {
+                let next_indent = self.lexer.peek_indent(peek_count);
+                if next_line > start_line && next_indent > start_indent {
                     return matches!(next_token, Dot);
                 }
             }

@@ -44,7 +44,7 @@ assert_eq m.bar -1
 
 x = [
   42,
-  99
+  99,
 ]
 assert_eq x[1] 99
 
