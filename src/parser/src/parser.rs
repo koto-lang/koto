@@ -900,32 +900,18 @@ impl<'source> Parser<'source> {
                 }
                 Token::Whitespace if node_context.allow_function_start => {
                     self.consume_token();
-                    let current_line = self.lexer.line_number();
 
-                    let call_context = ExpressionContext {
-                        allow_function_start: false,
-                        ..*context
-                    };
+                    let args = self.parse_space_separated_call_args(context)?;
 
-                    if let Some(expression) = self.parse_expression(&call_context)? {
-                        let mut args = vec![expression];
-
-                        while self.lexer.line_number() == current_line {
-                            if let Some(expression) = self.parse_expression(&call_context)? {
-                                args.push(expression);
-                            } else {
-                                break;
-                            }
-                        }
-
+                    if args.is_empty() {
+                        break;
+                    } else {
                         lookup.push((LookupNode::Call(args), node_start_span));
 
                         node_context = ExpressionContext {
                             allow_function_start: false,
                             ..node_context
                         };
-                    } else {
-                        break;
                     }
                 }
                 _ if self.next_token_is_lookup_continuation() => {

@@ -3183,5 +3183,48 @@ match x, y
                 ]),
             )
         }
+
+        #[test]
+        fn match_condition_is_lookup_call() {
+            let source = "
+match x.foo 42
+  () then 0
+  _ then 1
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number(2),
+                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((LookupNode::Id(1), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    Empty,// 5
+                    Number0,
+                    Wildcard,
+                    Number1,
+                    Match {
+                        expression: 4,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![5],
+                                condition: None,
+                                expression: 6,
+                            },
+                            MatchArm {
+                                patterns: vec![7],
+                                condition: None,
+                                expression: 8,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::Number(42.0)]),
+            )
+        }
     }
 }
