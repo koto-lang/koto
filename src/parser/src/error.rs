@@ -8,6 +8,7 @@ pub enum InternalError {
     NumberParseFailure,
     IdParseFailure,
     FunctionParseFailure,
+    LookupParseFailure,
     RangeParseFailure,
     ForParseFailure,
     ArgumentsParseFailure,
@@ -75,6 +76,7 @@ pub enum SyntaxError {
     ExpectedCatchArgument,
     ExpectedFinallyBody,
     UnexpectedEscapeInString,
+    ExpectedIndentedLookupContinuation,
 }
 
 #[derive(Debug)]
@@ -130,6 +132,7 @@ impl fmt::Display for InternalError {
             NumberParseFailure => f.write_str("Failed to parse number"),
             IdParseFailure => f.write_str("Failed to parse ID"),
             FunctionParseFailure => f.write_str("Failed to parse function"),
+            LookupParseFailure => f.write_str("Failed to parse lookup"),
             RangeParseFailure => f.write_str("Failed to parse range"),
             ForParseFailure => f.write_str("Failed to parse for loop"),
             ArgumentsParseFailure => f.write_str("Failed to parse arguments"),
@@ -210,6 +213,9 @@ impl fmt::Display for SyntaxError {
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedFinallyBody => f.write_str("Expected indented block for finally expression"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
+            ExpectedIndentedLookupContinuation => {
+                f.write_str("Expected indented lookup continuation")
+            }
         }
     }
 }

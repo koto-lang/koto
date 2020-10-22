@@ -12,15 +12,15 @@ b = num4(
 b = num4 1 2 3 4
 assert_eq a b
 
-x = [1 2 3].iter().fold(
+x = (1, 2, 3).iter().fold(
   0
   |a b| a + b
 )
 assert_eq x 6
 
-x = [1 2 3].iter().fold 0 |a b|
-  a + b
-
+x = (1, 2, 3)
+  .iter()
+  .fold 0 |a b| a + b
 assert_eq x 6
 
 x = |
@@ -28,7 +28,9 @@ x = |
   long_arg_2
 |
   # The body must be indented
-  assert_eq long_arg long_arg_2
+  assert_eq
+    long_arg # call args can be indented
+    long_arg_2
 
 x 1 1
 
@@ -41,8 +43,8 @@ m = {
 assert_eq m.bar -1
 
 x = [
-  42
-  99
+  42,
+  99,
 ]
 assert_eq x[1] 99
 

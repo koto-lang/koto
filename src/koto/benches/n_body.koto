@@ -63,7 +63,7 @@ init_bodies = ||
   neptune.mass = 5.15138902046611451e-05 * solar_mass
 
 
-bodies = [sun jupiter saturn uranus neptune]
+bodies = [sun, jupiter, saturn, uranus, neptune]
 
 
 advance = |bodies nbodies dt|

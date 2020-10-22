@@ -42,6 +42,12 @@ zzz
     x3 = "foo\nbar\nbaz"
     assert_eq x3.lines().to_tuple() ("foo", "bar", "baz")
 
+  test_escaped_newlines: ||
+    x = "foo \
+         bar \
+         baz"
+    assert_eq x "foo bar baz"
+
   test_slice: ||
     assert_eq ("abcdef".slice 2 5) "cde"
     x = "abcdef".slice 2 # end index is optional

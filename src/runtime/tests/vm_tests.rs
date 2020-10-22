@@ -281,14 +281,14 @@ a = 99
 
         #[test]
         fn literals() {
-            test_script("[1 2 3 4]", number_list(&[1, 2, 3, 4]));
+            test_script("[1, 2, 3, 4]", number_list(&[1, 2, 3, 4]));
         }
 
         #[test]
         fn from_ids() {
             let script = "
 a = 1
-[a a a]";
+[a, a, a]";
             test_script(script, number_list(&[1, 1, 1]));
         }
 
@@ -298,14 +298,9 @@ a = 1
         }
 
         #[test]
-        fn from_multiple_ranges() {
-            test_script("[0..3 3..=0]", number_list(&[0, 1, 2, 3, 2, 1, 0]));
-        }
-
-        #[test]
         fn access_element() {
             let script = "
-a = [1 2 3]
+a = [1, 2, 3]
 a[1]";
             test_script(script, Number(2.0));
         }
@@ -313,7 +308,7 @@ a[1]";
         #[test]
         fn access_range() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[1..3]";
             test_script(script, number_list(&[20, 30]));
         }
@@ -321,7 +316,7 @@ a[1..3]";
         #[test]
         fn access_range_inclusive() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[1..=3]";
             test_script(script, number_list(&[20, 30, 40]));
         }
@@ -329,7 +324,7 @@ a[1..=3]";
         #[test]
         fn access_range_to() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[..2]";
             test_script(script, number_list(&[10, 20]));
         }
@@ -337,7 +332,7 @@ a[..2]";
         #[test]
         fn access_range_to_inclusive() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[..=2]";
             test_script(script, number_list(&[10, 20, 30]));
         }
@@ -345,7 +340,7 @@ a[..=2]";
         #[test]
         fn access_range_from() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[2..]";
             test_script(script, number_list(&[30, 40, 50]));
         }
@@ -353,7 +348,7 @@ a[2..]";
         #[test]
         fn access_range_full() {
             let script = "
-a = [10 20 30 40 50]
+a = [10, 20, 30, 40, 50]
 a[..]";
             test_script(script, number_list(&[10, 20, 30, 40, 50]));
         }
@@ -361,7 +356,7 @@ a[..]";
         #[test]
         fn assign_element() {
             let script = "
-a = [1 2 3]
+a = [1, 2, 3]
 x = 2
 a[x] = -1
 a";
@@ -371,7 +366,7 @@ a";
         #[test]
         fn assign_range() {
             let script = "
-a = [1 2 3 4 5]
+a = [1, 2, 3, 4, 5]
 a[1..=3] = 0
 a";
             test_script(script, number_list(&[1, 0, 0, 0, 5]));
@@ -380,7 +375,7 @@ a";
         #[test]
         fn assign_range_to() {
             let script = "
-a = [1 2 3 4 5]
+a = [1, 2, 3, 4, 5]
 a[..3] = 0
 a";
             test_script(script, number_list(&[0, 0, 0, 4, 5]));
@@ -389,7 +384,7 @@ a";
         #[test]
         fn assign_range_to_inclusive() {
             let script = "
-a = [1 2 3 4 5]
+a = [1, 2, 3, 4, 5]
 a[..=3] = 8
 a";
             test_script(script, number_list(&[8, 8, 8, 8, 5]));
@@ -398,7 +393,7 @@ a";
         #[test]
         fn assign_range_from() {
             let script = "
-a = [1 2 3 4 5]
+a = [1, 2, 3, 4, 5]
 a[2..] = 9
 a";
             test_script(script, number_list(&[1, 2, 9, 9, 9]));
@@ -407,7 +402,7 @@ a";
         #[test]
         fn assign_range_full() {
             let script = "
-a = [1 2 3 4 5]
+a = [1, 2, 3, 4, 5]
 a[..] = 9
 a";
             test_script(script, number_list(&[9, 9, 9, 9, 9]));
@@ -415,13 +410,13 @@ a";
 
         #[test]
         fn addition() {
-            test_script("[1 2 3] + [4 5]", number_list(&[1, 2, 3, 4, 5]));
+            test_script("[1, 2, 3] + [4, 5]", number_list(&[1, 2, 3, 4, 5]));
         }
 
         #[test]
         fn shared_data_by_default() {
             let script = "
-l = [1 2 3]
+l = [1, 2, 3]
 l2 = l
 l[1] = -1
 l2[1]";
@@ -431,7 +426,7 @@ l2[1]";
         #[test]
         fn copy() {
             let script = "
-l = [1 2 3]
+l = [1, 2, 3]
 l2 = copy l
 l[1] = -1
 l2[1]";
@@ -461,7 +456,7 @@ a, b";
         #[test]
         fn list_elements_1_to_2() {
             let script = "
-x = [0 0]
+x = [0, 0]
 x[0], x[1] = 99
 x";
             test_script(script, value_list(&[Number(99.0), Empty]));
@@ -470,7 +465,7 @@ x";
         #[test]
         fn list_elements_2_to_2() {
             let script = "
-x = [0 0]
+x = [0, 0]
 x[0], x[1] = -1, 42
 x";
             test_script(script, number_list(&[-1, 42]));
@@ -479,7 +474,7 @@ x";
         #[test]
         fn unpack_list() {
             let script = "
-a, b, c = [7 8]
+a, b, c = [7, 8]
 a, b, c";
             test_script(script, value_tuple(&[Number(7.0), Number(8.0), Empty]));
         }
@@ -487,7 +482,7 @@ a, b, c";
         #[test]
         fn multiple_lists() {
             let script = "
-a, b, c = [1 2], [3 4]
+a, b, c = [1, 2], [3, 4]
 a, b, c";
             test_script(
                 script,
@@ -819,7 +814,7 @@ f 3";
         #[test]
         fn capture_via_mutation() {
             let script = "
-data = [1 2 3]
+data = [1, 2, 3]
 f = ||
   data[1] = 99
   data = () # reassignment doesn't affect the original copy of data
@@ -867,7 +862,7 @@ f = |x|
     x[0], x[1] = x[0] + 1, x[1] + 1
   inner()
   x
-f [1 2]";
+f [1, 2]";
             test_script(script, number_list(&[2, 3]));
         }
 
@@ -962,7 +957,7 @@ count";
         fn for_list() {
             let script = "
 sum = 0
-(sum += a) for a in [10 20 30 40]
+(sum += a) for a in [10, 20, 30, 40]
 sum";
             test_script(script, Number(100.0));
         }
@@ -983,7 +978,7 @@ sum";
         fn for_break_nested() {
             let script = "
 sum = 0
-for i in [1 2 3]
+for i in [1, 2, 3]
   for j in 0..5
     if j == 2
       break
@@ -1008,7 +1003,7 @@ sum";
         fn for_continue_nested() {
             let script = "
 sum = 0
-for i in [2 4 6]
+for i in [2, 4, 6]
   for j in 0..10
     if j > 1
       continue
@@ -1072,7 +1067,7 @@ f()";
         fn multiple_ranges_2_to_1() {
             let script = "
 sum = 0
-for a, b in [[1 2] [3 4]]
+for a, b in [[1, 2], [3, 4]]
   sum += a + b
 sum
 ";
@@ -1083,7 +1078,7 @@ sum
         fn multiple_ranges_2_to_2() {
             let script = "
 sum = 0
-for a, b in [1 2 3], [4 5 6]
+for a, b in [1, 2, 3], [4, 5, 6]
   sum += a + b
 sum
 ";
@@ -1169,7 +1164,7 @@ o.foo";
         fn addition() {
             let script = "
 m = {foo: -1, bar: 42} + {foo: 99}
-[m.foo m.bar]";
+[m.foo, m.bar]";
             test_script(script, number_list(&[99, 42]));
         }
 
@@ -1219,7 +1214,7 @@ m2.foo";
         #[test]
         fn list_in_map() {
             let script = "
-m = {x: [100 200]}
+m = {x: [100, 200]}
 m.x[1]";
             test_script(script, Number(200.0));
         }
@@ -1228,7 +1223,7 @@ m.x[1]";
         fn map_in_list() {
             let script = "
 m = {foo: 99}
-l = [m m m]
+l = [m, m, m]
 l[2].foo";
             test_script(script, Number(99.0));
         }
@@ -1237,7 +1232,7 @@ l[2].foo";
         fn assign_to_map_in_list() {
             let script = "
 m = {bar: 0}
-l = [m m m]
+l = [m, m, m]
 l[1].bar = -1
 l[1].bar";
             test_script(script, Number(-1.0));
@@ -1246,8 +1241,8 @@ l[1].bar";
         #[test]
         fn assign_to_list_in_map_in_list() {
             let script = "
-m = {foo: [1 2 3]}
-l = [m m m]
+m = {foo: [1, 2, 3]}
+l = [m, m, m]
 l[2].foo[0] = 99
 l[2].foo[0]";
             test_script(script, Number(99.0));
@@ -1331,7 +1326,7 @@ fold 0..5 |n _| n + 1";
         fn conditional_for() {
             let script = "
 f = |x| x * x
-[f(x) for x in [2 3 4] if x % 2 == 0]";
+[f(x) for x in [2, 3, 4] if x % 2 == 0]";
             test_script(script, number_list(&[4, 16]));
         }
 
@@ -1499,7 +1494,7 @@ x[1]";
 
         #[test]
         fn from_list() {
-            test_script("num4 [-1 1]", num4(-1.0, 1.0, 0.0, 0.0));
+            test_script("num4 [-1, 1]", num4(-1.0, 1.0, 0.0, 0.0));
         }
 
         #[test]

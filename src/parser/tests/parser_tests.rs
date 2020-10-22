@@ -71,6 +71,33 @@ a
         }
 
         #[test]
+        fn multiline_strings() {
+            let source = r#"
+"    foo
+     bar
+"
+"foo \
+     bar\
+"
+"#;
+            check_ast(
+                source,
+                &[
+                    Str(0),
+                    Str(1),
+                    MainBlock {
+                        body: vec![0, 1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("    foo\n     bar\n"),
+                    Constant::Str("foo bar"),
+                ]),
+            )
+        }
+
+        #[test]
         fn negatives() {
             let source = "\
 -12.0
@@ -85,18 +112,19 @@ a
                     Negate(1),
                     Id(2),
                     Number0,
-                    Lookup(vec![LookupNode::Root(3), LookupNode::Index(4)]), // 5
-                    Negate(5),
+                    Lookup((LookupNode::Index(4), None)), // 5
+                    Lookup((LookupNode::Root(3), Some(5))),
+                    Negate(6),
                     Number1,
                     Number1,
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 7,
-                        rhs: 8,
-                    },
-                    Negate(9), // 10
+                        lhs: 8,
+                        rhs: 9,
+                    }, // 10
+                    Negate(10),
                     MainBlock {
-                        body: vec![0, 2, 6, 10],
+                        body: vec![0, 2, 7, 11],
                         local_count: 0,
                     },
                 ],
@@ -110,7 +138,7 @@ a
 
         #[test]
         fn list() {
-            let source = "[0 n \"test\" n -1]";
+            let source = "[0, n, \"test\", n, -1]";
             check_ast(
                 source,
                 &[
@@ -137,8 +165,8 @@ a
         fn list_with_line_breaks() {
             let source = "\
 x = [
-  0
-  1 0 1
+  0,
+  1, 0, 1,
   0
 ]";
             check_ast(
@@ -282,16 +310,18 @@ foo.bar..foo.baz";
                         inclusive: false,
                     },
                     Id(0),
-                    Lookup(vec![LookupNode::Root(13), LookupNode::Id(1)]),
-                    Id(0), // 15
-                    Lookup(vec![LookupNode::Root(15), LookupNode::Id(2)]),
+                    Lookup((LookupNode::Id(1), None)),
+                    Lookup((LookupNode::Root(13), Some(14))), // 15
+                    Id(0),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Root(16), Some(17))),
                     Range {
-                        start: 14,
-                        end: 16,
+                        start: 15,
+                        end: 18,
                         inclusive: false,
                     },
                     MainBlock {
-                        body: vec![2, 5, 12, 17],
+                        body: vec![2, 5, 12, 19],
                         local_count: 0,
                     },
                 ],
@@ -307,7 +337,7 @@ foo.bar..foo.baz";
         fn lists_from_ranges() {
             let source = "\
 [0..1]
-[0..10 10..=0]";
+[0..10, 10..=0]";
             check_ast(
                 source,
                 &[
@@ -562,10 +592,11 @@ num4 x 0 1 x";
                     Id(0),
                     Id(1),
                     Number0,
-                    Lookup(vec![LookupNode::Root(1), LookupNode::Index(2)]),
-                    Number1,
-                    Number0, // 5
-                    Tuple(vec![4, 5]),
+                    Lookup((LookupNode::Index(2), None)),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    Number1, // 5
+                    Number0,
+                    Tuple(vec![5, 6]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -573,14 +604,14 @@ num4 x 0 1 x";
                                 scope: Scope::Local,
                             },
                             AssignTarget {
-                                target_index: 3,
+                                target_index: 4,
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 6,
+                        expressions: 7,
                     },
                     MainBlock {
-                        body: vec![7],
+                        body: vec![8],
                         local_count: 1, // y is assumed to be non-local
                     },
                 ],
@@ -636,7 +667,8 @@ x";
                     Id(1),
                     Id(2),
                     Id(3),
-                    Lookup(vec![LookupNode::Root(3), LookupNode::Call(vec![])]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -652,10 +684,10 @@ x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 4,
+                        expressions: 5,
                     },
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 3,
                     },
                 ],
@@ -1597,9 +1629,10 @@ a()";
                         expression: 2,
                     },
                     Id(0),
-                    Lookup(vec![LookupNode::Root(4), LookupNode::Call(vec![])]), // 5
+                    Lookup((LookupNode::Call(vec![]), None)), // 5
+                    Lookup((LookupNode::Root(4), Some(5))),
                     MainBlock {
-                        body: vec![3, 5],
+                        body: vec![3, 6],
                         local_count: 1,
                     },
                 ],
@@ -1785,13 +1818,12 @@ f 42";
 
         #[test]
         fn call_negative_arg() {
-            let source = "\
-                          f 0 -x";
+            let source = "f x -x";
             check_ast(
                 source,
                 &[
                     Id(0),
-                    Number0,
+                    Id(1),
                     Id(1),
                     Negate(2),
                     Call {
@@ -1808,34 +1840,90 @@ f 42";
         }
 
         #[test]
+        fn call_over_lines() {
+            let source = "
+foo
+  x
+  y";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Call {
+                        function: 0,
+                        args: vec![1, 2],
+                    },
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn calls_with_comment_between() {
+            let source = "
+f x
+  # Indented comment shouldn't break parsing
+f x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
+                    MainBlock {
+                        body: vec![2, 5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
         fn instance_function() {
             let source = "{foo: 42, bar: |self x| self.foo = x}";
             check_ast(
                 source,
                 &[
                     Number(1),
-                    Id(3), // x
-                    Lookup(vec![LookupNode::Root(1), LookupNode::Id(0)]),
+                    Id(3), // self
+                    Lookup((LookupNode::Id(0), None)),
+                    Lookup((LookupNode::Root(1), Some(2))),
                     Id(4), // x
                     Assign {
                         target: AssignTarget {
-                            target_index: 2,
+                            target_index: 3,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
-                    },
+                        expression: 4,
+                    }, // 5
                     Function(koto_parser::Function {
                         args: vec![3, 4],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 4,
+                        body: 5,
                         is_generator: false,
-                    }), // 5
+                    }),
                     // Map entries are constant/ast index pairs
-                    Map(vec![(0, Some(0)), (2, Some(5))]),
+                    Map(vec![(0, Some(0)), (2, Some(6))]),
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 0,
                     },
                 ],
@@ -1862,30 +1950,31 @@ f()";
                     Id(0),
                     Number(2),
                     Id(4),
-                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(1)]),
-                    Id(5), // x
+                    Lookup((LookupNode::Id(1), None)),
+                    Lookup((LookupNode::Root(2), Some(3))),
+                    Id(5), // 5 - x
                     Assign {
                         target: AssignTarget {
-                            target_index: 3,
+                            target_index: 4,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 4,
+                        expression: 5,
                     }, // 5
                     Function(koto_parser::Function {
                         args: vec![4, 5],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 5,
+                        body: 6,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
-                    Map(vec![(1, Some(1)), (3, Some(6))]),
+                    Map(vec![(1, Some(1)), (3, Some(7))]),
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 7,
+                        body: 8,
                         is_generator: false,
                     }),
                     Assign {
@@ -1894,12 +1983,13 @@ f()";
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 8,
-                    },
-                    Id(0), // 10
-                    Lookup(vec![LookupNode::Root(10), LookupNode::Call(vec![])]),
+                        expression: 9,
+                    }, // 10
+                    Id(0),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Root(11), Some(12))),
                     MainBlock {
-                        body: vec![9, 11],
+                        body: vec![10, 13],
                         local_count: 1,
                     },
                 ],
@@ -2197,115 +2287,192 @@ y z";
         use super::*;
 
         #[test]
-        fn array_indexing() {
-            let source = "\
-a[0] = a[1]
-x[..]
-y[..3]
-z[10..][0]";
+        fn indexed_assignment() {
+            let source = "a[0] = a[1]";
+
             check_ast(
                 source,
                 &[
                     Id(0),
                     Number0,
-                    Lookup(vec![LookupNode::Root(0), LookupNode::Index(1)]),
+                    Lookup((LookupNode::Index(1), None)),
+                    Lookup((LookupNode::Root(0), Some(2))),
                     Id(0),
-                    Number1,
-                    Lookup(vec![LookupNode::Root(3), LookupNode::Index(4)]), // 5
+                    Number1, // 5
+                    Lookup((LookupNode::Index(5), None)),
+                    Lookup((LookupNode::Root(4), Some(6))),
                     Assign {
                         target: AssignTarget {
-                            target_index: 2,
+                            target_index: 3,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 7,
+                    },
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a")]),
+            )
+        }
+
+        #[test]
+        fn index_range_full() {
+            let source = "x[..]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    RangeFull,
+                    Lookup((LookupNode::Index(1), None)),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn index_range_to() {
+            let source = "x[..3]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number(1),
+                    RangeTo {
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Lookup((LookupNode::Index(2), None)),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Number(3.0)]),
+            )
+        }
+
+        #[test]
+        fn index_range_from_and_sub_index() {
+            let source = "x[10..][0]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number(1),
+                    RangeFrom { start: 1 },
+                    Number0,
+                    Lookup((LookupNode::Index(3), None)),
+                    Lookup((LookupNode::Index(2), Some(4))), // 5
+                    Lookup((LookupNode::Root(0), Some(5))),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Number(10.0)]),
+            )
+        }
+
+        #[test]
+        fn lookup_id() {
+            let source = "x.foo";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Lookup((LookupNode::Id(1), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn lookup_call() {
+            let source = "x.bar()";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(1), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("bar")]),
+            )
+        }
+
+        #[test]
+        fn lookup_assignment() {
+            let source = r#"
+x.bar()."baz" = 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Call(vec![]), Some(1))),
+                    Lookup((LookupNode::Id(1), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    Number1, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 4,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
                         expression: 5,
                     },
-                    Id(1),
-                    RangeFull,
-                    Lookup(vec![LookupNode::Root(7), LookupNode::Index(8)]),
-                    Id(2), // 10
-                    Number(3),
-                    RangeTo {
-                        end: 11,
-                        inclusive: false,
-                    },
-                    Lookup(vec![LookupNode::Root(10), LookupNode::Index(12)]),
-                    Id(4),
-                    Number(5), // 15
-                    RangeFrom { start: 15 },
-                    Number0,
-                    Lookup(vec![
-                        LookupNode::Root(14),
-                        LookupNode::Index(16),
-                        LookupNode::Index(17),
-                    ]),
                     MainBlock {
-                        body: vec![6, 9, 13, 18],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
                 Some(&[
-                    Constant::Str("a"),
                     Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Number(3.0),
-                    Constant::Str("z"),
-                    Constant::Number(10.0),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
                 ]),
             )
         }
 
         #[test]
-        fn map_lookup() {
-            let source = r#"
-x.foo
-x.bar()
-x.bar()."baz" = 1
-x.foo 42"#;
+        fn lookup_space_separated_call() {
+            let source = "x.foo 42";
             check_ast(
                 source,
                 &[
                     Id(0),
-                    Lookup(vec![LookupNode::Root(0), LookupNode::Id(1)]),
-                    Id(0),
-                    Lookup(vec![
-                        LookupNode::Root(2),
-                        LookupNode::Id(2),
-                        LookupNode::Call(vec![]),
-                    ]),
-                    Id(0),
-                    Lookup(vec![
-                        LookupNode::Root(4),
-                        LookupNode::Id(2),
-                        LookupNode::Call(vec![]),
-                        LookupNode::Id(3),
-                    ]), // 5
-                    Number1,
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 5,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Equal,
-                        expression: 6,
-                    },
-                    Id(0),
-                    Number(4),
-                    Lookup(vec![
-                        LookupNode::Root(8),
-                        LookupNode::Id(1),
-                        LookupNode::Call(vec![9]),
-                    ]), // 10
+                    Number(2),
+                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((LookupNode::Id(1), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
                     MainBlock {
-                        body: vec![1, 3, 7, 10],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Str("baz"),
                     Constant::Number(42.0),
                 ]),
             )
@@ -2313,17 +2480,19 @@ x.foo 42"#;
 
         #[test]
         fn map_lookup_in_list() {
-            let source = "[m.foo m.bar]";
+            let source = "[m.foo, m.bar]";
             check_ast(
                 source,
                 &[
                     Id(0),
-                    Lookup(vec![LookupNode::Root(0), LookupNode::Id(1)]),
+                    Lookup((LookupNode::Id(1), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
                     Id(0),
-                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(2)]),
-                    List(vec![1, 3]),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    List(vec![2, 5]),
                     MainBlock {
-                        body: vec![4],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -2336,11 +2505,8 @@ x.foo 42"#;
         }
 
         #[test]
-        fn lookups_on_temporaries() {
-            let source = "\
-(f x).foo
-(f x)[0]
-(f x)(y)";
+        fn lookups_on_call_result() {
+            let source = "(f x).foo";
             check_ast(
                 source,
                 &[
@@ -2350,71 +2516,79 @@ x.foo 42"#;
                         function: 0,
                         args: vec![1],
                     },
-                    Lookup(vec![LookupNode::Root(2), LookupNode::Id(2)]),
-                    Id(0),
-                    Id(1), // 5
-                    Call {
-                        function: 4,
-                        args: vec![5],
-                    },
-                    Number0,
-                    Lookup(vec![LookupNode::Root(6), LookupNode::Index(7)]),
-                    Id(0),
-                    Id(1), // 10
-                    Call {
-                        function: 9,
-                        args: vec![10],
-                    },
-                    Id(3),
-                    Lookup(vec![LookupNode::Root(11), LookupNode::Call(vec![12])]),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Root(2), Some(3))),
                     MainBlock {
-                        body: vec![3, 8, 13],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("x"),
-                    Constant::Str("foo"),
-                    Constant::Str("y"),
-                ]),
+                Some(&[Constant::Str("f"), Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 
         #[test]
-        fn lookups_on_literals() {
-            let source = r#"\
+        fn index_on_call_result() {
+            let source = "(f x)[0]";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Number0,
+                    Lookup((LookupNode::Index(3), None)),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+        #[test]
+        fn call_on_call_result() {
+            let source = "(f x)(y)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Id(2),
+                    Lookup((LookupNode::Call(vec![3]), None)),
+                    Lookup((LookupNode::Root(2), Some(4))),
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_string() {
+            let source = r#"
 "{}".format x
-[0 1].contains y
-{x}.values()
-            "#;
+"#;
             check_ast(
                 source,
                 &[
                     Str(0),
                     Id(2),
-                    Lookup(vec![
-                        LookupNode::Root(0),
-                        LookupNode::Id(1),
-                        LookupNode::Call(vec![1]),
-                    ]),
-                    Number0,
-                    Number1,
-                    List(vec![3, 4]), // 5
-                    Id(4),
-                    Lookup(vec![
-                        LookupNode::Root(5),
-                        LookupNode::Id(3),
-                        LookupNode::Call(vec![6]),
-                    ]),
-                    Map(vec![(2, None)]),
-                    Lookup(vec![
-                        LookupNode::Root(8),
-                        LookupNode::Id(5),
-                        LookupNode::Call(vec![]),
-                    ]),
+                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((LookupNode::Id(1), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
                     MainBlock {
-                        body: vec![2, 7, 9],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
@@ -2422,9 +2596,104 @@ x.foo 42"#;
                     Constant::Str("{}"),
                     Constant::Str("format"),
                     Constant::Str("x"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_list() {
+            let source = "[0, 1].contains y";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    List(vec![0, 1]),
+                    Id(1),
+                    Lookup((LookupNode::Call(vec![3]), None)),
+                    Lookup((LookupNode::Id(0), Some(4))), // 5
+                    Lookup((LookupNode::Root(2), Some(5))),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("contains"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_map() {
+            let source = "{x}.values()";
+            check_ast(
+                source,
+                &[
+                    Map(vec![(0, None)]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(1), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("values")]),
+            )
+        }
+
+        #[test]
+        fn nested_lookup_call() {
+            let source = "((x).contains y)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(2),
+                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((LookupNode::Id(1), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
                     Constant::Str("contains"),
                     Constant::Str("y"),
-                    Constant::Str("values"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn multiline_lookup() {
+            let source = "
+x.iter()
+  .skip 1
+  .to_tuple()
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(3), Some(2))),
+                    Lookup((LookupNode::Call(vec![1]), Some(3))),
+                    Lookup((LookupNode::Id(2), Some(4))), // 5
+                    Lookup((LookupNode::Call(vec![]), Some(5))),
+                    Lookup((LookupNode::Id(1), Some(6))),
+                    Lookup((LookupNode::Root(0), Some(7))),
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("iter"),
+                    Constant::Str("skip"),
+                    Constant::Str("to_tuple"),
                 ]),
             )
         }
@@ -2692,20 +2961,21 @@ catch e
                 source,
                 &[
                     Id(0),
-                    Lookup(vec![LookupNode::Root(0), LookupNode::Call(vec![])]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
                     Id(1),
                     Debug {
                         expression_string: 1,
-                        expression: 2,
+                        expression: 3,
                     },
                     Try(AstTry {
-                        try_block: 1,
+                        try_block: 2,
                         catch_arg: 1,
-                        catch_block: 3,
+                        catch_block: 4,
                         finally_block: None,
-                    }),
+                    }), // 5
                     MainBlock {
-                        body: vec![4],
+                        body: vec![5],
                         local_count: 1,
                     },
                 ],
@@ -2727,21 +2997,22 @@ finally
                 source,
                 &[
                     Id(0),
-                    Lookup(vec![LookupNode::Root(0), LookupNode::Call(vec![])]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
                     Id(1),
                     Debug {
                         expression_string: 1,
-                        expression: 2,
+                        expression: 3,
                     },
-                    Number0,
+                    Number0, // 5
                     Try(AstTry {
-                        try_block: 1,
+                        try_block: 2,
                         catch_arg: 1,
-                        catch_block: 3,
-                        finally_block: Some(4),
-                    }), // 5
+                        catch_block: 4,
+                        finally_block: Some(5),
+                    }),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 1,
                     },
                 ],

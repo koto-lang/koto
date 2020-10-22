@@ -6,7 +6,7 @@ export tests =
     z = []
     for x in a
       z.push x
-    assert_eq z [1 2 3]
+    assert_eq z [1, 2, 3]
 
   test_get: ||
     x = 1, 2, 3
