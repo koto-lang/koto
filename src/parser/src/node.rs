@@ -7,7 +7,7 @@ pub type ConstantIndex = u32;
 pub enum Node {
     Empty,
     Id(ConstantIndex),
-    Lookup(Vec<LookupNode>),
+    Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
     BoolTrue,
     BoolFalse,
     Number0,

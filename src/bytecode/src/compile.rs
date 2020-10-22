@@ -321,7 +321,9 @@ impl Compiler {
                 result
             }
             Node::Id(index) => self.compile_load_id(result_register, *index)?,
-            Node::Lookup(lookup) => self.compile_lookup(result_register, lookup, None, ast)?,
+            Node::Lookup(lookup) => {
+                self.compile_lookup(result_register, lookup, None, None, ast)?
+            }
             Node::BoolTrue => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
@@ -531,12 +533,13 @@ impl Compiler {
                             result
                         }
                     }
-                    Node::Lookup(function_lookup) => {
-                        // TODO find a way to avoid the lookup cloning here
-                        let mut call_lookup = function_lookup.clone();
-                        call_lookup.push(LookupNode::Call(args.clone()));
-                        self.compile_lookup(result_register, &call_lookup, None, ast)?
-                    }
+                    Node::Lookup(function_lookup) => self.compile_lookup(
+                        result_register,
+                        &function_lookup,
+                        Some(&LookupNode::Call(args.clone())),
+                        None,
+                        ast,
+                    )?,
                     _ => {
                         return compiler_error!(self, "Call: unexpected node at index {}", function)
                     }
@@ -888,6 +891,7 @@ impl Compiler {
                 self.compile_lookup(
                     ResultRegister::None,
                     &lookup,
+                    None,
                     Some(value_register.register),
                     ast,
                 )?;
@@ -958,6 +962,7 @@ impl Compiler {
                             self.compile_lookup(
                                 ResultRegister::None,
                                 &lookup,
+                                None,
                                 Some(register),
                                 ast,
                             )?;
@@ -1037,6 +1042,7 @@ impl Compiler {
                                     self.compile_lookup(
                                         ResultRegister::None,
                                         &lookup,
+                                        None,
                                         Some(empty_register),
                                         ast,
                                     )?;
@@ -1929,19 +1935,15 @@ impl Compiler {
     fn compile_lookup(
         &mut self,
         result_register: ResultRegister,
-        lookup: &[LookupNode],
+        (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
+        add_node_to_end_of_lookup: Option<&LookupNode>,
         set_value: Option<u8>,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
-        let lookup_len = lookup.len();
-        if lookup_len < 2 {
-            return compiler_error!(
-                self,
-                "compile_lookup: lookup requires at least 2 elements, found {}",
-                lookup_len
-            );
+        if next_node_index.is_none() {
+            return compiler_error!(self, "compile_lookup: missing next node index");
         }
 
         let result = self.get_result_register(result_register)?;
@@ -1954,15 +1956,18 @@ impl Compiler {
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.frame().register_stack.len();
 
-        for (i, lookup_node) in lookup.iter().enumerate() {
-            let is_last_node = i == lookup.len() - 1;
+        let mut i = 0;
+        let mut lookup_node = root_node.clone();
+
+        loop {
+            let is_last_node = next_node_index.is_none();
 
             match lookup_node {
                 LookupNode::Root(root_node) => {
                     assert!(i == 0, "Root node not in first position");
 
                     let root = self
-                        .compile_node(ResultRegister::Any, ast.node(*root_node), ast)?
+                        .compile_node(ResultRegister::Any, ast.node(root_node), ast)?
                         .unwrap();
                     node_registers.push(root.register);
                 }
@@ -1972,19 +1977,19 @@ impl Compiler {
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, *id);
+                            self.compile_map_insert(map_register, set_value, id);
                         } else if let Some(result) = result {
-                            self.compile_map_access(result.register, map_register, *id);
+                            self.compile_map_access(result.register, map_register, id);
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.compile_map_access(node_register, map_register, *id);
+                        self.compile_map_access(node_register, map_register, id);
                     }
                 }
                 LookupNode::Index(index_node) => {
                     let index = self
-                        .compile_node(ResultRegister::Any, ast.node(*index_node), ast)?
+                        .compile_node(ResultRegister::Any, ast.node(index_node), ast)?
                         .unwrap();
                     let list_register = *node_registers.last().expect("Empty node registers");
 
@@ -2042,6 +2047,32 @@ impl Compiler {
                     }
                 }
             }
+
+            if let Some(next) = next_node_index {
+                let next_lookup_node = ast.node(next);
+
+                match &next_lookup_node.node {
+                    Node::Lookup((node, next)) => {
+                        lookup_node = node.clone();
+                        next_node_index = *next;
+                    }
+                    other => {
+                        return compiler_error!(
+                            self,
+                            "compile_lookup: invalid node in lookup chain, found {}",
+                            other
+                        )
+                    }
+                };
+
+                self.span_stack.push(*ast.span(next_lookup_node.span));
+            } else if let Some(node) = add_node_to_end_of_lookup {
+                lookup_node = node.clone();
+            } else {
+                break;
+            }
+
+            i += 1;
         }
 
         self.truncate_register_stack(stack_count)?;

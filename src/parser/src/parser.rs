@@ -767,12 +767,12 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
 
-        let start_span = self.lexer.span();
         let start_indent = self.lexer.current_indent();
         let mut lookup_indent = None;
         let mut node_context = *context;
+        let mut node_start_span = self.lexer.span();
 
-        lookup.push(LookupNode::Root(root));
+        lookup.push((LookupNode::Root(root), node_start_span));
 
         while let Some(token) = self.peek_token() {
             if let Some(lookup_indent) = lookup_indent {
@@ -783,10 +783,15 @@ impl<'source> Parser<'source> {
 
             match token {
                 Token::ParenOpen => {
+                    node_start_span = self.lexer.span();
                     let args = self.parse_parenthesized_args()?;
-                    lookup.push(LookupNode::Call(args));
+                    lookup.push((
+                        LookupNode::Call(args),
+                        self.span_with_start(node_start_span),
+                    ));
                 }
                 Token::ListStart => {
+                    node_start_span = self.lexer.span();
                     self.consume_token();
 
                     let index_context = ExpressionContext {
@@ -872,16 +877,23 @@ impl<'source> Parser<'source> {
 
                     if let Some(Token::ListEnd) = self.skip_whitespace_and_peek() {
                         self.consume_token();
-                        lookup.push(LookupNode::Index(index_expression));
+                        lookup.push((
+                            LookupNode::Index(index_expression),
+                            self.span_with_start(node_start_span),
+                        ));
                     } else {
                         return syntax_error!(ExpectedIndexEnd, self);
                     }
                 }
                 Token::Dot => {
+                    node_start_span = self.lexer.span();
                     self.consume_token();
 
                     if let Some(id_index) = self.parse_id_or_string()? {
-                        lookup.push(LookupNode::Id(id_index));
+                        lookup.push((
+                            LookupNode::Id(id_index),
+                            self.span_with_start(node_start_span),
+                        ));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
                     }
@@ -906,7 +918,7 @@ impl<'source> Parser<'source> {
                             }
                         }
 
-                        lookup.push(LookupNode::Call(args));
+                        lookup.push((LookupNode::Call(args), node_start_span));
 
                         node_context = ExpressionContext {
                             allow_function_start: false,
@@ -937,7 +949,14 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Ok(self.push_node_with_start_span(Node::Lookup(lookup), start_span)?)
+        // Add the lookup nodes to the AST in reverse order:
+        // the final AST index will be the lookup root node.
+        let mut next_index = None;
+        for (node, span) in lookup.iter().rev() {
+            next_index =
+                Some(self.push_node_with_span(Node::Lookup((node.clone(), next_index)), *span)?);
+        }
+        next_index.ok_or_else(|| make_internal_error!(LookupParseFailure, self))
     }
 
     fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
@@ -2218,7 +2237,7 @@ impl<'source> Parser<'source> {
     }
 
     fn push_node(&mut self, node: Node) -> Result<AstIndex, ParserError> {
-        self.ast.push(node, self.lexer.span())
+        self.push_node_with_span(node, self.lexer.span())
     }
 
     fn push_node_with_start_span(
@@ -2226,13 +2245,18 @@ impl<'source> Parser<'source> {
         node: Node,
         start_span: Span,
     ) -> Result<AstIndex, ParserError> {
-        self.ast.push(
-            node,
-            Span {
-                start: start_span.start,
-                end: self.lexer.span().end,
-            },
-        )
+        self.push_node_with_span(node, self.span_with_start(start_span))
+    }
+
+    fn push_node_with_span(&mut self, node: Node, span: Span) -> Result<AstIndex, ParserError> {
+        self.ast.push(node, span)
+    }
+
+    fn span_with_start(&self, start_span: Span) -> Span {
+        Span {
+            start: start_span.start,
+            end: self.lexer.span().end,
+        }
     }
 
     fn peek_until_next_token(&mut self) -> Option<(Token, usize)> {
