@@ -2575,6 +2575,25 @@ x.bar()."baz" = 1
         }
 
         #[test]
+        fn lookup_on_number() {
+            let source = "1.sin()";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("sin")]),
+            )
+        }
+
+        #[test]
         fn lookup_on_string() {
             let source = r#"
 "{}".format x
@@ -3199,7 +3218,7 @@ match x.foo 42
                     Lookup((LookupNode::Call(vec![1]), None)),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
-                    Empty,// 5
+                    Empty, // 5
                     Number0,
                     Wildcard,
                     Number1,
@@ -3223,7 +3242,11 @@ match x.foo 42
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::Number(42.0)]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                ]),
             )
         }
     }

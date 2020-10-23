@@ -1122,7 +1122,7 @@ impl<'source> Parser<'source> {
                 Token::ParenOpen => return self.parse_nested_expressions(context),
                 Token::Number => {
                     self.consume_token();
-                    match f64::from_str(self.lexer.slice()) {
+                    let number_node = match f64::from_str(self.lexer.slice()) {
                         Ok(n) => {
                             if f64_eq(n, 0.0) {
                                 self.push_node(Number0)?
@@ -1136,6 +1136,11 @@ impl<'source> Parser<'source> {
                         Err(_) => {
                             return internal_error!(NumberParseFailure, self);
                         }
+                    };
+                    if self.next_token_is_lookup_start(context) {
+                        self.parse_lookup(number_node, context)?
+                    } else {
+                        number_node
                     }
                 }
                 Token::String => {
