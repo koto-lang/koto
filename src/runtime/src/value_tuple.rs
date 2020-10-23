@@ -7,6 +7,7 @@ use {
 pub struct ValueTuple(Arc<[Value]>);
 
 impl ValueTuple {
+    #[inline]
     pub fn data(&self) -> &[Value] {
         &self.0
     }
@@ -26,12 +27,14 @@ impl fmt::Display for ValueTuple {
 }
 
 impl From<&[Value]> for ValueTuple {
+    #[inline]
     fn from(v: &[Value]) -> Self {
         Self(v.into())
     }
 }
 
 impl From<Vec<Value>> for ValueTuple {
+    #[inline]
     fn from(v: Vec<Value>) -> Self {
         Self(v.into())
     }
