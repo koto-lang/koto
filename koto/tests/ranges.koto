@@ -51,3 +51,10 @@ export tests =
 
     assert not (0..10).contains(10)
     assert (0..=10).contains(10)
+
+  test_start_end: ||
+    x = 10..20
+    assert_eq x.start() 10
+    assert_eq x.end() 20
+
+    assert_eq (10..=20).end() 21
