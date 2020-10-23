@@ -23,7 +23,7 @@ x = (1, 2, 3)
   .fold 0 |a b| a + b
 assert_eq x 6
 
-x = |
+assert_equal = |
   long_arg # This is an argument that needs an explanation
   long_arg_2
 |
@@ -32,7 +32,9 @@ x = |
     long_arg # call args can be indented
     long_arg_2
 
-x 1 1
+assert_equal
+  1234
+  1234
 
 m = {
   foo:
@@ -57,7 +59,3 @@ assert_eq a 10
 
 x = num4 \
   0 1 2 3
-# TODO fix broken function calls
-# assert_eq \
-#   x \
-#   f 0 1 2 3
