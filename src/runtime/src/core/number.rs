@@ -79,7 +79,7 @@ pub fn make_module() -> ValueMap {
     number_fn_1!(tan);
     number_fn_1!(tanh);
 
-    result.add_value("tau", Number(std::f64::consts::PI * 2.0));
+    result.add_value("tau", Number(std::f64::consts::TAU));
 
     result
 }
