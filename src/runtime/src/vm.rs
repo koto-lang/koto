@@ -1759,6 +1759,8 @@ impl Vm {
                 None => get_core_op!(map, "Map")?,
             },
             List(_) => get_core_op!(list, "List")?,
+            Num2(_) => get_core_op!(num2, "Num2")?,
+            Num4(_) => get_core_op!(num4, "Num4")?,
             Number(_) => get_core_op!(number, "Number")?,
             Range(_) => get_core_op!(range, "Range")?,
             Str(_) => get_core_op!(string, "String")?,
@@ -1891,7 +1893,6 @@ impl Vm {
                 self.clone_register(frame_base + arg),
             );
         }
-
 
         if *function_arg_count != call_arg_count {
             return vm_error!(

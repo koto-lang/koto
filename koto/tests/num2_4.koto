@@ -1,4 +1,3 @@
-import number
 import test.assert_eq
 
 export tests =
@@ -26,8 +25,8 @@ export tests =
     assert_eq x (num4 10 12 14 11)
 
   test_sum: ||
-    assert_eq (number.sum (num2 1 2)) 3
-    assert_eq (number.sum (num4 1 2 3 4)) 10
+    assert_eq (num2 1 2).sum() 3
+    assert_eq (num4 1 2 3 4).sum() 10
 
   test_element_access_num2: ||
     x = num2 10 20

@@ -64,18 +64,6 @@ pub fn make_module() -> ValueMap {
     number_fn_1!(sin);
     number_fn_1!(sinh);
     number_fn_1!(sqrt);
-
-    result.add_fn("sum", |vm, args| match vm.get_args(args) {
-        [] => external_error!("sum: Missing argument"),
-        [Num2(n)] => Ok(Number(n[0] + n[1])),
-        [Num4(n)] => Ok(Number((n[0] + n[1] + n[2] + n[3]) as f64)),
-        [unexpected] => external_error!(
-            "number.sum: Expected Num2 or Num4, found '{}'",
-            type_as_string(unexpected)
-        ),
-        _ => external_error!("number.sum: Expected a single Num2 or Num4 argument"),
-    });
-
     number_fn_1!(tan);
     number_fn_1!(tanh);
 
