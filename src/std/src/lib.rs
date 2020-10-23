@@ -1,5 +1,4 @@
 mod io;
-mod math;
 mod random;
 mod test;
 mod thread;
@@ -22,11 +21,14 @@ macro_rules! single_arg_fn {
                     value::type_as_string(&unexpected),
                 )
             }
-            _ =>{ koto_runtime::external_error!("{}.{} expects a single argument, found {}",
-                                                stringify!($map_name),
-                                                $fn_name,
-                                                args.count,
-                                                )}
+            _ => {
+                koto_runtime::external_error!(
+                    "{}.{} expects a single argument, found {}",
+                    stringify!($map_name),
+                    $fn_name,
+                    args.count,
+                )
+            }
         });
     }
 }
@@ -85,7 +87,6 @@ macro_rules! get_external_instance {
 
 pub fn register(prelude: &mut ValueMap) {
     io::register(prelude);
-    math::register(prelude);
     random::register(prelude);
     test::register(prelude);
     thread::register(prelude);

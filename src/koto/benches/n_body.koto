@@ -8,8 +8,8 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.
 
 # TODO Using num4 for pos/vel reduces precision compared to the original
 
-import env io.print list test.assert_near
-from math import pi sqrt sum
+import env io.print test.assert_near
+from number import pi sum
 
 solar_mass = 4 * pi * pi
 days_per_year = 365.24
@@ -73,7 +73,7 @@ advance = |bodies nbodies dt|
         for bj in bodies[(i + 1)..]
             dist = bi_pos - bj.pos
             dist2 = sum (dist * dist)
-            mag = sqrt dist2
+            mag = dist2.sqrt()
             mag = dt / (mag * dist2)
             bm = bj.mass * mag
             bi_vel = bi_vel - dist * bm
@@ -92,7 +92,7 @@ get_energy = |bodies nbody|
         for j in (i + 1)..nbody
             bj = bodies[j]
             d = bi.pos - bj.pos
-            distance = sqrt (sum (d * d))
+            distance = (sum (d * d)).sqrt()
             energy -= (bi_mass * bj.mass) / distance
     energy
 

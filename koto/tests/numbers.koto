@@ -1,0 +1,20 @@
+import number
+from test import assert_eq assert_near
+
+export tests =
+  test_trigonometry: ||
+    assert_near number.pi.sin() 0 1.0e-15
+    assert_eq number.pi.cos() -1
+    assert_eq number.tau.cos() 1
+
+  test_pow: ||
+    assert_eq ((2).pow 8) 256
+
+  test_min_max: ||
+    assert_eq ((1).min 2) 1
+    assert_eq ((1).max 2) 2
+
+  test_clamp: ||
+    assert_eq ((0).clamp 1 2) 1
+    assert_eq ((1.5).clamp 1 2) 1.5
+    assert_eq ((3).clamp 1 2) 2

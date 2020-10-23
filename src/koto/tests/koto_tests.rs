@@ -67,7 +67,7 @@ mod koto_tests {
     koto_test!(map_ops);
     koto_test!(maps);
     koto_test!(maps_and_lists);
-    koto_test!(math);
+    koto_test!(numbers);
     koto_test!(num2_4);
     koto_test!(primes);
     koto_test!(random);

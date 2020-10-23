@@ -45,6 +45,7 @@ impl VmContext {
         prelude.add_map("iterator", core_lib.iterator.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("number", core_lib.number.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
@@ -1758,6 +1759,7 @@ impl Vm {
                 None => get_core_op!(map, "Map")?,
             },
             List(_) => get_core_op!(list, "List")?,
+            Number(_) => get_core_op!(number, "Number")?,
             Range(_) => get_core_op!(range, "Range")?,
             Str(_) => get_core_op!(string, "String")?,
             Tuple(_) => get_core_op!(tuple, "Tuple")?,
