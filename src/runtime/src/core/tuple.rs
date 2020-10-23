@@ -1,4 +1,4 @@
-use crate::{external_error, value_iterator::ValueIterator, Value, ValueMap};
+use crate::{external_error, value_iterator::ValueIterator, Value, ValueList, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -27,6 +27,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Number(t.data().len() as f64)),
         _ => external_error!("tuple.size: Expected tuple as argument"),
+    });
+
+    result.add_fn("to_list", |vm, args| match vm.get_args(args) {
+        [Tuple(t)] => Ok(List(ValueList::from_slice(t.data()))),
+        _ => external_error!("tuple.to_list: Expected tuple as argument"),
     });
 
     result
