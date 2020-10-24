@@ -285,10 +285,13 @@ impl<'a> TokenLexer<'a> {
                 if chars.peek() == Some(&'.') {
                     chars.next();
 
-                    if chars.peek() == Some(&'.') {
-                        // A double-dot should be lexed as a range token, so bail out here
-                        self.advance_line(char_bytes);
-                        return Some(Number);
+                    match chars.peek() {
+                        Some(c) if is_digit(*c) => {}
+                        Some(&'e') => {}
+                        _ => {
+                            self.advance_line(char_bytes);
+                            return Some(Number);
+                        }
                     }
 
                     char_bytes += 1 + consume_and_count(&mut chars, is_digit);
@@ -668,16 +671,21 @@ mod tests {
     fn check_lexer_output(source: &str, tokens: &[(Token, Option<&str>, u32)]) {
         let mut lex = KotoLexer::new(source);
 
-        for (token, maybe_slice, line_number) in tokens {
+        for (i, (token, maybe_slice, line_number)) in tokens.iter().enumerate() {
             loop {
                 match lex.next().expect("Expected token") {
                     Whitespace => continue,
                     output => {
-                        assert_eq!(&output, token);
+                        assert_eq!(&output, token, "Token mismatch at position {}", i);
                         if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice);
+                            assert_eq!(&lex.slice(), slice, "Slice mismatch at position {}", i);
                         }
-                        assert_eq!(lex.line_number() as u32, *line_number);
+                        assert_eq!(
+                            lex.line_number() as u32,
+                            *line_number,
+                            "Line number mismatch at position {}",
+                            i
+                        );
                         break;
                     }
                 }
@@ -829,6 +837,37 @@ true"#;
                 (Number, Some("0.5e+9"), 4),
                 (NewLine, None, 5),
                 (Number, Some("-8e8"), 5),
+            ],
+        );
+    }
+
+    #[test]
+    fn lookups_on_numbers() {
+        let input = "\
+1.0.sin()
+-1e-3.abs()
+1.min x
+";
+        check_lexer_output(
+            input,
+            &[
+                (Number, Some("1.0"), 1),
+                (Dot, None, 1),
+                (Id, Some("sin"), 1),
+                (ParenOpen, None, 1),
+                (ParenClose, None, 1),
+                (NewLine, None, 2),
+                (Number, Some("-1e-3"), 2),
+                (Dot, None, 2),
+                (Id, Some("abs"), 2),
+                (ParenOpen, None, 2),
+                (ParenClose, None, 2),
+                (NewLine, None, 3),
+                (Number, Some("1"), 3),
+                (Dot, None, 3),
+                (Id, Some("min"), 3),
+                (Id, Some("x"), 3),
+                (NewLine, None, 4),
             ],
         );
     }

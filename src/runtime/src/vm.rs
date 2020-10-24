@@ -45,6 +45,7 @@ impl VmContext {
         prelude.add_map("iterator", core_lib.iterator.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("number", core_lib.number.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
@@ -1707,7 +1708,7 @@ impl Vm {
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
-            ($module:ident, $module_name:expr) => {{
+            ($module:ident) => {{
                 let maybe_op = self
                     .context()
                     .core_lib
@@ -1739,8 +1740,7 @@ impl Vm {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "{} operation '{}' not found",
-                            $module_name,
+                            "'{}' not found",
                             key_string,
                         );
                     }
@@ -1755,13 +1755,16 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => get_core_op!(map, "Map")?,
+                None => get_core_op!(map)?,
             },
-            List(_) => get_core_op!(list, "List")?,
-            Range(_) => get_core_op!(range, "Range")?,
-            Str(_) => get_core_op!(string, "String")?,
-            Tuple(_) => get_core_op!(tuple, "Tuple")?,
-            Iterator(_) => get_core_op!(iterator, "Iterator")?,
+            List(_) => get_core_op!(list)?,
+            Num2(_) => get_core_op!(num2)?,
+            Num4(_) => get_core_op!(num4)?,
+            Number(_) => get_core_op!(number)?,
+            Range(_) => get_core_op!(range)?,
+            Str(_) => get_core_op!(string)?,
+            Tuple(_) => get_core_op!(tuple)?,
+            Iterator(_) => get_core_op!(iterator)?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),
@@ -1889,7 +1892,6 @@ impl Vm {
                 self.clone_register(frame_base + arg),
             );
         }
-
 
         if *function_arg_count != call_arg_count {
             return vm_error!(

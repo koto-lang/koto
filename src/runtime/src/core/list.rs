@@ -177,14 +177,6 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.sort: Expected list as argument"),
     });
 
-    result.add_fn("sort", |vm, args| match vm.get_args(args) {
-        [List(l)] => {
-            l.data_mut().sort();
-            Ok(Value::Empty)
-        }
-        _ => external_error!("list.sort: Expected list as argument"),
-    });
-
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut result = l.data().clone();
@@ -194,23 +186,32 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.sort_copy: Expected list as argument"),
     });
 
-    result.add_fn("transform", |vm, args| match vm.get_args_as_vec(args).as_slice() {
-        [List(l), Function(f)] => {
-            if f.arg_count != 1 {
-                return external_error!(
-                    "The function passed to list.transform must have a \
-                                         single argument, found '{}'",
-                    f.arg_count,
-                );
-            }
-
-            for value in l.data_mut().iter_mut() {
-                *value = vm.run_function(f, &[value.clone()])?;
-            }
-
-            Ok(Value::Empty)
+    result.add_fn("to_tuple", |vm, args| {
+        match vm.get_args_as_vec(args).as_slice() {
+            [List(l)] => Ok(Value::Tuple(l.data().as_slice().into())),
+            _ => external_error!("list.to_tuple expects a list as argument"),
         }
-        _ => external_error!("list.transform expects a list and function as arguments"),
+    });
+
+    result.add_fn("transform", |vm, args| {
+        match vm.get_args_as_vec(args).as_slice() {
+            [List(l), Function(f)] => {
+                if f.arg_count != 1 {
+                    return external_error!(
+                        "The function passed to list.transform must have a \
+                         single argument, found '{}'",
+                        f.arg_count,
+                    );
+                }
+
+                for value in l.data_mut().iter_mut() {
+                    *value = vm.run_function(f, &[value.clone()])?;
+                }
+
+                Ok(Value::Empty)
+            }
+            _ => external_error!("list.transform expects a list and function as arguments"),
+        }
     });
 
     result

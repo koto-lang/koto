@@ -7,9 +7,9 @@ export tests =
     assert [].is_empty()
     assert not [1, 2, 3].is_empty()
 
-  test_size: ||
-    assert_eq [].size() 0
-    assert_eq [1, 2, 3].size() 3
+  test_contains: ||
+    assert ([0..10].contains 5)
+    assert not ([0..10].contains 15)
 
   test_push_pop: ||
     z = [1]
@@ -52,9 +52,10 @@ export tests =
     assert_eq ([0..10].get 5) 5
     assert_eq ([0..10].get 15) ()
 
-  test_contains: ||
-    assert ([0..10].contains 5)
-    assert not ([0..10].contains 15)
+  test_fill: ||
+    a = [1, 2, 3]
+    a.fill 42
+    assert_eq a [42, 42, 42]
 
   test_retain_value: ||
     z = ["hello", 42, num4 0, "hello"]
@@ -66,10 +67,14 @@ export tests =
     z.retain |n| n % 2 == 0
     assert_eq z [0, 2, 4, 6, 8]
 
-  test_transform: ||
-    z = ["1", "2", "3"]
-    z.transform |x| x.to_number()
-    assert_eq z [1, 2, 3]
+  test_reverse: ||
+    a = [1, 2, 3]
+    a.reverse()
+    assert_eq a [3, 2, 1]
+
+  test_size: ||
+    assert_eq [].size() 0
+    assert_eq [1, 2, 3].size() 3
 
   test_sort: ||
     z = [3, 2, 1]
@@ -79,12 +84,10 @@ export tests =
   test_sort_copy: ||
     assert_eq [42, 10, 9].sort_copy() [9, 10, 42]
 
-  test_fill: ||
-    a = [1, 2, 3]
-    a.fill 42
-    assert_eq a [42, 42, 42]
+  test_to_tuple: ||
+    assert_eq [1, 2, 3].to_tuple() (1, 2, 3)
 
-  test_reverse: ||
-    a = [1, 2, 3]
-    a.reverse()
-    assert_eq a [3, 2, 1]
+  test_transform: ||
+    z = ["1", "2", "3"]
+    z.transform |x| x.to_number()
+    assert_eq z [1, 2, 3]

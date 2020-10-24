@@ -21,6 +21,13 @@ impl<'a> Serialize for SerializableValue<'a> {
                 }
                 seq.end()
             }
+            Value::Tuple(t) => {
+                let mut seq = s.serialize_seq(Some(t.data().len()))?;
+                for element in t.data().iter() {
+                    seq.serialize_element(&SerializableValue(element))?;
+                }
+                seq.end()
+            }
             Value::Map(m) => {
                 let mut seq = s.serialize_map(Some(m.data().len()))?;
                 for (key, value) in m.data().iter() {

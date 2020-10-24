@@ -267,12 +267,10 @@ x"#;
         }
 
         #[test]
-        fn ranges() {
-            let source = "\
+        fn ranges_from_literals() {
+            let source = "
 0..1
-0..=1
-(0 + 1)..(1 + 1)
-foo.bar..foo.baz";
+0..=1";
             check_ast(
                 source,
                 &[
@@ -290,38 +288,118 @@ foo.bar..foo.baz";
                         end: 4,
                         inclusive: true,
                     }, // 5
+                    MainBlock {
+                        body: vec![2, 5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[]),
+            )
+        }
+
+        #[test]
+        fn range_from_expressions() {
+            let source = "(0 + 1)..(1 + 1)";
+            check_ast(
+                source,
+                &[
                     Number0,
                     Number1,
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 6,
-                        rhs: 7,
+                        lhs: 0,
+                        rhs: 1,
                     },
                     Number1,
-                    Number1, // 10
+                    Number1,
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 9,
-                        rhs: 10,
-                    },
+                        lhs: 3,
+                        rhs: 4,
+                    }, // 5
                     Range {
-                        start: 8,
-                        end: 11,
-                        inclusive: false,
-                    },
-                    Id(0),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(13), Some(14))), // 15
-                    Id(0),
-                    Lookup((LookupNode::Id(2), None)),
-                    Lookup((LookupNode::Root(16), Some(17))),
-                    Range {
-                        start: 15,
-                        end: 18,
+                        start: 2,
+                        end: 5,
                         inclusive: false,
                     },
                     MainBlock {
-                        body: vec![2, 5, 12, 19],
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[]),
+            )
+        }
+
+        #[test]
+        fn range_from_values() {
+            let source = "
+min = 0
+max = 10
+min..max
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 1,
+                    },
+                    Id(1),
+                    Number(2),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 3,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    }, // 5
+                    Id(0),
+                    Id(1),
+                    Range {
+                        start: 6,
+                        end: 7,
+                        inclusive: false,
+                    },
+                    MainBlock {
+                        body: vec![2, 5, 8],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("min"),
+                    Constant::Str("max"),
+                    Constant::Number(10.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn range_from_lookups() {
+            let source = "foo.bar..foo.baz";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Lookup((LookupNode::Id(1), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
+                    Id(0),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    Range {
+                        start: 2,
+                        end: 5,
+                        inclusive: false,
+                    },
+                    MainBlock {
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -2575,6 +2653,25 @@ x.bar()."baz" = 1
         }
 
         #[test]
+        fn lookup_on_number() {
+            let source = "1.sin()";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("sin")]),
+            )
+        }
+
+        #[test]
         fn lookup_on_string() {
             let source = r#"
 "{}".format x
@@ -3199,7 +3296,7 @@ match x.foo 42
                     Lookup((LookupNode::Call(vec![1]), None)),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
-                    Empty,// 5
+                    Empty, // 5
                     Number0,
                     Wildcard,
                     Number1,
@@ -3223,7 +3320,11 @@ match x.foo 42
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::Number(42.0)]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                ]),
             )
         }
     }
