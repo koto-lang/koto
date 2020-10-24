@@ -891,12 +891,11 @@ impl<'source> Parser<'source> {
                 }
                 Token::Dot => {
                     self.consume_token();
-                    node_start_span = self.lexer.span();
 
                     if let Some(id_index) = self.parse_id_or_string()? {
                         lookup.push((
                             LookupNode::Id(id_index),
-                            self.span_with_start(node_start_span),
+                            self.span_with_start(self.lexer.span()),
                         ));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
