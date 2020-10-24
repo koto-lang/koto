@@ -1904,6 +1904,8 @@ impl<'source> Parser<'source> {
 
         self.next_after_whitespace();
 
+        let start_span = self.lexer.span();
+
         let from = if from_import {
             let from = match self.consume_import_items()?.as_slice() {
                 [from] => from.clone(),
@@ -1929,7 +1931,10 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Ok(Some(self.push_node(Node::Import { from, items })?))
+        Ok(Some(self.push_node_with_start_span(
+            Node::Import { from, items },
+            start_span,
+        )?))
     }
 
     fn parse_try_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {

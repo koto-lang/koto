@@ -1708,7 +1708,7 @@ impl Vm {
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
-            ($module:ident, $module_name:expr) => {{
+            ($module:ident) => {{
                 let maybe_op = self
                     .context()
                     .core_lib
@@ -1740,8 +1740,7 @@ impl Vm {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "{} operation '{}' not found",
-                            $module_name,
+                            "'{}' not found",
                             key_string,
                         );
                     }
@@ -1756,16 +1755,16 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => get_core_op!(map, "Map")?,
+                None => get_core_op!(map)?,
             },
-            List(_) => get_core_op!(list, "List")?,
-            Num2(_) => get_core_op!(num2, "Num2")?,
-            Num4(_) => get_core_op!(num4, "Num4")?,
-            Number(_) => get_core_op!(number, "Number")?,
-            Range(_) => get_core_op!(range, "Range")?,
-            Str(_) => get_core_op!(string, "String")?,
-            Tuple(_) => get_core_op!(tuple, "Tuple")?,
-            Iterator(_) => get_core_op!(iterator, "Iterator")?,
+            List(_) => get_core_op!(list)?,
+            Num2(_) => get_core_op!(num2)?,
+            Num4(_) => get_core_op!(num4)?,
+            Number(_) => get_core_op!(number)?,
+            Range(_) => get_core_op!(range)?,
+            Str(_) => get_core_op!(string)?,
+            Tuple(_) => get_core_op!(tuple)?,
+            Iterator(_) => get_core_op!(iterator)?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),
