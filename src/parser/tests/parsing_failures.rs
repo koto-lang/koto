@@ -19,5 +19,22 @@ mod parser {
         fn missing_term_in_arithmetic() {
             check_parsing_fails("1 + * 2");
         }
+
+        #[test]
+        fn indented_main_block() {
+            let source = "
+  1 + 1
+";
+            check_parsing_fails(source);
+        }
+
+        #[test]
+        fn detached_index() {
+            let source = "
+x.foo
+  [0]
+";
+            check_parsing_fails(source);
+        }
     }
 }

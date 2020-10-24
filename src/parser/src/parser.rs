@@ -234,10 +234,14 @@ impl<'source> Parser<'source> {
 
         let mut body = Vec::new();
         while self.consume_until_next_token().is_some() {
-            if let Some(expression) = self.parse_line()? {
-                body.push(expression);
+            if self.lexer.current_indent() == 0 {
+                if let Some(expression) = self.parse_line()? {
+                    body.push(expression);
+                } else {
+                    return syntax_error!(ExpectedExpressionInMainBlock, self);
+                }
             } else {
-                return syntax_error!(ExpectedExpressionInMainBlock, self);
+                return syntax_error!(UnexpectedIndentation, self);
             }
         }
 
