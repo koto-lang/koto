@@ -2253,113 +2253,111 @@ impl<'source> Parser<'source> {
         }
     }
 
+    // Peeks past whitespace, comments, and newlines until the next token is found
     fn peek_until_next_token(&mut self) -> Option<(Token, usize)> {
-        let mut peek_count = 0;
-        loop {
-            // TODO while let Some(...
-            let peeked = self.peek_token_n(peek_count);
+        use Token::*;
 
+        let mut peek_count = 0;
+
+        while let Some(peeked) = self.peek_token_n(peek_count) {
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLine) => {}
-                Some(Token::NewLineIndented) => {}
-                Some(Token::NewLineSkipped) => {}
-                Some(Token::CommentMulti) => {}
-                Some(Token::CommentSingle) => {}
-                Some(token) => return Some((token, peek_count)),
-                None => return None,
+                Whitespace | NewLine | NewLineIndented | NewLineSkipped | CommentMulti
+                | CommentSingle => {}
+                token => return Some((token, peek_count)),
             }
 
             peek_count += 1;
         }
+
+        None
     }
 
+    // Peeks past whitespace on the same line until the next token is found
     fn peek_after_whitespace(&mut self) -> Option<Token> {
-        let mut peek_count = 0;
-        loop {
-            let peeked = self.peek_token_n(peek_count);
+        use Token::*;
 
+        let mut peek_count = 0;
+
+        while let Some(peeked) = self.peek_token_n(peek_count) {
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLineSkipped) => {}
-                Some(token) => return Some(token),
-                None => return None,
+                Whitespace | NewLineSkipped => {}
+                token => return Some(token),
             }
 
             peek_count += 1;
         }
+
+        None
     }
 
+    // Peeks the token after the one that would be found with peek_after_whitespace
     fn peek_two_after_whitespace(&mut self) -> Option<Token> {
+        use Token::*;
+
         let mut peek_count = 0;
         let mut token_found = false;
-        loop {
-            let peeked = self.peek_token_n(peek_count);
 
+        while let Some(peeked) = self.peek_token_n(peek_count) {
             if token_found {
-                return peeked;
+                return Some(peeked);
             }
 
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLineSkipped) => {}
-                Some(_) => token_found = true,
-                None => return None,
+                Whitespace | NewLineSkipped => {}
+                _ => token_found = true,
             }
 
             peek_count += 1;
         }
+
+        None
     }
 
+    // Consumes whitespace, comments, and newlines up until the next token
     fn consume_until_next_token(&mut self) -> Option<Token> {
-        loop {
-            let peeked = self.peek_token();
+        use Token::*;
 
+        while let Some(peeked) = self.peek_token() {
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLine) => {}
-                Some(Token::NewLineIndented) => {}
-                Some(Token::NewLineSkipped) => {}
-                Some(Token::CommentMulti) => {}
-                Some(Token::CommentSingle) => {}
-                Some(token) => return Some(token),
-                None => return None,
+                Whitespace | NewLine | NewLineIndented | NewLineSkipped | CommentMulti
+                | CommentSingle => {}
+                token => return Some(token),
             }
 
             self.lexer.next();
-            continue;
         }
+
+        None
     }
 
+    // Consumes whitespace on the same line up until the next token
     fn consume_whitespace_on_same_line(&mut self) {
-        loop {
-            let peeked = self.peek_token();
+        use Token::*;
 
+        while let Some(peeked) = self.peek_token() {
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLineSkipped) => {}
+                Whitespace | NewLineSkipped => {}
                 _ => return,
             }
 
             self.lexer.next();
-            continue;
         }
     }
 
+    // Consumes whitespace on the same line and returns the next token
     fn next_after_whitespace(&mut self) -> Option<Token> {
-        loop {
-            let peeked = self.peek_token();
+        use Token::*;
 
+        while let Some(peeked) = self.peek_token() {
             match peeked {
-                Some(Token::Whitespace) => {}
-                Some(Token::NewLineSkipped) => {}
-                Some(_) => return self.lexer.next(),
-                None => return None,
+                Whitespace | NewLineSkipped => {}
+                _ => return self.lexer.next(),
             }
 
             self.lexer.next();
-            continue;
         }
+
+        None
     }
 }
 
