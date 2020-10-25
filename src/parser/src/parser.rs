@@ -473,12 +473,7 @@ impl<'source> Parser<'source> {
         let start_line = self.lexer.line_number();
 
         let expression_start = {
-            // ID expressions are broken out to allow function calls in first position
-            let expression = if let Some(expression) = self.parse_id_expression(context)? {
-                Some(expression)
-            } else {
-                self.parse_term(context)?
-            };
+            let expression = self.parse_term(context)?;
 
             match self.peek_token() {
                 Some(Token::Range) | Some(Token::RangeInclusive) => {
@@ -583,7 +578,7 @@ impl<'source> Parser<'source> {
         lhs: &[AstIndex],
         assign_op: AssignOp,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.consume_token();
+        self.next_after_whitespace();
 
         let mut targets = Vec::new();
 
@@ -598,7 +593,7 @@ impl<'source> Parser<'source> {
                         self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
                     }
                 }
-                Node::Lookup(_) => {}
+                Node::Lookup(_) | Node::Wildcard => {}
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
 
@@ -1136,6 +1131,10 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Id => return self.parse_id_expression(context),
+                Token::Wildcard => {
+                    self.next_after_whitespace();
+                    self.push_node(Node::Wildcard)?
+                }
                 Token::ListStart => return self.parse_list(context),
                 Token::MapStart => return self.parse_map_inline(context),
                 Token::Num2 => {

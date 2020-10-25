@@ -10,9 +10,9 @@ trace = ["koto_runtime/trace"]
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = {path = "../bytecode" }
-koto_parser = {path = "../parser" }
-koto_runtime = {path = "../runtime" }
+koto_bytecode = {path = "../bytecode"}
+koto_parser = {path = "../parser"}
+koto_runtime = {path = "../runtime"}
 koto_std = {path = "../std" }
 
 [dev-dependencies]

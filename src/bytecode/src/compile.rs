@@ -798,7 +798,7 @@ impl Compiler {
                         Some(self.reserve_local_register(*constant_index)?)
                     }
                 }
-                Node::Lookup(_) => None,
+                Node::Lookup(_) | Node::Wildcard => None,
                 unexpected => {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
                 }
@@ -896,6 +896,7 @@ impl Compiler {
                     ast,
                 )?;
             }
+            Node::Wildcard => {}
             unexpected => {
                 return compiler_error!(self, "Expected Lookup or Id in AST, found {}", unexpected)
             }
@@ -969,6 +970,7 @@ impl Compiler {
 
                             self.pop_register()?;
                         }
+                        Node::Wildcard => {}
                         unexpected => {
                             return compiler_error!(
                                 self,
@@ -1376,10 +1378,10 @@ impl Compiler {
             Some(result) => {
                 let lhs = self
                     .compile_node(ResultRegister::Any, lhs_node, ast)?
-                    .unwrap();
+                    .ok_or_else(|| self.make_error("Missing lhs for binary op".into()))?;
                 let rhs = self
                     .compile_node(ResultRegister::Any, rhs_node, ast)?
-                    .unwrap();
+                    .ok_or_else(|| self.make_error("Missing rhs for binary op".into()))?;
 
                 self.push_op(op, &[result.register, lhs.register, rhs.register]);
 

@@ -742,9 +742,9 @@ x";
                 source,
                 &[
                     Id(0),
+                    Wildcard,
                     Id(1),
                     Id(2),
-                    Id(3),
                     Lookup((LookupNode::Call(vec![]), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     MultiAssign {
@@ -766,12 +766,11 @@ x";
                     },
                     MainBlock {
                         body: vec![6],
-                        local_count: 3,
+                        local_count: 2,
                     },
                 ],
                 Some(&[
                     Constant::Str("x"),
-                    Constant::Str("_"),
                     Constant::Str("y"),
                     Constant::Str("f"),
                 ]),
