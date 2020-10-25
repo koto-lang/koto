@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "panic_on_parser_error", allow(unreachable_code))]
+
 use {
     crate::{constant_pool::ConstantPoolBuilder, error::*, *},
     koto_lexer::{Lexer, Span, Token},
@@ -18,10 +20,11 @@ macro_rules! make_internal_error {
 macro_rules! internal_error {
     ($error:ident, $parser:expr) => {{
         let error = make_internal_error!($error, $parser);
-        #[cfg(panic_on_parser_error)]
-        {
-            panic!(error);
-        }
+
+        #[cfg(feature = "panic_on_parser_error")]
+        panic!(error);
+
+        #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
     }};
 }
@@ -29,10 +32,11 @@ macro_rules! internal_error {
 macro_rules! syntax_error {
     ($error:ident, $parser:expr) => {{
         let error = ParserError::new(SyntaxError::$error.into(), $parser.lexer.span());
-        #[cfg(panic_on_parser_error)]
-        {
-            panic!(error);
-        }
+
+        #[cfg(feature = "panic_on_parser_error")]
+        panic!(error);
+
+        #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
     }};
 }

@@ -6,3 +6,9 @@ edition = "2018"
 
 [dependencies]
 koto_lexer = { path = "../lexer" }
+
+[features]
+default = []
+
+# Can be useful during development, when a backtrace on error would be desirable
+panic_on_parser_error = []

@@ -1,9 +1,29 @@
 mod parser {
     use koto_parser::Parser;
 
+    #[cfg(feature = "panic_on_parser_error")]
+    fn check_parsing_fails(source: &str) {
+        let catch_result = std::panic::catch_unwind(|| Parser::parse(source));
+
+        if let Ok(result) = catch_result {
+            if let Ok(ast) = result {
+                panic!(
+                    "Unexpected success while parsing:\n{}\n{:#?}",
+                    source,
+                    ast.0.nodes()
+                );
+            }
+        }
+    }
+
+    #[cfg(not(feature = "panic_on_parser_error"))]
     fn check_parsing_fails(source: &str) {
         if let Ok(ast) = Parser::parse(source) {
-            panic!("Unexpected success while parsing:\n{}\n{:#?}", source, ast.0.nodes());
+            panic!(
+                "Unexpected success while parsing:\n{}\n{:#?}",
+                source,
+                ast.0.nodes()
+            );
         }
     }
 
