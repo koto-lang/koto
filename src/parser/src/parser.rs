@@ -470,9 +470,7 @@ impl<'source> Parser<'source> {
 
         let expression_start = {
             // ID expressions are broken out to allow function calls in first position
-            let expression = if let Some(expression) = self.parse_negatable_expression(context)? {
-                Some(expression)
-            } else if let Some(expression) = self.parse_id_expression(context)? {
+            let expression = if let Some(expression) = self.parse_id_expression(context)? {
                 Some(expression)
             } else {
                 self.parse_term(context)?
@@ -977,32 +975,6 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_negatable_expression(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_after_whitespace() != Some(Token::Subtract) {
-            return Ok(None);
-        }
-
-        if self.peek_two_after_whitespace() == Some(Token::Whitespace) {
-            return Ok(None);
-        }
-
-        self.next_after_whitespace();
-
-        let expression = match self.peek_token() {
-            Some(Token::Id) => self.parse_id_expression(context)?,
-            Some(Token::ParenOpen) => self.parse_nested_expressions(context)?,
-            _ => None,
-        };
-
-        match expression {
-            Some(expression) => Ok(Some(self.push_node(Node::Negate(expression))?)),
-            None => syntax_error!(ExpectedNegatableExpression, self),
-        }
-    }
-
     fn parse_range(&mut self, lhs: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
         use Node::{Range, RangeFrom, RangeFull, RangeTo};
 
@@ -1218,6 +1190,22 @@ impl<'source> Parser<'source> {
                         self.push_node(Node::CopyExpression(expression))?
                     } else {
                         return syntax_error!(ExpectedExpression, self);
+                    }
+                }
+                Token::Subtract => {
+                    if let Some(token_after_subtract) = self.peek_two_after_whitespace() {
+                        if !token_is_whitespace(token_after_subtract) {
+                            self.next_after_whitespace();
+                            if let Some(term) = self.parse_term(&ExpressionContext::restricted())? {
+                                self.push_node(Node::Negate(term))?
+                            } else {
+                                return syntax_error!(ExpectedExpression, self);
+                            }
+                        } else {
+                            return Ok(None);
+                        }
+                    } else {
+                        return Ok(None);
                     }
                 }
                 Token::Not => {
