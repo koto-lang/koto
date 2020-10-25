@@ -769,11 +769,7 @@ x";
                         local_count: 2,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Str("f"),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
             )
         }
 
@@ -1257,7 +1253,7 @@ a";
                         inclusive: false,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![3],
                         condition: None,
                         body: 0,
@@ -1291,7 +1287,7 @@ a";
                         inclusive: false,
                     }, // 5
                     For(AstFor {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         ranges: vec![5],
                         condition: None,
                         body: 2,
@@ -1317,7 +1313,7 @@ a";
                     Id(3),
                     Tuple(vec![0, 1]),
                     For(AstFor {
-                        args: vec![0, 1],
+                        args: vec![Some(0), Some(1)],
                         ranges: vec![2, 3],
                         condition: None,
                         body: 4,
@@ -1357,7 +1353,7 @@ a";
                         rhs: 5,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![3],
                         condition: Some(6),
                         body: 0,
@@ -1394,8 +1390,8 @@ for x in y if x > 0
                         args: vec![5],
                     },
                     For(AstFor {
-                        args: vec![0],   // constant 0
-                        ranges: vec![0], // ast 0
+                        args: vec![Some(0)], // constant 0
+                        ranges: vec![0],     // ast 0
                         condition: Some(3),
                         body: 6,
                     }),
@@ -1538,7 +1534,7 @@ until x < y
                         inclusive: false,
                     }, // 5
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![5],
                         condition: None,
                         body: 2,
@@ -1575,7 +1571,7 @@ until x < y
                         inclusive: true,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![4],
                         condition: None,
                         body: 1,
@@ -1731,7 +1727,7 @@ a()";
                         rhs: 1,
                     },
                     Function(koto_parser::Function {
-                        args: vec![0, 1],
+                        args: vec![Some(0), Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 2,
@@ -1787,7 +1783,7 @@ f 42";
                     Id(2),                // y
                     Block(vec![3, 8, 9]), // 10
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 10,
@@ -1836,7 +1832,7 @@ f 42";
                     Id(2), // y
                     Id(3), // z
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
@@ -1858,7 +1854,7 @@ f 42";
                     },
                     Block(vec![4, 7]),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 8,
@@ -1991,7 +1987,7 @@ f x";
                         expression: 4,
                     }, // 5
                     Function(koto_parser::Function {
-                        args: vec![3, 4],
+                        args: vec![Some(3), Some(4)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 5,
@@ -2039,7 +2035,7 @@ f()";
                         expression: 5,
                     }, // 5
                     Function(koto_parser::Function {
-                        args: vec![4, 5],
+                        args: vec![Some(4), Some(5)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6,
@@ -2123,13 +2119,13 @@ f 1
                         else_node: None,
                     }), // 10
                     For(AstFor {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         ranges: vec![4],
                         condition: None,
                         body: 10,
                     }),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11,
@@ -2171,14 +2167,14 @@ f 1
                         else_node: None,
                     }),
                     For(AstFor {
-                        args: vec![4], // x
+                        args: vec![Some(4)], // x
                         ranges: vec![16],
                         condition: None,
                         body: 24,
                     }), // 25
                     Block(vec![13, 25]),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 26,
@@ -2271,7 +2267,7 @@ y z";
                         rhs: 7,
                     },
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
@@ -3066,7 +3062,7 @@ catch e
                     },
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: 1,
+                        catch_arg: Some(1),
                         catch_block: 4,
                         finally_block: None,
                     }), // 5
@@ -3076,6 +3072,34 @@ catch e
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("e")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_ignored_catch_arg() {
+            let source = "\
+try
+  x
+catch _
+  y
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: None,
+                        catch_block: 1,
+                        finally_block: None,
+                    }), // 5
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -3103,7 +3127,7 @@ finally
                     Number0, // 5
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: 1,
+                        catch_arg: Some(1),
                         catch_block: 4,
                         finally_block: Some(5),
                     }),

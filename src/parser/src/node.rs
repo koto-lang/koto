@@ -152,7 +152,7 @@ impl fmt::Display for Node {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
-    pub args: Vec<ConstantIndex>,
+    pub args: Vec<Option<ConstantIndex>>,
     pub local_count: usize,
     // Any ID or lookup root that's accessed in a function and which wasn't previously assigned
     // locally, is either a global or needs to be captured. The compiler takes care of determining
@@ -164,7 +164,7 @@ pub struct Function {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
-    pub args: Vec<ConstantIndex>, // TODO Vec<Option<ConstantIndex>>
+    pub args: Vec<Option<ConstantIndex>>,
     pub ranges: Vec<AstIndex>,
     pub condition: Option<AstIndex>,
     pub body: AstIndex,
@@ -198,7 +198,7 @@ pub enum AstOp {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AstTry {
     pub try_block: AstIndex,
-    pub catch_arg: ConstantIndex,
+    pub catch_arg: Option<ConstantIndex>,
     pub catch_block: AstIndex,
     pub finally_block: Option<AstIndex>,
 }

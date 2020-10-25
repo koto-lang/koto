@@ -64,9 +64,13 @@ struct Frame {
 }
 
 impl Frame {
-    fn new(local_count: u8, args: &[ConstantIndex], captures: &[ConstantIndex]) -> Self {
+    fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
         let mut local_registers = Vec::with_capacity(local_count as usize);
-        local_registers.extend(args.iter().map(|arg| LocalRegister::Assigned(*arg)));
+        local_registers.extend(
+            args.iter()
+                .filter_map(|maybe_arg| *maybe_arg)
+                .map(LocalRegister::Assigned),
+        );
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
@@ -707,7 +711,7 @@ impl Compiler {
         &mut self,
         local_count: u8,
         expressions: &[AstIndex],
-        args: &[ConstantIndex],
+        args: &[Option<ConstantIndex>],
         captures: &[ConstantIndex],
         ast: &Ast,
         implicit_return: bool,
@@ -1286,7 +1290,12 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let catch_register = self.assign_local_register(*catch_arg)?;
+        let catch_register = if let Some(catch_arg) = catch_arg {
+            self.assign_local_register(*catch_arg)?
+        } else {
+            // The catch argument is ignored, just use a dummy register
+            self.push_register()?
+        };
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
         let catch_offset = self.push_offset_placeholder();
@@ -1315,12 +1324,16 @@ impl Compiler {
         //   are errors thrown in the catch block.
         self.push_op(TryEnd, &[]);
 
-        // If there's a finally block then the result of the expression is derived from there
         self.compile_node(try_result_register, catch_node, ast)?;
         self.span_stack.pop();
 
+        if catch_arg.is_none() {
+            self.pop_register()?;
+        }
+
         self.update_offset_placeholder(finally_offset);
         if let Some(finally_block) = finally_block {
+            // If there's a finally block then the result of the expression is derived from there
             let finally_result_register = match result {
                 Some(result) => ResultRegister::Fixed(result.register),
                 _ => ResultRegister::None,
@@ -2551,20 +2564,32 @@ impl Compiler {
             self.push_op_without_span(IteratorNext, &[temp_register, iterator_register]);
             self.push_loop_jump_placeholder()?;
 
-            for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.assign_local_register(*arg)?;
-                self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
+            for (i, maybe_arg) in args.iter().enumerate() {
+                if let Some(arg) = maybe_arg {
+                    let arg_register = self.assign_local_register(*arg)?;
+                    self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
+                }
             }
 
             self.pop_register()?; // temp_register
         } else {
-            for (i, arg) in args.iter().enumerate() {
-                let arg_register = self.assign_local_register(*arg)?;
-                self.push_op_without_span(
-                    IteratorNext,
-                    &[arg_register, iterator_register + i as u8],
-                );
-                self.push_loop_jump_placeholder()?;
+            for (i, maybe_arg) in args.iter().enumerate() {
+                if let Some(arg) = maybe_arg {
+                    let arg_register = self.assign_local_register(*arg)?;
+                    self.push_op_without_span(
+                        IteratorNext,
+                        &[arg_register, iterator_register + i as u8],
+                    );
+                    self.push_loop_jump_placeholder()?;
+                } else {
+                    let temp_register = self.push_register()?;
+                    self.push_op_without_span(
+                        IteratorNext,
+                        &[temp_register, iterator_register + i as u8],
+                    );
+                    self.push_loop_jump_placeholder()?;
+                    self.pop_register()?; // temp_register
+                }
             }
         }
 
@@ -2610,12 +2635,14 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         if self.options.repl_mode && self.frame_stack.len() == 1 {
-            for arg in args.iter() {
-                let arg_register = match self.frame().get_local_register(*arg) {
-                    Some(register) => register,
-                    None => return compiler_error!(self, "Missing arg register"),
-                };
-                self.compile_set_global(*arg, arg_register);
+            for maybe_arg in args.iter() {
+                if let Some(arg) = maybe_arg {
+                    let arg_register = match self.frame().get_local_register(*arg) {
+                        Some(register) => register,
+                        None => return compiler_error!(self, "Missing arg register"),
+                    };
+                    self.compile_set_global(*arg, arg_register);
+                }
             }
         }
 

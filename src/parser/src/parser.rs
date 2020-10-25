@@ -45,6 +45,11 @@ fn f64_eq(a: f64, b: f64) -> bool {
     (a - b).abs() < std::f64::EPSILON
 }
 
+enum ConstantIndexOrWildcard {
+    Index(ConstantIndex),
+    Wildcard,
+}
+
 #[derive(Debug, Default)]
 struct Frame {
     // If a frame contains yield then it represents a generator function
@@ -274,10 +279,12 @@ impl<'source> Parser<'source> {
         let mut args = Vec::new();
         loop {
             self.consume_until_next_token();
-            if let Some(constant_index) = self.parse_id(true) {
-                args.push(constant_index);
-            } else {
-                break;
+            match self.parse_id_or_wildcard() {
+                Some(ConstantIndexOrWildcard::Index(constant_index)) => {
+                    args.push(Some(constant_index))
+                }
+                Some(ConstantIndexOrWildcard::Wildcard) => args.push(None),
+                None => break,
             }
         }
 
@@ -287,7 +294,9 @@ impl<'source> Parser<'source> {
 
         // body
         let mut function_frame = Frame::default();
-        function_frame.ids_assigned_in_scope.extend(args.clone());
+        function_frame
+            .ids_assigned_in_scope
+            .extend(args.iter().cloned().filter_map(|maybe_id| maybe_id));
         self.frame_stack.push(function_frame);
 
         let body = match self.peek_after_whitespace() {
@@ -617,30 +626,42 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id(&mut self, allow_wildcards: bool) -> Option<ConstantIndex> {
+    fn parse_id(&mut self) -> Option<ConstantIndex> {
         match self.peek_after_whitespace() {
             Some(Token::Id) => {
                 self.next_after_whitespace();
-                Some(self.constants.add_string(self.lexer.slice()) as u32)
-            }
-            Some(Token::Wildcard) if allow_wildcards => {
-                self.next_after_whitespace();
-                Some(self.constants.add_string(self.lexer.slice()) as u32)
+                Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
             }
             _ => None,
         }
     }
 
-    fn parse_id_or_string(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_id_or_wildcard(&mut self) -> Option<ConstantIndexOrWildcard> {
+        match self.peek_after_whitespace() {
+            Some(Token::Id) => {
+                self.next_after_whitespace();
+                Some(ConstantIndexOrWildcard::Index(
+                    self.constants.add_string(self.lexer.slice()) as ConstantIndex,
+                ))
+            }
+            Some(Token::Wildcard) => {
+                self.next_after_whitespace();
+                Some(ConstantIndexOrWildcard::Wildcard)
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_id_or_string(&mut self) -> Result<Option<ConstantIndex>, ParserError> {
         let result = match self.peek_after_whitespace() {
             Some(Token::Id) => {
                 self.next_after_whitespace();
-                Some(self.constants.add_string(self.lexer.slice()) as u32)
+                Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
             }
             Some(Token::String) => {
                 self.next_after_whitespace();
                 let s = self.parse_string(self.lexer.slice())?;
-                Some(self.constants.add_string(&s) as u32)
+                Some(self.constants.add_string(&s) as ConstantIndex)
             }
             _ => None,
         };
@@ -706,7 +727,7 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if let Some(constant_index) = self.parse_id(true) {
+        if let Some(constant_index) = self.parse_id() {
             self.frame_mut()?
                 .increment_expression_access_for_id(constant_index);
 
@@ -996,7 +1017,7 @@ impl<'source> Parser<'source> {
         if self.peek_after_whitespace() == Some(Token::Export) {
             self.next_after_whitespace();
 
-            if let Some(constant_index) = self.parse_id(false) {
+            if let Some(constant_index) = self.parse_id() {
                 let export_id = self.push_node(Node::Id(constant_index))?;
 
                 match self.peek_after_whitespace() {
@@ -1266,9 +1287,7 @@ impl<'source> Parser<'source> {
             };
 
             let result = match self.peek_token() {
-                Some(Token::Range) | Some(Token::RangeInclusive) => {
-                    self.parse_range(result)?
-                }
+                Some(Token::Range) | Some(Token::RangeInclusive) => self.parse_range(result)?,
                 _ => result,
             };
 
@@ -1508,11 +1527,14 @@ impl<'source> Parser<'source> {
         self.next_after_whitespace();
 
         let mut args = Vec::new();
-        while let Some(constant_index) = self.parse_id(true) {
-            args.push(constant_index);
-            self.frame_mut()?
-                .ids_assigned_in_scope
-                .insert(constant_index);
+        while let Some(id_or_wildcard) = self.parse_id_or_wildcard() {
+            match id_or_wildcard {
+                ConstantIndexOrWildcard::Index(id_index) => {
+                    args.push(Some(id_index));
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                }
+                ConstantIndexOrWildcard::Wildcard => args.push(None),
+            }
 
             match self.peek_after_whitespace() {
                 Some(Token::Separator) => {
@@ -1862,7 +1884,7 @@ impl<'source> Parser<'source> {
         let result = if let Some(token) = self.peek_after_whitespace() {
             match token {
                 True | False | Number | String => return self.parse_term(&pattern_context),
-                Id => match self.parse_id(false) {
+                Id => match self.parse_id() {
                     Some(id) => {
                         self.frame_mut()?.ids_assigned_in_scope.insert(id);
                         Some(self.push_node(Node::Id(id))?)
@@ -1950,9 +1972,15 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedCatchBlock, self);
         }
 
-        let catch_arg = if let Some(catch_arg) = self.parse_id(true) {
-            self.frame_mut()?.ids_assigned_in_scope.insert(catch_arg);
-            catch_arg
+        let catch_arg = if let Some(catch_arg) = self.parse_id_or_wildcard() {
+            match catch_arg {
+                ConstantIndexOrWildcard::Index(id_index) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                    Some(id_index)
+                }
+
+                ConstantIndexOrWildcard::Wildcard => None,
+            }
         } else {
             return syntax_error!(ExpectedCatchArgument, self);
         };
@@ -1991,13 +2019,13 @@ impl<'source> Parser<'source> {
     fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
         let mut items = vec![];
 
-        while let Some(item_root) = self.parse_id(false) {
+        while let Some(item_root) = self.parse_id() {
             let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
-                match self.parse_id(false) {
+                match self.parse_id() {
                     Some(id) => item.push(id),
                     None => return syntax_error!(ExpectedImportModuleId, self),
                 }
