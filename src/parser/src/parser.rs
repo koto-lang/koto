@@ -472,18 +472,9 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         let start_line = self.lexer.line_number();
 
-        let expression_start = {
-            let expression = self.parse_term(context)?;
-
-            match self.peek_token() {
-                Some(Token::Range) | Some(Token::RangeInclusive) => {
-                    return self.parse_range(expression)
-                }
-                _ => match expression {
-                    Some(expression) => expression,
-                    None => return Ok(None),
-                },
-            }
+        let expression_start = match self.parse_term(context)? {
+            Some(term) => term,
+            None => return Ok(None),
         };
 
         let continue_expression = start_line == self.lexer.line_number();
@@ -1089,13 +1080,13 @@ impl<'source> Parser<'source> {
             let result = match token {
                 Token::True => {
                     self.next_after_whitespace();
-                    self.push_node(BoolTrue)?
+                    Some(self.push_node(BoolTrue)?)
                 }
                 Token::False => {
                     self.next_after_whitespace();
-                    self.push_node(BoolFalse)?
+                    Some(self.push_node(BoolFalse)?)
                 }
-                Token::ParenOpen => return self.parse_nested_expressions(context),
+                Token::ParenOpen => self.parse_nested_expressions(context)?,
                 Token::Number => {
                     self.next_after_whitespace();
                     let number_node = match f64::from_str(self.lexer.slice()) {
@@ -1114,9 +1105,9 @@ impl<'source> Parser<'source> {
                         }
                     };
                     if self.next_token_is_lookup_start(context) {
-                        self.parse_lookup(number_node, context)?
+                        Some(self.parse_lookup(number_node, context)?)
                     } else {
-                        number_node
+                        Some(number_node)
                     }
                 }
                 Token::String => {
@@ -1125,18 +1116,18 @@ impl<'source> Parser<'source> {
                     let constant_index = self.constants.add_string(&s) as u32;
                     let string_node = self.push_node(Str(constant_index))?;
                     if self.next_token_is_lookup_start(context) {
-                        self.parse_lookup(string_node, context)?
+                        Some(self.parse_lookup(string_node, context)?)
                     } else {
-                        string_node
+                        Some(string_node)
                     }
                 }
-                Token::Id => return self.parse_id_expression(context),
+                Token::Id => self.parse_id_expression(context)?,
                 Token::Wildcard => {
                     self.next_after_whitespace();
-                    self.push_node(Node::Wildcard)?
+                    Some(self.push_node(Node::Wildcard)?)
                 }
-                Token::ListStart => return self.parse_list(context),
-                Token::MapStart => return self.parse_map_inline(context),
+                Token::ListStart => self.parse_list(context)?,
+                Token::MapStart => self.parse_map_inline(context)?,
                 Token::Num2 => {
                     self.next_after_whitespace();
                     let start_span = self.lexer.span();
@@ -1157,7 +1148,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum2Terms, self);
                     }
 
-                    self.push_node_with_start_span(Num2(args), start_span)?
+                    Some(self.push_node_with_start_span(Num2(args), start_span)?)
                 }
                 Token::Num4 => {
                     self.next_after_whitespace();
@@ -1179,18 +1170,18 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum4Terms, self);
                     }
 
-                    self.push_node_with_start_span(Num4(args), start_span)?
+                    Some(self.push_node_with_start_span(Num4(args), start_span)?)
                 }
-                Token::If if context.allow_function_start => return self.parse_if_expression(),
-                Token::Match => return self.parse_match_expression(),
-                Token::Function => return self.parse_function(),
+                Token::If if context.allow_function_start => self.parse_if_expression()?,
+                Token::Match => self.parse_match_expression()?,
+                Token::Function => self.parse_function()?,
                 Token::Copy => {
                     self.next_after_whitespace();
                     if let Some(expression) = self.parse_expression(&ExpressionContext {
                         allow_function_start: true,
                         ..*context
                     })? {
-                        self.push_node(Node::CopyExpression(expression))?
+                        Some(self.push_node(Node::CopyExpression(expression))?)
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
@@ -1200,15 +1191,15 @@ impl<'source> Parser<'source> {
                         if !token_is_whitespace(token_after_subtract) {
                             self.next_after_whitespace();
                             if let Some(term) = self.parse_term(&ExpressionContext::restricted())? {
-                                self.push_node(Node::Negate(term))?
+                                Some(self.push_node(Node::Negate(term))?)
                             } else {
                                 return syntax_error!(ExpectedExpression, self);
                             }
                         } else {
-                            return Ok(None);
+                            None
                         }
                     } else {
-                        return Ok(None);
+                        None
                     }
                 }
                 Token::Not => {
@@ -1217,7 +1208,7 @@ impl<'source> Parser<'source> {
                         allow_function_start: true,
                         ..*context
                     })? {
-                        self.push_node(Node::Negate(expression))?
+                        Some(self.push_node(Node::Negate(expression))?)
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
@@ -1228,7 +1219,7 @@ impl<'source> Parser<'source> {
                         allow_function_start: true,
                         ..*context
                     })? {
-                        self.push_node(Node::Type(expression))?
+                        Some(self.push_node(Node::Type(expression))?)
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
@@ -1241,38 +1232,47 @@ impl<'source> Parser<'source> {
                     })? {
                         let result = self.push_node(Node::Yield(expression))?;
                         self.frame_mut()?.contains_yield = true;
-                        result
+                        Some(result)
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
                 Token::Break => {
                     self.next_after_whitespace();
-                    self.push_node(Node::Break)?
+                    Some(self.push_node(Node::Break)?)
                 }
                 Token::Continue => {
                     self.next_after_whitespace();
-                    self.push_node(Node::Continue)?
+                    Some(self.push_node(Node::Continue)?)
                 }
                 Token::Return => {
                     self.next_after_whitespace();
-                    if let Some(expression) = self.parse_expressions(&ExpressionContext {
-                        allow_function_start: true,
-                        ..*context
-                    })? {
+                    let result = if let Some(expression) =
+                        self.parse_expressions(&ExpressionContext {
+                            allow_function_start: true,
+                            ..*context
+                        })? {
                         self.push_node(Node::ReturnExpression(expression))?
                     } else {
                         self.push_node(Node::Return)?
-                    }
+                    };
+                    Some(result)
                 }
-                Token::From | Token::Import => return self.parse_import_expression(),
-                Token::Try if context.allow_function_start => return self.parse_try_expression(),
-                Token::NewLineIndented => return self.parse_map_block(current_indent, None),
+                Token::From | Token::Import => self.parse_import_expression()?,
+                Token::Try if context.allow_function_start => self.parse_try_expression()?,
+                Token::NewLineIndented => self.parse_map_block(current_indent, None)?,
                 Token::Error => return syntax_error!(LexerError, self),
-                _ => return Ok(None),
+                _ => None,
             };
 
-            Ok(Some(result))
+            let result = match self.peek_token() {
+                Some(Token::Range) | Some(Token::RangeInclusive) => {
+                    self.parse_range(result)?
+                }
+                _ => result,
+            };
+
+            Ok(result)
         } else {
             Ok(None)
         }
