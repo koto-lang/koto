@@ -896,7 +896,9 @@ impl<'source> Parser<'source> {
                 Token::Dot => {
                     self.consume_token();
 
-                    if let Some(id_index) = self.parse_id_or_string()? {
+                    if !matches!(self.peek_token(), Some(Token::Id) | Some(Token::String)) {
+                        return syntax_error!(ExpectedMapKey, self);
+                    } else if let Some(id_index) = self.parse_id_or_string()? {
                         lookup.push((
                             LookupNode::Id(id_index),
                             self.span_with_start(self.lexer.span()),

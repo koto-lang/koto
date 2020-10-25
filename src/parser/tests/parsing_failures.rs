@@ -36,5 +36,13 @@ x.foo
 ";
             check_parsing_fails(source);
         }
+
+        #[test]
+        fn detached_dot_access() {
+            let source = "
+x. foo
+";
+            check_parsing_fails(source);
+        }
     }
 }
