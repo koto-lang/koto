@@ -455,7 +455,9 @@ min..max
         fn num2() {
             let source = "\
 num2 0
-num2 1 x";
+num2
+  1
+  x";
             check_ast(
                 source,
                 &[
@@ -478,7 +480,9 @@ num2 1 x";
             let source = "\
 num4 0
 num4 1 x
-num4 x 0 1 x";
+num4
+  x 0
+  1 x";
             check_ast(
                 source,
                 &[

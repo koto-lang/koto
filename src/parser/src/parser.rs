@@ -1156,11 +1156,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        let mut args = Vec::new();
-                        while let Some(arg) = self.parse_term(&ExpressionContext::restricted())? {
-                            args.push(arg);
-                        }
-                        args
+                        self.parse_space_separated_call_args(context)?
                     };
 
                     if args.is_empty() {
@@ -1178,11 +1174,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        let mut args = Vec::new();
-                        while let Some(arg) = self.parse_term(&ExpressionContext::restricted())? {
-                            args.push(arg);
-                        }
-                        args
+                        self.parse_space_separated_call_args(context)?
                     };
 
                     if args.is_empty() {
