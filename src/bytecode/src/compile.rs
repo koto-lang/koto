@@ -133,7 +133,8 @@ impl Frame {
                 let new_local_register = self.local_registers.len() - 1;
 
                 if new_local_register > self.temporary_base as usize {
-                    return Err("reserve_local_register: Locals overflowed".to_string());
+                    // return Err("reserve_local_register: Locals overflowed".to_string());
+                    panic!();
                 }
 
                 Ok(new_local_register as u8)

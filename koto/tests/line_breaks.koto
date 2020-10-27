@@ -1,8 +1,8 @@
 import test.assert_eq
 
-x = num4
+a = num4
   0 1 2 3
-y = num4
+b = num4
   0 1
   2 3
 assert_eq a b
@@ -26,6 +26,7 @@ assert_eq x 6
 
 x = (1, 2, 3)
   .iter()
+  # This comment shouldn't interrupt the chain
   .fold 0 |a b| a + b
 assert_eq x 6
 
@@ -58,6 +59,7 @@ assert_eq x[1] 99
 
 
 a = 1 +
-    2 + 3 +
-      4
+    2 + #- inline comment -# 3 +
+    # Another comment
+    4
 assert_eq a 10

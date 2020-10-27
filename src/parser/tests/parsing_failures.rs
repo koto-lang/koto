@@ -40,13 +40,64 @@ mod parser {
             check_parsing_fails("1 + * 2");
         }
 
-        #[test]
-        fn indented_main_block() {
-            let source = "
+        mod indentation {
+            use super::*;
+
+            #[test]
+            fn indented_main_block() {
+                let source = "
   1 + 1
 ";
-            check_parsing_fails(source);
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn extra_indentation_in_arithmetic() {
+                let source = "
+x = 1
+    + 2
+      + 3
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn list_end_with_incorrect_indentation() {
+                let source = "
+x = [
+  1,
+  2,
+    ]
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn map_end_with_incorrect_indentation() {
+                let source = "
+x = {
+  foo: 42,
+  bar: 99
+    }
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn function_end_with_incorrect_indentation() {
+                let source = "
+x = |
+  x
+  y
+    | x + y
+";
+                check_parsing_fails(source);
+            }
         }
+    }
+
+    mod lookups {
+        use super::*;
 
         #[test]
         fn detached_index() {

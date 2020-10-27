@@ -12,12 +12,12 @@ export tests =
     assert_eq (2 + 5 % 3) 4
 
   test_long_expression: ||
-    # Long expressions can be broken before operators
-    a = 1
-      + 2 * 3
-          # Comments and new indentation can introduced
+    # Long expressions can be broken before and after operators
+    a = 1 +
+        2 * 3
+            # Comments don't interrupt the expression
         + 5 + 5
-      + 9 / 3
+        + 9 / 3
     assert_eq a 20
 
   test_assignment_operators: ||
