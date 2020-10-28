@@ -960,8 +960,14 @@ impl<'source> Parser<'source> {
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
 
-            if let Some(expression) = self.parse_expression(&mut ExpressionContext::inline())? {
+            if let Some(expression) = self.parse_expression(&mut ExpressionContext::restricted())? {
                 args.push(expression);
+            } else {
+                break;
+            }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+                self.consume_next_token_on_same_line();
             } else {
                 break;
             }

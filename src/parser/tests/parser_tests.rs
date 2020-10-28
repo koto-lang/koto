@@ -2071,6 +2071,27 @@ f 42";
         }
 
         #[test]
+        fn call_with_parentheses() {
+            let source = "f(x, -x)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(1),
+                    Negate(2),
+                    Lookup((LookupNode::Call(vec![1, 3]), None)),
+                    Lookup((LookupNode::Root(0), Some(4))),
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
         fn call_over_lines() {
             let source = "
 foo
