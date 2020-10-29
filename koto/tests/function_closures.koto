@@ -3,12 +3,12 @@ import test.assert_eq
 export tests =
   test_value_capture_on_function_creation: ||
     multipliers = (1..=4).iter()
-      .transform(|i| |n| n * i)
+      .each |i| return |n| n * i
       .to_tuple()
 
     assert_eq
       multipliers.iter()
-        .transform(|multiplier| multiplier 2)
+        .each |multiplier| multiplier 2
         .to_tuple()
       (2, 4, 6, 8)
 

@@ -9,6 +9,32 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("each", |vm, args| {
+        match vm.get_args_as_vec(args).as_slice() {
+            [Iterator(i), Function(f)] => {
+                let f = f.clone();
+                let mut vm = vm.spawn_shared_vm();
+
+                let mut iter = i.clone().map(move |iter_output| match iter_output {
+                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
+                        Ok(result) => Ok(Output::Value(result)),
+                        Err(error) => Err(error),
+                    },
+                    Ok(Output::ValuePair(first, second)) => {
+                        match vm.run_function(&f, &[first, second]) {
+                            Ok(result) => Ok(Output::Value(result)),
+                            Err(error) => Err(error),
+                        }
+                    }
+                    Err(error) => Err(error),
+                });
+
+                Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            }
+            _ => external_error!("iterator.each: Expected iterator and function as arguments"),
+        }
+    });
+
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let mut iter =
@@ -22,60 +48,6 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
         _ => external_error!("iterator.enumerate: Expected iterator as argument"),
-    });
-
-    result.add_fn("filter", |vm, args| match vm.get_args(args) {
-        [Iterator(i), Function(f)] => {
-            let mut iter = i.clone();
-            let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
-
-            Ok(Iterator(ValueIterator::make_external(move || {
-                for output in &mut iter {
-                    match output {
-                        Ok(Output::Value(value)) => match vm.run_function(&f, &[value.clone()]) {
-                            Ok(Bool(result)) => {
-                                if result {
-                                    return Some(Ok(Output::Value(value)));
-                                } else {
-                                    continue;
-                                }
-                            }
-                            Ok(unexpected) => {
-                                return Some(external_error!(
-                                    "iterator.filter expects a Bool to be returned from the \
-                                         predicate, found '{}'",
-                                    value::type_as_string(&unexpected),
-                                ))
-                            }
-                            Err(error) => return Some(Err(error)),
-                        },
-                        Ok(Output::ValuePair(first, second)) => {
-                            match vm.run_function(&f, &[first.clone(), second.clone()]) {
-                                Ok(Bool(result)) => {
-                                    if result {
-                                        return Some(Ok(Output::ValuePair(first, second)));
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                Ok(unexpected) => {
-                                    return Some(external_error!(
-                                        "iterator.filter expects a Bool to be returned from the \
-                                         predicate, found '{}'",
-                                        value::type_as_string(&unexpected),
-                                    ))
-                                }
-                                Err(error) => return Some(Err(error)),
-                            }
-                        }
-                        Err(error) => return Some(Err(error)),
-                    }
-                }
-                None
-            })))
-        }
-        _ => external_error!("iterator.filter: Expected iterator and function as arguments"),
     });
 
     result.add_fn("fold", |vm, args| {
@@ -122,6 +94,60 @@ pub fn make_module() -> ValueMap {
             ),
             _ => external_error!("iterator.fold: Expected initial value and function as arguments"),
         }
+    });
+
+    result.add_fn("keep", |vm, args| match vm.get_args(args) {
+        [Iterator(i), Function(f)] => {
+            let mut iter = i.clone();
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+
+            Ok(Iterator(ValueIterator::make_external(move || {
+                for output in &mut iter {
+                    match output {
+                        Ok(Output::Value(value)) => match vm.run_function(&f, &[value.clone()]) {
+                            Ok(Bool(result)) => {
+                                if result {
+                                    return Some(Ok(Output::Value(value)));
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Ok(unexpected) => {
+                                return Some(external_error!(
+                                    "iterator.keep expects a Bool to be returned from the \
+                                         predicate, found '{}'",
+                                    value::type_as_string(&unexpected),
+                                ))
+                            }
+                            Err(error) => return Some(Err(error)),
+                        },
+                        Ok(Output::ValuePair(first, second)) => {
+                            match vm.run_function(&f, &[first.clone(), second.clone()]) {
+                                Ok(Bool(result)) => {
+                                    if result {
+                                        return Some(Ok(Output::ValuePair(first, second)));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Ok(unexpected) => {
+                                    return Some(external_error!(
+                                        "iterator.keep expects a Bool to be returned from the \
+                                         predicate, found '{}'",
+                                        value::type_as_string(&unexpected),
+                                    ))
+                                }
+                                Err(error) => return Some(Err(error)),
+                            }
+                        }
+                        Err(error) => return Some(Err(error)),
+                    }
+                }
+                None
+            })))
+        }
+        _ => external_error!("iterator.keep: Expected iterator and function as arguments"),
     });
 
     result.add_fn("next", |vm, args| match vm.get_args(args) {
@@ -212,32 +238,6 @@ pub fn make_module() -> ValueMap {
             Ok(Tuple(result.into()))
         }
         _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
-    });
-
-    result.add_fn("transform", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
-            [Iterator(i), Function(f)] => {
-                let f = f.clone();
-                let mut vm = vm.spawn_shared_vm();
-
-                let mut iter = i.clone().map(move |iter_output| match iter_output {
-                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
-                        Ok(result) => Ok(Output::Value(result)),
-                        Err(error) => Err(error),
-                    },
-                    Ok(Output::ValuePair(first, second)) => {
-                        match vm.run_function(&f, &[first, second]) {
-                            Ok(result) => Ok(Output::Value(result)),
-                            Err(error) => Err(error),
-                        }
-                    }
-                    Err(error) => Err(error),
-                });
-
-                Ok(Iterator(ValueIterator::make_external(move || iter.next())))
-            }
-            _ => external_error!("iterator.transform: Expected iterator and function as arguments"),
-        }
     });
 
     result

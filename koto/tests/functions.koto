@@ -53,7 +53,7 @@ export tests =
 
     assert_eq
       (0..3).iter()
-        .transform |i| match_digit i
+        .each |i| match_digit i
         .to_tuple()
       (0, 1, 2)
 
