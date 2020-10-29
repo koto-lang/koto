@@ -82,6 +82,19 @@ export tests =
       ones().take(3).to_tuple()
       (1, 1, 1)
 
+  test_zip: ||
+    assert_eq
+      (1..=3).iter()
+        .zip (11..100).iter()
+        .to_tuple()
+      ((1, 11), (2, 12), (3, 13))
+
+    assert_eq
+      {foo: 42, bar: 99}.iter()
+        .zip (100..200).iter()
+        .to_tuple()
+      ((("foo", 42), 100), (("bar", 99), 101))
+
   test_custom_iterator_adaptor: ||
     # Inserting a function into the iterator map makes it available as an iterator adaptor
     iterator.every_other = |iter|

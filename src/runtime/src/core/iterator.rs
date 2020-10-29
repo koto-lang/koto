@@ -240,6 +240,23 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.to_tuple: Expected iterator as argument"),
     });
 
+    result.add_fn("zip", |vm, args| match vm.get_args(args) {
+        [Iterator(iter_a), Iterator(iter_b)] => {
+            let mut iter = iter_a.clone().zip(iter_b.clone()).map(|(a, b)| {
+                match (collect_pair(a), collect_pair(b)) {
+                    (Ok(Output::Value(output_a)), Ok(Output::Value(output_b))) => {
+                        Ok(Output::ValuePair(output_a, output_b))
+                    }
+                    (Err(e), _) | (_, Err(e)) => Err(e),
+                    _ => unreachable!(),
+                }
+            });
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => external_error!("iterator.zip: Expected two iterators as arguments"),
+    });
+
     result
 }
 
