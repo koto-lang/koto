@@ -112,6 +112,17 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.remove: Expected list and index as arguments"),
     });
 
+    result.add_fn("resize", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n), value] => {
+            if *n < 0.0 {
+                return external_error!("list.resize: Negative sizes aren't allowed");
+            }
+            l.data_mut().resize(*n as usize, value.clone());
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.resize: Expected list, number, and value as arguments"),
+    });
+
     result.add_fn("retain", |vm, args| {
         match vm.get_args_as_vec(args).as_slice() {
             [List(l), Function(f)] => {
@@ -212,6 +223,18 @@ pub fn make_module() -> ValueMap {
             }
             _ => external_error!("list.transform expects a list and function as arguments"),
         }
+    });
+
+    result.add_fn("with_size", |vm, args| match vm.get_args(args) {
+        [Number(n), value] => {
+            if *n < 0.0 {
+                return external_error!("list.with_size: Negative sizes aren't allowed");
+            }
+
+            let result = smallvec::smallvec![value.clone(); *n as usize];
+            Ok(Value::List(ValueList::with_data(result)))
+        }
+        _ => external_error!("list.with_size: Expected number and value as arguments"),
     });
 
     result
