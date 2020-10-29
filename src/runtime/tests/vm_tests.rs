@@ -921,7 +921,8 @@ f3 1";
         fn while_loop() {
             let script = "
 count = 0
-(count += 1) while count < 10
+while count < 10
+  count += 1
 count";
             test_script(script, Number(10.0));
         }
@@ -930,7 +931,8 @@ count";
         fn until_loop() {
             let script = "
 count = 10
-(count += 1) until count == 20
+until count == 20
+  count += 1
 count";
             test_script(script, Number(20.0));
         }
@@ -939,7 +941,8 @@ count";
         fn for_loop() {
             let script = "
 count = 32
-(count += 1) for _ in 0..10
+for _ in 0..10
+  count += 1
 count";
             test_script(script, Number(42.0));
         }
@@ -948,7 +951,8 @@ count";
         fn for_conditional() {
             let script = "
 count = 0
-(count += 1) for i in 0..10 if i > 4
+for i in 0..10 if i > 4
+  count += 1
 count";
             test_script(script, Number(5.0));
         }
@@ -957,7 +961,8 @@ count";
         fn for_list() {
             let script = "
 sum = 0
-(sum += a) for a in [10, 20, 30, 40]
+for a in [10, 20, 30, 40]
+  sum += a
 sum";
             test_script(script, Number(100.0));
         }

@@ -12,9 +12,6 @@ export tests =
 
     assert_eq count 3
 
-  test_for_inline: ||
-    assert i >= 0 and i < 3 for i in 0..3
-
   test_for_break_continue: ||
     count = 0
     for i in 0..100
@@ -31,10 +28,6 @@ export tests =
     while count < 5
       count += 1
       assert not count > 5
-
-  test_while_inline: ||
-    count = 5
-    assert (count -= 1) < 5 while count >= 0
 
   test_while_break_continue: ||
     count = 0

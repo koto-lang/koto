@@ -370,14 +370,14 @@ impl<'source> Parser<'source> {
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
         let result = if let Some(for_loop) =
-            self.parse_for_loop(None, &mut ExpressionContext::line_start())?
+            self.parse_for_loop(&mut ExpressionContext::line_start())?
         {
             Some(for_loop)
         } else if let Some(loop_block) = self.parse_loop_block()? {
             Some(loop_block)
-        } else if let Some(while_loop) = self.parse_while_loop(None)? {
+        } else if let Some(while_loop) = self.parse_while_loop()? {
             Some(while_loop)
-        } else if let Some(until_loop) = self.parse_until_loop(None)? {
+        } else if let Some(until_loop) = self.parse_until_loop()? {
             Some(until_loop)
         } else if let Some(export_id) = self.parse_export_id(&mut ExpressionContext::line_start())?
         {
@@ -523,15 +523,6 @@ impl<'source> Parser<'source> {
 
         if let Some((next, peek_count)) = self.peek_next_token(context) {
             match next {
-                For if context.allow_space_separated_call => {
-                    return self.parse_for_loop(Some(lhs), context)
-                }
-                While if context.allow_space_separated_call => {
-                    return self.parse_while_loop(Some(lhs))
-                }
-                Until if context.allow_space_separated_call => {
-                    return self.parse_until_loop(Some(lhs))
-                }
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -1512,7 +1503,6 @@ impl<'source> Parser<'source> {
 
     fn parse_for_loop(
         &mut self,
-        inline_body: Option<&[AstIndex]>,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
         if self.peek_next_token_on_same_line() != Some(Token::For) {
@@ -1571,27 +1561,19 @@ impl<'source> Parser<'source> {
             None
         };
 
-        let body = if let Some(expressions) = inline_body {
-            match expressions {
-                [] => return internal_error!(ForParseFailure, self),
-                [expression] => *expression,
-                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
+        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+            Some(body) => {
+                let result = self.push_node(Node::For(AstFor {
+                    args,
+                    ranges,
+                    condition,
+                    body,
+                }))?;
+
+                Ok(Some(result))
             }
-        } else if let Some(body) = self.parse_indented_block(&mut ExpressionContext::permissive())?
-        {
-            body
-        } else {
-            return syntax_error!(ExpectedForBody, self);
-        };
-
-        let result = self.push_node(Node::For(AstFor {
-            args,
-            ranges,
-            condition,
-            body,
-        }))?;
-
-        Ok(Some(result))
+            None => syntax_error!(ExpectedForBody, self),
+        }
     }
 
     fn parse_loop_block(&mut self) -> Result<Option<AstIndex>, ParserError> {
@@ -1609,10 +1591,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_while_loop(
-        &mut self,
-        inline_body: Option<&[AstIndex]>,
-    ) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_while_loop(&mut self) -> Result<Option<AstIndex>, ParserError> {
         if self.peek_next_token_on_same_line() != Some(Token::While) {
             return Ok(None);
         }
@@ -1626,27 +1605,16 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedWhileCondition, self);
             };
 
-        let body = if let Some(expressions) = inline_body {
-            match expressions {
-                [] => return internal_error!(ForParseFailure, self),
-                [expression] => *expression,
-                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
+        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+            Some(body) => {
+                let result = self.push_node(Node::While { condition, body })?;
+                Ok(Some(result))
             }
-        } else if let Some(body) = self.parse_indented_block(&mut ExpressionContext::permissive())?
-        {
-            body
-        } else {
-            return syntax_error!(ExpectedWhileBody, self);
-        };
-
-        let result = self.push_node(Node::While { condition, body })?;
-        Ok(Some(result))
+            None => syntax_error!(ExpectedWhileBody, self),
+        }
     }
 
-    fn parse_until_loop(
-        &mut self,
-        inline_body: Option<&[AstIndex]>,
-    ) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_until_loop(&mut self) -> Result<Option<AstIndex>, ParserError> {
         if self.peek_next_token_on_same_line() != Some(Token::Until) {
             return Ok(None);
         }
@@ -1660,21 +1628,13 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedUntilCondition, self);
             };
 
-        let body = if let Some(expressions) = inline_body {
-            match expressions {
-                [] => return internal_error!(ForParseFailure, self),
-                [expression] => *expression,
-                _ => self.push_node(Node::Tuple(expressions.to_vec()))?,
+        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+            Some(body) => {
+                let result = self.push_node(Node::Until { condition, body })?;
+                Ok(Some(result))
             }
-        } else if let Some(body) = self.parse_indented_block(&mut ExpressionContext::permissive())?
-        {
-            body
-        } else {
-            return syntax_error!(ExpectedUntilBody, self);
-        };
-
-        let result = self.push_node(Node::Until { condition, body })?;
-        Ok(Some(result))
+            None => syntax_error!(ExpectedUntilBody, self),
+        }
     }
 
     fn parse_if_expression(
