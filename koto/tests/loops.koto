@@ -15,25 +15,6 @@ export tests =
   test_for_inline: ||
     assert i >= 0 and i < 3 for i in 0..3
 
-  test_for_list_comprehension: ||
-    square = |x| x * x
-    z = [square x for x in [1, 2, 3]]
-    assert_eq z [1, 4, 9]
-
-  test_for_list_comprehension_conditional: ||
-    filter = |xs f| [x for x in xs if f x]
-    a = filter [0..20] |x| not x <= 15
-    assert_eq a [16, 17, 18, 19]
-
-  test_for_list_comprehension_multiple_ranges: ||
-    enumerate = |xs| [[i, x] for i, x in 0..xs.size(), xs]
-
-    z = [c for c in enumerate [100..103]]
-    assert_eq z [[0, 100], [1, 101], [2, 102]]
-
-    z2 = [[c, d] for c, d in enumerate [100..103]]
-    assert_eq z z2
-
   test_for_break_continue: ||
     count = 0
     for i in 0..100
@@ -55,11 +36,6 @@ export tests =
     count = 5
     assert (count -= 1) < 5 while count >= 0
 
-  test_while_list_comprehension: ||
-    count = 0
-    x = [(count += 1) while count < 5]
-    assert_eq x [1..=5]
-
   test_while_break_continue: ||
     count = 0
     while true
@@ -77,11 +53,6 @@ export tests =
       count -= 1
       assert count < 5
     assert_eq count 0
-
-  test_until_list_comprehension: ||
-    count = 100
-    x = [(count += 1) until count == 105]
-    assert_eq x [101..=105]
 
   test_loop_break: ||
     count = 0

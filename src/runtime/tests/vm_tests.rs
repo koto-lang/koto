@@ -1314,49 +1314,6 @@ fold 0..5 |n _| n + 1";
         }
     }
 
-    mod list_comprehensions {
-        use super::*;
-
-        #[test]
-        fn for_loop() {
-            test_script("[x for x in 0..5]", number_list(&[0, 1, 2, 3, 4]));
-        }
-
-        #[test]
-        fn conditional_for() {
-            let script = "
-f = |x| x * x
-[f x for x in [2, 3, 4] if x % 2 == 0]";
-            test_script(script, number_list(&[4, 16]));
-        }
-
-        #[test]
-        fn while_loop() {
-            let script = "
-x = 0
-[(x += 1) while x < 3]";
-            test_script(script, number_list(&[1, 2, 3]));
-        }
-
-        #[test]
-        fn for_loop_function_calls() {
-            let script = "
-count = 0
-f = |n| count += n
-x = [f 1 for _ in 0..5]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
-        }
-
-        #[test]
-        fn while_loop_function_calls() {
-            let script = "
-count = 0
-f = |n| n
-x = [f count while (count += 1) <= 5]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
-        }
-    }
-
     mod generators {
         use super::*;
 
@@ -1366,8 +1323,8 @@ x = [f count while (count += 1) <= 5]";
 gen = ||
   yield 1
   yield 2
-[x for x in gen()]";
-            test_script(script, number_list(&[1, 2]));
+gen().to_tuple()";
+            test_script(script, number_tuple(&[1, 2]));
         }
 
         #[test]
@@ -1378,8 +1335,8 @@ gen = ||
   while x <= 5
     yield x
     x += 1
-[x for x in gen()]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+gen().to_tuple()";
+            test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
         }
 
         #[test]
@@ -1388,8 +1345,8 @@ gen = ||
 gen = |xs|
   for x in xs
     yield x
-[x for x in gen(1..=5)]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+gen(1..=5).to_tuple()";
+            test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
         }
 
         #[test]
@@ -1398,7 +1355,7 @@ gen = |xs|
 gen = |xs|
   for i, x in 0..xs.size(), xs
     yield i, x
-z = [x for x in gen(1..=5)]
+z = gen(1..=5).to_tuple()
 z[1]";
             test_script(script, number_tuple(&[1, 2]));
         }

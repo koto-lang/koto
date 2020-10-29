@@ -54,8 +54,8 @@ export tests =
         _, 0 then "Buzz"
         _ then n
 
-    x = [fizz_buzz n for n in 10..=15]
-    assert_eq x ["Buzz", 11, "Fizz", 13, 14, "Fizz Buzz"]
+    x = (10..=15).iter().transform(|n| fizz_buzz n).to_tuple()
+    assert_eq x ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
 
   test_match_alternative_patterns: ||
     inspect = |n|

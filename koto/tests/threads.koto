@@ -1,15 +1,17 @@
-import thread
+import list thread
 import test.assert_eq
 
 export tests =
   test_spawn_4_threads_and_join: ||
-    data = [0 for _ in 0..8]
+    data = list.with_size 8 0
 
     worker = |i|
-      data[i] = i
-      data[i + 4] = i + 4
+      data[i] = 10 + i
+      data[i + 4] = 14 + i
 
-    threads = [(thread.create || worker i) for i in 0..4]
+    threads = (0..4).iter().transform(|i| thread.create || worker i).to_tuple()
 
-    t.join() for t in threads
-    assert_eq data [0..8]
+    for t in threads
+      t.join()
+
+    assert_eq data [10..18]

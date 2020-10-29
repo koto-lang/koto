@@ -575,14 +575,14 @@ impl Compiler {
                 self.compile_match(result_register, *expression, arms, ast)?
             }
             Node::Wildcard => None,
-            Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
+            Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
-                self.compile_loop(result_register, None, Some((*condition, false)), *body, ast)?
+                self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
             }
             Node::Until { condition, body } => {
-                self.compile_loop(result_register, None, Some((*condition, true)), *body, ast)?
+                self.compile_loop(result_register, Some((*condition, true)), *body, ast)?
             }
-            Node::Loop { body } => self.compile_loop(result_register, None, None, *body, ast)?,
+            Node::Loop { body } => self.compile_loop(result_register, None, *body, ast)?,
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -1708,46 +1708,18 @@ impl Compiler {
 
                 match elements {
                     [] => {}
-                    [single_element] => match &ast.node(*single_element).node {
-                        Node::For(for_loop) => {
-                            self.compile_for(
-                                ResultRegister::None,
-                                Some(result.register),
-                                &for_loop,
-                                ast,
-                            )?;
+                    [single_element] => {
+                        let element = self
+                            .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
+                            .unwrap();
+                        self.push_op_without_span(
+                            ListPushValue,
+                            &[result.register, element.register],
+                        );
+                        if element.is_temporary {
+                            self.pop_register()?;
                         }
-                        Node::While { condition, body } => {
-                            self.compile_loop(
-                                ResultRegister::None,
-                                Some(result.register),
-                                Some((*condition, false)),
-                                *body,
-                                ast,
-                            )?;
-                        }
-                        Node::Until { condition, body } => {
-                            self.compile_loop(
-                                ResultRegister::None,
-                                Some(result.register),
-                                Some((*condition, true)),
-                                *body,
-                                ast,
-                            )?;
-                        }
-                        _ => {
-                            let element = self
-                                .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
-                                .unwrap();
-                            self.push_op_without_span(
-                                ListPushValue,
-                                &[result.register, element.register],
-                            );
-                            if element.is_temporary {
-                                self.pop_register()?;
-                            }
-                        }
-                    },
+                    }
                     _ => {
                         let max_batch_size = self.frame().available_registers_count() as usize;
                         for elements_batch in elements.chunks(max_batch_size) {
@@ -2468,7 +2440,6 @@ impl Compiler {
     fn compile_for(
         &mut self,
         result_register: ResultRegister, // register that gets the last iteration's result
-        list_register: Option<u8>,       // list that receives each iteration's result
         ast_for: &AstFor,
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2606,21 +2577,11 @@ impl Compiler {
 
         let body_result_register = if let Some(result) = result {
             ResultRegister::Fixed(result.register)
-        } else if list_register.is_some() {
-            ResultRegister::Any
         } else {
             ResultRegister::None
         };
 
-        let body_result = self.compile_node(body_result_register, ast.node(*body), ast)?;
-
-        // Each iteration's result needs to be captured in the list
-        if let Some(list_register) = list_register {
-            self.push_op_without_span(
-                ListPushValue,
-                &[list_register, body_result.unwrap().register],
-            )
-        }
+        self.compile_node(body_result_register, ast.node(*body), ast)?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
@@ -2653,7 +2614,6 @@ impl Compiler {
     fn compile_loop(
         &mut self,
         result_register: ResultRegister, // register that gets the last iteration's result
-        list_register: Option<u8>,       // list that receives each iteration's result
         condition: Option<(AstIndex, bool)>, // condition, negate condition
         body: AstIndex,
         ast: &Ast,
@@ -2684,18 +2644,11 @@ impl Compiler {
 
         let body_result_register = if let Some(result) = result {
             ResultRegister::Fixed(result.register)
-        } else if list_register.is_some() {
-            ResultRegister::Any
         } else {
             ResultRegister::None
         };
 
         let body_result = self.compile_node(body_result_register, ast.node(body), ast)?;
-
-        if let Some(list_register) = list_register {
-            let body_register = body_result.unwrap().register;
-            self.push_op_without_span(ListPushValue, &[list_register, body_register]);
-        }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 

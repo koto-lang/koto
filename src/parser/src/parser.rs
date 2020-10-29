@@ -526,8 +526,12 @@ impl<'source> Parser<'source> {
                 For if context.allow_space_separated_call => {
                     return self.parse_for_loop(Some(lhs), context)
                 }
-                While if context.allow_space_separated_call => return self.parse_while_loop(Some(lhs)),
-                Until if context.allow_space_separated_call => return self.parse_until_loop(Some(lhs)),
+                While if context.allow_space_separated_call => {
+                    return self.parse_while_loop(Some(lhs))
+                }
+                Until if context.allow_space_separated_call => {
+                    return self.parse_until_loop(Some(lhs))
+                }
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -1191,7 +1195,9 @@ impl<'source> Parser<'source> {
 
                     Some(self.push_node_with_start_span(Num4(args), start_span)?)
                 }
-                Token::If if context.allow_space_separated_call => self.parse_if_expression(context)?,
+                Token::If if context.allow_space_separated_call => {
+                    self.parse_if_expression(context)?
+                }
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Function => self.parse_function(context)?,
                 Token::Copy => {
@@ -1285,7 +1291,9 @@ impl<'source> Parser<'source> {
                     Some(result)
                 }
                 Token::From | Token::Import => self.parse_import_expression(context)?,
-                Token::Try if context.allow_space_separated_call => self.parse_try_expression(context)?,
+                Token::Try if context.allow_space_separated_call => {
+                    self.parse_try_expression(context)?
+                }
                 // Token::NewLineIndented => self.parse_map_block(current_indent, None)?,
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => None,
@@ -1319,68 +1327,25 @@ impl<'source> Parser<'source> {
             list_context.expected_indentation = Some(start_indent);
         }
 
-        // Cloned context to expect
+        let mut entries = Vec::new();
 
-        let lexer_reset_state = self.lexer.clone();
-        let ast_reset_point = self.ast.reset_point();
+        let mut entry_context = ExpressionContext::permissive();
+        while !matches!(
+            self.peek_next_token(&entry_context),
+            Some((Token::ListEnd, _)) | None
+        ) {
+            self.consume_until_next_token(&mut entry_context);
 
-        // A comprehension has to be parsed differently to a plain list of entries.
-        // Any expression can appear at the start as the inline body of a loop, so first look for
-        // any kind of expression, and then see if a loop follows.
-        let list_comprehension =
-            if let Some(expression) = self.parse_expression(&mut ExpressionContext::inline())? {
-                match self.ast.node(expression).node {
-                    Node::For(_) | Node::While { .. } | Node::Until { .. } => Some(expression),
-                    _ => {
-                        let loop_body = vec![expression];
-                        if let Some(for_loop) =
-                            self.parse_for_loop(Some(&loop_body), &mut list_context)?
-                        {
-                            Some(for_loop)
-                        } else if let Some(while_loop) = self.parse_while_loop(Some(&loop_body))? {
-                            Some(while_loop)
-                        } else if let Some(until_loop) = self.parse_until_loop(Some(&loop_body))? {
-                            Some(until_loop)
-                        } else {
-                            None
-                        }
-                    }
-                }
-            } else {
-                None
-            };
-
-        let entries = match list_comprehension {
-            Some(comprehension) => vec![comprehension],
-            None => {
-                // No comprehension was found, so reset the lexer and AST to where things were
-                // before trying to parse a comprehension, and then parse list entries.
-                self.lexer = lexer_reset_state;
-                self.ast.reset(ast_reset_point);
-
-                let mut entries = Vec::new();
-
-                let mut entry_context = ExpressionContext::permissive();
-                while !matches!(
-                    self.peek_next_token(&entry_context),
-                    Some((Token::ListEnd, _)) | None
-                ) {
-                    self.consume_until_next_token(&mut entry_context);
-
-                    if let Some(entry) = self.parse_expression(&mut ExpressionContext::inline())? {
-                        entries.push(entry);
-                    }
-
-                    if self.peek_next_token_on_same_line() == Some(Token::Separator) {
-                        self.consume_next_token_on_same_line();
-                    } else {
-                        break;
-                    }
-                }
-
-                entries
+            if let Some(entry) = self.parse_expression(&mut ExpressionContext::inline())? {
+                entries.push(entry);
             }
-        };
+
+            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+                self.consume_next_token_on_same_line();
+            } else {
+                break;
+            }
+        }
 
         // Consume the list end
         if !matches!(
