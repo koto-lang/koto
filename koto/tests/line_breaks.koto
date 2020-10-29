@@ -1,25 +1,32 @@
 import test.assert_eq
 
-a = num4(1
+a = num4
+  0 1 2 3
+b = num4
+  0 1
   2 3
+assert_eq a b
+
+a = num4(1,
+  2, 3,
   4
 )
 b = num4(
-  1
-  2 3 # Comments can be included in the num4 construction
+  1,
+  2, 3, # Comments can be included in the num4 construction
   4
 )
-b = num4 1 2 3 4
 assert_eq a b
 
 x = (1, 2, 3).iter().fold(
-  0
+  0,
   |a b| a + b
 )
 assert_eq x 6
 
 x = (1, 2, 3)
   .iter()
+  # This comment shouldn't interrupt the chain
   .fold 0 |a b| a + b
 assert_eq x 6
 
@@ -51,11 +58,8 @@ x = [
 assert_eq x[1] 99
 
 
-###### '\' can be used to break lines when implicit breaking isn't allowed
-a = 1 + \
-    2 + 3 + \
+a = 1 +
+    2 + #- inline comment -# 3 +
+    # Another comment
     4
 assert_eq a 10
-
-x = num4 \
-  0 1 2 3

@@ -73,7 +73,7 @@ export tests =
 
   test_fold: ||
     assert_eq
-      (1..=5).iter().fold(0 |sum x| sum + x)
+      (1..=5).iter().fold(0, |sum x| sum + x)
       15
 
   test_take: ||
@@ -118,7 +118,6 @@ export tests =
       ("10", "12", "14")
 
     # The every_other adaptor can also be called via iterator.every_other
-
     assert_eq
       iterator.every_other(make_iter()).to_tuple()
       ("10", "12", "14")

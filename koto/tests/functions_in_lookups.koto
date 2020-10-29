@@ -23,5 +23,7 @@ export tests =
     assert_eq -maps[1].get_child_map().foo -42
 
   test_chained_function_call: ||
-    f = || |x| x * x
+    f = ||
+      # Calling f() returns the following function
+      |x| x * x
     assert_eq f()(8) 64

@@ -6,6 +6,13 @@ export tests =
     assert_eq 49 (square 7)
     assert_eq 100 (square -10)
 
+  test_sum: ||
+    sum = |x y| x + y
+    # Space-separated arguments
+    assert_eq 21 (sum 10 11)
+    # Comma-separated arguments in parentheses
+    assert_eq 21 sum(10, 11)
+
   test_nested_function: ||
     add = |x y|
       x2 = x

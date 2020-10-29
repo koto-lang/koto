@@ -10,7 +10,6 @@ pub enum Token {
     Error,
     Whitespace,
     NewLine,
-    NewLineSkipped,
     NewLineIndented,
     CommentSingle,
     CommentMulti,
@@ -145,17 +144,8 @@ impl<'a> TokenLexer<'a> {
         use Token::*;
 
         let mut char_bytes = 1;
-        let mut skipped = false;
 
         match chars.next() {
-            Some('\\') => {
-                if chars.next() == Some('\n') {
-                    skipped = true;
-                    char_bytes += 1;
-                } else {
-                    return Some(Error);
-                }
-            }
             Some('\n') => {}
             _ => return Some(Error),
         }
@@ -171,13 +161,12 @@ impl<'a> TokenLexer<'a> {
             },
         );
 
-        Some(if skipped {
-            NewLineSkipped
-        } else if self.indent == 0 {
+        let result = if self.indent == 0 {
             NewLine
         } else {
             NewLineIndented
-        })
+        };
+        Some(result)
     }
 
     fn consume_comment(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
@@ -455,7 +444,7 @@ impl<'a> Iterator for TokenLexer<'a> {
                         self.advance_line(count);
                         Some(Whitespace)
                     }
-                    Some('\n') | Some('\\') => self.consume_newline(chars),
+                    Some('\n') => self.consume_newline(chars),
                     Some('#') => self.consume_comment(chars),
                     Some('"') => self.consume_string(chars),
                     Some('0'..='9') | Some('-') => self.consume_number_or_subtract(chars),

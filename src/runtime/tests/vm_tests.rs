@@ -1326,7 +1326,7 @@ fold 0..5 |n _| n + 1";
         fn conditional_for() {
             let script = "
 f = |x| x * x
-[f(x) for x in [2, 3, 4] if x % 2 == 0]";
+[f x for x in [2, 3, 4] if x % 2 == 0]";
             test_script(script, number_list(&[4, 16]));
         }
 

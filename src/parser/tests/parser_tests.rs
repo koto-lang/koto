@@ -138,7 +138,10 @@ a
 
         #[test]
         fn list() {
-            let source = "[0, n, \"test\", n, -1]";
+            let source = r#"
+[0, n, "test", n, -1]
+[]
+"#;
             check_ast(
                 source,
                 &[
@@ -148,8 +151,9 @@ a
                     Id(0),
                     Number(2),
                     List(vec![0, 1, 2, 3, 4]),
+                    List(vec![]),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![5, 6],
                         local_count: 0,
                     },
                 ],
@@ -211,6 +215,37 @@ x = [
                     Map(vec![(0, Some(1)), (2, None), (3, Some(2))]),
                     MainBlock {
                         body: vec![0, 3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Number(42.0),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                    Constant::Str("hello"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn map_inline_multiline() {
+            let source = r#"
+{
+  "foo": 42,
+  bar,
+  baz:
+    "hello",
+}"#;
+            check_ast(
+                source,
+                &[
+                    Number(1),
+                    Str(4),
+                    // map entries are constant/ast index pairs
+                    Map(vec![(0, Some(0)), (2, None), (3, Some(1))]),
+                    MainBlock {
+                        body: vec![2],
                         local_count: 0,
                     },
                 ],
@@ -455,7 +490,9 @@ min..max
         fn num2() {
             let source = "\
 num2 0
-num2 1 x";
+num2
+  1
+  x";
             check_ast(
                 source,
                 &[
@@ -478,7 +515,9 @@ num2 1 x";
             let source = "\
 num4 0
 num4 1 x
-num4 x 0 1 x";
+num4
+  x 0
+  1 x";
             check_ast(
                 source,
                 &[
@@ -742,9 +781,9 @@ x";
                 source,
                 &[
                     Id(0),
+                    Wildcard,
                     Id(1),
                     Id(2),
-                    Id(3),
                     Lookup((LookupNode::Call(vec![]), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     MultiAssign {
@@ -766,15 +805,10 @@ x";
                     },
                     MainBlock {
                         body: vec![6],
-                        local_count: 3,
+                        local_count: 2,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("_"),
-                    Constant::Str("y"),
-                    Constant::Str("f"),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
             )
         }
 
@@ -1042,6 +1076,96 @@ x %= 4";
                 Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
             )
         }
+
+        #[test]
+        fn multiline_trailing_operators() {
+            let source = "
+a = 1 +
+    2 *
+    3
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Number(1),
+                    Number(2),
+                    BinaryOp {
+                        op: AstOp::Multiply,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 4,
+                    }, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn multiline_preceding_operators() {
+            let source = "
+a = 1
+  + 2
+  * 3
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number1,
+                    Number(1),
+                    Number(2),
+                    BinaryOp {
+                        op: AstOp::Multiply,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 4,
+                    }, // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Number(2.0),
+                    Constant::Number(3.0),
+                ]),
+            )
+        }
     }
 
     mod logic {
@@ -1258,7 +1382,7 @@ a";
                         inclusive: false,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![3],
                         condition: None,
                         body: 0,
@@ -1292,7 +1416,7 @@ a";
                         inclusive: false,
                     }, // 5
                     For(AstFor {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         ranges: vec![5],
                         condition: None,
                         body: 2,
@@ -1318,7 +1442,7 @@ a";
                     Id(3),
                     Tuple(vec![0, 1]),
                     For(AstFor {
-                        args: vec![0, 1],
+                        args: vec![Some(0), Some(1)],
                         ranges: vec![2, 3],
                         condition: None,
                         body: 4,
@@ -1358,7 +1482,7 @@ a";
                         rhs: 5,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![3],
                         condition: Some(6),
                         body: 0,
@@ -1395,8 +1519,8 @@ for x in y if x > 0
                         args: vec![5],
                     },
                     For(AstFor {
-                        args: vec![0],   // constant 0
-                        ranges: vec![0], // ast 0
+                        args: vec![Some(0)], // constant 0
+                        ranges: vec![0],     // ast 0
                         condition: Some(3),
                         body: 6,
                     }),
@@ -1539,7 +1663,7 @@ until x < y
                         inclusive: false,
                     }, // 5
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![5],
                         condition: None,
                         body: 2,
@@ -1576,7 +1700,7 @@ until x < y
                         inclusive: true,
                     },
                     For(AstFor {
-                        args: vec![0],
+                        args: vec![Some(0)],
                         ranges: vec![4],
                         condition: None,
                         body: 1,
@@ -1676,6 +1800,35 @@ until x < y
                 ]),
             )
         }
+
+        #[test]
+        fn for_block_after_array() {
+            // A case that failed parsing at the start of the for block,
+            // expecting an expression in the main block.
+            let source = "\
+[]
+for x in y
+  x";
+            check_ast(
+                source,
+                &[
+                    List(vec![]),
+                    Id(1),
+                    Id(0),
+                    For(AstFor {
+                        args: vec![Some(0)], // constant 0
+                        ranges: vec![1],     // ast 1
+                        condition: None,
+                        body: 2,
+                    }),
+                    MainBlock {
+                        body: vec![0, 3],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
     }
 
     mod functions {
@@ -1732,7 +1885,7 @@ a()";
                         rhs: 1,
                     },
                     Function(koto_parser::Function {
-                        args: vec![0, 1],
+                        args: vec![Some(0), Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 2,
@@ -1788,7 +1941,7 @@ f 42";
                     Id(2),                // y
                     Block(vec![3, 8, 9]), // 10
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 10,
@@ -1837,7 +1990,7 @@ f 42";
                     Id(2), // y
                     Id(3), // z
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
@@ -1859,7 +2012,7 @@ f 42";
                     },
                     Block(vec![4, 7]),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 8,
@@ -1910,6 +2063,27 @@ f 42";
                     },
                     MainBlock {
                         body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn call_with_parentheses() {
+            let source = "f(x, -x)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(1),
+                    Negate(2),
+                    Lookup((LookupNode::Call(vec![1, 3]), None)),
+                    Lookup((LookupNode::Root(0), Some(4))),
+                    MainBlock {
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -1992,7 +2166,7 @@ f x";
                         expression: 4,
                     }, // 5
                     Function(koto_parser::Function {
-                        args: vec![3, 4],
+                        args: vec![Some(3), Some(4)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 5,
@@ -2011,6 +2185,50 @@ f x";
                     Constant::Str("bar"),
                     Constant::Str("self"),
                     Constant::Str("x"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn function_map_block() {
+            let source = "
+f = ||
+  foo: x
+  bar: 0
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(2),
+                    Number0,
+                    // Map entries are constant/ast index pairs
+                    Map(vec![(1, Some(1)), (3, Some(2))]),
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![2],
+                        body: 3,
+                        is_generator: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    },
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("foo"),
+                    Constant::Str("x"),
+                    Constant::Str("bar"),
                 ]),
             )
         }
@@ -2040,7 +2258,7 @@ f()";
                         expression: 5,
                     }, // 5
                     Function(koto_parser::Function {
-                        args: vec![4, 5],
+                        args: vec![Some(4), Some(5)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6,
@@ -2124,13 +2342,13 @@ f 1
                         else_node: None,
                     }), // 10
                     For(AstFor {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         ranges: vec![4],
                         condition: None,
                         body: 10,
                     }),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11,
@@ -2172,14 +2390,14 @@ f 1
                         else_node: None,
                     }),
                     For(AstFor {
-                        args: vec![4], // x
+                        args: vec![Some(4)], // x
                         ranges: vec![16],
                         condition: None,
                         body: 24,
                     }), // 25
                     Block(vec![13, 25]),
                     Function(koto_parser::Function {
-                        args: vec![1],
+                        args: vec![Some(1)],
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 26,
@@ -2272,7 +2490,7 @@ y z";
                         rhs: 7,
                     },
                     Function(koto_parser::Function {
-                        args: vec![3],
+                        args: vec![Some(3)],
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
@@ -2872,55 +3090,6 @@ assert_eq (type true) \"bool\"
         }
     }
 
-    mod line_continuation {
-        use super::*;
-
-        #[test]
-        fn arithmetic() {
-            let source = r"
-a = 1 + \
-    2 + \
-    3
-";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Number1,
-                    Number(1),
-                    BinaryOp {
-                        op: AstOp::Add,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Number(2),
-                    BinaryOp {
-                        op: AstOp::Add,
-                        lhs: 3,
-                        rhs: 4,
-                    }, // 5
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 0,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Equal,
-                        expression: 5,
-                    },
-                    MainBlock {
-                        body: vec![6],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("a"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
-                ]),
-            )
-        }
-    }
-
     mod import {
         use super::*;
 
@@ -3067,7 +3236,7 @@ catch e
                     },
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: 1,
+                        catch_arg: Some(1),
                         catch_block: 4,
                         finally_block: None,
                     }), // 5
@@ -3077,6 +3246,34 @@ catch e
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("e")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_ignored_catch_arg() {
+            let source = "\
+try
+  x
+catch _
+  y
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: None,
+                        catch_block: 1,
+                        finally_block: None,
+                    }), // 5
+                    MainBlock {
+                        body: vec![2],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
 
@@ -3104,7 +3301,7 @@ finally
                     Number0, // 5
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: 1,
+                        catch_arg: Some(1),
                         catch_block: 4,
                         finally_block: Some(5),
                     }),
