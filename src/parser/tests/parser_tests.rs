@@ -1370,33 +1370,25 @@ a";
         #[test]
         fn for_block() {
             let source = "\
-for x in y if x > 0
+for x in y
   f x";
             check_ast(
                 source,
                 &[
                     Id(1),
-                    Id(0),
-                    Number0,
-                    BinaryOp {
-                        op: AstOp::Greater,
-                        lhs: 1,
-                        rhs: 2,
-                    },
                     Id(2),
-                    Id(0), // 5
+                    Id(0),
                     Call {
-                        function: 4,
-                        args: vec![5],
+                        function: 1,
+                        args: vec![2],
                     },
                     For(AstFor {
                         args: vec![Some(0)], // constant 0
                         ranges: vec![0],     // ast 0
-                        condition: Some(3),
-                        body: 6,
+                        body: 3,
                     }),
                     MainBlock {
-                        body: vec![7],
+                        body: vec![4],
                         local_count: 1,
                     },
                 ],
@@ -1489,7 +1481,6 @@ for x in y
                     For(AstFor {
                         args: vec![Some(0)], // constant 0
                         ranges: vec![1],     // ast 1
-                        condition: None,
                         body: 2,
                     }),
                     MainBlock {
@@ -2015,7 +2006,6 @@ f 1
                     For(AstFor {
                         args: vec![Some(3)],
                         ranges: vec![4],
-                        condition: None,
                         body: 10,
                     }),
                     Function(koto_parser::Function {
@@ -2063,7 +2053,6 @@ f 1
                     For(AstFor {
                         args: vec![Some(4)], // x
                         ranges: vec![16],
-                        condition: None,
                         body: 24,
                     }), // 25
                     Block(vec![13, 25]),

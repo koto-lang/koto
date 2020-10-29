@@ -2448,7 +2448,6 @@ impl Compiler {
         let AstFor {
             args,
             ranges,
-            condition,
             body,
         } = &ast_for;
 
@@ -2456,9 +2455,6 @@ impl Compiler {
         //   make local registers for args
         // loop_start:
         //   iterator_next_or_jump iterator_register arg_register jump -> end
-        //   if condition
-        //     condition_body
-        //     if body result false jump -> loop_start
         //   loop body
         //   jump -> loop_start
         // end:
@@ -2562,16 +2558,6 @@ impl Compiler {
                     self.push_loop_jump_placeholder()?;
                     self.pop_register()?; // temp_register
                 }
-            }
-        }
-
-        if let Some(condition) = condition {
-            let condition_register = self
-                .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
-                .unwrap();
-            self.push_jump_back_op(JumpBackFalse, &[condition_register.register], loop_start_ip);
-            if condition_register.is_temporary {
-                self.pop_register()?;
             }
         }
 

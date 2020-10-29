@@ -166,7 +166,6 @@ pub struct Function {
 pub struct AstFor {
     pub args: Vec<Option<ConstantIndex>>,
     pub ranges: Vec<AstIndex>,
-    pub condition: Option<AstIndex>,
     pub body: AstIndex,
 }
 

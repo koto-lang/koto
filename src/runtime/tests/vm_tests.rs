@@ -948,16 +948,6 @@ count";
         }
 
         #[test]
-        fn for_conditional() {
-            let script = "
-count = 0
-for i in 0..10 if i > 4
-  count += 1
-count";
-            test_script(script, Number(5.0));
-        }
-
-        #[test]
         fn for_list() {
             let script = "
 sum = 0

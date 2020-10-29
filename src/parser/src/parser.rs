@@ -1550,23 +1550,11 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedForRanges, self);
         }
 
-        let condition = if self.peek_next_token_on_same_line() == Some(Token::If) {
-            self.consume_next_token_on_same_line();
-            if let Some(condition) = self.parse_expression(&mut ExpressionContext::inline())? {
-                Some(condition)
-            } else {
-                return syntax_error!(ExpectedForCondition, self);
-            }
-        } else {
-            None
-        };
-
         match self.parse_indented_block(&mut ExpressionContext::permissive())? {
             Some(body) => {
                 let result = self.push_node(Node::For(AstFor {
                     args,
                     ranges,
-                    condition,
                     body,
                 }))?;
 
