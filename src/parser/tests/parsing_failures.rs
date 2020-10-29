@@ -94,26 +94,26 @@ x = |
                 check_parsing_fails(source);
             }
         }
-    }
 
-    mod lookups {
-        use super::*;
+        mod lookups {
+            use super::*;
 
-        #[test]
-        fn detached_index() {
-            let source = "
+            #[test]
+            fn detached_index() {
+                let source = "
 x.foo
   [0]
 ";
-            check_parsing_fails(source);
-        }
+                check_parsing_fails(source);
+            }
 
-        #[test]
-        fn detached_dot_access() {
-            let source = "
+            #[test]
+            fn detached_dot_access() {
+                let source = "
 x. foo
 ";
-            check_parsing_fails(source);
+                check_parsing_fails(source);
+            }
         }
     }
 }
