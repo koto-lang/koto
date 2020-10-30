@@ -17,7 +17,7 @@ Av = |x y n|
   y.transform |n|
     i += 1
     j = 0
-    x.iter().fold 0 |result n|
+    x.fold 0 |result n|
       j += 1
       result + n * (A i j)
 
@@ -26,7 +26,7 @@ Atv = |x y n|
   y.transform |n|
     i += 1
     j = 0
-    x.iter().fold 0 |result n|
+    x.fold 0 |result n|
       j += 1
       result + n * (A j i)
 
@@ -43,7 +43,7 @@ spectral_norm = |n|
     AtAv u v t n
     AtAv v u t n
   vBv, vv = 0, 0
-  for ui, vi in u.iter().zip(v.iter())
+  for ui, vi in u.zip v
     vBv = vBv + ui * vi
     vv = vv + vi * vi
   (vBv / vv).sqrt()

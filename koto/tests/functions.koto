@@ -52,7 +52,7 @@ export tests =
           return match_digit_nested n
 
     assert_eq
-      (0..3).iter()
+      (0..3)
         .each |i| match_digit i
         .to_tuple()
       (0, 1, 2)

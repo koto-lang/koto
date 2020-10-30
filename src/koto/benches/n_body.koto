@@ -66,7 +66,7 @@ bodies = [sun, jupiter, saturn, uranus, neptune]
 
 
 advance = |bodies nbodies dt|
-    for i, bi in bodies.iter().enumerate()
+    for i, bi in bodies.enumerate()
         bi_pos = bi.pos
         bi_vel = bi.vel
         for bj in bodies[(i + 1)..]
@@ -84,7 +84,7 @@ advance = |bodies nbodies dt|
 
 get_energy = |bodies nbody|
     energy = 0
-    for i, bi in bodies.iter().enumerate()
+    for i, bi in bodies.enumerate()
         bi_vel = bi.vel
         bi_mass = bi.mass
         energy += 0.5 * bi_mass * (bi_vel * bi_vel).sum()

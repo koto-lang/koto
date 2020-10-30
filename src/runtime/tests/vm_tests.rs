@@ -1337,7 +1337,7 @@ gen(1..=5).to_tuple()";
         fn generator_returning_multiple_values() {
             let script = "
 gen = |xs|
-  for i, x in xs.iter().enumerate()
+  for i, x in xs.enumerate()
     yield i, x
 z = gen(1..=5).to_tuple()
 z[1]";

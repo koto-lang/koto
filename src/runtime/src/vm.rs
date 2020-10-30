@@ -1753,7 +1753,7 @@ impl Vm {
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
-            ($module:ident) => {{
+            ($module:ident, $iterator_fallback:expr) => {{
                 let maybe_op = self
                     .context()
                     .core_lib
@@ -1761,6 +1761,17 @@ impl Vm {
                     .data()
                     .get_with_string(&key_string)
                     .cloned();
+
+                let maybe_op = if maybe_op.is_none() && $iterator_fallback {
+                    self.context()
+                        .core_lib
+                        .iterator
+                        .data()
+                        .get_with_string(&key_string)
+                        .cloned()
+                } else {
+                    maybe_op
+                };
 
                 match maybe_op {
                     Some(op) => match op {
@@ -1800,16 +1811,16 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => get_core_op!(map)?,
+                None => get_core_op!(map, true)?,
             },
-            List(_) => get_core_op!(list)?,
-            Num2(_) => get_core_op!(num2)?,
-            Num4(_) => get_core_op!(num4)?,
-            Number(_) => get_core_op!(number)?,
-            Range(_) => get_core_op!(range)?,
-            Str(_) => get_core_op!(string)?,
-            Tuple(_) => get_core_op!(tuple)?,
-            Iterator(_) => get_core_op!(iterator)?,
+            List(_) => get_core_op!(list, true)?,
+            Num2(_) => get_core_op!(num2, false)?,
+            Num4(_) => get_core_op!(num4, false)?,
+            Number(_) => get_core_op!(number, false)?,
+            Range(_) => get_core_op!(range, true)?,
+            Str(_) => get_core_op!(string, false)?,
+            Tuple(_) => get_core_op!(tuple, true)?,
+            Iterator(_) => get_core_op!(iterator, false)?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),

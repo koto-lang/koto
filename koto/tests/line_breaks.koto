@@ -18,14 +18,14 @@ b = num4(
 )
 assert_eq a b
 
-x = (1, 2, 3).iter().fold(
+x = (1, 2, 3).fold(
   0,
   |a b| a + b
 )
 assert_eq x 6
 
 x = (1, 2, 3)
-  .iter()
+  .each |n| n
   # This comment shouldn't interrupt the chain
   .fold 0 |a b| a + b
 assert_eq x 6

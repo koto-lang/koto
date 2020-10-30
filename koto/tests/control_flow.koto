@@ -54,7 +54,7 @@ export tests =
         _, 0 then "Buzz"
         _ then n
 
-    x = (10..=15).iter()
+    x = (10..=15)
       .each |n| fizz_buzz n
       .to_tuple()
     assert_eq x ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
