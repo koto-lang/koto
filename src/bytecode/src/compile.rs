@@ -2445,11 +2445,7 @@ impl Compiler {
     ) -> CompileNodeResult {
         use Op::*;
 
-        let AstFor {
-            args,
-            ranges,
-            body,
-        } = &ast_for;
+        let AstFor { args, range, body } = &ast_for;
 
         //   make iterator, iterator_register
         //   make local registers for args
@@ -2459,15 +2455,6 @@ impl Compiler {
         //   jump -> loop_start
         // end:
 
-        if ranges.len() > 1 && args.len() != ranges.len() {
-            return compiler_error!(
-                self,
-                "compile_for: argument and range count mismatch: {} vs {}",
-                args.len(),
-                ranges.len()
-            );
-        }
-
         let result = self.get_result_register(result_register)?;
         if let Some(result) = result {
             self.push_op(SetEmpty, &[result.register]);
@@ -2475,89 +2462,59 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
-        let iterator_register = match ranges.as_slice() {
-            [] => {
-                return compiler_error!(self, "compile_for: Missing range");
+        let iterator_register = {
+            let iterator_register = self.push_register()?;
+            let range_register = self
+                .compile_node(ResultRegister::Any, ast.node(*range), ast)?
+                .unwrap();
+
+            self.push_op_without_span(MakeIterator, &[iterator_register, range_register.register]);
+
+            if range_register.is_temporary {
+                self.pop_register()?;
             }
-            [range_node] => {
-                let iterator_register = self.push_register()?;
-                let range_register = self
-                    .compile_node(ResultRegister::Any, ast.node(*range_node), ast)?
-                    .unwrap();
 
-                self.push_op_without_span(
-                    MakeIterator,
-                    &[iterator_register, range_register.register],
-                );
-
-                if range_register.is_temporary {
-                    self.pop_register()?;
-                }
-
-                iterator_register
-            }
-            _ => {
-                let mut first_iterator_register = None;
-                for range_node in ranges.iter() {
-                    let iterator_register = self.push_register()?;
-                    let range_register = self
-                        .compile_node(ResultRegister::Any, ast.node(*range_node), ast)?
-                        .unwrap();
-
-                    self.push_op_without_span(
-                        MakeIterator,
-                        &[iterator_register, range_register.register],
-                    );
-
-                    if range_register.is_temporary {
-                        self.pop_register()?;
-                    }
-
-                    if first_iterator_register.is_none() {
-                        first_iterator_register = Some(iterator_register);
-                    }
-                }
-                first_iterator_register.unwrap()
-            }
+            iterator_register
         };
 
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
-        if args.len() > 1 && ranges.len() == 1 {
-            // e.g. for a, b, c in list_of_lists()
-            // e.g. for key, value in map
-            let temp_register = self.push_register()?;
-
-            self.push_op_without_span(IteratorNext, &[temp_register, iterator_register]);
-            self.push_loop_jump_placeholder()?;
-
-            for (i, maybe_arg) in args.iter().enumerate() {
-                if let Some(arg) = maybe_arg {
-                    let arg_register = self.assign_local_register(*arg)?;
-                    self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
-                }
+        match args.as_slice() {
+            [] => return compiler_error!(self, "Missing argument in for loop"),
+            [None] => {
+                // e.g. for _ in 0..10
+                self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
+                self.push_loop_jump_placeholder()?;
             }
+            [Some(arg)] => {
+                // e.g. for i in 0..10
+                let arg_register = self.assign_local_register(*arg)?;
+                self.push_op_without_span(IterNext, &[arg_register, iterator_register as u8]);
+                self.push_loop_jump_placeholder()?;
+            }
+            [args @ ..] => {
+                // e.g. for a, b, c in list_of_lists()
+                // e.g. for key, value in map
 
-            self.pop_register()?; // temp_register
-        } else {
-            for (i, maybe_arg) in args.iter().enumerate() {
-                if let Some(arg) = maybe_arg {
-                    let arg_register = self.assign_local_register(*arg)?;
-                    self.push_op_without_span(
-                        IteratorNext,
-                        &[arg_register, iterator_register + i as u8],
-                    );
-                    self.push_loop_jump_placeholder()?;
-                } else {
-                    let temp_register = self.push_register()?;
-                    self.push_op_without_span(
-                        IteratorNext,
-                        &[temp_register, iterator_register + i as u8],
-                    );
-                    self.push_loop_jump_placeholder()?;
-                    self.pop_register()?; // temp_register
+                // A temporary register for the iterator output.
+                // Args are unpacked from the temp register
+                let temp_register = self.push_register()?;
+
+                self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
+                self.push_loop_jump_placeholder()?;
+
+                for (i, maybe_arg) in args.iter().enumerate() {
+                    if let Some(arg) = maybe_arg {
+                        let arg_register = self.assign_local_register(*arg)?;
+                        self.push_op_without_span(
+                            ValueIndex,
+                            &[arg_register, temp_register, i as u8],
+                        );
+                    }
                 }
+
+                self.pop_register()?; // temp_register
             }
         }
 

@@ -25,13 +25,13 @@ x = 1 + _
             check_compilation_fails(source);
         }
 
-        #[test]
-        fn for_loop_insufficient_args() {
-            let source = "
-for x in a, b
-  x
-";
-            check_compilation_fails(source);
-        }
+        // #[test]
+        // fn for_loop_insufficient_args() {
+        //     let source = "
+// for x in a, b
+  // x
+// ";
+        //     check_compilation_fails(source);
+        // }
     }
 }

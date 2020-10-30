@@ -165,7 +165,7 @@ pub struct Function {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
     pub args: Vec<Option<ConstantIndex>>,
-    pub ranges: Vec<AstIndex>,
+    pub range: AstIndex,
     pub body: AstIndex,
 }
 

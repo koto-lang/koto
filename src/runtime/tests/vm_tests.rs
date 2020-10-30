@@ -1059,25 +1059,14 @@ f()";
         }
 
         #[test]
-        fn multiple_ranges_2_to_1() {
+        fn for_arg_unpacking() {
             let script = "
 sum = 0
-for a, b in [[1, 2], [3, 4]]
+for a, b in ((1, 2), (3, 4))
   sum += a + b
 sum
 ";
             test_script(script, Number(10.0));
-        }
-
-        #[test]
-        fn multiple_ranges_2_to_2() {
-            let script = "
-sum = 0
-for a, b in [1, 2, 3], [4, 5, 6]
-  sum += a + b
-sum
-";
-            test_script(script, Number(21.0));
         }
     }
 
@@ -1348,7 +1337,7 @@ gen(1..=5).to_tuple()";
         fn generator_returning_multiple_values() {
             let script = "
 gen = |xs|
-  for i, x in 0..xs.size(), xs
+  for i, x in xs.iter().enumerate()
     yield i, x
 z = gen(1..=5).to_tuple()
 z[1]";

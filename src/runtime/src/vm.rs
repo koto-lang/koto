@@ -1006,46 +1006,37 @@ impl Vm {
 
                 self.set_register(register, Str(result.into()));
             }
-            Instruction::IteratorNext {
+            Instruction::IterNext {
                 register,
                 iterator,
                 jump_offset,
             } => {
-                let result = match self.get_register_mut(iterator) {
-                    Iterator(iterator) => iterator.next(),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected Iterator, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-
-                match result {
-                    Some(Ok(ValueIteratorOutput::Value(value))) => {
-                        self.set_register(register, value)
-                    }
-                    Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
-                        self.set_register(
-                            register,
-                            Value::TemporaryTuple(RegisterSlice {
-                                start: register + 1,
-                                count: 2,
-                            }),
-                        );
-                        self.set_register(register + 1, first);
-                        self.set_register(register + 2, second);
-                    }
-                    Some(Err(error)) => match error {
-                        Error::ErrorWithoutLocation { message } => {
-                            return vm_error!(self.chunk(), instruction_ip, message)
-                        }
-                        _ => return Err(error),
-                    },
-                    None => self.jump_ip(jump_offset),
-                };
+                self.run_iterator_next(
+                    Some(register),
+                    iterator,
+                    jump_offset,
+                    false,
+                    instruction_ip,
+                )?;
+            }
+            Instruction::IterNextTemp {
+                register,
+                iterator,
+                jump_offset,
+            } => {
+                self.run_iterator_next(
+                    Some(register),
+                    iterator,
+                    jump_offset,
+                    true,
+                    instruction_ip,
+                )?;
+            }
+            Instruction::IterNextQuiet {
+                iterator,
+                jump_offset,
+            } => {
+                self.run_iterator_next(None, iterator, jump_offset, false, instruction_ip)?;
             }
             Instruction::ValueIndex {
                 register,
@@ -1158,6 +1149,60 @@ impl Vm {
         }
 
         Ok(result)
+    }
+
+    fn run_iterator_next(
+        &mut self,
+        result_register: Option<u8>,
+        iterator: u8,
+        jump_offset: usize,
+        output_is_temporary: bool,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::{Iterator, TemporaryTuple, Tuple};
+
+        let result = match self.get_register_mut(iterator) {
+            Iterator(iterator) => iterator.next(),
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected Iterator, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
+
+        match (result, result_register) {
+            (Some(Ok(_)), None) => {}
+            (Some(Ok(ValueIteratorOutput::Value(value))), Some(register)) => {
+                self.set_register(register, value)
+            }
+            (Some(Ok(ValueIteratorOutput::ValuePair(first, second))), Some(register)) => {
+                if output_is_temporary {
+                    self.set_register(
+                        register,
+                        TemporaryTuple(RegisterSlice {
+                            start: register + 1,
+                            count: 2,
+                        }),
+                    );
+                    self.set_register(register + 1, first);
+                    self.set_register(register + 2, second);
+                } else {
+                    self.set_register(register, Tuple(vec![first, second].into()));
+                }
+            }
+            (Some(Err(error)), _) => match error {
+                Error::ErrorWithoutLocation { message } => {
+                    return vm_error!(self.chunk(), instruction_ip, message)
+                }
+                _ => return Err(error),
+            },
+            (None, _) => self.jump_ip(jump_offset),
+        };
+
+        Ok(())
     }
 
     fn run_import(

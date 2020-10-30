@@ -1384,7 +1384,7 @@ for x in y
                     },
                     For(AstFor {
                         args: vec![Some(0)], // constant 0
-                        ranges: vec![0],     // ast 0
+                        range: 0,            // ast 0
                         body: 3,
                     }),
                     MainBlock {
@@ -1480,7 +1480,7 @@ for x in y
                     Id(0),
                     For(AstFor {
                         args: vec![Some(0)], // constant 0
-                        ranges: vec![1],     // ast 1
+                        range: 1,            // ast 1
                         body: 2,
                     }),
                     MainBlock {
@@ -2005,7 +2005,7 @@ f 1
                     }), // 10
                     For(AstFor {
                         args: vec![Some(3)],
-                        ranges: vec![4],
+                        range: 4,
                         body: 10,
                     }),
                     Function(koto_parser::Function {
@@ -2052,7 +2052,7 @@ f 1
                     }),
                     For(AstFor {
                         args: vec![Some(4)], // x
-                        ranges: vec![16],
+                        range: 16,
                         body: 24,
                     }), // 25
                     Block(vec![13, 25]),

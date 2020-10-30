@@ -43,7 +43,7 @@ spectral_norm = |n|
     AtAv u v t n
     AtAv v u t n
   vBv, vv = 0, 0
-  for ui, vi in u, v
+  for ui, vi in u.iter().zip(v.iter())
     vBv = vBv + ui * vi
     vv = vv + vi * vi
   (vBv / vv).sqrt()

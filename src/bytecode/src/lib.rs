@@ -74,7 +74,9 @@ pub enum Op {
     CallChild,        // result, function, arg register, arg count, parent
     Return,           // register
     Yield,            // register
-    IteratorNext,     // output, iterator, jump offset[2]
+    IterNext,         // output, iterator, jump offset[2]
+    IterNextTemp,     // output, iterator, jump offset[2]
+    IterNextQuiet,    // iterator, jump offset[2]
     ValueIndex,       // result, value register, index
     ListPushValue,    // list, value
     ListPushValues,   // list, start register, count
@@ -88,8 +90,6 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused71,
-    Unused72,
     Unused73,
     Unused74,
     Unused75,

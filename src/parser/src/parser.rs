@@ -1511,6 +1511,8 @@ impl<'source> Parser<'source> {
 
         self.consume_next_token_on_same_line();
 
+        let start_span = self.lexer.span();
+
         let mut args = Vec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context) {
             match id_or_wildcard {
@@ -1536,27 +1538,17 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedForArgs, self);
         }
 
-        let mut ranges = Vec::new();
-        while let Some(range) = self.parse_expression(&mut ExpressionContext::inline())? {
-            ranges.push(range);
-
-            if self.peek_next_token_on_same_line() != Some(Token::Separator) {
-                break;
-            }
-
-            self.consume_next_token_on_same_line();
-        }
-        if ranges.is_empty() {
-            return syntax_error!(ExpectedForRanges, self);
-        }
+        let range = match self.parse_expression(&mut ExpressionContext::inline())? {
+            Some(range) => range,
+            None => return syntax_error!(ExpectedForRanges, self),
+        };
 
         match self.parse_indented_block(&mut ExpressionContext::permissive())? {
             Some(body) => {
-                let result = self.push_node(Node::For(AstFor {
-                    args,
-                    ranges,
-                    body,
-                }))?;
+                let result = self.push_node_with_start_span(
+                    Node::For(AstFor { args, range, body }),
+                    start_span,
+                )?;
 
                 Ok(Some(result))
             }

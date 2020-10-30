@@ -41,6 +41,7 @@ mod repl_tests {
         run_koto_repl_test(&[("a = 2", "2"), ("a + a", "4")]);
     }
 
+    // TODO re-enable once the REPL supports multiline input
     // #[test]
     // fn for_loop() {
     //     run_koto_repl_test(&[("x for x in 1..=5", "5"), ("x * x", "25")]);
