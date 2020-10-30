@@ -8,6 +8,7 @@ use {
     std::convert::TryFrom,
 };
 
+#[derive(Clone, Debug)]
 pub struct CompilerError {
     pub message: String,
     pub span: Span,

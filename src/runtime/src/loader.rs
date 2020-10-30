@@ -1,13 +1,38 @@
 use {
-    koto_bytecode::{Chunk, Compiler},
-    koto_parser::{Parser, Span},
-    std::{collections::HashMap, path::PathBuf, sync::Arc},
+    koto_bytecode::{Chunk, Compiler, CompilerError},
+    koto_parser::{Parser, ParserError},
+    std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
 };
 
 #[derive(Clone, Debug)]
-pub struct LoaderError {
-    pub message: String,
-    pub span: Option<Span>,
+pub enum LoaderError {
+    ParserError(ParserError),
+    CompilerError(CompilerError),
+    IoError(String),
+}
+
+impl From<ParserError> for LoaderError {
+    fn from(e: ParserError) -> Self {
+        Self::ParserError(e)
+    }
+}
+
+impl From<CompilerError> for LoaderError {
+    fn from(e: CompilerError) -> Self {
+        Self::CompilerError(e)
+    }
+}
+
+impl fmt::Display for LoaderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use LoaderError::*;
+
+        match self {
+            ParserError(e) => f.write_str(&e.to_string()),
+            CompilerError(e) => f.write_str(&e.message),
+            IoError(e) => f.write_str(&e),
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -26,12 +51,7 @@ impl Loader {
             Ok((ast, constants)) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_options) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),
-                    Err(e) => {
-                        return Err(LoaderError {
-                            message: e.message,
-                            span: Some(e.span),
-                        })
-                    }
+                    Err(e) => return Err(e.into()),
                 };
 
                 debug_info.source = script.to_string();
@@ -43,10 +63,7 @@ impl Loader {
                     debug_info,
                 )))
             }
-            Err(e) => Err(LoaderError {
-                message: e.to_string(),
-                span: Some(e.span),
-            }),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -77,28 +94,17 @@ impl Loader {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
                     None => {
-                        return Err(LoaderError {
-                            message: "Failed to get parent of provided path".to_string(),
-                            span: None,
-                        });
+                        return Err(LoaderError::IoError(
+                            "Failed to get parent of provided path".to_string(),
+                        ))
                     }
                 },
                 Ok(canonicalized) => canonicalized,
-                Err(e) => {
-                    return Err(LoaderError {
-                        message: e.to_string(),
-                        span: None,
-                    });
-                }
+                Err(e) => return Err(LoaderError::IoError(e.to_string())),
             },
             None => match std::env::current_dir() {
                 Ok(path) => path,
-                Err(e) => {
-                    return Err(LoaderError {
-                        message: e.to_string(),
-                        span: None,
-                    })
-                }
+                Err(e) => return Err(LoaderError::IoError(e.to_string())),
             },
         };
 
@@ -115,10 +121,10 @@ impl Loader {
                     self.chunks.insert(module_path.clone(), chunk.clone());
                     Ok((chunk, module_path))
                 }
-                Err(_) => Err(LoaderError {
-                    message: format!("File not found: {}", module_path.to_string_lossy()),
-                    span: None,
-                }),
+                Err(_) => Err(LoaderError::IoError(format!(
+                    "File not found: {}",
+                    module_path.to_string_lossy()
+                ))),
             },
         };
 
@@ -137,10 +143,10 @@ impl Loader {
         if module_path.exists() {
             load_module_from_path(module_path)
         } else {
-            Err(LoaderError {
-                message: format!("Unable to find module '{}'", name),
-                span: None,
-            })
+            Err(LoaderError::IoError(format!(
+                "Unable to find module '{}'",
+                name
+            )))
         }
     }
 }

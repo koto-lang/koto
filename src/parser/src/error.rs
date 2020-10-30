@@ -1,6 +1,6 @@
 use {koto_lexer::Span, std::fmt};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum InternalError {
     ArgumentsParseFailure,
     AstCapacityOverflow,
@@ -22,7 +22,7 @@ pub enum InternalError {
 ///
 /// Having these errors separated out is useful for the interactive input,
 /// where an indented continuation can be started in response to an indentation error.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ExpectedIndentation {
     ExpectedCatchBody,
     ExpectedElseBlock,
@@ -39,7 +39,7 @@ pub enum ExpectedIndentation {
     ExpectedWhileBody,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SyntaxError {
     ExpectedArgsEnd,
     ExpectedAssignmentTarget,
@@ -87,7 +87,7 @@ pub enum SyntaxError {
     UnexpectedTokenAfterExportId,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ErrorType {
     InternalError(InternalError),
     ExpectedIndentation(ExpectedIndentation),
@@ -112,7 +112,19 @@ impl From<SyntaxError> for ErrorType {
     }
 }
 
-#[derive(Debug)]
+impl fmt::Display for ErrorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ErrorType::*;
+
+        match &self {
+            InternalError(error) => write!(f, "Internal error: {}", error),
+            ExpectedIndentation(error) => f.write_str(&error.to_string()),
+            SyntaxError(error) => f.write_str(&error.to_string()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ParserError {
     pub error: ErrorType,
     pub span: Span,
@@ -126,15 +138,10 @@ impl ParserError {
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ErrorType::*;
-
-        match &self.error {
-            InternalError(error) => write!(f, "Internal error: {}", error),
-            ExpectedIndentation(error) => f.write_str(&error.to_string()),
-            SyntaxError(error) => f.write_str(&error.to_string()),
-        }
+        self.error.fmt(f)
     }
 }
+
 impl fmt::Display for InternalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use InternalError::*;

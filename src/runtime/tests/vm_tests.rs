@@ -35,7 +35,7 @@ mod vm {
         let mut loader = Loader::default();
         let chunk = match loader.compile_script(script, &None) {
             Ok(chunk) => chunk,
-            Err(error) => panic!(error.message),
+            Err(error) => panic!(error),
         };
 
         let print_chunk = |script: &str, chunk| {

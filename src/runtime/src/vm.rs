@@ -3,7 +3,7 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
-        loader, type_as_string,
+        type_as_string,
         value::{self, deep_copy_value, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
@@ -182,31 +182,10 @@ impl Vm {
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
                 (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
-                    let wrap_error_message = |error, wrapper_message| {
-                        let wrap_message =
-                            |message| format!("{} '{}': {}", wrapper_message, &id[5..], message);
-
-                        Err(match error {
-                            Error::VmError {
-                                message,
-                                chunk,
-                                instruction,
-                            } => Error::VmError {
-                                message: wrap_message(message),
-                                chunk,
-                                instruction,
-                            },
-                            Error::ErrorWithoutLocation { message } => {
-                                Error::ErrorWithoutLocation {
-                                    message: wrap_message(message),
-                                }
-                            }
-                            Error::LoaderError(loader::LoaderError { message, span }) => {
-                                Error::LoaderError(loader::LoaderError {
-                                    message: wrap_message(message),
-                                    span,
-                                })
-                            }
+                    let make_test_error = |error, message: &str| {
+                        Err(Error::TestError {
+                            message: format!("{} '{}'", message, &id[5..]),
+                            error: Box::new(error),
                         })
                     };
 
@@ -217,7 +196,7 @@ impl Vm {
                         };
 
                         if let Err(error) = pre_test_result {
-                            return wrap_error_message(error, "Error while preparing to run test");
+                            return make_test_error(error, "Error while preparing to run test");
                         }
                     }
 
@@ -227,7 +206,7 @@ impl Vm {
                     };
 
                     if let Err(error) = test_result {
-                        return wrap_error_message(error, "Error while running test");
+                        return make_test_error(error, "Error while running test");
                     }
 
                     if let Some(Value::Function(post_test)) = &post_test {
@@ -237,7 +216,7 @@ impl Vm {
                         };
 
                         if let Err(error) = post_test_result {
-                            return wrap_error_message(error, "Error after running test");
+                            return make_test_error(error, "Error after running test");
                         }
                     }
                 }
@@ -1244,7 +1223,7 @@ impl Vm {
                             instruction_ip,
                             "Failed to import '{}': {}",
                             import_name,
-                            e.message
+                            e
                         )
                     }
                 };
