@@ -28,15 +28,27 @@ macro_rules! internal_error {
     }};
 }
 
-macro_rules! syntax_error {
-    ($error:ident, $parser:expr) => {{
-        let error = ParserError::new(SyntaxError::$error.into(), $parser.lexer.span());
+macro_rules! parser_error {
+    ($error:ident, $parser:expr, $error_type:ident) => {{
+        let error = ParserError::new($error_type::$error.into(), $parser.lexer.span());
 
         #[cfg(feature = "panic_on_parser_error")]
         panic!(error);
 
         #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
+    }};
+}
+
+macro_rules! indentation_error {
+    ($error:ident, $parser:expr) => {{
+        parser_error!($error, $parser, ExpectedIndentation)
+    }};
+}
+
+macro_rules! syntax_error {
+    ($error:ident, $parser:expr) => {{
+        parser_error!($error, $parser, SyntaxError)
     }};
 }
 
@@ -335,7 +347,7 @@ impl<'source> Parser<'source> {
             if let Some(body) = self.parse_line()? {
                 body
             } else {
-                return syntax_error!(ExpectedFunctionBody, self);
+                return indentation_error!(ExpectedFunctionBody, self);
             }
         };
 
@@ -539,7 +551,7 @@ impl<'source> Parser<'source> {
 
                                 // Move on to the token after the operator
                                 if self.peek_next_token(context).is_none() {
-                                    return syntax_error!(ExpectedRhsExpression, self);
+                                    return indentation_error!(ExpectedRhsExpression, self);
                                 }
                                 self.consume_until_next_token(context);
 
@@ -552,7 +564,7 @@ impl<'source> Parser<'source> {
                                 {
                                     rhs_expression
                                 } else {
-                                    return syntax_error!(ExpectedRhsExpression, self);
+                                    return indentation_error!(ExpectedRhsExpression, self);
                                 };
 
                                 let op_node = self.push_ast_op(op, last_lhs, rhs)?;
@@ -620,7 +632,7 @@ impl<'source> Parser<'source> {
             };
             Ok(Some(self.push_node(node)?))
         } else {
-            syntax_error!(ExpectedRhsExpression, self)
+            indentation_error!(ExpectedRhsExpression, self)
         }
     }
 
@@ -1036,7 +1048,7 @@ impl<'source> Parser<'source> {
 
                             Ok(Some(self.push_node(node)?))
                         } else {
-                            return syntax_error!(ExpectedRhsExpression, self);
+                            return indentation_error!(ExpectedRhsExpression, self);
                         }
                     }
                     Some(Token::NewLine) | Some(Token::NewLineIndented) => Ok(Some(export_id)),
@@ -1552,7 +1564,7 @@ impl<'source> Parser<'source> {
 
                 Ok(Some(result))
             }
-            None => syntax_error!(ExpectedForBody, self),
+            None => indentation_error!(ExpectedForBody, self),
         }
     }
 
@@ -1567,7 +1579,7 @@ impl<'source> Parser<'source> {
             let result = self.push_node(Node::Loop { body })?;
             Ok(Some(result))
         } else {
-            return syntax_error!(ExpectedLoopBody, self);
+            return indentation_error!(ExpectedLoopBody, self);
         }
     }
 
@@ -1590,7 +1602,7 @@ impl<'source> Parser<'source> {
                 let result = self.push_node(Node::While { condition, body })?;
                 Ok(Some(result))
             }
-            None => syntax_error!(ExpectedWhileBody, self),
+            None => indentation_error!(ExpectedWhileBody, self),
         }
     }
 
@@ -1613,7 +1625,7 @@ impl<'source> Parser<'source> {
                 let result = self.push_node(Node::Until { condition, body })?;
                 Ok(Some(result))
             }
-            None => syntax_error!(ExpectedUntilBody, self),
+            None => indentation_error!(ExpectedUntilBody, self),
         }
     }
 
@@ -1666,7 +1678,7 @@ impl<'source> Parser<'source> {
                     if let Some(else_if_block) = self.parse_indented_map_or_block()? {
                         else_if_blocks.push((else_if_condition, else_if_block));
                     } else {
-                        return syntax_error!(ExpectedElseIfBlock, self);
+                        return indentation_error!(ExpectedElseIfBlock, self);
                     }
                 } else {
                     return syntax_error!(ExpectedElseIfCondition, self);
@@ -1678,7 +1690,7 @@ impl<'source> Parser<'source> {
                 if let Some(else_block) = self.parse_indented_map_or_block()? {
                     Some(else_block)
                 } else {
-                    return syntax_error!(ExpectedElseBlock, self);
+                    return indentation_error!(ExpectedElseBlock, self);
                 }
             } else {
                 None
@@ -1691,7 +1703,7 @@ impl<'source> Parser<'source> {
                 else_node,
             }))?
         } else {
-            return syntax_error!(ExpectedThenKeywordOrBlock, self);
+            return indentation_error!(ExpectedThenKeywordOrBlock, self);
         };
 
         Ok(Some(result))
@@ -1717,7 +1729,7 @@ impl<'source> Parser<'source> {
 
         let match_indent = self.lexer.current_indent();
         if match_indent <= current_indent {
-            return syntax_error!(ExpectedMatchArm, self);
+            return indentation_error!(ExpectedMatchArm, self);
         }
 
         let mut arms = Vec::new();
@@ -1897,11 +1909,11 @@ impl<'source> Parser<'source> {
         {
             try_block
         } else {
-            return syntax_error!(ExpectedTryBody, self);
+            return indentation_error!(ExpectedTryBody, self);
         };
 
         if !matches!(self.peek_next_token(context), Some((Token::Catch, _))) {
-            return syntax_error!(ExpectedCatchBlock, self);
+            return syntax_error!(ExpectedCatch, self);
         }
         self.consume_next_token(context);
 
@@ -1925,7 +1937,7 @@ impl<'source> Parser<'source> {
         {
             catch_block
         } else {
-            return syntax_error!(ExpectedCatchBody, self);
+            return indentation_error!(ExpectedCatchBody, self);
         };
 
         let finally_block = if matches!(self.peek_next_token(context), Some((Token::Finally, _))) {
@@ -1935,7 +1947,7 @@ impl<'source> Parser<'source> {
             {
                 Some(finally_block)
             } else {
-                return syntax_error!(ExpectedFinallyBody, self);
+                return indentation_error!(ExpectedFinallyBody, self);
             }
         } else {
             None
