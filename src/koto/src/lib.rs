@@ -3,7 +3,7 @@ pub use {
         chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, CompilerError, DebugInfo,
         InstructionReader,
     },
-    koto_parser::{Ast, Function, Parser, ParserError, Position},
+    koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
         LoaderError, Num2, Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList,
@@ -62,7 +62,7 @@ impl Koto {
         result
     }
 
-    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
+    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
         let compile_result = if self.settings.repl_mode {
             self.loader.compile_repl(script)
         } else {
@@ -85,7 +85,7 @@ impl Koto {
                 }
                 Ok(chunk)
             }
-            Err(error) => Err(self.format_loader_error(error, script)),
+            Err(error) => Err(error),
         }
     }
 
@@ -268,7 +268,7 @@ impl Koto {
         }
     }
 
-    fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
+    pub fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
         match error {
             LoaderError::ParserError(ParserError { error, span }) => self
                 .format_error_with_excerpt(

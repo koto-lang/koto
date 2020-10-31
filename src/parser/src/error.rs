@@ -136,6 +136,10 @@ impl ParserError {
     }
 }
 
+pub fn is_indentation_error(error: &ParserError) -> bool {
+    matches!(error.error, ErrorType::ExpectedIndentation(_))
+}
+
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.error.fmt(f)
