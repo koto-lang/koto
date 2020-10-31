@@ -45,11 +45,11 @@ impl Loader {
         &mut self,
         script: &str,
         script_path: Option<PathBuf>,
-        compiler_options: koto_bytecode::Options,
+        compiler_settings: koto_bytecode::Settings,
     ) -> Result<Arc<Chunk>, LoaderError> {
         match Parser::parse(&script) {
             Ok((ast, constants)) => {
-                let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_options) {
+                let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),
                     Err(e) => return Err(e.into()),
                 };
@@ -68,7 +68,7 @@ impl Loader {
     }
 
     pub fn compile_repl(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
-        self.compile(script, None, koto_bytecode::Options { repl_mode: true })
+        self.compile(script, None, koto_bytecode::Settings { repl_mode: true })
     }
 
     pub fn compile_script(
@@ -79,7 +79,7 @@ impl Loader {
         self.compile(
             script,
             script_path.clone(),
-            koto_bytecode::Options::default(),
+            koto_bytecode::Settings::default(),
         )
     }
 
@@ -115,7 +115,7 @@ impl Loader {
                     let chunk = self.compile(
                         &script,
                         Some(module_path.clone()),
-                        koto_bytecode::Options::default(),
+                        koto_bytecode::Settings::default(),
                     )?;
 
                     self.chunks.insert(module_path.clone(), chunk.clone());

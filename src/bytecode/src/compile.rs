@@ -280,7 +280,7 @@ impl CompileResult {
 type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
 
 #[derive(Default)]
-pub struct Options {
+pub struct Settings {
     /// Causes all top level identifiers to be exported to global
     pub repl_mode: bool,
 }
@@ -291,13 +291,13 @@ pub struct Compiler {
     debug_info: DebugInfo,
     frame_stack: Vec<Frame>,
     span_stack: Vec<Span>,
-    options: Options,
+    settings: Settings,
 }
 
 impl Compiler {
-    pub fn compile(ast: &Ast, options: Options) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
+    pub fn compile(ast: &Ast, settings: Settings) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
         let mut compiler = Compiler {
-            options,
+            settings,
             ..Default::default()
         };
 
@@ -783,7 +783,7 @@ impl Compiler {
     }
 
     fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
-        if self.options.repl_mode && self.frame_stack.len() == 1 {
+        if self.settings.repl_mode && self.frame_stack.len() == 1 {
             Scope::Global
         } else {
             target.scope
@@ -1179,7 +1179,7 @@ impl Compiler {
                 imported.push(import_register);
                 self.commit_local_register(import_register)?;
 
-                if self.options.repl_mode && self.frame_stack.len() == 1 {
+                if self.settings.repl_mode && self.frame_stack.len() == 1 {
                     self.compile_set_global(*import_id, import_register);
                 }
             }
@@ -1205,7 +1205,7 @@ impl Compiler {
 
                 imported.push(import_register);
 
-                if self.options.repl_mode && self.frame_stack.len() == 1 {
+                if self.settings.repl_mode && self.frame_stack.len() == 1 {
                     self.compile_set_global(*import_id, import_register);
                 }
             }
@@ -2540,7 +2540,7 @@ impl Compiler {
 
         self.truncate_register_stack(stack_count)?;
 
-        if self.options.repl_mode && self.frame_stack.len() == 1 {
+        if self.settings.repl_mode && self.frame_stack.len() == 1 {
             for maybe_arg in args.iter() {
                 if let Some(arg) = maybe_arg {
                     let arg_register = match self.frame().get_local_register(*arg) {

@@ -100,26 +100,27 @@ impl fmt::Display for Value {
             Number(n) => f.write_str(&n.to_string()),
             Num2(n) => f.write_str(&n.to_string()),
             Num4(n) => f.write_str(&n.to_string()),
-            Str(s) => f.write_str(s),
+            Str(s) => {
+                if f.alternate() {
+                    write!(f, "\"{}\"", s)
+                } else {
+                    f.write_str(s)
+                }
+            }
             List(l) => f.write_str(&l.to_string()),
             Tuple(t) => f.write_str(&t.to_string()),
             Map(m) => f.write_str(&m.to_string()),
-            Range(IntRange { start, end }) => write!(f, "[{}..{}]", start, end),
-            IndexRange(self::IndexRange { start, end }) => write!(
-                f,
-                "[{}..{}]",
-                start,
-                end.map_or("".to_string(), |n| n.to_string()),
-            ),
-            Function(_) => write!(f, "Function"),
+            Range(IntRange { start, end }) => write!(f, "{}..{}", start, end),
+            Function(_) => write!(f, "||"),
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
-            ExternalFunction(_) => write!(f, "External Function"),
+            ExternalFunction(_) => write!(f, "||"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
+            IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
-            ExternalDataId => write!(f, "External Data ID"),
+            ExternalDataId => write!(f, "External Data"),
         }
     }
 }

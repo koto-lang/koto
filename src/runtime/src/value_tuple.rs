@@ -18,9 +18,9 @@ impl fmt::Display for ValueTuple {
         write!(f, "(")?;
         for (i, value) in self.0.iter().enumerate() {
             if i > 0 {
-                write!(f, " ")?;
+                write!(f, ", ")?;
             }
-            write!(f, "{}", value)?;
+            write!(f, "{:#}", value)?;
         }
         write!(f, ")")
     }

@@ -296,11 +296,11 @@ impl fmt::Display for ValueMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
         let mut first = true;
-        for (key, _value) in self.data().iter() {
+        for (key, value) in self.data().iter() {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}", key)?;
+            write!(f, "{}: {:#}", key, value)?;
             first = false;
         }
         write!(f, "}}")

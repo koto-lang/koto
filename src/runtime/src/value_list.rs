@@ -53,9 +53,9 @@ impl fmt::Display for ValueList {
         write!(f, "[")?;
         for (i, value) in self.data().iter().enumerate() {
             if i > 0 {
-                write!(f, " ")?;
+                write!(f, ", ")?;
             }
-            write!(f, "{}", value)?;
+            write!(f, "{:#}", value)?;
         }
         write!(f, "]")
     }

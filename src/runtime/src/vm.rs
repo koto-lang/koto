@@ -383,14 +383,10 @@ impl Vm {
             } => {
                 let range = match (self.get_register(start), self.get_register(end)) {
                     (Number(start), Number(end)) => {
-                        let (start, end) = if start <= end {
-                            (*start as isize, *end as isize)
-                        } else {
-                            // descending ranges will be evaluated with (end..start).rev()
-                            (*start as isize + 1, *end as isize + 1)
-                        };
-
-                        Range(IntRange { start, end })
+                        Range(IntRange {
+                            start: *start as isize,
+                            end: *end as isize,
+                        })
                     }
                     unexpected => {
                         return vm_error!(
@@ -414,8 +410,7 @@ impl Vm {
                         let (start, end) = if start <= end {
                             (*start as isize, *end as isize + 1)
                         } else {
-                            // descending ranges will be evaluated with (end..start).rev()
-                            (*start as isize + 1, *end as isize)
+                            (*start as isize, *end as isize - 1)
                         };
 
                         Range(IntRange { start, end })
