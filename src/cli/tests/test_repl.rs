@@ -55,7 +55,7 @@ mod repl_tests {
 
     #[test]
     fn tuple_assignment() {
-        run_koto_repl_test(&[("x = 1, 2, 3", Some("(1 2 3)")), ("x", Some("(1 2 3)"))]);
+        run_koto_repl_test(&[("x = 1, 2, 3", Some("(1, 2, 3)")), ("x", Some("(1, 2, 3)"))]);
     }
 
     #[test]
