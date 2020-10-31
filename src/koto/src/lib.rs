@@ -298,6 +298,11 @@ impl Koto {
         start_pos: Position,
         end_pos: Position,
     ) -> String {
+        if self.settings.repl_mode {
+            // Don't show source excerpt in the repl
+            return message.to_string();
+        }
+
         let (excerpt, padding) = {
             let excerpt_lines = source
                 .lines()
