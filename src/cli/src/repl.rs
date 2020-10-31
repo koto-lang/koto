@@ -188,17 +188,17 @@ impl Repl {
                 'c' => {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
+                        stdout.flush().unwrap();
+                        std::process::exit(0)
                     } else {
                         self.input.clear();
                         self.cursor = None;
                     }
                 }
-                'd' => {
-                    if self.input.is_empty() {
-                        write!(stdout, "^D\r\n").unwrap();
-                        stdout.flush().unwrap();
-                        std::process::exit(0)
-                    }
+                'd' if self.input.is_empty() => {
+                    write!(stdout, "^D\r\n").unwrap();
+                    stdout.flush().unwrap();
+                    std::process::exit(0)
                 }
                 _ => {}
             },
