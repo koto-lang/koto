@@ -19,10 +19,12 @@ pub fn register(prelude: &mut ValueMap) {
     });
 
     io.add_fn("print", |vm, args| {
-        for value in vm.get_args(args).iter() {
-            print!("{:#}", value);
+        match vm.get_args(args) {
+            [value] => {
+                println!("{}", value);
+            }
+            _ => return external_error!("io.print: Expected single value as argument"),
         }
-        println!();
         Ok(Empty)
     });
 
