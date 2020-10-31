@@ -72,11 +72,11 @@ impl Repl {
 
                 write!(
                     tty,
-                    "{}{}{}{}",
-                    cursor::Goto(1, cursor_y),
-                    clear::CurrentLine,
-                    prompt,
-                    self.input
+                    "{move_cursor}{clear}{prompt}{input}",
+                    move_cursor = cursor::Goto(1, cursor_y),
+                    clear = clear::CurrentLine,
+                    prompt = prompt,
+                    input = self.input
                 )
                 .unwrap();
 
