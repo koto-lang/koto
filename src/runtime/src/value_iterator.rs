@@ -188,3 +188,21 @@ impl Iterator for ValueIterator {
         }
     }
 }
+
+pub fn is_iterable(value: &Value) -> bool {
+    use Value::*;
+    matches!(value, Range(_) | List(_) | Tuple(_) | Map(_) | Iterator(_))
+}
+
+pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {
+    use Value::*;
+    let result = match value {
+        Range(r) => ValueIterator::with_range(*r),
+        List(l) => ValueIterator::with_list(l.clone()),
+        Tuple(t) => ValueIterator::with_tuple(t.clone()),
+        Map(m) => ValueIterator::with_map(m.clone()),
+        Iterator(i) => i.clone(),
+        _ => return Err(()),
+    };
+    Ok(result)
+}

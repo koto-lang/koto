@@ -57,6 +57,14 @@ export tests =
     a.fill 42
     assert_eq a [42, 42, 42]
 
+  test_resize: ||
+    z = [42]
+    z.resize 4 99
+    assert_eq z [42, 99, 99, 99]
+
+    z.resize 2 -1
+    assert_eq z [42, 99]
+
   test_retain_value: ||
     z = ["hello", 42, num4 0, "hello"]
     z.retain "hello"
@@ -91,3 +99,12 @@ export tests =
     z = ["1", "2", "3"]
     z.transform |x| x.to_number()
     assert_eq z [1, 2, 3]
+
+  test_with_size: ||
+    assert_eq
+      (list.with_size 3 "x")
+      ["x", "x", "x"]
+
+    assert_eq
+      (list.with_size 5 42)
+      [42, 42, 42, 42, 42]

@@ -1,5 +1,5 @@
 use {
-    koto::{Koto, Settings},
+    koto::{is_indentation_error, Koto, LoaderError, Settings},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -11,13 +11,19 @@ use {
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const PROMPT: &str = "» ";
 
+const PROMPT: &str = "» ";
+const CONTINUED: &str = "… ";
+
+const INDENT_SIZE: usize = 2;
+
+#[derive(Default)]
 pub struct Repl {
     koto: Koto,
+    input: String,
+    continued_lines: Vec<String>,
     input_history: Vec<String>,
     history_position: Option<usize>,
-    input: String,
     cursor: Option<usize>,
 }
 
@@ -33,10 +39,7 @@ impl Repl {
 
         Self {
             koto,
-            input_history: Vec::new(),
-            history_position: None,
-            input: String::new(),
-            cursor: None,
+            ..Self::default()
         }
     }
 
@@ -56,17 +59,23 @@ impl Repl {
         stdout.flush().unwrap();
 
         for c in stdin.keys() {
-            self.handle_keypress(c.unwrap(), &mut stdout, &mut tty);
+            self.on_keypress(c.unwrap(), &mut stdout, &mut tty);
 
             if let Some(ref mut tty) = tty {
                 let (_, cursor_y) = stdout.cursor_pos().unwrap();
+
+                let prompt = if self.continued_lines.is_empty() {
+                    PROMPT
+                } else {
+                    CONTINUED
+                };
 
                 write!(
                     tty,
                     "{}{}{}{}",
                     cursor::Goto(1, cursor_y),
                     clear::CurrentLine,
-                    PROMPT,
+                    prompt,
                     self.input
                 )
                 .unwrap();
@@ -84,12 +93,8 @@ impl Repl {
         }
     }
 
-    fn handle_keypress<T>(
-        &mut self,
-        key: Key,
-        stdout: &mut Stdout,
-        tty: &mut Option<RawTerminal<T>>,
-    ) where
+    fn on_keypress<T>(&mut self, key: Key, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>)
+    where
         T: Write,
     {
         match key {
@@ -167,35 +172,7 @@ impl Repl {
                 }
             }
             Key::Char(c) => match c {
-                '\n' => {
-                    write!(stdout, "\r\n").unwrap();
-
-                    if let Some(tty) = tty {
-                        tty.suspend_raw_mode().unwrap();
-                    }
-
-                    match self.koto.compile(&self.input) {
-                        Ok(_) => match self.koto.run() {
-                            Ok(result) => writeln!(stdout, "{}", result).unwrap(),
-                            Err(error) => self.print_error(stdout, tty, &error),
-                        },
-                        Err(e) => self.print_error(stdout, tty, &e),
-                    }
-
-                    if let Some(tty) = tty {
-                        tty.activate_raw_mode().unwrap();
-                    }
-
-                    if self.input_history.is_empty()
-                        || self.input_history.last().unwrap() != &self.input
-                    {
-                        self.input_history.push(self.input.clone());
-                    }
-
-                    self.history_position = None;
-                    self.cursor = None;
-                    self.input.clear();
-                }
+                '\n' => self.on_enter(stdout, tty),
                 _ => {
                     let cursor = self.cursor;
                     match cursor {
@@ -211,22 +188,112 @@ impl Repl {
                 'c' => {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
+                        stdout.flush().unwrap();
+                        std::process::exit(0)
                     } else {
                         self.input.clear();
                         self.cursor = None;
                     }
                 }
-                'd' => {
-                    if self.input.is_empty() {
-                        write!(stdout, "^D\r\n").unwrap();
-                        stdout.flush().unwrap();
-                        std::process::exit(0)
-                    }
+                'd' if self.input.is_empty() => {
+                    write!(stdout, "^D\r\n").unwrap();
+                    stdout.flush().unwrap();
+                    std::process::exit(0)
                 }
                 _ => {}
             },
             _ => {}
         }
+    }
+
+    fn on_enter<T>(&mut self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>)
+    where
+        T: Write,
+    {
+        write!(stdout, "\r\n").unwrap();
+
+        if let Some(tty) = tty {
+            tty.suspend_raw_mode().unwrap();
+        }
+
+        let mut indent_next_line = false;
+
+        let input_is_whitespace = self.input.chars().all(char::is_whitespace);
+
+        if self.continued_lines.is_empty() || input_is_whitespace {
+            let mut input = self.continued_lines.join("\n");
+
+            if !input_is_whitespace {
+                input += &self.input;
+            }
+
+            match self.koto.compile(&input) {
+                Ok(_) => {
+                    match self.koto.run() {
+                        Ok(result) => writeln!(stdout, "{}", result).unwrap(),
+                        Err(error) => self.print_error(stdout, tty, &error),
+                    }
+                    self.continued_lines.clear();
+                }
+                Err(e) => match e {
+                    LoaderError::ParserError(e)
+                        if is_indentation_error(&e) && self.continued_lines.is_empty() =>
+                    {
+                        self.continued_lines.push(self.input.clone());
+                        indent_next_line = true;
+                    }
+                    _ => {
+                        self.print_error(stdout, tty, &self.koto.format_loader_error(e, &input));
+                        self.continued_lines.clear();
+                    }
+                },
+            }
+        } else {
+            // We're in a continued expression, so cache the input for execution later
+            self.continued_lines.push(self.input.clone());
+
+            // Check if we should add indentation on the next line
+            let input = self.continued_lines.join("\n");
+            if let Err(e) = self.koto.compile(&input) {
+                match e {
+                    LoaderError::ParserError(e) if is_indentation_error(&e) => {
+                        indent_next_line = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if let Some(tty) = tty {
+            tty.activate_raw_mode().unwrap();
+        }
+
+        if !input_is_whitespace
+            && (self.input_history.is_empty() || self.input_history.last().unwrap() != &self.input)
+        {
+            self.input_history.push(self.input.clone());
+        }
+
+        self.history_position = None;
+        self.cursor = None;
+
+        let current_indent = if self.continued_lines.is_empty() {
+            0
+        } else {
+            self.continued_lines
+                .last()
+                .unwrap()
+                .find(|c: char| !c.is_whitespace())
+                .unwrap_or(0)
+        };
+
+        let indent = if indent_next_line {
+            current_indent + INDENT_SIZE
+        } else {
+            current_indent
+        };
+
+        self.input = " ".repeat(indent);
     }
 
     fn print_error<T, E>(&self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>, error: &E)

@@ -3,7 +3,7 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
-        loader, type_as_string,
+        type_as_string,
         value::{self, deep_copy_value, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
@@ -182,31 +182,10 @@ impl Vm {
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
                 (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
-                    let wrap_error_message = |error, wrapper_message| {
-                        let wrap_message =
-                            |message| format!("{} '{}': {}", wrapper_message, &id[5..], message);
-
-                        Err(match error {
-                            Error::VmError {
-                                message,
-                                chunk,
-                                instruction,
-                            } => Error::VmError {
-                                message: wrap_message(message),
-                                chunk,
-                                instruction,
-                            },
-                            Error::ErrorWithoutLocation { message } => {
-                                Error::ErrorWithoutLocation {
-                                    message: wrap_message(message),
-                                }
-                            }
-                            Error::LoaderError(loader::LoaderError { message, span }) => {
-                                Error::LoaderError(loader::LoaderError {
-                                    message: wrap_message(message),
-                                    span,
-                                })
-                            }
+                    let make_test_error = |error, message: &str| {
+                        Err(Error::TestError {
+                            message: format!("{} '{}'", message, &id[5..]),
+                            error: Box::new(error),
                         })
                     };
 
@@ -217,7 +196,7 @@ impl Vm {
                         };
 
                         if let Err(error) = pre_test_result {
-                            return wrap_error_message(error, "Error while preparing to run test");
+                            return make_test_error(error, "Error while preparing to run test");
                         }
                     }
 
@@ -227,7 +206,7 @@ impl Vm {
                     };
 
                     if let Err(error) = test_result {
-                        return wrap_error_message(error, "Error while running test");
+                        return make_test_error(error, "Error while running test");
                     }
 
                     if let Some(Value::Function(post_test)) = &post_test {
@@ -237,7 +216,7 @@ impl Vm {
                         };
 
                         if let Err(error) = post_test_result {
-                            return wrap_error_message(error, "Error after running test");
+                            return make_test_error(error, "Error after running test");
                         }
                     }
                 }
@@ -1006,46 +985,37 @@ impl Vm {
 
                 self.set_register(register, Str(result.into()));
             }
-            Instruction::IteratorNext {
+            Instruction::IterNext {
                 register,
                 iterator,
                 jump_offset,
             } => {
-                let result = match self.get_register_mut(iterator) {
-                    Iterator(iterator) => iterator.next(),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected Iterator, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-
-                match result {
-                    Some(Ok(ValueIteratorOutput::Value(value))) => {
-                        self.set_register(register, value)
-                    }
-                    Some(Ok(ValueIteratorOutput::ValuePair(first, second))) => {
-                        self.set_register(
-                            register,
-                            Value::TemporaryTuple(RegisterSlice {
-                                start: register + 1,
-                                count: 2,
-                            }),
-                        );
-                        self.set_register(register + 1, first);
-                        self.set_register(register + 2, second);
-                    }
-                    Some(Err(error)) => match error {
-                        Error::ErrorWithoutLocation { message } => {
-                            return vm_error!(self.chunk(), instruction_ip, message)
-                        }
-                        _ => return Err(error),
-                    },
-                    None => self.jump_ip(jump_offset),
-                };
+                self.run_iterator_next(
+                    Some(register),
+                    iterator,
+                    jump_offset,
+                    false,
+                    instruction_ip,
+                )?;
+            }
+            Instruction::IterNextTemp {
+                register,
+                iterator,
+                jump_offset,
+            } => {
+                self.run_iterator_next(
+                    Some(register),
+                    iterator,
+                    jump_offset,
+                    true,
+                    instruction_ip,
+                )?;
+            }
+            Instruction::IterNextQuiet {
+                iterator,
+                jump_offset,
+            } => {
+                self.run_iterator_next(None, iterator, jump_offset, false, instruction_ip)?;
             }
             Instruction::ValueIndex {
                 register,
@@ -1160,6 +1130,60 @@ impl Vm {
         Ok(result)
     }
 
+    fn run_iterator_next(
+        &mut self,
+        result_register: Option<u8>,
+        iterator: u8,
+        jump_offset: usize,
+        output_is_temporary: bool,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        use Value::{Iterator, TemporaryTuple, Tuple};
+
+        let result = match self.get_register_mut(iterator) {
+            Iterator(iterator) => iterator.next(),
+            unexpected => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Expected Iterator, found '{}'",
+                    type_as_string(&unexpected),
+                )
+            }
+        };
+
+        match (result, result_register) {
+            (Some(Ok(_)), None) => {}
+            (Some(Ok(ValueIteratorOutput::Value(value))), Some(register)) => {
+                self.set_register(register, value)
+            }
+            (Some(Ok(ValueIteratorOutput::ValuePair(first, second))), Some(register)) => {
+                if output_is_temporary {
+                    self.set_register(
+                        register,
+                        TemporaryTuple(RegisterSlice {
+                            start: register + 1,
+                            count: 2,
+                        }),
+                    );
+                    self.set_register(register + 1, first);
+                    self.set_register(register + 2, second);
+                } else {
+                    self.set_register(register, Tuple(vec![first, second].into()));
+                }
+            }
+            (Some(Err(error)), _) => match error {
+                Error::ErrorWithoutLocation { message } => {
+                    return vm_error!(self.chunk(), instruction_ip, message)
+                }
+                _ => return Err(error),
+            },
+            (None, _) => self.jump_ip(jump_offset),
+        };
+
+        Ok(())
+    }
+
     fn run_import(
         &mut self,
         result_register: u8,
@@ -1199,7 +1223,7 @@ impl Vm {
                             instruction_ip,
                             "Failed to import '{}': {}",
                             import_name,
-                            e.message
+                            e
                         )
                     }
                 };
@@ -1708,7 +1732,7 @@ impl Vm {
         let key_string = self.get_constant_string(key);
 
         macro_rules! get_core_op {
-            ($module:ident) => {{
+            ($module:ident, $iterator_fallback:expr) => {{
                 let maybe_op = self
                     .context()
                     .core_lib
@@ -1716,6 +1740,17 @@ impl Vm {
                     .data()
                     .get_with_string(&key_string)
                     .cloned();
+
+                let maybe_op = if maybe_op.is_none() && $iterator_fallback {
+                    self.context()
+                        .core_lib
+                        .iterator
+                        .data()
+                        .get_with_string(&key_string)
+                        .cloned()
+                } else {
+                    maybe_op
+                };
 
                 match maybe_op {
                     Some(op) => match op {
@@ -1755,16 +1790,16 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => get_core_op!(map)?,
+                None => get_core_op!(map, true)?,
             },
-            List(_) => get_core_op!(list)?,
-            Num2(_) => get_core_op!(num2)?,
-            Num4(_) => get_core_op!(num4)?,
-            Number(_) => get_core_op!(number)?,
-            Range(_) => get_core_op!(range)?,
-            Str(_) => get_core_op!(string)?,
-            Tuple(_) => get_core_op!(tuple)?,
-            Iterator(_) => get_core_op!(iterator)?,
+            List(_) => get_core_op!(list, true)?,
+            Num2(_) => get_core_op!(num2, false)?,
+            Num4(_) => get_core_op!(num4, false)?,
+            Number(_) => get_core_op!(number, false)?,
+            Range(_) => get_core_op!(range, true)?,
+            Str(_) => get_core_op!(string, false)?,
+            Tuple(_) => get_core_op!(tuple, true)?,
+            Iterator(_) => get_core_op!(iterator, false)?,
             unexpected => {
                 return vm_error!(
                     self.chunk(),

@@ -8,6 +8,7 @@ use {
     std::convert::TryFrom,
 };
 
+#[derive(Clone, Debug)]
 pub struct CompilerError {
     pub message: String,
     pub span: Span,
@@ -575,14 +576,14 @@ impl Compiler {
                 self.compile_match(result_register, *expression, arms, ast)?
             }
             Node::Wildcard => None,
-            Node::For(ast_for) => self.compile_for(result_register, None, ast_for, ast)?,
+            Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
-                self.compile_loop(result_register, None, Some((*condition, false)), *body, ast)?
+                self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
             }
             Node::Until { condition, body } => {
-                self.compile_loop(result_register, None, Some((*condition, true)), *body, ast)?
+                self.compile_loop(result_register, Some((*condition, true)), *body, ast)?
             }
-            Node::Loop { body } => self.compile_loop(result_register, None, None, *body, ast)?,
+            Node::Loop { body } => self.compile_loop(result_register, None, *body, ast)?,
             Node::Break => {
                 self.push_op(Jump, &[]);
                 self.push_loop_jump_placeholder()?;
@@ -1708,46 +1709,18 @@ impl Compiler {
 
                 match elements {
                     [] => {}
-                    [single_element] => match &ast.node(*single_element).node {
-                        Node::For(for_loop) => {
-                            self.compile_for(
-                                ResultRegister::None,
-                                Some(result.register),
-                                &for_loop,
-                                ast,
-                            )?;
+                    [single_element] => {
+                        let element = self
+                            .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
+                            .unwrap();
+                        self.push_op_without_span(
+                            ListPushValue,
+                            &[result.register, element.register],
+                        );
+                        if element.is_temporary {
+                            self.pop_register()?;
                         }
-                        Node::While { condition, body } => {
-                            self.compile_loop(
-                                ResultRegister::None,
-                                Some(result.register),
-                                Some((*condition, false)),
-                                *body,
-                                ast,
-                            )?;
-                        }
-                        Node::Until { condition, body } => {
-                            self.compile_loop(
-                                ResultRegister::None,
-                                Some(result.register),
-                                Some((*condition, true)),
-                                *body,
-                                ast,
-                            )?;
-                        }
-                        _ => {
-                            let element = self
-                                .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
-                                .unwrap();
-                            self.push_op_without_span(
-                                ListPushValue,
-                                &[result.register, element.register],
-                            );
-                            if element.is_temporary {
-                                self.pop_register()?;
-                            }
-                        }
-                    },
+                    }
                     _ => {
                         let max_batch_size = self.frame().available_registers_count() as usize;
                         for elements_batch in elements.chunks(max_batch_size) {
@@ -2468,38 +2441,20 @@ impl Compiler {
     fn compile_for(
         &mut self,
         result_register: ResultRegister, // register that gets the last iteration's result
-        list_register: Option<u8>,       // list that receives each iteration's result
         ast_for: &AstFor,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
-        let AstFor {
-            args,
-            ranges,
-            condition,
-            body,
-        } = &ast_for;
+        let AstFor { args, range, body } = &ast_for;
 
         //   make iterator, iterator_register
         //   make local registers for args
         // loop_start:
         //   iterator_next_or_jump iterator_register arg_register jump -> end
-        //   if condition
-        //     condition_body
-        //     if body result false jump -> loop_start
         //   loop body
         //   jump -> loop_start
         // end:
-
-        if ranges.len() > 1 && args.len() != ranges.len() {
-            return compiler_error!(
-                self,
-                "compile_for: argument and range count mismatch: {} vs {}",
-                args.len(),
-                ranges.len()
-            );
-        }
 
         let result = self.get_result_register(result_register)?;
         if let Some(result) = result {
@@ -2508,119 +2463,69 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
-        let iterator_register = match ranges.as_slice() {
-            [] => {
-                return compiler_error!(self, "compile_for: Missing range");
+        let iterator_register = {
+            let iterator_register = self.push_register()?;
+            let range_register = self
+                .compile_node(ResultRegister::Any, ast.node(*range), ast)?
+                .unwrap();
+
+            self.push_op_without_span(MakeIterator, &[iterator_register, range_register.register]);
+
+            if range_register.is_temporary {
+                self.pop_register()?;
             }
-            [range_node] => {
-                let iterator_register = self.push_register()?;
-                let range_register = self
-                    .compile_node(ResultRegister::Any, ast.node(*range_node), ast)?
-                    .unwrap();
 
-                self.push_op_without_span(
-                    MakeIterator,
-                    &[iterator_register, range_register.register],
-                );
-
-                if range_register.is_temporary {
-                    self.pop_register()?;
-                }
-
-                iterator_register
-            }
-            _ => {
-                let mut first_iterator_register = None;
-                for range_node in ranges.iter() {
-                    let iterator_register = self.push_register()?;
-                    let range_register = self
-                        .compile_node(ResultRegister::Any, ast.node(*range_node), ast)?
-                        .unwrap();
-
-                    self.push_op_without_span(
-                        MakeIterator,
-                        &[iterator_register, range_register.register],
-                    );
-
-                    if range_register.is_temporary {
-                        self.pop_register()?;
-                    }
-
-                    if first_iterator_register.is_none() {
-                        first_iterator_register = Some(iterator_register);
-                    }
-                }
-                first_iterator_register.unwrap()
-            }
+            iterator_register
         };
 
         let loop_start_ip = self.bytes.len();
         self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
 
-        if args.len() > 1 && ranges.len() == 1 {
-            // e.g. for a, b, c in list_of_lists()
-            // e.g. for key, value in map
-            let temp_register = self.push_register()?;
-
-            self.push_op_without_span(IteratorNext, &[temp_register, iterator_register]);
-            self.push_loop_jump_placeholder()?;
-
-            for (i, maybe_arg) in args.iter().enumerate() {
-                if let Some(arg) = maybe_arg {
-                    let arg_register = self.assign_local_register(*arg)?;
-                    self.push_op_without_span(ValueIndex, &[arg_register, temp_register, i as u8]);
-                }
+        match args.as_slice() {
+            [] => return compiler_error!(self, "Missing argument in for loop"),
+            [None] => {
+                // e.g. for _ in 0..10
+                self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
+                self.push_loop_jump_placeholder()?;
             }
-
-            self.pop_register()?; // temp_register
-        } else {
-            for (i, maybe_arg) in args.iter().enumerate() {
-                if let Some(arg) = maybe_arg {
-                    let arg_register = self.assign_local_register(*arg)?;
-                    self.push_op_without_span(
-                        IteratorNext,
-                        &[arg_register, iterator_register + i as u8],
-                    );
-                    self.push_loop_jump_placeholder()?;
-                } else {
-                    let temp_register = self.push_register()?;
-                    self.push_op_without_span(
-                        IteratorNext,
-                        &[temp_register, iterator_register + i as u8],
-                    );
-                    self.push_loop_jump_placeholder()?;
-                    self.pop_register()?; // temp_register
-                }
+            [Some(arg)] => {
+                // e.g. for i in 0..10
+                let arg_register = self.assign_local_register(*arg)?;
+                self.push_op_without_span(IterNext, &[arg_register, iterator_register as u8]);
+                self.push_loop_jump_placeholder()?;
             }
-        }
+            [args @ ..] => {
+                // e.g. for a, b, c in list_of_lists()
+                // e.g. for key, value in map
 
-        if let Some(condition) = condition {
-            let condition_register = self
-                .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
-                .unwrap();
-            self.push_jump_back_op(JumpBackFalse, &[condition_register.register], loop_start_ip);
-            if condition_register.is_temporary {
-                self.pop_register()?;
+                // A temporary register for the iterator output.
+                // Args are unpacked from the temp register
+                let temp_register = self.push_register()?;
+
+                self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
+                self.push_loop_jump_placeholder()?;
+
+                for (i, maybe_arg) in args.iter().enumerate() {
+                    if let Some(arg) = maybe_arg {
+                        let arg_register = self.assign_local_register(*arg)?;
+                        self.push_op_without_span(
+                            ValueIndex,
+                            &[arg_register, temp_register, i as u8],
+                        );
+                    }
+                }
+
+                self.pop_register()?; // temp_register
             }
         }
 
         let body_result_register = if let Some(result) = result {
             ResultRegister::Fixed(result.register)
-        } else if list_register.is_some() {
-            ResultRegister::Any
         } else {
             ResultRegister::None
         };
 
-        let body_result = self.compile_node(body_result_register, ast.node(*body), ast)?;
-
-        // Each iteration's result needs to be captured in the list
-        if let Some(list_register) = list_register {
-            self.push_op_without_span(
-                ListPushValue,
-                &[list_register, body_result.unwrap().register],
-            )
-        }
+        self.compile_node(body_result_register, ast.node(*body), ast)?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
@@ -2653,7 +2558,6 @@ impl Compiler {
     fn compile_loop(
         &mut self,
         result_register: ResultRegister, // register that gets the last iteration's result
-        list_register: Option<u8>,       // list that receives each iteration's result
         condition: Option<(AstIndex, bool)>, // condition, negate condition
         body: AstIndex,
         ast: &Ast,
@@ -2684,18 +2588,11 @@ impl Compiler {
 
         let body_result_register = if let Some(result) = result {
             ResultRegister::Fixed(result.register)
-        } else if list_register.is_some() {
-            ResultRegister::Any
         } else {
             ResultRegister::None
         };
 
         let body_result = self.compile_node(body_result_register, ast.node(body), ast)?;
-
-        if let Some(list_register) = list_register {
-            let body_register = body_result.unwrap().register;
-            self.push_op_without_span(ListPushValue, &[list_register, body_register]);
-        }
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 

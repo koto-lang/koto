@@ -37,10 +37,6 @@ export tests =
     assert_eq [r] [2, 1]
     assert_eq [2..=0] [2, 1, 0]
 
-  test_range_list_comprehension: ||
-    a = [x for x in 4..=1]
-    assert_eq a [4, 3, 2, 1]
-
   test_range_size: ||
     assert_eq (0..10).size() 10
     assert_eq (0..=10).size() 11

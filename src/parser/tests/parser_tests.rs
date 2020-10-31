@@ -1368,210 +1368,31 @@ a";
         use super::*;
 
         #[test]
-        fn for_inline() {
-            let source = "x for x in 0..1";
+        fn for_block() {
+            let source = "\
+for x in y
+  f x";
             check_ast(
                 source,
                 &[
+                    Id(1),
+                    Id(2),
                     Id(0),
-                    Number0,
-                    Number1,
-                    Range {
-                        start: 1,
-                        end: 2,
-                        inclusive: false,
+                    Call {
+                        function: 1,
+                        args: vec![2],
                     },
                     For(AstFor {
-                        args: vec![Some(0)],
-                        ranges: vec![3],
-                        condition: None,
-                        body: 0,
+                        args: vec![Some(0)], // constant 0
+                        range: 0,            // ast 0
+                        body: 3,
                     }),
                     MainBlock {
                         body: vec![4],
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn for_inline_call_in_body() {
-            let source = "f x for x in 0..1";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Call {
-                        function: 0,
-                        args: vec![1],
-                    },
-                    Number0,
-                    Number1,
-                    Range {
-                        start: 3,
-                        end: 4,
-                        inclusive: false,
-                    }, // 5
-                    For(AstFor {
-                        args: vec![Some(1)],
-                        ranges: vec![5],
-                        condition: None,
-                        body: 2,
-                    }),
-                    MainBlock {
-                        body: vec![6],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("f"), Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn for_inline_multi() {
-            let source = "x, y for x, y in a, b";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Id(2),
-                    Id(3),
-                    Tuple(vec![0, 1]),
-                    For(AstFor {
-                        args: vec![Some(0), Some(1)],
-                        ranges: vec![2, 3],
-                        condition: None,
-                        body: 4,
-                    }), // 5
-                    MainBlock {
-                        body: vec![5],
-                        local_count: 2,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Str("a"),
-                    Constant::Str("b"),
-                ]),
-            )
-        }
-
-        #[test]
-        fn for_inline_conditional() {
-            let source = "x for x in f y if x == 0";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Id(2),
-                    Call {
-                        function: 1,
-                        args: vec![2],
-                    },
-                    Id(0),
-                    Number0, // 5
-                    BinaryOp {
-                        op: AstOp::Equal,
-                        lhs: 4,
-                        rhs: 5,
-                    },
-                    For(AstFor {
-                        args: vec![Some(0)],
-                        ranges: vec![3],
-                        condition: Some(6),
-                        body: 0,
-                    }),
-                    MainBlock {
-                        body: vec![7],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("f"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn for_block() {
-            let source = "\
-for x in y if x > 0
-  f x";
-            check_ast(
-                source,
-                &[
-                    Id(1),
-                    Id(0),
-                    Number0,
-                    BinaryOp {
-                        op: AstOp::Greater,
-                        lhs: 1,
-                        rhs: 2,
-                    },
-                    Id(2),
-                    Id(0), // 5
-                    Call {
-                        function: 4,
-                        args: vec![5],
-                    },
-                    For(AstFor {
-                        args: vec![Some(0)], // constant 0
-                        ranges: vec![0],     // ast 0
-                        condition: Some(3),
-                        body: 6,
-                    }),
-                    MainBlock {
-                        body: vec![7],
-                        local_count: 1,
-                    },
-                ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
-            )
-        }
-
-        #[test]
-        fn while_inline() {
-            let source = "x while true";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    BoolTrue,
-                    While {
-                        condition: 1,
-                        body: 0,
-                    },
-                    MainBlock {
-                        body: vec![2],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn until_inline() {
-            let source = "y until false";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    BoolFalse,
-                    Until {
-                        condition: 1,
-                        body: 0,
-                    },
-                    MainBlock {
-                        body: vec![2],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("y")]),
             )
         }
 
@@ -1644,164 +1465,6 @@ until x < y
         }
 
         #[test]
-        fn list_comprehension_for() {
-            let source = "[x y for x in 0..1]";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Call {
-                        function: 0,
-                        args: vec![1],
-                    },
-                    Number0,
-                    Number1,
-                    Range {
-                        start: 3,
-                        end: 4,
-                        inclusive: false,
-                    }, // 5
-                    For(AstFor {
-                        args: vec![Some(0)],
-                        ranges: vec![5],
-                        condition: None,
-                        body: 2,
-                    }),
-                    List(vec![6]),
-                    MainBlock {
-                        body: vec![7],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("x"), Constant::Str("y")]),
-            )
-        }
-
-        #[test]
-        fn list_comprehension_for_with_capture_in_body() {
-            let source = "[(|| x) for x in 0..=1]";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Function(koto_parser::Function {
-                        args: vec![],
-                        local_count: 0,
-                        accessed_non_locals: vec![0],
-                        body: 0,
-                        is_generator: false,
-                    }),
-                    Number0,
-                    Number1,
-                    Range {
-                        start: 2,
-                        end: 3,
-                        inclusive: true,
-                    },
-                    For(AstFor {
-                        args: vec![Some(0)],
-                        ranges: vec![4],
-                        condition: None,
-                        body: 1,
-                    }), // 5
-                    List(vec![5]),
-                    MainBlock {
-                        body: vec![6],
-                        local_count: 1,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn list_comprehension_while() {
-            let source = "[f x while (f y) < 10]";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Call {
-                        function: 0,
-                        args: vec![1],
-                    },
-                    Id(0),
-                    Id(2),
-                    Call {
-                        function: 3,
-                        args: vec![4],
-                    }, // 5
-                    Number(3),
-                    BinaryOp {
-                        op: AstOp::Less,
-                        lhs: 5,
-                        rhs: 6,
-                    },
-                    While {
-                        condition: 7,
-                        body: 2,
-                    },
-                    List(vec![8]),
-                    MainBlock {
-                        body: vec![9],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Number(10.0),
-                ]),
-            )
-        }
-
-        #[test]
-        fn list_comprehension_until() {
-            let source = "[f x until (f y) >= 10]";
-            check_ast(
-                source,
-                &[
-                    Id(0),
-                    Id(1),
-                    Call {
-                        function: 0,
-                        args: vec![1],
-                    },
-                    Id(0),
-                    Id(2),
-                    Call {
-                        function: 3,
-                        args: vec![4],
-                    }, // 5
-                    Number(3),
-                    BinaryOp {
-                        op: AstOp::GreaterOrEqual,
-                        lhs: 5,
-                        rhs: 6,
-                    },
-                    Until {
-                        condition: 7,
-                        body: 2,
-                    },
-                    List(vec![8]),
-                    MainBlock {
-                        body: vec![9],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[
-                    Constant::Str("f"),
-                    Constant::Str("x"),
-                    Constant::Str("y"),
-                    Constant::Number(10.0),
-                ]),
-            )
-        }
-
-        #[test]
         fn for_block_after_array() {
             // A case that failed parsing at the start of the for block,
             // expecting an expression in the main block.
@@ -1817,8 +1480,7 @@ for x in y
                     Id(0),
                     For(AstFor {
                         args: vec![Some(0)], // constant 0
-                        ranges: vec![1],     // ast 1
-                        condition: None,
+                        range: 1,            // ast 1
                         body: 2,
                     }),
                     MainBlock {
@@ -2343,8 +2005,7 @@ f 1
                     }), // 10
                     For(AstFor {
                         args: vec![Some(3)],
-                        ranges: vec![4],
-                        condition: None,
+                        range: 4,
                         body: 10,
                     }),
                     Function(koto_parser::Function {
@@ -2391,8 +2052,7 @@ f 1
                     }),
                     For(AstFor {
                         args: vec![Some(4)], // x
-                        ranges: vec![16],
-                        condition: None,
+                        range: 16,
                         body: 24,
                     }), // 25
                     Block(vec![13, 25]),

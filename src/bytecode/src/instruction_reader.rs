@@ -217,8 +217,17 @@ pub enum Instruction {
         register: u8,
         source: u8,
     },
-    IteratorNext {
+    IterNext {
         register: u8,
+        iterator: u8,
+        jump_offset: usize,
+    },
+    IterNextTemp {
+        register: u8,
+        iterator: u8,
+        jump_offset: usize,
+    },
+    IterNextQuiet {
         iterator: u8,
         jump_offset: usize,
     },
@@ -319,7 +328,9 @@ impl fmt::Display for Instruction {
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
             Type { .. } => write!(f, "Type"),
-            IteratorNext { .. } => write!(f, "IteratorNext"),
+            IterNext { .. } => write!(f, "IterNext"),
+            IterNextTemp { .. } => write!(f, "IterNextTemp"),
+            IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
             ValueIndex { .. } => write!(f, "ValueIndex"),
             ListPushValue { .. } => write!(f, "ListPushValue"),
             ListPushValues { .. } => write!(f, "ListPushValues"),
@@ -575,14 +586,31 @@ impl fmt::Debug for Instruction {
             Type { register, source } => {
                 write!(f, "Type\t\tresult: {}\tsource: {}", register, source)
             }
-            IteratorNext {
+            IterNext {
                 register,
                 iterator,
                 jump_offset,
             } => write!(
                 f,
-                "IteratorNext\tresult: {}\titerator: {}\tjump offset: {}",
+                "IterNext\tresult: {}\titerator: {}\tjump offset: {}",
                 register, iterator, jump_offset
+            ),
+            IterNextTemp {
+                register,
+                iterator,
+                jump_offset,
+            } => write!(
+                f,
+                "IterNextTemp\tresult: {}\titerator: {}\tjump offset: {}",
+                register, iterator, jump_offset
+            ),
+            IterNextQuiet {
+                iterator,
+                jump_offset,
+            } => write!(
+                f,
+                "IterNextQuiet\titerator: {}\tjump offset: {}",
+                iterator, jump_offset
             ),
             ValueIndex {
                 register,
@@ -981,8 +1009,17 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 source: get_byte!(),
             }),
-            Op::IteratorNext => Some(IteratorNext {
+            Op::IterNext => Some(IterNext {
                 register: get_byte!(),
+                iterator: get_byte!(),
+                jump_offset: get_u16!() as usize,
+            }),
+            Op::IterNextTemp => Some(IterNextTemp {
+                register: get_byte!(),
+                iterator: get_byte!(),
+                jump_offset: get_u16!() as usize,
+            }),
+            Op::IterNextQuiet => Some(IterNextQuiet {
                 iterator: get_byte!(),
                 jump_offset: get_u16!() as usize,
             }),

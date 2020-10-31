@@ -51,8 +51,11 @@ export tests =
         if i == n
           return match_digit_nested n
 
-    x = [(match_digit i) for i in 0..3]
-    assert_eq x [0, 1, 2]
+    assert_eq
+      (0..3)
+        .each |i| match_digit i
+        .to_tuple()
+      (0, 1, 2)
 
   test_return_multiple_values: ||
     f = ||

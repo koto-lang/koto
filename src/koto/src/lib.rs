@@ -1,8 +1,9 @@
 pub use {
     koto_bytecode::{
-        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, DebugInfo, InstructionReader,
+        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, CompilerError, DebugInfo,
+        InstructionReader,
     },
-    koto_parser::{Ast, Function, Parser, Position},
+    koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
     koto_runtime::{
         external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
         LoaderError, Num2, Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList,
@@ -61,7 +62,7 @@ impl Koto {
         result
     }
 
-    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, String> {
+    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
         let compile_result = if self.settings.repl_mode {
             self.loader.compile_repl(script)
         } else {
@@ -84,7 +85,7 @@ impl Koto {
                 }
                 Ok(chunk)
             }
-            Err(error) => Err(self.format_loader_error(error, script)),
+            Err(error) => Err(error),
         }
     }
 
@@ -171,11 +172,7 @@ impl Koto {
         let (script_dir, script_path) = match &path {
             Some(path) => (
                 path.parent()
-                    .map(|p| {
-                        Str(
-                            p.to_str().expect("invalid script path").into(),
-                        )
-                    })
+                    .map(|p| Str(p.to_str().expect("invalid script path").into()))
                     .or(Some(Empty))
                     .unwrap(),
                 Str(path.display().to_string().into()),
@@ -227,16 +224,31 @@ impl Koto {
     }
 
     fn format_error(&self, error: Error) -> String {
+        use Error::*;
         match error {
-            Error::VmError {
+            VmError {
                 message,
                 chunk,
                 instruction,
-            } => self.format_vm_error(&message, chunk, instruction),
-            Error::ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
-            Error::LoaderError(error) => {
+                extra_error,
+            } => {
+                if let Some(extra_error) = extra_error {
+                    self.format_vm_error(
+                        &format!("{}: {}", message, extra_error),
+                        chunk,
+                        instruction,
+                    )
+                } else {
+                    self.format_vm_error(&message, chunk, instruction)
+                }
+            }
+            TestError { message, error } => {
+                format!("{}: {}", message, self.format_error(error.as_ref().clone()))
+            }
+            LoaderError(error) => {
                 self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
             }
+            ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
         }
     }
 
@@ -256,16 +268,25 @@ impl Koto {
         }
     }
 
-    fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
-        match error.span {
-            Some(span) => self.format_error_with_excerpt(
-                &error.message,
-                &self.script_path,
-                source,
-                span.start,
-                span.end,
-            ),
-            None => error.message,
+    pub fn format_loader_error(&self, error: LoaderError, source: &str) -> String {
+        match error {
+            LoaderError::ParserError(ParserError { error, span }) => self
+                .format_error_with_excerpt(
+                    &error.to_string(),
+                    &self.script_path,
+                    source,
+                    span.start,
+                    span.end,
+                ),
+            LoaderError::CompilerError(CompilerError { message, span }) => self
+                .format_error_with_excerpt(
+                    &message,
+                    &self.script_path,
+                    source,
+                    span.start,
+                    span.end,
+                ),
+            LoaderError::IoError(message) => message,
         }
     }
 

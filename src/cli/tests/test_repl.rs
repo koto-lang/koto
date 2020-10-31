@@ -5,7 +5,7 @@ use std::{
     str,
 };
 
-fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, &str)]) {
+fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
     let mut process = Command::new(env!("CARGO_BIN_EXE_koto"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -29,7 +29,9 @@ fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, &str)]) {
 
     for (_, expected) in inputs_and_expected_outputs.iter() {
         output_lines.next(); // prompt (empty line in test)
-        assert_eq!(output_lines.next().expect("Missing output"), *expected);
+        if let Some(expected) = expected {
+            assert_eq!(output_lines.next().expect("Missing output"), *expected);
+        }
     }
 }
 
@@ -38,24 +40,29 @@ mod repl_tests {
 
     #[test]
     fn basic_arithmetic() {
-        run_koto_repl_test(&[("a = 2", "2"), ("a + a", "4")]);
+        run_koto_repl_test(&[("a = 2", Some("2")), ("a + a", Some("4"))]);
     }
 
     #[test]
     fn for_loop() {
-        run_koto_repl_test(&[("x for x in 1..=5", "5"), ("x * x", "25")]);
+        run_koto_repl_test(&[
+            ("for x in 1..=5", None),
+            ("  x", None),
+            ("", Some("5")),
+            ("x * x", Some("25")),
+        ]);
     }
 
     #[test]
     fn tuple_assignment() {
-        run_koto_repl_test(&[("x = 1, 2, 3", "(1 2 3)"), ("x", "(1 2 3)")]);
+        run_koto_repl_test(&[("x = 1, 2, 3", Some("(1 2 3)")), ("x", Some("(1 2 3)"))]);
     }
 
     #[test]
     fn import_assert() {
         run_koto_repl_test(&[
-            ("import test.assert", "External Function"),
-            ("assert true", "()"),
+            ("import test.assert", Some("External Function")),
+            ("assert true", Some("()")),
         ]);
     }
 }

@@ -35,7 +35,7 @@ mod vm {
         let mut loader = Loader::default();
         let chunk = match loader.compile_script(script, &None) {
             Ok(chunk) => chunk,
-            Err(error) => panic!(error.message),
+            Err(error) => panic!(error),
         };
 
         let print_chunk = |script: &str, chunk| {
@@ -921,7 +921,8 @@ f3 1";
         fn while_loop() {
             let script = "
 count = 0
-(count += 1) while count < 10
+while count < 10
+  count += 1
 count";
             test_script(script, Number(10.0));
         }
@@ -930,7 +931,8 @@ count";
         fn until_loop() {
             let script = "
 count = 10
-(count += 1) until count == 20
+until count == 20
+  count += 1
 count";
             test_script(script, Number(20.0));
         }
@@ -939,25 +941,18 @@ count";
         fn for_loop() {
             let script = "
 count = 32
-(count += 1) for _ in 0..10
+for _ in 0..10
+  count += 1
 count";
             test_script(script, Number(42.0));
-        }
-
-        #[test]
-        fn for_conditional() {
-            let script = "
-count = 0
-(count += 1) for i in 0..10 if i > 4
-count";
-            test_script(script, Number(5.0));
         }
 
         #[test]
         fn for_list() {
             let script = "
 sum = 0
-(sum += a) for a in [10, 20, 30, 40]
+for a in [10, 20, 30, 40]
+  sum += a
 sum";
             test_script(script, Number(100.0));
         }
@@ -1064,25 +1059,14 @@ f()";
         }
 
         #[test]
-        fn multiple_ranges_2_to_1() {
+        fn for_arg_unpacking() {
             let script = "
 sum = 0
-for a, b in [[1, 2], [3, 4]]
+for a, b in ((1, 2), (3, 4))
   sum += a + b
 sum
 ";
             test_script(script, Number(10.0));
-        }
-
-        #[test]
-        fn multiple_ranges_2_to_2() {
-            let script = "
-sum = 0
-for a, b in [1, 2, 3], [4, 5, 6]
-  sum += a + b
-sum
-";
-            test_script(script, Number(21.0));
         }
     }
 
@@ -1314,49 +1298,6 @@ fold 0..5 |n _| n + 1";
         }
     }
 
-    mod list_comprehensions {
-        use super::*;
-
-        #[test]
-        fn for_loop() {
-            test_script("[x for x in 0..5]", number_list(&[0, 1, 2, 3, 4]));
-        }
-
-        #[test]
-        fn conditional_for() {
-            let script = "
-f = |x| x * x
-[f x for x in [2, 3, 4] if x % 2 == 0]";
-            test_script(script, number_list(&[4, 16]));
-        }
-
-        #[test]
-        fn while_loop() {
-            let script = "
-x = 0
-[(x += 1) while x < 3]";
-            test_script(script, number_list(&[1, 2, 3]));
-        }
-
-        #[test]
-        fn for_loop_function_calls() {
-            let script = "
-count = 0
-f = |n| count += n
-x = [f 1 for _ in 0..5]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
-        }
-
-        #[test]
-        fn while_loop_function_calls() {
-            let script = "
-count = 0
-f = |n| n
-x = [f count while (count += 1) <= 5]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
-        }
-    }
-
     mod generators {
         use super::*;
 
@@ -1366,8 +1307,8 @@ x = [f count while (count += 1) <= 5]";
 gen = ||
   yield 1
   yield 2
-[x for x in gen()]";
-            test_script(script, number_list(&[1, 2]));
+gen().to_tuple()";
+            test_script(script, number_tuple(&[1, 2]));
         }
 
         #[test]
@@ -1378,8 +1319,8 @@ gen = ||
   while x <= 5
     yield x
     x += 1
-[x for x in gen()]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+gen().to_tuple()";
+            test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
         }
 
         #[test]
@@ -1388,17 +1329,17 @@ gen = ||
 gen = |xs|
   for x in xs
     yield x
-[x for x in gen(1..=5)]";
-            test_script(script, number_list(&[1, 2, 3, 4, 5]));
+gen(1..=5).to_tuple()";
+            test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
         }
 
         #[test]
         fn generator_returning_multiple_values() {
             let script = "
 gen = |xs|
-  for i, x in 0..xs.size(), xs
+  for i, x in xs.enumerate()
     yield i, x
-z = [x for x in gen(1..=5)]
+z = gen(1..=5).to_tuple()
 z[1]";
             test_script(script, number_tuple(&[1, 2]));
         }

@@ -25,7 +25,11 @@ export tests =
     assert (x.contains (random.pick x))
 
   test_generator: ||
-    get_rng_output = |rng| [rng.pick 0..5 for _ in 0..10]
+    get_rng_output = |rng|
+      (0..10)
+        .each |_| rng.pick 0..5
+        .to_tuple()
+
     rng1 = random.generator 0
     rng2 = random.generator 0
     rng3 = random.generator 99
