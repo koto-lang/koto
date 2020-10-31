@@ -114,12 +114,12 @@ impl fmt::Display for Value {
             Function(_) => write!(f, "Function"),
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
-            ExternalFunction(_) => write!(f, "External Function"),
+            ExternalFunction(_) => write!(f, "Function"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
-            ExternalDataId => write!(f, "External Data ID"),
+            ExternalDataId => write!(f, "External Data"),
         }
     }
 }
