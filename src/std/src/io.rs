@@ -20,7 +20,7 @@ pub fn register(prelude: &mut ValueMap) {
 
     io.add_fn("print", |vm, args| {
         for value in vm.get_args(args).iter() {
-            print!("{}", value);
+            print!("{:#}", value);
         }
         println!();
         Ok(Empty)

@@ -300,7 +300,7 @@ impl fmt::Display for ValueMap {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}: {}", key, value)?;
+            write!(f, "{}: {:#}", key, value)?;
             first = false;
         }
         write!(f, "}}")

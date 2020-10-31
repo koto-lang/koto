@@ -61,7 +61,7 @@ mod repl_tests {
     #[test]
     fn import_assert() {
         run_koto_repl_test(&[
-            ("import test.assert", Some("External Function")),
+            ("import test.assert", Some("||")),
             ("assert true", Some("()")),
         ]);
     }
