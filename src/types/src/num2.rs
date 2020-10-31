@@ -28,7 +28,7 @@ impl Hash for Num2 {
 
 impl fmt::Display for Num2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
+        write!(f, "num2({}, {})", self.0, self.1)
     }
 }
 

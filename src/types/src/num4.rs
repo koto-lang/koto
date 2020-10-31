@@ -30,7 +30,7 @@ impl Hash for Num4 {
 
 impl fmt::Display for Num4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({} {} {} {})", self.0, self.1, self.2, self.3)
+        write!(f, "num4({}, {}, {}, {})", self.0, self.1, self.2, self.3)
     }
 }
 
