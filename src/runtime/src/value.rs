@@ -116,6 +116,7 @@ impl fmt::Display for Value {
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
             ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
+            IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
