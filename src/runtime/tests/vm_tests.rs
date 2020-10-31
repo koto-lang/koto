@@ -191,13 +191,13 @@ a = 99
         #[test]
         fn range() {
             test_script("0..10", Range(IntRange { start: 0, end: 10 }));
-            test_script("0..-10", Range(IntRange { start: 1, end: -9 }));
+            test_script("0..-10", Range(IntRange { start: 0, end: -10 }));
         }
 
         #[test]
         fn range_inclusive() {
             test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
-            test_script("4..=0", Range(IntRange { start: 5, end: 0 }));
+            test_script("4..=0", Range(IntRange { start: 4, end: -1 }));
         }
 
         #[test]
