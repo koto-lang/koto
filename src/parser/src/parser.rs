@@ -231,7 +231,7 @@ impl<'source> Parser<'source> {
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
 
-        Ok((parser.ast, parser.constants.pool))
+        Ok((parser.ast, parser.constants.build()))
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {
@@ -1130,7 +1130,7 @@ impl<'source> Parser<'source> {
                             } else if f64_eq(n, 1.0) {
                                 self.push_node(Number1)?
                             } else {
-                                let constant_index = self.constants.add_f64(n) as u32;
+                                let constant_index = self.constants.add_number(n) as u32;
                                 self.push_node(Number(constant_index))?
                             }
                         }

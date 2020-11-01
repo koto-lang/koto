@@ -11,7 +11,6 @@ use {
     koto_bytecode::{Chunk, Instruction, InstructionReader},
     koto_parser::ConstantIndex,
     koto_types::{num2, num4},
-    rustc_hash::FxHashMap,
     std::{
         collections::HashMap,
         fmt,
@@ -34,7 +33,6 @@ pub struct VmContext {
     global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, ValueMap>,
-    string_constants: FxHashMap<(u64, ConstantIndex), ValueString>,
 }
 
 impl VmContext {
@@ -53,7 +51,6 @@ impl VmContext {
         Self {
             core_lib,
             prelude,
-            string_constants: FxHashMap::with_capacity_and_hasher(16, Default::default()),
             ..Default::default()
         }
     }
@@ -300,16 +297,16 @@ impl Vm {
             Instruction::SetNumber { register, value } => {
                 self.set_register(register, Number(value))
             }
-            Instruction::LoadNumber { register, constant } => self.set_register(
-                register,
-                Number(self.reader.chunk.constants.get_f64(constant)),
-            ),
+            Instruction::LoadNumber { register, constant } => {
+                let n = self.reader.chunk.constants.get_number(constant);
+                self.set_register(register, Number(n))
+            }
             Instruction::LoadString { register, constant } => {
                 let string = self.value_string_from_constant(constant);
                 self.set_register(register, Str(string))
             }
             Instruction::LoadGlobal { register, constant } => {
-                let global_name = self.get_constant_string(constant);
+                let global_name = self.get_constant_str(constant);
                 let global = self
                     .context()
                     .global
@@ -382,12 +379,10 @@ impl Vm {
                 end,
             } => {
                 let range = match (self.get_register(start), self.get_register(end)) {
-                    (Number(start), Number(end)) => {
-                        Range(IntRange {
-                            start: *start as isize,
-                            end: *end as isize,
-                        })
-                    }
+                    (Number(start), Number(end)) => Range(IntRange {
+                        start: *start as isize,
+                        end: *end as isize,
+                    }),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -1128,12 +1123,7 @@ impl Vm {
                     (None, None) => "[#ERR] ".to_string(),
                 };
                 let value = self.get_register(register);
-                println!(
-                    "{}{}: {}",
-                    prefix,
-                    self.get_constant_string(constant),
-                    value
-                );
+                println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
             }
         }
 
@@ -1739,7 +1729,7 @@ impl Vm {
         use Value::*;
 
         let map_value = self.clone_register(map_register);
-        let key_string = self.get_constant_string(key);
+        let key_string = self.get_constant_str(key);
 
         macro_rules! get_core_op {
             ($module:ident, $iterator_fallback:expr) => {{
@@ -2161,35 +2151,14 @@ impl Vm {
         self.get_args(args).iter().cloned().collect()
     }
 
-    fn get_constant_string(&self, constant_index: ConstantIndex) -> &str {
-        self.reader.chunk.constants.get_string(constant_index)
+    fn get_constant_str(&self, constant_index: ConstantIndex) -> &str {
+        self.reader.chunk.constants.get_str(constant_index)
     }
 
-    fn value_string_from_constant(&mut self, constant_index: ConstantIndex) -> ValueString {
-        let constants_hash = self.reader.chunk.constants_hash;
-
-        let maybe_string = self
-            .context()
-            .string_constants
-            .get(&(constants_hash, constant_index))
-            .cloned();
-
-        match maybe_string {
-            Some(s) => s,
-            None => {
-                let s: ValueString = self
-                    .reader
-                    .chunk
-                    .constants
-                    .get_string(constant_index)
-                    .to_string()
-                    .into();
-                self.context_mut()
-                    .string_constants
-                    .insert((constants_hash, constant_index), s.clone());
-                s
-            }
-        }
+    fn value_string_from_constant(&self, constant_index: ConstantIndex) -> ValueString {
+        let bounds = self.reader.chunk.constants.get_str_bounds(constant_index);
+        ValueString::new_with_bounds(self.reader.chunk.string_constants_arc.clone(), bounds)
+            .unwrap() // The bounds have been already checked in the constant pool
     }
 }
 

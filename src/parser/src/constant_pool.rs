@@ -1,17 +1,17 @@
 use {
     crate::ConstantIndex,
     std::{
-        collections::HashMap,
-        convert::TryInto,
+        collections::{hash_map::DefaultHasher, HashMap},
         fmt,
         hash::{Hash, Hasher},
+        ops::Range,
     },
 };
 
 #[derive(Clone, Debug, Hash, PartialEq)]
-enum ConstantType {
-    Number,
-    Str,
+enum ConstantInfo {
+    Number(usize),
+    Str(Range<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,21 +20,27 @@ pub enum Constant<'a> {
     Str(&'a str),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ConstantPool {
-    data: Vec<u8>,
-    index: Vec<(usize, ConstantType)>,
+    index: Vec<ConstantInfo>,
+    // Constant strings concatanated into one
+    strings: String,
+    numbers: Vec<f64>,
+    hash: u64,
+}
+
+impl Default for ConstantPool {
+    fn default() -> Self {
+        Self {
+            index: vec![],
+            strings: String::default(),
+            numbers: vec![],
+            hash: 0,
+        }
+    }
 }
 
 impl ConstantPool {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn data_len(&self) -> usize {
-        self.data.len()
-    }
-
     pub fn len(&self) -> usize {
         self.index.len()
     }
@@ -43,28 +49,37 @@ impl ConstantPool {
         self.len() == 0
     }
 
-    pub fn get_string(&self, index: ConstantIndex) -> &str {
-        let (data_position, _) = self.index[index as usize];
-        let string_len = self.data[data_position] as usize;
-        let start = data_position + 1;
-        let end = start + string_len;
-        std::str::from_utf8(&self.data[start..end]).expect("Invalid string data")
-        // TODO Result
-    }
-
-    pub fn get_f64(&self, index: ConstantIndex) -> f64 {
-        let (start, _) = self.index[index as usize];
-        let end = start + 8;
-        f64::from_ne_bytes(self.data[start..end].try_into().unwrap()) // TODO Result
-    }
-
     pub fn get(&self, index: ConstantIndex) -> Option<Constant> {
         match self.index.get(index as usize) {
-            Some((_, constant_type)) => match constant_type {
-                ConstantType::Number => Some(Constant::Number(self.get_f64(index))),
-                ConstantType::Str => Some(Constant::Str(self.get_string(index))),
+            Some(constant_info) => match constant_info {
+                ConstantInfo::Number(index) => Some(Constant::Number(self.numbers[*index])),
+                ConstantInfo::Str(bounds) => Some(Constant::Str(&self.strings[bounds.clone()])),
             },
             None => None,
+        }
+    }
+
+    pub fn string_data(&self) -> &str {
+        &self.strings
+    }
+
+    #[inline]
+    pub fn get_str(&self, index: ConstantIndex) -> &str {
+        // Safety: The bounds have already been checked while the pool is being prepared
+        unsafe { &self.strings.get_unchecked(self.get_str_bounds(index)) }
+    }
+
+    pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
+        match self.index.get(index as usize) {
+            Some(ConstantInfo::Str(bounds)) => bounds.clone(),
+            _ => panic!("Invalid index"),
+        }
+    }
+
+    pub fn get_number(&self, index: ConstantIndex) -> f64 {
+        match self.index.get(index as usize) {
+            Some(ConstantInfo::Number(index)) => self.numbers[*index],
+            _ => panic!("Invalid index"),
         }
     }
 
@@ -87,7 +102,7 @@ impl<'a> ConstantPoolIterator<'a> {
 impl<'a> Iterator for ConstantPoolIterator<'a> {
     type Item = Constant<'a>;
 
-    fn next(&mut self) -> Option<Constant<'a>> {
+    fn next(&mut self) -> Option<Self::Item> {
         let result = self.pool.get(self.index);
         self.index += 1;
         result
@@ -110,22 +125,24 @@ impl fmt::Display for ConstantPool {
 
 impl PartialEq for ConstantPool {
     fn eq(&self, other: &Self) -> bool {
-        self.data == other.data && self.index == other.index
+        self.index == other.index && self.strings == other.strings && self.numbers == other.numbers
     }
 }
 
 impl Hash for ConstantPool {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.hash(state);
-        self.index.hash(state);
+        self.hash.hash(state);
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct ConstantPoolBuilder {
-    pub pool: ConstantPool,
-    strings: HashMap<String, ConstantIndex>,
-    numbers: HashMap<[u8; 8], ConstantIndex>,
+    index: Vec<ConstantInfo>,
+    strings: String,
+    numbers: Vec<f64>,
+    hasher: DefaultHasher, // Used to incrementally hash the constant pool's contents
+    string_map: HashMap<String, ConstantIndex>,
+    number_map: HashMap<[u8; 8], ConstantIndex>,
 }
 
 impl ConstantPoolBuilder {
@@ -134,45 +151,52 @@ impl ConstantPoolBuilder {
     }
 
     pub fn add_string(&mut self, s: &str) -> ConstantIndex {
-        match self.strings.get(s) {
+        match self.string_map.get(s) {
             Some(index) => *index,
             None => {
-                let data_position = self.pool.data.len();
-                let index = self.pool.index.len() as ConstantIndex;
-                self.pool.index.push((data_position, ConstantType::Str));
+                let start = self.strings.len();
+                let end = start + s.len();
+                self.strings.push_str(s);
+                s.hash(&mut self.hasher);
 
-                self.strings.insert(s.to_string(), index);
+                let result = self.index.len() as ConstantIndex;
+                self.index.push(ConstantInfo::Str(start..end));
 
-                let bytes = s.as_bytes();
+                self.string_map.insert(s.to_string(), result);
 
-                // short strings will do for now, TODO long string type (16bit max length? longer?)
-                assert!(bytes.len() < 1 << 8);
-                let len = bytes.len() as u8;
-
-                self.pool.data.push(len);
-                self.pool.data.extend_from_slice(bytes);
-
-                index
+                result
             }
         }
     }
 
-    pub fn add_f64(&mut self, n: f64) -> ConstantIndex {
+    pub fn add_number(&mut self, n: f64) -> ConstantIndex {
         let bytes = n.to_ne_bytes();
 
-        match self.numbers.get(&bytes) {
+        match self.number_map.get(&bytes) {
             Some(index) => *index,
             None => {
-                let data_position = self.pool.data.len();
-                let index = self.pool.index.len() as ConstantIndex;
-                self.pool.index.push((data_position, ConstantType::Number));
+                let number_index = self.numbers.len();
+                self.numbers.push(n);
+                bytes.hash(&mut self.hasher);
 
-                self.numbers.insert(bytes, index);
+                let result = self.index.len() as ConstantIndex;
+                self.index.push(ConstantInfo::Number(number_index));
 
-                self.pool.data.extend_from_slice(&bytes);
+                self.number_map.insert(bytes, result);
 
-                index
+                result
             }
+        }
+    }
+
+    pub fn build(mut self) -> ConstantPool {
+        self.index.hash(&mut self.hasher);
+
+        ConstantPool {
+            index: self.index,
+            strings: self.strings.clone(),
+            numbers: self.numbers,
+            hash: self.hasher.finish(),
         }
     }
 }
@@ -196,13 +220,12 @@ mod tests {
         assert_eq!(0, builder.add_string(s1));
         assert_eq!(1, builder.add_string(s2));
 
-        let pool = builder.pool;
+        let pool = builder.build();
 
-        assert_eq!(s1, pool.get_string(0));
-        assert_eq!(s2, pool.get_string(1));
+        assert_eq!(s1, pool.get_str(0));
+        assert_eq!(s2, pool.get_str(1));
 
         assert_eq!(2, pool.len());
-        assert_eq!(11, pool.data_len());
     }
 
     #[test]
@@ -212,20 +235,19 @@ mod tests {
         let f1 = 1.23456789;
         let f2 = 9.87654321;
 
-        assert_eq!(0, builder.add_f64(f1));
-        assert_eq!(1, builder.add_f64(f2));
+        assert_eq!(0, builder.add_number(f1));
+        assert_eq!(1, builder.add_number(f2));
 
         // don't duplicate numbers
-        assert_eq!(0, builder.add_f64(f1));
-        assert_eq!(1, builder.add_f64(f2));
+        assert_eq!(0, builder.add_number(f1));
+        assert_eq!(1, builder.add_number(f2));
 
-        let pool = builder.pool;
+        let pool = builder.build();
 
-        assert_eq!(f1, pool.get_f64(0));
-        assert_eq!(f2, pool.get_f64(1));
+        assert_eq!(f1, pool.get_number(0));
+        assert_eq!(f2, pool.get_number(1));
 
         assert_eq!(2, pool.len());
-        assert_eq!(16, pool.data_len());
     }
 
     #[test]
@@ -237,20 +259,19 @@ mod tests {
         let s1 = "O_o";
         let s2 = "^_^";
 
-        assert_eq!(0, builder.add_f64(f1));
+        assert_eq!(0, builder.add_number(f1));
         assert_eq!(1, builder.add_string(s1));
-        assert_eq!(2, builder.add_f64(f2));
+        assert_eq!(2, builder.add_number(f2));
         assert_eq!(3, builder.add_string(s2));
 
-        let pool = builder.pool;
+        let pool = builder.build();
 
-        assert_eq!(f1, pool.get_f64(0));
-        assert_eq!(f2, pool.get_f64(2));
-        assert_eq!(s1, pool.get_string(1));
-        assert_eq!(s2, pool.get_string(3));
+        assert_eq!(f1, pool.get_number(0));
+        assert_eq!(f2, pool.get_number(2));
+        assert_eq!(s1, pool.get_str(1));
+        assert_eq!(s2, pool.get_str(3));
 
         assert_eq!(4, pool.len());
-        assert_eq!(24, pool.data_len());
     }
 
     #[test]
@@ -262,12 +283,14 @@ mod tests {
         let s1 = "O_o";
         let s2 = "^_^";
 
-        builder.add_f64(f1);
+        builder.add_number(f1);
         builder.add_string(s1);
-        builder.add_f64(f2);
+        builder.add_number(f2);
         builder.add_string(s2);
 
-        let mut iter = builder.pool.iter();
+        let pool = builder.build();
+
+        let mut iter = pool.iter();
         assert_eq!(iter.next(), Some(Constant::Number(-1.1)));
         assert_eq!(iter.next(), Some(Constant::Str("O_o")));
         assert_eq!(iter.next(), Some(Constant::Number(99.9)));

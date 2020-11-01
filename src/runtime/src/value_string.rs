@@ -25,18 +25,21 @@ impl ValueString {
         }
     }
 
-    pub fn with_bounds(&self, new_bounds: Range<usize>) -> Result<Self, ()> {
-        let bounds = (self.bounds.start + new_bounds.start)..(self.bounds.start + new_bounds.end);
-        if self.string.get(bounds.clone()).is_some() {
+    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Result<Self, ()> {
+        new_bounds.end += self.bounds.start;
+        new_bounds.start += self.bounds.start;
+
+        if new_bounds.end <= self.bounds.end && self.string.get(new_bounds.clone()).is_some() {
             Ok(Self {
                 string: self.string.clone(),
-                bounds,
+                bounds: new_bounds,
             })
         } else {
             Err(())
         }
     }
 
+    #[inline]
     pub fn as_str(&self) -> &str {
         // Safety: bounds have already been checked in new_with_bounds / with_bounds
         unsafe { &self.string.get_unchecked(self.bounds.clone()) }
