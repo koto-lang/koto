@@ -104,7 +104,12 @@ pub enum Instruction {
         arg_count: u8,
         capture_count: u8,
         size: usize,
-        is_generator: bool,
+    },
+    Generator {
+        register: u8,
+        arg_count: u8,
+        capture_count: u8,
+        size: usize,
     },
     Capture {
         function: u8,
@@ -304,6 +309,7 @@ impl fmt::Display for Instruction {
             RangeFull { .. } => write!(f, "RangeFull"),
             MakeIterator { .. } => write!(f, "MakeIterator"),
             Function { .. } => write!(f, "Function"),
+            Generator { .. } => write!(f, "Generator"),
             Capture { .. } => write!(f, "Capture"),
             LoadCapture { .. } => write!(f, "LoadCapture"),
             SetCapture { .. } => write!(f, "SetCapture"),
@@ -461,11 +467,20 @@ impl fmt::Debug for Instruction {
                 arg_count,
                 capture_count,
                 size,
-                is_generator,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\tgenerator: {}",
-                register, arg_count, capture_count, size, is_generator
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}",
+                register, arg_count, capture_count, size,
+            ),
+            Generator {
+                register,
+                arg_count,
+                capture_count,
+                size,
+            } => write!(
+                f,
+                "Generator\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}",
+                register, arg_count, capture_count, size,
             ),
             Capture {
                 function,
@@ -884,14 +899,12 @@ impl Iterator for InstructionReader {
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
-                is_generator: false,
             }),
-            Op::Generator => Some(Function {
+            Op::Generator => Some(Generator {
                 register: get_byte!(),
                 arg_count: get_byte!(),
                 capture_count: get_byte!(),
                 size: get_u16!() as usize,
-                is_generator: true,
             }),
             Op::Capture => Some(Capture {
                 function: get_byte!(),

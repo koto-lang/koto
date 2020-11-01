@@ -546,7 +546,6 @@ impl Vm {
                 arg_count,
                 capture_count,
                 size,
-                is_generator,
             } => {
                 let captures = if capture_count > 0 {
                     let mut captures = ValueVec::new();
@@ -556,23 +555,39 @@ impl Vm {
                     None
                 };
 
-                let function = if is_generator {
-                    Generator(RuntimeFunction {
-                        chunk: self.chunk(),
-                        ip: self.ip(),
-                        arg_count,
-                        captures,
-                    })
-                } else {
-                    Function(RuntimeFunction {
-                        chunk: self.chunk(),
-                        ip: self.ip(),
-                        arg_count,
-                        captures,
-                    })
-                };
+                let function = Function(RuntimeFunction {
+                    chunk: self.chunk(),
+                    ip: self.ip(),
+                    arg_count,
+                    captures,
+                });
+
                 self.jump_ip(size);
                 self.set_register(register, function);
+            }
+            Instruction::Generator {
+                register,
+                arg_count,
+                capture_count,
+                size,
+            } => {
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
+
+                let generator = Generator(RuntimeFunction {
+                    chunk: self.chunk(),
+                    ip: self.ip(),
+                    arg_count,
+                    captures,
+                });
+
+                self.jump_ip(size);
+                self.set_register(register, generator);
             }
             Instruction::Capture {
                 function,
