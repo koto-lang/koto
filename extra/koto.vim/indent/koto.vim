@@ -29,18 +29,28 @@ function! KotoIndent()
   let l:line = getline(v:lnum)
 
   " Ending with || or =
-  if l:prev_line =~# '\(|.*|\)\|=\s*\(#.*\)*$'
-    let l:indent += &shiftwidth
+  if l:prev_line =~# '^.*\(\(|.*|\)\|=\)\s*$'
+    return l:indent + &shiftwidth
   endif
 
-  " Starting with for, until, while, if, else
-  if l:prev_line =~# '^\s*\(for\s\|until\s\|while\s\|if\s\|else\).*$'
-    let l:indent += &shiftwidth
+  " inline if/then statements don't need to be indented
+  if l:prev_line =~# '\.*if\s.*then\s.*$'
+    return l:indent
   endif
 
-  " Starting with try, catch, finally
-  if l:prev_line =~# '^\s*\(try\|catch\s\|finally\).*$'
-    let l:indent += &shiftwidth
+  " Ending with else, loop
+  if l:prev_line =~# '^.*\(else\|loop\).*$'
+    return l:indent + &shiftwidth
+  endif
+
+  " Containing for, until, while, if, else, match
+  if l:prev_line =~# '^.*\(for\s\|until\s\|while\s\|if\s\|match\s\).*$'
+    return l:indent + &shiftwidth
+  endif
+
+  " Containing try, catch, finally
+  if l:prev_line =~# '^.*\(try\|catch\s\|finally\).*$'
+    return l:indent + &shiftwidth
   endif
 
   return l:indent

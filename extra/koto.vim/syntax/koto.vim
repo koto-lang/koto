@@ -7,8 +7,8 @@ syntax keyword kotoKeywords
   \ catch copy debug export finally from import not num2 num4 return self try type yield
 syntax keyword kotoConditionals if else match then
 syntax keyword kotoRepeating break continue for in loop until while
-syntax keyword kotoStdLib
-  \ env io json list map math print push string test thread toml
+syntax keyword kotoCoreLib env iterator list map number range string tuple
+syntax keyword kotoStdLib io json math random test thread toml
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
 syntax match kotoCapture "\v\|"
 
@@ -44,7 +44,10 @@ highlight default link kotoTodos Todo
 highlight default link kotoKeywords Keyword
 highlight default link kotoConditionals Conditional
 highlight default link kotoRepeating Repeat
+
+highlight default link kotoCoreLib Function
 highlight default link kotoStdLib Function
+
 highlight default link kotoAsserts Macro
 highlight default link kotoCapture Type
 highlight default link kotoOperator Operator
