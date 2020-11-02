@@ -8,33 +8,38 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct ValueString {
     string: Arc<str>,
-    bounds: Option<Range<usize>>,
+    bounds: Range<usize>,
 }
 
 impl ValueString {
     fn new(string: Arc<str>) -> Self {
-        Self {
-            string,
-            bounds: None,
+        let bounds = 0..string.len();
+        Self { string, bounds }
+    }
+
+    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Result<Self, ()> {
+        if string.get(bounds.clone()).is_some() {
+            Ok(Self { string, bounds })
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn with_bounds(&self, new_bounds: Range<usize>) -> Result<Self, ()> {
+        let bounds = (self.bounds.start + new_bounds.start)..(self.bounds.start + new_bounds.end);
+        if self.string.get(bounds.clone()).is_some() {
+            Ok(Self {
+                string: self.string.clone(),
+                bounds,
+            })
+        } else {
+            Err(())
         }
     }
 
     pub fn as_str(&self) -> &str {
-        match &self.bounds {
-            Some(bounds) => &self.string[bounds.clone()],
-            None => &self.string,
-        }
-    }
-
-    pub fn with_bounds(&self, new_bounds: Range<usize>) -> Self {
-        let bounds = match &self.bounds {
-            Some(bounds) => (bounds.start + new_bounds.start)..(bounds.start + new_bounds.end),
-            None => new_bounds,
-        };
-        Self {
-            string: self.string.clone(),
-            bounds: Some(bounds),
-        }
+        // Safety: bounds have already been checked in new_with_bounds / with_bounds
+        unsafe { &self.string.get_unchecked(self.bounds.clone()) }
     }
 }
 
