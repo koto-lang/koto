@@ -62,7 +62,7 @@ fn main() {
                 }
             },
             Err(e) => {
-                eprintln!("{}", e);
+                eprintln!("{}", koto.format_loader_error(e, &script));
             }
         }
     } else {

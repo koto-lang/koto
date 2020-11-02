@@ -20,7 +20,7 @@ use {
     },
 };
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Settings {
     pub run_tests: bool,
     pub show_annotated: bool,
@@ -223,7 +223,7 @@ impl Koto {
             .map_err(|e| self.format_error(e))
     }
 
-    fn format_error(&self, error: Error) -> String {
+    pub fn format_error(&self, error: Error) -> String {
         use Error::*;
         match error {
             VmError {
