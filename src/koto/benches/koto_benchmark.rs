@@ -58,6 +58,15 @@ pub fn koto_benchmark(c: &mut Criterion) {
             runner.run();
         })
     });
+    c.bench_function("string_formatting", |b| {
+        let mut runner = BenchmarkRunner::new(
+            "string_formatting.koto",
+            &["70".to_string(), "quiet".to_string()],
+        );
+        b.iter(|| {
+            runner.run();
+        })
+    });
     c.bench_function("spectral_norm", |b| {
         let mut runner = BenchmarkRunner::new(
             "spectral_norm.koto",

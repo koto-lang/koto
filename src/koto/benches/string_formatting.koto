@@ -1,0 +1,52 @@
+from test import assert_eq
+import env io.print
+
+digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+  "eighteen", "nineteen"]
+
+tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+  "ninety"]
+
+number_to_english = |n|
+  n = n.floor()
+  if n < 0
+    "minus {}".format (number_to_english n.abs())
+  else if n < 20
+    digits[n]
+  else if n < 100
+    x = (n / 10).floor()
+    y = n % 10
+    if y == 0
+      tens[x]
+    else
+      "{}-{}".format tens[x] digits[y]
+  else if n < 1000
+    x = (n / 100).floor()
+    x_string = (number_to_english x)
+    y = n % 100
+    if y == 0
+      "{} hundred".format x_string
+    else
+      "{} hundred and {}".format x_string (number_to_english y)
+  else
+    "???"
+
+export main = ||
+  n = match env.args.get 0
+    () then 50
+    arg then arg.to_number()
+
+  result = ((-n)..n)
+    .each |x| number_to_english x
+    .to_tuple()
+
+  if not (env.args.get 1) == "quiet"
+    print result
+
+export tests =
+  test_number_to_english: ||
+    assert_eq (number_to_english 0) "zero"
+    assert_eq (number_to_english -42) "minus forty-two"
+    assert_eq (number_to_english 217) "two hundred and seventeen"
+    assert_eq (number_to_english 999) "nine hundred and ninety-nine"
