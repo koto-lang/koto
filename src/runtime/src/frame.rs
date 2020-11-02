@@ -1,6 +1,6 @@
 use {crate::{Value, ValueList}, koto_bytecode::Chunk, std::sync::Arc};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct Frame {
     // The chunk being interpreted in this frame
     pub chunk: Arc<Chunk>,
@@ -28,7 +28,9 @@ impl Frame {
             chunk,
             register_base,
             captures,
-            ..Default::default()
+            return_register_and_ip: None,
+            catch_stack: vec![],
+            catch_barrier: false,
         }
     }
 

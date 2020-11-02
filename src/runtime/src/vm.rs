@@ -75,9 +75,9 @@ impl Vm {
     pub fn new() -> Self {
         Self {
             context: Arc::new(RwLock::new(VmContext::new())),
-            reader: Default::default(),
+            reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
-            call_stack: vec![Frame::default()],
+            call_stack: vec![],
         }
     }
 
@@ -85,8 +85,8 @@ impl Vm {
         Self {
             context: self.context.clone(),
             reader: self.reader.clone(),
-            call_stack: vec![Frame::default()],
-            ..Default::default()
+            call_stack: vec![],
+            value_stack: vec![],
         }
     }
 
