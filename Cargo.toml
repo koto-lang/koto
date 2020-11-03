@@ -1,17 +1,14 @@
 [workspace]
 members = [
+  "libs/json",
+  "libs/random",
+  "libs/toml",
   "src/bytecode",
   "src/cli",
-  "src/json",
   "src/koto",
   "src/lexer",
   "src/parser",
-  "src/random",
   "src/runtime",
   "src/serialize",
-  "src/toml",
   "src/types",
 ]
-
-[profile.dev]
-opt-level = 0

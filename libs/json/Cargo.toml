@@ -1,5 +1,5 @@
 [package]
-name = "koto_toml"
+name = "koto_json"
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
@@ -7,6 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_runtime = { path = "../runtime" }
-koto_serialize = { path = "../serialize" }
-toml = { version = "0.5.6", features = ["preserve_order"] }
+koto_runtime = { path = "../../src/runtime" }
+koto_serialize = { path = "../../src/serialize" }
+serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }

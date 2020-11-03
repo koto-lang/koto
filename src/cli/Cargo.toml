@@ -15,9 +15,9 @@ trace = ["koto/trace"]
 
 [dependencies]
 koto = {path = "../koto"}
-koto_json = {path = "../json"}
-koto_random = {path = "../random"}
-koto_toml = {path = "../toml"}
+koto_json = {path = "../../libs/json"}
+koto_random = {path = "../../libs/random"}
+koto_toml = {path = "../../libs/toml"}
 
 termion = "1.5.5"
 
