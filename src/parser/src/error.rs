@@ -212,7 +212,7 @@ impl fmt::Display for SyntaxError {
             ExpectedEndOfLine => f.write_str("Expected end of line"),
             ExpectedExportExpression => f.write_str("Expected ID to export"),
             ExpectedExpression => f.write_str("Expected expression"),
-            ExpectedExpressionInMainBlock => f.write_str("Expected expression in main block"),
+            ExpectedExpressionInMainBlock => f.write_str("Expected expression"),
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
             ExpectedForCondition => f.write_str("Expected condition after 'if' in for loop"),
             ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),

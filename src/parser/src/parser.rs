@@ -269,6 +269,7 @@ impl<'source> Parser<'source> {
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
             } else {
+                self.lexer.next();
                 return syntax_error!(ExpectedExpressionInMainBlock, self);
             }
         }
