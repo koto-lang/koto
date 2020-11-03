@@ -15,10 +15,6 @@ koto_parser = {path = "../parser"}
 koto_runtime = {path = "../runtime"}
 
 [dev-dependencies]
-koto_json = {path = "../../libs/json" }
-koto_random = {path = "../../libs/random" }
-koto_toml = {path = "../../libs/toml" }
-
 criterion = "0.3.1"
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]

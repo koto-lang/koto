@@ -10,3 +10,6 @@ koto_types = { path = "../../src/types" }
 
 rand = "0.7.3"
 rand_chacha = "0.2.1"
+
+[dev-dependencies]
+koto = { path = "../../src/koto" }

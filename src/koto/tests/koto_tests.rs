@@ -17,13 +17,6 @@ fn run_script(script_path: &str) {
     });
     koto.set_script_path(Some(path));
 
-    {
-        let prelude = &mut koto.context_mut().prelude;
-        prelude.add_map("json", koto_json::make_module());
-        prelude.add_map("random", koto_random::make_module());
-        prelude.add_map("toml", koto_toml::make_module());
-    }
-
     match koto.compile(&script) {
         Ok(_) => {
             if let Err(error) = koto.run() {
@@ -59,7 +52,6 @@ mod koto_tests {
     koto_test!(import);
     koto_test!(io);
     koto_test!(iterators);
-    koto_test!(json);
     koto_test!(line_breaks);
     koto_test!(list_ops);
     koto_test!(lists);
@@ -71,11 +63,9 @@ mod koto_tests {
     koto_test!(numbers);
     koto_test!(num2_4);
     koto_test!(primes);
-    koto_test!(random);
     koto_test!(ranges);
     koto_test!(strings);
     koto_test!(threads);
-    koto_test!(toml);
     koto_test!(tuples);
     koto_test!(types);
 }

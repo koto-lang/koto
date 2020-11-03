@@ -296,11 +296,8 @@ dependencies = [
  "criterion",
  "jemallocator",
  "koto_bytecode",
- "koto_json",
  "koto_parser",
- "koto_random",
  "koto_runtime",
- "koto_toml",
 ]
 
 [[package]]
@@ -328,6 +325,7 @@ dependencies = [
 name = "koto_json"
 version = "0.1.0"
 dependencies = [
+ "koto",
  "koto_runtime",
  "koto_serialize",
  "serde_json",
@@ -352,6 +350,7 @@ dependencies = [
 name = "koto_random"
 version = "0.1.0"
 dependencies = [
+ "koto",
  "koto_runtime",
  "koto_types",
  "rand",
@@ -385,6 +384,7 @@ dependencies = [
 name = "koto_toml"
 version = "0.1.0"
 dependencies = [
+ "koto",
  "koto_runtime",
  "koto_serialize",
  "toml",

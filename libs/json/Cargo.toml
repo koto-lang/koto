@@ -10,3 +10,6 @@ edition = "2018"
 koto_runtime = { path = "../../src/runtime" }
 koto_serialize = { path = "../../src/serialize" }
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
+
+[dev-dependencies]
+koto = { path = "../../src/koto" }
