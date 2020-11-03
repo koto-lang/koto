@@ -495,16 +495,6 @@ a, b, c";
         use super::*;
 
         #[test]
-        fn if_no_else() {
-            let script = "
-x = if 5 < 4
-  42
-x
-";
-            test_script(script, Empty);
-        }
-
-        #[test]
         fn if_else_if_result_from_if() {
             let script = "
 x = if 5 > 4
@@ -544,9 +534,42 @@ x";
         }
 
         #[test]
+        fn if_no_else_no_match() {
+            let script = "
+if 5 < 4
+  42
+";
+            test_script(script, Empty);
+        }
+
+        #[test]
+        fn if_else_if_no_else_no_match() {
+            let script = "
+if 5 < 4
+  42
+else if 2 == 3
+  -1
+else if false
+  99
+";
+            test_script(script, Empty);
+        }
+
+        #[test]
+        fn if_else_if_no_else_result_from_else_if() {
+            let script = "
+if false
+  42
+else if true
+  99
+";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
         fn multiple_else_ifs() {
             let script = "
-x = if false
+if false
   42
 else if false
   -1
@@ -556,7 +579,7 @@ else if true
   100
 else
   0
-x";
+";
             test_script(script, Number(100.0));
         }
     }

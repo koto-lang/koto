@@ -2162,27 +2162,27 @@ impl Compiler {
         } = ast_if;
 
         let result = self.get_result_register(result_register)?;
-
-        let condition_register = self
-            .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
-            .unwrap();
-
-        self.push_op_without_span(JumpFalse, &[condition_register.register]);
-        let if_jump_ip = self.push_offset_placeholder();
-
-        if condition_register.is_temporary {
-            self.pop_register()?;
-        }
-
-        let body_result_register = if let Some(result) = result {
+        let expression_result_register = if let Some(result) = result {
             ResultRegister::Fixed(result.register)
         } else {
             ResultRegister::None
         };
 
-        self.compile_node(body_result_register, ast.node(*then_node), ast)?;
+        // If
+        let condition_register = self
+            .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
+            .unwrap();
 
-        let then_jump_ip = {
+        self.push_op_without_span(JumpFalse, &[condition_register.register]);
+        let condition_jump_ip = self.push_offset_placeholder();
+
+        if condition_register.is_temporary {
+            self.pop_register()?;
+        }
+
+        self.compile_node(expression_result_register, ast.node(*then_node), ast)?;
+
+        let if_jump_ip = {
             if !else_if_blocks.is_empty() || else_node.is_some() || result.is_some() {
                 self.push_op_without_span(Jump, &[]);
                 Some(self.push_offset_placeholder())
@@ -2191,53 +2191,51 @@ impl Compiler {
             }
         };
 
-        self.update_offset_placeholder(if_jump_ip);
+        // A failing condition for the if jumps to here, at the start of the else if / else blocks
+        self.update_offset_placeholder(condition_jump_ip);
 
+        // Iterate through the else if blocks and collect their end jump placeholders
         let else_if_jump_ips = else_if_blocks
             .iter()
             .map(
-                |(else_if_condition, else_if_node)| -> Result<Option<usize>, CompilerError> {
+                |(else_if_condition, else_if_node)| -> Result<usize, CompilerError> {
                     let condition = self
                         .compile_node(ResultRegister::Any, ast.node(*else_if_condition), ast)?
                         .unwrap();
 
                     self.push_op_without_span(JumpFalse, &[condition.register]);
-                    let then_jump_ip = self.push_offset_placeholder();
+                    let conditon_jump_ip = self.push_offset_placeholder();
 
                     if condition.is_temporary {
                         self.pop_register()?;
                     }
 
-                    self.compile_node(body_result_register, ast.node(*else_if_node), ast)?;
+                    self.compile_node(expression_result_register, ast.node(*else_if_node), ast)?;
 
-                    let else_if_jump_ip = if else_node.is_some() {
-                        self.push_op_without_span(Jump, &[]);
-                        Some(self.push_offset_placeholder())
-                    } else {
-                        None
-                    };
-                    self.update_offset_placeholder(then_jump_ip);
+                    self.push_op_without_span(Jump, &[]);
+                    let else_if_jump_ip = self.push_offset_placeholder();
+
+                    self.update_offset_placeholder(conditon_jump_ip);
 
                     Ok(else_if_jump_ip)
                 },
             )
             .collect::<Result<Vec<_>, _>>()?;
 
+        // Else - either compile the else block, or set the result to empty
         if let Some(else_node) = else_node {
-            self.compile_node(body_result_register, ast.node(*else_node), ast)?;
+            self.compile_node(expression_result_register, ast.node(*else_node), ast)?;
         } else if let Some(result) = result {
             self.push_op_without_span(SetEmpty, &[result.register]);
         }
 
-        if let Some(then_jump_ip) = then_jump_ip {
-            self.update_offset_placeholder(then_jump_ip);
+        // We're at the end, so update the if and else if jump placeholders
+        if let Some(if_jump_ip) = if_jump_ip {
+            self.update_offset_placeholder(if_jump_ip);
         }
 
         for else_if_jump_ip in else_if_jump_ips.iter() {
-            // When there's no else block, the final else_if doesn't have a jump
-            if let Some(else_if_jump_ip) = else_if_jump_ip {
-                self.update_offset_placeholder(*else_if_jump_ip);
-            }
+            self.update_offset_placeholder(*else_if_jump_ip);
         }
 
         Ok(result)
