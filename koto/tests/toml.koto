@@ -1,7 +1,4 @@
-import env
-import io
-import test.assert_eq
-import toml
+import env io test.assert_eq toml
 
 export tests =
   test_serialize_and_deserialize_toml: ||

@@ -10,22 +10,12 @@ use std::{
 };
 
 pub fn register(prelude: &mut ValueMap) {
-    use Value::{Bool, Empty, Map, Number, Str};
+    use Value::{Bool, Map, Number, Str};
 
     let mut io = ValueMap::new();
 
     single_arg_fn!(io, "exists", Str, path, {
         Ok(Bool(Path::new(path.as_str()).exists()))
-    });
-
-    io.add_fn("print", |vm, args| {
-        match vm.get_args(args) {
-            [value] => {
-                println!("{}", value);
-            }
-            _ => return external_error!("io.print: Expected single value as argument"),
-        }
-        Ok(Empty)
     });
 
     single_arg_fn!(io, "read_to_string", Str, path, {
