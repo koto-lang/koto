@@ -2248,8 +2248,6 @@ impl Compiler {
         arms: &[MatchArm],
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::*;
-
         let result = self.get_result_register(result_register)?;
 
         let stack_count = self.frame().register_stack.len();
@@ -2261,169 +2259,12 @@ impl Compiler {
         let mut result_jump_placeholders = Vec::new();
 
         for (arm_index, arm) in arms.iter().enumerate() {
-            let last_arm = arm_index == arms.len() - 1;
+            let is_last_arm = arm_index == arms.len() - 1;
 
-            // Jumps to the end of the arm
-            let mut arm_end_jump_placeholders = Vec::new();
-            // Jumps to the end of the arm's match patterns,
-            // used after a successful match to skip over remaining alternatives
-            let mut match_end_jump_placeholders = Vec::new();
-
-            for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
-                let last_alternative = alternative_index == arm.patterns.len() - 1;
-
-                let mut next_alternative_jump_placeholder = None;
-
-                let patterns = match &ast.node(*arm_pattern).node {
-                    Node::Tuple(patterns) => patterns.clone(),
-                    _ => vec![*arm_pattern],
-                };
-
-                for (pattern_index, pattern) in patterns.iter().enumerate() {
-                    let last_pattern = pattern_index == patterns.len() - 1;
-                    let pattern_node = ast.node(*pattern);
-
-                    match pattern_node.node {
-                        Node::Empty
-                        | Node::BoolTrue
-                        | Node::BoolFalse
-                        | Node::Number0
-                        | Node::Number1
-                        | Node::Number(_)
-                        | Node::List(_)
-                        | Node::Str(_) => {
-                            let pattern_register = self.push_register()?;
-                            self.compile_node(
-                                ResultRegister::Fixed(pattern_register),
-                                pattern_node,
-                                ast,
-                            )?;
-                            let comparison_register = self.push_register()?;
-
-                            if patterns.len() == 1 {
-                                self.push_op_without_span(
-                                    Equal,
-                                    &[
-                                        comparison_register,
-                                        pattern_register,
-                                        match_register.register,
-                                    ],
-                                );
-                            } else {
-                                let element_register = self.push_register()?;
-
-                                self.push_op_without_span(
-                                    ValueIndex,
-                                    &[
-                                        element_register,
-                                        match_register.register,
-                                        pattern_index as u8,
-                                    ],
-                                );
-
-                                self.push_op_without_span(
-                                    Equal,
-                                    &[comparison_register, pattern_register, element_register],
-                                );
-
-                                self.pop_register()?; // element_register
-                            }
-
-                            if last_alternative {
-                                // If there's no match on the last alternative,
-                                // then jump to the end of the arm
-                                self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
-                                arm_end_jump_placeholders.push(self.push_offset_placeholder());
-                            } else if last_pattern {
-                                // If there's a match with remaining alternative matches,
-                                // then jump to the end of the alternatives
-                                self.push_op_without_span(Op::JumpTrue, &[comparison_register]);
-                                match_end_jump_placeholders.push(self.push_offset_placeholder());
-                            } else {
-                                // If there's no match but there remaining alternative matches,
-                                // then jump to the next alternative
-                                self.push_op_without_span(Op::JumpFalse, &[comparison_register]);
-                                next_alternative_jump_placeholder =
-                                    Some(self.push_offset_placeholder());
-                            }
-
-                            self.pop_register()?; // comparison_register
-                            self.pop_register()?; // pattern_register
-                        }
-                        Node::Id(id) => {
-                            self.span_stack.push(*ast.span(pattern_node.span));
-
-                            let id_register = self.assign_local_register(id)?;
-                            if patterns.len() == 1 {
-                                self.push_op(Copy, &[id_register, match_register.register]);
-                            } else {
-                                self.push_op(
-                                    ValueIndex,
-                                    &[id_register, match_register.register, pattern_index as u8],
-                                );
-                            }
-
-                            if last_pattern && !last_alternative {
-                                // Ids match unconditionally, so if we're at the end of a
-                                // multi-expression match, then skip over the remaining alternatives
-                                self.push_op_without_span(Op::Jump, &[]);
-                                match_end_jump_placeholders.push(self.push_offset_placeholder());
-                            }
-
-                            self.span_stack.pop();
-                        }
-                        Node::Wildcard => {
-                            if last_pattern && !last_alternative {
-                                // Wildcards match unconditionally, so if we're at the end of a
-                                // multi-expression match, then skip over the remaining alternatives
-                                self.push_op_without_span(Op::Jump, &[]);
-                                match_end_jump_placeholders.push(self.push_offset_placeholder());
-                            }
-                        }
-                        _ => {
-                            return compiler_error!(self, "Internal error: invalid match pattern");
-                        }
-                    }
-                }
-
-                if let Some(jump_placeholder) = next_alternative_jump_placeholder {
-                    self.update_offset_placeholder(jump_placeholder);
-                }
-            }
-
-            // Update the match end jump placeholders before the condition
-            for jump_placeholder in match_end_jump_placeholders.iter() {
-                self.update_offset_placeholder(*jump_placeholder);
-            }
-
-            if let Some(condition) = arm.condition {
-                let condition_register = self
-                    .compile_node(ResultRegister::Any, ast.node(condition), ast)?
-                    .unwrap();
-
-                self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
-                arm_end_jump_placeholders.push(self.push_offset_placeholder());
-
-                if condition_register.is_temporary {
-                    self.pop_register()?;
-                }
-            }
-
-            let body_result_register = if let Some(result) = result {
-                ResultRegister::Fixed(result.register)
-            } else {
-                ResultRegister::None
-            };
-
-            self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
-
-            if !last_arm {
-                self.push_op_without_span(Op::Jump, &[]);
-                result_jump_placeholders.push(self.push_offset_placeholder());
-            }
-
-            for jump_placeholder in arm_end_jump_placeholders.iter() {
-                self.update_offset_placeholder(*jump_placeholder);
+            if let Some(placeholder) =
+                self.compile_match_arm(result, match_register.register, arm, is_last_arm, ast)?
+            {
+                result_jump_placeholders.push(placeholder);
             }
         }
 
@@ -2434,6 +2275,169 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
+    }
+
+    fn compile_match_arm(
+        &mut self,
+        result: Option<CompileResult>,
+        match_register: u8,
+        arm: &MatchArm,
+        is_last_arm: bool,
+        ast: &Ast,
+    ) -> Result<Option<usize>, CompilerError> {
+        use Op::*;
+
+        // Jumps to the end of the arm
+        let mut arm_end_jump_placeholders = Vec::new();
+        // Jumps to the end of the arm's match patterns,
+        // used after a successful match to skip over remaining alternatives
+        let mut match_end_jump_placeholders = Vec::new();
+
+        for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
+            let is_last_alternative = alternative_index == arm.patterns.len() - 1;
+
+            let mut next_alternative_jump_placeholder = None;
+
+            let patterns = match &ast.node(*arm_pattern).node {
+                Node::Tuple(patterns) => patterns.clone(),
+                _ => vec![*arm_pattern],
+            };
+
+            for (pattern_index, pattern) in patterns.iter().enumerate() {
+                let is_last_pattern = pattern_index == patterns.len() - 1;
+                let pattern_index = pattern_index as u8;
+                let pattern_node = ast.node(*pattern);
+
+                match pattern_node.node {
+                    Node::Empty
+                    | Node::BoolTrue
+                    | Node::BoolFalse
+                    | Node::Number0
+                    | Node::Number1
+                    | Node::Number(_)
+                    | Node::List(_)
+                    | Node::Str(_) => {
+                        let pattern = self.push_register()?;
+                        self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;
+                        let comparison = self.push_register()?;
+
+                        if patterns.len() == 1 {
+                            self.push_op_without_span(
+                                Equal,
+                                &[comparison, pattern, match_register],
+                            );
+                        } else {
+                            let element = self.push_register()?;
+                            self.push_op_without_span(
+                                ValueIndex,
+                                &[element, match_register, pattern_index],
+                            );
+                            self.push_op_without_span(Equal, &[comparison, pattern, element]);
+                            self.pop_register()?; // element
+                        }
+
+                        if is_last_alternative {
+                            // If there's no match on the last alternative,
+                            // then jump to the end of the arm
+                            self.push_op_without_span(Op::JumpFalse, &[comparison]);
+                            arm_end_jump_placeholders.push(self.push_offset_placeholder());
+                        } else if is_last_pattern {
+                            // If there's a match with remaining alternative matches,
+                            // then jump to the end of the alternatives
+                            self.push_op_without_span(Op::JumpTrue, &[comparison]);
+                            match_end_jump_placeholders.push(self.push_offset_placeholder());
+                        } else {
+                            // If there's no match but there remaining alternative matches,
+                            // then jump to the next alternative
+                            self.push_op_without_span(Op::JumpFalse, &[comparison]);
+                            next_alternative_jump_placeholder =
+                                Some(self.push_offset_placeholder());
+                        }
+
+                        self.pop_register()?; // comparison_register
+                        self.pop_register()?; // pattern_register
+                    }
+                    Node::Id(id) => {
+                        self.span_stack.push(*ast.span(pattern_node.span));
+
+                        let id_register = self.assign_local_register(id)?;
+                        if patterns.len() == 1 {
+                            self.push_op(Copy, &[id_register, match_register]);
+                        } else {
+                            self.push_op(ValueIndex, &[id_register, match_register, pattern_index]);
+                        }
+
+                        if is_last_pattern && !is_last_alternative {
+                            // Ids match unconditionally, so if we're at the end of a
+                            // multi-expression pattern, skip over the remaining alternatives
+                            self.push_op_without_span(Op::Jump, &[]);
+                            match_end_jump_placeholders.push(self.push_offset_placeholder());
+                        }
+
+                        self.span_stack.pop();
+                    }
+                    Node::Wildcard => {
+                        if is_last_pattern && !is_last_alternative {
+                            // Wildcards match unconditionally, so if we're at the end of a
+                            // multi-expression pattern, skip over the remaining alternatives
+                            // e.g. x, 0, _ or x, 1, y if foo x then
+                            //            ^~~~~~~ We're here, jump to the if condition
+                            self.push_op_without_span(Op::Jump, &[]);
+                            match_end_jump_placeholders.push(self.push_offset_placeholder());
+                        }
+                    }
+                    _ => {
+                        return compiler_error!(self, "Internal error: invalid match pattern");
+                    }
+                }
+            }
+
+            if let Some(jump_placeholder) = next_alternative_jump_placeholder {
+                self.update_offset_placeholder(jump_placeholder);
+            }
+        }
+
+        // Update the match end jump placeholders before the condition
+        for jump_placeholder in match_end_jump_placeholders.iter() {
+            self.update_offset_placeholder(*jump_placeholder);
+        }
+
+        // Arm condition, e.g.
+        // match foo
+        //   x if x > 10 then 99
+        if let Some(condition) = arm.condition {
+            let condition_register = self
+                .compile_node(ResultRegister::Any, ast.node(condition), ast)?
+                .unwrap();
+
+            self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+            arm_end_jump_placeholders.push(self.push_offset_placeholder());
+
+            if condition_register.is_temporary {
+                self.pop_register()?;
+            }
+        }
+
+        let body_result_register = if let Some(result) = result {
+            ResultRegister::Fixed(result.register)
+        } else {
+            ResultRegister::None
+        };
+
+        self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
+
+        let result_jump_placeholder = if !is_last_arm {
+            self.push_op_without_span(Op::Jump, &[]);
+            Some(self.push_offset_placeholder())
+        } else {
+            None
+        };
+
+        for jump_placeholder in arm_end_jump_placeholders.iter() {
+            self.update_offset_placeholder(*jump_placeholder);
+        }
+
+        Ok(result_jump_placeholder)
     }
 
     fn compile_for(
