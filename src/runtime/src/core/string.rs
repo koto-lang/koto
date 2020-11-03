@@ -54,7 +54,7 @@ pub fn make_module() -> ValueMap {
                         None => input.len(),
                     };
 
-                    let result = Str(input.with_bounds(start..end));
+                    let result = Str(input.with_bounds(start..end).unwrap());
                     start = end + 1;
                     Some(Ok(ValueIteratorOutput::Value(result)))
                 } else {
@@ -70,19 +70,17 @@ pub fn make_module() -> ValueMap {
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
         [Str(input), Number(from)] => {
             let bounds = (*from as usize)..input.len();
-            let result = if input.get(bounds.clone()).is_some() {
-                Str(input.with_bounds(bounds))
-            } else {
-                Empty
+            let result = match input.with_bounds(bounds) {
+                Ok(result) => Str(result),
+                Err(_) => Empty,
             };
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
             let bounds = (*from as usize)..(*to as usize);
-            let result = if input.get(bounds.clone()).is_some() {
-                Str(input.with_bounds(bounds))
-            } else {
-                Empty
+            let result = match input.with_bounds(bounds) {
+                Ok(result) => Str(result),
+                Err(_) => Empty,
             };
             Ok(result)
         }
@@ -102,7 +100,7 @@ pub fn make_module() -> ValueMap {
                         None => input.len(),
                     };
 
-                    let result = Str(input.with_bounds(start..end));
+                    let result = Str(input.with_bounds(start..end).unwrap());
                     start = end + 1;
                     Some(Ok(ValueIteratorOutput::Value(result)))
                 } else {
@@ -128,9 +126,9 @@ pub fn make_module() -> ValueMap {
             let result = match s.find(|c: char| !c.is_whitespace()) {
                 Some(start) => {
                     let end = s.rfind(|c: char| !c.is_whitespace()).unwrap();
-                    s.with_bounds(start..(end + 1))
+                    s.with_bounds(start..(end + 1)).unwrap()
                 }
-                None => s.with_bounds(0..0),
+                None => s.with_bounds(0..0).unwrap(),
             };
 
             Ok(Str(result))

@@ -1,11 +1,6 @@
 use {
     koto_parser::{ConstantPool, Span},
-    std::{
-        collections::hash_map::DefaultHasher,
-        hash::{Hash, Hasher},
-        path::PathBuf,
-        sync::Arc,
-    },
+    std::{path::PathBuf, sync::Arc},
 };
 
 mod compile;
@@ -319,13 +314,25 @@ impl DebugInfo {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Chunk {
     pub bytes: Vec<u8>,
     pub constants: ConstantPool,
-    pub constants_hash: u64,
+    pub string_constants_arc: Arc<str>,
     pub source_path: Option<PathBuf>,
     pub debug_info: DebugInfo,
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Self {
+            bytes: vec![],
+            constants: ConstantPool::default(),
+            string_constants_arc: String::default().into(),
+            source_path: None,
+            debug_info: DebugInfo::default(),
+        }
+    }
 }
 
 impl Chunk {
@@ -335,15 +342,10 @@ impl Chunk {
         source_path: Option<PathBuf>,
         debug_info: DebugInfo,
     ) -> Self {
-        let constants_hash = {
-            let mut hasher = DefaultHasher::new();
-            constants.hash(&mut hasher);
-            hasher.finish()
-        };
         Self {
             bytes,
+            string_constants_arc: constants.string_data().into(),
             constants,
-            constants_hash,
             source_path,
             debug_info,
         }

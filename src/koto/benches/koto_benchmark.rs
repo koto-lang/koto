@@ -4,6 +4,10 @@ use {
     std::{env::current_dir, fs::read_to_string},
 };
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 struct BenchmarkRunner {
     runtime: Koto,
 }
@@ -54,6 +58,15 @@ pub fn koto_benchmark(c: &mut Criterion) {
     });
     c.bench_function("enumerate", |b| {
         let mut runner = BenchmarkRunner::new("enumerate.koto", &[]);
+        b.iter(|| {
+            runner.run();
+        })
+    });
+    c.bench_function("string_formatting", |b| {
+        let mut runner = BenchmarkRunner::new(
+            "string_formatting.koto",
+            &["70".to_string(), "quiet".to_string()],
+        );
         b.iter(|| {
             runner.run();
         })

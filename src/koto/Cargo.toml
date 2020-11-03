@@ -21,6 +21,9 @@ koto_toml = {path = "../toml" }
 
 criterion = "0.3.1"
 
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = {version = "0.3.2"}
+
 [[bench]]
 name = "koto_benchmark"
 harness = false
