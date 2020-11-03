@@ -13,11 +13,11 @@ mod vm;
 
 pub use {
     error::*,
-    external::{ExternalFunction, ExternalValue},
+    external::{visit_external_value, ExternalFunction, ExternalValue},
     koto_bytecode::CompilerError,
     koto_parser::ParserError,
     koto_types::{num2::Num2, num4::Num4},
-    loader::{LoaderError, Loader},
+    loader::{Loader, LoaderError},
     value::{
         make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
     },

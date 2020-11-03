@@ -1,32 +1,31 @@
-use crate::{get_external_instance, single_arg_fn};
-use koto_runtime::{
-    external_error, make_external_value, value, value::type_as_string, ExternalValue,
-    RuntimeResult, Value, ValueMap,
-};
-use std::{
-    fmt, fs,
-    io::{Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+use {
+    crate::{
+        external_error, get_external_instance, make_external_value, value::type_as_string,
+        ExternalValue, RuntimeResult, Value, ValueMap,
+    },
+    std::{
+        fmt, fs,
+        io::{Read, Seek, SeekFrom, Write},
+        path::{Path, PathBuf},
+    },
 };
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::{Bool, Map, Number, Str};
 
-    let mut io = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    single_arg_fn!(io, "exists", Str, path, {
-        Ok(Bool(Path::new(path.as_str()).exists()))
+    result.add_fn("exists", |vm, args| match vm.get_args(args) {
+        [Str(path)] => Ok(Bool(Path::new(path.as_str()).exists())),
+        _ => external_error!("io.exists: Expected path string as argument"),
     });
 
-    single_arg_fn!(io, "read_to_string", Str, path, {
-        {
-            match fs::read_to_string(Path::new(path.as_str())) {
-                Ok(result) => Ok(Str(result.into())),
-                Err(e) => {
-                    external_error!("io.read_to_string: Unable to read file '{}': {}", path, e)
-                }
-            }
-        }
+    result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
+        [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
+            Ok(result) => Ok(Str(result.into())),
+            Err(e) => external_error!("io.read_to_string: Unable to read file '{}': {}", path, e),
+        },
+        _ => external_error!("io.read_to_string: Expected path string as argument"),
     });
 
     let make_file_map = || {
@@ -134,7 +133,7 @@ pub fn register(prelude: &mut ValueMap) {
         file_map
     };
 
-    io.add_fn("open", {
+    result.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
@@ -166,7 +165,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    io.add_fn("create", {
+    result.add_fn("create", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
@@ -198,7 +197,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    io.add_fn("temp_path", {
+    result.add_fn("temp_path", {
         |_, _| match tempfile::NamedTempFile::new() {
             Ok(file) => match file.keep() {
                 Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().as_ref().into())),
@@ -208,7 +207,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    io.add_fn("temp_file", {
+    result.add_fn("temp_file", {
         move |_, _| {
             let (temp_file, path) = match tempfile::NamedTempFile::new() {
                 Ok(file) => match file.keep() {
@@ -240,7 +239,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    io.add_fn("remove_file", {
+    result.add_fn("remove_file", {
         |vm, args| match vm.get_args(args) {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
@@ -261,7 +260,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    prelude.add_map("io", io);
+    result
 }
 
 #[derive(Debug)]

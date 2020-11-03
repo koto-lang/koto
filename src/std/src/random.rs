@@ -1,6 +1,7 @@
 use {
-    crate::{get_external_instance, ExternalValue},
-    koto_runtime::{external_error, make_external_value, Value, ValueMap},
+    koto_runtime::{
+        external_error, get_external_instance, make_external_value, ExternalValue, Value, ValueMap,
+    },
     koto_types::{num2, num4},
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,

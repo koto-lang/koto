@@ -9,20 +9,22 @@ syntax keyword kotoConditionals if else match then
 syntax keyword kotoRepeating break continue for in loop until while
 
 syntax keyword kotoCoreLibModules
-  \ env iterator list map number range string tuple
+  \ env io iterator list map number range string thread test tuple
 syntax keyword kotoCoreLib
-  \ contains[] get insert is_empty iter remove size sum
+  \ contains[] create get insert is_empty iter remove size sum
   \ args script_dir script_path
+  \ exists open path read_to_string remove_file seek temp_path temp_file write write_line
   \ each enumerate fold[] keep next take to_list to_map to_tuple zip
   \ fill first last pop push resize retain reverse sort sort_copy transform with_size
   \ contains_key keys values
   \ abs acos asin atan ceil clamp cos cosh degrees exp exp2 floor log10 log2 ln max min
   \ pi pow radians recip sin sinh sqrt tan tanh tau
-  \ end start
+  \ sleep
   \ escape format lines print slice split to_number trim
+  \ end start
 
-syntax keyword kotoStdLibModules io json random test thread toml
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
+syntax keyword kotoStdLibModules json random toml
 
 syntax match kotoCapture "\v\|"
 

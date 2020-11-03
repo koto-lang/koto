@@ -1,25 +1,30 @@
 use {
-    crate::{get_external_instance, single_arg_fn, type_as_string, ExternalValue},
-    koto_runtime::{external_error, make_external_value, value, Error, Value, ValueMap},
+    crate::{
+        external_error, get_external_instance, make_external_value, type_as_string, Error,
+        ExternalValue, Value, ValueMap,
+    },
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::{Empty, Function, Number};
 
-    let mut thread = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    single_arg_fn!(thread, "sleep", Number, seconds, {
-        if *seconds < 0.0 {
-            return external_error!("thread.sleep: negative durations aren't supported");
+    result.add_fn("sleep", |vm, args| match vm.get_args(args) {
+        [Number(seconds)] => {
+            if *seconds < 0.0 {
+                return external_error!("thread.sleep: negative durations aren't supported");
+            }
+
+            thread::sleep(Duration::from_secs(*seconds as u64));
+
+            Ok(Empty)
         }
-
-        thread::sleep(Duration::from_secs(*seconds as u64));
-
-        Ok(Empty)
+        _ => external_error!("thread.sleep: Expected number as argument"),
     });
 
-    thread.add_fn("create", |vm, args| {
+    result.add_fn("create", |vm, args| {
         let args = vm.get_args_as_vec(args);
         match args.as_slice() {
             [Function(f)] => {
@@ -42,7 +47,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    prelude.add_map("thread", thread);
+    result
 }
 
 #[derive(Debug)]
