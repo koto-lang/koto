@@ -2,6 +2,10 @@ use clap::{App, Arg};
 use koto::Koto;
 use std::{fs, path::Path};
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 mod repl;
 use repl::Repl;
 

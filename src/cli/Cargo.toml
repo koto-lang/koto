@@ -14,9 +14,9 @@ default = []
 trace = ["koto/trace"]
 
 [dependencies]
-koto = { path = "../koto" }
-koto_json = {path = "../json" }
-koto_toml = {path = "../toml" }
+koto = {path = "../koto"}
+koto_json = {path = "../json"}
+koto_toml = {path = "../toml"}
 
 termion = "1.5.5"
 
@@ -24,3 +24,6 @@ termion = "1.5.5"
 version = "3.0.0-beta.1"
 default-features = false
 features = ["std"]
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = {version = "0.3.2"}

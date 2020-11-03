@@ -4,6 +4,10 @@ use {
     std::{env::current_dir, fs::read_to_string},
 };
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 struct BenchmarkRunner {
     runtime: Koto,
 }
