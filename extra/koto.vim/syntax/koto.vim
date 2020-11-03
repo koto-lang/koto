@@ -24,7 +24,6 @@ syntax keyword kotoCoreLib
   \ end start
 
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near
-syntax keyword kotoStdLibModules json random toml
 
 syntax match kotoCapture "\v\|"
 
@@ -62,7 +61,6 @@ highlight default link kotoRepeating Repeat
 
 highlight default link kotoCoreLibModules Function
 highlight default link kotoCoreLib Function
-highlight default link kotoStdLibModules Function
 
 highlight default link kotoAsserts Macro
 highlight default link kotoCapture Type

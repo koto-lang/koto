@@ -298,8 +298,8 @@ dependencies = [
  "koto_bytecode",
  "koto_json",
  "koto_parser",
+ "koto_random",
  "koto_runtime",
- "koto_std",
  "koto_toml",
 ]
 
@@ -319,6 +319,7 @@ dependencies = [
  "jemallocator",
  "koto",
  "koto_json",
+ "koto_random",
  "koto_toml",
  "termion",
 ]
@@ -329,7 +330,6 @@ version = "0.1.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
- "koto_std",
  "serde_json",
 ]
 
@@ -346,6 +346,16 @@ name = "koto_parser"
 version = "0.1.0"
 dependencies = [
  "koto_lexer",
+]
+
+[[package]]
+name = "koto_random"
+version = "0.1.0"
+dependencies = [
+ "koto_runtime",
+ "koto_types",
+ "rand",
+ "rand_chacha",
 ]
 
 [[package]]
@@ -372,22 +382,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "koto_std"
-version = "0.1.0"
-dependencies = [
- "koto_runtime",
- "koto_types",
- "rand",
- "rand_chacha",
-]
-
-[[package]]
 name = "koto_toml"
 version = "0.1.0"
 dependencies = [
  "koto_runtime",
  "koto_serialize",
- "koto_std",
  "toml",
 ]
 

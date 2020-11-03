@@ -1,7 +1,6 @@
 use {
-    koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
+    koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
-    koto_std::{external_error, single_arg_fn},
     toml::Value as Toml,
 };
 
@@ -46,8 +45,8 @@ pub fn register(prelude: &mut ValueMap) {
 
     let mut toml = ValueMap::new();
 
-    single_arg_fn!(toml, "from_string", Str, s, {
-        match toml::from_str(s) {
+    toml.add_fn("from_string", |vm, args| match vm.get_args(args) {
+        [Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
                 Err(e) => external_error!("toml.from_string: Error while parsing input: {}", e),
@@ -56,7 +55,8 @@ pub fn register(prelude: &mut ValueMap) {
                 "toml.from_string: Error while parsing input: {}",
                 e.to_string()
             ),
-        }
+        },
+        _ => external_error!("toml.from_string expects a string as argument"),
     });
 
     toml.add_fn("to_string", |vm, args| match vm.get_args(args) {

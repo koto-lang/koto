@@ -20,6 +20,7 @@ fn run_script(script_path: &str) {
     {
         let prelude = &mut koto.context_mut().prelude;
         koto_json::register(prelude);
+        koto_random::register(prelude);
         koto_toml::register(prelude);
     }
 

@@ -6,9 +6,9 @@ members = [
   "src/koto",
   "src/lexer",
   "src/parser",
+  "src/random",
   "src/runtime",
   "src/serialize",
-  "src/std",
   "src/toml",
   "src/types",
 ]

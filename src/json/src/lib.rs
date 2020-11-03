@@ -1,7 +1,6 @@
 use {
-    koto_runtime::{value, Value, ValueList, ValueMap, ValueVec},
+    koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
-    koto_std::{external_error, single_arg_fn},
     serde_json::Value as JsonValue,
 };
 
@@ -42,8 +41,8 @@ pub fn register(prelude: &mut ValueMap) {
 
     let mut json = ValueMap::new();
 
-    single_arg_fn!(json, "from_string", Str, s, {
-        match serde_json::from_str(&s) {
+    json.add_fn("from_string", |vm, args| match vm.get_args(args) {
+        [Str(s)] => match serde_json::from_str(&s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => external_error!("json.from_string: Error while parsing input: {}", e),
@@ -52,7 +51,8 @@ pub fn register(prelude: &mut ValueMap) {
                 "json.from_string: Error while parsing input: {}",
                 e.to_string()
             ),
-        }
+        },
+        _ => external_error!("json.from_string expects a string as argument"),
     });
 
     json.add_fn("to_string", |vm, args| match vm.get_args(args) {

@@ -45,7 +45,6 @@ impl Koto {
         };
 
         let mut prelude = result.context().prelude.clone();
-        koto_std::register(&mut prelude);
 
         let mut env = ValueMap::new();
         env.add_value("script_dir", Value::Empty);
