@@ -36,12 +36,12 @@ fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> 
     Ok(result)
 }
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut json = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    json.add_fn("from_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match serde_json::from_str(&s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
@@ -55,7 +55,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("json.from_string expects a string as argument"),
     });
 
-    json.add_fn("to_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => external_error!("json.to_string: {}", e),
@@ -63,5 +63,5 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("json.to_string expects a single argument"),
     });
 
-    prelude.add_value("json", Map(json));
+    result
 }

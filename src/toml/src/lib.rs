@@ -40,12 +40,12 @@ fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     Ok(result)
 }
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut toml = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    toml.add_fn("from_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
@@ -59,7 +59,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("toml.from_string expects a string as argument"),
     });
 
-    toml.add_fn("to_string", |vm, args| match vm.get_args(args) {
+    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => external_error!("toml.to_string: {}", e),
@@ -67,5 +67,5 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("toml.to_string expects a single argument"),
     });
 
-    prelude.add_value("toml", Map(toml));
+    result
 }

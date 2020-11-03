@@ -19,9 +19,9 @@ fn run_script(script_path: &str) {
 
     {
         let prelude = &mut koto.context_mut().prelude;
-        koto_json::register(prelude);
-        koto_random::register(prelude);
-        koto_toml::register(prelude);
+        prelude.add_map("json", koto_json::make_module());
+        prelude.add_map("random", koto_random::make_module());
+        prelude.add_map("toml", koto_toml::make_module());
     }
 
     match koto.compile(&script) {
