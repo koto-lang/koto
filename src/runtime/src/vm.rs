@@ -40,12 +40,15 @@ impl VmContext {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
+        prelude.add_map("io", core_lib.io.clone());
         prelude.add_map("iterator", core_lib.iterator.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
         prelude.add_map("number", core_lib.number.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
+        prelude.add_map("test", core_lib.test.clone());
+        prelude.add_map("thread", core_lib.thread.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
 
         Self {

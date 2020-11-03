@@ -1,0 +1,15 @@
+[package]
+name = "koto_random"
+version = "0.1.0"
+authors = ["irh <ian.r.hobson@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+koto_runtime = { path = "../../src/runtime" }
+koto_types = { path = "../../src/types" }
+
+rand = "0.7.3"
+rand_chacha = "0.2.1"
+
+[dev-dependencies]
+koto = { path = "../../src/koto" }

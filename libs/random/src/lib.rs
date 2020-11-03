@@ -1,18 +1,21 @@
 use {
-    crate::{get_external_instance, ExternalValue},
-    koto_runtime::{external_error, make_external_value, Value, ValueMap},
+    koto_runtime::{
+        external_error, get_external_instance, make_external_value, ExternalValue, Value, ValueMap,
+    },
     koto_types::{num2, num4},
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::fmt,
 };
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut random = ChaChaRng::make_value_map(ChaCha20Rng::from_entropy());
+    // The random module contains a default generator
+    let mut result = ChaChaRng::make_value_map(ChaCha20Rng::from_entropy());
 
-    random.add_fn("generator", |vm, args| match vm.get_args(args) {
+    // random.generator is available to create custom generators
+    result.add_fn("generator", |vm, args| match vm.get_args(args) {
         [] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::from_entropy()))),
         [Number(n)] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::seed_from_u64(
             n.to_bits(),
@@ -20,7 +23,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("random.generator - expected no arguments, or seed number"),
     });
 
-    prelude.add_map("random", random);
+    result
 }
 
 #[derive(Debug)]

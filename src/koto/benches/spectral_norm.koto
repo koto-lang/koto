@@ -6,7 +6,7 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
-import env io.print list test.assert_near
+import env list test.assert_near
 
 A = |i j|
   ij = i + j - 1
@@ -57,7 +57,7 @@ export main = ||
   result = spectral_norm n
 
   if (env.args.get 1) != "quiet"
-    print result
+    "{}".print result
 
 
 export tests =

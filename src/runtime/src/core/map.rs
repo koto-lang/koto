@@ -1,6 +1,6 @@
 use crate::{
-    external_error, type_as_string, value_is_immutable, Value, ValueIterator, ValueList, ValueMap,
-    ValueVec,
+    external_error, type_as_string, value_is_immutable,
+    value_iterator::ValueIteratorOutput as Output, Value, ValueIterator, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -16,17 +16,6 @@ pub fn make_module() -> ValueMap {
             type_as_string(other_b)
         ),
         _ => external_error!("map.contains_key: Expected map and key as arguments"),
-    });
-
-    result.add_fn("keys", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(List(ValueList::with_data(
-            m.data().keys().cloned().collect::<ValueVec>(),
-        ))),
-        [other, ..] => external_error!(
-            "map.keys: Expected map as argument, found '{}'",
-            type_as_string(other),
-        ),
-        _ => external_error!("map.keys: Expected map as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {
@@ -79,6 +68,23 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("map.iter: Expected map as argument"),
     });
 
+    result.add_fn("keys", |vm, args| match vm.get_args(args) {
+        [Map(m)] => {
+            let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
+                Ok(Output::ValuePair(key, _)) => Ok(Output::Value(key)),
+                Ok(_) => unreachable!(),
+                Err(e) => Err(e),
+            });
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        [other, ..] => external_error!(
+            "map.keys: Expected map as argument, found '{}'",
+            type_as_string(other),
+        ),
+        _ => external_error!("map.keys: Expected map as argument"),
+    });
+
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
         [Map(m), key] if value_is_immutable(key) => match m.data_mut().remove(key) {
             Some(old_value) => Ok(old_value),
@@ -102,14 +108,20 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("values", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(List(ValueList::with_data(
-            m.data().values().cloned().collect::<ValueVec>(),
-        ))),
+        [Map(m)] => {
+            let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
+                Ok(Output::ValuePair(_, value)) => Ok(Output::Value(value)),
+                Ok(_) => unreachable!(),
+                Err(e) => Err(e),
+            });
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
         [other, ..] => external_error!(
-            "map.keys: Expected map as argument, found '{}'",
+            "map.values: Expected map as argument, found '{}'",
             type_as_string(other),
         ),
-        _ => external_error!("map.keys: Expected map as argument"),
+        _ => external_error!("map.values: Expected map as argument"),
     });
 
     result

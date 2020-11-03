@@ -67,6 +67,18 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("string.lines: Expected string as argument"),
     });
 
+    result.add_fn("print", |vm, args| {
+        match vm.get_args(args) {
+            [Str(s)] => println!("{}", s.as_str()),
+            [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
+                Ok(result) => println!("{}", result.as_str()),
+                Err(error) => return external_error!("string.print: {}", error),
+            },
+            _ => return external_error!("string.print: Expected a string as first argument"),
+        }
+        Ok(Empty)
+    });
+
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
         [Str(input), Number(from)] => {
             let bounds = (*from as usize)..input.len();

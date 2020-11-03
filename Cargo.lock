@@ -296,11 +296,8 @@ dependencies = [
  "criterion",
  "jemallocator",
  "koto_bytecode",
- "koto_json",
  "koto_parser",
  "koto_runtime",
- "koto_std",
- "koto_toml",
 ]
 
 [[package]]
@@ -319,6 +316,7 @@ dependencies = [
  "jemallocator",
  "koto",
  "koto_json",
+ "koto_random",
  "koto_toml",
  "termion",
 ]
@@ -327,9 +325,9 @@ dependencies = [
 name = "koto_json"
 version = "0.1.0"
 dependencies = [
+ "koto",
  "koto_runtime",
  "koto_serialize",
- "koto_std",
  "serde_json",
 ]
 
@@ -349,6 +347,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "koto_random"
+version = "0.1.0"
+dependencies = [
+ "koto",
+ "koto_runtime",
+ "koto_types",
+ "rand",
+ "rand_chacha",
+]
+
+[[package]]
 name = "koto_runtime"
 version = "0.1.0"
 dependencies = [
@@ -360,6 +369,7 @@ dependencies = [
  "koto_types",
  "rustc-hash",
  "smallvec",
+ "tempfile",
 ]
 
 [[package]]
@@ -371,23 +381,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "koto_std"
-version = "0.1.0"
-dependencies = [
- "koto_runtime",
- "koto_types",
- "rand",
- "rand_chacha",
- "tempfile",
-]
-
-[[package]]
 name = "koto_toml"
 version = "0.1.0"
 dependencies = [
+ "koto",
  "koto_runtime",
  "koto_serialize",
- "koto_std",
  "toml",
 ]
 
@@ -616,9 +615,9 @@ checksum = "7fe5bd57d1d7414c6b5ed48563a2c855d995ff777729dcd91c369ec7fea395ae"
 
 [[package]]
 name = "remove_dir_all"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
+checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
 ]

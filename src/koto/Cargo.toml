@@ -13,12 +13,8 @@ panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 koto_bytecode = {path = "../bytecode"}
 koto_parser = {path = "../parser"}
 koto_runtime = {path = "../runtime"}
-koto_std = {path = "../std" }
 
 [dev-dependencies]
-koto_json = {path = "../json" }
-koto_toml = {path = "../toml" }
-
 criterion = "0.3.1"
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]

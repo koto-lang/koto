@@ -5,11 +5,11 @@ pub use {
     },
     koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
     koto_runtime::{
-        external_error, make_external_value, type_as_string, Error, ExternalValue, Loader,
-        LoaderError, Num2, Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList,
-        ValueMap, ValueVec, VmContext,
+        external_error, get_external_instance, make_external_value, type_as_string,
+        visit_external_value, Error, ExternalValue, Loader, LoaderError, Num2, Num4,
+        RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+        VmContext,
     },
-    koto_std::{get_external_instance, visit_external_value},
 };
 
 use {
@@ -45,7 +45,6 @@ impl Koto {
         };
 
         let mut prelude = result.context().prelude.clone();
-        koto_std::register(&mut prelude);
 
         let mut env = ValueMap::new();
         env.add_value("script_dir", Value::Empty);

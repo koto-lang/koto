@@ -1,11 +1,11 @@
-use koto_runtime::{external_error, type_as_string, Value, ValueMap};
+use crate::{external_error, type_as_string, Value, ValueMap};
 
-pub fn register(prelude: &mut ValueMap) {
+pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut test = ValueMap::new();
+    let mut result = ValueMap::new();
 
-    test.add_fn("assert", |vm, args| {
+    result.add_fn("assert", |vm, args| {
         for value in vm.get_args(args).iter() {
             match value {
                 Bool(b) => {
@@ -24,7 +24,7 @@ pub fn register(prelude: &mut ValueMap) {
         Ok(Empty)
     });
 
-    test.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
         [a, b] => {
             if a == b {
                 Ok(Empty)
@@ -35,7 +35,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("assert_eq expects two arguments"),
     });
 
-    test.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
         [a, b] => {
             if a != b {
                 Ok(Empty)
@@ -46,7 +46,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("assert_ne expects two arguments"),
     });
 
-    test.add_fn("assert_near", |vm, args| match vm.get_args(args) {
+    result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b), Number(allowed_diff)] => {
             if f64_near(*a, *b, *allowed_diff) {
                 Ok(Empty)
@@ -97,7 +97,7 @@ pub fn register(prelude: &mut ValueMap) {
         _ => external_error!("assert_eq expects three arguments"),
     });
 
-    test.add_fn("run_tests", |vm, args| {
+    result.add_fn("run_tests", |vm, args| {
         let args = vm.get_args_as_vec(args);
         match args.as_slice() {
             [Map(tests)] => vm.run_tests(tests.clone()),
@@ -105,7 +105,7 @@ pub fn register(prelude: &mut ValueMap) {
         }
     });
 
-    prelude.add_value("test", Map(test));
+    result
 }
 
 fn f32_near(a: f32, b: f32, allowed_diff: f32) -> bool {

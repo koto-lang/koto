@@ -48,8 +48,9 @@ fn main() {
         let mut koto = Koto::with_settings(settings);
 
         let mut prelude = koto.context().prelude.clone();
-        koto_json::register(&mut prelude);
-        koto_toml::register(&mut prelude);
+        prelude.add_map("json", koto_json::make_module());
+        prelude.add_map("random", koto_random::make_module());
+        prelude.add_map("toml", koto_toml::make_module());
 
         let args = match matches.values_of("args") {
             Some(args) => args.map(|s| s.to_string()).collect::<Vec<_>>(),
