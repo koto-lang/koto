@@ -29,7 +29,7 @@ pub fn make_module() -> ValueMap {
         match args.as_slice() {
             [Function(f)] => {
                 let join_handle = thread::spawn({
-                    let mut thread_vm = vm.spawn_shared_vm();
+                    let mut thread_vm = vm.spawn_shared_concurrent_vm();
                     let f = f.clone();
                     move || match thread_vm.run_function(&f, &[]) {
                         Ok(_) => Ok(()),
