@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
                 return external_error!("thread.sleep: negative durations aren't supported");
             }
 
-            thread::sleep(Duration::from_secs(*seconds as u64));
+            thread::sleep(Duration::from_millis((*seconds * 1000.0) as u64));
 
             Ok(Empty)
         }
