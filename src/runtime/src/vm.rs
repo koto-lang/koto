@@ -15,7 +15,10 @@ use {
         collections::HashMap,
         fmt,
         path::PathBuf,
-        sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        },
     },
 };
 
@@ -33,6 +36,7 @@ pub struct VmContext {
     global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, ValueMap>,
+    spawned_stop_flags: Vec<Arc<AtomicBool>>,
 }
 
 impl VmContext {
@@ -52,14 +56,31 @@ impl VmContext {
         prelude.add_map("tuple", core_lib.tuple.clone());
 
         Self {
-            core_lib,
             prelude,
-            ..Default::default()
+            core_lib,
+            global: ValueMap::default(),
+            loader: Loader::default(),
+            modules: HashMap::default(),
+            spawned_stop_flags: Vec::default(),
         }
     }
 
     fn reset(&mut self) {
         self.loader = Default::default();
+        self.stop_spawned_vms();
+    }
+
+    fn stop_spawned_vms(&mut self) {
+        for stop_flag in self.spawned_stop_flags.iter() {
+            stop_flag.store(true, Ordering::Relaxed);
+        }
+        self.spawned_stop_flags.clear();
+    }
+}
+
+impl Drop for VmContext {
+    fn drop(&mut self) {
+        self.stop_spawned_vms();
     }
 }
 
@@ -69,6 +90,7 @@ pub struct Vm {
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
+    stop_flag: Option<Arc<AtomicBool>>,
 }
 
 impl Vm {
@@ -78,6 +100,7 @@ impl Vm {
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
+            stop_flag: None,
         }
     }
 
@@ -85,8 +108,24 @@ impl Vm {
         Self {
             context: self.context.clone(),
             reader: self.reader.clone(),
+            value_stack: Vec::with_capacity(32),
             call_stack: vec![],
-            value_stack: vec![],
+            stop_flag: None,
+        }
+    }
+
+    pub fn spawn_shared_concurrent_vm(&mut self) -> Self {
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        self.context_mut()
+            .spawned_stop_flags
+            .push(stop_flag.clone());
+
+        Self {
+            context: self.context.clone(),
+            reader: self.reader.clone(),
+            value_stack: Vec::with_capacity(32),
+            call_stack: vec![],
+            stop_flag: Some(stop_flag),
         }
     }
 
@@ -233,6 +272,11 @@ impl Vm {
         let mut instruction_ip = self.ip();
 
         while let Some(instruction) = self.reader.next() {
+            if let Some(stop_flag) = &self.stop_flag {
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+            }
             match self.execute_instruction(instruction, instruction_ip) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
@@ -928,14 +972,14 @@ impl Vm {
             Instruction::Call {
                 result,
                 function,
-                arg_register,
+                frame_base,
                 arg_count,
             } => {
                 let function = self.get_register(function).clone();
                 self.call_function(
                     result,
                     &function,
-                    arg_register,
+                    frame_base,
                     arg_count,
                     None,
                     instruction_ip,
@@ -944,7 +988,7 @@ impl Vm {
             Instruction::CallChild {
                 result,
                 function,
-                arg_register,
+                frame_base,
                 arg_count,
                 parent,
             } => {
@@ -952,7 +996,7 @@ impl Vm {
                 self.call_function(
                     result,
                     &function,
-                    arg_register,
+                    frame_base,
                     arg_count,
                     Some(parent),
                     instruction_ip,
@@ -1829,7 +1873,7 @@ impl Vm {
 
         let mut call_arg_count = call_arg_count;
 
-        let frame_base = if external_function.is_instance_function {
+        let adjusted_frame_base = if external_function.is_instance_function {
             if let Some(parent_register) = parent_register {
                 let parent = self.clone_register(parent_register);
                 self.set_register(frame_base, parent);
@@ -1849,7 +1893,7 @@ impl Vm {
         let result = (&*function)(
             self,
             &Args {
-                register: frame_base,
+                register: adjusted_frame_base,
                 count: call_arg_count,
             },
         );
@@ -1857,6 +1901,10 @@ impl Vm {
         match result {
             Ok(value) => {
                 self.set_register(result_register, value);
+                // External function calls don't use the push/pop frame mechanism,
+                // so drop the function args here now that the call has been completed.
+                self.value_stack
+                    .truncate(self.register_base() + frame_base as usize);
             }
             Err(error) => {
                 match error {

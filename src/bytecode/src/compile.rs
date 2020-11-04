@@ -1944,6 +1944,7 @@ impl Compiler {
         // At the end of the lookup we'll pop the whole stack,
         // so we don't need to keep track of how many temporary registers we use.
         let stack_count = self.frame().register_stack.len();
+        let span_stack_count = self.span_stack.len();
 
         let mut i = 0;
         let mut lookup_node = root_node.clone();
@@ -2064,6 +2065,7 @@ impl Compiler {
             i += 1;
         }
 
+        self.span_stack.truncate(span_stack_count);
         self.truncate_register_stack(stack_count)?;
 
         Ok(result)
@@ -2112,6 +2114,9 @@ impl Compiler {
         let call_result_register = if let Some(result) = result {
             result.register
         } else {
+            // The result isn't needed, so it can be placed in the frame's base register
+            // (which isn't needed post-call).
+            // An alternative here could be to have CallNoResult ops, but this will do for now.
             frame_base
         };
 

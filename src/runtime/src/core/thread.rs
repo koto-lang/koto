@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
                 return external_error!("thread.sleep: negative durations aren't supported");
             }
 
-            thread::sleep(Duration::from_secs(*seconds as u64));
+            thread::sleep(Duration::from_millis((*seconds * 1000.0) as u64));
 
             Ok(Empty)
         }
@@ -29,7 +29,7 @@ pub fn make_module() -> ValueMap {
         match args.as_slice() {
             [Function(f)] => {
                 let join_handle = thread::spawn({
-                    let mut thread_vm = vm.spawn_shared_vm();
+                    let mut thread_vm = vm.spawn_shared_concurrent_vm();
                     let f = f.clone();
                     move || match thread_vm.run_function(&f, &[]) {
                         Ok(_) => Ok(()),

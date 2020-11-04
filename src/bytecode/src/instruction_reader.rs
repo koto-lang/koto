@@ -202,13 +202,13 @@ pub enum Instruction {
     Call {
         result: u8,
         function: u8,
-        arg_register: u8,
+        frame_base: u8,
         arg_count: u8,
     },
     CallChild {
         result: u8,
         function: u8,
-        arg_register: u8,
+        frame_base: u8,
         arg_count: u8,
         parent: u8,
     },
@@ -578,23 +578,23 @@ impl fmt::Debug for Instruction {
             Call {
                 result,
                 function,
-                arg_register,
+                frame_base,
                 arg_count,
             } => write!(
                 f,
-                "Call\t\tresult: {}\tfunction: {}\targ_reg: {}\targs: {}",
-                result, function, arg_register, arg_count
+                "Call\t\tresult: {}\tfunction: {}\tframe base: {}\targs: {}",
+                result, function, frame_base, arg_count
             ),
             CallChild {
                 result,
                 function,
                 parent,
-                arg_register,
+                frame_base,
                 arg_count,
             } => write!(
                 f,
-                "CallChild\tresult: {}\tfunction: {}\targ_reg: {}\targs: {}\t\tparent: {}",
-                result, function, arg_register, arg_count, parent
+                "CallChild\tresult: {}\tfunction: {}\tframe_base: {}\targs: {}\t\tparent: {}",
+                result, function, frame_base, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
@@ -1002,13 +1002,13 @@ impl Iterator for InstructionReader {
             Op::Call => Some(Call {
                 result: get_byte!(),
                 function: get_byte!(),
-                arg_register: get_byte!(),
+                frame_base: get_byte!(),
                 arg_count: get_byte!(),
             }),
             Op::CallChild => Some(CallChild {
                 result: get_byte!(),
                 function: get_byte!(),
-                arg_register: get_byte!(),
+                frame_base: get_byte!(),
                 arg_count: get_byte!(),
                 parent: get_byte!(),
             }),
