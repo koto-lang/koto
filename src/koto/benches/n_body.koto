@@ -65,42 +65,42 @@ init_bodies = ||
 bodies = [sun, jupiter, saturn, uranus, neptune]
 
 
-advance = |bodies nbodies dt|
-    for i, bi in bodies.enumerate()
-        bi_pos = bi.pos
-        bi_vel = bi.vel
-        for bj in bodies[(i + 1)..]
-            dist = bi_pos - bj.pos
-            dist2 = (dist * dist).sum()
-            mag = dist2.sqrt()
-            mag = dt / (mag * dist2)
-            bm = bj.mass * mag
-            bi_vel = bi_vel - dist * bm
-            bm = bi.mass * mag
-            bj.vel = bj.vel + dist * bm
-        bi.vel = bi_vel
-        bi.pos = bi.pos + dt * bi_vel
+advance = |bodies, nbodies, dt|
+  for i, bi in bodies.enumerate()
+    bi_pos = bi.pos
+    bi_vel = bi.vel
+    for bj in bodies[(i + 1)..]
+      dist = bi_pos - bj.pos
+      dist2 = (dist * dist).sum()
+      mag = dist2.sqrt()
+      mag = dt / (mag * dist2)
+      bm = bj.mass * mag
+      bi_vel = bi_vel - dist * bm
+      bm = bi.mass * mag
+      bj.vel = bj.vel + dist * bm
+    bi.vel = bi_vel
+    bi.pos = bi.pos + dt * bi_vel
 
 
-get_energy = |bodies nbody|
-    energy = 0
-    for i, bi in bodies.enumerate()
-        bi_vel = bi.vel
-        bi_mass = bi.mass
-        energy += 0.5 * bi_mass * (bi_vel * bi_vel).sum()
-        for j in (i + 1)..nbody
-            bj = bodies[j]
-            d = bi.pos - bj.pos
-            distance = ((d * d).sum()).sqrt()
-            energy -= (bi_mass * bj.mass) / distance
-    energy
+get_energy = |bodies, nbody|
+  energy = 0
+  for i, bi in bodies.enumerate()
+    bi_vel = bi.vel
+    bi_mass = bi.mass
+    energy += 0.5 * bi_mass * (bi_vel * bi_vel).sum()
+    for j in (i + 1)..nbody
+      bj = bodies[j]
+      d = bi.pos - bj.pos
+      distance = ((d * d).sum()).sqrt()
+      energy -= (bi_mass * bj.mass) / distance
+  energy
 
 
-offset_momentum = |bodies nbody|
-    pos = num4 0
-    for body in bodies
-        pos += body.vel * body.mass
-    bodies[0].vel = -pos / solar_mass
+offset_momentum = |bodies, nbody|
+  pos = num4 0
+  for body in bodies
+    pos += body.vel * body.mass
+  bodies[0].vel = -pos / solar_mass
 
 
 run_nbody = |n|
@@ -109,7 +109,7 @@ run_nbody = |n|
   offset_momentum bodies nbody
   initial_energy = get_energy bodies nbody
   for _ in 0..n
-      advance bodies nbody 0.01
+    advance bodies nbody 0.01
   end_energy = get_energy bodies nbody
   initial_energy, end_energy
 

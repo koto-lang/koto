@@ -48,7 +48,7 @@ export tests =
 
     assert_eq
       {foo: 42, bar: 99}
-        .each |key value| key, value
+        .each |key, value| key, value
         .to_tuple()
       (("foo", 42), ("bar", 99))
 
@@ -66,7 +66,7 @@ export tests =
 
   test_fold: ||
     assert_eq
-      (1..=5).fold(0, |sum x| sum + x)
+      (1..=5).fold(0, |sum, x| sum + x)
       15
 
   test_take: ||

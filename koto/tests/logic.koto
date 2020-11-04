@@ -45,5 +45,5 @@ export tests =
     assert_eq f() 2
 
   test_fiddly_chained_comparison: ||
-    f = |x y z| if x < y < z > y > x then 0 else 1
+    f = |x, y, z| if x < y < z > y > x then 0 else 1
     assert (f 1 2 3) < (f 3 2 1) <= (f 5 4 3) < 2 > (f 1 2 3)

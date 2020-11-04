@@ -20,19 +20,19 @@ assert_eq a b
 
 x = (1, 2, 3).fold(
   0,
-  |a b| a + b
+  |a, b| a + b
 )
 assert_eq x 6
 
 x = (1, 2, 3)
   .each |n| n
   # This comment shouldn't interrupt the chain
-  .fold 0 |a b| a + b
+  .fold 0 |a, b| a + b
 assert_eq x 6
 
 assert_equal = |
-  long_arg # This is an argument that needs an explanation
-  long_arg_2
+  long_arg, # This is an argument that needs an explanation
+  long_arg_2,
 |
   # The body must be indented
   assert_eq

@@ -318,6 +318,12 @@ impl<'source> Parser<'source> {
                 Some(ConstantIndexOrWildcard::Wildcard) => args.push(None),
                 None => break,
             }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+                self.consume_next_token_on_same_line();
+            } else {
+                break;
+            }
         }
 
         let mut function_end_context = ExpressionContext::permissive();

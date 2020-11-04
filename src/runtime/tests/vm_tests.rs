@@ -732,7 +732,7 @@ square 8";
         #[test]
         fn two_args() {
             let script = "
-add = |a b|
+add = |a, b|
   a + b
 add 5 6";
             test_script(script, Number(11.0));
@@ -741,8 +741,8 @@ add 5 6";
         #[test]
         fn nested_function() {
             let script = "
-add = |a b|
-  add2 = |x y| x + y
+add = |a, b|
+  add2 = |x, y| x + y
   add2 a b
 add 10 20";
             test_script(script, Number(30.0));
@@ -751,7 +751,7 @@ add 10 20";
         #[test]
         fn nested_calls() {
             let script = "
-add = |a b| a + b
+add = |a, b| a + b
 add 10 (add 20 30)";
             test_script(script, Number(60.0));
         }
@@ -849,7 +849,7 @@ data[1]";
         #[test]
         fn nested_captured_values() {
             let script = "
-capture_test = |a b c|
+capture_test = |a, b, c|
   inner = ||
     inner2 = |x|
       x + b + c
@@ -1151,7 +1151,8 @@ m.baz";
         #[test]
         fn instance_function_no_args() {
             let script = "
-make_o = || {foo: 42, get_foo: |self| self.foo}
+make_o = ||
+  {foo: 42, get_foo: |self| self.foo}
 o = make_o()
 o.get_foo()";
             test_script(script, Number(42.0));
@@ -1160,7 +1161,9 @@ o.get_foo()";
         #[test]
         fn instance_function_with_args() {
             let script = "
-make_o = || {foo: 0, set_foo: |self a b| self.foo = a + b}
+make_o = ||
+  foo: 0
+  set_foo: |self, a, b| self.foo = a + b
 o = make_o()
 o.set_foo 10 20
 o.foo";
@@ -1311,12 +1314,12 @@ a, c";
         #[test]
         fn placeholder_argument() {
             let script = "
-fold = |xs f|
+fold = |xs, f|
   result = 0
   for x in xs
     result = f result x
   result
-fold 0..5 |n _| n + 1";
+fold 0..5 |n, _| n + 1";
             test_script(script, Number(5.0));
         }
     }

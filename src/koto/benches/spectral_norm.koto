@@ -8,29 +8,29 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm
 
 import env list test.assert_near
 
-A = |i j|
+A = |i, j|
   ij = i + j - 1
   1.0 / (ij * (ij - 1) * 0.5 + i)
 
-Av = |x y n|
+Av = |x, y, n|
   i = 0
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result n|
+    x.fold 0 |result, n|
       j += 1
       result + n * (A i j)
 
-Atv = |x y n|
+Atv = |x, y, n|
   i = 0
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result n|
+    x.fold 0 |result, n|
       j += 1
       result + n * (A j i)
 
-AtAv = |x y t n|
+AtAv = |x, y, t, n|
   Av x t n
   Atv t y n
 

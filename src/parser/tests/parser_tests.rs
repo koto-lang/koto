@@ -1535,7 +1535,7 @@ a()";
 
         #[test]
         fn inline_two_args() {
-            let source = "|x y| x + y";
+            let source = "|x, y| x + y";
             check_ast(
                 source,
                 &[
@@ -1810,7 +1810,7 @@ f x";
 
         #[test]
         fn instance_function() {
-            let source = "{foo: 42, bar: |self x| self.foo = x}";
+            let source = "{foo: 42, bar: |self, x| self.foo = x}";
             check_ast(
                 source,
                 &[
@@ -1900,7 +1900,7 @@ f = ||
             let source = "
 f = ||
   foo: 42
-  bar: |self x| self.foo = x
+  bar: |self, x| self.foo = x
 f()";
             check_ast(
                 source,

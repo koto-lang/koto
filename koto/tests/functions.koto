@@ -7,16 +7,16 @@ export tests =
     assert_eq 100 (square -10)
 
   test_sum: ||
-    sum = |x y| x + y
+    sum = |x, y| x + y
     # Space-separated arguments
     assert_eq 21 (sum 10 11)
     # Comma-separated arguments in parentheses
     assert_eq 21 sum(10, 11)
 
   test_nested_function: ||
-    add = |x y|
+    add = |x, y|
       x2 = x
-      do_add = |x y|
+      do_add = |x, y|
         x = x + y # Nested trailing comment
         x # implicit return of last expression
       result = do_add x y
@@ -26,12 +26,12 @@ export tests =
     assert_eq 3 (add 1 2)
 
   test_captured_function: ||
-    add = |x y| x + y
-    add2 = |x y| add x y
+    add = |x, y| x + y
+    add2 = |x, y| add x y
     assert_eq (add2 90 9) 99
 
   test_nested_calls: ||
-    add = |x y| x + y
+    add = |x, y| x + y
     assert_eq (add (add 1 1) (add -1 -1)) 0
 
   test_function_returning_multiple_values: ||
