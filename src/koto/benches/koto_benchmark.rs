@@ -25,12 +25,12 @@ impl BenchmarkRunner {
                 runtime.settings.run_tests = true;
 
                 if let Err(error) = runtime.run_with_args(&args) {
-                    panic!(error);
+                    panic!("{}", error);
                 }
 
                 runtime.settings.run_tests = false;
             }
-            Err(error) => panic!(error),
+            Err(error) => panic!("{}", runtime.format_loader_error(error, &script)),
         }
 
         Self { runtime }
