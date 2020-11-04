@@ -40,6 +40,11 @@ mod parser {
             check_parsing_fails("1 + * 2");
         }
 
+        #[test]
+        fn missing_comma_in_import() {
+            check_parsing_fails("import foo bar");
+        }
+
         mod indentation {
             use super::*;
 

@@ -1,5 +1,5 @@
-import list string
-from test import assert assert_eq
+import list
+from test import assert, assert_eq
 
 
 export tests =

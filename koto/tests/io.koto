@@ -1,5 +1,5 @@
-import env io
-from test import assert assert_eq
+import env, io
+from test import assert, assert_eq
 
 export tests =
   test_reading_a_file: ||

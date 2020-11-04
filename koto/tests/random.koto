@@ -1,5 +1,5 @@
 import random
-from test import assert assert_eq assert_ne assert_near
+from test import assert, assert_eq, assert_ne, assert_near
 
 export tests =
   pre_test: ||

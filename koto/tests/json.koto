@@ -1,7 +1,5 @@
-import env
-import io
-import json
-from test import assert assert_eq
+import env, io, json
+from test import assert, assert_eq
 
 export tests =
   test_serialize_and_deserialize_json: ||

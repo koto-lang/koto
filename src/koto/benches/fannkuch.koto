@@ -7,7 +7,7 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredu
 -#
 
 import env
-from test import assert assert_eq
+from test import assert, assert_eq
 
 fannkuch = |n|
   assert n >= 4

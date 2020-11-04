@@ -2825,7 +2825,30 @@ assert_eq (type true) \"bool\"
 
         #[test]
         fn import_items() {
-            let source = "from foo import bar baz";
+            let source = "import foo, bar, baz";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![],
+                        items: vec![vec![0], vec![1], vec![2]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_items_from() {
+            let source = "from foo import bar, baz";
             check_ast(
                 source,
                 &[
@@ -2848,7 +2871,7 @@ assert_eq (type true) \"bool\"
 
         #[test]
         fn import_nested_items() {
-            let source = "from foo.bar import abc.def xyz";
+            let source = "from foo.bar import abc.def, xyz";
             check_ast(
                 source,
                 &[

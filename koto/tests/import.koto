@@ -19,12 +19,12 @@ export tests =
     assert_eq qux "O_o"
 
   test_import_multiple_items: ||
-    a, b = import test_module.foo test_module.bar
+    a, b = import test_module.foo, test_module.bar
     assert_eq a 42
     assert_eq b -1
 
   test_import_multiple_items_with_from: ||
-    x, y = from test_module import foo bar
+    x, y = from test_module import foo, bar
     assert_eq x 42
     assert_eq y -1
 

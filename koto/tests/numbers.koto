@@ -1,5 +1,5 @@
 import number
-from test import assert_eq assert_near
+from test import assert_eq, assert_near
 
 export tests =
   test_trigonometry: ||

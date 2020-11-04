@@ -1,5 +1,5 @@
 import map
-from test import assert assert_eq assert_ne
+from test import assert, assert_eq, assert_ne
 
 export tests =
   test_access_by_key: ||

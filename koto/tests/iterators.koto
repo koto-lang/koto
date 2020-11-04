@@ -1,4 +1,4 @@
-import iterator test.assert_eq
+import iterator, test.assert_eq
 
 export tests =
   test_next: ||

@@ -85,6 +85,7 @@ pub enum SyntaxError {
     UnexpectedIndentation,
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
+    UnexpectedTokenInImportExpression,
 }
 
 #[derive(Clone, Debug)]
@@ -252,6 +253,9 @@ impl fmt::Display for SyntaxError {
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
+            UnexpectedTokenInImportExpression => {
+                f.write_str("Unexpected token in import expression")
+            }
         }
     }
 }

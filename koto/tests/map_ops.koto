@@ -1,5 +1,5 @@
 import map
-from test import assert assert_eq
+from test import assert, assert_eq
 
 export tests =
   test_is_empty: ||

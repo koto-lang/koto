@@ -1884,6 +1884,13 @@ impl<'source> Parser<'source> {
         };
 
         let items = self.consume_import_items()?;
+
+        if let Some(token) = self.peek_next_token_on_same_line() {
+            if !token_is_whitespace(token) {
+                return syntax_error!(UnexpectedTokenInImportExpression, self);
+            }
+        }
+
         for item in items.iter() {
             match item.last() {
                 Some(id) => {
@@ -1975,8 +1982,9 @@ impl<'source> Parser<'source> {
 
     fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
         let mut items = vec![];
+        let mut item_context = ExpressionContext::permissive();
 
-        while let Some(item_root) = self.parse_id(&mut ExpressionContext::permissive()) {
+        while let Some(item_root) = self.parse_id(&mut item_context) {
             let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
@@ -1989,6 +1997,11 @@ impl<'source> Parser<'source> {
             }
 
             items.push(item);
+
+            if self.peek_next_token_on_same_line() != Some(Token::Separator) {
+                break;
+            }
+            self.consume_next_token_on_same_line();
         }
 
         if items.is_empty() {
@@ -2378,5 +2391,8 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
 
 fn token_is_whitespace(op: Token) -> bool {
     use Token::*;
-    matches!(op, Whitespace | NewLine | NewLineIndented)
+    matches!(
+        op,
+        Whitespace | NewLine | NewLineIndented | CommentSingle | CommentMulti
+    )
 }

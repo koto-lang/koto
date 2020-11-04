@@ -1,4 +1,4 @@
-import env test.assert_eq
+import env, test.assert_eq
 
 fib = |n|
   match n

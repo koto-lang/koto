@@ -1,4 +1,4 @@
-from test import assert_eq assert_ne
+from test import assert_eq, assert_ne
 
 export tests =
   test_basic_assignment: ||

@@ -1,4 +1,4 @@
-from test import assert assert_eq
+from test import assert, assert_eq
 
 export tests =
   test_and_not_or: ||
