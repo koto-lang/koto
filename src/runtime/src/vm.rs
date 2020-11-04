@@ -928,14 +928,14 @@ impl Vm {
             Instruction::Call {
                 result,
                 function,
-                arg_register,
+                frame_base,
                 arg_count,
             } => {
                 let function = self.get_register(function).clone();
                 self.call_function(
                     result,
                     &function,
-                    arg_register,
+                    frame_base,
                     arg_count,
                     None,
                     instruction_ip,
@@ -944,7 +944,7 @@ impl Vm {
             Instruction::CallChild {
                 result,
                 function,
-                arg_register,
+                frame_base,
                 arg_count,
                 parent,
             } => {
@@ -952,7 +952,7 @@ impl Vm {
                 self.call_function(
                     result,
                     &function,
-                    arg_register,
+                    frame_base,
                     arg_count,
                     Some(parent),
                     instruction_ip,
@@ -1829,7 +1829,7 @@ impl Vm {
 
         let mut call_arg_count = call_arg_count;
 
-        let frame_base = if external_function.is_instance_function {
+        let adjusted_frame_base = if external_function.is_instance_function {
             if let Some(parent_register) = parent_register {
                 let parent = self.clone_register(parent_register);
                 self.set_register(frame_base, parent);
@@ -1849,7 +1849,7 @@ impl Vm {
         let result = (&*function)(
             self,
             &Args {
-                register: frame_base,
+                register: adjusted_frame_base,
                 count: call_arg_count,
             },
         );
@@ -1857,6 +1857,9 @@ impl Vm {
         match result {
             Ok(value) => {
                 self.set_register(result_register, value);
+                // External function calls don't use the push/pop frame mechanism,
+                // so drop the function args here now that the call has been completed.
+                self.value_stack.truncate(self.register_base() + frame_base as usize);
             }
             Err(error) => {
                 match error {

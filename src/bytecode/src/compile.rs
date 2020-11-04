@@ -2114,6 +2114,9 @@ impl Compiler {
         let call_result_register = if let Some(result) = result {
             result.register
         } else {
+            // The result isn't needed, so it can be placed in the frame's base register
+            // (which isn't needed post-call).
+            // An alternative here could be to have CallNoResult ops, but this will do for now.
             frame_base
         };
 
