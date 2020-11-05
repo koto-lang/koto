@@ -319,7 +319,7 @@ impl<'source> Parser<'source> {
                 None => break,
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                 self.consume_next_token_on_same_line();
             } else {
                 break;
@@ -442,8 +442,10 @@ impl<'source> Parser<'source> {
 
         if let Some(first) = self.parse_expression(&mut expression_context)? {
             let mut expressions = vec![first];
-            while let Some(Token::Separator) = self.peek_next_token_on_same_line() {
+            let mut encountered_comma = false;
+            while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                 self.consume_next_token_on_same_line();
+                encountered_comma = true;
 
                 if self.peek_next_token(context).is_none() {
                     break;
@@ -473,7 +475,7 @@ impl<'source> Parser<'source> {
                     expressions.push(next_expression);
                 }
             }
-            if expressions.len() == 1 {
+            if expressions.len() == 1 && !encountered_comma {
                 Ok(Some(first))
             } else {
                 Ok(Some(self.push_node(Node::Tuple(expressions))?))
@@ -980,7 +982,7 @@ impl<'source> Parser<'source> {
                 break;
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                 self.consume_next_token_on_same_line();
             } else {
                 break;
@@ -1350,7 +1352,7 @@ impl<'source> Parser<'source> {
                 entries.push(entry);
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                 self.consume_next_token_on_same_line();
             } else {
                 break;
@@ -1489,7 +1491,7 @@ impl<'source> Parser<'source> {
                     entries.push((key, None));
                 }
 
-                if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                     self.consume_next_token_on_same_line();
                 } else {
                     break;
@@ -1543,7 +1545,7 @@ impl<'source> Parser<'source> {
             }
 
             match self.peek_next_token_on_same_line() {
-                Some(Token::Separator) => {
+                Some(Token::Comma) => {
                     self.consume_next_token_on_same_line();
                 }
                 Some(Token::In) => {
@@ -1754,7 +1756,7 @@ impl<'source> Parser<'source> {
                 // Match patterns, separated by commas in the case of matching multi-expressions
                 let mut patterns = vec![pattern];
 
-                while let Some(Token::Separator) = self.peek_next_token_on_same_line() {
+                while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                     self.consume_next_token_on_same_line();
 
                     match self.parse_match_pattern()? {
@@ -1998,7 +2000,7 @@ impl<'source> Parser<'source> {
 
             items.push(item);
 
-            if self.peek_next_token_on_same_line() != Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() != Some(Token::Comma) {
                 break;
             }
             self.consume_next_token_on_same_line();
@@ -2063,11 +2065,13 @@ impl<'source> Parser<'source> {
             ..*context
         };
         let mut expressions = vec![];
+        let mut encountered_comma = false;
         while let Some(expression) = self.parse_expression(&mut expression_context.clone())? {
             expressions.push(expression);
 
-            if self.peek_token() == Some(Token::Separator) {
-                self.consume_token();
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
+                encountered_comma = true;
             } else {
                 break;
             }
@@ -2075,7 +2079,7 @@ impl<'source> Parser<'source> {
 
         let result = match expressions.as_slice() {
             [] => self.push_node(Node::Empty)?,
-            [single] => *single,
+            [single_expression] if !encountered_comma => *single_expression,
             _ => self.push_node(Node::Tuple(expressions))?,
         };
 

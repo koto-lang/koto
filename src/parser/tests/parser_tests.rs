@@ -577,6 +577,23 @@ num4
                 None,
             )
         }
+
+        #[test]
+        fn single_entry_tuple() {
+            let source = "(1,)";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Tuple(vec![0]),
+                    MainBlock {
+                        body: vec![1],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
     }
 
     mod assignment {

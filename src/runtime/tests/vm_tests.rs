@@ -249,6 +249,16 @@ a = 99
         use super::*;
 
         #[test]
+        fn one_entry() {
+            test_script("1,", number_tuple(&[1]));
+        }
+
+        #[test]
+        fn one_entry_in_parens() {
+            test_script("(2,)", number_tuple(&[2]));
+        }
+
+        #[test]
         fn two_entries() {
             test_script("1, 2", number_tuple(&[1, 2]));
         }
@@ -261,11 +271,12 @@ a = 99
         #[test]
         fn tuple_of_tuples() {
             test_script(
-                "(1, 2), (3, 4, 5), (6, 7, 8, 9)",
+                "(1, 2), (3, 4, 5), (6, 7, 8, 9), (0,)",
                 value_tuple(&[
                     number_tuple(&[1, 2]),
                     number_tuple(&[3, 4, 5]),
                     number_tuple(&[6, 7, 8, 9]),
+                    number_tuple(&[0]),
                 ]),
             );
         }

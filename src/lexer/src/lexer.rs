@@ -19,6 +19,7 @@ pub enum Token {
 
     // Symbols
     Colon,
+    Comma,
     Dot,
     ParenOpen,
     ParenClose,
@@ -30,7 +31,6 @@ pub enum Token {
     Wildcard,
     Range,
     RangeInclusive,
-    Separator,
 
     // operators
     Add,
@@ -413,6 +413,7 @@ impl<'a> TokenLexer<'a> {
         // Subtract and AssignSubtract are checked separately to allow for negative numbers
 
         check_symbol!(":", Colon);
+        check_symbol!(",", Comma);
         check_symbol!(".", Dot);
         check_symbol!("(", ParenOpen);
         check_symbol!(")", ParenClose);
@@ -421,7 +422,6 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("]", ListEnd);
         check_symbol!("{", MapStart);
         check_symbol!("}", MapEnd);
-        check_symbol!(",", Separator);
         check_symbol!("_", Wildcard);
 
         None
