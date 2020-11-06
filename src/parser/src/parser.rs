@@ -1836,7 +1836,6 @@ impl<'source> Parser<'source> {
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
-                ListStart => return self.parse_list(&mut ExpressionContext::restricted()),
                 Wildcard => {
                     self.consume_next_token_on_same_line();
                     Some(self.push_node(Node::Wildcard)?)

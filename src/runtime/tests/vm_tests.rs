@@ -35,7 +35,7 @@ mod vm {
         let mut loader = Loader::default();
         let chunk = match loader.compile_script(script, &None) {
             Ok(chunk) => chunk,
-            Err(error) => panic!(error),
+            Err(error) => panic!("{}", error),
         };
 
         let print_chunk = |script: &str, chunk| {
@@ -654,7 +654,7 @@ match 42
 match 0, 1
   0, 0 or 1, 1 then -1
   _, 0 or _, 99 then -2
-  x, 0 or x, [1] then -3
+  x, 0 or x, 2 then -3
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
   _ then -5
 ";
@@ -667,7 +667,7 @@ match 0, 1
 match 0, 1
   0, 0 or 1, 1 then -1
   _, 0 or _, 99 then -2
-  x, 1 or x, [1] then -3 # The first alternative (x, 1) should match
+  x, 1 or x, 2 then -3 # The first alternative (x, 1) should match
   0, _ or 1, _ then -4
   _ then -5
 ";

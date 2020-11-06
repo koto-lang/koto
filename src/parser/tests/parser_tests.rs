@@ -3023,7 +3023,7 @@ finally
             let source = r#"
 x = match y
   0 or 1 then 42
-  "foo" or ["bar"] then 99
+  "foo" or "bar" then 99
   "baz" then break
   z if z < 10
     123
@@ -3039,20 +3039,19 @@ x = match y
                     Number(2),
                     Str(3), // 5
                     Str(4),
-                    List(vec![6]),
                     Number(5),
                     Str(6),
-                    Break, // 10
-                    Id(7),
+                    Break,
+                    Id(7), // 10
                     Id(7),
                     Number(8),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 12,
-                        rhs: 13,
+                        lhs: 11,
+                        rhs: 12,
                     },
-                    Number(9), // 15
-                    Id(7),
+                    Number(9),
+                    Id(7), // 15
                     Number(10),
                     Match {
                         expression: 1,
@@ -3063,24 +3062,24 @@ x = match y
                                 expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![5, 7],
+                                patterns: vec![5, 6],
                                 condition: None,
-                                expression: 8,
+                                expression: 7,
                             },
                             MatchArm {
-                                patterns: vec![9],
+                                patterns: vec![8],
                                 condition: None,
-                                expression: 10,
+                                expression: 9,
                             },
                             MatchArm {
-                                patterns: vec![11],
-                                condition: Some(14),
-                                expression: 15,
+                                patterns: vec![10],
+                                condition: Some(13),
+                                expression: 14,
                             },
                             MatchArm {
-                                patterns: vec![16],
+                                patterns: vec![15],
                                 condition: None,
-                                expression: 17,
+                                expression: 16,
                             },
                         ],
                     },
@@ -3090,10 +3089,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 18,
+                        expression: 17,
                     },
                     MainBlock {
-                        body: vec![19],
+                        body: vec![18],
                         local_count: 2,
                     },
                 ],
