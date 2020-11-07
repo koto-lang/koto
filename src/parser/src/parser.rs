@@ -326,15 +326,12 @@ impl<'source> Parser<'source> {
             }
         }
 
+        // Check for function args end
         let mut function_end_context = ExpressionContext::permissive();
         function_end_context.expected_indentation = Some(start_indent);
-        if !matches!(
-            self.peek_next_token(&function_end_context),
-            Some((Token::Function, _))
-        ) {
+        if self.consume_next_token(&mut function_end_context) != Some(Token::Function) {
             return syntax_error!(ExpectedFunctionArgsEnd, self);
         }
-        self.consume_next_token(&mut function_end_context);
 
         // body
         let mut function_frame = Frame::default();
