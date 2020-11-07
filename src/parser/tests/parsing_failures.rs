@@ -100,6 +100,25 @@ x = |
             }
         }
 
+        mod functions {
+            use super::*;
+
+            #[test]
+            fn self_not_in_first_position() {
+                check_parsing_fails("f = |x, self| x");
+            }
+
+            #[test]
+            fn varargs_not_in_last_position() {
+                check_parsing_fails("f = |x..., y| x");
+            }
+
+            #[test]
+            fn varargs_on_wildcard() {
+                check_parsing_fails("f = |x, _...| x");
+            }
+        }
+
         mod lookups {
             use super::*;
 

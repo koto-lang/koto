@@ -750,6 +750,15 @@ add 5 6";
         }
 
         #[test]
+        fn variadic_function() {
+            let script = "
+f = |a, b...|
+  a + b.fold 0 |x, y| x + y
+f 5 10 20 30";
+            test_script(script, Number(65.0));
+        }
+
+        #[test]
         fn nested_function() {
             let script = "
 add = |a, b|
@@ -1278,6 +1287,44 @@ m.get_map().foo";
         }
 
         #[test]
+        fn function_call_variadic() {
+            let script = "
+m =
+  foo: |x, xs...|
+    xs.fold x |a, b| a + b
+m.foo 1 2 3
+";
+            test_script(script, Number(6.0));
+        }
+
+        #[test]
+        fn instance_function_call_variadic() {
+            let script = "
+m =
+  foo: |self, x, xs...|
+    self.offset + xs.fold x |a, b| a + b
+  offset: 10
+m.foo 1 2 3
+";
+            test_script(script, Number(16.0));
+        }
+
+        #[test]
+        fn instance_function_call_variadic_generator() {
+            let script = "
+m =
+  foo: |self, first, xs...|
+    debug self
+    for x in xs
+      yield self.offset + first + x
+    self.offset + xs.fold x |a, b| a + b
+  offset: 100
+m.foo(10, 1, 2, 3).to_tuple()
+";
+            test_script(script, number_tuple(&[111, 112, 113]));
+        }
+
+        #[test]
         fn copy_nested() {
             let script = "
 m = {foo: {bar: -1}}
@@ -1368,6 +1415,16 @@ gen = |xs|
     yield x
 gen(1..=5).to_tuple()";
             test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn generator_variadic() {
+            let script = "
+gen = |offset, xs...|
+  for x in xs
+    yield x + offset
+gen(10, 1, 2, 3).to_tuple()";
+            test_script(script, number_tuple(&[11, 12, 13]));
         }
 
         #[test]

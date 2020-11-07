@@ -1528,6 +1528,8 @@ a()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1568,6 +1570,8 @@ a()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -1576,6 +1580,44 @@ a()";
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn inline_var_args() {
+            let source = "|x, y...| x + y.size()";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(2), Some(2))),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 0,
+                        rhs: 4,
+                    }, // 5
+                    Function(koto_parser::Function {
+                        args: vec![Some(0), Some(1)],
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 5,
+                        is_instance_function: false,
+                        is_variadic: true,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("size"),
+                ]),
             )
         }
 
@@ -1624,6 +1666,8 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 10,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1673,6 +1717,8 @@ f 42";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1695,6 +1741,8 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1849,6 +1897,8 @@ f x";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 5,
+                        is_instance_function: true,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
@@ -1888,6 +1938,8 @@ f = ||
                         local_count: 0,
                         accessed_non_locals: vec![2],
                         body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1941,6 +1993,8 @@ f()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6,
+                        is_instance_function: true,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
@@ -1950,6 +2004,8 @@ f()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2030,6 +2086,8 @@ f 1
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2078,6 +2136,8 @@ f 1
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 26,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2130,6 +2190,8 @@ f 1
                         local_count: 0,
                         accessed_non_locals: vec![0], // initial read of x via capture
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -2171,6 +2233,8 @@ y z";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Call {
@@ -2218,6 +2282,8 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
@@ -2244,6 +2310,8 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {

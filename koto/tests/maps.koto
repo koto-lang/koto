@@ -82,7 +82,10 @@ export tests =
   test_instance_functions: ||
     make_map = ||
       foo: 42
-      get_foo: |self| self.foo # self is a convention, but any name can be used
+      get_foo: |self|
+        # self as first argument creates an instance function,
+        # where self refers to the container value that its contained in
+        self.foo
 
     m = make_map()
     assert_eq 42 m.get_foo() # m is implicitly passed to get_foo as an argument

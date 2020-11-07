@@ -159,6 +159,8 @@ pub struct Function {
     // if an access is a capture or not at the moment the function is created.
     pub accessed_non_locals: Vec<ConstantIndex>,
     pub body: AstIndex,
+    pub is_instance_function: bool,
+    pub is_variadic: bool,
     pub is_generator: bool,
 }
 

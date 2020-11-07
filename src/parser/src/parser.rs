@@ -306,14 +306,30 @@ impl<'source> Parser<'source> {
 
         let span_start = self.lexer.span().start;
 
-        // args
+        // Parse function's args
         let mut args = Vec::new();
+        let mut is_instance_function = false;
+        let mut is_variadic = false;
+
         let mut args_context = ExpressionContext::permissive();
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(context) {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
-                    args.push(Some(constant_index))
+                    if self.constants.pool().get_str(constant_index) == "self" {
+                        if !args.is_empty() {
+                            return syntax_error!(SelfArgNotInFirstPosition, self);
+                        }
+                        is_instance_function = true;
+                    }
+
+                    args.push(Some(constant_index));
+
+                    if self.peek_token() == Some(Token::Ellipsis) {
+                        self.consume_token();
+                        is_variadic = true;
+                        break;
+                    }
                 }
                 Some(ConstantIndexOrWildcard::Wildcard) => args.push(None),
                 None => break,
@@ -373,6 +389,8 @@ impl<'source> Parser<'source> {
                 local_count,
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
+                is_instance_function,
+                is_variadic,
                 is_generator: function_frame.contains_yield,
             }),
             Span {

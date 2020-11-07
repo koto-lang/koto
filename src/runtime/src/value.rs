@@ -261,6 +261,8 @@ pub struct RuntimeFunction {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub arg_count: u8,
+    pub instance_function: bool,
+    pub variadic: bool,
     pub captures: Option<ValueList>,
 }
 

@@ -587,6 +587,9 @@ impl Vm {
                 register,
                 arg_count,
                 capture_count,
+                instance_function,
+                variadic,
+                generator,
                 size,
             } => {
                 let captures = if capture_count > 0 {
@@ -597,39 +600,23 @@ impl Vm {
                     None
                 };
 
-                let function = Function(RuntimeFunction {
+                let function = RuntimeFunction {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
+                    instance_function,
+                    variadic,
                     captures,
-                });
-
-                self.jump_ip(size);
-                self.set_register(register, function);
-            }
-            Instruction::Generator {
-                register,
-                arg_count,
-                capture_count,
-                size,
-            } => {
-                let captures = if capture_count > 0 {
-                    let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Empty);
-                    Some(ValueList::with_data(captures))
-                } else {
-                    None
                 };
 
-                let generator = Generator(RuntimeFunction {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                    captures,
-                });
+                let value = if generator {
+                    Generator(function)
+                } else {
+                    Function(function)
+                };
 
                 self.jump_ip(size);
-                self.set_register(register, generator);
+                self.set_register(register, value);
             }
             Instruction::Capture {
                 function,
@@ -1801,10 +1788,17 @@ impl Vm {
 
                 match maybe_op {
                     Some(op) => match op {
+                        // Core module functions accessed in a lookup need to be invoked as
+                        // if they were declared as instance functions, so that they can receive
+                        // the parent instance as a self argument.
+                        // e.g.
+                        // A function in string that can be called as:
+                        //   string.lines my_string
+                        // can also be called as:
+                        //   my_string.lines()
+                        // ...where it needs to behave as an instance function.
+                        // There's surely a cleaner way to achieve this, but this will do for now...
                         ExternalFunction(f) => {
-                            // Core module functions accessed in a lookup need to be invoked as
-                            // if they were declared as instance functions. This feels a bit hacky
-                            // but I haven't found a simpler approach yet!
                             let f_as_instance_function = external::ExternalFunction {
                                 is_instance_function: true,
                                 ..f.clone()
@@ -1814,9 +1808,27 @@ impl Vm {
                                 Value::ExternalFunction(f_as_instance_function),
                             );
                         }
-                        other => {
-                            self.set_register(result_register, other.clone());
+                        Function(f) => {
+                            let f_as_instance_function = RuntimeFunction {
+                                instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::Function(f_as_instance_function),
+                            );
                         }
+                        Generator(f) => {
+                            let f_as_instance_function = RuntimeFunction {
+                                instance_function: true,
+                                ..f.clone()
+                            };
+                            self.set_register(
+                                result_register,
+                                Value::Generator(f_as_instance_function),
+                            );
+                        }
+                        other => self.set_register(result_register, other.clone()),
                     },
                     None => {
                         return vm_error!(
@@ -1866,7 +1878,7 @@ impl Vm {
         external_function: &ExternalFunction,
         frame_base: u8,
         call_arg_count: u8,
-        parent_register: Option<u8>,
+        instance_register: Option<u8>,
         instruction_ip: usize,
     ) -> RuntimeResult {
         let function = external_function.function.as_ref();
@@ -1874,8 +1886,8 @@ impl Vm {
         let mut call_arg_count = call_arg_count;
 
         let adjusted_frame_base = if external_function.is_instance_function {
-            if let Some(parent_register) = parent_register {
-                let parent = self.clone_register(parent_register);
+            if let Some(instance_register) = instance_register {
+                let parent = self.clone_register(instance_register);
                 self.set_register(frame_base, parent);
                 call_arg_count += 1;
                 frame_base
@@ -1903,8 +1915,7 @@ impl Vm {
                 self.set_register(result_register, value);
                 // External function calls don't use the push/pop frame mechanism,
                 // so drop the function args here now that the call has been completed.
-                self.value_stack
-                    .truncate(self.register_base() + frame_base as usize);
+                self.truncate_registers(frame_base);
             }
             Err(error) => {
                 match error {
@@ -1925,19 +1936,21 @@ impl Vm {
         function: &RuntimeFunction,
         frame_base: u8,
         call_arg_count: u8,
-        parent_register: Option<u8>,
+        instance_register: Option<u8>,
         instruction_ip: usize,
     ) -> RuntimeResult {
         let RuntimeFunction {
             chunk,
             ip: function_ip,
             arg_count: function_arg_count,
+            instance_function,
+            variadic,
             captures,
         } = function;
 
+        // Spawn a VM for the generator
         let mut generator_vm = self.spawn_shared_vm();
-
-        generator_vm.call_stack.clear();
+        // Push a frame for running the generator function
         generator_vm.push_frame(
             chunk.clone(),
             *function_ip,
@@ -1945,51 +1958,75 @@ impl Vm {
             captures.clone(),
         );
 
-        // Prepare args for the spawned vm
-        let parent_assigned = if let Some(parent_register) = parent_register {
-            if call_arg_count < *function_arg_count {
-                let parent = self.clone_register(parent_register);
-                // Set the parent to be the first arg in the generator vm
-                generator_vm.set_register(0, parent);
-                true
+        let expected_arg_count = match (instance_function, variadic) {
+            (true, true) => *function_arg_count - 2,
+            (true, false) | (false, true) => *function_arg_count - 1,
+            (false, false) => *function_arg_count,
+        };
+
+        // Copy the instance value into the generator vm
+        let arg_offset = if *instance_function {
+            if let Some(instance_register) = instance_register {
+                let instance = self.clone_register(instance_register);
+                // Place the instance in the first register of the generator vm
+                generator_vm.set_register(0, instance);
+                1
             } else {
-                false
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Missing instance for call to instance function"
+                );
             }
         } else {
-            false
-        };
-
-        let (frame_base, call_arg_count, set_arg_offset) = if parent_assigned {
-            (frame_base, call_arg_count + 1, 1)
-        } else {
-            (frame_base + 1, call_arg_count, 0)
-        };
-
-        let args_to_copy = if *function_arg_count == 0 {
             0
-        } else {
-            *function_arg_count - set_arg_offset
         };
 
-        // Copy args, starting at register 0
-        for arg in 0..args_to_copy {
-            generator_vm.set_register(
-                (arg + set_arg_offset) as u8,
-                self.clone_register(frame_base + arg),
-            );
-        }
-
-        if *function_arg_count != call_arg_count {
+        // Check for variadic arguments, and validate argument count
+        if *variadic {
+            if call_arg_count >= expected_arg_count {
+                // Capture the varargs into a tuple and place them in the
+                // generator vm's last arg register
+                let varargs_start = frame_base + 1 + expected_arg_count;
+                let varargs_count = call_arg_count - expected_arg_count;
+                let varargs =
+                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                generator_vm.set_register(expected_arg_count + arg_offset, varargs);
+            } else {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Insufficient arguments for function call, expected {}, found {}",
+                    expected_arg_count,
+                    call_arg_count,
+                );
+            }
+        } else if call_arg_count != expected_arg_count {
             return vm_error!(
                 self.chunk(),
                 instruction_ip,
                 "Incorrect argument count, expected {}, found {}",
-                function_arg_count,
+                expected_arg_count,
                 call_arg_count,
             );
         }
 
+        // Copy any regular (non-instance, non-variadic) arguments into the generator vm
+        for (arg_index, arg) in self
+            .register_slice(frame_base + 1, expected_arg_count)
+            .iter()
+            .cloned()
+            .enumerate()
+        {
+            generator_vm.set_register(arg_index as u8 + arg_offset, arg);
+        }
+
+        // The args have been cloned into the generator vm, so at this point they can be removed
+        self.truncate_registers(frame_base);
+
+        // Wrap the generator vm in an iterator and place it in the result register
         self.set_register(result_register, ValueIterator::with_vm(generator_vm).into());
+
         Ok(Value::Empty)
     }
 
@@ -1999,7 +2036,7 @@ impl Vm {
         function: &Value,
         frame_base: u8,
         call_arg_count: u8,
-        parent_register: Option<u8>,
+        instance_register: Option<u8>,
         instruction_ip: usize,
     ) -> RuntimeResult {
         use Value::*;
@@ -2010,7 +2047,7 @@ impl Vm {
                 external_function,
                 frame_base,
                 call_arg_count,
-                parent_register,
+                instance_register,
                 instruction_ip,
             ),
             Generator(runtime_function) => self.call_generator(
@@ -2018,44 +2055,84 @@ impl Vm {
                 runtime_function,
                 frame_base,
                 call_arg_count,
-                parent_register,
+                instance_register,
                 instruction_ip,
             ),
             Function(RuntimeFunction {
                 chunk,
                 ip: function_ip,
                 arg_count: function_arg_count,
+                instance_function,
+                variadic,
                 captures,
             }) => {
-                let expected_count = *function_arg_count;
-                let mut call_arg_count = call_arg_count;
+                let expected_count = match (instance_function, variadic) {
+                    (true, true) => *function_arg_count - 2,
+                    (true, false) | (false, true) => *function_arg_count - 1,
+                    (false, false) => *function_arg_count,
+                };
 
-                let frame_base = if let Some(parent_register) = parent_register {
-                    if call_arg_count < expected_count {
-                        let parent = self.clone_register(parent_register);
-                        self.set_register(frame_base, parent);
-                        call_arg_count += 1;
+                // Clone the instance register into the first register of the frame
+                let adjusted_frame_base = if *instance_function {
+                    if let Some(instance_register) = instance_register {
+                        let instance = self.clone_register(instance_register);
+                        self.set_register(frame_base, instance);
                         frame_base
                     } else {
-                        frame_base + 1
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Missing instance for call to instance function"
+                        );
                     }
                 } else {
+                    // If there's no self arg, then the frame's instance register is unused,
+                    // so the new function's frame base is offset by 1
                     frame_base + 1
                 };
 
-                if call_arg_count != expected_count {
+                if *variadic {
+                    if call_arg_count >= expected_count {
+                        // The last defined arg is the start of the var_args,
+                        // e.g. f = |x, y, z...|
+                        // arg index 2 is the first vararg, and where the tuple will be placed
+                        let arg_base = frame_base + 1;
+                        let varargs_start = arg_base + expected_count;
+                        let varargs_count = call_arg_count - expected_count;
+                        let varargs =
+                            Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                        self.set_register(varargs_start, varargs);
+                        self.truncate_registers(varargs_start + 1);
+                    } else {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Insufficient arguments for function call, expected {}, found {}",
+                            expected_count,
+                            call_arg_count,
+                        );
+                    }
+                } else if call_arg_count != expected_count {
                     return vm_error!(
                         self.chunk(),
                         instruction_ip,
                         "Incorrect argument count, expected {}, found {}",
-                        function_arg_count,
+                        expected_count,
                         call_arg_count,
                     );
                 }
 
+                // Set info for when the current frame is returned to
                 self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
 
-                self.push_frame(chunk.clone(), *function_ip, frame_base, captures.clone());
+                // Set up a new frame for the called function
+                self.push_frame(
+                    chunk.clone(),
+                    *function_ip,
+                    adjusted_frame_base,
+                    captures.clone(),
+                );
+
                 Ok(Empty)
             }
             unexpected => vm_error!(
@@ -2119,14 +2196,11 @@ impl Vm {
     }
 
     fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, Error> {
-        let frame = match self.call_stack.pop() {
-            Some(frame) => frame,
-            None => {
-                return vm_error!(self.chunk(), 0, "pop_frame: Empty call stack");
-            }
-        };
+        self.truncate_registers(0);
 
-        self.value_stack.truncate(frame.register_base);
+        if self.call_stack.pop().is_none() {
+            return vm_error!(self.chunk(), 0, "pop_frame: Empty call stack");
+        };
 
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
             let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
@@ -2192,6 +2266,11 @@ impl Vm {
         } else {
             &[]
         }
+    }
+
+    fn truncate_registers(&mut self, len: u8) {
+        self.value_stack
+            .truncate(self.register_base() + len as usize);
     }
 
     pub fn get_args(&self, args: &Args) -> &[Value] {
