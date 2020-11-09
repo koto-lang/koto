@@ -1903,6 +1903,7 @@ impl<'source> Parser<'source> {
 
         if let Some(token) = self.peek_next_token_on_same_line() {
             if !token_is_whitespace(token) {
+                self.consume_next_token_on_same_line();
                 return syntax_error!(UnexpectedTokenInImportExpression, self);
             }
         }
