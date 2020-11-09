@@ -20,7 +20,7 @@ export tests =
   test_maps_in_lists: ||
     make_foo = |x|
       foo: x
-      set_foo: |self x| self.foo = x
+      set_foo: |self, x| self.foo = x
 
     # Getting a value
     foos = [(make_foo 42), (make_foo 99)]

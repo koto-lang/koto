@@ -1,5 +1,5 @@
 use {
-    crate::{Chunk, Op},
+    crate::{Chunk, FunctionFlags, Op},
     koto_parser::ConstantIndex,
     std::{convert::TryInto, fmt, sync::Arc},
 };
@@ -103,12 +103,9 @@ pub enum Instruction {
         register: u8,
         arg_count: u8,
         capture_count: u8,
-        size: usize,
-    },
-    Generator {
-        register: u8,
-        arg_count: u8,
-        capture_count: u8,
+        instance_function: bool,
+        variadic: bool,
+        generator: bool,
         size: usize,
     },
     Capture {
@@ -309,7 +306,6 @@ impl fmt::Display for Instruction {
             RangeFull { .. } => write!(f, "RangeFull"),
             MakeIterator { .. } => write!(f, "MakeIterator"),
             Function { .. } => write!(f, "Function"),
-            Generator { .. } => write!(f, "Generator"),
             Capture { .. } => write!(f, "Capture"),
             LoadCapture { .. } => write!(f, "LoadCapture"),
             SetCapture { .. } => write!(f, "SetCapture"),
@@ -466,21 +462,14 @@ impl fmt::Debug for Instruction {
                 register,
                 arg_count,
                 capture_count,
+                instance_function,
+                variadic,
+                generator,
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}",
-                register, arg_count, capture_count, size,
-            ),
-            Generator {
-                register,
-                arg_count,
-                capture_count,
-                size,
-            } => write!(
-                f,
-                "Generator\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}",
-                register, arg_count, capture_count, size,
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\n\t\t\tinstance: {}\tvariadic: {}\tgenerator: {}\tsize: {}",
+                register, arg_count, capture_count, instance_function, variadic, generator, size,
             ),
             Capture {
                 function,
@@ -894,18 +883,23 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 iterable: get_byte!(),
             }),
-            Op::Function => Some(Function {
-                register: get_byte!(),
-                arg_count: get_byte!(),
-                capture_count: get_byte!(),
-                size: get_u16!() as usize,
-            }),
-            Op::Generator => Some(Generator {
-                register: get_byte!(),
-                arg_count: get_byte!(),
-                capture_count: get_byte!(),
-                size: get_u16!() as usize,
-            }),
+            Op::Function => {
+                let register = get_byte!();
+                let arg_count = get_byte!();
+                let capture_count = get_byte!();
+                let flags = FunctionFlags::from_byte(get_byte!());
+                let size = get_u16!() as usize;
+
+                Some(Function {
+                    register,
+                    arg_count,
+                    capture_count,
+                    instance_function: flags.instance_function,
+                    variadic: flags.variadic,
+                    generator: flags.generator,
+                    size,
+                })
+            }
             Op::Capture => Some(Capture {
                 function: get_byte!(),
                 target: get_byte!(),

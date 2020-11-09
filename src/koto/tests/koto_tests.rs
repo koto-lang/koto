@@ -24,7 +24,7 @@ fn run_script(script_path: &str) {
             }
         }
         Err(error) => {
-            panic!(error);
+            panic!("{}", error);
         }
     }
 }

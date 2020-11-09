@@ -1,5 +1,5 @@
 use {
-    crate::{DebugInfo, Op},
+    crate::{DebugInfo, FunctionFlags, Op},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
         ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span,
@@ -1852,13 +1852,16 @@ impl Compiler {
                 }
                 let capture_count = captures.len() as u8;
 
-                let function_op = if function.is_generator {
-                    Generator
-                } else {
-                    Function
+                let flags = FunctionFlags {
+                    instance_function: function.is_instance_function,
+                    variadic: function.is_variadic,
+                    generator: function.is_generator,
                 };
 
-                self.push_op(function_op, &[result.register, arg_count, capture_count]);
+                self.push_op(
+                    Function,
+                    &[result.register, arg_count, capture_count, flags.as_byte()],
+                );
 
                 let function_size_ip = self.push_offset_placeholder();
 
@@ -2320,7 +2323,6 @@ impl Compiler {
                     | Node::Number0
                     | Node::Number1
                     | Node::Number(_)
-                    | Node::List(_)
                     | Node::Str(_) => {
                         let pattern = self.push_register()?;
                         self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;

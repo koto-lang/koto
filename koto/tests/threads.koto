@@ -1,4 +1,4 @@
-import list thread
+import list, thread
 import test.assert_eq
 
 export tests =

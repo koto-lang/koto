@@ -137,9 +137,7 @@ impl Hash for ConstantPool {
 
 #[derive(Clone, Debug, Default)]
 pub struct ConstantPoolBuilder {
-    index: Vec<ConstantInfo>,
-    strings: String,
-    numbers: Vec<f64>,
+    pool: ConstantPool,
     hasher: DefaultHasher, // Used to incrementally hash the constant pool's contents
     string_map: HashMap<String, ConstantIndex>,
     number_map: HashMap<[u8; 8], ConstantIndex>,
@@ -154,13 +152,13 @@ impl ConstantPoolBuilder {
         match self.string_map.get(s) {
             Some(index) => *index,
             None => {
-                let start = self.strings.len();
+                let start = self.pool.strings.len();
                 let end = start + s.len();
-                self.strings.push_str(s);
+                self.pool.strings.push_str(s);
                 s.hash(&mut self.hasher);
 
-                let result = self.index.len() as ConstantIndex;
-                self.index.push(ConstantInfo::Str(start..end));
+                let result = self.pool.index.len() as ConstantIndex;
+                self.pool.index.push(ConstantInfo::Str(start..end));
 
                 self.string_map.insert(s.to_string(), result);
 
@@ -175,12 +173,12 @@ impl ConstantPoolBuilder {
         match self.number_map.get(&bytes) {
             Some(index) => *index,
             None => {
-                let number_index = self.numbers.len();
-                self.numbers.push(n);
+                let number_index = self.pool.numbers.len();
+                self.pool.numbers.push(n);
                 bytes.hash(&mut self.hasher);
 
-                let result = self.index.len() as ConstantIndex;
-                self.index.push(ConstantInfo::Number(number_index));
+                let result = self.pool.index.len() as ConstantIndex;
+                self.pool.index.push(ConstantInfo::Number(number_index));
 
                 self.number_map.insert(bytes, result);
 
@@ -189,15 +187,14 @@ impl ConstantPoolBuilder {
         }
     }
 
-    pub fn build(mut self) -> ConstantPool {
-        self.index.hash(&mut self.hasher);
+    pub fn pool(&self) -> &ConstantPool {
+        &self.pool
+    }
 
-        ConstantPool {
-            index: self.index,
-            strings: self.strings.clone(),
-            numbers: self.numbers,
-            hash: self.hasher.finish(),
-        }
+    pub fn build(mut self) -> ConstantPool {
+        self.pool.index.hash(&mut self.hasher);
+        self.pool.hash = self.hasher.finish();
+        self.pool
     }
 }
 

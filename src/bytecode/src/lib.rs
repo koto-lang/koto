@@ -37,8 +37,7 @@ pub enum Op {
     MakeNum2,         // register, element count, first element
     MakeNum4,         // register, element count, first element
     MakeIterator,     // register, range
-    Function,         // register, arg count, capture count, size[2]
-    Generator,        // register, arg count, capture count, size[2]
+    Function,         // register, arg count, capture count, flags, size[2]
     Capture,          // function, target, source
     LoadCapture,      // register, capture
     SetCapture,       // capture, source
@@ -85,6 +84,7 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
+    Unused72,
     Unused73,
     Unused74,
     Unused75,
@@ -276,6 +276,40 @@ impl From<u8> for Op {
         //  - Op is repr(u8)
         //  - All 256 possible values are represented in the enum
         unsafe { std::mem::transmute(op) }
+    }
+}
+
+struct FunctionFlags {
+    instance_function: bool,
+    variadic: bool,
+    generator: bool,
+}
+
+impl FunctionFlags {
+    pub const INSTANCE: u8 = 0b0000001;
+    pub const VARIADIC: u8 = 0b0000010;
+    pub const GENERATOR: u8 = 0b0000100;
+
+    pub fn from_byte(byte: u8) -> Self {
+        Self {
+            instance_function: byte & Self::INSTANCE == Self::INSTANCE,
+            variadic: byte & Self::VARIADIC == Self::VARIADIC,
+            generator: byte & Self::GENERATOR == Self::GENERATOR,
+        }
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        let mut result = 0;
+        if self.instance_function {
+            result = result | Self::INSTANCE;
+        }
+        if self.variadic {
+            result = result | Self::VARIADIC;
+        }
+        if self.generator {
+            result = result | Self::GENERATOR;
+        }
+        result
     }
 }
 

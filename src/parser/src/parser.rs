@@ -306,29 +306,48 @@ impl<'source> Parser<'source> {
 
         let span_start = self.lexer.span().start;
 
-        // args
+        // Parse function's args
         let mut args = Vec::new();
+        let mut is_instance_function = false;
+        let mut is_variadic = false;
+
         let mut args_context = ExpressionContext::permissive();
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(context) {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
-                    args.push(Some(constant_index))
+                    if self.constants.pool().get_str(constant_index) == "self" {
+                        if !args.is_empty() {
+                            return syntax_error!(SelfArgNotInFirstPosition, self);
+                        }
+                        is_instance_function = true;
+                    }
+
+                    args.push(Some(constant_index));
+
+                    if self.peek_token() == Some(Token::Ellipsis) {
+                        self.consume_token();
+                        is_variadic = true;
+                        break;
+                    }
                 }
                 Some(ConstantIndexOrWildcard::Wildcard) => args.push(None),
                 None => break,
             }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
+            } else {
+                break;
+            }
         }
 
+        // Check for function args end
         let mut function_end_context = ExpressionContext::permissive();
         function_end_context.expected_indentation = Some(start_indent);
-        if !matches!(
-            self.peek_next_token(&function_end_context),
-            Some((Token::Function, _))
-        ) {
+        if self.consume_next_token(&mut function_end_context) != Some(Token::Function) {
             return syntax_error!(ExpectedFunctionArgsEnd, self);
         }
-        self.consume_next_token(&mut function_end_context);
 
         // body
         let mut function_frame = Frame::default();
@@ -370,6 +389,8 @@ impl<'source> Parser<'source> {
                 local_count,
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,
+                is_instance_function,
+                is_variadic,
                 is_generator: function_frame.contains_yield,
             }),
             Span {
@@ -436,8 +457,10 @@ impl<'source> Parser<'source> {
 
         if let Some(first) = self.parse_expression(&mut expression_context)? {
             let mut expressions = vec![first];
-            while let Some(Token::Separator) = self.peek_next_token_on_same_line() {
+            let mut encountered_comma = false;
+            while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                 self.consume_next_token_on_same_line();
+                encountered_comma = true;
 
                 if self.peek_next_token(context).is_none() {
                     break;
@@ -467,7 +490,7 @@ impl<'source> Parser<'source> {
                     expressions.push(next_expression);
                 }
             }
-            if expressions.len() == 1 {
+            if expressions.len() == 1 && !encountered_comma {
                 Ok(Some(first))
             } else {
                 Ok(Some(self.push_node(Node::Tuple(expressions))?))
@@ -974,7 +997,7 @@ impl<'source> Parser<'source> {
                 break;
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                 self.consume_next_token_on_same_line();
             } else {
                 break;
@@ -1344,7 +1367,7 @@ impl<'source> Parser<'source> {
                 entries.push(entry);
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                 self.consume_next_token_on_same_line();
             } else {
                 break;
@@ -1483,7 +1506,7 @@ impl<'source> Parser<'source> {
                     entries.push((key, None));
                 }
 
-                if self.peek_next_token_on_same_line() == Some(Token::Separator) {
+                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
                     self.consume_next_token_on_same_line();
                 } else {
                     break;
@@ -1537,7 +1560,7 @@ impl<'source> Parser<'source> {
             }
 
             match self.peek_next_token_on_same_line() {
-                Some(Token::Separator) => {
+                Some(Token::Comma) => {
                     self.consume_next_token_on_same_line();
                 }
                 Some(Token::In) => {
@@ -1748,7 +1771,7 @@ impl<'source> Parser<'source> {
                 // Match patterns, separated by commas in the case of matching multi-expressions
                 let mut patterns = vec![pattern];
 
-                while let Some(Token::Separator) = self.peek_next_token_on_same_line() {
+                while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                     self.consume_next_token_on_same_line();
 
                     match self.parse_match_pattern()? {
@@ -1828,7 +1851,6 @@ impl<'source> Parser<'source> {
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
-                ListStart => return self.parse_list(&mut ExpressionContext::restricted()),
                 Wildcard => {
                     self.consume_next_token_on_same_line();
                     Some(self.push_node(Node::Wildcard)?)
@@ -1878,6 +1900,14 @@ impl<'source> Parser<'source> {
         };
 
         let items = self.consume_import_items()?;
+
+        if let Some(token) = self.peek_next_token_on_same_line() {
+            if !token_is_whitespace(token) {
+                self.consume_next_token_on_same_line();
+                return syntax_error!(UnexpectedTokenInImportExpression, self);
+            }
+        }
+
         for item in items.iter() {
             match item.last() {
                 Some(id) => {
@@ -1969,8 +1999,9 @@ impl<'source> Parser<'source> {
 
     fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
         let mut items = vec![];
+        let mut item_context = ExpressionContext::permissive();
 
-        while let Some(item_root) = self.parse_id(&mut ExpressionContext::permissive()) {
+        while let Some(item_root) = self.parse_id(&mut item_context) {
             let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
@@ -1983,6 +2014,11 @@ impl<'source> Parser<'source> {
             }
 
             items.push(item);
+
+            if self.peek_next_token_on_same_line() != Some(Token::Comma) {
+                break;
+            }
+            self.consume_next_token_on_same_line();
         }
 
         if items.is_empty() {
@@ -2044,11 +2080,13 @@ impl<'source> Parser<'source> {
             ..*context
         };
         let mut expressions = vec![];
+        let mut encountered_comma = false;
         while let Some(expression) = self.parse_expression(&mut expression_context.clone())? {
             expressions.push(expression);
 
-            if self.peek_token() == Some(Token::Separator) {
-                self.consume_token();
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
+                encountered_comma = true;
             } else {
                 break;
             }
@@ -2056,7 +2094,7 @@ impl<'source> Parser<'source> {
 
         let result = match expressions.as_slice() {
             [] => self.push_node(Node::Empty)?,
-            [single] => *single,
+            [single_expression] if !encountered_comma => *single_expression,
             _ => self.push_node(Node::Tuple(expressions))?,
         };
 
@@ -2372,5 +2410,8 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
 
 fn token_is_whitespace(op: Token) -> bool {
     use Token::*;
-    matches!(op, Whitespace | NewLine | NewLineIndented)
+    matches!(
+        op,
+        Whitespace | NewLine | NewLineIndented | CommentSingle | CommentMulti
+    )
 }

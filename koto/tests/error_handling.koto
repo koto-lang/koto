@@ -1,5 +1,5 @@
 import error_handling_module
-from test import assert assert_eq
+from test import assert, assert_eq
 
 export tests =
   test_try: ||

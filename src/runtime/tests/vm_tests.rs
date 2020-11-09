@@ -35,7 +35,7 @@ mod vm {
         let mut loader = Loader::default();
         let chunk = match loader.compile_script(script, &None) {
             Ok(chunk) => chunk,
-            Err(error) => panic!(error),
+            Err(error) => panic!("{}", error),
         };
 
         let print_chunk = |script: &str, chunk| {
@@ -249,6 +249,16 @@ a = 99
         use super::*;
 
         #[test]
+        fn one_entry() {
+            test_script("1,", number_tuple(&[1]));
+        }
+
+        #[test]
+        fn one_entry_in_parens() {
+            test_script("(2,)", number_tuple(&[2]));
+        }
+
+        #[test]
         fn two_entries() {
             test_script("1, 2", number_tuple(&[1, 2]));
         }
@@ -261,11 +271,12 @@ a = 99
         #[test]
         fn tuple_of_tuples() {
             test_script(
-                "(1, 2), (3, 4, 5), (6, 7, 8, 9)",
+                "(1, 2), (3, 4, 5), (6, 7, 8, 9), (0,)",
                 value_tuple(&[
                     number_tuple(&[1, 2]),
                     number_tuple(&[3, 4, 5]),
                     number_tuple(&[6, 7, 8, 9]),
+                    number_tuple(&[0]),
                 ]),
             );
         }
@@ -643,7 +654,7 @@ match 42
 match 0, 1
   0, 0 or 1, 1 then -1
   _, 0 or _, 99 then -2
-  x, 0 or x, [1] then -3
+  x, 0 or x, 2 then -3
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
   _ then -5
 ";
@@ -656,7 +667,7 @@ match 0, 1
 match 0, 1
   0, 0 or 1, 1 then -1
   _, 0 or _, 99 then -2
-  x, 1 or x, [1] then -3 # The first alternative (x, 1) should match
+  x, 1 or x, 2 then -3 # The first alternative (x, 1) should match
   0, _ or 1, _ then -4
   _ then -5
 ";
@@ -732,17 +743,26 @@ square 8";
         #[test]
         fn two_args() {
             let script = "
-add = |a b|
+add = |a, b|
   a + b
 add 5 6";
             test_script(script, Number(11.0));
         }
 
         #[test]
+        fn variadic_function() {
+            let script = "
+f = |a, b...|
+  a + b.fold 0 |x, y| x + y
+f 5 10 20 30";
+            test_script(script, Number(65.0));
+        }
+
+        #[test]
         fn nested_function() {
             let script = "
-add = |a b|
-  add2 = |x y| x + y
+add = |a, b|
+  add2 = |x, y| x + y
   add2 a b
 add 10 20";
             test_script(script, Number(30.0));
@@ -751,7 +771,7 @@ add 10 20";
         #[test]
         fn nested_calls() {
             let script = "
-add = |a b| a + b
+add = |a, b| a + b
 add 10 (add 20 30)";
             test_script(script, Number(60.0));
         }
@@ -849,7 +869,7 @@ data[1]";
         #[test]
         fn nested_captured_values() {
             let script = "
-capture_test = |a b c|
+capture_test = |a, b, c|
   inner = ||
     inner2 = |x|
       x + b + c
@@ -1151,7 +1171,8 @@ m.baz";
         #[test]
         fn instance_function_no_args() {
             let script = "
-make_o = || {foo: 42, get_foo: |self| self.foo}
+make_o = ||
+  {foo: 42, get_foo: |self| self.foo}
 o = make_o()
 o.get_foo()";
             test_script(script, Number(42.0));
@@ -1160,7 +1181,9 @@ o.get_foo()";
         #[test]
         fn instance_function_with_args() {
             let script = "
-make_o = || {foo: 0, set_foo: |self a b| self.foo = a + b}
+make_o = ||
+  foo: 0
+  set_foo: |self, a, b| self.foo = a + b
 o = make_o()
 o.set_foo 10 20
 o.foo";
@@ -1264,6 +1287,44 @@ m.get_map().foo";
         }
 
         #[test]
+        fn function_call_variadic() {
+            let script = "
+m =
+  foo: |x, xs...|
+    xs.fold x |a, b| a + b
+m.foo 1 2 3
+";
+            test_script(script, Number(6.0));
+        }
+
+        #[test]
+        fn instance_function_call_variadic() {
+            let script = "
+m =
+  foo: |self, x, xs...|
+    self.offset + xs.fold x |a, b| a + b
+  offset: 10
+m.foo 1 2 3
+";
+            test_script(script, Number(16.0));
+        }
+
+        #[test]
+        fn instance_function_call_variadic_generator() {
+            let script = "
+m =
+  foo: |self, first, xs...|
+    debug self
+    for x in xs
+      yield self.offset + first + x
+    self.offset + xs.fold x |a, b| a + b
+  offset: 100
+m.foo(10, 1, 2, 3).to_tuple()
+";
+            test_script(script, number_tuple(&[111, 112, 113]));
+        }
+
+        #[test]
         fn copy_nested() {
             let script = "
 m = {foo: {bar: -1}}
@@ -1311,12 +1372,12 @@ a, c";
         #[test]
         fn placeholder_argument() {
             let script = "
-fold = |xs f|
+fold = |xs, f|
   result = 0
   for x in xs
     result = f result x
   result
-fold 0..5 |n _| n + 1";
+fold 0..5 |n, _| n + 1";
             test_script(script, Number(5.0));
         }
     }
@@ -1354,6 +1415,16 @@ gen = |xs|
     yield x
 gen(1..=5).to_tuple()";
             test_script(script, number_tuple(&[1, 2, 3, 4, 5]));
+        }
+
+        #[test]
+        fn generator_variadic() {
+            let script = "
+gen = |offset, xs...|
+  for x in xs
+    yield x + offset
+gen(10, 1, 2, 3).to_tuple()";
+            test_script(script, number_tuple(&[11, 12, 13]));
         }
 
         #[test]

@@ -19,7 +19,9 @@ pub enum Token {
 
     // Symbols
     Colon,
+    Comma,
     Dot,
+    Ellipsis,
     ParenOpen,
     ParenClose,
     Function,
@@ -30,7 +32,6 @@ pub enum Token {
     Wildcard,
     Range,
     RangeInclusive,
-    Separator,
 
     // operators
     Add,
@@ -389,6 +390,8 @@ impl<'a> TokenLexer<'a> {
             };
         }
 
+        check_symbol!("...", Ellipsis);
+
         check_symbol!("..=", RangeInclusive);
         check_symbol!("..", Range);
 
@@ -413,6 +416,7 @@ impl<'a> TokenLexer<'a> {
         // Subtract and AssignSubtract are checked separately to allow for negative numbers
 
         check_symbol!(":", Colon);
+        check_symbol!(",", Comma);
         check_symbol!(".", Dot);
         check_symbol!("(", ParenOpen);
         check_symbol!(")", ParenClose);
@@ -421,7 +425,6 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("]", ListEnd);
         check_symbol!("{", MapStart);
         check_symbol!("}", MapEnd);
-        check_symbol!(",", Separator);
         check_symbol!("_", Wildcard);
 
         None
@@ -917,8 +920,8 @@ x = [i for i in 0..5]";
     #[test]
     fn function() {
         let input = "\
-export f = |a b|
-  c = a + b
+export f = |a, b...|
+  c = a + b.size()
   c
 f()";
         check_lexer_output_indented(
@@ -929,7 +932,9 @@ f()";
                 (Assign, None, 1, 0),
                 (Function, None, 1, 0),
                 (Id, Some("a"), 1, 0),
+                (Comma, None, 1, 0),
                 (Id, Some("b"), 1, 0),
+                (Ellipsis, None, 1, 0),
                 (Function, None, 1, 0),
                 (NewLineIndented, None, 2, 2),
                 (Id, Some("c"), 2, 2),
@@ -937,6 +942,10 @@ f()";
                 (Id, Some("a"), 2, 2),
                 (Add, None, 2, 2),
                 (Id, Some("b"), 2, 2),
+                (Dot, None, 2, 2),
+                (Id, Some("size"), 2, 2),
+                (ParenOpen, None, 2, 2),
+                (ParenClose, None, 2, 2),
                 (NewLineIndented, None, 3, 2),
                 (Id, Some("c"), 3, 2),
                 (NewLine, None, 4, 0),

@@ -40,6 +40,11 @@ mod parser {
             check_parsing_fails("1 + * 2");
         }
 
+        #[test]
+        fn missing_comma_in_import() {
+            check_parsing_fails("import foo bar");
+        }
+
         mod indentation {
             use super::*;
 
@@ -92,6 +97,25 @@ x = |
     | x + y
 ";
                 check_parsing_fails(source);
+            }
+        }
+
+        mod functions {
+            use super::*;
+
+            #[test]
+            fn self_not_in_first_position() {
+                check_parsing_fails("f = |x, self| x");
+            }
+
+            #[test]
+            fn varargs_not_in_last_position() {
+                check_parsing_fails("f = |x..., y| x");
+            }
+
+            #[test]
+            fn varargs_on_wildcard() {
+                check_parsing_fails("f = |x, _...| x");
             }
         }
 

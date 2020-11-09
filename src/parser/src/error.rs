@@ -79,12 +79,14 @@ pub enum SyntaxError {
     ExpectedWhileCondition,
     ImportFromExpressionHasTooManyItems,
     LexerError,
+    SelfArgNotInFirstPosition,
     TooManyNum2Terms,
     TooManyNum4Terms,
     UnexpectedEscapeInString,
     UnexpectedIndentation,
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
+    UnexpectedTokenInImportExpression,
 }
 
 #[derive(Clone, Debug)]
@@ -246,12 +248,16 @@ impl fmt::Display for SyntaxError {
                 f.write_str("Too many items listed after 'from' in import expression")
             }
             LexerError => f.write_str("Found an unexpected token while lexing input"),
+            SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
             UnexpectedIndentation => f.write_str("Unexpected indentation level"),
             UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
+            UnexpectedTokenInImportExpression => {
+                f.write_str("Unexpected token in import expression")
+            }
         }
     }
 }

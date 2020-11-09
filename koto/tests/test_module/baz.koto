@@ -1,7 +1,7 @@
 # This file is imported by main.koto
 
 # std modules should be available to import
-import number.pi test.assert_eq
+import number.pi, test.assert_eq
 assert_eq pi pi
 
 export qux = ()

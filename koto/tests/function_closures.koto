@@ -13,7 +13,7 @@ export tests =
       (2, 4, 6, 8)
 
   test_outer_value_captured_in_nested_function: ||
-    capture_test = |a b c|
+    capture_test = |a, b, c|
       inner = ||
         inner2 = |x|
           x + b + c

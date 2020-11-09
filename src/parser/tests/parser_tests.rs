@@ -577,6 +577,23 @@ num4
                 None,
             )
         }
+
+        #[test]
+        fn single_entry_tuple() {
+            let source = "(1,)";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Tuple(vec![0]),
+                    MainBlock {
+                        body: vec![1],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
     }
 
     mod assignment {
@@ -1511,6 +1528,8 @@ a()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1535,7 +1554,7 @@ a()";
 
         #[test]
         fn inline_two_args() {
-            let source = "|x y| x + y";
+            let source = "|x, y| x + y";
             check_ast(
                 source,
                 &[
@@ -1551,6 +1570,8 @@ a()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -1559,6 +1580,44 @@ a()";
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn inline_var_args() {
+            let source = "|x, y...| x + y.size()";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(2), Some(2))),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 0,
+                        rhs: 4,
+                    }, // 5
+                    Function(koto_parser::Function {
+                        args: vec![Some(0), Some(1)],
+                        local_count: 2,
+                        accessed_non_locals: vec![],
+                        body: 5,
+                        is_instance_function: false,
+                        is_variadic: true,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("size"),
+                ]),
             )
         }
 
@@ -1607,6 +1666,8 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 10,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1656,6 +1717,8 @@ f 42";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1678,6 +1741,8 @@ f 42";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1810,7 +1875,7 @@ f x";
 
         #[test]
         fn instance_function() {
-            let source = "{foo: 42, bar: |self x| self.foo = x}";
+            let source = "{foo: 42, bar: |self, x| self.foo = x}";
             check_ast(
                 source,
                 &[
@@ -1832,6 +1897,8 @@ f x";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 5,
+                        is_instance_function: true,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
@@ -1871,6 +1938,8 @@ f = ||
                         local_count: 0,
                         accessed_non_locals: vec![2],
                         body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -1900,7 +1969,7 @@ f = ||
             let source = "
 f = ||
   foo: 42
-  bar: |self x| self.foo = x
+  bar: |self, x| self.foo = x
 f()";
             check_ast(
                 source,
@@ -1924,6 +1993,8 @@ f()";
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 6,
+                        is_instance_function: true,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
@@ -1933,6 +2004,8 @@ f()";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2013,6 +2086,8 @@ f 1
                         local_count: 2,
                         accessed_non_locals: vec![],
                         body: 11,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2061,6 +2136,8 @@ f 1
                         local_count: 3,
                         accessed_non_locals: vec![],
                         body: 26,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
@@ -2113,6 +2190,8 @@ f 1
                         local_count: 0,
                         accessed_non_locals: vec![0], // initial read of x via capture
                         body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     MainBlock {
@@ -2154,6 +2233,8 @@ y z";
                         local_count: 1,
                         accessed_non_locals: vec![],
                         body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: false,
                     }),
                     Call {
@@ -2201,6 +2282,8 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 1,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
@@ -2227,6 +2310,8 @@ y z";
                         local_count: 0,
                         accessed_non_locals: vec![],
                         body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
                         is_generator: true,
                     }),
                     MainBlock {
@@ -2825,7 +2910,30 @@ assert_eq (type true) \"bool\"
 
         #[test]
         fn import_items() {
-            let source = "from foo import bar baz";
+            let source = "import foo, bar, baz";
+            check_ast(
+                source,
+                &[
+                    Import {
+                        from: vec![],
+                        items: vec![vec![0], vec![1], vec![2]],
+                    },
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 3,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn import_items_from() {
+            let source = "from foo import bar, baz";
             check_ast(
                 source,
                 &[
@@ -2848,7 +2956,7 @@ assert_eq (type true) \"bool\"
 
         #[test]
         fn import_nested_items() {
-            let source = "from foo.bar import abc.def xyz";
+            let source = "from foo.bar import abc.def, xyz";
             check_ast(
                 source,
                 &[
@@ -2983,7 +3091,7 @@ finally
             let source = r#"
 x = match y
   0 or 1 then 42
-  "foo" or ["bar"] then 99
+  "foo" or "bar" then 99
   "baz" then break
   z if z < 10
     123
@@ -2999,20 +3107,19 @@ x = match y
                     Number(2),
                     Str(3), // 5
                     Str(4),
-                    List(vec![6]),
                     Number(5),
                     Str(6),
-                    Break, // 10
-                    Id(7),
+                    Break,
+                    Id(7), // 10
                     Id(7),
                     Number(8),
                     BinaryOp {
                         op: AstOp::Less,
-                        lhs: 12,
-                        rhs: 13,
+                        lhs: 11,
+                        rhs: 12,
                     },
-                    Number(9), // 15
-                    Id(7),
+                    Number(9),
+                    Id(7), // 15
                     Number(10),
                     Match {
                         expression: 1,
@@ -3023,24 +3130,24 @@ x = match y
                                 expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![5, 7],
+                                patterns: vec![5, 6],
                                 condition: None,
-                                expression: 8,
+                                expression: 7,
                             },
                             MatchArm {
-                                patterns: vec![9],
+                                patterns: vec![8],
                                 condition: None,
-                                expression: 10,
+                                expression: 9,
                             },
                             MatchArm {
-                                patterns: vec![11],
-                                condition: Some(14),
-                                expression: 15,
+                                patterns: vec![10],
+                                condition: Some(13),
+                                expression: 14,
                             },
                             MatchArm {
-                                patterns: vec![16],
+                                patterns: vec![15],
                                 condition: None,
-                                expression: 17,
+                                expression: 16,
                             },
                         ],
                     },
@@ -3050,10 +3157,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 18,
+                        expression: 17,
                     },
                     MainBlock {
-                        body: vec![19],
+                        body: vec![18],
                         local_count: 2,
                     },
                 ],

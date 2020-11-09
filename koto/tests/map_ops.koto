@@ -1,5 +1,5 @@
 import map
-from test import assert assert_eq
+from test import assert, assert_eq
 
 export tests =
   test_is_empty: ||
@@ -52,13 +52,13 @@ export tests =
 
   test_keys: ||
     m = {foo: 42}
-    assert_eq m.keys().to_list() ["foo"]
+    assert_eq m.keys().to_tuple() ("foo",)
     m.insert 0 "zero"
-    assert_eq m.keys().to_list() ["foo", 0]
+    assert_eq m.keys().to_tuple() ("foo", 0)
 
   test_values: ||
     m = {foo: 42, bar: "O_o"}
-    assert_eq m.values().to_list() [42, "O_o"]
+    assert_eq m.values().to_tuple() (42, "O_o")
 
   test_remove: ||
     m = {foo: 42, bar: 99}
