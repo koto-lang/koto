@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ValueString {
     string: Arc<str>,
     bounds: Range<usize>,
@@ -75,6 +75,12 @@ impl From<&str> for ValueString {
 impl From<String> for ValueString {
     fn from(s: String) -> Self {
         Self::new(s.into())
+    }
+}
+
+impl fmt::Debug for ValueString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ValueString(bounds: {:?}, string: \"{}\")", self.bounds, self.as_str())
     }
 }
 
