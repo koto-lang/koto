@@ -301,13 +301,13 @@ impl FunctionFlags {
     pub fn as_byte(&self) -> u8 {
         let mut result = 0;
         if self.instance_function {
-            result = result | Self::INSTANCE;
+            result |= Self::INSTANCE;
         }
         if self.variadic {
-            result = result | Self::VARIADIC;
+            result |= Self::VARIADIC;
         }
         if self.generator {
-            result = result | Self::GENERATOR;
+            result |= Self::GENERATOR;
         }
         result
     }
