@@ -469,38 +469,11 @@ impl Compiler {
                 None
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
-            Node::Tuple(expressions) => {
-                let result = self.get_result_register(result_register)?;
-                let stack_count = self.frame().register_stack.len();
-
-                for expression in expressions.iter() {
-                    let expression_register = self.push_register()?;
-                    self.compile_node(
-                        ResultRegister::Fixed(expression_register),
-                        ast.node(*expression),
-                        ast,
-                    )?;
-                }
-
-                let result = if let Some(result) = result {
-                    let start_register = self.peek_register(expressions.len() - 1)?;
-
-                    self.push_op(
-                        MakeTuple,
-                        &[
-                            result.register,
-                            start_register as u8,
-                            expressions.len() as u8,
-                        ],
-                    );
-
-                    Some(result)
-                } else {
-                    None
-                };
-
-                self.truncate_register_stack(stack_count)?;
-                result
+            Node::Tuple(elements) => {
+                self.compile_make_tuple(result_register, elements, false, ast)?
+            }
+            Node::TempTuple(elements) => {
+                self.compile_make_tuple(result_register, elements, true, ast)?
             }
             Node::CopyExpression(expression) => {
                 self.compile_source_target_op(DeepCopy, result_register, *expression, ast)?
@@ -563,7 +536,7 @@ impl Compiler {
                 targets,
                 expressions,
             } => match &ast.node(*expressions).node {
-                Node::Tuple(expressions) => {
+                Node::TempTuple(expressions) => {
                     self.compile_multi_assign(result_register, targets, &expressions, ast)?
                 }
                 _ => self.compile_multi_assign(result_register, targets, &[*expressions], ast)?,
@@ -1688,6 +1661,50 @@ impl Compiler {
         Ok(result)
     }
 
+    fn compile_make_tuple(
+        &mut self,
+        result_register: ResultRegister,
+        elements: &[AstIndex],
+        temp_tuple: bool,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+        let stack_count = self.frame().register_stack.len();
+
+        for element in elements.iter() {
+            let element_register = self.push_register()?;
+            self.compile_node(
+                ResultRegister::Fixed(element_register),
+                ast.node(*element),
+                ast,
+            )?;
+        }
+
+        let result = if let Some(result) = result {
+            let start_register = self.peek_register(elements.len() - 1)?;
+
+            if temp_tuple {
+                self.push_op(
+                    Op::MakeTempTuple,
+                    &[result.register, start_register as u8, elements.len() as u8],
+                );
+            // If we're making a temp tuple then the registers need to be kept around
+            } else {
+                self.push_op(
+                    Op::MakeTuple,
+                    &[result.register, start_register as u8, elements.len() as u8],
+                );
+                self.truncate_register_stack(stack_count)?;
+            }
+
+            Some(result)
+        } else {
+            None
+        };
+
+        Ok(result)
+    }
+
     fn compile_make_list(
         &mut self,
         result_register: ResultRegister,
@@ -2308,6 +2325,7 @@ impl Compiler {
 
             let patterns = match &ast.node(*arm_pattern).node {
                 Node::Tuple(patterns) => patterns.clone(),
+                Node::TempTuple(patterns) => patterns.clone(),
                 _ => vec![*arm_pattern],
             };
 

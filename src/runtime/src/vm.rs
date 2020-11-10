@@ -332,7 +332,14 @@ impl Vm {
                 return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
-                let value = self.clone_register(source);
+                let value = match self.clone_register(source) {
+                    Value::TemporaryTuple(RegisterSlice { start, count }) => {
+                        // A temporary tuple shouldn't make it into a named value,
+                        // so here it gets converted into a regular tuple.
+                        Value::Tuple(self.register_slice(start, count).into())
+                    }
+                    other => other,
+                };
                 self.set_register(target, value);
             }
             Instruction::DeepCopy { target, source } => {
@@ -393,6 +400,13 @@ impl Vm {
                     copied.push(self.get_register(register).clone());
                 }
                 self.set_register(register, Tuple(copied.into()));
+            }
+            Instruction::MakeTempTuple {
+                register,
+                start,
+                count,
+            } => {
+                self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
             }
             Instruction::MakeList {
                 register,

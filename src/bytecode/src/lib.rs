@@ -30,6 +30,7 @@ pub enum Op {
     Import,           // register, constant
     ImportLong,       // register, constant[4]
     MakeTuple,        // register, start register, count
+    MakeTempTuple,    // register, start register, count
     MakeList,         // register, size hint
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint
@@ -84,7 +85,6 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused72,
     Unused73,
     Unused74,
     Unused75,

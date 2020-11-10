@@ -18,6 +18,7 @@ pub enum Node {
     Num4(Vec<AstIndex>),
     List(Vec<AstIndex>),
     Tuple(Vec<AstIndex>),
+    TempTuple(Vec<AstIndex>),
     Range {
         start: AstIndex,
         end: AstIndex,
@@ -116,6 +117,7 @@ impl fmt::Display for Node {
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
             Tuple(_) => write!(f, "Tuple"),
+            TempTuple(_) => write!(f, "TempTuple"),
             Range { .. } => write!(f, "Range"),
             RangeFrom { .. } => write!(f, "RangeFrom"),
             RangeTo { .. } => write!(f, "RangeTo"),

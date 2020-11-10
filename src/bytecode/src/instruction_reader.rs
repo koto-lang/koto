@@ -52,6 +52,11 @@ pub enum Instruction {
         start: u8,
         count: u8,
     },
+    MakeTempTuple {
+        register: u8,
+        start: u8,
+        count: u8,
+    },
     MakeList {
         register: u8,
         size_hint: usize,
@@ -294,6 +299,7 @@ impl fmt::Display for Instruction {
             SetGlobal { .. } => write!(f, "SetGlobal"),
             Import { .. } => write!(f, "Import"),
             MakeTuple { .. } => write!(f, "MakeTuple"),
+            MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
             MakeList { .. } => write!(f, "MakeList"),
             MakeMap { .. } => write!(f, "MakeMap"),
             MakeNum2 { .. } => write!(f, "MakeNum2"),
@@ -393,6 +399,15 @@ impl fmt::Debug for Instruction {
                 "MakeTuple\tresult: {}\tstart: {}\tcount: {}",
                 register, start, count
             ),
+            MakeTempTuple {
+                register,
+                start,
+                count,
+            } => write!(
+                f,
+                "MakeTempTuple\tresult: {}\tstart: {}\tcount: {}",
+                register, start, count
+            ),
             MakeList {
                 register,
                 size_hint,
@@ -468,8 +483,9 @@ impl fmt::Debug for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\n\t\t\tinstance: {}\tvariadic: {}\tgenerator: {}\tsize: {}",
-                register, arg_count, capture_count, instance_function, variadic, generator, size,
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\n\
+                     \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
+                register, arg_count, capture_count, size, instance_function, variadic, generator,
             ),
             Capture {
                 function,
@@ -824,6 +840,11 @@ impl Iterator for InstructionReader {
                 constant: get_u32!() as ConstantIndex,
             }),
             Op::MakeTuple => Some(MakeTuple {
+                register: get_byte!(),
+                start: get_byte!(),
+                count: get_byte!(),
+            }),
+            Op::MakeTempTuple => Some(MakeTempTuple {
                 register: get_byte!(),
                 start: get_byte!(),
                 count: get_byte!(),

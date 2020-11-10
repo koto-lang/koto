@@ -730,7 +730,7 @@ num4
                     Lookup((LookupNode::Root(1), Some(3))),
                     Number1, // 5
                     Number0,
-                    Tuple(vec![5, 6]),
+                    TempTuple(vec![5, 6]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -767,7 +767,7 @@ x";
                     Id(1),
                     Number1,
                     Number0,
-                    Tuple(vec![2, 3]),
+                    TempTuple(vec![2, 3]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -1348,10 +1348,10 @@ a";
                     BoolTrue,
                     Number0,
                     Number1,
-                    Tuple(vec![3, 4]), // 5
+                    TempTuple(vec![3, 4]), // 5
                     Number1,
                     Number0,
-                    Tuple(vec![6, 7]),
+                    TempTuple(vec![6, 7]),
                     If(AstIf {
                         condition: 2,
                         then_node: 5,
@@ -1870,6 +1870,106 @@ f x";
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn recursive_call() {
+            let source = "f = |x| f x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 1,
+                        args: vec![2],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(1)],
+                        local_count: 1,
+                        accessed_non_locals: vec![0],
+                        body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn recursive_calls_multi_assign() {
+            let source = "f, g = (|x| f x), (|x| g x)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(2)],
+                        local_count: 1,
+                        accessed_non_locals: vec![0],
+                        body: 4,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }), // 5
+                    Id(1),
+                    Id(2),
+                    Call {
+                        function: 6,
+                        args: vec![7],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(2)],
+                        local_count: 1,
+                        accessed_non_locals: vec![1],
+                        body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    TempTuple(vec![5, 9]), // 10
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 1,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 10,
+                    },
+                    MainBlock {
+                        body: vec![11],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("g"), Constant::Str("x")]),
             )
         }
 
@@ -3194,18 +3294,18 @@ match x, y
                 &[
                     Id(0),
                     Id(1),
-                    Tuple(vec![0, 1]),
+                    TempTuple(vec![0, 1]),
                     Number0,
                     Number1,
-                    Tuple(vec![3, 4]), // 5
+                    TempTuple(vec![3, 4]), // 5
                     Number(2),
                     Number(3),
-                    Tuple(vec![6, 7]),
+                    TempTuple(vec![6, 7]),
                     Id(4),
                     Number0, // 10
                     Id(5),
                     Empty,
-                    Tuple(vec![11, 12]),
+                    TempTuple(vec![11, 12]),
                     Id(5),
                     Wildcard, // 15
                     Number0,

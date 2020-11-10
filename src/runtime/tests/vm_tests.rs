@@ -807,7 +807,9 @@ fib 4
         #[test]
         fn recursive_call_via_multi_assign() {
             let script = "
-f, g = (|n| if n == 0 then 1 else f n - 1), (|n| if n == 0 then 2 else g n - 1)
+f, g =
+  (|n| if n == 0 then 1 else f n - 1),
+  (|n| if n == 0 then 2 else g n - 1)
 f 4, g 4
 ";
             test_script(script, number_tuple(&[1, 2]));
