@@ -846,7 +846,10 @@ impl Compiler {
         }
         .unwrap();
 
-        match &ast.node(target.target_index).node {
+        let target_node = ast.node(target.target_index);
+        self.span_stack.push(*ast.span(target_node.span));
+
+        match &target_node.node {
             Node::Id(id_index) => {
                 match self.scope_for_assign_target(target) {
                     Scope::Local => {
@@ -891,6 +894,8 @@ impl Compiler {
             ResultRegister::Any => Some(value_register),
             ResultRegister::None => None,
         };
+
+        self.span_stack.pop();
 
         Ok(result)
     }
