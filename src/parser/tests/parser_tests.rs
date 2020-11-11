@@ -3187,14 +3187,10 @@ finally
         use super::*;
 
         #[test]
-        fn match_single_expression() {
+        fn assign_from_match_with_alternative_patterns() {
             let source = r#"
 x = match y
   0 or 1 then 42
-  "foo" or "bar" then 99
-  "baz" then break
-  z if z < 10
-    123
   z then -1
 "#;
             check_ast(
@@ -3205,22 +3201,8 @@ x = match y
                     Number0,
                     Number1,
                     Number(2),
-                    Str(3), // 5
-                    Str(4),
-                    Number(5),
-                    Str(6),
-                    Break,
-                    Id(7), // 10
-                    Id(7),
-                    Number(8),
-                    BinaryOp {
-                        op: AstOp::Less,
-                        lhs: 11,
-                        rhs: 12,
-                    },
-                    Number(9),
-                    Id(7), // 15
-                    Number(10),
+                    Id(3), // 5
+                    Number(4),
                     Match {
                         expression: 1,
                         arms: vec![
@@ -3230,24 +3212,9 @@ x = match y
                                 expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![5, 6],
+                                patterns: vec![5],
                                 condition: None,
-                                expression: 7,
-                            },
-                            MatchArm {
-                                patterns: vec![8],
-                                condition: None,
-                                expression: 9,
-                            },
-                            MatchArm {
-                                patterns: vec![10],
-                                condition: Some(13),
-                                expression: 14,
-                            },
-                            MatchArm {
-                                patterns: vec![15],
-                                condition: None,
-                                expression: 16,
+                                expression: 6,
                             },
                         ],
                     },
@@ -3257,10 +3224,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 17,
+                        expression: 7,
                     },
                     MainBlock {
-                        body: vec![18],
+                        body: vec![8],
                         local_count: 2,
                     },
                 ],
@@ -3268,14 +3235,122 @@ x = match y
                     Constant::Str("x"),
                     Constant::Str("y"),
                     Constant::Number(42.0),
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Number(99.0), // 5
-                    Constant::Str("baz"),
                     Constant::Str("z"),
+                    Constant::Number(-1.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_string_literals() {
+            let source = r#"
+match x
+  "foo" then 99
+  "bar" or "baz" then break
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Str(1),
+                    Number(2),
+                    Str(3),
+                    Str(4),
+                    Break, // 5
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![1],
+                                condition: None,
+                                expression: 2,
+                            },
+                            MatchArm {
+                                patterns: vec![3, 4],
+                                condition: None,
+                                expression: 5,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Number(99.0), // 5
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_with_conditions_and_block() {
+            let source = r#"
+match x
+  z if z > 5 then 0
+  z if z < 10
+    1
+  z then -1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(1),
+                    Number(2),
+                    BinaryOp {
+                        op: AstOp::Greater,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    Number0, // 5
+                    Id(1),
+                    Id(1),
+                    Number(3),
+                    BinaryOp {
+                        op: AstOp::Less,
+                        lhs: 7,
+                        rhs: 8,
+                    },
+                    Number1, // 10
+                    Id(1),
+                    Number(4),
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![1],
+                                condition: Some(4),
+                                expression: 5,
+                            },
+                            MatchArm {
+                                patterns: vec![6],
+                                condition: Some(9),
+                                expression: 10,
+                            },
+                            MatchArm {
+                                patterns: vec![11],
+                                condition: None,
+                                expression: 12,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![13],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("z"),
+                    Constant::Number(5.0),
                     Constant::Number(10.0),
-                    Constant::Number(123.0),
-                    Constant::Number(-1.0), // 10
+                    Constant::Number(-1.0),
                 ]),
             )
         }
