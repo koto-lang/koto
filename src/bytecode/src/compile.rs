@@ -2274,7 +2274,7 @@ impl Compiler {
     fn compile_match(
         &mut self,
         result_register: ResultRegister,
-        expression: AstIndex,
+        match_expression: AstIndex,
         arms: &[MatchArm],
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2282,18 +2282,29 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
+        let match_node = ast.node(match_expression);
         let match_register = self
-            .compile_node(ResultRegister::Any, ast.node(expression), ast)?
+            .compile_node(ResultRegister::Any, match_node, ast)?
             .unwrap();
+
+        let match_len = match &match_node.node {
+            Node::TempTuple(expressions) => expressions.len(),
+            _ => 1,
+        };
 
         let mut result_jump_placeholders = Vec::new();
 
         for (arm_index, arm) in arms.iter().enumerate() {
             let is_last_arm = arm_index == arms.len() - 1;
 
-            if let Some(placeholder) =
-                self.compile_match_arm(result, match_register.register, arm, is_last_arm, ast)?
-            {
+            if let Some(placeholder) = self.compile_match_arm(
+                result,
+                match_register.register,
+                match_len,
+                arm,
+                is_last_arm,
+                ast,
+            )? {
                 result_jump_placeholders.push(placeholder);
             }
         }
@@ -2311,6 +2322,7 @@ impl Compiler {
         &mut self,
         result: Option<CompileResult>,
         match_register: u8,
+        match_len: usize,
         arm: &MatchArm,
         is_last_arm: bool,
         ast: &Ast,
@@ -2329,10 +2341,22 @@ impl Compiler {
             let mut alternative_end_jump_placeholders = Vec::new();
 
             let patterns = match &ast.node(*arm_pattern).node {
-                Node::Tuple(patterns) => patterns.clone(),
                 Node::TempTuple(patterns) => patterns.clone(),
                 _ => vec![*arm_pattern],
             };
+
+            match patterns.as_slice() {
+                [single] if matches!(ast.node(*single).node, Node::Wildcard) => {}
+                _ if patterns.len() != match_len => {
+                    return compiler_error!(
+                        self,
+                        "Expected {} patterns in match arm, found {}",
+                        match_len,
+                        patterns.len()
+                    );
+                }
+                _ => {}
+            }
 
             self.compile_match_arm_patterns(
                 match_register,

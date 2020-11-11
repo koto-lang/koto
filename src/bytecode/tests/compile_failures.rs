@@ -25,13 +25,14 @@ x = 1 + _
             check_compilation_fails(source);
         }
 
-        // #[test]
-        // fn for_loop_insufficient_args() {
-        //     let source = "
-// for x in a, b
-  // x
-// ";
-        //     check_compilation_fails(source);
-        // }
+        #[test]
+        fn match_insufficient_patterns() {
+            let source = "
+match 0, 1
+  x then x
+";
+            check_compilation_fails(source);
+        }
+
     }
 }
