@@ -2287,11 +2287,6 @@ impl Compiler {
             .compile_node(ResultRegister::Any, match_node, ast)?
             .unwrap();
 
-        let match_len = match &match_node.node {
-            Node::TempTuple(expressions) => expressions.len(),
-            _ => 1,
-        };
-
         let mut result_jump_placeholders = Vec::new();
 
         for (arm_index, arm) in arms.iter().enumerate() {
@@ -2300,7 +2295,7 @@ impl Compiler {
             if let Some(placeholder) = self.compile_match_arm(
                 result,
                 match_register.register,
-                match_len,
+                &match_node,
                 arm,
                 is_last_arm,
                 ast,
@@ -2322,7 +2317,7 @@ impl Compiler {
         &mut self,
         result: Option<CompileResult>,
         match_register: u8,
-        match_len: usize,
+        match_node: &AstNode,
         arm: &MatchArm,
         is_last_arm: bool,
         ast: &Ast,
@@ -2333,6 +2328,11 @@ impl Compiler {
         // used after a successful match to skip over remaining alternatives
         let mut match_end_jump_placeholders = Vec::new();
 
+        let match_len = match &match_node.node {
+            Node::TempTuple(expressions) => expressions.len(),
+            _ => 1,
+        };
+
         for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
             let is_last_alternative = alternative_index == arm.patterns.len() - 1;
 
@@ -2340,37 +2340,85 @@ impl Compiler {
             // used to attempt matching on the next alternative
             let mut alternative_end_jump_placeholders = Vec::new();
 
-            let patterns = match &ast.node(*arm_pattern).node {
-                Node::TempTuple(patterns) => patterns.clone(),
-                _ => vec![*arm_pattern],
+            let arm_node = ast.node(*arm_pattern);
+
+            self.span_stack.push(*ast.span(arm_node.span));
+
+            let patterns = match &arm_node.node {
+                Node::TempTuple(patterns) => {
+                    if patterns.len() != match_len {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found {}",
+                            match_len,
+                            patterns.len()
+                        );
+                    }
+
+                    Some(patterns.clone())
+                }
+                Node::List(patterns) | Node::Tuple(patterns) => {
+                    if match_len != 1 {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found 1",
+                            match_len,
+                        );
+                    }
+
+                    let type_check_op = if matches!(arm_node.node, Node::List(_)) {
+                        Op::IsList
+                    } else {
+                        Op::IsTuple
+                    };
+                    self.compile_nested_match_arm_patterns(
+                        match_register,
+                        None, // pattern index
+                        patterns,
+                        type_check_op,
+                        is_last_alternative,
+                        true, // has_last_pattern
+                        &mut arm_end_jump_placeholders,
+                        &mut match_end_jump_placeholders,
+                        &mut alternative_end_jump_placeholders,
+                        ast,
+                    )?;
+
+                    None
+                }
+                Node::Wildcard => Some(vec![*arm_pattern]),
+                _ => {
+                    if match_len != 1 {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found 1",
+                            match_len,
+                        );
+                    }
+                    Some(vec![*arm_pattern])
+                }
             };
 
-            match patterns.as_slice() {
-                [single] if matches!(ast.node(*single).node, Node::Wildcard) => {}
-                _ if patterns.len() != match_len => {
-                    return compiler_error!(
-                        self,
-                        "Expected {} patterns in match arm, found {}",
-                        match_len,
-                        patterns.len()
-                    );
-                }
-                _ => {}
+            if let Some(patterns) = patterns {
+                // Check that the number of patterns is correct
+                self.compile_match_arm_patterns(
+                    match_register,
+                    patterns.len() > 1, // match_is_container
+                    &patterns,
+                    is_last_alternative,
+                    true, // has_last_pattern
+                    &mut arm_end_jump_placeholders,
+                    &mut match_end_jump_placeholders,
+                    &mut alternative_end_jump_placeholders,
+                    ast,
+                )?;
             }
-
-            self.compile_match_arm_patterns(
-                match_register,
-                &patterns,
-                is_last_alternative,
-                &mut arm_end_jump_placeholders,
-                &mut match_end_jump_placeholders,
-                &mut alternative_end_jump_placeholders,
-                ast,
-            )?;
 
             for jump_placeholder in alternative_end_jump_placeholders.iter() {
                 self.update_offset_placeholder(*jump_placeholder);
             }
+
+            self.span_stack.pop();
         }
 
         // Update the match end jump placeholders before the condition
@@ -2419,8 +2467,10 @@ impl Compiler {
     fn compile_match_arm_patterns(
         &mut self,
         match_register: u8,
+        match_is_container: bool,
         arm_patterns: &[AstIndex],
         is_last_alternative: bool,
+        has_last_pattern: bool, // false for nested matches that are not at the end of the pattern
         arm_end_jump_placeholders: &mut Vec<usize>,
         match_end_jump_placeholders: &mut Vec<usize>,
         alternative_end_jump_placeholders: &mut Vec<usize>,
@@ -2433,7 +2483,7 @@ impl Compiler {
             let pattern_index = pattern_index as u8;
             let pattern_node = ast.node(*pattern);
 
-            match pattern_node.node {
+            match &pattern_node.node {
                 Node::Empty
                 | Node::BoolTrue
                 | Node::BoolFalse
@@ -2445,32 +2495,29 @@ impl Compiler {
                     self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;
                     let comparison = self.push_register()?;
 
-                    if arm_patterns.len() == 1 {
-                        self.push_op_without_span(Equal, &[comparison, pattern, match_register]);
-                    } else {
+                    if match_is_container {
                         let element = self.push_register()?;
-                        self.push_op_without_span(
-                            ValueIndex,
-                            &[element, match_register, pattern_index],
-                        );
-                        self.push_op_without_span(Equal, &[comparison, pattern, element]);
+                        self.push_op(ValueIndex, &[element, match_register, pattern_index]);
+                        self.push_op(Equal, &[comparison, pattern, element]);
                         self.pop_register()?; // element
+                    } else {
+                        self.push_op(Equal, &[comparison, pattern, match_register]);
                     }
 
                     if is_last_alternative {
                         // If there's no match on the last alternative,
                         // then jump to the end of the arm
-                        self.push_op_without_span(JumpFalse, &[comparison]);
+                        self.push_op(JumpFalse, &[comparison]);
                         arm_end_jump_placeholders.push(self.push_offset_placeholder());
-                    } else if is_last_pattern {
+                    } else if has_last_pattern && is_last_pattern {
                         // If there's a match with remaining alternative matches,
                         // then jump to the end of the alternatives
-                        self.push_op_without_span(JumpTrue, &[comparison]);
+                        self.push_op(JumpTrue, &[comparison]);
                         match_end_jump_placeholders.push(self.push_offset_placeholder());
                     } else {
                         // If there's no match but there remaining alternative matches,
                         // then jump to the next alternative
-                        self.push_op_without_span(JumpFalse, &[comparison]);
+                        self.push_op(JumpFalse, &[comparison]);
                         alternative_end_jump_placeholders.push(self.push_offset_placeholder());
                     }
 
@@ -2478,23 +2525,19 @@ impl Compiler {
                     self.pop_register()?; // pattern_register
                 }
                 Node::Id(id) => {
-                    self.span_stack.push(*ast.span(pattern_node.span));
-
-                    let id_register = self.assign_local_register(id)?;
-                    if arm_patterns.len() == 1 {
-                        self.push_op(Copy, &[id_register, match_register]);
-                    } else {
+                    let id_register = self.assign_local_register(*id)?;
+                    if match_is_container {
                         self.push_op(ValueIndex, &[id_register, match_register, pattern_index]);
+                    } else {
+                        self.push_op(Copy, &[id_register, match_register]);
                     }
 
                     if is_last_pattern && !is_last_alternative {
                         // Ids match unconditionally, so if we're at the end of a
                         // multi-expression pattern, skip over the remaining alternatives
-                        self.push_op_without_span(Jump, &[]);
+                        self.push_op(Jump, &[]);
                         match_end_jump_placeholders.push(self.push_offset_placeholder());
                     }
-
-                    self.span_stack.pop();
                 }
                 Node::Wildcard => {
                     if is_last_pattern && !is_last_alternative {
@@ -2502,14 +2545,108 @@ impl Compiler {
                         // multi-expression pattern, skip over the remaining alternatives
                         // e.g. x, 0, _ or x, 1, y if foo x then
                         //            ^~~~~~~ We're here, jump to the if condition
-                        self.push_op_without_span(Jump, &[]);
+                        self.push_op(Jump, &[]);
                         match_end_jump_placeholders.push(self.push_offset_placeholder());
                     }
+                }
+                Node::List(patterns) | Node::Tuple(patterns) => {
+                    let type_check_op = if matches!(pattern_node.node, Node::List(_)) {
+                        IsList
+                    } else {
+                        IsTuple
+                    };
+                    self.compile_nested_match_arm_patterns(
+                        match_register,
+                        Some(pattern_index),
+                        patterns,
+                        type_check_op,
+                        is_last_alternative,
+                        is_last_pattern,
+                        arm_end_jump_placeholders,
+                        match_end_jump_placeholders,
+                        alternative_end_jump_placeholders,
+                        ast,
+                    )?;
                 }
                 _ => {
                     return compiler_error!(self, "Internal error: invalid match pattern");
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_nested_match_arm_patterns(
+        &mut self,
+        match_register: u8,
+        pattern_index: Option<u8>,
+        nested_patterns: &[AstIndex],
+        type_check_op: Op,
+        is_last_alternative: bool,
+        is_last_pattern: bool,
+        arm_end_jump_placeholders: &mut Vec<usize>,
+        match_end_jump_placeholders: &mut Vec<usize>,
+        alternative_end_jump_placeholders: &mut Vec<usize>,
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        use Op::*;
+
+        let value_register = if let Some(pattern_index) = pattern_index {
+            // Place the nested container into a register
+            let value_register = self.push_register()?;
+            self.push_op(ValueIndex, &[value_register, match_register, pattern_index]);
+            value_register
+        } else {
+            match_register
+        };
+
+        let temp_register = self.push_register()?;
+
+        // Check that the container has the correct type
+        self.push_op(type_check_op, &[temp_register, value_register]);
+        self.push_op(JumpFalse, &[temp_register]);
+        // If the container has the wrong type, jump to the next match patterns
+        if is_last_alternative {
+            arm_end_jump_placeholders.push(self.push_offset_placeholder());
+        } else {
+            alternative_end_jump_placeholders.push(self.push_offset_placeholder());
+        }
+
+        // Check that the container has the correct size
+        let expected_register = self.push_register()?;
+        self.push_op(Size, &[temp_register, value_register]);
+        self.push_op(
+            SetNumberU8,
+            &[expected_register, nested_patterns.len() as u8],
+        );
+        self.push_op(Equal, &[temp_register, temp_register, expected_register]);
+        self.push_op(JumpFalse, &[temp_register]);
+        // If the sizes are not equal, jump to the next match patterns
+        if is_last_alternative {
+            arm_end_jump_placeholders.push(self.push_offset_placeholder());
+        } else {
+            alternative_end_jump_placeholders.push(self.push_offset_placeholder());
+        }
+        self.pop_register()?; // expected_register
+
+        self.pop_register()?; // temp_register
+
+        // Call compile_match_arm_patterns with the nested matches
+        self.compile_match_arm_patterns(
+            value_register,
+            true, // match_is_container
+            &nested_patterns,
+            is_last_alternative,
+            is_last_pattern,
+            arm_end_jump_placeholders,
+            match_end_jump_placeholders,
+            alternative_end_jump_placeholders,
+            ast,
+        )?;
+
+        if pattern_index.is_some() {
+            self.pop_register()?; // value_register
         }
 
         Ok(())

@@ -32,17 +32,20 @@ mod vm {
             Ok(Empty)
         });
 
-        let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None) {
-            Ok(chunk) => chunk,
-            Err(error) => panic!("{}", error),
-        };
-
         let print_chunk = |script: &str, chunk| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
             println!("{}", chunk_to_string_annotated(chunk, &script_lines));
+        };
+
+        let mut loader = Loader::default();
+        let chunk = match loader.compile_script(script, &None) {
+            Ok(chunk) => chunk,
+            Err(error) => {
+                print_chunk(script, vm.chunk());
+                panic!("Error while compiling script: {}", error);
+            }
         };
 
         match vm.run(chunk) {
@@ -646,6 +649,41 @@ match 42
   _ then 44
 ";
             test_script(script, Number(33.0));
+        }
+
+        #[test]
+        fn match_tuple() {
+            let script = "
+match (1, (2, 3), 4)
+  (1, (x, y), (p, (q, r))) then -1
+  (_, (a, b), _) then a + b
+  _ then 123
+";
+            test_script(script, Number(5.0));
+        }
+
+        #[test]
+        fn match_list() {
+            let script = "
+match [1, [2, 3], [4, 5, 6]]
+  (1, (2, 3), (4, 5, 6)) then -1 # Tuples don't match against lists
+  [1, [x, -1], [_, y, _]] then x + y
+  [1, [x, 3], [_, 5, y]] then x + y
+  _ then 123
+";
+            test_script(script, Number(8.0));
+        }
+
+        #[test]
+        fn match_list_single_entry() {
+            let script = "
+x = [0]
+match x
+  [0] or [1] then 123
+  [x, y] or [x, y, z] then 99
+  _ then -1
+";
+            test_script(script, Number(123.0));
         }
 
         #[test]

@@ -1857,12 +1857,12 @@ impl<'source> Parser<'source> {
     fn parse_match_pattern(&mut self) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        let result = match self.peek_next_token(&ExpressionContext::restricted()) {
-            Some((token, peek_count)) => match token {
-                True | False | Number | String => {
-                    return self.parse_term(&mut ExpressionContext::restricted())
-                }
-                Id => match self.parse_id(&mut ExpressionContext::restricted()) {
+        let mut pattern_context = ExpressionContext::restricted();
+
+        let result = match self.peek_next_token(&pattern_context) {
+            Some((token, _)) => match token {
+                True | False | Number | String => return self.parse_term(&mut pattern_context),
+                Id => match self.parse_id(&mut pattern_context) {
                     Some(id) => {
                         self.frame_mut()?.ids_assigned_in_scope.insert(id);
                         Some(self.push_node(Node::Id(id))?)
@@ -1873,19 +1873,52 @@ impl<'source> Parser<'source> {
                     self.consume_next_token_on_same_line();
                     Some(self.push_node(Node::Wildcard)?)
                 }
+                ListStart => {
+                    self.consume_next_token_on_same_line();
+
+                    let list_patterns = self.parse_nested_match_patterns()?;
+
+                    if self.consume_next_token_on_same_line() != Some(ListEnd) {
+                        return syntax_error!(ExpectedListEnd, self);
+                    }
+
+                    Some(self.push_node(Node::List(list_patterns))?)
+                }
                 ParenOpen => {
-                    if self.peek_token_n(peek_count + 1) == Some(ParenClose) {
-                        self.consume_next_token_on_same_line();
+                    self.consume_next_token_on_same_line();
+
+                    if self.peek_token() == Some(ParenClose) {
                         self.consume_token();
                         Some(self.push_node(Node::Empty)?)
                     } else {
-                        None
+                        let tuple_patterns = self.parse_nested_match_patterns()?;
+
+                        if self.consume_next_token_on_same_line() != Some(ParenClose) {
+                            return syntax_error!(ExpectedCloseParen, self);
+                        }
+
+                        Some(self.push_node(Node::Tuple(tuple_patterns))?)
                     }
                 }
                 _ => None,
             },
             None => None,
         };
+
+        Ok(result)
+    }
+
+    fn parse_nested_match_patterns(&mut self) -> Result<Vec<AstIndex>, ParserError> {
+        let mut result = vec![];
+
+        while let Some(pattern) = self.parse_match_pattern()? {
+            result.push(pattern);
+
+            if self.peek_next_token_on_same_line() != Some(Token::Comma) {
+                break;
+            }
+            self.consume_next_token_on_same_line();
+        }
 
         Ok(result)
     }

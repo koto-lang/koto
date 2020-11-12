@@ -19,6 +19,7 @@ pub enum Op {
     SetTrue,          // register
     Set0,             // register
     Set1,             // register
+    SetNumberU8,      // register, number
     LoadNumber,       // register, constant
     LoadNumberLong,   // register, constant[4]
     LoadString,       // register, constant
@@ -82,13 +83,12 @@ pub enum Op {
     MapAccess,        // register, map register, key
     MapAccessLong,    // register, map register, key[4]
     Type,             // register
+    IsList,          // register, value
+    IsTuple,          // register, value
+    Size,             // register, value
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused73,
-    Unused74,
-    Unused75,
-    Unused76,
     Unused77,
     Unused78,
     Unused79,

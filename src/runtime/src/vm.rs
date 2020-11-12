@@ -1012,8 +1012,23 @@ impl Vm {
             Instruction::Yield { register } => {
                 result = ControlFlow::Yield(self.get_register(register).clone());
             }
-            Instruction::Type { register, source } => {
-                let result = match self.get_register(source) {
+            Instruction::Size { register, value } => {
+                let result = match self.get_register(value) {
+                    List(l) => l.len(),
+                    Str(s) => s.len(),
+                    Tuple(t) => t.data().len(),
+                    TemporaryTuple(RegisterSlice{count,.. }) => *count as usize,
+                    Map(m) => m.len(),
+                    Num2(_) => 2,
+                    Num4(_) => 4,
+                    Range(IntRange{start, end}) => (end - start) as usize,
+                    _ => 1,
+                };
+
+                self.set_register(register, Number(result as f64));
+            }
+            Instruction::Type { register, value } => {
+                let result = match self.get_register(value) {
                     Bool(_) => "bool".to_string(),
                     Empty => "empty".to_string(),
                     Function(_) => "function".to_string(),
@@ -1026,6 +1041,7 @@ impl Vm {
                     Num4(_) => "num4".to_string(),
                     Range(_) => "range".to_string(),
                     Str(_) => "string".to_string(),
+                    Tuple(_) => "tuple".to_string(),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -1037,6 +1053,14 @@ impl Vm {
                 };
 
                 self.set_register(register, Str(result.into()));
+            }
+            Instruction::IsTuple {register, value} => {
+                let result = matches!(self.get_register(value), Tuple(_));
+                self.set_register(register, Bool(result));
+            }
+            Instruction::IsList {register, value} => {
+                let result = matches!(self.get_register(value), List(_));
+                self.set_register(register, Bool(result));
             }
             Instruction::IterNext {
                 register,

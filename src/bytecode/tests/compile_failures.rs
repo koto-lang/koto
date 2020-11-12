@@ -34,5 +34,13 @@ match 0, 1
             check_compilation_fails(source);
         }
 
+        #[test]
+        fn match_too_many_patterns() {
+            let source = "
+match 0
+  x, y then x + y
+";
+            check_compilation_fails(source);
+        }
     }
 }

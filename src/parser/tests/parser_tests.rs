@@ -3288,6 +3288,62 @@ match x
         }
 
         #[test]
+        fn match_tuple() {
+            let source = r#"
+match (x, y, z)
+  (0, a, _) then a
+  (_, (0, b), _) then 0
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Tuple(vec![0, 1, 2]),
+                    Number0,
+                    Id(3), // 5
+                    Wildcard,
+                    Tuple(vec![4, 5, 6]),
+                    Id(3),
+                    Wildcard,
+                    Number0, // 10
+                    Id(4),
+                    Tuple(vec![10, 11]),
+                    Wildcard,
+                    Tuple(vec![9, 12, 13]),
+                    Number0, // 15
+                    Match {
+                        expression: 3,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![7],
+                                condition: None,
+                                expression: 8,
+                            },
+                            MatchArm {
+                                patterns: vec![14],
+                                condition: None,
+                                expression: 15,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![16],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                    Constant::Str("a"),
+                    Constant::Str("b"),
+                ]),
+            )
+        }
+
+        #[test]
         fn match_with_conditions_and_block() {
             let source = r#"
 match x

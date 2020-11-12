@@ -220,9 +220,13 @@ pub enum Instruction {
     Yield {
         register: u8,
     },
+    Size {
+        register: u8,
+        value: u8,
+    },
     Type {
         register: u8,
-        source: u8,
+        value: u8,
     },
     IterNext {
         register: u8,
@@ -242,6 +246,14 @@ pub enum Instruction {
         register: u8,
         expression: u8,
         index: u8,
+    },
+    IsTuple {
+        register: u8,
+        value: u8,
+    },
+    IsList {
+        register: u8,
+        value: u8,
     },
     ListPushValue {
         list: u8,
@@ -287,7 +299,7 @@ impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { .. } => unreachable!(),
+            Error { message } => unreachable!(message),
             Copy { .. } => write!(f, "Copy"),
             DeepCopy { .. } => write!(f, "DeepCopy"),
             SetEmpty { .. } => write!(f, "SetEmpty"),
@@ -335,11 +347,14 @@ impl fmt::Display for Instruction {
             CallChild { .. } => write!(f, "CallChild"),
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
+            Size { .. } => write!(f, "Size"),
             Type { .. } => write!(f, "Type"),
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
             ValueIndex { .. } => write!(f, "ValueIndex"),
+            IsTuple { .. } => write!(f, "IsTuple"),
+            IsList { .. } => write!(f, "IsList"),
             ListPushValue { .. } => write!(f, "ListPushValue"),
             ListPushValues { .. } => write!(f, "ListPushValues"),
             ListUpdate { .. } => write!(f, "ListUpdate"),
@@ -357,7 +372,7 @@ impl fmt::Debug for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { .. } => unreachable!(),
+            Error { message } => unreachable!(message),
             Copy { target, source } => write!(f, "Copy\t\tresult: {}\tsource: {}", target, source),
             DeepCopy { target, source } => {
                 write!(f, "DeepCopy\tresult: {}\tsource: {}", target, source)
@@ -603,9 +618,8 @@ impl fmt::Debug for Instruction {
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
-            Type { register, source } => {
-                write!(f, "Type\t\tresult: {}\tsource: {}", register, source)
-            }
+            Size { register, value } => write!(f, "Size\t\tresult: {}\tvalue: {}", register, value),
+            Type { register, value } => write!(f, "Type\t\tresult: {}\tvalue: {}", register, value),
             IterNext {
                 register,
                 iterator,
@@ -641,6 +655,12 @@ impl fmt::Debug for Instruction {
                 "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
                 register, expression, index
             ),
+            IsTuple { register, value } => {
+                write!(f, "IsTuple\t\tresult: {}\tvalue: {}", register, value)
+            }
+            IsList { register, value } => {
+                write!(f, "IsList\t\tresult: {}\tvalue: {}", register, value)
+            }
             ListPushValue { list, value } => {
                 write!(f, "ListPushValue\tlist: {}\t\tvalue: {}", list, value)
             }
@@ -798,6 +818,10 @@ impl Iterator for InstructionReader {
             Op::Set1 => Some(SetNumber {
                 register: get_byte!(),
                 value: 1.0,
+            }),
+            Op::SetNumberU8 => Some(SetNumber {
+                register: get_byte!(),
+                value: get_byte!() as f64,
             }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),
@@ -1033,9 +1057,13 @@ impl Iterator for InstructionReader {
             Op::Yield => Some(Yield {
                 register: get_byte!(),
             }),
+            Op::Size => Some(Size {
+                register: get_byte!(),
+                value: get_byte!(),
+            }),
             Op::Type => Some(Type {
                 register: get_byte!(),
-                source: get_byte!(),
+                value: get_byte!(),
             }),
             Op::IterNext => Some(IterNext {
                 register: get_byte!(),
@@ -1055,6 +1083,14 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 expression: get_byte!(),
                 index: get_byte!(),
+            }),
+            Op::IsTuple => Some(IsTuple {
+                register: get_byte!(),
+                value: get_byte!(),
+            }),
+            Op::IsList => Some(IsList {
+                register: get_byte!(),
+                value: get_byte!(),
             }),
             Op::ListPushValue => Some(ListPushValue {
                 list: get_byte!(),
