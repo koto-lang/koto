@@ -1785,14 +1785,14 @@ impl<'source> Parser<'source> {
             let mut arm_patterns = Vec::new();
             let mut expected_arm_count = 1;
 
-            while let Some(pattern) = self.parse_match_pattern()? {
+            while let Some(pattern) = self.parse_match_pattern(false)? {
                 // Match patterns, separated by commas in the case of matching multi-expressions
                 let mut patterns = vec![pattern];
 
                 while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                     self.consume_next_token_on_same_line();
 
-                    match self.parse_match_pattern()? {
+                    match self.parse_match_pattern(false)? {
                         Some(pattern) => patterns.push(pattern),
                         None => return syntax_error!(ExpectedMatchPattern, self),
                     }
@@ -1854,7 +1854,10 @@ impl<'source> Parser<'source> {
         )?))
     }
 
-    fn parse_match_pattern(&mut self) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_match_pattern(
+        &mut self,
+        in_nested_patterns: bool,
+    ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
         let mut pattern_context = ExpressionContext::restricted();
@@ -1865,16 +1868,26 @@ impl<'source> Parser<'source> {
                 Id => match self.parse_id(&mut pattern_context) {
                     Some(id) => {
                         self.frame_mut()?.ids_assigned_in_scope.insert(id);
-                        Some(self.push_node(Node::Id(id))?)
+                        let result = if self.peek_token() == Some(Ellipsis) {
+                            self.consume_token();
+                            if in_nested_patterns {
+                                Node::Ellipsis(Some(id))
+                            } else {
+                                return syntax_error!(MatchEllipsisOutsideOfNestedPatterns, self);
+                            }
+                        } else {
+                            Node::Id(id)
+                        };
+                        Some(self.push_node(result)?)
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
                 Wildcard => {
-                    self.consume_next_token_on_same_line();
+                    self.consume_next_token(&mut pattern_context);
                     Some(self.push_node(Node::Wildcard)?)
                 }
                 ListStart => {
-                    self.consume_next_token_on_same_line();
+                    self.consume_next_token(&mut pattern_context);
 
                     let list_patterns = self.parse_nested_match_patterns()?;
 
@@ -1885,7 +1898,7 @@ impl<'source> Parser<'source> {
                     Some(self.push_node(Node::List(list_patterns))?)
                 }
                 ParenOpen => {
-                    self.consume_next_token_on_same_line();
+                    self.consume_next_token(&mut pattern_context);
 
                     if self.peek_token() == Some(ParenClose) {
                         self.consume_token();
@@ -1900,6 +1913,10 @@ impl<'source> Parser<'source> {
                         Some(self.push_node(Node::Tuple(tuple_patterns))?)
                     }
                 }
+                Ellipsis if in_nested_patterns => {
+                    self.consume_next_token(&mut pattern_context);
+                    Some(self.push_node(Node::Ellipsis(None))?)
+                }
                 _ => None,
             },
             None => None,
@@ -1911,7 +1928,7 @@ impl<'source> Parser<'source> {
     fn parse_nested_match_patterns(&mut self) -> Result<Vec<AstIndex>, ParserError> {
         let mut result = vec![];
 
-        while let Some(pattern) = self.parse_match_pattern()? {
+        while let Some(pattern) = self.parse_match_pattern(true)? {
             result.push(pattern);
 
             if self.peek_next_token_on_same_line() != Some(Token::Comma) {

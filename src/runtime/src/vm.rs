@@ -1017,11 +1017,11 @@ impl Vm {
                     List(l) => l.len(),
                     Str(s) => s.len(),
                     Tuple(t) => t.data().len(),
-                    TemporaryTuple(RegisterSlice{count,.. }) => *count as usize,
+                    TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
                     Map(m) => m.len(),
                     Num2(_) => 2,
                     Num4(_) => 4,
-                    Range(IntRange{start, end}) => (end - start) as usize,
+                    Range(IntRange { start, end }) => (end - start) as usize,
                     _ => 1,
                 };
 
@@ -1054,11 +1054,11 @@ impl Vm {
 
                 self.set_register(register, Str(result.into()));
             }
-            Instruction::IsTuple {register, value} => {
+            Instruction::IsTuple { register, value } => {
                 let result = matches!(self.get_register(value), Tuple(_));
                 self.set_register(register, Bool(result));
             }
-            Instruction::IsList {register, value} => {
+            Instruction::IsList { register, value } => {
                 let result = matches!(self.get_register(value), List(_));
                 self.set_register(register, Bool(result));
             }
@@ -1096,34 +1096,93 @@ impl Vm {
             }
             Instruction::ValueIndex {
                 register,
-                expression,
+                value,
                 index,
             } => {
-                let expression_value = self.get_register(expression).clone();
-
-                match expression_value {
-                    List(l) => {
-                        let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
-                        self.set_register(register, value);
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = list.data().get(index).cloned().unwrap_or(Empty);
+                        self.set_register(register, result);
                     }
                     Tuple(tuple) => {
-                        let value = tuple.data().get(index as usize).cloned().unwrap_or(Empty);
-                        self.set_register(register, value);
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = tuple.data().get(index).cloned().unwrap_or(Empty);
+                        self.set_register(register, result);
                     }
                     TemporaryTuple(RegisterSlice { start, count }) => {
-                        let value = if index < count {
-                            self.get_register(start + index).clone()
+                        let count = *count;
+                        let result = if (index.abs() as u8) < count {
+                            let index = signed_index_to_unsigned(index, count as usize);
+                            self.get_register(start + index as u8).clone()
                         } else {
                             Empty
                         };
-                        self.set_register(register, value);
+                        self.set_register(register, result);
                     }
                     other => {
-                        if index == 0 {
-                            self.set_register(register, other);
+                        let result = if index == 0 { other.clone() } else { Empty };
+                        self.set_register(register, result);
+                    }
+                };
+            }
+            Instruction::SliceFrom {
+                register,
+                value,
+                index,
+            } => {
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = if let Some(entries) = list.data().get(index..) {
+                            List(ValueList::from_slice(entries))
                         } else {
-                            self.set_register(register, Empty);
-                        }
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    Tuple(tuple) => {
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = if let Some(entries) = tuple.data().get(index..) {
+                            Tuple(entries.into())
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    other => {
+                        let result = if index == 0 { other.clone() } else { Empty };
+                        self.set_register(register, result);
+                    }
+                };
+            }
+            Instruction::SliceTo {
+                register,
+                value,
+                index,
+            } => {
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = if let Some(entries) = list.data().get(..index) {
+                            List(ValueList::from_slice(entries))
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    Tuple(tuple) => {
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = if let Some(entries) = tuple.data().get(..index) {
+                            Tuple(entries.into())
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    other => {
+                        let result = if index == 0 { other.clone() } else { Empty };
+                        self.set_register(register, result);
                     }
                 };
             }
@@ -1872,8 +1931,9 @@ impl Vm {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "'{}' not found",
+                            "'{}' not found in module '{}'",
                             key_string,
+                            stringify!($module)
                         );
                     }
                 }
@@ -2351,4 +2411,12 @@ fn binary_op_error(
         type_as_string(lhs),
         type_as_string(rhs),
     )
+}
+
+fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
+    if index < 0 {
+        size - (index.abs() as usize)
+    } else {
+        index as usize
+    }
 }

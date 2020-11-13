@@ -67,6 +67,7 @@ pub enum Node {
         arms: Vec<MatchArm>,
     },
     Wildcard,
+    Ellipsis(Option<ConstantIndex>),
     For(AstFor),
     Loop {
         body: AstIndex,
@@ -136,6 +137,7 @@ impl fmt::Display for Node {
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
             Wildcard => write!(f, "Wildcard"),
+            Ellipsis(_) => write!(f, "Ellipsis"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
             Until { .. } => write!(f, "Until"),

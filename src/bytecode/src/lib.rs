@@ -73,24 +73,24 @@ pub enum Op {
     IterNext,         // output, iterator, jump offset[2]
     IterNextTemp,     // output, iterator, jump offset[2]
     IterNextQuiet,    // iterator, jump offset[2]
-    ValueIndex,       // result, value register, index
+    ValueIndex,       // result, value register, signed index
+    SliceFrom,        // result, value register, signed index
+    SliceTo,          // result, value register, signed index
     ListPushValue,    // list, value
     ListPushValues,   // list, start register, count
     ListUpdate,       // list, index, value
-    Index,            // result, list register, index register
+    Index,            // TODO rename to ListIndex - result, list register, index register
     MapInsert,        // map register, value register, key constant
     MapInsertLong,    // map register, value register, key constant[4]
     MapAccess,        // register, map register, key
     MapAccessLong,    // register, map register, key[4]
     Type,             // register
-    IsList,          // register, value
+    IsList,           // register, value
     IsTuple,          // register, value
     Size,             // register, value
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused77,
-    Unused78,
     Unused79,
     Unused80,
     Unused81,

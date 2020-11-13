@@ -548,6 +548,9 @@ impl Compiler {
             Node::Match { expression, arms } => {
                 self.compile_match(result_register, *expression, arms, ast)?
             }
+            Node::Ellipsis(_) => {
+                return compiler_error!(self, "Ellipsis found outside of match patterns")
+            }
             Node::Wildcard => None,
             Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
@@ -2336,14 +2339,15 @@ impl Compiler {
         for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
             let is_last_alternative = alternative_index == arm.patterns.len() - 1;
 
-            // Jumps to the end of the arm alternative,
-            // used to attempt matching on the next alternative
+            // Jumps to the end of the current arm alternative,
+            // e.g.
+            // match x
+            //   0 or 1 or 2 then y
+            //   ^~~~ a match failure here should attempt matching on the next alternative
             let mut alternative_end_jump_placeholders = Vec::new();
 
             let arm_node = ast.node(*arm_pattern);
-
             self.span_stack.push(*ast.span(arm_node.span));
-
             let patterns = match &arm_node.node {
                 Node::TempTuple(patterns) => {
                     if patterns.len() != match_len {
@@ -2418,7 +2422,7 @@ impl Compiler {
                 self.update_offset_placeholder(*jump_placeholder);
             }
 
-            self.span_stack.pop();
+            self.span_stack.pop(); // arm node
         }
 
         // Update the match end jump placeholders before the condition
@@ -2478,9 +2482,16 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         use Op::*;
 
+        let mut index_from_end = false;
+
         for (pattern_index, pattern) in arm_patterns.iter().enumerate() {
+            let is_first_pattern = pattern_index == 0;
             let is_last_pattern = pattern_index == arm_patterns.len() - 1;
-            let pattern_index = pattern_index as u8;
+            let pattern_index = if index_from_end {
+                -((arm_patterns.len() - pattern_index) as i8)
+            } else {
+                pattern_index as i8
+            };
             let pattern_node = ast.node(*pattern);
 
             match &pattern_node.node {
@@ -2497,7 +2508,7 @@ impl Compiler {
 
                     if match_is_container {
                         let element = self.push_register()?;
-                        self.push_op(ValueIndex, &[element, match_register, pattern_index]);
+                        self.push_op(ValueIndex, &[element, match_register, pattern_index as u8]);
                         self.push_op(Equal, &[comparison, pattern, element]);
                         self.pop_register()?; // element
                     } else {
@@ -2527,7 +2538,10 @@ impl Compiler {
                 Node::Id(id) => {
                     let id_register = self.assign_local_register(*id)?;
                     if match_is_container {
-                        self.push_op(ValueIndex, &[id_register, match_register, pattern_index]);
+                        self.push_op(
+                            ValueIndex,
+                            &[id_register, match_register, pattern_index as u8],
+                        );
                     } else {
                         self.push_op(Copy, &[id_register, match_register]);
                     }
@@ -2568,6 +2582,45 @@ impl Compiler {
                         ast,
                     )?;
                 }
+                Node::Ellipsis(maybe_id) => {
+                    if is_last_pattern {
+                        if let Some(id) = maybe_id {
+                            // e.g. [x, y, z, rest...]
+                            // We want to assign the slice containing all but the first three items
+                            // to the given id.
+                            let id_register = self.assign_local_register(*id)?;
+                            self.push_op(
+                                SliceFrom,
+                                &[id_register, match_register, pattern_index as u8],
+                            );
+                        }
+
+                        if !is_last_alternative {
+                            // Ellipses match unconditionally in last position,
+                            // multi-expression pattern, skip over the remaining alternatives
+                            // e.g. (x, 0, rest...) or (x, 1, y) if rest.size() > 0 then
+                            //             ^~~~~~~ We're here, jump to the if condition
+                            self.push_op(Jump, &[]);
+                            match_end_jump_placeholders.push(self.push_offset_placeholder());
+                        }
+                    } else if is_first_pattern {
+                        if let Some(id) = maybe_id {
+                            // e.g. [first..., x, y]
+                            // We want to assign the slice containing all but the last two items to
+                            // the given id.
+                            let id_register = self.assign_local_register(*id)?;
+                            let to_index = -(arm_patterns.len() as i8 - 1) as u8;
+                            self.push_op(SliceTo, &[id_register, match_register, to_index]);
+                        }
+
+                        index_from_end = true;
+                    } else {
+                        return compiler_error!(
+                            self,
+                            "Matching with ellipsis is only allowed in first or last position"
+                        );
+                    }
+                }
                 _ => {
                     return compiler_error!(self, "Internal error: invalid match pattern");
                 }
@@ -2580,7 +2633,7 @@ impl Compiler {
     fn compile_nested_match_arm_patterns(
         &mut self,
         match_register: u8,
-        pattern_index: Option<u8>,
+        pattern_index: Option<i8>,
         nested_patterns: &[AstIndex],
         type_check_op: Op,
         is_last_alternative: bool,
@@ -2595,7 +2648,10 @@ impl Compiler {
         let value_register = if let Some(pattern_index) = pattern_index {
             // Place the nested container into a register
             let value_register = self.push_register()?;
-            self.push_op(ValueIndex, &[value_register, match_register, pattern_index]);
+            self.push_op(
+                ValueIndex,
+                &[value_register, match_register, pattern_index as u8],
+            );
             value_register
         } else {
             match_register
@@ -2613,22 +2669,48 @@ impl Compiler {
             alternative_end_jump_placeholders.push(self.push_offset_placeholder());
         }
 
-        // Check that the container has the correct size
-        let expected_register = self.push_register()?;
-        self.push_op(Size, &[temp_register, value_register]);
-        self.push_op(
-            SetNumberU8,
-            &[expected_register, nested_patterns.len() as u8],
-        );
-        self.push_op(Equal, &[temp_register, temp_register, expected_register]);
-        self.push_op(JumpFalse, &[temp_register]);
-        // If the sizes are not equal, jump to the next match patterns
-        if is_last_alternative {
-            arm_end_jump_placeholders.push(self.push_offset_placeholder());
-        } else {
-            alternative_end_jump_placeholders.push(self.push_offset_placeholder());
+        let first_or_last_pattern_is_ellipsis = {
+            let first_is_ellipsis = nested_patterns.first().map_or(false, |first| {
+                matches!(ast.node(*first).node, Node::Ellipsis(_))
+            });
+            let last_is_ellipsis = nested_patterns.last().map_or(false, |last| {
+                matches!(ast.node(*last).node, Node::Ellipsis(_))
+            });
+            if nested_patterns.len() > 1 && first_is_ellipsis && last_is_ellipsis {
+                return compiler_error!(self, "Only one ellipsis is allowed in a match pattern");
+            }
+            first_is_ellipsis || last_is_ellipsis
+        };
+
+        // Check that the container has sufficient elements for the match patterns
+        if !nested_patterns.is_empty() {
+            let expected_register = self.push_register()?;
+            self.push_op(Size, &[temp_register, value_register]);
+
+            let patterns_len = nested_patterns.len() as u8;
+
+            let comparison_op = if first_or_last_pattern_is_ellipsis {
+                self.push_op(SetNumberU8, &[expected_register, patterns_len - 1]);
+                GreaterOrEqual
+            } else {
+                self.push_op(SetNumberU8, &[expected_register, patterns_len]);
+                Equal
+            };
+            self.push_op(
+                comparison_op,
+                &[temp_register, temp_register, expected_register],
+            );
+            self.push_op(JumpFalse, &[temp_register]);
+
+            // If there aren't the expected number of elements, jump to the next match patterns
+            if is_last_alternative {
+                arm_end_jump_placeholders.push(self.push_offset_placeholder());
+            } else {
+                alternative_end_jump_placeholders.push(self.push_offset_placeholder());
+            }
+
+            self.pop_register()?; // expected_register
         }
-        self.pop_register()?; // expected_register
 
         self.pop_register()?; // temp_register
 

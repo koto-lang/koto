@@ -244,8 +244,18 @@ pub enum Instruction {
     },
     ValueIndex {
         register: u8,
-        expression: u8,
-        index: u8,
+        value: u8,
+        index: i8,
+    },
+    SliceFrom {
+        register: u8,
+        value: u8,
+        index: i8,
+    },
+    SliceTo {
+        register: u8,
+        value: u8,
+        index: i8,
     },
     IsTuple {
         register: u8,
@@ -353,6 +363,8 @@ impl fmt::Display for Instruction {
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
             ValueIndex { .. } => write!(f, "ValueIndex"),
+            SliceFrom { .. } => write!(f, "SliceFrom"),
+            SliceTo { .. } => write!(f, "SliceTo"),
             IsTuple { .. } => write!(f, "IsTuple"),
             IsList { .. } => write!(f, "IsList"),
             ListPushValue { .. } => write!(f, "ListPushValue"),
@@ -648,12 +660,30 @@ impl fmt::Debug for Instruction {
             ),
             ValueIndex {
                 register,
-                expression,
+                value,
                 index,
             } => write!(
                 f,
-                "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
-                register, expression, index
+                "ValueIndex\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
+            ),
+            SliceFrom {
+                register,
+                value,
+                index,
+            } => write!(
+                f,
+                "SliceFrom\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
+            ),
+            SliceTo {
+                register,
+                value,
+                index,
+            } => write!(
+                f,
+                "SliceTo\t\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
             ),
             IsTuple { register, value } => {
                 write!(f, "IsTuple\t\tresult: {}\tvalue: {}", register, value)
@@ -1081,8 +1111,18 @@ impl Iterator for InstructionReader {
             }),
             Op::ValueIndex => Some(ValueIndex {
                 register: get_byte!(),
-                expression: get_byte!(),
-                index: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
+            }),
+            Op::SliceFrom => Some(SliceFrom {
+                register: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
+            }),
+            Op::SliceTo => Some(SliceTo {
+                register: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
             }),
             Op::IsTuple => Some(IsTuple {
                 register: get_byte!(),

@@ -687,6 +687,58 @@ match x
         }
 
         #[test]
+        fn match_list_subslice() {
+            let script = "
+x = [1..=5]
+match x
+  [0, ...] then 0
+  [..., 1] then -1
+  [1, ...] then 1
+  _ then 123
+";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
+        fn match_list_subslice_with_id() {
+            let script = "
+x = [1..=5]
+match x
+  [0, rest...] then rest
+  [rest..., 3, 2, 1] then rest
+  [1, 2, rest...] then rest
+  _ then 123
+";
+            test_script(script, number_list(&[3.0, 4.0, 5.0]));
+        }
+
+        #[test]
+        fn match_list_subslice_at_start_with_id() {
+            let script = "
+x = [1..=5]
+match x
+  [0, rest...] then rest
+  [rest..., 3, 4, 5] then rest
+  [1, 2, rest...] then rest
+  _ then 123
+";
+            test_script(script, number_list(&[1.0, 2.0]));
+        }
+
+        #[test]
+        fn match_tuple_subslice_at_start_with_id() {
+            let script = "
+x = 1, 2, 3, 4, 5
+match x
+  (0, rest...) then rest
+  (rest..., 3, 4, 5) then rest
+  (1, 2, rest...) then rest
+  _ then 123
+";
+            test_script(script, number_tuple(&[1.0, 2.0]));
+        }
+
+        #[test]
         fn match_on_multiple_expressions_with_alternatives_wildcard() {
             let script = "
 match 0, 1

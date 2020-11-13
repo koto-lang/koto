@@ -67,3 +67,12 @@ export tests =
         1 or 3 or 5 or 7 or 9 then "odd"
         _ then ">= 10"
     assert_eq (inspect 7) "odd"
+
+  test_match_lists_and_tuples: ||
+    z = [1, 2, (3, 4), (5, [6, 7, 8])]
+    x = match z
+      [3, 4, ...] then "starts with 3, 4"
+      [first..., 9, 10] then "ends with 9, 10"
+      [a, b, (3, 4), (c, [6, rest...])]
+        a + b + c + rest.size()
+    assert_eq x 10

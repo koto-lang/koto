@@ -3344,6 +3344,98 @@ match (x, y, z)
         }
 
         #[test]
+        fn match_tuple_subslice() {
+            let source = r#"
+match x
+  (..., 0) then 0
+  (1, ...) then 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Ellipsis(None),
+                    Number0,
+                    Tuple(vec![1, 2]),
+                    Number0,
+                    Number1, // 5
+                    Ellipsis(None),
+                    Tuple(vec![5, 6]),
+                    Number1,
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![3],
+                                condition: None,
+                                expression: 4,
+                            },
+                            MatchArm {
+                                patterns: vec![7],
+                                condition: None,
+                                expression: 8,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn match_tuple_subslice_with_id() {
+            let source = r#"
+match y
+  (rest..., 0, 1) then 0
+  (1, 0, others...) then 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Ellipsis(Some(1)),
+                    Number0,
+                    Number1,
+                    Tuple(vec![1, 2, 3]),
+                    Number0, // 5
+                    Number1,
+                    Number0,
+                    Ellipsis(Some(2)),
+                    Tuple(vec![6, 7, 8]),
+                    Number1, // 10
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![4],
+                                condition: None,
+                                expression: 5,
+                            },
+                            MatchArm {
+                                patterns: vec![9],
+                                condition: None,
+                                expression: 10,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![11],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("y"),
+                    Constant::Str("rest"),
+                    Constant::Str("others"),
+                ]),
+            )
+        }
+
+        #[test]
         fn match_with_conditions_and_block() {
             let source = r#"
 match x
