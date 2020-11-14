@@ -18,6 +18,7 @@ pub enum Node {
     Num4(Vec<AstIndex>),
     List(Vec<AstIndex>),
     Tuple(Vec<AstIndex>),
+    TempTuple(Vec<AstIndex>),
     Range {
         start: AstIndex,
         end: AstIndex,
@@ -66,6 +67,7 @@ pub enum Node {
         arms: Vec<MatchArm>,
     },
     Wildcard,
+    Ellipsis(Option<ConstantIndex>),
     For(AstFor),
     Loop {
         body: AstIndex,
@@ -116,6 +118,7 @@ impl fmt::Display for Node {
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
             Tuple(_) => write!(f, "Tuple"),
+            TempTuple(_) => write!(f, "TempTuple"),
             Range { .. } => write!(f, "Range"),
             RangeFrom { .. } => write!(f, "RangeFrom"),
             RangeTo { .. } => write!(f, "RangeTo"),
@@ -134,6 +137,7 @@ impl fmt::Display for Node {
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
             Wildcard => write!(f, "Wildcard"),
+            Ellipsis(_) => write!(f, "Ellipsis"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
             Until { .. } => write!(f, "Until"),

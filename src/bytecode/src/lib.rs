@@ -19,6 +19,7 @@ pub enum Op {
     SetTrue,          // register
     Set0,             // register
     Set1,             // register
+    SetNumberU8,      // register, number
     LoadNumber,       // register, constant
     LoadNumberLong,   // register, constant[4]
     LoadString,       // register, constant
@@ -30,6 +31,7 @@ pub enum Op {
     Import,           // register, constant
     ImportLong,       // register, constant[4]
     MakeTuple,        // register, start register, count
+    MakeTempTuple,    // register, start register, count
     MakeList,         // register, size hint
     MakeListLong,     // register, size hint[4]
     MakeMap,          // register, size hint
@@ -71,26 +73,24 @@ pub enum Op {
     IterNext,         // output, iterator, jump offset[2]
     IterNextTemp,     // output, iterator, jump offset[2]
     IterNextQuiet,    // iterator, jump offset[2]
-    ValueIndex,       // result, value register, index
+    ValueIndex,       // result, value register, signed index
+    SliceFrom,        // result, value register, signed index
+    SliceTo,          // result, value register, signed index
     ListPushValue,    // list, value
     ListPushValues,   // list, start register, count
     ListUpdate,       // list, index, value
-    Index,            // result, list register, index register
+    Index,            // TODO rename to ListIndex - result, list register, index register
     MapInsert,        // map register, value register, key constant
     MapInsertLong,    // map register, value register, key constant[4]
     MapAccess,        // register, map register, key
     MapAccessLong,    // register, map register, key[4]
     Type,             // register
+    IsList,           // register, value
+    IsTuple,          // register, value
+    Size,             // register, value
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused72,
-    Unused73,
-    Unused74,
-    Unused75,
-    Unused76,
-    Unused77,
-    Unused78,
     Unused79,
     Unused80,
     Unused81,
@@ -301,13 +301,13 @@ impl FunctionFlags {
     pub fn as_byte(&self) -> u8 {
         let mut result = 0;
         if self.instance_function {
-            result = result | Self::INSTANCE;
+            result |= Self::INSTANCE;
         }
         if self.variadic {
-            result = result | Self::VARIADIC;
+            result |= Self::VARIADIC;
         }
         if self.generator {
-            result = result | Self::GENERATOR;
+            result |= Self::GENERATOR;
         }
         result
     }

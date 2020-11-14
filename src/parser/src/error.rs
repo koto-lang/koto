@@ -79,6 +79,7 @@ pub enum SyntaxError {
     ExpectedWhileCondition,
     ImportFromExpressionHasTooManyItems,
     LexerError,
+    MatchEllipsisOutsideOfNestedPatterns,
     SelfArgNotInFirstPosition,
     TooManyNum2Terms,
     TooManyNum4Terms,
@@ -248,6 +249,9 @@ impl fmt::Display for SyntaxError {
                 f.write_str("Too many items listed after 'from' in import expression")
             }
             LexerError => f.write_str("Found an unexpected token while lexing input"),
+            MatchEllipsisOutsideOfNestedPatterns => {
+                f.write_str("Ellipsis found outside of nested match patterns")
+            }
             SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),

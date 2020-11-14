@@ -32,17 +32,20 @@ mod vm {
             Ok(Empty)
         });
 
-        let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None) {
-            Ok(chunk) => chunk,
-            Err(error) => panic!("{}", error),
-        };
-
         let print_chunk = |script: &str, chunk| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
             println!("{}", chunk_to_string_annotated(chunk, &script_lines));
+        };
+
+        let mut loader = Loader::default();
+        let chunk = match loader.compile_script(script, &None) {
+            Ok(chunk) => chunk,
+            Err(error) => {
+                print_chunk(script, vm.chunk());
+                panic!("Error while compiling script: {}", error);
+            }
         };
 
         match vm.run(chunk) {
@@ -457,23 +460,6 @@ a";
         }
 
         #[test]
-        fn assign_1_to_2() {
-            let script = "
-a, b = -1
-a, b";
-            test_script(script, value_tuple(&[Number(-1.0), Empty]));
-        }
-
-        #[test]
-        fn list_elements_1_to_2() {
-            let script = "
-x = [0, 0]
-x[0], x[1] = 99
-x";
-            test_script(script, value_list(&[Number(99.0), Empty]));
-        }
-
-        #[test]
         fn list_elements_2_to_2() {
             let script = "
 x = [0, 0]
@@ -649,6 +635,93 @@ match 42
         }
 
         #[test]
+        fn match_tuple() {
+            let script = "
+match (1, (2, 3), 4)
+  (1, (x, y), (p, (q, r))) then -1
+  (_, (a, b), _) then a + b
+  _ then 123
+";
+            test_script(script, Number(5.0));
+        }
+
+        #[test]
+        fn match_list() {
+            let script = "
+match [1, [2, 3], [4, 5, 6]]
+  (1, (2, 3), (4, 5, 6)) then -1 # Tuples don't match against lists
+  [1, [x, -1], [_, y, _]] then x + y
+  [1, [x, 3], [_, 5, y]] then x + y
+  _ then 123
+";
+            test_script(script, Number(8.0));
+        }
+
+        #[test]
+        fn match_list_single_entry() {
+            let script = "
+x = [0]
+match x
+  [0] or [1] then 123
+  [x, y] or [x, y, z] then 99
+  _ then -1
+";
+            test_script(script, Number(123.0));
+        }
+
+        #[test]
+        fn match_list_subslice() {
+            let script = "
+x = [1..=5]
+match x
+  [0, ...] then 0
+  [..., 1] then -1
+  [1, ...] then 1
+  _ then 123
+";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
+        fn match_list_subslice_with_id() {
+            let script = "
+x = [1..=5]
+match x
+  [0, rest...] then rest
+  [rest..., 3, 2, 1] then rest
+  [1, 2, rest...] then rest
+  _ then 123
+";
+            test_script(script, number_list(&[3.0, 4.0, 5.0]));
+        }
+
+        #[test]
+        fn match_list_subslice_at_start_with_id() {
+            let script = "
+x = [1..=5]
+match x
+  [0, rest...] then rest
+  [rest..., 3, 4, 5] then rest
+  [1, 2, rest...] then rest
+  _ then 123
+";
+            test_script(script, number_list(&[1.0, 2.0]));
+        }
+
+        #[test]
+        fn match_tuple_subslice_at_start_with_id() {
+            let script = "
+x = 1, 2, 3, 4, 5
+match x
+  (0, rest...) then rest
+  (rest..., 3, 4, 5) then rest
+  (1, 2, rest...) then rest
+  _ then 123
+";
+            test_script(script, number_tuple(&[1.0, 2.0]));
+        }
+
+        #[test]
         fn match_on_multiple_expressions_with_alternatives_wildcard() {
             let script = "
 match 0, 1
@@ -807,7 +880,9 @@ fib 4
         #[test]
         fn recursive_call_via_multi_assign() {
             let script = "
-f, g = (|n| if n == 0 then 1 else f n - 1), (|n| if n == 0 then 2 else g n - 1)
+f, g =
+  (|n| if n == 0 then 1 else f n - 1),
+  (|n| if n == 0 then 2 else g n - 1)
 f 4, g 4
 ";
             test_script(script, number_tuple(&[1, 2]));

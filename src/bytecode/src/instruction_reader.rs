@@ -52,6 +52,11 @@ pub enum Instruction {
         start: u8,
         count: u8,
     },
+    MakeTempTuple {
+        register: u8,
+        start: u8,
+        count: u8,
+    },
     MakeList {
         register: u8,
         size_hint: usize,
@@ -215,9 +220,13 @@ pub enum Instruction {
     Yield {
         register: u8,
     },
+    Size {
+        register: u8,
+        value: u8,
+    },
     Type {
         register: u8,
-        source: u8,
+        value: u8,
     },
     IterNext {
         register: u8,
@@ -235,8 +244,26 @@ pub enum Instruction {
     },
     ValueIndex {
         register: u8,
-        expression: u8,
-        index: u8,
+        value: u8,
+        index: i8,
+    },
+    SliceFrom {
+        register: u8,
+        value: u8,
+        index: i8,
+    },
+    SliceTo {
+        register: u8,
+        value: u8,
+        index: i8,
+    },
+    IsTuple {
+        register: u8,
+        value: u8,
+    },
+    IsList {
+        register: u8,
+        value: u8,
     },
     ListPushValue {
         list: u8,
@@ -282,7 +309,7 @@ impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { .. } => unreachable!(),
+            Error { message } => unreachable!(message),
             Copy { .. } => write!(f, "Copy"),
             DeepCopy { .. } => write!(f, "DeepCopy"),
             SetEmpty { .. } => write!(f, "SetEmpty"),
@@ -294,6 +321,7 @@ impl fmt::Display for Instruction {
             SetGlobal { .. } => write!(f, "SetGlobal"),
             Import { .. } => write!(f, "Import"),
             MakeTuple { .. } => write!(f, "MakeTuple"),
+            MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
             MakeList { .. } => write!(f, "MakeList"),
             MakeMap { .. } => write!(f, "MakeMap"),
             MakeNum2 { .. } => write!(f, "MakeNum2"),
@@ -329,11 +357,16 @@ impl fmt::Display for Instruction {
             CallChild { .. } => write!(f, "CallChild"),
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
+            Size { .. } => write!(f, "Size"),
             Type { .. } => write!(f, "Type"),
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
             ValueIndex { .. } => write!(f, "ValueIndex"),
+            SliceFrom { .. } => write!(f, "SliceFrom"),
+            SliceTo { .. } => write!(f, "SliceTo"),
+            IsTuple { .. } => write!(f, "IsTuple"),
+            IsList { .. } => write!(f, "IsList"),
             ListPushValue { .. } => write!(f, "ListPushValue"),
             ListPushValues { .. } => write!(f, "ListPushValues"),
             ListUpdate { .. } => write!(f, "ListUpdate"),
@@ -351,7 +384,7 @@ impl fmt::Debug for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { .. } => unreachable!(),
+            Error { message } => unreachable!(message),
             Copy { target, source } => write!(f, "Copy\t\tresult: {}\tsource: {}", target, source),
             DeepCopy { target, source } => {
                 write!(f, "DeepCopy\tresult: {}\tsource: {}", target, source)
@@ -391,6 +424,15 @@ impl fmt::Debug for Instruction {
             } => write!(
                 f,
                 "MakeTuple\tresult: {}\tstart: {}\tcount: {}",
+                register, start, count
+            ),
+            MakeTempTuple {
+                register,
+                start,
+                count,
+            } => write!(
+                f,
+                "MakeTempTuple\tresult: {}\tstart: {}\tcount: {}",
                 register, start, count
             ),
             MakeList {
@@ -468,8 +510,9 @@ impl fmt::Debug for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\n\t\t\tinstance: {}\tvariadic: {}\tgenerator: {}\tsize: {}",
-                register, arg_count, capture_count, instance_function, variadic, generator, size,
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\n\
+                     \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
+                register, arg_count, capture_count, size, instance_function, variadic, generator,
             ),
             Capture {
                 function,
@@ -587,9 +630,8 @@ impl fmt::Debug for Instruction {
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
-            Type { register, source } => {
-                write!(f, "Type\t\tresult: {}\tsource: {}", register, source)
-            }
+            Size { register, value } => write!(f, "Size\t\tresult: {}\tvalue: {}", register, value),
+            Type { register, value } => write!(f, "Type\t\tresult: {}\tvalue: {}", register, value),
             IterNext {
                 register,
                 iterator,
@@ -618,13 +660,37 @@ impl fmt::Debug for Instruction {
             ),
             ValueIndex {
                 register,
-                expression,
+                value,
                 index,
             } => write!(
                 f,
-                "ValueIndex\tresult: {}\texpression: {}\tindex: {}",
-                register, expression, index
+                "ValueIndex\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
             ),
+            SliceFrom {
+                register,
+                value,
+                index,
+            } => write!(
+                f,
+                "SliceFrom\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
+            ),
+            SliceTo {
+                register,
+                value,
+                index,
+            } => write!(
+                f,
+                "SliceTo\t\tresult: {}\tvalue: {}\tindex: {}",
+                register, value, index
+            ),
+            IsTuple { register, value } => {
+                write!(f, "IsTuple\t\tresult: {}\tvalue: {}", register, value)
+            }
+            IsList { register, value } => {
+                write!(f, "IsList\t\tresult: {}\tvalue: {}", register, value)
+            }
             ListPushValue { list, value } => {
                 write!(f, "ListPushValue\tlist: {}\t\tvalue: {}", list, value)
             }
@@ -783,6 +849,10 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 value: 1.0,
             }),
+            Op::SetNumberU8 => Some(SetNumber {
+                register: get_byte!(),
+                value: get_byte!() as f64,
+            }),
             Op::LoadNumber => Some(LoadNumber {
                 register: get_byte!(),
                 constant: get_byte!() as ConstantIndex,
@@ -824,6 +894,11 @@ impl Iterator for InstructionReader {
                 constant: get_u32!() as ConstantIndex,
             }),
             Op::MakeTuple => Some(MakeTuple {
+                register: get_byte!(),
+                start: get_byte!(),
+                count: get_byte!(),
+            }),
+            Op::MakeTempTuple => Some(MakeTempTuple {
                 register: get_byte!(),
                 start: get_byte!(),
                 count: get_byte!(),
@@ -1012,9 +1087,13 @@ impl Iterator for InstructionReader {
             Op::Yield => Some(Yield {
                 register: get_byte!(),
             }),
+            Op::Size => Some(Size {
+                register: get_byte!(),
+                value: get_byte!(),
+            }),
             Op::Type => Some(Type {
                 register: get_byte!(),
-                source: get_byte!(),
+                value: get_byte!(),
             }),
             Op::IterNext => Some(IterNext {
                 register: get_byte!(),
@@ -1032,8 +1111,26 @@ impl Iterator for InstructionReader {
             }),
             Op::ValueIndex => Some(ValueIndex {
                 register: get_byte!(),
-                expression: get_byte!(),
-                index: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
+            }),
+            Op::SliceFrom => Some(SliceFrom {
+                register: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
+            }),
+            Op::SliceTo => Some(SliceTo {
+                register: get_byte!(),
+                value: get_byte!(),
+                index: get_byte!() as i8,
+            }),
+            Op::IsTuple => Some(IsTuple {
+                register: get_byte!(),
+                value: get_byte!(),
+            }),
+            Op::IsList => Some(IsList {
+                register: get_byte!(),
+                value: get_byte!(),
             }),
             Op::ListPushValue => Some(ListPushValue {
                 list: get_byte!(),

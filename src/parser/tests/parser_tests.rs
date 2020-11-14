@@ -730,7 +730,7 @@ num4
                     Lookup((LookupNode::Root(1), Some(3))),
                     Number1, // 5
                     Number0,
-                    Tuple(vec![5, 6]),
+                    TempTuple(vec![5, 6]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -767,7 +767,7 @@ x";
                     Id(1),
                     Number1,
                     Number0,
-                    Tuple(vec![2, 3]),
+                    TempTuple(vec![2, 3]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -1348,10 +1348,10 @@ a";
                     BoolTrue,
                     Number0,
                     Number1,
-                    Tuple(vec![3, 4]), // 5
+                    TempTuple(vec![3, 4]), // 5
                     Number1,
                     Number0,
-                    Tuple(vec![6, 7]),
+                    TempTuple(vec![6, 7]),
                     If(AstIf {
                         condition: 2,
                         then_node: 5,
@@ -1870,6 +1870,106 @@ f x";
                     },
                 ],
                 Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn recursive_call() {
+            let source = "f = |x| f x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(0),
+                    Id(1),
+                    Call {
+                        function: 1,
+                        args: vec![2],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(1)],
+                        local_count: 1,
+                        accessed_non_locals: vec![0],
+                        body: 3,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn recursive_calls_multi_assign() {
+            let source = "f, g = (|x| f x), (|x| g x)";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(0),
+                    Id(2),
+                    Call {
+                        function: 2,
+                        args: vec![3],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(2)],
+                        local_count: 1,
+                        accessed_non_locals: vec![0],
+                        body: 4,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }), // 5
+                    Id(1),
+                    Id(2),
+                    Call {
+                        function: 6,
+                        args: vec![7],
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![Some(2)],
+                        local_count: 1,
+                        accessed_non_locals: vec![1],
+                        body: 8,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    TempTuple(vec![5, 9]), // 10
+                    MultiAssign {
+                        targets: vec![
+                            AssignTarget {
+                                target_index: 0,
+                                scope: Scope::Local,
+                            },
+                            AssignTarget {
+                                target_index: 1,
+                                scope: Scope::Local,
+                            },
+                        ],
+                        expressions: 10,
+                    },
+                    MainBlock {
+                        body: vec![11],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("g"), Constant::Str("x")]),
             )
         }
 
@@ -3087,14 +3187,10 @@ finally
         use super::*;
 
         #[test]
-        fn match_single_expression() {
+        fn assign_from_match_with_alternative_patterns() {
             let source = r#"
 x = match y
   0 or 1 then 42
-  "foo" or "bar" then 99
-  "baz" then break
-  z if z < 10
-    123
   z then -1
 "#;
             check_ast(
@@ -3105,22 +3201,8 @@ x = match y
                     Number0,
                     Number1,
                     Number(2),
-                    Str(3), // 5
-                    Str(4),
-                    Number(5),
-                    Str(6),
-                    Break,
-                    Id(7), // 10
-                    Id(7),
-                    Number(8),
-                    BinaryOp {
-                        op: AstOp::Less,
-                        lhs: 11,
-                        rhs: 12,
-                    },
-                    Number(9),
-                    Id(7), // 15
-                    Number(10),
+                    Id(3), // 5
+                    Number(4),
                     Match {
                         expression: 1,
                         arms: vec![
@@ -3130,24 +3212,9 @@ x = match y
                                 expression: 4,
                             },
                             MatchArm {
-                                patterns: vec![5, 6],
+                                patterns: vec![5],
                                 condition: None,
-                                expression: 7,
-                            },
-                            MatchArm {
-                                patterns: vec![8],
-                                condition: None,
-                                expression: 9,
-                            },
-                            MatchArm {
-                                patterns: vec![10],
-                                condition: Some(13),
-                                expression: 14,
-                            },
-                            MatchArm {
-                                patterns: vec![15],
-                                condition: None,
-                                expression: 16,
+                                expression: 6,
                             },
                         ],
                     },
@@ -3157,10 +3224,10 @@ x = match y
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 17,
+                        expression: 7,
                     },
                     MainBlock {
-                        body: vec![18],
+                        body: vec![8],
                         local_count: 2,
                     },
                 ],
@@ -3168,14 +3235,270 @@ x = match y
                     Constant::Str("x"),
                     Constant::Str("y"),
                     Constant::Number(42.0),
-                    Constant::Str("foo"),
-                    Constant::Str("bar"),
-                    Constant::Number(99.0), // 5
-                    Constant::Str("baz"),
                     Constant::Str("z"),
+                    Constant::Number(-1.0),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_string_literals() {
+            let source = r#"
+match x
+  "foo" then 99
+  "bar" or "baz" then break
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Str(1),
+                    Number(2),
+                    Str(3),
+                    Str(4),
+                    Break, // 5
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![1],
+                                condition: None,
+                                expression: 2,
+                            },
+                            MatchArm {
+                                patterns: vec![3, 4],
+                                condition: None,
+                                expression: 5,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Number(99.0), // 5
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_tuple() {
+            let source = r#"
+match (x, y, z)
+  (0, a, _) then a
+  (_, (0, b), _) then 0
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(2),
+                    Tuple(vec![0, 1, 2]),
+                    Number0,
+                    Id(3), // 5
+                    Wildcard,
+                    Tuple(vec![4, 5, 6]),
+                    Id(3),
+                    Wildcard,
+                    Number0, // 10
+                    Id(4),
+                    Tuple(vec![10, 11]),
+                    Wildcard,
+                    Tuple(vec![9, 12, 13]),
+                    Number0, // 15
+                    Match {
+                        expression: 3,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![7],
+                                condition: None,
+                                expression: 8,
+                            },
+                            MatchArm {
+                                patterns: vec![14],
+                                condition: None,
+                                expression: 15,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![16],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                    Constant::Str("a"),
+                    Constant::Str("b"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_tuple_subslice() {
+            let source = r#"
+match x
+  (..., 0) then 0
+  (1, ...) then 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Ellipsis(None),
+                    Number0,
+                    Tuple(vec![1, 2]),
+                    Number0,
+                    Number1, // 5
+                    Ellipsis(None),
+                    Tuple(vec![5, 6]),
+                    Number1,
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![3],
+                                condition: None,
+                                expression: 4,
+                            },
+                            MatchArm {
+                                patterns: vec![7],
+                                condition: None,
+                                expression: 8,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn match_tuple_subslice_with_id() {
+            let source = r#"
+match y
+  (rest..., 0, 1) then 0
+  (1, 0, others...) then 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Ellipsis(Some(1)),
+                    Number0,
+                    Number1,
+                    Tuple(vec![1, 2, 3]),
+                    Number0, // 5
+                    Number1,
+                    Number0,
+                    Ellipsis(Some(2)),
+                    Tuple(vec![6, 7, 8]),
+                    Number1, // 10
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![4],
+                                condition: None,
+                                expression: 5,
+                            },
+                            MatchArm {
+                                patterns: vec![9],
+                                condition: None,
+                                expression: 10,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![11],
+                        local_count: 2,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("y"),
+                    Constant::Str("rest"),
+                    Constant::Str("others"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn match_with_conditions_and_block() {
+            let source = r#"
+match x
+  z if z > 5 then 0
+  z if z < 10
+    1
+  z then -1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Id(1),
+                    Number(2),
+                    BinaryOp {
+                        op: AstOp::Greater,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    Number0, // 5
+                    Id(1),
+                    Id(1),
+                    Number(3),
+                    BinaryOp {
+                        op: AstOp::Less,
+                        lhs: 7,
+                        rhs: 8,
+                    },
+                    Number1, // 10
+                    Id(1),
+                    Number(4),
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![1],
+                                condition: Some(4),
+                                expression: 5,
+                            },
+                            MatchArm {
+                                patterns: vec![6],
+                                condition: Some(9),
+                                expression: 10,
+                            },
+                            MatchArm {
+                                patterns: vec![11],
+                                condition: None,
+                                expression: 12,
+                            },
+                        ],
+                    },
+                    MainBlock {
+                        body: vec![13],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("z"),
+                    Constant::Number(5.0),
                     Constant::Number(10.0),
-                    Constant::Number(123.0),
-                    Constant::Number(-1.0), // 10
+                    Constant::Number(-1.0),
                 ]),
             )
         }
@@ -3194,18 +3517,18 @@ match x, y
                 &[
                     Id(0),
                     Id(1),
-                    Tuple(vec![0, 1]),
+                    TempTuple(vec![0, 1]),
                     Number0,
                     Number1,
-                    Tuple(vec![3, 4]), // 5
+                    TempTuple(vec![3, 4]), // 5
                     Number(2),
                     Number(3),
-                    Tuple(vec![6, 7]),
+                    TempTuple(vec![6, 7]),
                     Id(4),
                     Number0, // 10
                     Id(5),
                     Empty,
-                    Tuple(vec![11, 12]),
+                    TempTuple(vec![11, 12]),
                     Id(5),
                     Wildcard, // 15
                     Number0,

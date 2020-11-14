@@ -332,7 +332,14 @@ impl Vm {
                 return vm_error!(self.chunk(), instruction_ip, "{}", message);
             }
             Instruction::Copy { target, source } => {
-                let value = self.clone_register(source);
+                let value = match self.clone_register(source) {
+                    Value::TemporaryTuple(RegisterSlice { start, count }) => {
+                        // A temporary tuple shouldn't make it into a named value,
+                        // so here it gets converted into a regular tuple.
+                        Value::Tuple(self.register_slice(start, count).into())
+                    }
+                    other => other,
+                };
                 self.set_register(target, value);
             }
             Instruction::DeepCopy { target, source } => {
@@ -393,6 +400,13 @@ impl Vm {
                     copied.push(self.get_register(register).clone());
                 }
                 self.set_register(register, Tuple(copied.into()));
+            }
+            Instruction::MakeTempTuple {
+                register,
+                start,
+                count,
+            } => {
+                self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
             }
             Instruction::MakeList {
                 register,
@@ -998,8 +1012,23 @@ impl Vm {
             Instruction::Yield { register } => {
                 result = ControlFlow::Yield(self.get_register(register).clone());
             }
-            Instruction::Type { register, source } => {
-                let result = match self.get_register(source) {
+            Instruction::Size { register, value } => {
+                let result = match self.get_register(value) {
+                    List(l) => l.len(),
+                    Str(s) => s.len(),
+                    Tuple(t) => t.data().len(),
+                    TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
+                    Map(m) => m.len(),
+                    Num2(_) => 2,
+                    Num4(_) => 4,
+                    Range(IntRange { start, end }) => (end - start) as usize,
+                    _ => 1,
+                };
+
+                self.set_register(register, Number(result as f64));
+            }
+            Instruction::Type { register, value } => {
+                let result = match self.get_register(value) {
                     Bool(_) => "bool".to_string(),
                     Empty => "empty".to_string(),
                     Function(_) => "function".to_string(),
@@ -1012,6 +1041,7 @@ impl Vm {
                     Num4(_) => "num4".to_string(),
                     Range(_) => "range".to_string(),
                     Str(_) => "string".to_string(),
+                    Tuple(_) => "tuple".to_string(),
                     unexpected => {
                         return vm_error!(
                             self.chunk(),
@@ -1023,6 +1053,14 @@ impl Vm {
                 };
 
                 self.set_register(register, Str(result.into()));
+            }
+            Instruction::IsTuple { register, value } => {
+                let result = matches!(self.get_register(value), Tuple(_));
+                self.set_register(register, Bool(result));
+            }
+            Instruction::IsList { register, value } => {
+                let result = matches!(self.get_register(value), List(_));
+                self.set_register(register, Bool(result));
             }
             Instruction::IterNext {
                 register,
@@ -1058,34 +1096,105 @@ impl Vm {
             }
             Instruction::ValueIndex {
                 register,
-                expression,
+                value,
                 index,
             } => {
-                let expression_value = self.get_register(expression).clone();
-
-                match expression_value {
-                    List(l) => {
-                        let value = l.data().get(index as usize).cloned().unwrap_or(Empty);
-                        self.set_register(register, value);
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = list.data().get(index).cloned().unwrap_or(Empty);
+                        self.set_register(register, result);
                     }
                     Tuple(tuple) => {
-                        let value = tuple.data().get(index as usize).cloned().unwrap_or(Empty);
-                        self.set_register(register, value);
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = tuple.data().get(index).cloned().unwrap_or(Empty);
+                        self.set_register(register, result);
                     }
                     TemporaryTuple(RegisterSlice { start, count }) => {
-                        let value = if index < count {
-                            self.get_register(start + index).clone()
+                        let count = *count;
+                        let result = if (index.abs() as u8) < count {
+                            let index = signed_index_to_unsigned(index, count as usize);
+                            self.get_register(start + index as u8).clone()
                         } else {
                             Empty
                         };
-                        self.set_register(register, value);
+                        self.set_register(register, result);
                     }
-                    other => {
-                        if index == 0 {
-                            self.set_register(register, other);
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "ValueIndex: expected indexable value, found '{}'",
+                            type_as_string(&unexpected),
+                        )
+                    }
+                };
+            }
+            Instruction::SliceFrom {
+                register,
+                value,
+                index,
+            } => {
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = if let Some(entries) = list.data().get(index..) {
+                            List(ValueList::from_slice(entries))
                         } else {
-                            self.set_register(register, Empty);
-                        }
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    Tuple(tuple) => {
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = if let Some(entries) = tuple.data().get(index..) {
+                            Tuple(entries.into())
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "SliceFrom: expected List or Tuple, found '{}'",
+                            type_as_string(&unexpected),
+                        )
+                    }
+                };
+            }
+            Instruction::SliceTo {
+                register,
+                value,
+                index,
+            } => {
+                match self.get_register(value) {
+                    List(list) => {
+                        let index = signed_index_to_unsigned(index, list.data().len());
+                        let result = if let Some(entries) = list.data().get(..index) {
+                            List(ValueList::from_slice(entries))
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    Tuple(tuple) => {
+                        let index = signed_index_to_unsigned(index, tuple.data().len());
+                        let result = if let Some(entries) = tuple.data().get(..index) {
+                            Tuple(entries.into())
+                        } else {
+                            Empty
+                        };
+                        self.set_register(register, result);
+                    }
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "SliceTo: expected List or Tuple, found '{}'",
+                            type_as_string(&unexpected),
+                        )
                     }
                 };
             }
@@ -1834,8 +1943,9 @@ impl Vm {
                         return vm_error!(
                             self.chunk(),
                             instruction_ip,
-                            "'{}' not found",
+                            "'{}' not found in module '{}'",
                             key_string,
+                            stringify!($module)
                         );
                     }
                 }
@@ -2313,4 +2423,12 @@ fn binary_op_error(
         type_as_string(lhs),
         type_as_string(rhs),
     )
+}
+
+fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
+    if index < 0 {
+        size - (index.abs() as usize)
+    } else {
+        index as usize
+    }
 }
