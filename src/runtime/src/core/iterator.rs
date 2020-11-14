@@ -13,6 +13,17 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("consume", |vm, args| {
+        match vm.get_args_as_vec(args).as_slice() {
+            [iterable] if is_iterable(iterable) => {
+                let iter = make_iterator(iterable).unwrap();
+                iter.for_each(drop);
+                Ok(Empty)
+            }
+            _ => external_error!("iterator.consume: Expected iterable as argument"),
+        }
+    });
+
     result.add_fn("each", |vm, args| {
         match vm.get_args_as_vec(args).as_slice() {
             [iterable, Function(f)] if is_iterable(iterable) => {

@@ -41,6 +41,11 @@ export tests =
       {foo: 42, bar: 99}.iter().to_tuple()
       (("foo", 42), ("bar", 99))
 
+  test_consume: ||
+    x = []
+    (1..=5).each(|n| x.push n).consume()
+    assert_eq x [1, 2, 3, 4, 5]
+
   test_each: ||
     assert_eq
       ("1", "2").each(|x| x.to_number()).to_tuple()
