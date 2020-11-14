@@ -460,23 +460,6 @@ a";
         }
 
         #[test]
-        fn assign_1_to_2() {
-            let script = "
-a, b = -1
-a, b";
-            test_script(script, value_tuple(&[Number(-1.0), Empty]));
-        }
-
-        #[test]
-        fn list_elements_1_to_2() {
-            let script = "
-x = [0, 0]
-x[0], x[1] = 99
-x";
-            test_script(script, value_list(&[Number(99.0), Empty]));
-        }
-
-        #[test]
         fn list_elements_2_to_2() {
             let script = "
 x = [0, 0]

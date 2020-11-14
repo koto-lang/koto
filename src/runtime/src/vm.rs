@@ -1120,9 +1120,13 @@ impl Vm {
                         };
                         self.set_register(register, result);
                     }
-                    other => {
-                        let result = if index == 0 { other.clone() } else { Empty };
-                        self.set_register(register, result);
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "ValueIndex: expected indexable value, found '{}'",
+                            type_as_string(&unexpected),
+                        )
                     }
                 };
             }
@@ -1150,9 +1154,13 @@ impl Vm {
                         };
                         self.set_register(register, result);
                     }
-                    other => {
-                        let result = if index == 0 { other.clone() } else { Empty };
-                        self.set_register(register, result);
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "SliceFrom: expected List or Tuple, found '{}'",
+                            type_as_string(&unexpected),
+                        )
                     }
                 };
             }
@@ -1180,9 +1188,13 @@ impl Vm {
                         };
                         self.set_register(register, result);
                     }
-                    other => {
-                        let result = if index == 0 { other.clone() } else { Empty };
-                        self.set_register(register, result);
+                    unexpected => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "SliceTo: expected List or Tuple, found '{}'",
+                            type_as_string(&unexpected),
+                        )
                     }
                 };
             }
