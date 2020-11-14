@@ -125,6 +125,17 @@ impl Frame {
             .map(|position| position as u8)
     }
 
+    fn get_local_reserved_register(&self, index: ConstantIndex) -> Option<u8> {
+        self.local_registers
+            .iter()
+            .position(|local_register| {
+                matches!(local_register,
+                    LocalRegister::Reserved(assigned_index) if *assigned_index == index
+                )
+            })
+            .map(|position| position as u8)
+    }
+
     fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
         match self.get_local_assigned_register(local) {
             Some(assigned) => Ok(assigned),
@@ -134,8 +145,7 @@ impl Frame {
                 let new_local_register = self.local_registers.len() - 1;
 
                 if new_local_register > self.temporary_base as usize {
-                    // return Err("reserve_local_register: Locals overflowed".to_string());
-                    panic!();
+                    return Err("reserve_local_register: Locals overflowed".to_string());
                 }
 
                 Ok(new_local_register as u8)
@@ -165,17 +175,23 @@ impl Frame {
     fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
         let local_register = match self.get_local_assigned_register(local) {
             Some(assigned) => assigned,
-            None => {
-                self.local_registers.push(LocalRegister::Assigned(local));
-
-                let new_local_register = self.local_registers.len() - 1;
-
-                if new_local_register > self.temporary_base as usize {
-                    return Err("declare_local_register: Locals overflowed".to_string());
+            None => match self.get_local_reserved_register(local) {
+                Some(reserved) => {
+                    self.commit_local_register(reserved)?;
+                    reserved
                 }
+                None => {
+                    self.local_registers.push(LocalRegister::Assigned(local));
 
-                new_local_register as u8
-            }
+                    let new_local_register = self.local_registers.len() - 1;
+
+                    if new_local_register > self.temporary_base as usize {
+                        return Err("declare_local_register: Locals overflowed".to_string());
+                    }
+
+                    new_local_register as u8
+                }
+            },
         };
 
         Ok(local_register)
