@@ -823,6 +823,24 @@ add 5 6";
         }
 
         #[test]
+        fn two_args_in_parens() {
+            let script = "
+add = |a, b|
+  a + b
+add(5, 6)";
+            test_script(script, Number(11.0));
+        }
+
+        #[test]
+        fn space_separated_call_in_parens() {
+            let script = "
+add = |a, b|
+  a + b
+add(5, add 6 7)";
+            test_script(script, Number(18.0));
+        }
+
+        #[test]
         fn variadic_function() {
             let script = "
 f = |a, b...|

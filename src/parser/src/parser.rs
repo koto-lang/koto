@@ -988,15 +988,13 @@ impl<'source> Parser<'source> {
         }
 
         let start_indent = self.lexer.current_indent();
-
         let mut args = Vec::new();
-
         let mut args_context = ExpressionContext::permissive();
 
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
 
-            if let Some(expression) = self.parse_expression(&mut ExpressionContext::restricted())? {
+            if let Some(expression) = self.parse_expression(&mut ExpressionContext::inline())? {
                 args.push(expression);
             } else {
                 break;
