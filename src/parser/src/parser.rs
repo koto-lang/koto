@@ -822,12 +822,6 @@ impl<'source> Parser<'source> {
         lookup.push((LookupNode::Root(root), node_start_span));
 
         while let Some(token) = self.peek_token() {
-            if let Some(lookup_indent) = lookup_indent {
-                if self.lexer.current_indent() != lookup_indent {
-                    return syntax_error!(UnexpectedIndentation, self);
-                }
-            }
-
             match token {
                 Token::ParenOpen => {
                     node_start_span = self.lexer.span();

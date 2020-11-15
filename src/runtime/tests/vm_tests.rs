@@ -1430,6 +1430,21 @@ m.foo
 ";
             test_script(script, Number(42.0));
         }
+
+        #[test]
+        fn function_body_in_iterator_chain() {
+            // The result.insert() call in a function block, followed by a continued iterator chain
+            // at a lower indentation level caused a parser error.
+            let script = r#"
+result = {}
+(1..=5)
+  .each |x|
+    result.insert(x, x * x)
+  .consume()
+result.size()
+"#;
+            test_script(script, Number(5.0));
+        }
     }
 
     mod placeholders {
