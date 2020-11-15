@@ -1,39 +1,41 @@
-use clap::{App, Arg};
-use koto::Koto;
-use std::{fs, path::Path};
+mod repl;
+
+use {
+    clap::{App, Arg},
+    koto::Koto,
+    repl::Repl,
+    std::{fs, path::Path},
+};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-mod repl;
-use repl::Repl;
-
 fn main() {
     let matches = App::new("Koto")
         .version(env!("CARGO_PKG_VERSION"))
-        .arg(Arg::with_name("script").about("The koto script to run"))
+        .arg(Arg::with_name("script").help("The koto script to run"))
         .arg(
             Arg::with_name("tests")
-                .short('t')
+                .short("t")
                 .long("tests")
-                .about("Run the script's tests"),
+                .help("Run the script's tests"),
         )
         .arg(
             Arg::with_name("show_bytecode")
-                .short('b')
+                .short("b")
                 .long("show_bytecode")
-                .about("Show the script's compiled bytecode"),
+                .help("Show the script's compiled bytecode"),
         )
         .arg(
             Arg::with_name("show_annotated")
-                .short('B')
+                .short("B")
                 .long("show_annotated")
-                .about("Show compiled bytecode annotated with source lines"),
+                .help("Show compiled bytecode annotated with source lines"),
         )
         .arg(
             Arg::with_name("args")
-                .about("Arguments to pass into the script")
+                .help("Arguments to pass into the script")
                 .multiple(true)
                 .last(true),
         )

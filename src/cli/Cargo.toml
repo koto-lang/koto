@@ -22,9 +22,8 @@ koto_toml = {path = "../../libs/toml"}
 termion = "1.5.5"
 
 [dependencies.clap]
-version = "3.0.0-beta.1"
+version = "2.33"
 default-features = false
-features = ["std"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = {version = "0.3.2"}
