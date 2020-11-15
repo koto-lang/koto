@@ -324,12 +324,12 @@ dependencies = [
 name = "koto_cli"
 version = "0.1.0"
 dependencies = [
- "clap",
  "jemallocator",
  "koto",
  "koto_json",
  "koto_random",
  "koto_toml",
+ "pico-args",
  "termion",
 ]
 
@@ -472,6 +472,12 @@ name = "oorandom"
 version = "11.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a170cebd8021a008ea92e4db85a72f80b35df514ec664b296fdcbb654eac0b2c"
+
+[[package]]
+name = "pico-args"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28b9b4df73455c861d7cbf8be42f01d3b373ed7f02e378d55fa84eafc6f638b1"
 
 [[package]]
 name = "plotters"
