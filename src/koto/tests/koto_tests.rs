@@ -1,7 +1,35 @@
 use koto::Koto;
 use std::{fs::read_to_string, path::PathBuf};
 
-fn run_script(script_path: &str) {
+fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool) {
+    let mut koto = Koto::with_settings(koto::Settings {
+        run_tests: true,
+        ..Default::default()
+    });
+    koto.set_script_path(path);
+
+    match koto.compile(&script) {
+        Ok(_) => {
+            match koto.run() {
+                Ok(_) => {
+                    if should_fail_at_runtime {
+                        panic!("Expected failure");
+                    }
+                }
+                Err(error) => {
+                    if !should_fail_at_runtime {
+                        panic!(error);
+                    }
+                }
+            }
+        }
+        Err(error) => {
+            panic!("{}", error);
+        }
+    }
+}
+
+fn load_and_run_script(script_path: &str) {
     let mut path = PathBuf::new();
     path.push(env!("CARGO_MANIFEST_DIR"));
     path.push("../../koto/tests");
@@ -11,35 +39,56 @@ fn run_script(script_path: &str) {
     }
     let script = read_to_string(&path).expect(&format!("Unable to load path '{:?}'", &path));
 
-    let mut koto = Koto::with_settings(koto::Settings {
-        run_tests: true,
-        ..Default::default()
-    });
-    koto.set_script_path(Some(path));
-
-    match koto.compile(&script) {
-        Ok(_) => {
-            if let Err(error) = koto.run() {
-                panic!(error);
-            }
-        }
-        Err(error) => {
-            panic!("{}", error);
-        }
-    }
+    run_script(&script, Some(path), false);
 }
 
 macro_rules! koto_test {
     ($name:ident) => {
         #[test]
         fn $name() {
-            run_script(&format!("{}.koto", stringify!($name)));
+            load_and_run_script(&format!("{}.koto", stringify!($name)));
         }
     };
 }
 
 mod koto_tests {
     use super::*;
+
+    #[test]
+    fn check_assert() {
+        let script = "
+import test.assert
+test.assert false
+";
+        run_script(script, None, true);
+    }
+
+    #[test]
+    fn check_assert_eq() {
+        let script = "
+import test.assert_eq
+assert_eq 0 1
+";
+        run_script(script, None, true);
+    }
+
+    #[test]
+    fn check_assert_ne() {
+        let script = "
+import test.assert_ne
+assert_ne 1 1
+";
+        run_script(script, None, true);
+    }
+
+    #[test]
+    fn check_assert_near() {
+        let script = "
+import test.assert_near
+assert_near 1 2 0.1
+";
+        run_script(script, None, true);
+    }
 
     koto_test!(arithmetic);
     koto_test!(assignment);
