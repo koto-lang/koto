@@ -29,6 +29,9 @@ pub enum ControlFlow {
     Yield(Value),
 }
 
+// Instructions will place their results in registers, there's no Ok type
+pub type InstructionResult = Result<(), Error>;
+
 #[derive(Default)]
 pub struct VmContext {
     pub prelude: ValueMap,
@@ -325,881 +328,256 @@ impl Vm {
     ) -> Result<ControlFlow, Error> {
         use Value::*;
 
-        let mut result = ControlFlow::Continue;
+        let mut control_flow = ControlFlow::Continue;
 
         match instruction {
             Instruction::Error { message } => {
-                return vm_error!(self.chunk(), instruction_ip, "{}", message);
+                vm_error!(self.chunk(), instruction_ip, "{}", message)
             }
-            Instruction::Copy { target, source } => {
-                let value = match self.clone_register(source) {
-                    Value::TemporaryTuple(RegisterSlice { start, count }) => {
-                        // A temporary tuple shouldn't make it into a named value,
-                        // so here it gets converted into a regular tuple.
-                        Value::Tuple(self.register_slice(start, count).into())
-                    }
-                    other => other,
-                };
-                self.set_register(target, value);
-            }
+            Instruction::Copy { target, source } => self.run_copy(target, source),
             Instruction::DeepCopy { target, source } => {
                 let value = self.clone_register(source);
                 self.set_register(target, deep_copy_value(&value));
+                Ok(())
             }
-            Instruction::SetEmpty { register } => self.set_register(register, Empty),
-            Instruction::SetBool { register, value } => self.set_register(register, Bool(value)),
+            Instruction::SetEmpty { register } => {
+                self.set_register(register, Empty);
+                Ok(())
+            }
+            Instruction::SetBool { register, value } => {
+                self.set_register(register, Bool(value));
+                Ok(())
+            }
             Instruction::SetNumber { register, value } => {
-                self.set_register(register, Number(value))
+                self.set_register(register, Number(value));
+                Ok(())
             }
             Instruction::LoadNumber { register, constant } => {
                 let n = self.reader.chunk.constants.get_number(constant);
-                self.set_register(register, Number(n))
+                self.set_register(register, Number(n));
+                Ok(())
             }
             Instruction::LoadString { register, constant } => {
                 let string = self.value_string_from_constant(constant);
-                self.set_register(register, Str(string))
+                self.set_register(register, Str(string));
+                Ok(())
             }
             Instruction::LoadGlobal { register, constant } => {
-                let global_name = self.get_constant_str(constant);
-                let global = self
-                    .context()
-                    .global
-                    .data()
-                    .get_with_string(global_name)
-                    .cloned();
-                match global {
-                    Some(value) => self.set_register(register, value),
-                    None => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "'{}' not found",
-                            global_name
-                        );
-                    }
-                }
+                self.run_load_global(register, constant, instruction_ip)
             }
-            Instruction::SetGlobal { global, source } => {
-                let global_name = self.value_string_from_constant(global);
-                let value = self.clone_register(source);
-                self.context_mut()
-                    .global
-                    .data_mut()
-                    .insert(Str(global_name), value);
-            }
+            Instruction::SetGlobal { global, source } => self.run_set_global(global, source),
             Instruction::Import { register, constant } => {
-                self.run_import(register, constant, instruction_ip)?;
+                self.run_import(register, constant, instruction_ip)
             }
             Instruction::MakeTuple {
                 register,
                 start,
                 count,
-            } => {
-                let mut copied = Vec::with_capacity(count as usize);
-                for register in start..start + count {
-                    copied.push(self.get_register(register).clone());
-                }
-                self.set_register(register, Tuple(copied.into()));
-            }
+            } => self.run_make_tuple(register, start, count),
             Instruction::MakeTempTuple {
                 register,
                 start,
                 count,
             } => {
                 self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
+                Ok(())
             }
             Instruction::MakeList {
                 register,
                 size_hint,
             } => {
                 self.set_register(register, List(ValueList::with_capacity(size_hint)));
+                Ok(())
             }
             Instruction::MakeMap {
                 register,
                 size_hint,
             } => {
                 self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
+                Ok(())
             }
             Instruction::MakeNum2 {
                 register,
                 count,
                 element_register,
-            } => {
-                self.run_make_num2(register, count, element_register, instruction_ip)?;
-            }
+            } => self.run_make_num2(register, count, element_register, instruction_ip),
             Instruction::MakeNum4 {
                 register,
                 count,
                 element_register,
-            } => {
-                self.run_make_num4(register, count, element_register, instruction_ip)?;
-            }
+            } => self.run_make_num4(register, count, element_register, instruction_ip),
             Instruction::Range {
                 register,
                 start,
                 end,
-            } => {
-                let range = match (self.get_register(start), self.get_register(end)) {
-                    (Number(start), Number(end)) => Range(IntRange {
-                        start: *start as isize,
-                        end: *end as isize,
-                    }),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected numbers for range bounds, found start: {}, end: {}",
-                            type_as_string(&unexpected.0),
-                            type_as_string(&unexpected.1)
-                        )
-                    }
-                };
-                self.set_register(register, range);
-            }
+            } => self.run_make_range(register, Some(start), Some(end), false, instruction_ip),
             Instruction::RangeInclusive {
                 register,
                 start,
                 end,
-            } => {
-                let range = match (self.get_register(start), self.get_register(end)) {
-                    (Number(start), Number(end)) => {
-                        let (start, end) = if start <= end {
-                            (*start as isize, *end as isize + 1)
-                        } else {
-                            (*start as isize, *end as isize - 1)
-                        };
-
-                        Range(IntRange { start, end })
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Expected numbers for range bounds, found start: {}, end: {}",
-                            type_as_string(&unexpected.0),
-                            type_as_string(&unexpected.1)
-                        )
-                    }
-                };
-                self.set_register(register, range);
-            }
+            } => self.run_make_range(register, Some(start), Some(end), true, instruction_ip),
             Instruction::RangeTo { register, end } => {
-                let range = match self.get_register(end) {
-                    Number(end) => {
-                        if *end < 0.0 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "RangeTo: negative numbers not allowed, found '{}'",
-                                end
-                            );
-                        }
-                        IndexRange(value::IndexRange {
-                            start: 0,
-                            end: Some(*end as usize),
-                        })
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "RangeTo: Expected numbers for range bounds, found end: {}",
-                            type_as_string(&unexpected)
-                        )
-                    }
-                };
-                self.set_register(register, range);
+                self.run_make_range(register, None, Some(end), false, instruction_ip)
             }
             Instruction::RangeToInclusive { register, end } => {
-                let range = match self.get_register(end) {
-                    Number(end) => {
-                        if *end < 0.0 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "RangeToInclusive: negative numbers not allowed, found '{}'",
-                                end
-                            );
-                        }
-                        IndexRange(value::IndexRange {
-                            start: 0,
-                            end: Some(*end as usize + 1),
-                        })
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "RangeToInclusive: Expected numbers for range bounds, found end: {}",
-                            type_as_string(&unexpected)
-                        )
-                    }
-                };
-                self.set_register(register, range);
+                self.run_make_range(register, None, Some(end), true, instruction_ip)
             }
             Instruction::RangeFrom { register, start } => {
-                let range = match self.get_register(start) {
-                    Number(start) => {
-                        if *start < 0.0 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "RangeFrom: negative numbers not allowed, found '{}'",
-                                start
-                            );
-                        }
-                        IndexRange(value::IndexRange {
-                            start: *start as usize,
-                            end: None,
-                        })
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "RangeFrom: Expected numbers for range bounds, found end: {}",
-                            type_as_string(&unexpected)
-                        )
-                    }
-                };
-                self.set_register(register, range);
+                self.run_make_range(register, Some(start), None, false, instruction_ip)
             }
             Instruction::RangeFull { register } => {
-                self.set_register(
-                    register,
-                    IndexRange(value::IndexRange {
-                        start: 0,
-                        end: None,
-                    }),
-                );
+                self.run_make_range(register, None, None, false, instruction_ip)
             }
             Instruction::MakeIterator { register, iterable } => {
-                let iterable = self.clone_register(iterable);
-
-                if matches!(iterable, Iterator(_)) {
-                    self.set_register(register, iterable);
-                } else {
-                    let iterator = match iterable {
-                        Range(int_range) => ValueIterator::with_range(int_range),
-                        List(list) => ValueIterator::with_list(list),
-                        Map(map) => ValueIterator::with_map(map),
-                        Tuple(tuple) => ValueIterator::with_tuple(tuple),
-                        unexpected => {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "Expected iterable value while making iterator, found '{}'",
-                                type_as_string(&unexpected)
-                            );
-                        }
-                    };
-
-                    self.set_register(register, iterator.into());
-                }
+                self.run_make_iterator(register, iterable, instruction_ip)
             }
-            Instruction::Function {
-                register,
-                arg_count,
-                capture_count,
-                instance_function,
-                variadic,
-                generator,
-                size,
-            } => {
-                let captures = if capture_count > 0 {
-                    let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Empty);
-                    Some(ValueList::with_data(captures))
-                } else {
-                    None
-                };
-
-                let function = RuntimeFunction {
-                    chunk: self.chunk(),
-                    ip: self.ip(),
-                    arg_count,
-                    instance_function,
-                    variadic,
-                    captures,
-                };
-
-                let value = if generator {
-                    Generator(function)
-                } else {
-                    Function(function)
-                };
-
-                self.jump_ip(size);
-                self.set_register(register, value);
-            }
+            Instruction::Function { .. } => self.run_make_function(instruction),
             Instruction::Capture {
                 function,
                 target,
                 source,
-            } => match self.get_register(function) {
-                Function(f) => match &f.captures {
-                    Some(captures) => {
-                        captures.data_mut()[target as usize] = self.get_register(source).clone()
-                    }
-                    None => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Capture: missing capture list for function"
-                        )
-                    }
-                },
-                unexpected => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Capture: expected Function, found '{}'",
-                        type_as_string(unexpected)
-                    )
-                }
-            },
+            } => self.run_capture_value(function, target, source, instruction_ip),
             Instruction::LoadCapture { register, capture } => {
-                match self.frame().get_capture(capture) {
-                    Some(value) => {
-                        self.set_register(register, value);
-                    }
-                    None => {
-                        if self.call_stack.len() == 1 {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "LoadCapture: attempting to capture outside of function"
-                            );
-                        } else {
-                            return vm_error!(
-                                self.chunk(),
-                                instruction_ip,
-                                "LoadCapture: invalid capture index"
-                            );
-                        }
-                    }
-                }
+                self.run_load_capture(register, capture, instruction_ip)
             }
             Instruction::SetCapture { capture, source } => {
-                if self.call_stack.len() == 1 {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "SetCapture: attempting to set a capture outside of a function"
-                    );
-                }
-
-                let value = self.get_register(source).clone();
-
-                if !self.frame_mut().set_capture(capture, value) {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "SetCapture: invalid capture index: {} ",
-                        capture
-                    );
-                }
+                self.run_set_capture(capture, source, instruction_ip)
             }
             Instruction::Negate { register, source } => {
-                let result = match &self.get_register(source) {
-                    Bool(b) => Bool(!b),
-                    Number(n) => Number(-n),
-                    Num2(v) => Num2(-v),
-                    Num4(v) => Num4(-v),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "Negate: expected negatable value, found '{}'",
-                            type_as_string(unexpected)
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_negate(register, source, instruction_ip)
             }
             Instruction::Add { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (lhs_value, rhs_value) {
-                    (Number(a), Number(b)) => Number(a + b),
-                    (Number(a), Num2(b)) => Num2(a + b),
-                    (Num2(a), Num2(b)) => Num2(a + b),
-                    (Num2(a), Number(b)) => Num2(a + b),
-                    (Number(a), Num4(b)) => Num4(a + b),
-                    (Num4(a), Num4(b)) => Num4(a + b),
-                    (Num4(a), Number(b)) => Num4(a + b),
-                    (List(a), List(b)) => {
-                        let mut result = ValueVec::new();
-                        result.extend(a.data().iter().chain(b.data().iter()).cloned());
-                        List(ValueList::with_data(result))
-                    }
-                    (Map(a), Map(b)) => {
-                        let mut result = a.data().clone();
-                        result.extend(&b.data());
-                        Map(ValueMap::with_data(result))
-                    }
-                    (Str(a), Str(b)) => {
-                        let result = a.to_string() + b.as_ref();
-                        Str(result.into())
-                    }
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_add(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Subtract { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (lhs_value, rhs_value) {
-                    (Number(a), Number(b)) => Number(a - b),
-                    (Number(a), Num2(b)) => Num2(a - b),
-                    (Num2(a), Num2(b)) => Num2(a - b),
-                    (Num2(a), Number(b)) => Num2(a - b),
-                    (Number(a), Num4(b)) => Num4(a - b),
-                    (Num4(a), Num4(b)) => Num4(a - b),
-                    (Num4(a), Number(b)) => Num4(a - b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_subtract(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Multiply { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (lhs_value, rhs_value) {
-                    (Number(a), Number(b)) => Number(a * b),
-                    (Number(a), Num2(b)) => Num2(a * b),
-                    (Num2(a), Num2(b)) => Num2(a * b),
-                    (Num2(a), Number(b)) => Num2(a * b),
-                    (Number(a), Num4(b)) => Num4(a * b),
-                    (Num4(a), Num4(b)) => Num4(a * b),
-                    (Num4(a), Number(b)) => Num4(a * b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_multiply(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Divide { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (lhs_value, rhs_value) {
-                    (Number(a), Number(b)) => Number(a / b),
-                    (Number(a), Num2(b)) => Num2(a / b),
-                    (Num2(a), Num2(b)) => Num2(a / b),
-                    (Num2(a), Number(b)) => Num2(a / b),
-                    (Number(a), Num4(b)) => Num4(a / b),
-                    (Num4(a), Num4(b)) => Num4(a / b),
-                    (Num4(a), Number(b)) => Num4(a / b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_divide(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Modulo { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (lhs_value, rhs_value) {
-                    (Number(a), Number(b)) => Number(a % b),
-                    (Number(a), Num2(b)) => Num2(a % b),
-                    (Num2(a), Num2(b)) => Num2(a % b),
-                    (Num2(a), Number(b)) => Num2(a % b),
-                    (Number(a), Num4(b)) => Num4(a % b),
-                    (Num4(a), Num4(b)) => Num4(a % b),
-                    (Num4(a), Number(b)) => Num4(a % b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_modulo(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Less { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (&lhs_value, &rhs_value) {
-                    (Number(a), Number(b)) => Bool(a < b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_less(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::LessOrEqual { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (&lhs_value, &rhs_value) {
-                    (Number(a), Number(b)) => Bool(a <= b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_less_or_equal(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::Greater { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (&lhs_value, &rhs_value) {
-                    (Number(a), Number(b)) => Bool(a > b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_greater(register, lhs, rhs, &instruction, instruction_ip)
             }
             Instruction::GreaterOrEqual { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = match (&lhs_value, &rhs_value) {
-                    (Number(a), Number(b)) => Bool(a >= b),
-                    _ => {
-                        return binary_op_error(
-                            self.chunk(),
-                            instruction,
-                            lhs_value,
-                            rhs_value,
-                            instruction_ip,
-                        );
-                    }
-                };
-                self.set_register(register, result);
+                self.run_greater_or_equal(register, lhs, rhs, &instruction, instruction_ip)
             }
-            Instruction::Equal { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = (lhs_value == rhs_value).into();
-                self.set_register(register, result);
-            }
-            Instruction::NotEqual { register, lhs, rhs } => {
-                let lhs_value = self.get_register(lhs);
-                let rhs_value = self.get_register(rhs);
-                let result = (lhs_value != rhs_value).into();
-                self.set_register(register, result);
-            }
+            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
+            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
+                Ok(())
             }
             Instruction::JumpIf {
                 register,
                 offset,
                 jump_condition,
-            } => match self.get_register(register) {
-                Bool(b) => {
-                    if *b == jump_condition {
-                        self.jump_ip(offset);
-                    }
-                }
-                unexpected => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Expected Bool, found '{}'",
-                        type_as_string(&unexpected),
-                    );
-                }
-            },
+            } => self.run_jump_if(register, offset, jump_condition, instruction_ip),
             Instruction::JumpBack { offset } => {
                 self.jump_ip_back(offset);
+                Ok(())
             }
             Instruction::JumpBackIf {
                 register,
                 offset,
                 jump_condition,
-            } => match self.get_register(register) {
-                Bool(b) => {
-                    if *b == jump_condition {
-                        self.jump_ip_back(offset);
-                    }
-                }
-                unexpected => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Expected Bool, found '{}'",
-                        type_as_string(&unexpected),
-                    );
-                }
-            },
+            } => self.run_jump_back_if(register, offset, jump_condition, instruction_ip),
             Instruction::Call {
                 result,
                 function,
                 frame_base,
                 arg_count,
-            } => {
-                let function = self.get_register(function).clone();
-                self.call_function(
-                    result,
-                    &function,
-                    frame_base,
-                    arg_count,
-                    None,
-                    instruction_ip,
-                )?;
-            }
+            } => self.call_function(
+                result,
+                self.clone_register(function),
+                frame_base,
+                arg_count,
+                None,
+                instruction_ip,
+            ),
             Instruction::CallChild {
                 result,
                 function,
                 frame_base,
                 arg_count,
                 parent,
-            } => {
-                let function = self.get_register(function).clone();
-                self.call_function(
-                    result,
-                    &function,
-                    frame_base,
-                    arg_count,
-                    Some(parent),
-                    instruction_ip,
-                )?;
-            }
+            } => self.call_function(
+                result,
+                self.clone_register(function),
+                frame_base,
+                arg_count,
+                Some(parent),
+                instruction_ip,
+            ),
             Instruction::Return { register } => {
-                if let Some(return_value) = self.pop_frame(self.get_register(register).clone())? {
+                if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
                     // If pop_frame returns a new return_value, then execution should stop.
-                    result = ControlFlow::Return(return_value);
+                    control_flow = ControlFlow::Return(return_value);
                 }
+                Ok(())
             }
             Instruction::Yield { register } => {
-                result = ControlFlow::Yield(self.get_register(register).clone());
+                control_flow = ControlFlow::Yield(self.clone_register(register));
+                Ok(())
             }
-            Instruction::Size { register, value } => {
-                let result = match self.get_register(value) {
-                    List(l) => l.len(),
-                    Str(s) => s.len(),
-                    Tuple(t) => t.data().len(),
-                    TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-                    Map(m) => m.len(),
-                    Num2(_) => 2,
-                    Num4(_) => 4,
-                    Range(IntRange { start, end }) => (end - start) as usize,
-                    _ => 1,
-                };
-
-                self.set_register(register, Number(result as f64));
-            }
-            Instruction::Type { register, value } => {
-                let result = match self.get_register(value) {
-                    Bool(_) => "bool".to_string(),
-                    Empty => "empty".to_string(),
-                    Function(_) => "function".to_string(),
-                    ExternalFunction(_) => "function".to_string(),
-                    ExternalValue(value) => value.read().unwrap().value_type(),
-                    List(_) => "list".to_string(),
-                    Map(_) => "map".to_string(),
-                    Number(_) => "number".to_string(),
-                    Num2(_) => "num2".to_string(),
-                    Num4(_) => "num4".to_string(),
-                    Range(_) => "range".to_string(),
-                    Str(_) => "string".to_string(),
-                    Tuple(_) => "tuple".to_string(),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "type is only supported for user types, found {}",
-                            unexpected
-                        );
-                    }
-                };
-
-                self.set_register(register, Str(result.into()));
-            }
+            Instruction::Size { register, value } => self.run_size(register, value),
+            Instruction::Type { register, value } => self.run_type(register, value, instruction_ip),
             Instruction::IsTuple { register, value } => {
                 let result = matches!(self.get_register(value), Tuple(_));
                 self.set_register(register, Bool(result));
+                Ok(())
             }
             Instruction::IsList { register, value } => {
                 let result = matches!(self.get_register(value), List(_));
                 self.set_register(register, Bool(result));
+                Ok(())
             }
             Instruction::IterNext {
                 register,
                 iterator,
                 jump_offset,
             } => {
-                self.run_iterator_next(
-                    Some(register),
-                    iterator,
-                    jump_offset,
-                    false,
-                    instruction_ip,
-                )?;
+                self.run_iterator_next(Some(register), iterator, jump_offset, false, instruction_ip)
             }
             Instruction::IterNextTemp {
                 register,
                 iterator,
                 jump_offset,
             } => {
-                self.run_iterator_next(
-                    Some(register),
-                    iterator,
-                    jump_offset,
-                    true,
-                    instruction_ip,
-                )?;
+                self.run_iterator_next(Some(register), iterator, jump_offset, true, instruction_ip)
             }
             Instruction::IterNextQuiet {
                 iterator,
                 jump_offset,
-            } => {
-                self.run_iterator_next(None, iterator, jump_offset, false, instruction_ip)?;
-            }
+            } => self.run_iterator_next(None, iterator, jump_offset, false, instruction_ip),
             Instruction::ValueIndex {
                 register,
                 value,
                 index,
-            } => {
-                match self.get_register(value) {
-                    List(list) => {
-                        let index = signed_index_to_unsigned(index, list.data().len());
-                        let result = list.data().get(index).cloned().unwrap_or(Empty);
-                        self.set_register(register, result);
-                    }
-                    Tuple(tuple) => {
-                        let index = signed_index_to_unsigned(index, tuple.data().len());
-                        let result = tuple.data().get(index).cloned().unwrap_or(Empty);
-                        self.set_register(register, result);
-                    }
-                    TemporaryTuple(RegisterSlice { start, count }) => {
-                        let count = *count;
-                        let result = if (index.abs() as u8) < count {
-                            let index = signed_index_to_unsigned(index, count as usize);
-                            self.get_register(start + index as u8).clone()
-                        } else {
-                            Empty
-                        };
-                        self.set_register(register, result);
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "ValueIndex: expected indexable value, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-            }
+            } => self.run_value_index(register, value, index, instruction_ip),
             Instruction::SliceFrom {
                 register,
                 value,
                 index,
-            } => {
-                match self.get_register(value) {
-                    List(list) => {
-                        let index = signed_index_to_unsigned(index, list.data().len());
-                        let result = if let Some(entries) = list.data().get(index..) {
-                            List(ValueList::from_slice(entries))
-                        } else {
-                            Empty
-                        };
-                        self.set_register(register, result);
-                    }
-                    Tuple(tuple) => {
-                        let index = signed_index_to_unsigned(index, tuple.data().len());
-                        let result = if let Some(entries) = tuple.data().get(index..) {
-                            Tuple(entries.into())
-                        } else {
-                            Empty
-                        };
-                        self.set_register(register, result);
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "SliceFrom: expected List or Tuple, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-            }
+            } => self.run_slice(register, value, index, false, instruction_ip),
             Instruction::SliceTo {
                 register,
                 value,
                 index,
-            } => {
-                match self.get_register(value) {
-                    List(list) => {
-                        let index = signed_index_to_unsigned(index, list.data().len());
-                        let result = if let Some(entries) = list.data().get(..index) {
-                            List(ValueList::from_slice(entries))
-                        } else {
-                            Empty
-                        };
-                        self.set_register(register, result);
-                    }
-                    Tuple(tuple) => {
-                        let index = signed_index_to_unsigned(index, tuple.data().len());
-                        let result = if let Some(entries) = tuple.data().get(..index) {
-                            Tuple(entries.into())
-                        } else {
-                            Empty
-                        };
-                        self.set_register(register, result);
-                    }
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "SliceTo: expected List or Tuple, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-            }
+            } => self.run_slice(register, value, index, true, instruction_ip),
             Instruction::ListPushValue { list, value } => {
-                self.run_list_push(list, value, instruction_ip)?;
+                self.run_list_push(list, value, instruction_ip)
             }
             Instruction::ListPushValues {
                 list,
@@ -1209,39 +587,23 @@ impl Vm {
                 for value_register in values_start..(values_start + count) {
                     self.run_list_push(list, value_register, instruction_ip)?;
                 }
+                Ok(())
             }
             Instruction::ListUpdate { list, index, value } => {
-                self.run_list_update(list, index, value, instruction_ip)?;
+                self.run_list_update(list, index, value, instruction_ip)
             }
             Instruction::Index {
                 register,
                 value,
                 index,
-            } => {
-                self.run_index(register, value, index, instruction_ip)?;
-            }
+            } => self.run_index(register, value, index, instruction_ip),
             Instruction::MapInsert {
                 register,
                 value,
                 key,
-            } => {
-                let key_string = self.value_string_from_constant(key);
-                let value = self.get_register(value).clone();
-
-                match self.get_register_mut(register) {
-                    Map(map) => map.data_mut().insert(Str(key_string), value),
-                    unexpected => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "MapInsert: Expected Map, found '{}'",
-                            type_as_string(&unexpected),
-                        )
-                    }
-                };
-            }
+            } => self.run_map_insert(register, value, key, instruction_ip),
             Instruction::MapAccess { register, map, key } => {
-                self.run_map_access(register, map, key, instruction_ip)?;
+                self.run_map_access(register, map, key, instruction_ip)
             }
             Instruction::TryStart {
                 arg_register,
@@ -1249,28 +611,199 @@ impl Vm {
             } => {
                 let catch_ip = self.ip() + catch_offset;
                 self.frame_mut().catch_stack.push((arg_register, catch_ip));
+                Ok(())
             }
             Instruction::TryEnd => {
                 self.frame_mut().catch_stack.pop();
+                Ok(())
             }
             Instruction::Debug { register, constant } => {
-                let prefix = match (
-                    self.reader.chunk.debug_info.get_source_span(instruction_ip),
-                    self.reader.chunk.source_path.as_ref(),
-                ) {
-                    (Some(span), Some(path)) => {
-                        format!("[{}: {}] ", path.display(), span.start.line)
-                    }
-                    (Some(span), None) => format!("[{}] ", span.start.line),
-                    (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
-                    (None, None) => "[#ERR] ".to_string(),
-                };
-                let value = self.get_register(register);
-                println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
+                self.run_debug(register, constant, instruction_ip)
             }
+        }?;
+
+        Ok(control_flow)
+    }
+
+    fn run_copy(&mut self, target: u8, source: u8) -> InstructionResult {
+        let value = match self.clone_register(source) {
+            Value::TemporaryTuple(RegisterSlice { start, count }) => {
+                // A temporary tuple shouldn't make it into a named value,
+                // so here it gets converted into a regular tuple.
+                Value::Tuple(self.register_slice(start, count).into())
+            }
+            other => other,
+        };
+        self.set_register(target, value);
+        Ok(())
+    }
+
+    fn run_load_global(
+        &mut self,
+        register: u8,
+        constant_index: ConstantIndex,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let global_name = self.get_constant_str(constant_index);
+        let global = self
+            .context()
+            .global
+            .data()
+            .get_with_string(global_name)
+            .cloned();
+
+        match global {
+            Some(value) => {
+                self.set_register(register, value);
+                Ok(())
+            }
+            None => vm_error!(self.chunk(), instruction_ip, "'{}' not found", global_name),
+        }
+    }
+
+    fn run_set_global(
+        &mut self,
+        constant_index: ConstantIndex,
+        source_register: u8,
+    ) -> InstructionResult {
+        let global_name = Value::Str(self.value_string_from_constant(constant_index));
+        let value = self.clone_register(source_register);
+        self.context_mut()
+            .global
+            .data_mut()
+            .insert(global_name, value);
+        Ok(())
+    }
+
+    fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) -> InstructionResult {
+        let mut copied = Vec::with_capacity(count as usize);
+
+        for register in start..start + count {
+            copied.push(self.clone_register(register));
         }
 
-        Ok(result)
+        self.set_register(register, Value::Tuple(copied.into()));
+        Ok(())
+    }
+
+    fn run_make_range(
+        &mut self,
+        register: u8,
+        start_register: Option<u8>,
+        end_register: Option<u8>,
+        inclusive: bool,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::{IndexRange, Number, Range};
+
+        let start = start_register.map(|register| self.get_register(register));
+        let end = end_register.map(|register| self.get_register(register));
+
+        let range = match (start, end) {
+            (Some(Number(start)), Some(Number(end))) => {
+                let (start, end) = if inclusive {
+                    if start <= end {
+                        (*start as isize, *end as isize + 1)
+                    } else {
+                        (*start as isize, *end as isize - 1)
+                    }
+                } else {
+                    (*start as isize, *end as isize)
+                };
+
+                Range(IntRange { start, end })
+            }
+            (None, Some(Number(end))) => {
+                if *end < 0.0 {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "RangeTo: negative numbers not allowed, found '{}'",
+                        end
+                    );
+                }
+                let end = if inclusive {
+                    *end as usize + 1
+                } else {
+                    *end as usize
+                };
+                IndexRange(value::IndexRange {
+                    start: 0,
+                    end: Some(end),
+                })
+            }
+            (Some(Number(start)), None) => {
+                if *start < 0.0 {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "RangeFrom: negative numbers not allowed, found '{}'",
+                        start
+                    );
+                }
+                IndexRange(value::IndexRange {
+                    start: *start as usize,
+                    end: None,
+                })
+            }
+            (None, None) => {
+                // RangeFull
+                IndexRange(value::IndexRange {
+                    start: 0,
+                    end: None,
+                })
+            }
+            (Some(unexpected), _) => {
+                return self.unexpected_type_error(
+                    "Expected Number for range start",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+            (_, Some(unexpected)) => {
+                return self.unexpected_type_error(
+                    "Expected Number for range end",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        };
+
+        self.set_register(register, range);
+        Ok(())
+    }
+
+    fn run_make_iterator(
+        &mut self,
+        register: u8,
+        iterable_register: u8,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let iterable = self.clone_register(iterable_register);
+
+        if matches!(iterable, Iterator(_)) {
+            self.set_register(register, iterable);
+        } else {
+            let iterator = match iterable {
+                Range(int_range) => ValueIterator::with_range(int_range),
+                List(list) => ValueIterator::with_list(list),
+                Map(map) => ValueIterator::with_map(map),
+                Tuple(tuple) => ValueIterator::with_tuple(tuple),
+                unexpected => {
+                    return self.unexpected_type_error(
+                        "Expected iterable value while making iterator",
+                        &unexpected,
+                        instruction_ip,
+                    );
+                }
+            };
+
+            self.set_register(register, iterator.into());
+        }
+
+        Ok(())
     }
 
     fn run_iterator_next(
@@ -1280,7 +813,7 @@ impl Vm {
         jump_offset: usize,
         output_is_temporary: bool,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::{Iterator, TemporaryTuple, Tuple};
 
         let result = match self.get_register_mut(iterator) {
@@ -1290,8 +823,8 @@ impl Vm {
                     self.chunk(),
                     instruction_ip,
                     "Expected Iterator, found '{}'",
-                    type_as_string(&unexpected),
-                )
+                    type_as_string(unexpected)
+                );
             }
         };
 
@@ -1327,12 +860,618 @@ impl Vm {
         Ok(())
     }
 
+    fn run_value_index(
+        &mut self,
+        register: u8,
+        value: u8,
+        index: i8,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        match self.get_register(value) {
+            List(list) => {
+                let index = signed_index_to_unsigned(index, list.data().len());
+                let result = list.data().get(index).cloned().unwrap_or(Empty);
+                self.set_register(register, result);
+            }
+            Tuple(tuple) => {
+                let index = signed_index_to_unsigned(index, tuple.data().len());
+                let result = tuple.data().get(index).cloned().unwrap_or(Empty);
+                self.set_register(register, result);
+            }
+            TemporaryTuple(RegisterSlice { start, count }) => {
+                let count = *count;
+                let result = if (index.abs() as u8) < count {
+                    let index = signed_index_to_unsigned(index, count as usize);
+                    self.clone_register(start + index as u8)
+                } else {
+                    Empty
+                };
+                self.set_register(register, result);
+            }
+            unexpected => {
+                return self.unexpected_type_error(
+                    "ValueIndex: Expected indexable value",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        };
+
+        Ok(())
+    }
+
+    fn run_slice(
+        &mut self,
+        register: u8,
+        value: u8,
+        index: i8,
+        is_slice_to: bool,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let result = match self.get_register(value) {
+            List(list) => {
+                let index = signed_index_to_unsigned(index, list.data().len());
+                if is_slice_to {
+                    list.data()
+                        .get(..index)
+                        .map_or(Empty, |entries| List(ValueList::from_slice(entries)))
+                } else {
+                    list.data()
+                        .get(index..)
+                        .map_or(Empty, |entries| List(ValueList::from_slice(entries)))
+                }
+            }
+            Tuple(tuple) => {
+                let index = signed_index_to_unsigned(index, tuple.data().len());
+                if is_slice_to {
+                    tuple
+                        .data()
+                        .get(..index)
+                        .map_or(Empty, |entries| Tuple(entries.into()))
+                } else {
+                    tuple
+                        .data()
+                        .get(index..)
+                        .map_or(Empty, |entries| Tuple(entries.into()))
+                }
+            }
+            unexpected => {
+                return self.unexpected_type_error(
+                    "SliceFrom: expected List or Tuple",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        };
+
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_make_function(&mut self, function_instruction: Instruction) -> InstructionResult {
+        use Value::*;
+
+        match function_instruction {
+            Instruction::Function {
+                register,
+                arg_count,
+                capture_count,
+                instance_function,
+                variadic,
+                generator,
+                size,
+            } => {
+                // Initialize the function's captures with Empty
+                let captures = if capture_count > 0 {
+                    let mut captures = ValueVec::new();
+                    captures.resize(capture_count as usize, Empty);
+                    Some(ValueList::with_data(captures))
+                } else {
+                    None
+                };
+
+                let function = RuntimeFunction {
+                    chunk: self.chunk(),
+                    ip: self.ip(),
+                    arg_count,
+                    instance_function,
+                    variadic,
+                    captures,
+                };
+
+                let value = if generator {
+                    Generator(function)
+                } else {
+                    Function(function)
+                };
+
+                self.jump_ip(size);
+                self.set_register(register, value);
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
+
+    fn run_capture_value(
+        &mut self,
+        function: u8,
+        capture_index: u8,
+        value: u8,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        match self.get_register(function) {
+            Value::Function(f) => match &f.captures {
+                Some(captures) => {
+                    captures.data_mut()[capture_index as usize] = self.clone_register(value)
+                }
+                None => {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "Capture: missing capture list for function"
+                    )
+                }
+            },
+            unexpected => {
+                return self.unexpected_type_error(
+                    "Capture: expected Function",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn run_load_capture(
+        &mut self,
+        register: u8,
+        capture_index: u8,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        match self.frame().get_capture(capture_index) {
+            Some(value) => {
+                self.set_register(register, value);
+            }
+            None => {
+                if self.call_stack.len() == 1 {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "LoadCapture: attempting to capture outside of function"
+                    );
+                } else {
+                    return vm_error!(
+                        self.chunk(),
+                        instruction_ip,
+                        "LoadCapture: invalid capture index"
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn run_set_capture(
+        &mut self,
+        capture_index: u8,
+        value_register: u8,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let value = self.clone_register(value_register);
+
+        if !self.frame_mut().set_capture(capture_index, value) {
+            return vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "SetCapture: invalid capture index: {} ",
+                capture_index
+            );
+        }
+
+        Ok(())
+    }
+
+    fn run_negate(&mut self, register: u8, value: u8, instruction_ip: usize) -> InstructionResult {
+        use Value::*;
+
+        let result = match &self.get_register(value) {
+            Bool(b) => Bool(!b),
+            Number(n) => Number(-n),
+            Num2(v) => Num2(-v),
+            Num4(v) => Num4(-v),
+            unexpected => {
+                return self.unexpected_type_error(
+                    "Negate: expected negatable value",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_add(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a + b),
+            (Number(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Number(b)) => Num2(a + b),
+            (Number(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Number(b)) => Num4(a + b),
+            (List(a), List(b)) => {
+                let mut result = ValueVec::new();
+                result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                List(ValueList::with_data(result))
+            }
+            (Map(a), Map(b)) => {
+                let mut result = a.data().clone();
+                result.extend(&b.data());
+                Map(ValueMap::with_data(result))
+            }
+            (Str(a), Str(b)) => {
+                let result = a.to_string() + b.as_ref();
+                Str(result.into())
+            }
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_subtract(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a - b),
+            (Number(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Num2(b)) => Num2(a - b),
+            (Num2(a), Number(b)) => Num2(a - b),
+            (Number(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Num4(b)) => Num4(a - b),
+            (Num4(a), Number(b)) => Num4(a - b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_multiply(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a * b),
+            (Number(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Number(b)) => Num2(a * b),
+            (Number(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Number(b)) => Num4(a * b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_divide(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a / b),
+            (Number(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Num2(b)) => Num2(a / b),
+            (Num2(a), Number(b)) => Num2(a / b),
+            (Number(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Num4(b)) => Num4(a / b),
+            (Num4(a), Number(b)) => Num4(a / b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_modulo(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a % b),
+            (Number(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Num2(b)) => Num2(a % b),
+            (Num2(a), Number(b)) => Num2(a % b),
+            (Number(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Num4(b)) => Num4(a % b),
+            (Num4(a), Number(b)) => Num4(a % b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_less(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Bool(a < b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_less_or_equal(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Bool(a <= b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_greater(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Bool(a > b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_greater_or_equal(
+        &mut self,
+        register: u8,
+        lhs: u8,
+        rhs: u8,
+        instruction: &Instruction,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        use Value::*;
+
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Bool(a >= b),
+            _ => {
+                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
+            }
+        };
+        self.set_register(register, result);
+
+        Ok(())
+    }
+
+    fn run_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = (lhs_value == rhs_value).into();
+        self.set_register(register, result);
+        Ok(())
+    }
+
+    fn run_not_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        let lhs_value = self.get_register(lhs);
+        let rhs_value = self.get_register(rhs);
+        let result = (lhs_value != rhs_value).into();
+        self.set_register(register, result);
+        Ok(())
+    }
+
+    fn run_jump_if(
+        &mut self,
+        register: u8,
+        offset: usize,
+        jump_condition: bool,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        match self.get_register(register) {
+            Value::Bool(b) => {
+                if *b == jump_condition {
+                    self.jump_ip(offset);
+                }
+            }
+            unexpected => {
+                return self.unexpected_type_error(
+                    "JumpIf: expected Bool",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn run_jump_back_if(
+        &mut self,
+        register: u8,
+        offset: usize,
+        jump_condition: bool,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        match self.get_register(register) {
+            Value::Bool(b) => {
+                if *b == jump_condition {
+                    self.jump_ip_back(offset);
+                }
+            }
+            unexpected => {
+                return self.unexpected_type_error(
+                    "JumpIf: expected Bool",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn run_size(&mut self, register: u8, value: u8) -> InstructionResult {
+        use Value::*;
+
+        let result = match self.get_register(value) {
+            List(l) => l.len(),
+            Str(s) => s.len(),
+            Tuple(t) => t.data().len(),
+            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
+            Map(m) => m.len(),
+            Num2(_) => 2,
+            Num4(_) => 4,
+            Range(IntRange { start, end }) => (end - start) as usize,
+            _ => 1,
+        };
+        self.set_register(register, Number(result as f64));
+
+        Ok(())
+    }
+
+    fn run_type(&mut self, register: u8, value: u8, instruction_ip: usize) -> InstructionResult {
+        use Value::*;
+
+        let result = match self.get_register(value) {
+            Bool(_) => "bool".to_string(),
+            Empty => "empty".to_string(),
+            Function(_) => "function".to_string(),
+            ExternalFunction(_) => "function".to_string(),
+            ExternalValue(value) => value.read().unwrap().value_type(),
+            List(_) => "list".to_string(),
+            Map(_) => "map".to_string(),
+            Number(_) => "number".to_string(),
+            Num2(_) => "num2".to_string(),
+            Num4(_) => "num4".to_string(),
+            Range(_) => "range".to_string(),
+            Str(_) => "string".to_string(),
+            Tuple(_) => "tuple".to_string(),
+            unexpected => {
+                return self.unexpected_type_error(
+                    "type: Expected user type",
+                    unexpected,
+                    instruction_ip,
+                );
+            }
+        };
+        self.set_register(register, Str(result.into()));
+
+        Ok(())
+    }
+
     fn run_import(
         &mut self,
         result_register: u8,
         import_constant: ConstantIndex,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         let import_name = self.value_string_from_constant(import_constant);
 
         let maybe_global = self
@@ -1399,7 +1538,7 @@ impl Vm {
         element_count: u8,
         element_register: u8,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
 
         let result = if element_count == 1 {
@@ -1412,24 +1551,21 @@ impl Vm {
                         match value {
                             Number(n) => result[i] = *n,
                             unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
+                                return self.unexpected_type_error(
+                                    "num2: Expected Number",
+                                    unexpected,
                                     instruction_ip,
-                                    "num2 only accepts Numbers as arguments, - found {}",
-                                    unexpected
-                                )
+                                );
                             }
                         }
                     }
                     result
                 }
                 unexpected => {
-                    return vm_error!(
-                        self.chunk(),
+                    return self.unexpected_type_error(
+                        "num2: Expected Number, Num2, or List",
+                        unexpected,
                         instruction_ip,
-                        "num2 only accepts a Number, Num2, or List as first argument \
-                         - found {}",
-                        unexpected
                     );
                 }
             }
@@ -1439,12 +1575,10 @@ impl Vm {
                 match self.get_register(element_register + i) {
                     Number(n) => result[i as usize] = *n,
                     unexpected => {
-                        return vm_error!(
-                            self.chunk(),
+                        return self.unexpected_type_error(
+                            "num2: Expected Number, Num2, or List",
+                            unexpected,
                             instruction_ip,
-                            "num2 only accepts Numbers as arguments, \
-                             or Num2 or List as first argument - found {}",
-                            unexpected
                         );
                     }
                 }
@@ -1462,7 +1596,7 @@ impl Vm {
         element_count: u8,
         element_register: u8,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
         let result = if element_count == 1 {
             match self.get_register(element_register) {
@@ -1478,24 +1612,21 @@ impl Vm {
                         match value {
                             Number(n) => result[i] = *n as f32,
                             unexpected => {
-                                return vm_error!(
-                                    self.chunk(),
+                                return self.unexpected_type_error(
+                                    "num4: Expected Number",
+                                    unexpected,
                                     instruction_ip,
-                                    "num4 only accepts Numbers as arguments, - found {}",
-                                    unexpected
-                                )
+                                );
                             }
                         }
                     }
                     result
                 }
                 unexpected => {
-                    return vm_error!(
-                        self.chunk(),
+                    return self.unexpected_type_error(
+                        "num4: Expected Number, Num4, or List",
+                        unexpected,
                         instruction_ip,
-                        "num4 only accepts a Number, Num4, or List as first argument \
-                         - found {}",
-                        unexpected
                     );
                 }
             }
@@ -1505,12 +1636,10 @@ impl Vm {
                 match self.get_register(element_register + i) {
                     Number(n) => result[i as usize] = *n as f32,
                     unexpected => {
-                        return vm_error!(
-                            self.chunk(),
+                        return self.unexpected_type_error(
+                            "num4: Expected Number, Num4, or List",
+                            unexpected,
                             instruction_ip,
-                            "num4 only accepts Numbers as arguments, \
-                             or Num4 or List as first argument - found {}",
-                            unexpected
                         );
                     }
                 }
@@ -1527,10 +1656,10 @@ impl Vm {
         list_register: u8,
         value_register: u8,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
 
-        let value = self.get_register(value_register).clone();
+        let value = self.clone_register(value_register);
 
         match self.get_register_mut(list_register) {
             List(list) => match value {
@@ -1550,8 +1679,8 @@ impl Vm {
                     self.chunk(),
                     instruction_ip,
                     "Expected List, found '{}'",
-                    type_as_string(&unexpected),
-                )
+                    unexpected,
+                );
             }
         };
         Ok(())
@@ -1563,11 +1692,11 @@ impl Vm {
         index_register: u8,
         value_register: u8,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
 
-        let index_value = self.get_register(index_register).clone();
-        let value = self.get_register(value_register).clone();
+        let index_value = self.clone_register(index_register);
+        let value = self.clone_register(value_register);
 
         match self.get_register_mut(list_register) {
             List(list) => {
@@ -1654,11 +1783,10 @@ impl Vm {
                         }
                     }
                     unexpected => {
-                        return vm_error!(
-                            self.chunk(),
+                        return self.unexpected_type_error(
+                            "Expected List",
+                            &unexpected,
                             instruction_ip,
-                            "Unexpected type for List index: '{}'",
-                            type_as_string(&unexpected)
                         );
                     }
                 }
@@ -1668,15 +1796,15 @@ impl Vm {
                     self.chunk(),
                     instruction_ip,
                     "Expected List, found '{}'",
-                    type_as_string(&unexpected),
-                )
+                    unexpected
+                );
             }
         };
 
         Ok(())
     }
 
-    fn validate_index(&self, n: f64, size: usize, instruction_ip: usize) -> Result<(), Error> {
+    fn validate_index(&self, n: f64, size: usize, instruction_ip: usize) -> InstructionResult {
         let index = n as usize;
 
         if n < 0.0 {
@@ -1705,7 +1833,7 @@ impl Vm {
         end: isize,
         size: usize,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         let ustart = start as usize;
         let uend = end as usize;
 
@@ -1745,7 +1873,7 @@ impl Vm {
         end: usize,
         size: usize,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         if start > end {
             vm_error!(
                 self.chunk(),
@@ -1774,11 +1902,11 @@ impl Vm {
         value_register: u8,
         index_register: u8,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
 
-        let value = self.get_register(value_register).clone();
-        let index = self.get_register(index_register).clone();
+        let value = self.clone_register(value_register);
+        let index = self.clone_register(index_register);
 
         match (value, index) {
             (List(l), Number(n)) => {
@@ -1862,95 +1990,52 @@ impl Vm {
         Ok(())
     }
 
+    fn run_map_insert(
+        &mut self,
+        map_register: u8,
+        value: u8,
+        key: ConstantIndex,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let key_string = self.value_string_from_constant(key);
+        let value = self.clone_register(value);
+
+        match self.get_register_mut(map_register) {
+            Value::Map(map) => {
+                map.data_mut().insert(Value::Str(key_string), value);
+                Ok(())
+            }
+            unexpected => vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "MapInsert: Expected Map, found '{}'",
+                type_as_string(&unexpected)
+            ),
+        }
+    }
+
     fn run_map_access(
         &mut self,
         result_register: u8,
         map_register: u8,
         key: ConstantIndex,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> InstructionResult {
         use Value::*;
 
         let map_value = self.clone_register(map_register);
         let key_string = self.get_constant_str(key);
 
-        macro_rules! get_core_op {
+        macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
-                let maybe_op = self
-                    .context()
-                    .core_lib
-                    .$module
-                    .data()
-                    .get_with_string(&key_string)
-                    .cloned();
-
-                let maybe_op = if maybe_op.is_none() && $iterator_fallback {
-                    self.context()
-                        .core_lib
-                        .iterator
-                        .data()
-                        .get_with_string(&key_string)
-                        .cloned()
-                } else {
-                    maybe_op
-                };
-
-                match maybe_op {
-                    Some(op) => match op {
-                        // Core module functions accessed in a lookup need to be invoked as
-                        // if they were declared as instance functions, so that they can receive
-                        // the parent instance as a self argument.
-                        // e.g.
-                        // A function in string that can be called as:
-                        //   string.lines my_string
-                        // can also be called as:
-                        //   my_string.lines()
-                        // ...where it needs to behave as an instance function.
-                        // There's surely a cleaner way to achieve this, but this will do for now...
-                        ExternalFunction(f) => {
-                            let f_as_instance_function = external::ExternalFunction {
-                                is_instance_function: true,
-                                ..f.clone()
-                            };
-                            self.set_register(
-                                result_register,
-                                Value::ExternalFunction(f_as_instance_function),
-                            );
-                        }
-                        Function(f) => {
-                            let f_as_instance_function = RuntimeFunction {
-                                instance_function: true,
-                                ..f.clone()
-                            };
-                            self.set_register(
-                                result_register,
-                                Value::Function(f_as_instance_function),
-                            );
-                        }
-                        Generator(f) => {
-                            let f_as_instance_function = RuntimeFunction {
-                                instance_function: true,
-                                ..f.clone()
-                            };
-                            self.set_register(
-                                result_register,
-                                Value::Generator(f_as_instance_function),
-                            );
-                        }
-                        other => self.set_register(result_register, other.clone()),
-                    },
-                    None => {
-                        return vm_error!(
-                            self.chunk(),
-                            instruction_ip,
-                            "'{}' not found in module '{}'",
-                            key_string,
-                            stringify!($module)
-                        );
-                    }
-                }
-
-                Ok(())
+                let op = self.get_core_op(
+                    key_string,
+                    &self.context().core_lib.$module,
+                    stringify!($module),
+                    $iterator_fallback,
+                    instruction_ip,
+                )?;
+                self.set_register(result_register, op);
             }};
         };
 
@@ -1959,22 +2044,21 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => get_core_op!(map, true)?,
+                None => core_op!(map, true),
             },
-            List(_) => get_core_op!(list, true)?,
-            Num2(_) => get_core_op!(num2, false)?,
-            Num4(_) => get_core_op!(num4, false)?,
-            Number(_) => get_core_op!(number, false)?,
-            Range(_) => get_core_op!(range, true)?,
-            Str(_) => get_core_op!(string, false)?,
-            Tuple(_) => get_core_op!(tuple, true)?,
-            Iterator(_) => get_core_op!(iterator, false)?,
+            List(_) => core_op!(list, true),
+            Num2(_) => core_op!(num2, false),
+            Num4(_) => core_op!(num4, false),
+            Number(_) => core_op!(number, false),
+            Range(_) => core_op!(range, true),
+            Str(_) => core_op!(string, false),
+            Tuple(_) => core_op!(tuple, true),
+            Iterator(_) => core_op!(iterator, false),
             unexpected => {
-                return vm_error!(
-                    self.chunk(),
+                return self.unexpected_type_error(
+                    "MapAccess: Expected Map",
+                    &unexpected,
                     instruction_ip,
-                    "MapAccess: Expected Map, found '{}'",
-                    type_as_string(&unexpected),
                 )
             }
         }
@@ -1982,15 +2066,85 @@ impl Vm {
         Ok(())
     }
 
+    fn get_core_op(
+        &self,
+        key: &str,
+        module: &ValueMap,
+        module_name: &str,
+        iterator_fallback: bool,
+        instruction_ip: usize,
+    ) -> RuntimeResult {
+        use Value::*;
+
+        let maybe_op = match module.data().get_with_string(key).cloned() {
+            None if iterator_fallback => self
+                .context()
+                .core_lib
+                .iterator
+                .data()
+                .get_with_string(&key)
+                .cloned(),
+            maybe_op => maybe_op,
+        };
+
+        let result = match maybe_op {
+            Some(op) => match op {
+                // Core module functions accessed in a lookup need to be invoked as
+                // if they were declared as instance functions, so that they can receive
+                // the parent instance as a self argument.
+                // e.g.
+                // A function in string that can be called as:
+                //   string.lines my_string
+                // can also be called as:
+                //   my_string.lines()
+                // ...where it needs to behave as an instance function.
+                // There's surely a cleaner way to achieve this, but this will do for now...
+                ExternalFunction(f) => {
+                    let f_as_instance_function = external::ExternalFunction {
+                        is_instance_function: true,
+                        ..f
+                    };
+                    ExternalFunction(f_as_instance_function)
+                }
+                Function(f) => {
+                    let f_as_instance_function = RuntimeFunction {
+                        instance_function: true,
+                        ..f
+                    };
+                    Function(f_as_instance_function)
+                }
+                Generator(f) => {
+                    let f_as_instance_function = RuntimeFunction {
+                        instance_function: true,
+                        ..f
+                    };
+                    Generator(f_as_instance_function)
+                }
+                other => other,
+            },
+            None => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "'{}' not found in module '{}'",
+                    key,
+                    module_name
+                )
+            }
+        };
+
+        Ok(result)
+    }
+
     fn call_external_function(
         &mut self,
         result_register: u8,
-        external_function: &ExternalFunction,
+        external_function: ExternalFunction,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
         instruction_ip: usize,
-    ) -> RuntimeResult {
+    ) -> InstructionResult {
         let function = external_function.function.as_ref();
 
         let mut call_arg_count = call_arg_count;
@@ -2037,18 +2191,18 @@ impl Vm {
             }
         }
 
-        Ok(Value::Empty)
+        Ok(())
     }
 
     fn call_generator(
         &mut self,
         result_register: u8,
-        function: &RuntimeFunction,
+        function: RuntimeFunction,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
         instruction_ip: usize,
-    ) -> RuntimeResult {
+    ) -> InstructionResult {
         let RuntimeFunction {
             chunk,
             ip: function_ip,
@@ -2063,19 +2217,19 @@ impl Vm {
         // Push a frame for running the generator function
         generator_vm.push_frame(
             chunk.clone(),
-            *function_ip,
+            function_ip,
             0, // arguments will be copied starting in register 0
             captures.clone(),
         );
 
         let expected_arg_count = match (instance_function, variadic) {
-            (true, true) => *function_arg_count - 2,
-            (true, false) | (false, true) => *function_arg_count - 1,
-            (false, false) => *function_arg_count,
+            (true, true) => function_arg_count - 2,
+            (true, false) | (false, true) => function_arg_count - 1,
+            (false, false) => function_arg_count,
         };
 
         // Copy the instance value into the generator vm
-        let arg_offset = if *instance_function {
+        let arg_offset = if instance_function {
             if let Some(instance_register) = instance_register {
                 let instance = self.clone_register(instance_register);
                 // Place the instance in the first register of the generator vm
@@ -2093,7 +2247,7 @@ impl Vm {
         };
 
         // Check for variadic arguments, and validate argument count
-        if *variadic {
+        if variadic {
             if call_arg_count >= expected_arg_count {
                 // Capture the varargs into a tuple and place them in the
                 // generator vm's last arg register
@@ -2137,18 +2291,18 @@ impl Vm {
         // Wrap the generator vm in an iterator and place it in the result register
         self.set_register(result_register, ValueIterator::with_vm(generator_vm).into());
 
-        Ok(Value::Empty)
+        Ok(())
     }
 
     fn call_function(
         &mut self,
         result_register: u8,
-        function: &Value,
+        function: Value,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
         instruction_ip: usize,
-    ) -> RuntimeResult {
+    ) -> InstructionResult {
         use Value::*;
 
         match function {
@@ -2177,13 +2331,13 @@ impl Vm {
                 captures,
             }) => {
                 let expected_count = match (instance_function, variadic) {
-                    (true, true) => *function_arg_count - 2,
-                    (true, false) | (false, true) => *function_arg_count - 1,
-                    (false, false) => *function_arg_count,
+                    (true, true) => function_arg_count - 2,
+                    (true, false) | (false, true) => function_arg_count - 1,
+                    (false, false) => function_arg_count,
                 };
 
                 // Clone the instance register into the first register of the frame
-                let adjusted_frame_base = if *instance_function {
+                let adjusted_frame_base = if instance_function {
                     if let Some(instance_register) = instance_register {
                         let instance = self.clone_register(instance_register);
                         self.set_register(frame_base, instance);
@@ -2201,7 +2355,7 @@ impl Vm {
                     frame_base + 1
                 };
 
-                if *variadic {
+                if variadic {
                     if call_arg_count >= expected_count {
                         // The last defined arg is the start of the var_args,
                         // e.g. f = |x, y, z...|
@@ -2238,20 +2392,37 @@ impl Vm {
                 // Set up a new frame for the called function
                 self.push_frame(
                     chunk.clone(),
-                    *function_ip,
+                    function_ip,
                     adjusted_frame_base,
                     captures.clone(),
                 );
 
-                Ok(Empty)
+                Ok(())
             }
-            unexpected => vm_error!(
-                self.chunk(),
-                instruction_ip,
-                "Expected Function, found '{}'",
-                type_as_string(&unexpected),
-            ),
+            unexpected => {
+                self.unexpected_type_error("Expected Function", &unexpected, instruction_ip)
+            }
         }
+    }
+
+    fn run_debug(
+        &self,
+        register: u8,
+        constant: ConstantIndex,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let prefix = match (
+            self.reader.chunk.debug_info.get_source_span(instruction_ip),
+            self.reader.chunk.source_path.as_ref(),
+        ) {
+            (Some(span), Some(path)) => format!("[{}: {}] ", path.display(), span.start.line),
+            (Some(span), None) => format!("[{}] ", span.start.line),
+            (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
+            (None, None) => "[#ERR] ".to_string(),
+        };
+        let value = self.get_register(register);
+        println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
+        Ok(())
     }
 
     pub fn chunk(&self) -> Arc<Chunk> {
@@ -2400,29 +2571,42 @@ impl Vm {
         ValueString::new_with_bounds(self.reader.chunk.string_constants_arc.clone(), bounds)
             .unwrap() // The bounds have been already checked in the constant pool
     }
+
+    fn unexpected_type_error<T>(
+        &self,
+        message: &str,
+        value: &Value,
+        instruction_ip: usize,
+    ) -> Result<T, Error> {
+        vm_error!(
+            self.chunk(),
+            instruction_ip,
+            format!("{}, found '{}'", message, type_as_string(&value))
+        )
+    }
+
+    fn binary_op_error(
+        &self,
+        lhs: &Value,
+        rhs: &Value,
+        op: &Instruction,
+        ip: usize,
+    ) -> InstructionResult {
+        vm_error!(
+            self.chunk(),
+            ip,
+            "Unable to perform operation {} with '{}' and '{}'",
+            op,
+            type_as_string(lhs),
+            type_as_string(rhs),
+        )
+    }
 }
 
 impl fmt::Debug for Vm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Vm")
     }
-}
-
-fn binary_op_error(
-    chunk: Arc<Chunk>,
-    op: Instruction,
-    lhs: &Value,
-    rhs: &Value,
-    ip: usize,
-) -> Result<ControlFlow, Error> {
-    vm_error!(
-        chunk,
-        ip,
-        "Unable to perform operation {} with '{}' and '{}'",
-        op,
-        type_as_string(lhs),
-        type_as_string(rhs),
-    )
 }
 
 fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
