@@ -289,7 +289,7 @@ pub enum Instruction {
         value: u8,
         key: ConstantIndex,
     },
-    MapAccess {
+    Access {
         register: u8,
         map: u8,
         key: ConstantIndex,
@@ -372,7 +372,7 @@ impl fmt::Display for Instruction {
             ListUpdate { .. } => write!(f, "ListUpdate"),
             Index { .. } => write!(f, "Index"),
             MapInsert { .. } => write!(f, "MapInsert"),
-            MapAccess { .. } => write!(f, "MapAccess"),
+            Access { .. } => write!(f, "Access"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
             Debug { .. } => write!(f, "Debug"),
@@ -714,7 +714,7 @@ impl fmt::Debug for Instruction {
                 index,
             } => write!(
                 f,
-                "Index\tresult: {}\tvalue: {}\t\tindex: {}",
+                "Index\t\tresult: {}\tvalue: {}\tindex: {}",
                 register, value, index
             ),
             MapInsert {
@@ -726,9 +726,9 @@ impl fmt::Debug for Instruction {
                 "MapInsert\tmap: {}\t\tvalue: {}\tkey: {}",
                 register, value, key
             ),
-            MapAccess { register, map, key } => write!(
+            Access { register, map, key } => write!(
                 f,
-                "MapAccess\tresult: {}\tmap: {}\t\tkey: {}",
+                "Access\t\tresult: {}\tmap: {}\t\tkey: {}",
                 register, map, key
             ),
             TryStart {
@@ -1161,12 +1161,12 @@ impl Iterator for InstructionReader {
                 value: get_byte!(),
                 key: get_u32!() as ConstantIndex,
             }),
-            Op::MapAccess => Some(MapAccess {
+            Op::Access => Some(Access {
                 register: get_byte!(),
                 map: get_byte!(),
                 key: get_byte!() as ConstantIndex,
             }),
-            Op::MapAccessLong => Some(MapAccess {
+            Op::AccessLong => Some(Access {
                 register: get_byte!(),
                 map: get_byte!(),
                 key: get_u32!() as ConstantIndex,

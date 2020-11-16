@@ -79,11 +79,11 @@ pub enum Op {
     ListPushValue,    // list, value
     ListPushValues,   // list, start register, count
     ListUpdate,       // list, index, value
-    Index,            // TODO rename to ListIndex - result, list register, index register
+    Index,            // result, list register, index register
     MapInsert,        // map register, value register, key constant
     MapInsertLong,    // map register, value register, key constant[4]
-    MapAccess,        // register, map register, key
-    MapAccessLong,    // register, map register, key[4]
+    Access,           // register, value register, key
+    AccessLong,       // register, value register, key[4]
     Type,             // register
     IsList,           // register, value
     IsTuple,          // register, value

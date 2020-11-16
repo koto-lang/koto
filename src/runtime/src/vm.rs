@@ -602,8 +602,8 @@ impl Vm {
                 value,
                 key,
             } => self.run_map_insert(register, value, key, instruction_ip),
-            Instruction::MapAccess { register, map, key } => {
-                self.run_map_access(register, map, key, instruction_ip)
+            Instruction::Access { register, map, key } => {
+                self.run_access(register, map, key, instruction_ip)
             }
             Instruction::TryStart {
                 arg_register,
@@ -2014,7 +2014,7 @@ impl Vm {
         }
     }
 
-    fn run_map_access(
+    fn run_access(
         &mut self,
         result_register: u8,
         map_register: u8,
