@@ -1,4 +1,4 @@
-mod core;
+pub mod core;
 mod error;
 mod external;
 mod frame;

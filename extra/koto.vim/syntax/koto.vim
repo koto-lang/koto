@@ -13,7 +13,7 @@ syntax keyword kotoCoreLibModules
 syntax keyword kotoCoreLib
   \ contains[] create get insert is_empty iter remove size sum
   \ args script_dir script_path type
-  \ exists open path read_to_string remove_file seek temp_path temp_file write write_line
+  \ exists open path read_to_string remove_file seek temp_dir write write_line
   \ consume each enumerate fold[] keep next take to_list to_map to_tuple zip
   \ fill first last pop push resize retain reverse sort sort_copy transform with_size
   \ contains_key keys values

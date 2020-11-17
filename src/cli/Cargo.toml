@@ -18,6 +18,7 @@ jemalloc = ["jemallocator"]
 koto = {path = "../koto"}
 koto_json = {path = "../../libs/json"}
 koto_random = {path = "../../libs/random"}
+koto_tempfile = {path = "../../libs/tempfile"}
 koto_toml = {path = "../../libs/toml"}
 
 termion = "1.5.5"

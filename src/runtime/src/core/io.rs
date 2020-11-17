@@ -10,8 +10,104 @@ use {
     },
 };
 
+pub fn make_file_map() -> ValueMap {
+    use Value::{Number, Str};
+
+    fn file_fn(
+        fn_name: &str,
+        args: &[Value],
+        mut file_op: impl FnMut(&mut File) -> RuntimeResult,
+    ) -> RuntimeResult {
+        get_external_instance!(args, "File", fn_name, File, file_ref, { file_op(file_ref) })
+    }
+
+    let mut file_map = ValueMap::new();
+
+    file_map.add_instance_fn("path", |vm, args| {
+        file_fn("path", vm.get_args(args), |file_handle| {
+            Ok(Str(file_handle.path.to_string_lossy().as_ref().into()))
+        })
+    });
+
+    file_map.add_instance_fn("write", |vm, args| {
+        file_fn("write", vm.get_args(args), |file_handle| {
+            match vm.get_args(args) {
+                [_, value] => {
+                    let data = format!("{}", value);
+
+                    match file_handle.file.write(data.as_bytes()) {
+                        Ok(_) => Ok(Value::Empty),
+                        Err(e) => external_error!("File.write: Error while writing to file: {}", e),
+                    }
+                }
+                _ => external_error!("File.write: Expected single value to write as argument"),
+            }
+        })
+    });
+
+    file_map.add_instance_fn("write_line", |vm, args| {
+        file_fn("write_line", vm.get_args(args), |file_handle| {
+            let line = match vm.get_args(args) {
+                [_] => "\n".to_string(),
+                [_, value] => format!("{}\n", value),
+                _ => {
+                    return external_error!("File.write_line: Expected single value as argument");
+                }
+            };
+            match file_handle.file.write(line.as_bytes()) {
+                Ok(_) => Ok(Value::Empty),
+                Err(e) => external_error!("File.write_line: Error while writing to file: {}", e),
+            }
+        })
+    });
+
+    file_map.add_instance_fn("read_to_string", |vm, args| {
+        file_fn(
+            "read_to_string",
+            vm.get_args(args),
+            |file_handle| match file_handle.file.seek(SeekFrom::Start(0)) {
+                Ok(_) => {
+                    let mut buffer = String::new();
+                    match file_handle.file.read_to_string(&mut buffer) {
+                        Ok(_) => Ok(Str(buffer.into())),
+                        Err(e) => {
+                            external_error!("File.read_to_string: Error while reading data: {}", e,)
+                        }
+                    }
+                }
+                Err(e) => {
+                    external_error!("File.read_to_string: Error while seeking in file: {}", e)
+                }
+            },
+        )
+    });
+
+    file_map.add_instance_fn("seek", |vm, args| {
+        file_fn("seek", vm.get_args(args), |file_handle| {
+            match vm.get_args(args) {
+                [_, Number(n)] => {
+                    if *n < 0.0 {
+                        return external_error!("File.seek: Negative seek positions not allowed");
+                    }
+                    match file_handle.file.seek(SeekFrom::Start(*n as u64)) {
+                        Ok(_) => Ok(Value::Empty),
+                        Err(e) => external_error!("File.seek: Error while seeking in file: {}", e),
+                    }
+                }
+                [_, unexpected] => external_error!(
+                    "File.seek: Expected Number for seek position, found '{}'",
+                    type_as_string(&unexpected),
+                ),
+                _ => external_error!("File.seek: Expected seek position as second argument"),
+            }
+        })
+    });
+
+    file_map
+}
+
 pub fn make_module() -> ValueMap {
-    use Value::{Bool, Map, Number, Str};
+    use Value::{Bool, Map, Str};
 
     let mut result = ValueMap::new();
 
@@ -27,111 +123,6 @@ pub fn make_module() -> ValueMap {
         },
         _ => external_error!("io.read_to_string: Expected path string as argument"),
     });
-
-    let make_file_map = || {
-        fn file_fn(
-            fn_name: &str,
-            args: &[Value],
-            mut file_op: impl FnMut(&mut File) -> RuntimeResult,
-        ) -> RuntimeResult {
-            get_external_instance!(args, "File", fn_name, File, file_ref, { file_op(file_ref) })
-        }
-
-        let mut file_map = ValueMap::new();
-
-        file_map.add_instance_fn("path", |vm, args| {
-            file_fn("path", vm.get_args(args), |file_handle| {
-                Ok(Str(file_handle.path.to_string_lossy().as_ref().into()))
-            })
-        });
-
-        file_map.add_instance_fn("write", |vm, args| {
-            file_fn("write", vm.get_args(args), |file_handle| {
-                match vm.get_args(args) {
-                    [_, value] => {
-                        let data = format!("{}", value);
-
-                        match file_handle.file.write(data.as_bytes()) {
-                            Ok(_) => Ok(Value::Empty),
-                            Err(e) => {
-                                external_error!("File.write: Error while writing to file: {}", e)
-                            }
-                        }
-                    }
-                    _ => external_error!("File.write: Expected single value to write as argument"),
-                }
-            })
-        });
-
-        file_map.add_instance_fn("write_line", |vm, args| {
-            file_fn("write_line", vm.get_args(args), |file_handle| {
-                let line = match vm.get_args(args) {
-                    [_] => "\n".to_string(),
-                    [_, value] => format!("{}\n", value),
-                    _ => {
-                        return external_error!(
-                            "File.write_line: Expected single value as argument"
-                        );
-                    }
-                };
-                match file_handle.file.write(line.as_bytes()) {
-                    Ok(_) => Ok(Value::Empty),
-                    Err(e) => {
-                        external_error!("File.write_line: Error while writing to file: {}", e)
-                    }
-                }
-            })
-        });
-
-        file_map.add_instance_fn("read_to_string", |vm, args| {
-            file_fn(
-                "read_to_string",
-                vm.get_args(args),
-                |file_handle| match file_handle.file.seek(SeekFrom::Start(0)) {
-                    Ok(_) => {
-                        let mut buffer = String::new();
-                        match file_handle.file.read_to_string(&mut buffer) {
-                            Ok(_) => Ok(Str(buffer.into())),
-                            Err(e) => external_error!(
-                                "File.read_to_string: Error while reading data: {}",
-                                e,
-                            ),
-                        }
-                    }
-                    Err(e) => {
-                        external_error!("File.read_to_string: Error while seeking in file: {}", e)
-                    }
-                },
-            )
-        });
-
-        file_map.add_instance_fn("seek", |vm, args| {
-            file_fn("seek", vm.get_args(args), |file_handle| {
-                match vm.get_args(args) {
-                    [_, Number(n)] => {
-                        if *n < 0.0 {
-                            return external_error!(
-                                "File.seek: Negative seek positions not allowed"
-                            );
-                        }
-                        match file_handle.file.seek(SeekFrom::Start(*n as u64)) {
-                            Ok(_) => Ok(Value::Empty),
-                            Err(e) => {
-                                external_error!("File.seek: Error while seeking in file: {}", e)
-                            }
-                        }
-                    }
-                    [_, unexpected] => external_error!(
-                        "File.seek: Expected Number for seek position, found '{}'",
-                        type_as_string(&unexpected),
-                    ),
-                    _ => external_error!("File.seek: Expected seek position as second argument"),
-                }
-            })
-        });
-
-        file_map
-    };
 
     result.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
@@ -197,46 +188,8 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("temp_path", {
-        |_, _| match tempfile::NamedTempFile::new() {
-            Ok(file) => match file.keep() {
-                Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().as_ref().into())),
-                Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
-            },
-            Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
-        }
-    });
-
-    result.add_fn("temp_file", {
-        move |_, _| {
-            let (temp_file, path) = match tempfile::NamedTempFile::new() {
-                Ok(file) => match file.keep() {
-                    Ok((temp_file, path)) => (temp_file, path),
-                    Err(e) => {
-                        return external_error!(
-                            "io.temp_file: Error while creating temp file: {}",
-                            e,
-                        );
-                    }
-                },
-                Err(e) => {
-                    return external_error!("io.temp_file: Error while creating temp file: {}", e);
-                }
-            };
-
-            let mut file_map = make_file_map();
-
-            file_map.insert(
-                Value::ExternalDataId,
-                make_external_value(File {
-                    file: temp_file,
-                    path,
-                    temporary: true,
-                }),
-            );
-
-            Ok(Map(file_map))
-        }
+    result.add_fn("temp_dir", {
+        |_, _| Ok(Str(std::env::temp_dir().to_string_lossy().as_ref().into()))
     });
 
     result.add_fn("remove_file", {
@@ -264,10 +217,10 @@ pub fn make_module() -> ValueMap {
 }
 
 #[derive(Debug)]
-struct File {
-    file: fs::File,
-    path: PathBuf,
-    temporary: bool,
+pub struct File {
+    pub file: fs::File,
+    pub path: PathBuf,
+    pub temporary: bool,
 }
 
 impl Drop for File {

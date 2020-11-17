@@ -1,5 +1,7 @@
-use koto::Koto;
-use std::{fs::read_to_string, path::PathBuf};
+use {
+    koto::Koto,
+    std::{fs::read_to_string, path::PathBuf},
+};
 
 fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool) {
     let mut koto = Koto::with_settings(koto::Settings {
@@ -9,20 +11,18 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
     koto.set_script_path(path);
 
     match koto.compile(&script) {
-        Ok(_) => {
-            match koto.run() {
-                Ok(_) => {
-                    if should_fail_at_runtime {
-                        panic!("Expected failure");
-                    }
-                }
-                Err(error) => {
-                    if !should_fail_at_runtime {
-                        panic!(error);
-                    }
+        Ok(_) => match koto.run() {
+            Ok(_) => {
+                if should_fail_at_runtime {
+                    panic!("Expected failure");
                 }
             }
-        }
+            Err(error) => {
+                if !should_fail_at_runtime {
+                    panic!(error);
+                }
+            }
+        },
         Err(error) => {
             panic!("{}", error);
         }

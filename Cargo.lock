@@ -328,6 +328,7 @@ dependencies = [
  "koto",
  "koto_json",
  "koto_random",
+ "koto_tempfile",
  "koto_toml",
  "pico-args",
  "termion",
@@ -381,7 +382,6 @@ dependencies = [
  "koto_types",
  "rustc-hash",
  "smallvec",
- "tempfile",
 ]
 
 [[package]]
@@ -390,6 +390,14 @@ version = "0.1.0"
 dependencies = [
  "koto_runtime",
  "serde",
+]
+
+[[package]]
+name = "koto_tempfile"
+version = "0.1.0"
+dependencies = [
+ "koto_runtime",
+ "tempfile",
 ]
 
 [[package]]
@@ -411,6 +419,17 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
+name = "lib_tests"
+version = "0.1.0"
+dependencies = [
+ "koto",
+ "koto_json",
+ "koto_random",
+ "koto_tempfile",
+ "koto_toml",
+]
 
 [[package]]
 name = "libc"
