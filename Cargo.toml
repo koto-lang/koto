@@ -12,5 +12,4 @@ members = [
   "src/parser",
   "src/runtime",
   "src/serialize",
-  "src/types",
 ]

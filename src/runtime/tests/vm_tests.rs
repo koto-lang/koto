@@ -2,10 +2,10 @@ mod vm {
     use {
         koto_bytecode::chunk_to_string_annotated,
         koto_runtime::{
+            num2, num4,
             external_error, type_as_string, IntRange, Loader, Value, Value::*, ValueHashMap,
             ValueList, ValueMap, Vm,
         },
-        koto_types::{num2, num4},
     };
 
     fn test_script(script: &str, expected_output: Value) {

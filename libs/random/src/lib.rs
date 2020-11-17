@@ -1,8 +1,8 @@
 use {
     koto_runtime::{
-        external_error, get_external_instance, make_external_value, ExternalValue, Value, ValueMap,
+        external_error, get_external_instance, make_external_value, num2, num4, ExternalValue,
+        Value, ValueMap,
     },
-    koto_types::{num2, num4},
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::fmt,

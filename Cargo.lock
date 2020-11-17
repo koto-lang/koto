@@ -365,7 +365,6 @@ version = "0.1.0"
 dependencies = [
  "koto",
  "koto_runtime",
- "koto_types",
  "rand",
  "rand_chacha",
 ]
@@ -379,7 +378,6 @@ dependencies = [
  "koto_bytecode",
  "koto_lexer",
  "koto_parser",
- "koto_types",
  "rustc-hash",
  "smallvec",
 ]
@@ -409,10 +407,6 @@ dependencies = [
  "koto_serialize",
  "toml",
 ]
-
-[[package]]
-name = "koto_types"
-version = "0.1.0"
 
 [[package]]
 name = "lazy_static"
