@@ -2,7 +2,6 @@ pub mod core;
 mod error;
 mod external;
 mod frame;
-mod loader;
 pub mod num2;
 pub mod num4;
 pub mod value;
@@ -16,9 +15,8 @@ mod vm;
 pub use {
     error::*,
     external::{visit_external_value, ExternalFunction, ExternalValue},
-    koto_bytecode::CompilerError,
+    koto_bytecode::{Loader, LoaderError, CompilerError},
     koto_parser::ParserError,
-    loader::{Loader, LoaderError},
     num2::Num2,
     num4::Num4,
     value::{

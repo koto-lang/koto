@@ -296,7 +296,7 @@ impl CompileResult {
 type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
 
 #[derive(Default)]
-pub struct Settings {
+pub struct CompilerSettings {
     /// Causes all top level identifiers to be exported to global
     pub repl_mode: bool,
 }
@@ -307,11 +307,14 @@ pub struct Compiler {
     debug_info: DebugInfo,
     frame_stack: Vec<Frame>,
     span_stack: Vec<Span>,
-    settings: Settings,
+    settings: CompilerSettings,
 }
 
 impl Compiler {
-    pub fn compile(ast: &Ast, settings: Settings) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
+    pub fn compile(
+        ast: &Ast,
+        settings: CompilerSettings,
+    ) -> Result<(Vec<u8>, DebugInfo), CompilerError> {
         let mut compiler = Compiler {
             settings,
             ..Default::default()

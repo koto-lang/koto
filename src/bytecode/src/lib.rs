@@ -5,9 +5,9 @@ use {
 
 mod compile;
 mod instruction_reader;
+mod loader;
 
-pub use compile::*;
-pub use instruction_reader::*;
+pub use {compile::*, instruction_reader::*, loader::*};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
