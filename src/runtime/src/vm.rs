@@ -32,7 +32,6 @@ pub enum ControlFlow {
 // Instructions will place their results in registers, there's no Ok type
 pub type InstructionResult = Result<(), Error>;
 
-#[derive(Default)]
 pub struct VmContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
@@ -42,13 +41,14 @@ pub struct VmContext {
     spawned_stop_flags: Vec<Arc<AtomicBool>>,
 }
 
-impl VmContext {
-    fn new() -> Self {
+impl Default for VmContext {
+    fn default() -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
         prelude.add_map("io", core_lib.io.clone());
         prelude.add_map("iterator", core_lib.iterator.clone());
+        prelude.add_map("koto", core_lib.koto.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
         prelude.add_map("number", core_lib.number.clone());
@@ -61,10 +61,23 @@ impl VmContext {
         Self {
             prelude,
             core_lib,
-            global: ValueMap::default(),
-            loader: Loader::default(),
-            modules: HashMap::default(),
-            spawned_stop_flags: Vec::default(),
+            global: Default::default(),
+            loader: Default::default(),
+            modules: Default::default(),
+            spawned_stop_flags: Default::default(),
+        }
+    }
+}
+
+impl VmContext {
+    fn spawn_new_context(&self) -> Self {
+        Self {
+            prelude: self.prelude.clone(),
+            core_lib: self.core_lib.clone(),
+            loader: self.loader.clone(),
+            modules: Default::default(),
+            global: Default::default(),
+            spawned_stop_flags: Default::default(),
         }
     }
 
@@ -87,7 +100,6 @@ impl Drop for VmContext {
     }
 }
 
-#[derive(Default)]
 pub struct Vm {
     context: Arc<RwLock<VmContext>>,
     reader: InstructionReader,
@@ -96,10 +108,22 @@ pub struct Vm {
     stop_flag: Option<Arc<AtomicBool>>,
 }
 
-impl Vm {
-    pub fn new() -> Self {
+impl Default for Vm {
+    fn default() -> Self {
         Self {
-            context: Arc::new(RwLock::new(VmContext::new())),
+            context: Arc::new(RwLock::new(VmContext::default())),
+            reader: InstructionReader::default(),
+            value_stack: Vec::with_capacity(32),
+            call_stack: vec![],
+            stop_flag: None,
+        }
+    }
+}
+
+impl Vm {
+    pub fn spawn_new_vm(&mut self) -> Self {
+        Self {
+            context: Arc::new(RwLock::new(self.context().spawn_new_context())),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -1514,8 +1538,7 @@ impl Vm {
                     Some(module) => self.set_register(result_register, Value::Map(module)),
                     None => {
                         // Run the chunk, and cache the resulting global map
-                        let mut vm = Vm::new();
-                        vm.context_mut().prelude = self.context().prelude.clone();
+                        let mut vm = self.spawn_new_vm();
                         vm.run(module_chunk)?;
                         if let Some(main) = vm.get_global_function("main") {
                             vm.run_function(&main, &[])?;

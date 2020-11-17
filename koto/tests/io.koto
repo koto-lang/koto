@@ -1,9 +1,9 @@
-import env, io
+import koto, io
 from test import assert, assert_eq
 
 export tests =
   test_reading_a_file: ||
-    path = env.script_dir + "/data/test.txt"
+    path = koto.script_dir + "/data/test.txt"
     assert (io.exists path)
 
     contents = io.read_to_string path

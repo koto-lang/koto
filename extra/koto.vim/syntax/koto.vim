@@ -9,7 +9,7 @@ syntax keyword kotoConditionals if else match then
 syntax keyword kotoRepeating break continue for in loop until while
 
 syntax keyword kotoCoreLibModules
-  \ env io iterator list map number range string thread test tuple
+  \ koto io iterator list map number range string thread test tuple
 syntax keyword kotoCoreLib
   \ contains[] create get insert is_empty iter remove size sum
   \ args script_dir script_path

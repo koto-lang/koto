@@ -1,8 +1,8 @@
-import env, io, test.assert_eq, toml
+import koto, io, test.assert_eq, toml
 
 export tests =
   test_serialize_and_deserialize_toml: ||
-    file_data = io.read_to_string env.script_dir + "/data/test.toml"
+    file_data = io.read_to_string koto.script_dir + "/data/test.toml"
     data = toml.from_string file_data
 
     assert_eq data.number 99

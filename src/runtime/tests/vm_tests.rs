@@ -9,7 +9,7 @@ mod vm {
     };
 
     fn test_script(script: &str, expected_output: Value) {
-        let mut vm = Vm::new();
+        let mut vm = Vm::default();
         let mut prelude = vm.context_mut().prelude.clone();
 
         prelude.add_value("test_value", Number(42.0));

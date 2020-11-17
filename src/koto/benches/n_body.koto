@@ -8,7 +8,7 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.
 
 # TODO Using num4 for pos/vel reduces precision compared to the original
 
-import env, number.pi, test.assert_near
+import koto, number.pi, test.assert_near
 
 solar_mass = 4 * pi * pi
 days_per_year = 365.24
@@ -115,13 +115,13 @@ run_nbody = |n|
 
 
 export main = ||
-  n = match env.args.get 0
+  n = match koto.args.get 0
     () then 100
     arg then arg.to_number()
 
   initial_energy, end_energy = run_nbody n
 
-  quiet = (env.args.get 1) == "quiet"
+  quiet = (koto.args.get 1) == "quiet"
 
   if not quiet
     "{}".print initial_energy # TODO format to 9dp

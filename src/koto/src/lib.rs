@@ -39,20 +39,7 @@ pub struct Koto {
 
 impl Koto {
     pub fn new() -> Self {
-        let mut result = Self {
-            runtime: Vm::new(),
-            ..Self::default()
-        };
-
-        let mut prelude = result.context().prelude.clone();
-
-        let mut env = ValueMap::new();
-        env.add_value("script_dir", Value::Empty);
-        env.add_value("script_path", Value::Empty);
-        env.add_list("args", ValueList::default());
-        prelude.add_map("env", env);
-
-        result
+        Self::default()
     }
 
     pub fn with_settings(settings: Settings) -> Self {
@@ -155,7 +142,7 @@ impl Koto {
             .context_mut()
             .prelude
             .data_mut()
-            .get_with_string_mut("env")
+            .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => map
@@ -186,7 +173,7 @@ impl Koto {
             .context_mut()
             .prelude
             .data_mut()
-            .get_with_string_mut("env")
+            .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => {

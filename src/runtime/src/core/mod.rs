@@ -1,5 +1,6 @@
 pub mod io;
 pub mod iterator;
+pub mod koto;
 pub mod list;
 pub mod map;
 pub mod num2;
@@ -17,6 +18,7 @@ use crate::ValueMap;
 pub struct CoreLib {
     pub io: ValueMap,
     pub iterator: ValueMap,
+    pub koto: ValueMap,
     pub list: ValueMap,
     pub map: ValueMap,
     pub num2: ValueMap,
@@ -34,6 +36,7 @@ impl Default for CoreLib {
         Self {
             io: io::make_module(),
             iterator: iterator::make_module(),
+            koto: koto::make_module(),
             list: list::make_module(),
             map: map::make_module(),
             num2: num2::make_module(),
