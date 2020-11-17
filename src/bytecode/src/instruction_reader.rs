@@ -224,10 +224,6 @@ pub enum Instruction {
         register: u8,
         value: u8,
     },
-    Type {
-        register: u8,
-        value: u8,
-    },
     IterNext {
         register: u8,
         iterator: u8,
@@ -358,7 +354,6 @@ impl fmt::Display for Instruction {
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
             Size { .. } => write!(f, "Size"),
-            Type { .. } => write!(f, "Type"),
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
@@ -631,7 +626,6 @@ impl fmt::Debug for Instruction {
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
             Size { register, value } => write!(f, "Size\t\tresult: {}\tvalue: {}", register, value),
-            Type { register, value } => write!(f, "Type\t\tresult: {}\tvalue: {}", register, value),
             IterNext {
                 register,
                 iterator,
@@ -1088,10 +1082,6 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
             }),
             Op::Size => Some(Size {
-                register: get_byte!(),
-                value: get_byte!(),
-            }),
-            Op::Type => Some(Type {
                 register: get_byte!(),
                 value: get_byte!(),
             }),

@@ -655,9 +655,6 @@ impl Compiler {
 
                 result
             }
-            Node::Type(expression) => {
-                self.compile_source_target_op(Type, result_register, *expression, ast)?
-            }
             Node::Try(try_expression) => {
                 self.compile_try_expression(result_register, try_expression, ast)?
             }

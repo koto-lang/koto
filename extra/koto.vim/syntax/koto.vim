@@ -4,7 +4,7 @@ endif
 
 syntax keyword kotoTodos contained TODO FIXME NOTE
 syntax keyword kotoKeywords
-  \ catch copy debug export finally from import not num2 num4 return self try type yield
+  \ catch copy debug export finally from import not num2 num4 return self try yield
 syntax keyword kotoConditionals if else match then
 syntax keyword kotoRepeating break continue for in loop until while
 
@@ -12,7 +12,7 @@ syntax keyword kotoCoreLibModules
   \ koto io iterator list map number range string thread test tuple
 syntax keyword kotoCoreLib
   \ contains[] create get insert is_empty iter remove size sum
-  \ args script_dir script_path
+  \ args script_dir script_path type
   \ exists open path read_to_string remove_file seek temp_path temp_file write write_line
   \ consume each enumerate fold[] keep next take to_list to_map to_tuple zip
   \ fill first last pop push resize retain reverse sort sort_copy transform with_size

@@ -86,7 +86,6 @@ pub enum Node {
     ReturnExpression(AstIndex),
     CopyExpression(AstIndex),
     Negate(AstIndex),
-    Type(AstIndex),
     Try(AstTry),
     Yield(AstIndex),
     Debug {
@@ -146,7 +145,6 @@ impl fmt::Display for Node {
             Continue => write!(f, "Continue"),
             Return => write!(f, "Return"),
             ReturnExpression(_) => write!(f, "ReturnExpression"),
-            Type(_) => write!(f, "Type"),
             Try { .. } => write!(f, "Try"),
             Yield { .. } => write!(f, "Yield"),
             Debug { .. } => write!(f, "Debug"),

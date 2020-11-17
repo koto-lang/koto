@@ -1272,18 +1272,6 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedExpression, self);
                     }
                 }
-                Token::Type => {
-                    self.consume_next_token(context);
-                    if let Some(expression) = self.parse_expression(&mut ExpressionContext {
-                        allow_space_separated_call: true,
-                        expected_indentation: None,
-                        ..*context
-                    })? {
-                        Some(self.push_node(Node::Type(expression))?)
-                    } else {
-                        return syntax_error!(ExpectedExpression, self);
-                    }
-                }
                 Token::Yield => {
                     self.consume_next_token(context);
                     if let Some(expression) = self.parse_expressions(

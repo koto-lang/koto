@@ -556,7 +556,6 @@ impl Vm {
                 Ok(())
             }
             Instruction::Size { register, value } => self.run_size(register, value),
-            Instruction::Type { register, value } => self.run_type(register, value, instruction_ip),
             Instruction::IsTuple { register, value } => {
                 let result = matches!(self.get_register(value), Tuple(_));
                 self.set_register(register, Bool(result));
@@ -1456,36 +1455,6 @@ impl Vm {
             _ => 1,
         };
         self.set_register(register, Number(result as f64));
-
-        Ok(())
-    }
-
-    fn run_type(&mut self, register: u8, value: u8, instruction_ip: usize) -> InstructionResult {
-        use Value::*;
-
-        let result = match self.get_register(value) {
-            Bool(_) => "bool".to_string(),
-            Empty => "empty".to_string(),
-            Function(_) => "function".to_string(),
-            ExternalFunction(_) => "function".to_string(),
-            ExternalValue(value) => value.read().unwrap().value_type(),
-            List(_) => "list".to_string(),
-            Map(_) => "map".to_string(),
-            Number(_) => "number".to_string(),
-            Num2(_) => "num2".to_string(),
-            Num4(_) => "num4".to_string(),
-            Range(_) => "range".to_string(),
-            Str(_) => "string".to_string(),
-            Tuple(_) => "tuple".to_string(),
-            unexpected => {
-                return self.unexpected_type_error(
-                    "type: Expected user type",
-                    unexpected,
-                    instruction_ip,
-                );
-            }
-        };
-        self.set_register(register, Str(result.into()));
 
         Ok(())
     }
