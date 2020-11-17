@@ -59,9 +59,17 @@ zzz
     assert_eq "a,b,c".split(",").to_tuple() ("a", "b", "c")
     assert_eq "O_O".split("O").to_tuple() ("", "_", "")
 
+  test_to_lowercase: ||
+    assert_eq (string.to_lowercase "ABC 123") "abc 123"
+    assert_eq (string.to_lowercase "HÉLLÖ") "héllö"
+
   test_to_number: ||
     assert_eq 42.0 (string.to_number "42")
     assert_eq -1.5 "-1.5".to_number()
+
+  test_to_uppercase: ||
+    assert_eq (string.to_uppercase "xyz 890") "XYZ 890"
+    assert_eq (string.to_uppercase "Görlitzer Straße") "GÖRLITZER STRASSE"
 
   test_trim: ||
     assert_eq (string.trim "   x    ") "x"
