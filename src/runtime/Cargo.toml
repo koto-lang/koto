@@ -6,7 +6,6 @@ edition = "2018"
 
 [features]
 default = []
-trace = []
 panic_on_runtime_error = []
 
 [dependencies]
