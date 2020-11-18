@@ -11,12 +11,13 @@ path = "src/main.rs"
 
 [features]
 default = []
-trace = ["koto/trace"]
+jemalloc = ["jemallocator"]
 
 [dependencies]
 koto = {path = "../koto"}
 koto_json = {path = "../../libs/json"}
 koto_random = {path = "../../libs/random"}
+koto_tempfile = {path = "../../libs/tempfile"}
 koto_toml = {path = "../../libs/toml"}
 
 termion = "1.5.5"
@@ -26,4 +27,4 @@ version = "0.3.4"
 default-features = false
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = {version = "0.3.2"}
+jemallocator = {version = "0.3.2", optional = true}

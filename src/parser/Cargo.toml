@@ -10,5 +10,5 @@ koto_lexer = { path = "../lexer" }
 [features]
 default = []
 
-# Can be useful during development, when a backtrace on error would be desirable
+# Can be useful during development, e.g. when an error backtrace would be desirable
 panic_on_parser_error = []

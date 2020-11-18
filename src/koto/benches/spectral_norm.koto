@@ -6,7 +6,7 @@ Adapted from the Lua implementation by Mike Pall
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/spectralnorm-lua-1.html
 -#
 
-import env, list, test.assert_near
+import koto, list, test.assert_near
 
 A = |i, j|
   ij = i + j - 1
@@ -50,13 +50,13 @@ spectral_norm = |n|
 
 
 export main = ||
-  n = match env.args.get 0
+  n = match koto.args.get 0
     () then 4
     arg then arg.to_number()
 
   result = spectral_norm n
 
-  if (env.args.get 1) != "quiet"
+  if (koto.args.get 1) != "quiet"
     "{}".print result
 
 

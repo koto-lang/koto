@@ -1,5 +1,5 @@
 from test import assert_eq
-import env
+import koto
 
 digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
   "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
@@ -33,7 +33,7 @@ number_to_english = |n|
     "???"
 
 export main = ||
-  n = match env.args.get 0
+  n = match koto.args.get 0
     () then 50
     arg then arg.to_number()
 
@@ -41,7 +41,7 @@ export main = ||
     .each |x| number_to_english x
     .to_tuple()
 
-  if not (env.args.get 1) == "quiet"
+  if not (koto.args.get 1) == "quiet"
     "{}".print result
 
 export tests =

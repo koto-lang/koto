@@ -1,9 +1,10 @@
-import env, io
+import koto, io
 from test import assert, assert_eq
+
 
 export tests =
   test_reading_a_file: ||
-    path = env.script_dir + "/data/test.txt"
+    path = koto.script_dir + "/data/test.txt"
     assert (io.exists path)
 
     contents = io.read_to_string path
@@ -11,24 +12,3 @@ export tests =
 
     file = io.open path
     assert_eq contents file.read_to_string()
-
-  test_temp_path: ||
-    path = io.temp_path()
-    file = io.create path
-    contents = "<(^_^)<"
-    file.write contents
-    assert_eq (io.read_to_string path) contents
-    io.remove_file path
-    assert not io.exists path
-
-  test_temp_file: ||
-    temp = io.temp_file()
-    temp_path = temp.path()
-    temp.write_line "hello"
-    temp.write_line 42
-    assert (io.exists temp_path)
-    assert_eq (io.read_to_string temp_path) temp.read_to_string()
-
-    # Temp files are deleted when they're no longer used
-    temp = () # TODO with block, i.e. with temp = io.temp_file()...
-    assert not io.exists temp_path

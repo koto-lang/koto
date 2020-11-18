@@ -125,12 +125,28 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("string.split: Expected two strings as arguments"),
     });
 
+    result.add_fn("to_lowercase", |vm, args| match vm.get_args(args) {
+        [Str(s)] => {
+            let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
+            Ok(Str(result.into()))
+        }
+        _ => external_error!("string.to_lowercase: Expected string as argument"),
+    });
+
     result.add_fn("to_number", |vm, args| match vm.get_args(args) {
         [Str(s)] => match s.parse::<f64>() {
             Ok(n) => Ok(Number(n)),
             Err(_) => external_error!("string.to_number: Failed to convert '{}'", s),
         },
         _ => external_error!("string.to_number: Expected string as argument"),
+    });
+
+    result.add_fn("to_uppercase", |vm, args| match vm.get_args(args) {
+        [Str(s)] => {
+            let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
+            Ok(Str(result.into()))
+        }
+        _ => external_error!("string.to_uppercase: Expected string as argument"),
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {

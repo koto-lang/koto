@@ -2,7 +2,7 @@ mod repl;
 
 use {koto::Koto, repl::Repl, std::fs};
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(jemalloc, not(target_env = "msvc")))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
@@ -109,6 +109,7 @@ fn main() {
         let mut prelude = koto.context().prelude.clone();
         prelude.add_map("json", koto_json::make_module());
         prelude.add_map("random", koto_random::make_module());
+        prelude.add_map("tempfile", koto_tempfile::make_module());
         prelude.add_map("toml", koto_toml::make_module());
 
         let script = fs::read_to_string(&script_path).expect("Unable to load script");

@@ -81,7 +81,6 @@ pub enum Token {
     Then,
     True,
     Try,
-    Type,
     Until,
     While,
     Yield,
@@ -368,7 +367,6 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("then", Then);
         check_keyword!("true", True);
         check_keyword!("try", Try);
-        check_keyword!("type", Type);
         check_keyword!("until", Until);
         check_keyword!("while", While);
         check_keyword!("yield", Yield);

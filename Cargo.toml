@@ -1,7 +1,9 @@
 [workspace]
 members = [
+  "libs/lib_tests",
   "libs/json",
   "libs/random",
+  "libs/tempfile",
   "libs/toml",
   "src/bytecode",
   "src/cli",
@@ -10,5 +12,4 @@ members = [
   "src/parser",
   "src/runtime",
   "src/serialize",
-  "src/types",
 ]

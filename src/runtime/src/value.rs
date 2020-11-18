@@ -1,10 +1,9 @@
 use {
     crate::{
-        ExternalFunction, ExternalValue, IntRange, ValueHashMap, ValueIterator, ValueList,
-        ValueMap, ValueString, ValueTuple, ValueVec,
+        num2, num4, ExternalFunction, ExternalValue, IntRange, ValueHashMap, ValueIterator,
+        ValueList, ValueMap, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
-    koto_types::{num2, num4},
     std::{
         cmp::Ordering,
         fmt,

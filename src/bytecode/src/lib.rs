@@ -5,9 +5,9 @@ use {
 
 mod compile;
 mod instruction_reader;
+mod loader;
 
-pub use compile::*;
-pub use instruction_reader::*;
+pub use {compile::*, instruction_reader::*, loader::*};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -79,18 +79,18 @@ pub enum Op {
     ListPushValue,    // list, value
     ListPushValues,   // list, start register, count
     ListUpdate,       // list, index, value
-    Index,            // TODO rename to ListIndex - result, list register, index register
+    Index,            // result, list register, index register
     MapInsert,        // map register, value register, key constant
     MapInsertLong,    // map register, value register, key constant[4]
-    MapAccess,        // register, map register, key
-    MapAccessLong,    // register, map register, key[4]
-    Type,             // register
+    Access,           // register, value register, key
+    AccessLong,       // register, value register, key[4]
     IsList,           // register, value
     IsTuple,          // register, value
     Size,             // register, value
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
+    Unused78,
     Unused79,
     Unused80,
     Unused81,

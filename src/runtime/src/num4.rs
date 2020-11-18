@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialOrd)]
-pub struct Num4(pub f32, pub f32, pub f32, pub f32);
+pub struct Num4(pub f32, pub f32, pub f32, pub f32) ;
 
 impl Num4 {
     pub fn abs(&self) -> Self {

@@ -2888,12 +2888,12 @@ return 1";
 
         #[test]
         fn expressions() {
-            let source = "\
+            let source = r#"
 copy x
 not true
 debug x + x
-assert_eq (type true) \"bool\"
-";
+assert_eq x "hello"
+"#;
             check_ast(
                 source,
                 &[
@@ -2913,15 +2913,14 @@ assert_eq (type true) \"bool\"
                         expression: 6,
                     },
                     Id(2),
-                    BoolTrue,
-                    Type(9), // 10
-                    Str(3),
+                    Id(0),
+                    Str(3),// 10
                     Call {
                         function: 8,
-                        args: vec![10, 11],
+                        args: vec![9, 10],
                     },
                     MainBlock {
-                        body: vec![1, 3, 7, 12],
+                        body: vec![1, 3, 7, 11],
                         local_count: 0,
                     },
                 ],
@@ -2929,7 +2928,7 @@ assert_eq (type true) \"bool\"
                     Constant::Str("x"),
                     Constant::Str("x + x"),
                     Constant::Str("assert_eq"),
-                    Constant::Str("bool"),
+                    Constant::Str("hello"),
                 ]),
             )
         }

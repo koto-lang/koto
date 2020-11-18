@@ -1,4 +1,4 @@
-import env, test.assert_eq
+import koto, test.assert_eq
 
 fib = |n|
   match n
@@ -7,7 +7,7 @@ fib = |n|
     _ then (fib n - 1) + (fib n - 2)
 
 export main = ||
-  n = match env.args.get 0
+  n = match koto.args.get 0
     () then 8
     arg then arg.to_number()
 
