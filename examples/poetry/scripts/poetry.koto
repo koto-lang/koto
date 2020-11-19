@@ -1,0 +1,22 @@
+import io, koto, poetry, string.print
+
+export main = ||
+  input_file = koto.script_dir + "/../../../README.md"
+  generator = poetry.new(io.read_to_string input_file).iter()
+
+  separator = "==================================================="
+  print separator
+  print ""
+
+  stanzas = 5
+  word_counts = 1, 3, 5, 3, 1
+
+  for _ in 0..stanzas
+    for count in word_counts
+      line = generator
+        .take count
+        .fold "" |line, word| line += word + " "
+      print line.trim()
+    print ""
+
+  print separator
