@@ -6,6 +6,15 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_value("args", List(ValueList::default()));
+
+    result.add_fn("current_dir", |_, _| {
+        let result = match std::env::current_dir() {
+            Ok(path) => Str(path.to_string_lossy().to_string().into()),
+            Err(_) => Empty,
+        };
+        Ok(result)
+    });
+
     result.add_value("script_dir", Str("".into()));
     result.add_value("script_path", Str("".into()));
 
