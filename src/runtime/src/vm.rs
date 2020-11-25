@@ -36,7 +36,7 @@ pub struct VmContext {
     core_lib: CoreLib,
     global: ValueMap,
     loader: Loader,
-    modules: HashMap<PathBuf, ValueMap>,
+    modules: HashMap<PathBuf, Option<ValueMap>>,
     spawned_stop_flags: Vec<Arc<AtomicBool>>,
 }
 
@@ -74,7 +74,7 @@ impl VmContext {
             prelude: self.prelude.clone(),
             core_lib: self.core_lib.clone(),
             loader: self.loader.clone(),
-            modules: Default::default(),
+            modules: self.modules.clone(),
             global: Default::default(),
             spawned_stop_flags: Default::default(),
         }
@@ -181,7 +181,6 @@ impl Vm {
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
-        self.reset();
         self.push_frame(chunk, 0, 0, None);
         self.execute_instructions()
     }
@@ -1503,18 +1502,43 @@ impl Vm {
                 };
                 let maybe_module = self.context().modules.get(&module_path).cloned();
                 match maybe_module {
-                    Some(module) => self.set_register(result_register, Value::Map(module)),
+                    Some(Some(module)) => self.set_register(result_register, Value::Map(module)),
+                    Some(None) => {
+                        return vm_error!(
+                            self.chunk(),
+                            instruction_ip,
+                            "Recursive import of module '{}'",
+                            import_name
+                        )
+                    }
                     None => {
-                        // Run the chunk, and cache the resulting global map
+                        // Insert a placeholder for the new module, preventing recursive imports
+                        self.context_mut().modules.insert(module_path.clone(), None);
+
+                        // Run the module chunk
                         let mut vm = self.spawn_new_vm();
-                        vm.run(module_chunk)?;
-                        if let Some(main) = vm.get_global_function("main") {
-                            vm.run_function(&main, &[])?;
+                        match vm.run(module_chunk) {
+                            Ok(_) => {
+                                if let Some(main) = vm.get_global_function("main") {
+                                    if let Err(error) = vm.run_function(&main, &[]) {
+                                        self.context_mut().modules.remove(&module_path);
+                                        return Err(error);
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                self.context_mut().modules.remove(&module_path);
+                                return Err(error);
+                            }
                         }
+
+                        // Cache the resulting module's global map
+                        let module_global = vm.context().global.clone();
                         self.context_mut()
                             .modules
-                            .insert(module_path, vm.context().global.clone());
-                        self.set_register(result_register, Value::Map(vm.context().global.clone()));
+                            .insert(module_path, Some(module_global.clone()));
+
+                        self.set_register(result_register, Value::Map(module_global));
                     }
                 }
             }

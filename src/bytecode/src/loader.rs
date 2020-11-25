@@ -76,11 +76,7 @@ impl Loader {
         script: &str,
         script_path: &Option<PathBuf>,
     ) -> Result<Arc<Chunk>, LoaderError> {
-        self.compile(
-            script,
-            script_path.clone(),
-            CompilerSettings::default(),
-        )
+        self.compile(script, script_path.clone(), CompilerSettings::default())
     }
 
     pub fn compile_module(
@@ -89,7 +85,7 @@ impl Loader {
         load_from_path: Option<PathBuf>,
     ) -> Result<(Arc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
-        let path = match load_from_path {
+        let path = match &load_from_path {
             Some(path) => match path.canonicalize() {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
@@ -134,19 +130,19 @@ impl Loader {
         // first, check for a neighbouring file with a matching name
         let module_path = named_path.with_extension(extension);
         if module_path.exists() {
-            return load_module_from_path(module_path);
-        }
-
-        // alternatively, check for a neighbouring directory with a matching name,
-        // containing a main file
-        let module_path = named_path.join("main").with_extension(extension);
-        if module_path.exists() {
             load_module_from_path(module_path)
         } else {
-            Err(LoaderError::IoError(format!(
-                "Unable to find module '{}'",
-                name
-            )))
+            // alternatively, check for a neighbouring directory with a matching name,
+            // containing a main file
+            let module_path = named_path.join("main").with_extension(extension);
+            if module_path.exists() {
+                load_module_from_path(module_path)
+            } else {
+                Err(LoaderError::IoError(format!(
+                    "Unable to find module '{}'",
+                    name
+                )))
+            }
         }
     }
 }
