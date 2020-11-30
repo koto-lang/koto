@@ -5,10 +5,10 @@ pub use {
     },
     koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
     koto_runtime::{
-        external_error, get_external_instance, make_external_value, type_as_string,
-        visit_external_value, Error, ExternalValue, Loader, LoaderError, Num2, Num4,
-        RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
-        VmContext,
+        external_error, get_external_instance, is_external_instance, make_external_value,
+        type_as_string, visit_external_value, Error, ExternalValue, Loader, LoaderError, Num2,
+        Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueIterator,
+        ValueIteratorOutput, ValueList, ValueMap, ValueVec, VmContext,
     },
 };
 

@@ -14,15 +14,15 @@ mod vm;
 
 pub use {
     error::*,
-    external::{visit_external_value, ExternalFunction, ExternalValue},
-    koto_bytecode::{Loader, LoaderError, CompilerError},
+    external::{is_external_instance, visit_external_value, ExternalFunction, ExternalValue},
+    koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
     num2::Num2,
     num4::Num4,
     value::{
         make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
     },
-    value_iterator::{IntRange, ValueIterator},
+    value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
     value_string::ValueString,

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "examples/poetry",
   "libs/lib_tests",
   "libs/json",
   "libs/random",

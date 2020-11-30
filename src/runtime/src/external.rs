@@ -94,6 +94,18 @@ where
     }
 }
 
+pub fn is_external_instance<T>(map: &ValueMap) -> bool
+where
+    T: ExternalValue,
+{
+    match map.data().get(&Value::ExternalDataId) {
+        Some(Value::ExternalValue(maybe_external)) => {
+            maybe_external.as_ref().read().unwrap().is::<T>()
+        }
+        _ => false,
+    }
+}
+
 #[macro_export]
 macro_rules! get_external_instance {
     ($args: ident,
@@ -102,23 +114,14 @@ macro_rules! get_external_instance {
      $external_type: ident,
      $match_name: ident,
      $body: block) => {{
-        if $args.len() == 0 {
-            return $crate::external_error!(
+        match &$args {
+            [Value::Map(instance), ..] => {
+                $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
+            }
+            _ => $crate::external_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
                 $fn_name,
-            );
-        }
-
-        match &$args[0] {
-            Value::Map(instance) => {
-                $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
-            }
-            unexpected => $crate::external_error!(
-                "{0}.{1}: Expected {0} instance as first argument, found '{2}'",
-                $external_name,
-                $fn_name,
-                unexpected,
             ),
         }
     }};
