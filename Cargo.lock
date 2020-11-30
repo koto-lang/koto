@@ -409,17 +409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "koto-poetry"
-version = "0.1.0"
-dependencies = [
- "hotwatch",
- "indexmap",
- "koto",
- "pico-args",
- "rand",
-]
-
-[[package]]
 name = "koto_bytecode"
 version = "0.1.0"
 dependencies = [
@@ -464,6 +453,17 @@ name = "koto_parser"
 version = "0.1.0"
 dependencies = [
  "koto_lexer",
+]
+
+[[package]]
+name = "koto_poetry"
+version = "0.1.0"
+dependencies = [
+ "hotwatch",
+ "indexmap",
+ "koto",
+ "pico-args",
+ "rand",
 ]
 
 [[package]]

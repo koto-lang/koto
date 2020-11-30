@@ -3,15 +3,20 @@ name = "koto"
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "A simple, expressive, embeddable programming language"
+homepage = "https://github.com/koto-lang/koto"
+repository = "https://github.com/koto-lang/koto"
+keywords = ["scripting", "language", "koto"]
 
 [features]
 default = []
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = {path = "../bytecode"}
-koto_parser = {path = "../parser"}
-koto_runtime = {path = "../runtime"}
+koto_bytecode = { path = "../bytecode", version = "0.1.0" }
+koto_parser = { path = "../parser", version = "0.1.0" }
+koto_runtime = { path = "../runtime", version = "0.1.0" }
 
 [dev-dependencies]
 criterion = "0.3.1"
