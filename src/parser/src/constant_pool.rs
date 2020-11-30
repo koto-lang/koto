@@ -202,6 +202,10 @@ impl ConstantPoolBuilder {
 mod tests {
     use super::*;
 
+    fn floats_are_equal(a: f64, b: f64) -> bool {
+        (a - b).abs() < f64::EPSILON
+    }
+
     #[test]
     fn test_adding_strings() {
         let mut builder = ConstantPoolBuilder::new();
@@ -241,8 +245,8 @@ mod tests {
 
         let pool = builder.build();
 
-        assert_eq!(f1, pool.get_number(0));
-        assert_eq!(f2, pool.get_number(1));
+        assert!(floats_are_equal(f1, pool.get_number(0)));
+        assert!(floats_are_equal(f2, pool.get_number(1)));
 
         assert_eq!(2, pool.len());
     }
@@ -263,8 +267,8 @@ mod tests {
 
         let pool = builder.build();
 
-        assert_eq!(f1, pool.get_number(0));
-        assert_eq!(f2, pool.get_number(2));
+        assert!(floats_are_equal(f1, pool.get_number(0)));
+        assert!(floats_are_equal(f2, pool.get_number(2)));
         assert_eq!(s1, pool.get_str(1));
         assert_eq!(s2, pool.get_str(3));
 

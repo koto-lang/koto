@@ -2231,10 +2231,10 @@ impl Vm {
         let mut generator_vm = self.spawn_shared_vm();
         // Push a frame for running the generator function
         generator_vm.push_frame(
-            chunk.clone(),
+            chunk,
             function_ip,
             0, // arguments will be copied starting in register 0
-            captures.clone(),
+            captures,
         );
 
         let expected_arg_count = match (instance_function, variadic) {
@@ -2405,12 +2405,7 @@ impl Vm {
                 self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
 
                 // Set up a new frame for the called function
-                self.push_frame(
-                    chunk.clone(),
-                    function_ip,
-                    adjusted_frame_base,
-                    captures.clone(),
-                );
+                self.push_frame(chunk, function_ip, adjusted_frame_base, captures);
 
                 Ok(())
             }
