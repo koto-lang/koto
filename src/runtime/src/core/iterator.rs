@@ -1,6 +1,5 @@
 use crate::{
-    external_error,
-    value,
+    external_error, value,
     value_iterator::{
         is_iterable, make_iterator, ValueIterator, ValueIteratorOutput as Output,
         ValueIteratorResult,

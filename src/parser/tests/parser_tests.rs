@@ -2914,7 +2914,7 @@ assert_eq x "hello"
                     },
                     Id(2),
                     Id(0),
-                    Str(3),// 10
+                    Str(3), // 10
                     Call {
                         function: 8,
                         args: vec![9, 10],

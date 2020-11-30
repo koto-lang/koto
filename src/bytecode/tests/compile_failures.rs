@@ -7,7 +7,7 @@ mod bytecode {
     fn check_compilation_fails(source: &str) {
         match Parser::parse(&source) {
             Ok((ast, _constants)) => {
-                if let Ok(_) = Compiler::compile(&ast, CompilerSettings::default()) {
+                if Compiler::compile(&ast, CompilerSettings::default()).is_ok() {
                     panic!("\nUnexpected success while compiling: {}", source,);
                 }
             }

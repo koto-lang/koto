@@ -23,7 +23,7 @@ impl Poetry {
                     let word: Arc<str> = word.into();
                     self.links
                         .entry(previous.clone())
-                        .or_insert_with(|| Vec::new())
+                        .or_insert_with(Vec::new)
                         .push(word.clone());
                     previous = word;
                 }

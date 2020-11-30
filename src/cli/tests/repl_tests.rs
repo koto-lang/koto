@@ -16,11 +16,9 @@ fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
 
     for (input, _) in inputs_and_expected_outputs.iter() {
         stdin
-            .write(input.as_bytes())
+            .write_all(input.as_bytes())
             .expect("Failed to write to stdin");
-        stdin
-            .write("\n".as_bytes())
-            .expect("Failed to write to stdin");
+        stdin.write_all(b"\n").expect("Failed to write to stdin");
     }
 
     let output = process.wait_with_output().expect("Failed to get output");
