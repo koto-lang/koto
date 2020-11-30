@@ -1,6 +1,9 @@
 clippy:
   cargo clippy --all-targets --all-features
 
+fmt:
+  cargo fmt --all -- --check
+
 koto_tests:
   cargo watch -x "test --test koto_tests"
 

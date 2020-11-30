@@ -1,4 +1,8 @@
-use {crate::{Value, ValueList}, koto_bytecode::Chunk, std::sync::Arc};
+use {
+    crate::{Value, ValueList},
+    koto_bytecode::Chunk,
+    std::sync::Arc,
+};
 
 #[derive(Debug)]
 pub(crate) struct Frame {
@@ -19,11 +23,7 @@ pub(crate) struct Frame {
 }
 
 impl Frame {
-    pub fn new(
-        chunk: Arc<Chunk>,
-        register_base: usize,
-        captures: Option<ValueList>,
-    ) -> Self {
+    pub fn new(chunk: Arc<Chunk>, register_base: usize, captures: Option<ValueList>) -> Self {
         Self {
             chunk,
             register_base,

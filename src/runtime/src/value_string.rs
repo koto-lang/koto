@@ -80,7 +80,12 @@ impl From<String> for ValueString {
 
 impl fmt::Debug for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ValueString(bounds: {:?}, string: \"{}\")", self.bounds, self.as_str())
+        write!(
+            f,
+            "ValueString(bounds: {:?}, string: \"{}\")",
+            self.bounds,
+            self.as_str()
+        )
     }
 }
 
