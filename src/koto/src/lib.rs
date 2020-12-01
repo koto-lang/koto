@@ -7,7 +7,7 @@
 //! ## Example
 //!
 //! ```
-//! use koto::{Koto, Value};
+//! use koto::{Koto, runtime::Value};
 //!
 //! let mut koto = Koto::default();
 //! match koto.compile("1 + 2") {
@@ -26,23 +26,16 @@
 //! }
 //! ```
 
-#[doc(hidden)]
-pub use {
-    koto_bytecode::{
-        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, CompilerError, DebugInfo,
-        InstructionReader,
-    },
-    koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
-    koto_runtime::{
-        external_error, get_external_instance, is_external_instance, make_external_value,
-        type_as_string, visit_external_value, Error, ExternalValue, Loader, LoaderError, Num2,
-        Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueIterator,
-        ValueIteratorOutput, ValueList, ValueMap, ValueVec, VmContext,
-    },
-};
+pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
-    koto_runtime::Vm,
+    koto_bytecode::{
+        chunk_to_string, chunk_to_string_annotated, Chunk, CompilerError, LoaderError,
+    },
+    koto_parser::{ParserError, Position},
+    koto_runtime::{
+        type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueVec, Vm, VmContext,
+    },
     std::{
         path::PathBuf,
         sync::{Arc, RwLockReadGuard, RwLockWriteGuard},

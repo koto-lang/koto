@@ -1,6 +1,6 @@
 #![allow(clippy::float_cmp)]
 
-use koto::{Koto, Value};
+use koto::{runtime::Value, Koto};
 
 #[test]
 fn one_plus_two() {

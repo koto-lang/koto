@@ -1,5 +1,5 @@
 use {
-    koto::{is_indentation_error, Koto, KotoSettings, LoaderError},
+    koto::{bytecode::LoaderError, parser::is_indentation_error, Koto, KotoSettings},
     std::{
         fmt,
         io::{self, Stdout, Write},

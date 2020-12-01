@@ -1,6 +1,6 @@
 use {
     crate::Poetry,
-    koto::{
+    koto::runtime::{
         external_error, get_external_instance, is_external_instance, make_external_value,
         type_as_string, visit_external_value, ExternalValue, Value, ValueIterator,
         ValueIteratorOutput, ValueMap,
