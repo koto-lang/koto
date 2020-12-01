@@ -1,3 +1,5 @@
+//! A Koto language module for working with JSON data
+
 use {
     koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
@@ -24,7 +26,6 @@ fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> 
             }
         }
         JsonValue::Object(o) => {
-            // Object(Map<String, Value>),
             let mut map = ValueMap::with_capacity(o.len());
             for (key, value) in o.iter() {
                 map.add_value(key, json_value_to_koto_value(value)?);

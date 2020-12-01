@@ -1,3 +1,32 @@
+//! # Koto
+//!
+//! Pulls together the compiler and runtime for the Koto programming language.
+//!
+//! Programs can be compiled and executed with the [Koto] struct.
+//!
+//! ## Example
+//!
+//! ```
+//! use koto::{Koto, Value};
+//!
+//! let mut koto = Koto::default();
+//! match koto.compile("1 + 2") {
+//!     Ok(_) => match koto.run() {
+//!         Ok(result) => match result {
+//!             Value::Number(n) => println!("{}", n), // 3.0
+//!             other => panic!("Unexpected result: {}", other),
+//!         },
+//!         Err(runtime_error) => {
+//!             panic!("Runtime error: {}", runtime_error);
+//!         }
+//!     },
+//!     Err(compiler_error) => {
+//!         panic!("Compiler error: {}", compiler_error);
+//!     }
+//! }
+//! ```
+
+#[doc(hidden)]
 pub use {
     koto_bytecode::{
         chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, CompilerError, DebugInfo,
@@ -20,6 +49,7 @@ use {
     },
 };
 
+/// Settings used to control the behaviour of the [Koto] runtime
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Settings {
     pub run_tests: bool,
@@ -28,6 +58,9 @@ pub struct Settings {
     pub repl_mode: bool,
 }
 
+/// The main interface for the Koto language.
+///
+/// Example
 #[derive(Default)]
 pub struct Koto {
     script_path: Option<PathBuf>,

@@ -1,3 +1,5 @@
+//! Contains the lexer used by the Koto language
+
 mod lexer;
 mod span;
 

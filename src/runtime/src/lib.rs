@@ -1,3 +1,5 @@
+//! Contains the runtime and core library for the Koto language
+
 pub mod core;
 mod error;
 mod external;
