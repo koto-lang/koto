@@ -1,4 +1,4 @@
-import test.assert_eq
+from test import assert, assert_eq
 
 export tests =
   test_for_loop: ||
@@ -7,6 +7,11 @@ export tests =
     for x in a
       z.push x
     assert_eq z [1, 2, 3]
+
+  test_contains: ||
+    x = 1, 2, 3
+    assert (x.contains 2)
+    assert not (x.contains 99)
 
   test_get: ||
     x = 1, 2, 3
