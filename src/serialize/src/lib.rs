@@ -1,3 +1,5 @@
+//! Serde serialization support for Koto value types
+
 use {
     koto_runtime::Value,
     serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer},

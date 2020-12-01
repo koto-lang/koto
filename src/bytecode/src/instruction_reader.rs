@@ -4,6 +4,7 @@ use {
     std::{convert::TryInto, fmt, sync::Arc},
 };
 
+/// Decoded instructions produced by an [InstructionReader] for execution in the runtime
 pub enum Instruction {
     Error {
         message: String,
@@ -741,6 +742,7 @@ impl fmt::Debug for Instruction {
     }
 }
 
+/// An iterator that converts bytecode into a series of [Instruction]s
 #[derive(Clone, Default)]
 pub struct InstructionReader {
     pub chunk: Arc<Chunk>,

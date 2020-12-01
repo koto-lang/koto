@@ -8,6 +8,7 @@ use {
     std::convert::TryFrom,
 };
 
+/// The error type used to report errors during compilation
 #[derive(Clone, Debug)]
 pub struct CompilerError {
     pub message: String,
@@ -295,12 +296,14 @@ impl CompileResult {
 
 type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
 
+/// The settings used by the [Compiler]
 #[derive(Default)]
 pub struct CompilerSettings {
     /// Causes all top level identifiers to be exported to global
     pub repl_mode: bool,
 }
 
+/// The compiler used by the Koto language
 #[derive(Default)]
 pub struct Compiler {
     bytes: Vec<u8>,

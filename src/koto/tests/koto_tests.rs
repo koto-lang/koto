@@ -1,10 +1,10 @@
 use {
-    koto::Koto,
+    koto::{Koto, KotoSettings},
     std::{fs::read_to_string, path::PathBuf},
 };
 
 fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool) {
-    let mut koto = Koto::with_settings(koto::Settings {
+    let mut koto = Koto::with_settings(KotoSettings {
         run_tests: true,
         ..Default::default()
     });

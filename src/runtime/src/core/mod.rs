@@ -1,3 +1,5 @@
+//! The core library for the Koto language
+
 pub mod io;
 pub mod iterator;
 pub mod koto;

@@ -1,9 +1,12 @@
 [package]
 name = "koto_cli"
-
 version = "0.1.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
+description = "A CLI and script runner for the Koto programming language"
+homepage = "https://github.com/koto-lang/koto"
+repository = "https://github.com/koto-lang/koto"
+keywords = ["scripting", "language", "koto"]
 
 [[bin]]
 name = "koto"
@@ -14,11 +17,11 @@ default = []
 jemalloc = ["jemallocator"]
 
 [dependencies]
-koto = {path = "../koto"}
-koto_json = {path = "../../libs/json"}
-koto_random = {path = "../../libs/random"}
-koto_tempfile = {path = "../../libs/tempfile"}
-koto_toml = {path = "../../libs/toml"}
+koto = { path = "../koto", version = "0.1.0" }
+koto_json = { path = "../../libs/json", version = "0.1.0" }
+koto_random = { path = "../../libs/random", version = "0.1.0" }
+koto_tempfile = { path = "../../libs/tempfile", version = "0.1.0" }
+koto_toml = { path = "../../libs/toml", version = "0.1.0" }
 
 termion = "1.5.5"
 
@@ -27,4 +30,4 @@ version = "0.3.4"
 default-features = false
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = {version = "0.3.2", optional = true}
+jemallocator = { version = "0.3.2", optional = true }

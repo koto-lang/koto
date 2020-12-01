@@ -1,16 +1,6 @@
 [workspace]
 members = [
-  "examples/poetry",
-  "libs/lib_tests",
-  "libs/json",
-  "libs/random",
-  "libs/tempfile",
-  "libs/toml",
-  "src/bytecode",
-  "src/cli",
-  "src/koto",
-  "src/lexer",
-  "src/parser",
-  "src/runtime",
-  "src/serialize",
+  "examples/*",
+  "libs/*",
+  "src/*",
 ]

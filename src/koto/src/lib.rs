@@ -1,38 +1,64 @@
-pub use {
-    koto_bytecode::{
-        chunk_to_string, chunk_to_string_annotated, Chunk, Compiler, CompilerError, DebugInfo,
-        InstructionReader,
-    },
-    koto_parser::{is_indentation_error, Ast, Function, Parser, ParserError, Position},
-    koto_runtime::{
-        external_error, get_external_instance, is_external_instance, make_external_value,
-        type_as_string, visit_external_value, Error, ExternalValue, Loader, LoaderError, Num2,
-        Num4, RuntimeFunction, RuntimeResult, Value, ValueHashMap, ValueIterator,
-        ValueIteratorOutput, ValueList, ValueMap, ValueVec, VmContext,
-    },
-};
+//! # Koto
+//!
+//! Pulls together the compiler and runtime for the Koto programming language.
+//!
+//! Programs can be compiled and executed with the [Koto] struct.
+//!
+//! ## Example
+//!
+//! ```
+//! use koto::{Koto, runtime::Value};
+//!
+//! let mut koto = Koto::default();
+//! match koto.compile("1 + 2") {
+//!     Ok(_) => match koto.run() {
+//!         Ok(result) => match result {
+//!             Value::Number(n) => println!("{}", n), // 3.0
+//!             other => panic!("Unexpected result: {}", other),
+//!         },
+//!         Err(runtime_error) => {
+//!             panic!("Runtime error: {}", runtime_error);
+//!         }
+//!     },
+//!     Err(compiler_error) => {
+//!         panic!("Compiler error: {}", compiler_error);
+//!     }
+//! }
+//! ```
+
+pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
-    koto_runtime::Vm,
+    koto_bytecode::{
+        chunk_to_string, chunk_to_string_annotated, Chunk, CompilerError, LoaderError,
+    },
+    koto_parser::{ParserError, Position},
+    koto_runtime::{
+        type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueVec, Vm, VmContext,
+    },
     std::{
         path::PathBuf,
         sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
     },
 };
 
+/// Settings used to control the behaviour of the [Koto] runtime
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Settings {
+pub struct KotoSettings {
     pub run_tests: bool,
     pub show_annotated: bool,
     pub show_bytecode: bool,
     pub repl_mode: bool,
 }
 
+/// The main interface for the Koto language.
+///
+/// Example
 #[derive(Default)]
 pub struct Koto {
     script_path: Option<PathBuf>,
     runtime: Vm,
-    pub settings: Settings,
+    pub settings: KotoSettings,
     loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }
@@ -42,7 +68,7 @@ impl Koto {
         Self::default()
     }
 
-    pub fn with_settings(settings: Settings) -> Self {
+    pub fn with_settings(settings: KotoSettings) -> Self {
         let mut result = Self::new();
         result.settings = settings;
         result

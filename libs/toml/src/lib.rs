@@ -1,3 +1,5 @@
+//! A Koto language module for working with TOML data
+
 use {
     koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,

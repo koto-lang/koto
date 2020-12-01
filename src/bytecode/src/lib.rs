@@ -1,3 +1,7 @@
+//! # koto_bytecode
+//!
+//! Contains Koto's compiler and its bytecode operations
+
 use {
     koto_parser::{ConstantPool, Span},
     std::{path::PathBuf, sync::Arc},
@@ -9,6 +13,9 @@ mod loader;
 
 pub use {compile::*, instruction_reader::*, loader::*};
 
+/// The operation identifiers used in Koto bytecode
+///
+/// See [InstructionReader]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Op {
@@ -313,9 +320,11 @@ impl FunctionFlags {
     }
 }
 
+/// Debug information for a Koto program
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DebugInfo {
     source_map: Vec<(usize, Span)>,
+    /// The source of the program that the debug info was derived from
     pub source: String,
 }
 
@@ -332,6 +341,7 @@ impl DebugInfo {
         self.source_map.push((ip, span));
     }
 
+    /// Returns a source span for a given instruction pointer
     pub fn get_source_span(&self, ip: usize) -> Option<Span> {
         // Find the last entry with an ip less than or equal to the input
         // an upper_bound would nice here, but this isn't currently a performance sensitive function
@@ -348,12 +358,18 @@ impl DebugInfo {
     }
 }
 
+/// A compiled chunk of bytecode, along with its associated constants and metadata
 #[derive(Clone, Debug, PartialEq)]
 pub struct Chunk {
+    /// The bytes representing the chunk's bytecode
     pub bytes: Vec<u8>,
+    /// The constant data associated with the chunk's bytecode
     pub constants: ConstantPool,
+    /// The constant string data associated with the chunk's bytecode
     pub string_constants_arc: Arc<str>,
+    /// The path of the program's source file
     pub source_path: Option<PathBuf>,
+    /// Debug information associated with the chunk's bytecode
     pub debug_info: DebugInfo,
 }
 
@@ -386,6 +402,7 @@ impl Chunk {
     }
 }
 
+/// Returns a [String] displaying the instructions contained in the compiled [Chunk]
 pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(chunk);
@@ -399,6 +416,7 @@ pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
     result
 }
 
+/// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
 pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, source_lines: &[&str]) -> String {
     let mut result = String::new();
     let mut reader = InstructionReader::new(chunk);

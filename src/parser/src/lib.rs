@@ -1,3 +1,5 @@
+//! Contains the parser and AST format used by the Koto language
+
 mod ast;
 mod constant_pool;
 mod error;

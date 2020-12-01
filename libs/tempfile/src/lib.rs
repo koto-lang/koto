@@ -1,3 +1,5 @@
+//! A Koto language module for working with temporary files
+
 use koto_runtime::{
     core::io::{make_file_map, File},
     external_error, make_external_value, Value, ValueMap,

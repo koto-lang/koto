@@ -6,7 +6,7 @@ use {
         blocking::{Flow, Hotwatch},
         Event,
     },
-    koto::Koto,
+    koto::{Koto, KotoSettings},
     poetry::*,
     std::{
         fs,
@@ -84,7 +84,7 @@ fn main() {
         }
     };
 
-    let mut koto = Koto::with_settings(koto::Settings {
+    let mut koto = Koto::with_settings(KotoSettings {
         run_tests: true,
         ..Default::default()
     });

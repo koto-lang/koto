@@ -1,3 +1,5 @@
+//! A random number module for the Koto language
+
 use {
     koto_runtime::{
         external_error, get_external_instance, make_external_value, num2, num4, ExternalValue,

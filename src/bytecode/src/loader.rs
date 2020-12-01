@@ -4,6 +4,7 @@ use {
     std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
 };
 
+/// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]
 pub enum LoaderError {
     ParserError(ParserError),
@@ -35,6 +36,7 @@ impl fmt::Display for LoaderError {
     }
 }
 
+/// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
 pub struct Loader {
     chunks: HashMap<PathBuf, Arc<Chunk>>,
