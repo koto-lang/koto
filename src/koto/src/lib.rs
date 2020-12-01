@@ -182,13 +182,21 @@ impl Koto {
         use Value::{Empty, Map, Str};
 
         let (script_dir, script_path) = match &path {
-            Some(path) => (
-                path.parent()
-                    .map(|p| Str(p.to_str().expect("invalid script path").into()))
+            Some(path) => {
+                let path = path.canonicalize().expect("Invalid script path");
+
+                let script_dir = path
+                    .parent()
+                    .map(|p| {
+                        let s = p.to_string_lossy() + "/";
+                        Str(s.into_owned().into())
+                    })
                     .or(Some(Empty))
-                    .unwrap(),
-                Str(path.display().to_string().into()),
-            ),
+                    .unwrap();
+                let script_path = Str(path.display().to_string().into());
+
+                (script_dir, script_path)
+            }
             None => (Empty, Empty),
         };
 
