@@ -51,7 +51,7 @@ use {
 
 /// Settings used to control the behaviour of the [Koto] runtime
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Settings {
+pub struct KotoSettings {
     pub run_tests: bool,
     pub show_annotated: bool,
     pub show_bytecode: bool,
@@ -65,7 +65,7 @@ pub struct Settings {
 pub struct Koto {
     script_path: Option<PathBuf>,
     runtime: Vm,
-    pub settings: Settings,
+    pub settings: KotoSettings,
     loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }
@@ -75,7 +75,7 @@ impl Koto {
         Self::default()
     }
 
-    pub fn with_settings(settings: Settings) -> Self {
+    pub fn with_settings(settings: KotoSettings) -> Self {
         let mut result = Self::new();
         result.settings = settings;
         result

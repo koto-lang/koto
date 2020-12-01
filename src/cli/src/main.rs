@@ -1,6 +1,10 @@
 mod repl;
 
-use {koto::Koto, repl::Repl, std::fs};
+use {
+    koto::{Koto, KotoSettings},
+    repl::Repl,
+    std::fs,
+};
 
 #[cfg(all(jemalloc, not(target_env = "msvc")))]
 #[global_allocator]
@@ -98,7 +102,7 @@ fn main() {
         return;
     }
 
-    let mut settings = koto::Settings::default();
+    let mut settings = KotoSettings::default();
     settings.run_tests = args.run_tests;
     settings.show_bytecode = args.show_bytecode;
     settings.show_annotated = args.show_annotated;

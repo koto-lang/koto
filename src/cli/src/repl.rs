@@ -1,5 +1,5 @@
 use {
-    koto::{is_indentation_error, Koto, LoaderError, Settings},
+    koto::{is_indentation_error, Koto, KotoSettings, LoaderError},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -28,7 +28,7 @@ pub struct Repl {
 }
 
 impl Repl {
-    pub fn with_settings(mut settings: Settings) -> Self {
+    pub fn with_settings(mut settings: KotoSettings) -> Self {
         settings.repl_mode = true;
 
         let mut koto = Koto::with_settings(settings);
