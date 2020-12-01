@@ -10,10 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../src/runtime" }
+koto_runtime = { path = "../../src/runtime", version = "0.1.0" }
 
 rand = "0.7.3"
 rand_chacha = "0.2.1"
-
-[dev-dependencies]
-koto = { path = "../../src/koto" }

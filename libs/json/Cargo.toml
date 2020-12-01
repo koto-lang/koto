@@ -15,6 +15,3 @@ keywords = ["scripting", "language", "koto"]
 koto_runtime = { path = "../../src/runtime", version = "0.1.0" }
 koto_serialize = { path = "../../src/serialize", version = "0.1.0" }
 serde_json = { version = "1.0.0", features = ["preserve_order", "std"] }
-
-[dev-dependencies]
-koto = { path = "../../src/koto" }

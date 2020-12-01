@@ -434,7 +434,6 @@ dependencies = [
 name = "koto_json"
 version = "0.1.0"
 dependencies = [
- "koto",
  "koto_runtime",
  "koto_serialize",
  "serde_json",
@@ -470,7 +469,6 @@ dependencies = [
 name = "koto_random"
 version = "0.1.0"
 dependencies = [
- "koto",
  "koto_runtime",
  "rand",
  "rand_chacha",
@@ -509,7 +507,6 @@ dependencies = [
 name = "koto_toml"
 version = "0.1.0"
 dependencies = [
- "koto",
  "koto_runtime",
  "koto_serialize",
  "toml",

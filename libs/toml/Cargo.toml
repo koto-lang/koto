@@ -12,9 +12,6 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_runtime = { path = "../../src/runtime" }
-koto_serialize = { path = "../../src/serialize" }
+koto_runtime = { path = "../../src/runtime", version = "0.1.0" }
+koto_serialize = { path = "../../src/serialize", version = "0.1.0" }
 toml = { version = "0.5.6", features = ["preserve_order"] }
-
-[dev-dependencies]
-koto = { path = "../../src/koto" }
