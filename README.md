@@ -1,5 +1,9 @@
 # Koto
 
+[![Docs](https://docs.rs/koto/badge.svg)][docs]
+[![Crates.io](https://img.shields.io/crates/v/koto.svg)][crates]
+[![CI](https://github.com/koto-lang/koto/workflows/CI/badge.svg)][ci]
+
 Koto is an embeddable scripting language, written in Rust. It has been designed
 for ease of use and built for speed, with the goal of it being an ideal choice
 for adding scripting to Rust applications.
@@ -7,6 +11,15 @@ for adding scripting to Rust applications.
 Koto is versatile enough to be useful in a variety of applications, although
 there has been a focus during development on interactive systems, such as rapid
 iteration during game development, or experimentation in creative coding.
+
+
+* [Current State](#current-state)
+* [Getting Started](#getting-started)
+  * [A Quick Tour](#a-quick-tour)
+  * [Learning the Language](#learning-the-language)
+  * [Installation](#installation)
+  * [REPL](#repl)
+* [Language Goals](#language-goals)
 
 
 ## Current State
@@ -72,10 +85,21 @@ that are a good starting point for getting to know the language.
 * [Example Rust application with Koto bindings](./examples/poetry/)
 
 
+
+### Installation
+
+The most recent release of the Koto CLI can be installed with
+[Cargo](https://rustup.rs):
+
+```
+cargo install koto
+```
+
+
 ### REPL
 
-A [REPL][1] is provided to allow for quick experimentation.
-Launching `koto` without a script enters the REPL by default.
+A [REPL][repl] is provided to allow for quick experimentation.
+Launching the `koto` CLI without providing a script enters the REPL.
 
 ```
 » koto
@@ -86,8 +110,6 @@ Welcome to Koto v0.1.0
 Hello, World!
 ()
 ```
-
-[1]: https://en.wikipedia.org/wiki/Read–eval–print_loop
 
 
 ## Language Goals
@@ -104,3 +126,9 @@ Hello, World!
   * One of the primary use cases for Koto is for it to be embedded as a library
     in other applications, so it should be a good citizen and not introduce too
     much overhead.
+
+
+[crates]: https://crates.io/crates/koto
+[ci]: https://github.com/koto-lang/koto/actions
+[docs]: https://docs.rs/koto
+[repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
