@@ -5,6 +5,11 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("contains", |vm, args| match vm.get_args(args) {
+        [Tuple(t), value] => Ok(Bool(t.data().contains(value))),
+        _ => external_error!("tuple.contains: Expected tuple and value as arguments"),
+    });
+
     result.add_fn("get", |vm, args| match vm.get_args(args) {
         [Tuple(t), Number(n)] => {
             if *n < 0.0 {

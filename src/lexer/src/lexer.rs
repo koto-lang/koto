@@ -227,22 +227,28 @@ impl<'a> TokenLexer<'a> {
 
         // The '"' character has already been matched
         chars.next();
+
         let mut string_bytes = 1;
-        let mut string_width = 1;
+        let mut position = self.position;
 
         while let Some(c) = chars.next() {
             string_bytes += c.len_utf8();
-            string_width += c.width().unwrap_or(0);
+            position.column += c.width().unwrap_or(0) as u32;
+
             match c {
                 '\\' => {
                     if chars.peek() == Some(&'"') {
                         chars.next();
                         string_bytes += 1;
-                        string_width += 1;
+                        position.column += 1;
                     }
                 }
+                '\n' => {
+                    position.line += 1;
+                    position.column = 1;
+                }
                 '"' => {
-                    self.advance_line_utf8(string_bytes, string_width);
+                    self.advance_to_position(string_bytes, position);
                     return Some(String);
                 }
                 _ => {}
