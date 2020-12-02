@@ -21,6 +21,14 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.consume: Expected iterable as argument"),
     });
 
+    result.add_fn("count", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let iter = make_iterator(iterable).unwrap();
+            Ok(Number(iter.count() as f64))
+        }
+        _ => external_error!("iterator.count: Expected iterable as argument"),
+    });
+
     result.add_fn("each", |vm, args| match vm.get_args(args) {
         [iterable, Function(f)] if is_iterable(iterable) => {
             let iter = make_iterator(iterable).unwrap();
