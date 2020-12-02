@@ -12,6 +12,11 @@ export tests =
     x += "_" + "^"
     assert_eq x "^_^"
 
+  test_chars: ||
+    assert_eq
+      "Héllö".chars().to_tuple()
+      ("H", "é", "l", "l", "ö")
+
   test_contains: ||
     assert "O_o".contains("_")
     assert not "O_o".contains("@")

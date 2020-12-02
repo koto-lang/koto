@@ -12,42 +12,46 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("consume", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
-            [iterable] if is_iterable(iterable) => {
-                let iter = make_iterator(iterable).unwrap();
-                iter.for_each(drop);
-                Ok(Empty)
-            }
-            _ => external_error!("iterator.consume: Expected iterable as argument"),
+    result.add_fn("consume", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let iter = make_iterator(iterable).unwrap();
+            iter.for_each(drop);
+            Ok(Empty)
         }
+        _ => external_error!("iterator.consume: Expected iterable as argument"),
     });
 
-    result.add_fn("each", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
-            [iterable, Function(f)] if is_iterable(iterable) => {
-                let iter = make_iterator(iterable).unwrap();
-                let f = f.clone();
-                let mut vm = vm.spawn_shared_vm();
+    result.add_fn("count", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let iter = make_iterator(iterable).unwrap();
+            Ok(Number(iter.count() as f64))
+        }
+        _ => external_error!("iterator.count: Expected iterable as argument"),
+    });
 
-                let mut iter = iter.map(move |iter_output| match iter_output {
-                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
+    result.add_fn("each", |vm, args| match vm.get_args(args) {
+        [iterable, Function(f)] if is_iterable(iterable) => {
+            let iter = make_iterator(iterable).unwrap();
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+
+            let mut iter = iter.map(move |iter_output| match iter_output {
+                Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
+                    Ok(result) => Ok(Output::Value(result)),
+                    Err(error) => Err(error),
+                },
+                Ok(Output::ValuePair(first, second)) => {
+                    match vm.run_function(&f, &[first, second]) {
                         Ok(result) => Ok(Output::Value(result)),
                         Err(error) => Err(error),
-                    },
-                    Ok(Output::ValuePair(first, second)) => {
-                        match vm.run_function(&f, &[first, second]) {
-                            Ok(result) => Ok(Output::Value(result)),
-                            Err(error) => Err(error),
-                        }
                     }
-                    Err(error) => Err(error),
-                });
+                }
+                Err(error) => Err(error),
+            });
 
-                Ok(Iterator(ValueIterator::make_external(move || iter.next())))
-            }
-            _ => external_error!("iterator.each: Expected iterable and function as arguments"),
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
+        _ => external_error!("iterator.each: Expected iterable and function as arguments"),
     });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
