@@ -20,7 +20,7 @@ syntax keyword kotoCoreLib
   \ abs acos asin atan ceil clamp cos cosh degrees exp exp2 floor log10 log2 ln max min
   \ pi pow radians recip sin sinh sqrt tan tanh tau
   \ sleep
-  \ escape format lines print slice split to_number trim
+  \ chars escape format lines print slice split to_number trim
   \ end start
 
 syntax keyword kotoAsserts assert assert_eq assert_ne assert_near

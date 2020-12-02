@@ -1,15 +1,42 @@
 mod format;
 
-use crate::{
-    external_error,
-    value_iterator::{ValueIterator, ValueIteratorOutput},
-    Value, ValueMap,
+use {
+    crate::{
+        external_error,
+        value_iterator::{ValueIterator, ValueIteratorOutput},
+        Value, ValueMap,
+    },
+    unicode_segmentation::UnicodeSegmentation,
 };
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
+
+    result.add_fn("chars", |vm, args| match vm.get_args(args) {
+        [Str(s)] => Ok(Iterator(ValueIterator::make_external({
+            let mut cluster_start = 0;
+            let s = s.clone();
+
+            move || match s[cluster_start..].grapheme_indices(true).next() {
+                Some((_, cluster)) => {
+                    let cluster_end = cluster_start + cluster.len();
+
+                    let result = match s.with_bounds(cluster_start..cluster_end) {
+                        Ok(result) => {
+                            cluster_start = cluster_end;
+                            Ok(ValueIteratorOutput::Value(Str(result)))
+                        }
+                        Err(_) => external_error!("string.chars: Failed to produce a substring"),
+                    };
+                    Some(result)
+                }
+                None => None,
+            }
+        }))),
+        _ => external_error!("string.chars: Expected a string as argument"),
+    });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_str()))),
