@@ -1,6 +1,6 @@
 [package]
 name = "koto_poetry"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 autobins = false
@@ -13,6 +13,6 @@ path = "src/main.rs"
 [dependencies]
 hotwatch = "0.4.5"
 indexmap = "1.6.0"
-koto = { path = "../../src/koto", version = "0.1.0" }
+koto = { path = "../../src/koto", version = "0.2.0" }
 pico-args = "0.3.4"
 rand = "0.7.3"

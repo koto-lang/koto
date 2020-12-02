@@ -1,6 +1,6 @@
 [package]
 name = "koto_toml"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,6 +12,6 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_runtime = { path = "../../src/runtime", version = "0.1.0" }
-koto_serialize = { path = "../../src/serialize", version = "0.1.0" }
+koto_runtime = { path = "../../src/runtime", version = "0.2.0" }
+koto_serialize = { path = "../../src/serialize", version = "0.2.0" }
 toml = { version = "0.5.6", features = ["preserve_order"] }
