@@ -92,7 +92,7 @@ The most recent release of the Koto CLI can be installed with
 [Cargo](https://rustup.rs):
 
 ```
-cargo install koto
+cargo install koto_cli
 ```
 
 
