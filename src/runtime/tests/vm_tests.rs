@@ -937,6 +937,17 @@ f -42";
         }
 
         #[test]
+        fn return_map() {
+            let script = "
+f = ||
+  return
+    foo: 42
+    bar: 99
+f().bar";
+            test_script(script, Number(99.0));
+        }
+
+        #[test]
         fn captured_value() {
             let script = "
 f = |x|
