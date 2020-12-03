@@ -5,6 +5,12 @@
 ### Changed
 - Map blocks can now be used in return and yield expressions
 
+### Removed
+- Vim support has been moved to [its own repo][vim].
+
+[vim]: https://github.com/koto-lang/koto.vim
+
+
 ## [0.2.0] - 2020.12.02
 
 ### Added
@@ -18,6 +24,7 @@
 
 ### Fixed
 - Multiline strings broke following spans
+
 
 ## [0.1.0] - 2020.12.01
 - Initial release

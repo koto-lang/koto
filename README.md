@@ -20,6 +20,8 @@ iteration during game development, or experimentation in creative coding.
   * [Installation](#installation)
   * [REPL](#repl)
 * [Language Goals](#language-goals)
+* [Editor Support](#editor-support)
+  * [Vim / Neovim](#vim--neovim)
 
 
 ## Current State
@@ -132,3 +134,10 @@ Hello, World!
 [ci]: https://github.com/koto-lang/koto/actions
 [docs]: https://docs.rs/koto
 [repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
+
+
+## Editor Support
+
+### Vim / Neovim
+
+[koto.vim](https://github.com/koto-lang/koto.vim)
