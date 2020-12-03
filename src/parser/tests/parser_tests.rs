@@ -2422,6 +2422,37 @@ y z";
                 None,
             )
         }
+
+        #[test]
+        fn generator_yielding_a_map() {
+            let source = "
+||
+  yield
+    foo: 42
+";
+            check_ast(
+                source,
+                &[
+                    Number(1),
+                    Map(vec![(0, Some(0))]),
+                    Yield(1),
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![],
+                        body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: true,
+                    }),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Number(42.0)]),
+            )
+        }
     }
 
     mod lookups {

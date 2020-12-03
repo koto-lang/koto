@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Map blocks can now be used in return and yield expressions
+
 ## [0.2.0] - 2020.12.02
 
 ### Added

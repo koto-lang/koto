@@ -209,6 +209,15 @@ impl ExpressionContext {
             expected_indentation: None,
         }
     }
+
+    fn start_new_expression(&self) -> Self {
+        Self {
+            allow_space_separated_call: true,
+            allow_initial_indentation: true,
+            expected_indentation: None,
+            ..*self
+        }
+    }
 }
 
 pub struct Parser<'source> {
@@ -1274,14 +1283,9 @@ impl<'source> Parser<'source> {
                 }
                 Token::Yield => {
                     self.consume_next_token(context);
-                    if let Some(expression) = self.parse_expressions(
-                        &mut ExpressionContext {
-                            allow_space_separated_call: true,
-                            expected_indentation: None,
-                            ..*context
-                        },
-                        false,
-                    )? {
+                    if let Some(expression) =
+                        self.parse_expressions(&mut context.start_new_expression(), false)?
+                    {
                         let result = self.push_node(Node::Yield(expression))?;
                         self.frame_mut()?.contains_yield = true;
                         Some(result)
@@ -1299,14 +1303,9 @@ impl<'source> Parser<'source> {
                 }
                 Token::Return => {
                     self.consume_next_token(context);
-                    let result = if let Some(expression) = self.parse_expressions(
-                        &mut ExpressionContext {
-                            allow_space_separated_call: true,
-                            expected_indentation: None,
-                            ..*context
-                        },
-                        false,
-                    )? {
+                    let result = if let Some(expression) =
+                        self.parse_expressions(&mut context.start_new_expression(), false)?
+                    {
                         self.push_node(Node::ReturnExpression(expression))?
                     } else {
                         self.push_node(Node::Return)?
