@@ -194,6 +194,14 @@ impl Vm {
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
+        if !self.call_stack.is_empty() {
+            return vm_error!(
+                self.chunk(),
+                self.ip(),
+                "run_function: the call stack isn't empty"
+            );
+        }
+
         let current_chunk = self.chunk();
         let current_ip = self.ip();
 
@@ -2566,10 +2574,6 @@ impl Vm {
 
     pub fn get_args(&self, args: &Args) -> &[Value] {
         self.register_slice(args.register, args.count)
-    }
-
-    pub fn get_args_as_vec(&self, args: &Args) -> ValueVec {
-        self.get_args(args).iter().cloned().collect()
     }
 
     fn get_constant_str(&self, constant_index: ConstantIndex) -> &str {

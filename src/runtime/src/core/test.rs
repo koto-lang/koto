@@ -97,12 +97,12 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("assert_eq expects three arguments"),
     });
 
-    result.add_fn("run_tests", |vm, args| {
-        let args = vm.get_args_as_vec(args);
-        match args.as_slice() {
-            [Map(tests)] => vm.run_tests(tests.clone()),
-            _ => external_error!("run_tests expects a map as argument"),
+    result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
+        [Map(tests)] => {
+            let tests = tests.clone();
+            vm.run_tests(tests)
         }
+        _ => external_error!("run_tests expects a map as argument"),
     });
 
     result

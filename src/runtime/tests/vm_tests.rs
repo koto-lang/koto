@@ -1058,6 +1058,17 @@ f3 = |x| f2() x
 f3 1";
             test_script(script, Number(1.0));
         }
+
+        #[test]
+        fn iterator_fold_after_function_call_shouldnt_error() {
+            // Reported in https://github.com/koto-lang/koto/issues/6
+            // iterator.fold() was incorrectly reusing its vm rather than spawning a new one
+            let script = "
+f = || 1, 2, 3
+f().fold 0 |x, n| x += n
+";
+            test_script(script, Number(6.0));
+        }
     }
 
     mod loops {

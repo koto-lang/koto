@@ -8,6 +8,11 @@
 ### Removed
 - Vim support has been moved to [its own repo][vim].
 
+### Fixed
+- iterator.fold, list.retain, and list.transform could cause runtime errors or
+  stack overflows when being called after other functions.
+  - [Bug report](https://github.com/koto-lang/koto/issues/6)
+
 [vim]: https://github.com/koto-lang/koto.vim
 
 
