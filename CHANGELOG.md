@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- iterator.all
+- iterator.any
 - string.size
 
 ### Changed

@@ -1,4 +1,5 @@
-import iterator, test.assert_eq
+import iterator
+from test import assert, assert_eq
 
 export tests =
   test_next: ||
@@ -40,6 +41,16 @@ export tests =
     assert_eq
       {foo: 42, bar: 99}.iter().to_tuple()
       (("foo", 42), ("bar", 99))
+
+  test_all: ||
+    assert (1..10).all(|n| n < 10)
+    assert not (1..10).all(|n| n < 5)
+    assert "xyz".chars().all(|c| "zyx".contains c)
+
+  test_any: ||
+    assert (1..10).any(|n| n == 5)
+    assert not (1..10).any(|n| n == 15)
+    assert "xyz".chars().any(|c| c == "z")
 
   test_consume: ||
     x = []

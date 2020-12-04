@@ -1,5 +1,5 @@
 use crate::{
-    external_error, value,
+    external_error, type_as_string, value,
     value_iterator::{
         is_iterable, make_iterator, ValueIterator, ValueIteratorOutput as Output,
         ValueIteratorResult,
@@ -11,6 +11,70 @@ pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
+
+    result.add_fn("all", |vm, args| match vm.get_args(args) {
+        [iterable, Function(f)] if is_iterable(iterable) => {
+            let f = f.clone();
+            let iter = make_iterator(iterable).unwrap().map(collect_pair);
+            let mut vm = vm.spawn_shared_vm();
+
+            for iter_output in iter {
+                match iter_output {
+                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
+                        Ok(Bool(result)) => {
+                            if !result {
+                                return Ok(Bool(false));
+                            }
+                        }
+                        Ok(unexpected) => {
+                            return external_error!(
+                                "iterator.all: Predicate should return a bool, found '{}'",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                        Err(error) => return Err(error),
+                    },
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(Bool(true))
+        }
+        _ => external_error!("iterator.all: Expected iterable and function as arguments"),
+    });
+
+    result.add_fn("any", |vm, args| match vm.get_args(args) {
+        [iterable, Function(f)] if is_iterable(iterable) => {
+            let f = f.clone();
+            let iter = make_iterator(iterable).unwrap().map(collect_pair);
+            let mut vm = vm.spawn_shared_vm();
+
+            for iter_output in iter {
+                match iter_output {
+                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
+                        Ok(Bool(result)) => {
+                            if result {
+                                return Ok(Bool(true));
+                            }
+                        }
+                        Ok(unexpected) => {
+                            return external_error!(
+                                "iterator.any: Predicate should return a bool, found '{}'",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                        Err(error) => return Err(error),
+                    },
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(Bool(false))
+        }
+        _ => external_error!("iterator.any: Expected iterable and function as arguments"),
+    });
 
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
         [iterable] if is_iterable(iterable) => {
