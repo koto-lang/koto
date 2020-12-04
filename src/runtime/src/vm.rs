@@ -194,6 +194,14 @@ impl Vm {
     }
 
     pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
+        if !self.call_stack.is_empty() {
+            return vm_error!(
+                self.chunk(),
+                self.ip(),
+                "run_function: the call stack isn't empty"
+            );
+        }
+
         let current_chunk = self.chunk();
         let current_ip = self.ip();
 

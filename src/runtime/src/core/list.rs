@@ -124,8 +124,12 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("retain", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
+        match vm.get_args(args) {
             [List(l), Function(f)] => {
+                let l = l.clone();
+                let f = f.clone();
+                let mut vm = vm.spawn_shared_vm();
+
                 if f.arg_count != 1 {
                     return external_error!(
                         "The function passed to list.retain must have a \
@@ -136,7 +140,7 @@ pub fn make_module() -> ValueMap {
                 let mut write_index = 0;
                 for read_index in 0..l.len() {
                     let value = l.data()[read_index].clone();
-                    match vm.run_function(f, &[value.clone()])? {
+                    match vm.run_function(&f, &[value.clone()])? {
                         Bool(result) => {
                             if result {
                                 l.data_mut()[write_index] = value;
@@ -204,25 +208,27 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("transform", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
-            [List(l), Function(f)] => {
-                if f.arg_count != 1 {
-                    return external_error!(
-                        "The function passed to list.transform must have a \
+    result.add_fn("transform", |vm, args| match vm.get_args(args) {
+        [List(l), Function(f)] => {
+            let l = l.clone();
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+
+            if f.arg_count != 1 {
+                return external_error!(
+                    "The function passed to list.transform must have a \
                          single argument, found '{}'",
-                        f.arg_count,
-                    );
-                }
-
-                for value in l.data_mut().iter_mut() {
-                    *value = vm.run_function(f, &[value.clone()])?;
-                }
-
-                Ok(Value::Empty)
+                    f.arg_count,
+                );
             }
-            _ => external_error!("list.transform expects a list and function as arguments"),
+
+            for value in l.data_mut().iter_mut() {
+                *value = vm.run_function(&f, &[value.clone()])?;
+            }
+
+            Ok(Value::Empty)
         }
+        _ => external_error!("list.transform expects a list and function as arguments"),
     });
 
     result.add_fn("with_size", |vm, args| match vm.get_args(args) {
