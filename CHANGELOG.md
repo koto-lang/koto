@@ -7,6 +7,7 @@
 
 ### Changed
 - Map blocks can now be used in return and yield expressions
+- iterator.each and iterator.keep now collect iterator pairs into tuples
 
 ### Removed
 - Vim support has been moved to [its own repo][vim].

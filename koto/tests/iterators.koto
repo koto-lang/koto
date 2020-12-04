@@ -59,7 +59,7 @@ export tests =
 
     assert_eq
       {foo: 42, bar: 99}
-        .each |key, value| key, value
+        .each |key_value| key, value = key_value # TODO tuple unpacking in args
         .to_tuple()
       (("foo", 42), ("bar", 99))
 
