@@ -53,6 +53,14 @@ zzz
          baz"
     assert_eq x "foo bar baz"
 
+  test_size: ||
+    # size returns the number of unicode graphemes in the string,
+    # rather than the number of bytes
+    assert_eq "".size() 0
+    assert_eq "ø".size() 1
+    assert_eq "abcdef".size() 6
+    assert_eq "äbcdéf".size() 6
+
   test_slice: ||
     assert_eq ("abcdef".slice 2 5) "cde"
     x = "abcdef".slice 2 # end index is optional

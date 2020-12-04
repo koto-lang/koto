@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- string.size
+
 ### Changed
 - Map blocks can now be used in return and yield expressions
 
