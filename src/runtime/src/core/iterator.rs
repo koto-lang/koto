@@ -70,11 +70,14 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("fold", |vm, args| {
-        let args = vm.get_args_as_vec(args);
-        match args.as_slice() {
+        match vm.get_args(args) {
             [iterable, result, Function(f)] if is_iterable(iterable) => {
-                match make_iterator(iterable)
-                    .unwrap()
+                let result = result.clone();
+                let f = f.clone();
+                let mut iter = make_iterator(iterable).unwrap();
+                let mut vm = vm.spawn_shared_vm();
+
+                match iter
                     .lock_internals(|iterator| {
                         let mut fold_result = result.clone();
                         for value in iterator {
