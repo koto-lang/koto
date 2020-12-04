@@ -106,6 +106,11 @@ pub fn make_module() -> ValueMap {
         Ok(Empty)
     });
 
+    result.add_fn("size", |vm, args| match vm.get_args(args) {
+        [Str(s)] => Ok(Number(s.graphemes(true).count() as f64)),
+        _ => external_error!("string.size: Expected string as argument"),
+    });
+
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
         [Str(input), Number(from)] => {
             let bounds = (*from as usize)..input.len();
