@@ -201,11 +201,9 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("list.sort_copy: Expected list as argument"),
     });
 
-    result.add_fn("to_tuple", |vm, args| {
-        match vm.get_args_as_vec(args).as_slice() {
-            [List(l)] => Ok(Value::Tuple(l.data().as_slice().into())),
-            _ => external_error!("list.to_tuple expects a list as argument"),
-        }
+    result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
+        [List(l)] => Ok(Value::Tuple(l.data().as_slice().into())),
+        _ => external_error!("list.to_tuple expects a list as argument"),
     });
 
     result.add_fn("transform", |vm, args| match vm.get_args(args) {

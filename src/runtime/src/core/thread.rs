@@ -24,27 +24,24 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("thread.sleep: Expected number as argument"),
     });
 
-    result.add_fn("create", |vm, args| {
-        let args = vm.get_args_as_vec(args);
-        match args.as_slice() {
-            [Function(f)] => {
-                let join_handle = thread::spawn({
-                    let mut thread_vm = vm.spawn_shared_concurrent_vm();
-                    let f = f.clone();
-                    move || match thread_vm.run_function(&f, &[]) {
-                        Ok(_) => Ok(()),
-                        Err(e) => Err(e),
-                    }
-                });
+    result.add_fn("create", |vm, args| match vm.get_args(args) {
+        [Function(f)] => {
+            let f = f.clone();
+            let join_handle = thread::spawn({
+                let mut thread_vm = vm.spawn_shared_concurrent_vm();
+                move || match thread_vm.run_function(&f, &[]) {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
+                }
+            });
 
-                Ok(Thread::make_thread_map(join_handle))
-            }
-            [unexpected] => external_error!(
-                "thread.create: Expected function as argument, found '{}'",
-                type_as_string(unexpected),
-            ),
-            _ => external_error!("thread.create: Expected function as argument"),
+            Ok(Thread::make_thread_map(join_handle))
         }
+        [unexpected] => external_error!(
+            "thread.create: Expected function as argument, found '{}'",
+            type_as_string(unexpected),
+        ),
+        _ => external_error!("thread.create: Expected function as argument"),
     });
 
     result
