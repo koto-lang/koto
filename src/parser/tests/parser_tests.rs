@@ -515,9 +515,10 @@ num2
             let source = "\
 num4 0
 num4 1 x
-num4
-  x 0
-  1 x";
+num4(
+  x, 0,
+  1, x,
+)";
             check_ast(
                 source,
                 &[
@@ -2304,7 +2305,7 @@ f 1
         }
 
         #[test]
-        fn call_with_functor() {
+        fn call_with_function() {
             let source = "\
 z = y [0..20] |x| x > 1
 y z";

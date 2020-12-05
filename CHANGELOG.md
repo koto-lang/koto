@@ -5,11 +5,15 @@
 ### Added
 - iterator.all
 - iterator.any
+- iterator.position
 - string.size
+- strings can now be used with the ordered comparison operators.
 
 ### Changed
-- Map blocks can now be used in return and yield expressions
-- iterator.each and iterator.keep now collect iterator pairs into tuples
+- Map blocks can now be used in return and yield expressions.
+- iterator.each and iterator.keep now collect iterator pairs into tuples.
+- Space-separated function calls are allowed in function args when the arg is on
+  a new line.
 
 ### Removed
 - Vim support has been moved to [its own repo][vim].
@@ -30,11 +34,11 @@
 - tuple.contains
 
 ### Changed
-- koto.script_dir is now canonicalized and includes a trailing slash
-- koto.script_path is now canonicalized
+- koto.script_dir is now canonicalized and includes a trailing slash.
+- koto.script_path is now canonicalized.
 
 ### Fixed
-- Multiline strings broke following spans
+- Multiline strings broke following spans.
 
 
 ## [0.1.0] - 2020.12.01

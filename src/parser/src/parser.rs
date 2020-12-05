@@ -729,12 +729,14 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Vec<AstIndex>, ParserError> {
-        let start_line = self.lexer.line_number();
+        let mut last_arg_line = self.lexer.line_number();
         let mut args = Vec::new();
 
         while let Some((_, peek_count)) = self.peek_next_token(&context) {
             let peeked_line = self.lexer.peek_line_number(peek_count);
-            if peeked_line > start_line {
+            let new_line = peeked_line > last_arg_line;
+            last_arg_line = peeked_line;
+            if new_line {
                 self.consume_until_next_token(context);
             } else if self.peek_token() == Some(Token::Whitespace) {
                 self.consume_until_next_token_on_same_line();
@@ -743,7 +745,7 @@ impl<'source> Parser<'source> {
             }
 
             let mut arg_context = ExpressionContext {
-                allow_space_separated_call: false,
+                allow_space_separated_call: new_line,
                 allow_linebreaks: true,
                 allow_initial_indentation: false,
                 expected_indentation: None,

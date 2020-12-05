@@ -1484,6 +1484,17 @@ result.size()
 "#;
             test_script(script, Number(5.0));
         }
+
+        #[test]
+        fn inline_function_body_in_call_args() {
+            let script = r#"
+equal = |x, y| x == y
+equal
+  (0..10).position |n| n == 5
+  5
+"#;
+            test_script(script, Bool(true));
+        }
     }
 
     mod placeholders {
@@ -1715,6 +1726,30 @@ x[3]";
         #[test]
         fn addition() {
             test_script(r#""Hello, " + "World!""#, string("Hello, World!"));
+        }
+
+        #[test]
+        fn less() {
+            test_script(r#""abc" < "abd""#, Bool(true));
+            test_script(r#""abx" < "abc""#, Bool(false));
+        }
+
+        #[test]
+        fn less_or_equal() {
+            test_script(r#""abc" <= "abc""#, Bool(true));
+            test_script(r#""xyz" <= "abd""#, Bool(false));
+        }
+
+        #[test]
+        fn greater() {
+            test_script(r#""hello42" > "hello1""#, Bool(true));
+            test_script(r#""hello1" > "hellø1""#, Bool(false));
+        }
+
+        #[test]
+        fn greater_or_equal() {
+            test_script(r#""héllö42" >= "héllö11""#, Bool(true));
+            test_script(r#""hello1" >= "hello42""#, Bool(false));
         }
     }
 
