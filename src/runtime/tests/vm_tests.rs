@@ -1484,6 +1484,17 @@ result.size()
 "#;
             test_script(script, Number(5.0));
         }
+
+        #[test]
+        fn inline_function_body_in_call_args() {
+            let script = r#"
+equal = |x, y| x == y
+equal
+  (0..10).position |n| n == 5
+  5
+"#;
+            test_script(script, Bool(true));
+        }
     }
 
     mod placeholders {

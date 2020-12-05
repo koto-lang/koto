@@ -88,15 +88,15 @@ export tests =
 
   test_fold: ||
     assert_eq
-      (1..=5).fold(0, |sum, x| sum + x)
+      (1..=5).fold 0 |sum, x| sum + x
       15
 
   test_position: ||
     assert_eq
-      (100..1000).position(|x| x >= 110)
+      (100..1000).position |x| x >= 110
       10
     assert_eq
-      "hey now".chars().position(|c| c == " ")
+      "hey now".chars().position |c| c == " "
       3
 
   test_take: ||
