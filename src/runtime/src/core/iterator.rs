@@ -204,6 +204,50 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.keep: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("max", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let mut result = None;
+
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Ok(Output::Value(value)) => {
+                        result = Some(match result {
+                            Some(result) => std::cmp::max(result, value),
+                            None => value,
+                        })
+                    }
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.unwrap_or(Empty))
+        }
+        _ => external_error!("iterator.min: Expected iterable as argument"),
+    });
+
+    result.add_fn("min", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let mut result = None;
+
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Ok(Output::Value(value)) => {
+                        result = Some(match result {
+                            Some(result) => std::cmp::min(result, value),
+                            None => value,
+                        })
+                    }
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.unwrap_or(Empty))
+        }
+        _ => external_error!("iterator.min: Expected iterable as argument"),
+    });
+
     result.add_fn("next", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let result = match i.clone().next().map(collect_pair) {

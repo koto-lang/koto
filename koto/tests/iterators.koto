@@ -91,6 +91,14 @@ export tests =
       (1..=5).fold 0 |sum, x| sum + x
       15
 
+  test_max: ||
+    assert_eq (2, -1, 9).max() 9
+    assert_eq ("hello", "goodbye").max() "hello"
+
+  test_min: ||
+    assert_eq (2, -1, 9).min() -1
+    assert_eq ("hello", "goodbye").min() "goodbye"
+
   test_position: ||
     assert_eq
       (100..1000).position |x| x >= 110

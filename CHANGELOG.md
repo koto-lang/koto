@@ -5,6 +5,8 @@
 ### Added
 - iterator.all
 - iterator.any
+- iterator.max
+- iterator.min
 - iterator.position
 - iterator.skip
 - string.size
