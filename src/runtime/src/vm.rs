@@ -1304,6 +1304,7 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
+            (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
             _ => {
                 return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
             }
@@ -1327,6 +1328,7 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
+            (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
             _ => {
                 return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
             }
@@ -1350,6 +1352,7 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
+            (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
             _ => {
                 return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
             }
@@ -1373,6 +1376,7 @@ impl Vm {
         let rhs_value = self.get_register(rhs);
         let result = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
+            (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
             _ => {
                 return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
             }

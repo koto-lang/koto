@@ -1716,6 +1716,30 @@ x[3]";
         fn addition() {
             test_script(r#""Hello, " + "World!""#, string("Hello, World!"));
         }
+
+        #[test]
+        fn less() {
+            test_script(r#""abc" < "abd""#, Bool(true));
+            test_script(r#""abx" < "abc""#, Bool(false));
+        }
+
+        #[test]
+        fn less_or_equal() {
+            test_script(r#""abc" <= "abc""#, Bool(true));
+            test_script(r#""xyz" <= "abd""#, Bool(false));
+        }
+
+        #[test]
+        fn greater() {
+            test_script(r#""hello42" > "hello1""#, Bool(true));
+            test_script(r#""hello1" > "hellø1""#, Bool(false));
+        }
+
+        #[test]
+        fn greater_or_equal() {
+            test_script(r#""héllö42" >= "héllö11""#, Bool(true));
+            test_script(r#""hello1" >= "hello42""#, Bool(false));
+        }
     }
 
     mod error_recovery {

@@ -6,6 +6,7 @@
 - iterator.all
 - iterator.any
 - string.size
+- strings can now be used with the ordered comparison operators.
 
 ### Changed
 - Map blocks can now be used in return and yield expressions

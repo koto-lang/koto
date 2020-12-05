@@ -6,6 +6,8 @@ export tests =
     assert_eq "Hello" "Hello"
     assert_ne "Hello" "Héllö"
     assert_eq ("Hello" + ", " + "World!") "Hello, World!"
+    assert "Hello" < "Hiyaa" and "World" <= "World!"
+    assert "Hiyaa" > "Hello" and "World!" >= "World"
 
   test_addition: ||
     x = "^"
