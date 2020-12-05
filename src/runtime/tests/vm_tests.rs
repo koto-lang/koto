@@ -194,56 +194,14 @@ a = 99
         fn range() {
             test_script("0..10", Range(IntRange { start: 0, end: 10 }));
             test_script("0..-10", Range(IntRange { start: 0, end: -10 }));
+            test_script("1 + 1..2 + 2", Range(IntRange { start: 2, end: 4 }));
         }
 
         #[test]
         fn range_inclusive() {
             test_script("10..=20", Range(IntRange { start: 10, end: 21 }));
             test_script("4..=0", Range(IntRange { start: 4, end: -1 }));
-        }
-
-        #[test]
-        fn subtract_divide_modulo() {
-            test_script("(20 - 2) / 3 % 4", Number(2.0));
-        }
-
-        #[test]
-        fn comparison() {
-            test_script(
-                "false or 1 < 2 <= 2 <= 3 and 3 >= 2 >= 2 > 1 or false",
-                Bool(true),
-            );
-        }
-
-        #[test]
-        fn equality() {
-            test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
-        }
-
-        #[test]
-        fn not_bool() {
-            test_script("not false", Bool(true));
-        }
-
-        #[test]
-        fn not_expression() {
-            test_script("not 1 + 1 == 2", Bool(false));
-        }
-
-        #[test]
-        fn assignment() {
-            let script = "
-a = 1 * 3
-a + 1";
-            test_script(script, Number(4.0));
-        }
-
-        #[test]
-        fn negation() {
-            let script = "
-a = 99
--a";
-            test_script(script, Number(-99.0));
+            test_script("2 * 2..=3 * 3", Range(IntRange { start: 4, end: 10 }));
         }
     }
 
@@ -1494,6 +1452,16 @@ equal
   5
 "#;
             test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn range_in_space_separated_call_args() {
+            let script = r#"
+foo = |range, x| range.size() + x
+min, max = 0, 10
+foo min..max 20
+"#;
+            test_script(script, Number(30.0));
         }
     }
 

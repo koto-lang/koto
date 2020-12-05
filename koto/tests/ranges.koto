@@ -20,8 +20,8 @@ export tests =
   test_evaluated_boundaries: ||
     z = |n| n
     x = [(z 10)..=(z 20)]
-    y = x[z(5)..(10 + 0)]
-    assert_eq 15 y[0]
+    y = x[1 + 1..x.size() / 2]
+    assert_eq y[0] 12
 
   test_from_and_to_ranges: ||
     n = [0..=10]

@@ -17,6 +17,8 @@
 - iterator.each and iterator.keep now collect iterator pairs into tuples.
 - Space-separated function calls are allowed in function args when the arg is on
   a new line.
+- Unparenthesized expressions can now be used for range boundaries.
+  - e.g. `(1 + 1)..(2 + 2)` can now be written as `1 + 1..2 + 2`.
 
 ### Removed
 - Vim support has been moved to [its own repo][vim].

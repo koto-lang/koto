@@ -334,7 +334,7 @@ x"#;
 
         #[test]
         fn range_from_expressions() {
-            let source = "(0 + 1)..(1 + 1)";
+            let source = "0 + 1..1 + 0";
             check_ast(
                 source,
                 &[
@@ -346,7 +346,7 @@ x"#;
                         rhs: 1,
                     },
                     Number1,
-                    Number1,
+                    Number0,
                     BinaryOp {
                         op: AstOp::Add,
                         lhs: 3,
