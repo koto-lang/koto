@@ -91,6 +91,14 @@ export tests =
       (1..=5).fold(0, |sum, x| sum + x)
       15
 
+  test_position: ||
+    assert_eq
+      (100..1000).position(|x| x >= 110)
+      10
+    assert_eq
+      "hey now".chars().position(|c| c == " ")
+      3
+
   test_take: ||
     assert_eq
       (1..100).take(5).to_tuple()

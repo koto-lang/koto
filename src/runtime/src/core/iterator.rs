@@ -217,6 +217,39 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.next: Expected iterator as argument"),
     });
 
+    result.add_fn("position", |vm, args| match vm.get_args(args) {
+        [iterable, Function(f)] if is_iterable(iterable) => {
+            let iter = make_iterator(iterable).unwrap().map(collect_pair);
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+
+            for (i, output) in iter.enumerate() {
+                match output {
+                    Ok(Output::Value(value)) => match vm.run_function(&f, &[value.clone()]) {
+                        Ok(Bool(result)) => {
+                            if result {
+                                return Ok(Number(i as f64));
+                            }
+                        }
+                        Ok(unexpected) => {
+                            return external_error!(
+                                "iterator.position expects a Bool to be returned from the \
+                                 predicate, found '{}'",
+                                value::type_as_string(&unexpected),
+                            )
+                        }
+                        Err(error) => return Err(error),
+                    },
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(Empty)
+        }
+        _ => external_error!("iterator.position: Expected iterable and function as arguments"),
+    });
+
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap().take(*n as usize);
