@@ -6,6 +6,7 @@
 - iterator.all
 - iterator.any
 - iterator.position
+- iterator.skip
 - string.size
 - strings can now be used with the ordered comparison operators.
 

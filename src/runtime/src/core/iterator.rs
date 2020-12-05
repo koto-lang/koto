@@ -250,6 +250,23 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.position: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("skip", |vm, args| match vm.get_args(args) {
+        [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
+            let mut iter = make_iterator(iterable).unwrap();
+
+            for _ in 0..*n as usize {
+                if let Some(Err(error)) = iter.next() {
+                    return Err(error);
+                }
+            }
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => {
+            external_error!("iterator.skip: Expected iterable and non-negative number as arguments")
+        }
+    });
+
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap().take(*n as usize);
