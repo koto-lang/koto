@@ -91,6 +91,14 @@ export tests =
       (1..=5).fold 0 |sum, x| sum + x
       15
 
+  test_max: ||
+    assert_eq (2, -1, 9).max() 9
+    assert_eq ("hello", "goodbye").max() "hello"
+
+  test_min: ||
+    assert_eq (2, -1, 9).min() -1
+    assert_eq ("hello", "goodbye").min() "goodbye"
+
   test_position: ||
     assert_eq
       (100..1000).position |x| x >= 110
@@ -98,6 +106,11 @@ export tests =
     assert_eq
       "hey now".chars().position |c| c == " "
       3
+
+  test_skip: ||
+    assert_eq
+      (0..10).skip(5).to_tuple()
+      (5, 6, 7, 8, 9)
 
   test_take: ||
     assert_eq

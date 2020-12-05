@@ -204,6 +204,50 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.keep: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("max", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let mut result = None;
+
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Ok(Output::Value(value)) => {
+                        result = Some(match result {
+                            Some(result) => std::cmp::max(result, value),
+                            None => value,
+                        })
+                    }
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.unwrap_or(Empty))
+        }
+        _ => external_error!("iterator.min: Expected iterable as argument"),
+    });
+
+    result.add_fn("min", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let mut result = None;
+
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Ok(Output::Value(value)) => {
+                        result = Some(match result {
+                            Some(result) => std::cmp::min(result, value),
+                            None => value,
+                        })
+                    }
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.unwrap_or(Empty))
+        }
+        _ => external_error!("iterator.min: Expected iterable as argument"),
+    });
+
     result.add_fn("next", |vm, args| match vm.get_args(args) {
         [Iterator(i)] => {
             let result = match i.clone().next().map(collect_pair) {
@@ -248,6 +292,23 @@ pub fn make_module() -> ValueMap {
             Ok(Empty)
         }
         _ => external_error!("iterator.position: Expected iterable and function as arguments"),
+    });
+
+    result.add_fn("skip", |vm, args| match vm.get_args(args) {
+        [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
+            let mut iter = make_iterator(iterable).unwrap();
+
+            for _ in 0..*n as usize {
+                if let Some(Err(error)) = iter.next() {
+                    return Err(error);
+                }
+            }
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => {
+            external_error!("iterator.skip: Expected iterable and non-negative number as arguments")
+        }
     });
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
