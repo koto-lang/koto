@@ -529,7 +529,16 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.parse_expression_start(None, 0, context)
+        let result = self.parse_expression_start(None, 0, context)?;
+
+        let result = match self.peek_next_token_on_same_line() {
+            Some(Token::Range) | Some(Token::RangeInclusive) => {
+                self.parse_range(result, context)?
+            }
+            _ => result,
+        };
+
+        Ok(result)
     }
 
     fn parse_expression_start(
@@ -1031,18 +1040,22 @@ impl<'source> Parser<'source> {
         Ok(args)
     }
 
-    fn parse_range(&mut self, lhs: Option<AstIndex>) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_range(
+        &mut self,
+        lhs: Option<AstIndex>,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
         use Node::{Range, RangeFrom, RangeFull, RangeTo};
 
-        let inclusive = match self.peek_token() {
+        let inclusive = match self.peek_next_token_on_same_line() {
             Some(Token::Range) => false,
             Some(Token::RangeInclusive) => true,
             _ => return Ok(None),
         };
 
-        self.consume_token();
+        self.consume_next_token_on_same_line();
 
-        let rhs = self.parse_term(&mut ExpressionContext::restricted())?;
+        let rhs = self.parse_expression(context)?;
 
         let node = match (lhs, rhs) {
             (Some(start), Some(end)) => Range {
@@ -1321,11 +1334,6 @@ impl<'source> Parser<'source> {
                 // Token::NewLineIndented => self.parse_map_block(current_indent, None)?,
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => None,
-            };
-
-            let result = match self.peek_token() {
-                Some(Token::Range) | Some(Token::RangeInclusive) => self.parse_range(result)?,
-                _ => result,
             };
 
             Ok(result)
