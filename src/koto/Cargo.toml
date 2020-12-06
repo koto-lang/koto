@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,9 +14,9 @@ default = []
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "0.2.0" }
-koto_parser = { path = "../parser", version = "0.2.0" }
-koto_runtime = { path = "../runtime", version = "0.2.0" }
+koto_bytecode = { path = "../bytecode", version = "0.3.0" }
+koto_parser = { path = "../parser", version = "0.3.0" }
+koto_runtime = { path = "../runtime", version = "0.3.0" }
 
 [dev-dependencies]
 criterion = "0.3.1"
