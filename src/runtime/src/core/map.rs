@@ -1,6 +1,7 @@
 use crate::{
     external_error, type_as_string, value_is_immutable,
-    value_iterator::ValueIteratorOutput as Output, Value, ValueIterator, ValueMap,
+    value_iterator::ValueIteratorOutput as Output, RuntimeFunction, RuntimeResult, Value,
+    ValueIterator, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -107,6 +108,24 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("map.contains_key: Expected map and key as arguments"),
     });
 
+    result.add_fn("update", |vm, args| match vm.get_args(args) {
+        [Map(m), key, Function(f)] if value_is_immutable(key) => do_map_update(
+            m.clone(),
+            key.clone(),
+            Empty,
+            f.clone(),
+            vm.spawn_shared_vm(),
+        ),
+        [Map(m), key, default, Function(f)] if value_is_immutable(key) => do_map_update(
+            m.clone(),
+            key.clone(),
+            default.clone(),
+            f.clone(),
+            vm.spawn_shared_vm(),
+        ),
+        _ => external_error!("map.update: Expected map, key, and function as arguments"),
+    });
+
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
@@ -125,4 +144,25 @@ pub fn make_module() -> ValueMap {
     });
 
     result
+}
+
+fn do_map_update(
+    map: ValueMap,
+    key: Value,
+    default: Value,
+    f: RuntimeFunction,
+    mut vm: Vm,
+) -> RuntimeResult {
+    let mut vm = vm.spawn_shared_vm();
+    if !map.data().contains_key(&key) {
+        map.data_mut().insert(key.clone(), default);
+    }
+    let value = map.data().get(&key).cloned().unwrap();
+    match vm.run_function(&f, &[value]) {
+        Ok(new_value) => {
+            map.data_mut().insert(key, new_value.clone());
+            Ok(new_value)
+        }
+        Err(error) => Err(error),
+    }
 }

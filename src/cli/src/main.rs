@@ -102,10 +102,12 @@ fn main() {
         return;
     }
 
-    let mut settings = KotoSettings::default();
-    settings.run_tests = args.run_tests;
-    settings.show_bytecode = args.show_bytecode;
-    settings.show_annotated = args.show_annotated;
+    let settings = KotoSettings {
+        run_tests: args.run_tests,
+        show_bytecode: args.show_bytecode,
+        show_annotated: args.show_annotated,
+        ..Default::default()
+    };
 
     if let Some(script_path) = args.script {
         let mut koto = Koto::with_settings(settings);

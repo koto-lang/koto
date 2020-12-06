@@ -79,7 +79,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
         [iterable] if is_iterable(iterable) => {
             let iter = make_iterator(iterable).unwrap();
-            iter.for_each(drop);
+            for output in iter {
+                if let Err(error) = output {
+                    return Err(error);
+                }
+            }
             Ok(Empty)
         }
         _ => external_error!("iterator.consume: Expected iterable as argument"),
@@ -88,7 +92,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("count", |vm, args| match vm.get_args(args) {
         [iterable] if is_iterable(iterable) => {
             let iter = make_iterator(iterable).unwrap();
-            Ok(Number(iter.count() as f64))
+            let mut result = 0;
+            for output in iter {
+                if let Err(error) = output {
+                    return Err(error);
+                }
+                result += 1;
+            }
+            Ok(Number(result as f64))
         }
         _ => external_error!("iterator.count: Expected iterable as argument"),
     });

@@ -1,14 +1,13 @@
 use {
     crate::{
-        num2, num4, ExternalFunction, ExternalValue, IntRange, ValueHashMap, ValueIterator,
-        ValueList, ValueMap, ValueString, ValueTuple, ValueVec,
+        num2, num4, ExternalFunction, ExternalValue, IntRange, ValueIterator, ValueList, ValueMap,
+        ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     std::{
         cmp::Ordering,
         fmt,
         hash::{Hash, Hasher},
-        iter::FromIterator,
         sync::{Arc, RwLock},
     },
 };
@@ -310,11 +309,11 @@ pub fn deep_copy_value(value: &Value) -> Value {
             List(ValueList::with_data(result))
         }
         Map(m) => {
-            let result = ValueHashMap::from_iter(
-                m.data()
-                    .iter()
-                    .map(|(k, v)| (k.clone(), deep_copy_value(v))),
-            );
+            let result = m
+                .data()
+                .iter()
+                .map(|(k, v)| (k.clone(), deep_copy_value(v)))
+                .collect();
             Map(ValueMap::with_data(result))
         }
         _ => value.clone(),

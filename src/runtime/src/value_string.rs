@@ -17,15 +17,15 @@ impl ValueString {
         Self { string, bounds }
     }
 
-    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Result<Self, ()> {
+    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Result<Self, String> {
         if string.get(bounds.clone()).is_some() {
             Ok(Self { string, bounds })
         } else {
-            Err(())
+            Err("new_with_bounds: Invalid bounds".to_string())
         }
     }
 
-    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Result<Self, ()> {
+    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Result<Self, String> {
         new_bounds.end += self.bounds.start;
         new_bounds.start += self.bounds.start;
 
@@ -35,7 +35,7 @@ impl ValueString {
                 bounds: new_bounds,
             })
         } else {
-            Err(())
+            Err("with_bounds: Invalid bounds".to_string())
         }
     }
 
