@@ -65,3 +65,17 @@ export tests =
     assert_eq (m.remove "foo") 42
     assert_eq (m.remove "bar") 99
     assert_eq (m.remove "foo") ()
+
+  test_update: ||
+    m = {foo: 42}
+
+    # update takes a function that receives the entry's current value,
+    # which is then replaced with the function's result.
+    m.update "foo" |x| x * 2
+    assert_eq m.foo 84
+
+    # update optionally takes a default value for missing entries,
+    # an entry will be inserted with the default value before the function is called.
+    assert not m.contains_key "xyz"
+    m.update "xyz" 100 |x| x / 2
+    assert_eq m.xyz 50
