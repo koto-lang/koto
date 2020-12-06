@@ -191,6 +191,9 @@ impl Repl {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
                         stdout.flush().unwrap();
+                        if let Some(tty) = tty {
+                            tty.suspend_raw_mode().unwrap();
+                        }
                         std::process::exit(0)
                     } else {
                         self.input.clear();
@@ -200,6 +203,9 @@ impl Repl {
                 'd' if self.input.is_empty() => {
                     write!(stdout, "^D\r\n").unwrap();
                     stdout.flush().unwrap();
+                    if let Some(tty) = tty {
+                        tty.suspend_raw_mode().unwrap();
+                    }
                     std::process::exit(0)
                 }
                 _ => {}
