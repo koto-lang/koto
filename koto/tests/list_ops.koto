@@ -11,6 +11,20 @@ export tests =
     assert ([0..10].contains 5)
     assert not ([0..10].contains 15)
 
+  test_copy: ||
+    x = [1, 2, 3]
+    x2 = x
+    x3 = x.copy()
+    x[0] = 99
+    assert_eq x2[0] 99
+    assert_eq x3[0] 1
+
+  test_deep_copy: ||
+    x = [1, [2, 3]]
+    x2 = x.deep_copy()
+    x[1][0] = 99
+    assert_eq x2[1][0] 2
+
   test_push_pop: ||
     z = [1]
     z.push 2

@@ -497,12 +497,7 @@ impl Compiler {
             Node::TempTuple(elements) => {
                 self.compile_make_tuple(result_register, elements, true, ast)?
             }
-            Node::CopyExpression(expression) => {
-                self.compile_source_target_op(DeepCopy, result_register, *expression, ast)?
-            }
-            Node::Negate(expression) => {
-                self.compile_source_target_op(Negate, result_register, *expression, ast)?
-            }
+            Node::Negate(expression) => self.compile_negate(result_register, *expression, ast)?,
             Node::Function(f) => self.compile_function(result_register, f, ast)?,
             Node::Call { function, args } => {
                 match &ast.node(*function).node {
@@ -1556,9 +1551,8 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_source_target_op(
+    fn compile_negate(
         &mut self,
-        op: Op,
         result_register: ResultRegister,
         expression: AstIndex,
         ast: &Ast,
@@ -1569,7 +1563,7 @@ impl Compiler {
 
         let result = match self.get_result_register(result_register)? {
             Some(target) => {
-                self.push_op(op, &[target.register, source.register]);
+                self.push_op(Op::Negate, &[target.register, source.register]);
                 Some(target)
             }
             None => None,

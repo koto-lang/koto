@@ -1,4 +1,7 @@
-use crate::{external_error, value_iterator::ValueIterator, Value, ValueList, ValueMap};
+use crate::{
+    external_error, value::deep_copy_value, value_iterator::ValueIterator, Value, ValueList,
+    ValueMap,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -8,6 +11,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Tuple(t), value] => Ok(Bool(t.data().contains(value))),
         _ => external_error!("tuple.contains: Expected tuple and value as arguments"),
+    });
+
+    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
+        [value @ Tuple(_)] => Ok(deep_copy_value(value)),
+        _ => external_error!("tuple.deep_copy: Expected tuple as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {

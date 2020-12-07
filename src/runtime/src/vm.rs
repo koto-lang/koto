@@ -4,7 +4,7 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{self, deep_copy_value, RegisterSlice, RuntimeFunction},
+        value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
     },
@@ -365,11 +365,6 @@ impl Vm {
                 vm_error!(self.chunk(), instruction_ip, "{}", message)
             }
             Instruction::Copy { target, source } => self.run_copy(target, source),
-            Instruction::DeepCopy { target, source } => {
-                let value = self.clone_register(source);
-                self.set_register(target, deep_copy_value(&value));
-                Ok(())
-            }
             Instruction::SetEmpty { register } => {
                 self.set_register(register, Empty);
                 Ok(())

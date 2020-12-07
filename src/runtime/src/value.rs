@@ -297,7 +297,7 @@ pub struct RegisterSlice {
 }
 
 pub fn deep_copy_value(value: &Value) -> Value {
-    use Value::{List, Map};
+    use Value::{List, Map, Tuple};
 
     match value {
         List(l) => {
@@ -307,6 +307,14 @@ pub fn deep_copy_value(value: &Value) -> Value {
                 .map(|v| deep_copy_value(v))
                 .collect::<ValueVec>();
             List(ValueList::with_data(result))
+        }
+        Tuple(t) => {
+            let result = t
+                .data()
+                .iter()
+                .map(|v| deep_copy_value(v))
+                .collect::<Vec<_>>();
+            Tuple(result.into())
         }
         Map(m) => {
             let result = m

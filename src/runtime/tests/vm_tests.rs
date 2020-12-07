@@ -398,7 +398,7 @@ l2[1]";
         fn copy() {
             let script = "
 l = [1, 2, 3]
-l2 = copy l
+l2 = l.copy()
 l[1] = -1
 l2[1]";
             test_script(script, Number(2.0));
@@ -1283,7 +1283,7 @@ m == m2";
         fn inequality() {
             let script = "
 m = {foo: 42, bar: || 99}
-m2 = copy m
+m2 = m.copy()
 m2.foo = 99
 m != m2";
             test_script(script, Bool(true));
@@ -1303,7 +1303,7 @@ m2.foo";
         fn copy() {
             let script = "
 m = {foo: 42}
-m2 = copy m
+m2 = m.copy()
 m.foo = -1
 m2.foo";
             test_script(script, Number(42.0));
@@ -1397,12 +1397,33 @@ m.foo(10, 1, 2, 3).to_tuple()
         }
 
         #[test]
-        fn copy_nested() {
+        fn deep_copy_list() {
+            let script = "
+x = [0, [1, {foo: 2}]]
+x2 = x.deep_copy()
+x[1][1].foo = 42
+x2[1][1].foo";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn deep_copy_tuple() {
+            let script = "
+list = [1, [2]]
+x = (0, list)
+x2 = x.deep_copy()
+list[1][0] = 42
+x2[1][1][0]";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn deep_copy_map() {
             let script = "
 m = {foo: {bar: -1}}
-m2 = copy m.foo
+m2 = m.deep_copy()
 m.foo.bar = 99
-m2.bar";
+m2.foo.bar";
             test_script(script, Number(-1.0));
         }
 
@@ -1410,7 +1431,7 @@ m2.bar";
         fn copy_from_expression() {
             let script = "
 m = {foo: {bar: 88}, get_foo: |self| self.foo}
-m2 = copy (m.get_foo())
+m2 = m.get_foo().copy()
 m.get_foo().bar = 99
 m2.bar";
             test_script(script, Number(88.0));

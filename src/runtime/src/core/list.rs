@@ -1,4 +1,6 @@
-use crate::{external_error, value, Value, ValueIterator, ValueList, ValueMap};
+use crate::{
+    external_error, value, value::deep_copy_value, Value, ValueIterator, ValueList, ValueMap,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -8,6 +10,16 @@ pub fn make_module() -> ValueMap {
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [List(l), value] => Ok(Bool(l.data().contains(value))),
         _ => external_error!("list.contains: Expected list and value as arguments"),
+    });
+
+    result.add_fn("copy", |vm, args| match vm.get_args(args) {
+        [List(l)] => Ok(List(ValueList::with_data(l.data().clone()))),
+        _ => external_error!("list.copy: Expected list as argument"),
+    });
+
+    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
+        [value @ List(_)] => Ok(deep_copy_value(value)),
+        _ => external_error!("list.deep_copy: Expected list as argument"),
     });
 
     result.add_fn("fill", |vm, args| match vm.get_args(args) {

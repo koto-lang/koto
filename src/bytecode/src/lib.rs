@@ -20,7 +20,6 @@ pub use {compile::*, instruction_reader::*, loader::*};
 #[repr(u8)]
 pub enum Op {
     Copy,             // target, source
-    DeepCopy,         // target, source
     SetEmpty,         // register
     SetFalse,         // register
     SetTrue,          // register
@@ -97,6 +96,7 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
+    Unused77,
     Unused78,
     Unused79,
     Unused80,

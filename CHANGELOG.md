@@ -3,11 +3,20 @@
 ## Unreleased
 
 ### Added
+- list.copy
+- list.deep_copy
+- map.copy
+- map.deep_copy
 - map.update
+- tuple.deep_copy
 - strings are now iterable by default
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.
+
+### Removed
+- The copy expression has been removed in favour of copy / deep_copy operations
+  on container types.
 
 
 ## [0.3.0] - 2020.12.06
