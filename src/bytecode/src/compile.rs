@@ -50,8 +50,13 @@ impl Loop {
 
 #[derive(Clone, Debug, PartialEq)]
 enum LocalRegister {
+    // The register is assigned to a specific id.
     Assigned(ConstantIndex),
+    // The register is currently being assigned to,
+    // it will become assigned at the end of the assignment expression.
     Reserved(ConstantIndex),
+    // The register contains a value not associated with an id, e.g. a wildcard function arg
+    Allocated,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -66,9 +71,14 @@ struct Frame {
 }
 
 impl Frame {
-    fn new(local_count: u8, args: &[ConstantIndex], captures: &[ConstantIndex]) -> Self {
-        let mut local_registers = Vec::with_capacity(local_count as usize);
-        local_registers.extend(args.iter().cloned().map(LocalRegister::Assigned));
+    fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
+        let local_registers = args
+            .iter()
+            .map(|id| match id {
+                Some(id) => LocalRegister::Assigned(*id),
+                None => LocalRegister::Allocated,
+            })
+            .collect::<Vec<_>>();
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
@@ -105,6 +115,7 @@ impl Frame {
                 let register_index = match local_register {
                     LocalRegister::Assigned(register_index) => register_index,
                     LocalRegister::Reserved(register_index) => register_index,
+                    LocalRegister::Allocated => return false,
                 };
                 *register_index == index
             })
@@ -157,7 +168,7 @@ impl Frame {
                 return Ok(());
             }
             Some(LocalRegister::Reserved(index)) => index,
-            None => {
+            _ => {
                 return Err(format!(
                     "commit_local_register: register {} hasn't been reserved",
                     local_register
@@ -708,8 +719,8 @@ impl Compiler {
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => arg_ids.push(*id_index),
-                Node::Wildcard => {}
+                Node::Id(id_index) => arg_ids.push(Some(*id_index)),
+                Node::Wildcard => arg_ids.push(None),
                 unexpected => {
                     return compiler_error!(
                         self,

@@ -13,6 +13,8 @@
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.
+- Wildcard function args that weren't in last position would cause arguments to
+  be assigned to the wrong IDs.
 
 ### Removed
 - The copy expression has been removed in favour of copy / deep_copy operations

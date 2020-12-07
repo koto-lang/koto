@@ -798,6 +798,33 @@ add(5, add 6 7)";
         }
 
         #[test]
+        fn wildcard_arg_at_start() {
+            let script = "
+f = |_, b, c| b + c
+f 1 2 3
+";
+            test_script(script, Number(5.0));
+        }
+
+        #[test]
+        fn wildcard_arg_in_middle() {
+            let script = "
+f = |a, _, c| a + c
+f 1 2 3
+";
+            test_script(script, Number(4.0));
+        }
+
+        #[test]
+        fn wildcard_arg_at_end() {
+            let script = "
+f = |a, b, _| a + b
+f 1 2 3
+";
+            test_script(script, Number(3.0));
+        }
+
+        #[test]
         fn variadic_function() {
             let script = "
 f = |a, b...|
