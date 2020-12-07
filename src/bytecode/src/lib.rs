@@ -7,11 +7,11 @@ use {
     std::{path::PathBuf, sync::Arc},
 };
 
-mod compile;
+mod compiler;
 mod instruction_reader;
 mod loader;
 
-pub use {compile::*, instruction_reader::*, loader::*};
+pub use {compiler::*, instruction_reader::*, loader::*};
 
 /// The operation identifiers used in Koto bytecode
 ///
