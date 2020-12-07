@@ -1,9 +1,10 @@
 use {
-    crate::{Error, Value, ValueList, ValueMap, ValueTuple, Vm},
+    crate::{Error, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
     std::{
         fmt,
         sync::{Arc, Mutex},
     },
+    unicode_segmentation::GraphemeCursor,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -25,6 +26,7 @@ pub enum Iterable {
     List(ValueList),
     Tuple(ValueTuple),
     Map(ValueMap),
+    Str(ValueString),
     Generator(Box<Vm>),
     External(ExternalIterator),
 }
@@ -115,6 +117,22 @@ impl Iterator for ValueIteratorInternals {
                 self.index += 1;
                 result
             }
+            Iterable::Str(s) => {
+                let remaining = &s[self.index..];
+                match GraphemeCursor::new(0, remaining.len(), true)
+                    .next_boundary(remaining, 0)
+                    .unwrap() // complete chunk is provided to next_boundary
+                {
+                    Some(grapheme_end) => {
+                        let result = s
+                            .with_bounds(self.index..self.index + grapheme_end)
+                            .unwrap(); // Some returned from next_boundary implies valid bounds
+                        self.index += grapheme_end;
+                        Some(Ok(ValueIteratorOutput::Value(Value::Str(result))))
+                    }
+                    None => None,
+                }
+            }
             Iterable::Generator(vm) => match vm.continue_running() {
                 Ok(Value::Empty) => None,
                 Ok(Value::TemporaryTuple(_)) => {
@@ -150,6 +168,10 @@ impl ValueIterator {
 
     pub fn with_map(map: ValueMap) -> Self {
         Self::new(Iterable::Map(map))
+    }
+
+    pub fn with_string(s: ValueString) -> Self {
+        Self::new(Iterable::Str(s))
     }
 
     pub fn with_vm(vm: Vm) -> Self {
@@ -191,7 +213,7 @@ impl Iterator for ValueIterator {
 
 pub fn is_iterable(value: &Value) -> bool {
     use Value::*;
-    matches!(value, Range(_) | List(_) | Tuple(_) | Map(_) | Iterator(_))
+    matches!(value, Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_))
 }
 
 pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {
@@ -201,6 +223,7 @@ pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {
         List(l) => ValueIterator::with_list(l.clone()),
         Tuple(t) => ValueIterator::with_tuple(t.clone()),
         Map(m) => ValueIterator::with_map(m.clone()),
+        Str(s) => ValueIterator::with_string(s.clone()),
         Iterator(i) => i.clone(),
         _ => return Err(()),
     };

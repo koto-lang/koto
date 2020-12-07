@@ -4,9 +4,11 @@
 
 ### Added
 - map.update
+- strings are now iterable by default
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.
+
 
 ## [0.3.0] - 2020.12.06
 

@@ -820,6 +820,7 @@ impl Vm {
                 List(list) => ValueIterator::with_list(list),
                 Map(map) => ValueIterator::with_map(map),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
+                Str(s) => ValueIterator::with_string(s),
                 unexpected => {
                     return self.unexpected_type_error(
                         "Expected iterable value while making iterator",
@@ -2078,7 +2079,7 @@ impl Vm {
             Num4(_) => core_op!(num4, false),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
-            Str(_) => core_op!(string, false),
+            Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
             unexpected => {

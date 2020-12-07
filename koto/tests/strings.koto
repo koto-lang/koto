@@ -15,9 +15,17 @@ export tests =
     assert_eq x "^_^"
 
   test_chars: ||
+    hello = "Héllö"
     assert_eq
-      "Héllö".chars().to_tuple()
+      hello.chars().to_tuple()
       ("H", "é", "l", "l", "ö")
+
+    # chars() is the default iterator for strings
+    hello_chars = []
+    for c in hello
+      hello_chars.push c
+    assert_eq hello_chars hello.to_list()
+    assert_eq hello_chars.size() 5
 
   test_contains: ||
     assert "O_o".contains("_")
