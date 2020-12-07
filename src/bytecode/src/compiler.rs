@@ -1886,103 +1886,98 @@ impl Compiler {
         function: &Function,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::*;
-
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                let arg_count = match u8::try_from(function.args.len()) {
-                    Ok(x) => x,
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Function has too many arguments: {}",
-                            function.args.len()
-                        );
-                    }
-                };
-
-                let captures = self
-                    .frame()
-                    .captures_for_nested_frame(&function.accessed_non_locals);
-                if captures.len() > u8::MAX as usize {
+        if let Some(result) = self.get_result_register(result_register)? {
+            let arg_count = match u8::try_from(function.args.len()) {
+                Ok(x) => x,
+                Err(_) => {
                     return compiler_error!(
                         self,
-                        "Function captures too many values: {}",
-                        captures.len(),
+                        "Function has too many arguments: {}",
+                        function.args.len()
                     );
                 }
-                let capture_count = captures.len() as u8;
+            };
 
-                let flags = FunctionFlags {
-                    instance_function: function.is_instance_function,
-                    variadic: function.is_variadic,
-                    generator: function.is_generator,
-                };
-
-                self.push_op(
-                    Function,
-                    &[result.register, arg_count, capture_count, flags.as_byte()],
+            let captures = self
+                .frame()
+                .captures_for_nested_frame(&function.accessed_non_locals);
+            if captures.len() > u8::MAX as usize {
+                return compiler_error!(
+                    self,
+                    "Function captures too many values: {}",
+                    captures.len(),
                 );
-
-                let function_size_ip = self.push_offset_placeholder();
-
-                let local_count = match u8::try_from(function.local_count) {
-                    Ok(x) => x,
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Function has too many locals: {}",
-                            function.args.len()
-                        );
-                    }
-                };
-
-                let allow_implicit_return = !function.is_generator;
-
-                match &ast.node(function.body).node {
-                    Node::Block(expressions) => {
-                        self.compile_frame(
-                            local_count,
-                            &expressions,
-                            &function.args,
-                            &captures,
-                            ast,
-                            allow_implicit_return,
-                        )?;
-                    }
-                    _ => {
-                        self.compile_frame(
-                            local_count,
-                            &[function.body],
-                            &function.args,
-                            &captures,
-                            ast,
-                            allow_implicit_return,
-                        )?;
-                    }
-                };
-
-                self.update_offset_placeholder(function_size_ip);
-
-                for (i, capture) in captures.iter().enumerate() {
-                    if let Some(local_register) = self.frame().get_local_register(*capture) {
-                        self.push_op(Capture, &[result.register, i as u8, local_register]);
-                    } else {
-                        let capture_register = self.push_register()?;
-                        self.compile_load_non_local_id(capture_register, *capture);
-
-                        self.push_op(Capture, &[result.register, i as u8, capture_register]);
-
-                        self.pop_register()?;
-                    }
-                }
-
-                Some(result)
             }
-            None => None,
-        };
+            let capture_count = captures.len() as u8;
 
-        Ok(result)
+            let flags = FunctionFlags {
+                instance_function: function.is_instance_function,
+                variadic: function.is_variadic,
+                generator: function.is_generator,
+            };
+
+            self.push_op(
+                Op::Function,
+                &[result.register, arg_count, capture_count, flags.as_byte()],
+            );
+
+            let function_size_ip = self.push_offset_placeholder();
+
+            let local_count = match u8::try_from(function.local_count) {
+                Ok(x) => x,
+                Err(_) => {
+                    return compiler_error!(
+                        self,
+                        "Function has too many locals: {}",
+                        function.args.len()
+                    );
+                }
+            };
+
+            let allow_implicit_return = !function.is_generator;
+
+            match &ast.node(function.body).node {
+                Node::Block(expressions) => {
+                    self.compile_frame(
+                        local_count,
+                        &expressions,
+                        &function.args,
+                        &captures,
+                        ast,
+                        allow_implicit_return,
+                    )?;
+                }
+                _ => {
+                    self.compile_frame(
+                        local_count,
+                        &[function.body],
+                        &function.args,
+                        &captures,
+                        ast,
+                        allow_implicit_return,
+                    )?;
+                }
+            };
+
+            self.update_offset_placeholder(function_size_ip);
+
+            for (i, capture) in captures.iter().enumerate() {
+                if let Some(local_register) = self.frame().get_local_register(*capture) {
+                    self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
+                } else {
+                    let capture_register = self.push_register()?;
+                    self.compile_load_non_local_id(capture_register, *capture);
+
+                    self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
+
+                    self.pop_register()?;
+                }
+            }
+
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
     }
 
     fn compile_lookup(
