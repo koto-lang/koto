@@ -316,7 +316,8 @@ impl<'source> Parser<'source> {
         let span_start = self.lexer.span().start;
 
         // Parse function's args
-        let mut args = Vec::new();
+        let mut arg_nodes = Vec::new();
+        let mut arg_ids = Vec::new();
         let mut is_instance_function = false;
         let mut is_variadic = false;
 
@@ -326,13 +327,14 @@ impl<'source> Parser<'source> {
             match self.parse_id_or_wildcard(context) {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
                     if self.constants.pool().get_str(constant_index) == "self" {
-                        if !args.is_empty() {
+                        if !arg_nodes.is_empty() {
                             return syntax_error!(SelfArgNotInFirstPosition, self);
                         }
                         is_instance_function = true;
                     }
 
-                    args.push(Some(constant_index));
+                    arg_ids.push(constant_index);
+                    arg_nodes.push(self.push_node(Node::Id(constant_index))?);
 
                     if self.peek_token() == Some(Token::Ellipsis) {
                         self.consume_token();
@@ -340,7 +342,9 @@ impl<'source> Parser<'source> {
                         break;
                     }
                 }
-                Some(ConstantIndexOrWildcard::Wildcard) => args.push(None),
+                Some(ConstantIndexOrWildcard::Wildcard) => {
+                    arg_nodes.push(self.push_node(Node::Wildcard)?)
+                }
                 None => break,
             }
 
@@ -360,9 +364,7 @@ impl<'source> Parser<'source> {
 
         // body
         let mut function_frame = Frame::default();
-        function_frame
-            .ids_assigned_in_scope
-            .extend(args.iter().cloned().filter_map(|maybe_id| maybe_id));
+        function_frame.ids_assigned_in_scope.extend(arg_ids.iter());
         self.frame_stack.push(function_frame);
 
         let body = if let Some(block) = self.parse_indented_map_or_block()? {
@@ -394,7 +396,7 @@ impl<'source> Parser<'source> {
 
         let result = self.ast.push(
             Node::Function(Function {
-                args,
+                args: arg_nodes,
                 local_count,
                 accessed_non_locals: Vec::from_iter(function_frame.accessed_non_locals),
                 body,

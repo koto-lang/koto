@@ -66,13 +66,9 @@ struct Frame {
 }
 
 impl Frame {
-    fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
+    fn new(local_count: u8, args: &[ConstantIndex], captures: &[ConstantIndex]) -> Self {
         let mut local_registers = Vec::with_capacity(local_count as usize);
-        local_registers.extend(
-            args.iter()
-                .filter_map(|maybe_arg| *maybe_arg)
-                .map(LocalRegister::Assigned),
-        );
+        local_registers.extend(args.iter().cloned().map(LocalRegister::Assigned));
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
@@ -703,13 +699,29 @@ impl Compiler {
         &mut self,
         local_count: u8,
         expressions: &[AstIndex],
-        args: &[Option<ConstantIndex>],
+        args: &[AstIndex],
         captures: &[ConstantIndex],
         ast: &Ast,
         implicit_return: bool,
     ) -> Result<(), CompilerError> {
+        let mut arg_ids = Vec::new();
+
+        for arg in args.iter() {
+            match &ast.node(*arg).node {
+                Node::Id(id_index) => arg_ids.push(*id_index),
+                Node::Wildcard => {}
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID in function args, found {}",
+                        unexpected
+                    )
+                }
+            }
+        }
+
         self.frame_stack
-            .push(Frame::new(local_count, args, captures));
+            .push(Frame::new(local_count, &arg_ids, captures));
 
         let result_register = if implicit_return {
             ResultRegister::Any
