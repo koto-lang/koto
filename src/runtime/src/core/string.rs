@@ -15,26 +15,7 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Iterator(ValueIterator::make_external({
-            let mut cluster_start = 0;
-            let s = s.clone();
-
-            move || match s[cluster_start..].grapheme_indices(true).next() {
-                Some((_, cluster)) => {
-                    let cluster_end = cluster_start + cluster.len();
-
-                    let result = match s.with_bounds(cluster_start..cluster_end) {
-                        Ok(result) => {
-                            cluster_start = cluster_end;
-                            Ok(ValueIteratorOutput::Value(Str(result)))
-                        }
-                        Err(_) => external_error!("string.chars: Failed to produce a substring"),
-                    };
-                    Some(result)
-                }
-                None => None,
-            }
-        }))),
+        [Str(s)] => Ok(Iterator(ValueIterator::with_string(s.clone()))),
         _ => external_error!("string.chars: Expected a string as argument"),
     });
 

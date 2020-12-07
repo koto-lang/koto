@@ -1,5 +1,5 @@
 use crate::{
-    external_error, type_as_string, value_is_immutable,
+    external_error, type_as_string, value::deep_copy_value, value_is_immutable,
     value_iterator::ValueIteratorOutput as Output, RuntimeFunction, RuntimeResult, Value,
     ValueIterator, ValueMap, Vm,
 };
@@ -17,6 +17,16 @@ pub fn make_module() -> ValueMap {
             type_as_string(other_b)
         ),
         _ => external_error!("map.contains_key: Expected map and key as arguments"),
+    });
+
+    result.add_fn("copy", |vm, args| match vm.get_args(args) {
+        [Map(m)] => Ok(Map(ValueMap::with_data(m.data().clone()))),
+        _ => external_error!("map.copy: Expected map as argument"),
+    });
+
+    result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
+        [value @ Map(_)] => Ok(deep_copy_value(value)),
+        _ => external_error!("map.deep_copy: Expected map as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {

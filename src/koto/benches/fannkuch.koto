@@ -12,8 +12,8 @@ from test import assert, assert_eq
 fannkuch = |n|
   assert n >= 4
   p = [0..=n]
-  s = copy p
-  q = copy p
+  s = p.copy()
+  q = p.copy()
   sign = 1
   sum = 0
   max_flips = 0
@@ -21,7 +21,7 @@ fannkuch = |n|
     # flip
     q1 = p[1]
     if q1 != 1
-      q = copy p
+      q = p.copy()
       flips = 1
       while true
         qq = q[q1]

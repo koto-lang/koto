@@ -59,7 +59,6 @@ pub enum Token {
     Break,
     Catch,
     Continue,
-    Copy,
     Debug,
     Else,
     ElseIf,
@@ -353,7 +352,6 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("break", Break);
         check_keyword!("catch", Catch);
         check_keyword!("continue", Continue);
-        check_keyword!("copy", Copy);
         check_keyword!("debug", Debug);
         check_keyword!("export", Export);
         check_keyword!("false", False);

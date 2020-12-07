@@ -16,6 +16,12 @@ export tests =
     assert (m.contains_key "bar")
     assert not (m.contains_key "baz")
 
+  test_deep_copy: ||
+    m = {foo: 42, bar: {baz: 99}}
+    m2 = m.deep_copy()
+    m.bar.baz = 123
+    assert_eq m2.bar.baz 99
+
   test_insert: ||
     m = {foo: 42}
     old_value = m.insert "foo" 99

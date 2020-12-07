@@ -2921,7 +2921,6 @@ return 1";
         #[test]
         fn expressions() {
             let source = r#"
-copy x
 not true
 debug x + x
 assert_eq x "hello"
@@ -2929,30 +2928,28 @@ assert_eq x "hello"
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    CopyExpression(0),
                     BoolTrue,
-                    Negate(2),
+                    Negate(0),
                     Id(0),
-                    Id(0), // 5
+                    Id(0),
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 4,
-                        rhs: 5,
+                        lhs: 2,
+                        rhs: 3,
                     },
                     Debug {
                         expression_string: 1,
-                        expression: 6,
-                    },
+                        expression: 4,
+                    }, // 5
                     Id(2),
                     Id(0),
-                    Str(3), // 10
+                    Str(3),
                     Call {
-                        function: 8,
-                        args: vec![9, 10],
+                        function: 6,
+                        args: vec![7, 8],
                     },
                     MainBlock {
-                        body: vec![1, 3, 7, 11],
+                        body: vec![1, 5, 9],
                         local_count: 0,
                     },
                 ],

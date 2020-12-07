@@ -52,7 +52,7 @@ export tests =
     assert_eq m m2
     m2.foo = -1
     assert_eq m m2
-    m3 = copy m
+    m3 = m.copy()
     m3.foo = 99
     assert_ne m m3
 

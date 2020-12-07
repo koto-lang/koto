@@ -1254,18 +1254,6 @@ impl<'source> Parser<'source> {
                 }
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Function => self.parse_function(context)?,
-                Token::Copy => {
-                    self.consume_next_token(context);
-                    if let Some(expression) = self.parse_expression(&mut ExpressionContext {
-                        allow_space_separated_call: true,
-                        expected_indentation: None,
-                        ..*context
-                    })? {
-                        Some(self.push_node(Node::CopyExpression(expression))?)
-                    } else {
-                        return syntax_error!(ExpectedExpression, self);
-                    }
-                }
                 Token::Subtract => {
                     if let Some(token_after_subtract) = self.peek_token_n(peek_count + 1) {
                         if !token_is_whitespace(token_after_subtract) {

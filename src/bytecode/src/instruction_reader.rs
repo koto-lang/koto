@@ -13,10 +13,6 @@ pub enum Instruction {
         target: u8,
         source: u8,
     },
-    DeepCopy {
-        target: u8,
-        source: u8,
-    },
     SetEmpty {
         register: u8,
     },
@@ -308,7 +304,6 @@ impl fmt::Display for Instruction {
         match self {
             Error { message } => unreachable!(message),
             Copy { .. } => write!(f, "Copy"),
-            DeepCopy { .. } => write!(f, "DeepCopy"),
             SetEmpty { .. } => write!(f, "SetEmpty"),
             SetBool { .. } => write!(f, "SetBool"),
             SetNumber { .. } => write!(f, "SetNumber"),
@@ -382,9 +377,6 @@ impl fmt::Debug for Instruction {
         match self {
             Error { message } => unreachable!(message),
             Copy { target, source } => write!(f, "Copy\t\tresult: {}\tsource: {}", target, source),
-            DeepCopy { target, source } => {
-                write!(f, "DeepCopy\tresult: {}\tsource: {}", target, source)
-            }
             SetEmpty { register } => write!(f, "SetEmpty\tresult: {}", register),
             SetBool { register, value } => {
                 write!(f, "SetBool\t\tresult: {}\tvalue: {}", register, value)
@@ -819,10 +811,6 @@ impl Iterator for InstructionReader {
 
         match op {
             Op::Copy => Some(Copy {
-                target: get_byte!(),
-                source: get_byte!(),
-            }),
-            Op::DeepCopy => Some(DeepCopy {
                 target: get_byte!(),
                 source: get_byte!(),
             }),

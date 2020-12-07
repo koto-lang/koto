@@ -4,7 +4,7 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{self, deep_copy_value, RegisterSlice, RuntimeFunction},
+        value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
     },
@@ -365,11 +365,6 @@ impl Vm {
                 vm_error!(self.chunk(), instruction_ip, "{}", message)
             }
             Instruction::Copy { target, source } => self.run_copy(target, source),
-            Instruction::DeepCopy { target, source } => {
-                let value = self.clone_register(source);
-                self.set_register(target, deep_copy_value(&value));
-                Ok(())
-            }
             Instruction::SetEmpty { register } => {
                 self.set_register(register, Empty);
                 Ok(())
@@ -820,6 +815,7 @@ impl Vm {
                 List(list) => ValueIterator::with_list(list),
                 Map(map) => ValueIterator::with_map(map),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
+                Str(s) => ValueIterator::with_string(s),
                 unexpected => {
                     return self.unexpected_type_error(
                         "Expected iterable value while making iterator",
@@ -2078,7 +2074,7 @@ impl Vm {
             Num4(_) => core_op!(num4, false),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
-            Str(_) => core_op!(string, false),
+            Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
             unexpected => {

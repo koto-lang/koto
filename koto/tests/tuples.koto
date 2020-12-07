@@ -13,6 +13,20 @@ export tests =
     assert (x.contains 2)
     assert not (x.contains 99)
 
+  test_deep_copy: ||
+    a = [1, 2, 3]
+    # x contains 3 shared copies of a
+    x = (a, a, a)
+    # deep_copy creates 3 unique copies of a
+    x2 = x.deep_copy()
+    # modifying a is reflected in x, but not x2
+    a[0] = 99
+    assert_eq x[1][0] 99
+    assert_eq x2[0][0] 1
+    # modifying one list in x2 doesn't affect the others
+    x2[1][0] = 42
+    assert_eq x2[0][0] 1
+
   test_get: ||
     x = 1, 2, 3
     assert_eq (x.get 0) 1
