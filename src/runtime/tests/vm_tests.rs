@@ -1,10 +1,11 @@
 mod vm {
     use {
-        koto_bytecode::chunk_to_string_annotated,
+        koto_bytecode::{chunk_to_string_annotated, Chunk},
         koto_runtime::{
             external_error, num2, num4, type_as_string, IntRange, Loader, Value, Value::*,
             ValueHashMap, ValueList, ValueMap, Vm,
         },
+        std::sync::Arc,
     };
 
     fn test_script(script: &str, expected_output: Value) {
@@ -31,11 +32,15 @@ mod vm {
             Ok(Empty)
         });
 
-        let print_chunk = |script: &str, chunk| {
+        let print_chunk = |script: &str, chunk: Arc<Chunk>| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
-            println!("{}", chunk_to_string_annotated(chunk, &script_lines));
+            println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+            println!(
+                "Instructions\n------------\n{}",
+                chunk_to_string_annotated(chunk, &script_lines)
+            );
         };
 
         let mut loader = Loader::default();
@@ -822,6 +827,24 @@ f = |a, b, _| a + b
 f 1 2 3
 ";
             test_script(script, Number(3.0));
+        }
+
+        #[test]
+        fn function_arg_unpacking_tuple() {
+            let script = "
+f = |a, (_, c), d| a + c + d
+f 1 (2, 3) 4
+";
+            test_script(script, Number(8.0));
+        }
+
+        #[test]
+        fn function_arg_unpacking_tuple_nested() {
+            let script = "
+f = |a, (_, (c, d), _), f| a + c + d + f
+f 1 (2, (3, 4), 5) 6
+";
+            test_script(script, Number(14.0));
         }
 
         #[test]

@@ -3,13 +3,17 @@
 ## Unreleased
 
 ### Added
-- list.copy
-- list.deep_copy
-- map.copy
-- map.deep_copy
-- map.update
-- tuple.deep_copy
-- strings are now iterable by default
+
+- Core Ops
+  - list.copy
+  - list.deep_copy
+  - map.copy
+  - map.deep_copy
+  - map.update
+  - tuple.deep_copy
+- Strings are now iterable by default
+- Tuples or lists in function arguments can be unpacked automatically.
+  - e.g. `f = |a, (b, (c, d))| a + b + c + d`
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.
@@ -24,14 +28,15 @@
 ## [0.3.0] - 2020.12.06
 
 ### Added
-- iterator.all
-- iterator.any
-- iterator.max
-- iterator.min
-- iterator.position
-- iterator.skip
-- string.size
-- strings can now be used with the ordered comparison operators.
+- Core Ops
+  - iterator.all
+  - iterator.any
+  - iterator.max
+  - iterator.min
+  - iterator.position
+  - iterator.skip
+  - string.size
+- Strings can now be used with the ordered comparison operators.
 
 ### Changed
 - Map blocks can now be used in return and yield expressions.

@@ -4,11 +4,11 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{self, RegisterSlice, RuntimeFunction},
+        value::{self, value_size, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
     },
-    koto_bytecode::{Chunk, Instruction, InstructionReader},
+    koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::ConstantIndex,
     std::{
         collections::HashMap,
@@ -643,6 +643,12 @@ impl Vm {
             }
             Instruction::Debug { register, constant } => {
                 self.run_debug(register, constant, instruction_ip)
+            }
+            Instruction::CheckType { register, type_id } => {
+                self.run_check_type(register, type_id, instruction_ip)
+            }
+            Instruction::CheckSize { register, size } => {
+                self.run_check_size(register, size, instruction_ip)
             }
         }?;
 
@@ -1447,21 +1453,8 @@ impl Vm {
     }
 
     fn run_size(&mut self, register: u8, value: u8) -> InstructionResult {
-        use Value::*;
-
-        let result = match self.get_register(value) {
-            List(l) => l.len(),
-            Str(s) => s.len(),
-            Tuple(t) => t.data().len(),
-            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-            Map(m) => m.len(),
-            Num2(_) => 2,
-            Num4(_) => 4,
-            Range(IntRange { start, end }) => (end - start) as usize,
-            _ => 1,
-        };
-        self.set_register(register, Number(result as f64));
-
+        let result = value_size(self.get_register(value));
+        self.set_register(register, Value::Number(result as f64));
         Ok(())
     }
 
@@ -2441,6 +2434,44 @@ impl Vm {
         let value = self.get_register(register);
         println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
         Ok(())
+    }
+
+    fn run_check_type(
+        &self,
+        register: u8,
+        type_id: TypeId,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        let value = self.get_register(register);
+        match type_id {
+            TypeId::Tuple => {
+                if !matches!(value, Value::Tuple(_)) {
+                    return self.unexpected_type_error("Expected Tuple", &value, instruction_ip);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn run_check_size(
+        &self,
+        register: u8,
+        expected_size: usize,
+        instruction_ip: usize,
+    ) -> Result<(), Error> {
+        let value_size = value_size(self.get_register(register));
+
+        if value_size == expected_size {
+            Ok(())
+        } else {
+            vm_error!(
+                self.chunk(),
+                instruction_ip,
+                "Value has a size of '{}', expected '{}'",
+                value_size,
+                expected_size
+            )
+        }
     }
 
     pub fn chunk(&self) -> Arc<Chunk> {

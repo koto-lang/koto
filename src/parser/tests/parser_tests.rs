@@ -2412,6 +2412,46 @@ y z";
                 Some(&[Constant::Str("foo"), Constant::Number(42.0)]),
             )
         }
+
+        #[test]
+        fn unpack_call_args_tuple() {
+            let source = "
+|a, (_, (c, d)), e|
+  a
+";
+            check_ast(
+                source,
+                &[
+                    Id(0), // a
+                    Wildcard,
+                    Id(1), // c
+                    Id(2), // d
+                    Tuple(vec![2, 3]),
+                    Tuple(vec![1, 4]), // 5
+                    Id(3),             // e
+                    Id(0),
+                    Function(koto_parser::Function {
+                        args: vec![0, 5, 6],
+                        local_count: 4,
+                        accessed_non_locals: vec![],
+                        body: 7,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("c"),
+                    Constant::Str("d"),
+                    Constant::Str("e"),
+                ]),
+            )
+        }
     }
 
     mod lookups {

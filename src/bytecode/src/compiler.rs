@@ -1,5 +1,5 @@
 use {
-    crate::{DebugInfo, FunctionFlags, Op},
+    crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
         ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span,
@@ -72,19 +72,26 @@ struct Frame {
 
 impl Frame {
     fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
-        let local_registers = args
+        let mut temporary_base = local_count;
+
+        let arg_registers = args
             .iter()
             .map(|id| match id {
                 Some(id) => LocalRegister::Assigned(*id),
-                None => LocalRegister::Allocated,
+                None => {
+                    // Wildcard args or unpacked args need to bump the temporary_base to avoid
+                    // temp registers being written over arg registers
+                    temporary_base += 1;
+                    LocalRegister::Allocated
+                }
             })
             .collect::<Vec<_>>();
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
-            local_registers,
+            local_registers: arg_registers,
             captures: captures.to_vec(),
-            temporary_base: local_count,
+            temporary_base,
             ..Default::default()
         }
     }
@@ -713,28 +720,28 @@ impl Compiler {
         args: &[AstIndex],
         captures: &[ConstantIndex],
         ast: &Ast,
-        implicit_return: bool,
+        allow_implicit_return: bool,
     ) -> Result<(), CompilerError> {
-        let mut arg_ids = Vec::new();
+        self.frame_stack.push(Frame::new(
+            local_count,
+            &self.collect_arg_ids(args, ast)?,
+            captures,
+        ));
 
-        for arg in args.iter() {
+        // unpack nested args
+        for (arg_index, arg) in args.iter().enumerate() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => arg_ids.push(Some(*id_index)),
-                Node::Wildcard => arg_ids.push(None),
-                unexpected => {
-                    return compiler_error!(
-                        self,
-                        "Expected ID in function args, found {}",
-                        unexpected
-                    )
+                Node::Tuple(nested_args) => {
+                    let tuple_register = arg_index as u8;
+                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
+                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
                 }
+                _ => {}
             }
         }
 
-        self.frame_stack
-            .push(Frame::new(local_count, &arg_ids, captures));
-
-        let result_register = if implicit_return {
+        let result_register = if allow_implicit_return {
             ResultRegister::Any
         } else {
             ResultRegister::None
@@ -757,6 +764,107 @@ impl Compiler {
         }
 
         self.frame_stack.pop();
+
+        Ok(())
+    }
+
+    fn collect_arg_ids(
+        &self,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<Vec<Option<ConstantIndex>>, CompilerError> {
+        // Collect arg ids for local assignment in the new frame
+        // Top-level IDs need to match the arguments as they appear in the arg list, with None for
+        // wildcards and unpackable containers.
+        // Nested IDs that will be unpacked can appear in any order after the top-level IDs.
+        // e.g. Given:
+        // f = |a, (b, (c, d)), _, e|
+        // Arg IDs should then be:
+        // [Some(a), None, None, Some(e), Some(b), Some(c), Some(d)]
+        // ... with Some(b) onwards having any order
+
+        let mut result = Vec::new();
+        let mut nested_ids = Vec::new();
+
+        for arg in args.iter() {
+            match &ast.node(*arg).node {
+                Node::Id(id_index) => result.push(Some(*id_index)),
+                Node::Wildcard => result.push(None),
+                Node::Tuple(nested_args) => {
+                    result.push(None);
+                    nested_ids.extend(self.collect_nested_arg_ids(nested_args, ast)?);
+                }
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID in function args, found {}",
+                        unexpected
+                    )
+                }
+            }
+        }
+
+        result.extend(nested_ids.iter().map(|id| Some(*id)));
+        Ok(result)
+    }
+
+    fn collect_nested_arg_ids(
+        &self,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<Vec<ConstantIndex>, CompilerError> {
+        let mut result = Vec::new();
+
+        for arg in args.iter() {
+            match &ast.node(*arg).node {
+                Node::Id(id_index) => result.push(*id_index),
+                Node::Wildcard => {}
+                Node::Tuple(nested_args) => {
+                    result.extend_from_slice(&self.collect_nested_arg_ids(nested_args, ast)?);
+                }
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID in function args, found {}",
+                        unexpected
+                    )
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn compile_unpack_nested_args(
+        &mut self,
+        container_register: u8,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        for (arg_index, arg) in args.iter().enumerate() {
+            match &ast.node(*arg).node {
+                Node::Wildcard => {}
+                Node::Id(constant_index) => {
+                    let local_register = self.assign_local_register(*constant_index)?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[local_register, container_register, arg_index as u8],
+                    );
+                }
+                Node::Tuple(nested_args) => {
+                    let tuple_register = self.push_register()?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[tuple_register, container_register, arg_index as u8],
+                    );
+                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
+                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
+                    self.pop_register()?; // tuple_register
+                }
+                _ => {}
+            }
+        }
 
         Ok(())
     }

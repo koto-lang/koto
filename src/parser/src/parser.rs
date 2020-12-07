@@ -303,6 +303,52 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
+    fn parse_nested_function_args(
+        &mut self,
+        arg_ids: &mut Vec<ConstantIndex>,
+    ) -> Result<Vec<AstIndex>, ParserError> {
+        let mut nested_args = Vec::new();
+
+        let mut args_context = ExpressionContext::permissive();
+        while self.peek_next_token(&args_context).is_some() {
+            self.consume_until_next_token(&mut args_context);
+            match self.parse_id_or_wildcard(&mut args_context) {
+                Some(ConstantIndexOrWildcard::Index(constant_index)) => {
+                    if self.constants.pool().get_str(constant_index) == "self" {
+                        return syntax_error!(SelfArgNotInFirstPosition, self);
+                    }
+
+                    arg_ids.push(constant_index);
+                    nested_args.push(self.push_node(Node::Id(constant_index))?);
+                }
+                Some(ConstantIndexOrWildcard::Wildcard) => {
+                    nested_args.push(self.push_node(Node::Wildcard)?)
+                }
+                None => match self.peek_token() {
+                    Some(Token::ParenOpen) => {
+                        self.consume_token();
+
+                        let tuple_args = self.parse_nested_function_args(arg_ids)?;
+                        nested_args.push(self.push_node(Node::Tuple(tuple_args))?);
+
+                        if self.consume_next_token(&mut args_context) != Some(Token::ParenClose) {
+                            return syntax_error!(ExpectedCloseParen, self);
+                        }
+                    }
+                    _ => break,
+                },
+            }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
+            } else {
+                break;
+            }
+        }
+
+        Ok(nested_args)
+    }
+
     fn parse_function(
         &mut self,
         context: &mut ExpressionContext,
@@ -345,7 +391,19 @@ impl<'source> Parser<'source> {
                 Some(ConstantIndexOrWildcard::Wildcard) => {
                     arg_nodes.push(self.push_node(Node::Wildcard)?)
                 }
-                None => break,
+                None => match self.peek_token() {
+                    Some(Token::ParenOpen) => {
+                        self.consume_token();
+
+                        let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
+                        arg_nodes.push(self.push_node(Node::Tuple(tuple_args))?);
+
+                        if self.consume_next_token(&mut args_context) != Some(Token::ParenClose) {
+                            return syntax_error!(ExpectedCloseParen, self);
+                        }
+                    }
+                    _ => break,
+                },
             }
 
             if self.peek_next_token_on_same_line() == Some(Token::Comma) {

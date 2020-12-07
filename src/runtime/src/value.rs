@@ -363,3 +363,19 @@ pub fn value_is_immutable(value: &Value) -> bool {
         value,
         Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_))
 }
+
+pub fn value_size(value: &Value) -> usize {
+    use Value::*;
+
+    match value {
+        List(l) => l.len(),
+        Str(s) => s.len(),
+        Tuple(t) => t.data().len(),
+        TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
+        Map(m) => m.len(),
+        Num2(_) => 2,
+        Num4(_) => 4,
+        Range(IntRange { start, end }) => (end - start) as usize,
+        _ => 1,
+    }
+}

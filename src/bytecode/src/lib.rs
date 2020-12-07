@@ -96,8 +96,8 @@ pub enum Op {
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
     Debug,            // register, constant[4]
-    Unused77,
-    Unused78,
+    CheckType,        // register, type (see TypeId)
+    CheckSize,        // register, size
     Unused79,
     Unused80,
     Unused81,
@@ -286,6 +286,22 @@ impl From<u8> for Op {
     }
 }
 
+#[derive(Debug)]
+#[repr(u8)]
+pub enum TypeId {
+    Tuple,
+}
+
+impl TypeId {
+    fn from_byte(byte: u8) -> Result<Self, u8> {
+        if byte == Self::Tuple as u8 {
+            Ok(Self::Tuple)
+        } else {
+            Err(byte)
+        }
+    }
+}
+
 struct FunctionFlags {
     instance_function: bool,
     variadic: bool,
@@ -315,7 +331,7 @@ impl FunctionFlags {
         }
         if self.generator {
             result |= Self::GENERATOR;
-        }
+       }
         result
     }
 }
