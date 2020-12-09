@@ -5,6 +5,7 @@
 ### Added
 
 - Core Ops
+  - iterator.min_max
   - list.copy
   - list.deep_copy
   - map.copy
