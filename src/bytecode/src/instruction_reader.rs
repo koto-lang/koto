@@ -1,8 +1,61 @@
 use {
-    crate::{Chunk, FunctionFlags, Op, TypeId},
+    crate::{Chunk, Op},
     koto_parser::ConstantIndex,
     std::{convert::TryInto, fmt, sync::Arc},
 };
+
+#[derive(Debug)]
+#[repr(u8)]
+pub enum TypeId {
+    List,
+    Tuple,
+}
+
+impl TypeId {
+    fn from_byte(byte: u8) -> Result<Self, u8> {
+        if byte == Self::List as u8 {
+            Ok(Self::List)
+        } else if byte == Self::Tuple as u8 {
+            Ok(Self::Tuple)
+        } else {
+            Err(byte)
+        }
+    }
+}
+
+pub struct FunctionFlags {
+    pub instance_function: bool,
+    pub variadic: bool,
+    pub generator: bool,
+}
+
+impl FunctionFlags {
+    pub const INSTANCE: u8 = 0b0000001;
+    pub const VARIADIC: u8 = 0b0000010;
+    pub const GENERATOR: u8 = 0b0000100;
+
+    pub fn from_byte(byte: u8) -> Self {
+        Self {
+            instance_function: byte & Self::INSTANCE == Self::INSTANCE,
+            variadic: byte & Self::VARIADIC == Self::VARIADIC,
+            generator: byte & Self::GENERATOR == Self::GENERATOR,
+        }
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        let mut result = 0;
+        if self.instance_function {
+            result |= Self::INSTANCE;
+        }
+        if self.variadic {
+            result |= Self::VARIADIC;
+        }
+        if self.generator {
+            result |= Self::GENERATOR;
+        }
+        result
+    }
+}
 
 /// Decoded instructions produced by an [InstructionReader] for execution in the runtime
 pub enum Instruction {
