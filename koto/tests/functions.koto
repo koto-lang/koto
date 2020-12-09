@@ -20,6 +20,18 @@ export tests =
     assert_eq (sum 3 4 5) 12
     assert_eq (sum 6 7 8 9) 30
 
+  test_wildcard_arg: ||
+    foo = |a, _, c| a + c
+    assert_eq (foo 1 2 3) 4
+
+  test_list_unpacking: ||
+    foo = |a, [b, [c, d]], e| a * b * c * d * e
+    assert_eq (foo 1 [2, [3, 4]] 5) 120
+
+  test_tuple_unpacking: ||
+    foo = |a, (b, (c, d)), e| a + b + c + d + e
+    assert_eq (foo 1 (2, (3, 4)) 5) 15
+
   test_nested_function: ||
     add = |x, y|
       x2 = x

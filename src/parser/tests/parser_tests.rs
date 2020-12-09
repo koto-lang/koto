@@ -1561,22 +1561,24 @@ a()";
                 &[
                     Id(0),
                     Id(1),
+                    Id(0),
+                    Id(1),
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 0,
-                        rhs: 1,
+                        lhs: 2,
+                        rhs: 3,
                     },
                     Function(koto_parser::Function {
-                        args: vec![Some(0), Some(1)],
+                        args: vec![0, 1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 2,
+                        body: 4,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 5
                     MainBlock {
-                        body: vec![3],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -1592,25 +1594,27 @@ a()";
                 &[
                     Id(0),
                     Id(1),
+                    Id(0),
+                    Id(1),
                     Lookup((LookupNode::Call(vec![]), None)),
-                    Lookup((LookupNode::Id(2), Some(2))),
-                    Lookup((LookupNode::Root(1), Some(3))),
+                    Lookup((LookupNode::Id(2), Some(4))), // 5
+                    Lookup((LookupNode::Root(3), Some(5))),
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 0,
-                        rhs: 4,
-                    }, // 5
+                        lhs: 2,
+                        rhs: 6,
+                    },
                     Function(koto_parser::Function {
-                        args: vec![Some(0), Some(1)],
+                        args: vec![0, 1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 5,
+                        body: 7,
                         is_instance_function: false,
                         is_variadic: true,
                         is_generator: false,
                     }),
                     MainBlock {
-                        body: vec![6],
+                        body: vec![8],
                         local_count: 0,
                     },
                 ],
@@ -1627,46 +1631,30 @@ a()";
             let source = "\
 f = |x|
   y = x
-  y = y + 1
   y
 f 42";
             check_ast(
                 source,
                 &[
                     Id(0), // f
+                    Id(1), // x
                     Id(2), // y
                     Id(1), // x
                     Assign {
                         target: AssignTarget {
-                            target_index: 1,
+                            target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 2,
+                        expression: 3,
                     },
-                    Id(2), // y
-                    Id(2), // y // 5
-                    Number1,
-                    BinaryOp {
-                        op: AstOp::Add,
-                        lhs: 5,
-                        rhs: 6,
-                    },
-                    Assign {
-                        target: AssignTarget {
-                            target_index: 4,
-                            scope: Scope::Local,
-                        },
-                        op: AssignOp::Equal,
-                        expression: 7,
-                    },
-                    Id(2),                // y
-                    Block(vec![3, 8, 9]), // 10
+                    Id(2), // 5
+                    Block(vec![4, 5]),
                     Function(koto_parser::Function {
-                        args: vec![Some(1)],
+                        args: vec![1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 10,
+                        body: 6,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
@@ -1677,16 +1665,16 @@ f 42";
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 11,
+                        expression: 7,
                     },
                     Id(0),
-                    Number(3),
+                    Number(3), // 10
                     Call {
-                        function: 13,
-                        args: vec![14],
-                    }, // 15
+                        function: 9,
+                        args: vec![10],
+                    },
                     MainBlock {
-                        body: vec![12, 15],
+                        body: vec![8, 11],
                         local_count: 1,
                     },
                 ],
@@ -1711,37 +1699,39 @@ f 42";
                 source,
                 &[
                     Id(0), // f
+                    Id(1), // x
                     Id(2), // y
                     Id(3), // z
+                    Id(3), // z
                     Function(koto_parser::Function {
-                        args: vec![Some(3)],
+                        args: vec![3],
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 2,
+                        body: 4,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 5
                     Assign {
                         target: AssignTarget {
-                            target_index: 1,
+                            target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
+                        expression: 5,
                     },
-                    Id(2), // y // 5
+                    Id(2), // y
                     Id(1), // x
                     Call {
-                        function: 5,
-                        args: vec![6],
+                        function: 7,
+                        args: vec![8],
                     },
-                    Block(vec![4, 7]),
+                    Block(vec![6, 9]), // 10
                     Function(koto_parser::Function {
-                        args: vec![Some(1)],
+                        args: vec![1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 8,
+                        body: 10,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
@@ -1752,16 +1742,16 @@ f 42";
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 9,
-                    }, // 10
+                        expression: 11,
+                    },
                     Id(0), // f
                     Number(4),
                     Call {
-                        function: 11,
-                        args: vec![12],
-                    },
+                        function: 13,
+                        args: vec![14],
+                    }, // 15
                     MainBlock {
-                        body: vec![10, 13],
+                        body: vec![12, 15],
                         local_count: 1,
                     },
                 ],
@@ -1880,32 +1870,33 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(0),
+                    Id(0), // f
+                    Id(1), // x
                     Id(0),
                     Id(1),
                     Call {
-                        function: 1,
-                        args: vec![2],
+                        function: 2,
+                        args: vec![3],
                     },
                     Function(koto_parser::Function {
-                        args: vec![Some(1)],
+                        args: vec![1],
                         local_count: 1,
                         accessed_non_locals: vec![0],
-                        body: 3,
+                        body: 4,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 5
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 4,
-                    }, // 5
+                        expression: 5,
+                    },
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 1,
                     },
                 ],
@@ -1919,39 +1910,41 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    Id(0), // f
+                    Id(1), // g
+                    Id(2), // x
                     Id(0),
                     Id(2),
                     Call {
-                        function: 2,
-                        args: vec![3],
-                    },
+                        function: 3,
+                        args: vec![4],
+                    }, // 5
                     Function(koto_parser::Function {
-                        args: vec![Some(2)],
+                        args: vec![2],
                         local_count: 1,
                         accessed_non_locals: vec![0],
-                        body: 4,
-                        is_instance_function: false,
-                        is_variadic: false,
-                        is_generator: false,
-                    }), // 5
-                    Id(1),
-                    Id(2),
-                    Call {
-                        function: 6,
-                        args: vec![7],
-                    },
-                    Function(koto_parser::Function {
-                        args: vec![Some(2)],
-                        local_count: 1,
-                        accessed_non_locals: vec![1],
-                        body: 8,
+                        body: 5,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    TempTuple(vec![5, 9]), // 10
+                    Id(2), // x
+                    Id(1), // g
+                    Id(2),
+                    Call {
+                        function: 8,
+                        args: vec![9],
+                    }, // 10
+                    Function(koto_parser::Function {
+                        args: vec![7],
+                        local_count: 1,
+                        accessed_non_locals: vec![1],
+                        body: 10,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    TempTuple(vec![6, 11]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -1963,10 +1956,10 @@ f x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 10,
+                        expressions: 12,
                     },
                     MainBlock {
-                        body: vec![11],
+                        body: vec![13],
                         local_count: 2,
                     },
                 ],
@@ -1982,30 +1975,32 @@ f x";
                 &[
                     Number(1),
                     Id(3), // self
-                    Lookup((LookupNode::Id(0), None)),
-                    Lookup((LookupNode::Root(1), Some(2))),
                     Id(4), // x
+                    Id(3),
+                    Lookup((LookupNode::Id(0), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    Id(4),
                     Assign {
                         target: AssignTarget {
-                            target_index: 3,
+                            target_index: 5,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 4,
-                    }, // 5
+                        expression: 6,
+                    },
                     Function(koto_parser::Function {
-                        args: vec![Some(3), Some(4)],
+                        args: vec![1, 2],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 5,
+                        body: 7,
                         is_instance_function: true,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
-                    Map(vec![(0, Some(0)), (2, Some(6))]),
+                    Map(vec![(0, Some(0)), (2, Some(8))]),
                     MainBlock {
-                        body: vec![7],
+                        body: vec![9],
                         local_count: 0,
                     },
                 ],
@@ -2077,34 +2072,36 @@ f()";
                 &[
                     Id(0),
                     Number(2),
+                    Id(4), // self
+                    Id(5), // x
                     Id(4),
-                    Lookup((LookupNode::Id(1), None)),
-                    Lookup((LookupNode::Root(2), Some(3))),
-                    Id(5), // 5 - x
+                    Lookup((LookupNode::Id(1), None)), // 5
+                    Lookup((LookupNode::Root(4), Some(5))),
+                    Id(5),
                     Assign {
                         target: AssignTarget {
-                            target_index: 4,
+                            target_index: 6,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 5,
-                    }, // 5
+                        expression: 7,
+                    },
                     Function(koto_parser::Function {
-                        args: vec![Some(4), Some(5)],
+                        args: vec![2, 3],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 6,
+                        body: 8,
                         is_instance_function: true,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     // Map entries are constant/ast index pairs
-                    Map(vec![(1, Some(1)), (3, Some(7))]),
+                    Map(vec![(1, Some(1)), (3, Some(9))]), // 10
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
                         accessed_non_locals: vec![],
-                        body: 8,
+                        body: 10,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
@@ -2115,13 +2112,13 @@ f()";
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 9,
-                    }, // 10
+                        expression: 11,
+                    },
                     Id(0),
                     Lookup((LookupNode::Call(vec![]), None)),
-                    Lookup((LookupNode::Root(11), Some(12))),
+                    Lookup((LookupNode::Root(13), Some(14))), // 15
                     MainBlock {
-                        body: vec![10, 13],
+                        body: vec![12, 15],
                         local_count: 1,
                     },
                 ],
@@ -2144,99 +2141,66 @@ f = |n|
     for i in 0..1
       if i == n
         return i
-
-  for x in 0..1
-    if x == n
-      return f2 n
-f 1
+  f2
 ";
             check_ast(
                 source,
                 &[
                     Id(0), // f
+                    Id(1), // n
                     Id(2), // f2
+                    Id(1),
                     Number0,
-                    Number1,
+                    Number1, // 5
                     Range {
-                        start: 2,
-                        end: 3,
+                        start: 4,
+                        end: 5,
                         inclusive: false,
                     },
-                    Id(3), // 5 - i
-                    Id(1), // n
+                    Id(3), // i
+                    Id(1),
                     BinaryOp {
                         op: AstOp::Equal,
-                        lhs: 5,
-                        rhs: 6,
+                        lhs: 7,
+                        rhs: 8,
                     },
-                    Id(3),
-                    ReturnExpression(8),
+                    Id(3), // 10
+                    ReturnExpression(10),
                     If(AstIf {
-                        condition: 7,
-                        then_node: 9,
+                        condition: 9,
+                        then_node: 11,
                         else_if_blocks: vec![],
                         else_node: None,
-                    }), // 10
+                    }),
                     For(AstFor {
                         args: vec![Some(3)],
-                        range: 4,
-                        body: 10,
+                        range: 6,
+                        body: 12,
                     }),
                     Function(koto_parser::Function {
-                        args: vec![Some(1)],
+                        args: vec![3],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 11,
+                        body: 13,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
                     Assign {
                         target: AssignTarget {
-                            target_index: 1,
+                            target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 12,
-                    },
-                    Number0,
-                    Number1, // 15
-                    Range {
-                        start: 14,
-                        end: 15,
-                        inclusive: false,
-                    },
-                    Id(4), // x
-                    Id(1), // n
-                    BinaryOp {
-                        op: AstOp::Equal,
-                        lhs: 17,
-                        rhs: 18,
-                    },
-                    Id(2), // 20 - f2
-                    Id(1), // n
-                    Call {
-                        function: 20,
-                        args: vec![21],
-                    },
-                    ReturnExpression(22),
-                    If(AstIf {
-                        condition: 19,
-                        then_node: 23,
-                        else_if_blocks: vec![],
-                        else_node: None,
-                    }),
-                    For(AstFor {
-                        args: vec![Some(4)], // x
-                        range: 16,
-                        body: 24,
-                    }), // 25
-                    Block(vec![13, 25]),
+                        expression: 14,
+                    }, // 15
+                    Id(2),
+                    Block(vec![15, 16]),
                     Function(koto_parser::Function {
-                        args: vec![Some(1)],
-                        local_count: 3,
+                        args: vec![1],
+                        local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 26,
+                        body: 17,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
@@ -2247,16 +2211,10 @@ f 1
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 27,
-                    },
-                    Id(0),   // f
-                    Number1, // 30
-                    Call {
-                        function: 29,
-                        args: vec![30],
+                        expression: 18,
                     },
                     MainBlock {
-                        body: vec![28, 31],
+                        body: vec![19],
                         local_count: 1,
                     },
                 ],
@@ -2265,7 +2223,6 @@ f 1
                     Constant::Str("n"),
                     Constant::Str("f2"),
                     Constant::Str("i"),
-                    Constant::Str("x"),
                 ]),
             )
         }
@@ -2312,8 +2269,8 @@ y z";
             check_ast(
                 source,
                 &[
-                    Id(0),
-                    Id(1),
+                    Id(0), // z
+                    Id(1), // y
                     Number0,
                     Number(2),
                     Range {
@@ -2322,42 +2279,43 @@ y z";
                         inclusive: false,
                     },
                     List(vec![4]), // 5
+                    Id(3),         // x
                     Id(3),
                     Number1,
                     BinaryOp {
                         op: AstOp::Greater,
-                        lhs: 6,
-                        rhs: 7,
+                        lhs: 7,
+                        rhs: 8,
                     },
                     Function(koto_parser::Function {
-                        args: vec![Some(3)],
+                        args: vec![6],
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 8,
+                        body: 9,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 10
                     Call {
                         function: 1,
-                        args: vec![5, 9],
-                    }, // 10
+                        args: vec![5, 10],
+                    },
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 10,
+                        expression: 11,
                     },
                     Id(1),
                     Id(0),
                     Call {
-                        function: 12,
-                        args: vec![13],
+                        function: 13,
+                        args: vec![14],
                     },
                     MainBlock {
-                        body: vec![11, 14],
+                        body: vec![12, 15],
                         local_count: 1,
                     },
                 ],
@@ -2452,6 +2410,86 @@ y z";
                     },
                 ],
                 Some(&[Constant::Str("foo"), Constant::Number(42.0)]),
+            )
+        }
+
+        #[test]
+        fn unpack_call_args_tuple() {
+            let source = "
+|a, (_, (c, d)), e|
+  a
+";
+            check_ast(
+                source,
+                &[
+                    Id(0), // a
+                    Wildcard,
+                    Id(1), // c
+                    Id(2), // d
+                    Tuple(vec![2, 3]),
+                    Tuple(vec![1, 4]), // 5
+                    Id(3),             // e
+                    Id(0),
+                    Function(koto_parser::Function {
+                        args: vec![0, 5, 6],
+                        local_count: 4,
+                        accessed_non_locals: vec![],
+                        body: 7,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("c"),
+                    Constant::Str("d"),
+                    Constant::Str("e"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn unpack_call_args_list() {
+            let source = "
+|a, [_, [c, d]], e|
+  a
+";
+            check_ast(
+                source,
+                &[
+                    Id(0), // a
+                    Wildcard,
+                    Id(1), // c
+                    Id(2), // d
+                    List(vec![2, 3]),
+                    List(vec![1, 4]), // 5
+                    Id(3),            // e
+                    Id(0),
+                    Function(koto_parser::Function {
+                        args: vec![0, 5, 6],
+                        local_count: 4,
+                        accessed_non_locals: vec![],
+                        body: 7,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("c"),
+                    Constant::Str("d"),
+                    Constant::Str("e"),
+                ]),
             )
         }
     }

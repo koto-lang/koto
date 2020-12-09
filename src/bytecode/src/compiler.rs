@@ -1,5 +1,5 @@
 use {
-    crate::{DebugInfo, FunctionFlags, Op},
+    crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
         ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span,
@@ -50,8 +50,13 @@ impl Loop {
 
 #[derive(Clone, Debug, PartialEq)]
 enum LocalRegister {
+    // The register is assigned to a specific id.
     Assigned(ConstantIndex),
+    // The register is currently being assigned to,
+    // it will become assigned at the end of the assignment expression.
     Reserved(ConstantIndex),
+    // The register contains a value not associated with an id, e.g. a wildcard function arg
+    Allocated,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -67,18 +72,26 @@ struct Frame {
 
 impl Frame {
     fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
-        let mut local_registers = Vec::with_capacity(local_count as usize);
-        local_registers.extend(
-            args.iter()
-                .filter_map(|maybe_arg| *maybe_arg)
-                .map(LocalRegister::Assigned),
-        );
+        let mut temporary_base = local_count;
+
+        let arg_registers = args
+            .iter()
+            .map(|id| match id {
+                Some(id) => LocalRegister::Assigned(*id),
+                None => {
+                    // Wildcard args or unpacked args need to bump the temporary_base to avoid
+                    // temp registers being written over arg registers
+                    temporary_base += 1;
+                    LocalRegister::Allocated
+                }
+            })
+            .collect::<Vec<_>>();
 
         Self {
             register_stack: Vec::with_capacity(local_count as usize),
-            local_registers,
+            local_registers: arg_registers,
             captures: captures.to_vec(),
-            temporary_base: local_count,
+            temporary_base,
             ..Default::default()
         }
     }
@@ -109,6 +122,7 @@ impl Frame {
                 let register_index = match local_register {
                     LocalRegister::Assigned(register_index) => register_index,
                     LocalRegister::Reserved(register_index) => register_index,
+                    LocalRegister::Allocated => return false,
                 };
                 *register_index == index
             })
@@ -161,7 +175,7 @@ impl Frame {
                 return Ok(());
             }
             Some(LocalRegister::Reserved(index)) => index,
-            None => {
+            _ => {
                 return Err(format!(
                     "commit_local_register: register {} hasn't been reserved",
                     local_register
@@ -703,15 +717,37 @@ impl Compiler {
         &mut self,
         local_count: u8,
         expressions: &[AstIndex],
-        args: &[Option<ConstantIndex>],
+        args: &[AstIndex],
         captures: &[ConstantIndex],
         ast: &Ast,
-        implicit_return: bool,
+        allow_implicit_return: bool,
     ) -> Result<(), CompilerError> {
-        self.frame_stack
-            .push(Frame::new(local_count, args, captures));
+        self.frame_stack.push(Frame::new(
+            local_count,
+            &self.collect_arg_ids(args, ast)?,
+            captures,
+        ));
 
-        let result_register = if implicit_return {
+        // unpack nested args
+        for (arg_index, arg) in args.iter().enumerate() {
+            match &ast.node(*arg).node {
+                Node::List(nested_args) => {
+                    let list_register = arg_index as u8;
+                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
+                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                }
+                Node::Tuple(nested_args) => {
+                    let tuple_register = arg_index as u8;
+                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
+                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
+                }
+                _ => {}
+            }
+        }
+
+        let result_register = if allow_implicit_return {
             ResultRegister::Any
         } else {
             ResultRegister::None
@@ -734,6 +770,118 @@ impl Compiler {
         }
 
         self.frame_stack.pop();
+
+        Ok(())
+    }
+
+    fn collect_arg_ids(
+        &self,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<Vec<Option<ConstantIndex>>, CompilerError> {
+        // Collect arg ids for local assignment in the new frame
+        // Top-level IDs need to match the arguments as they appear in the arg list, with None for
+        // wildcards and unpackable containers.
+        // Nested IDs that will be unpacked can appear in any order after the top-level IDs.
+        // e.g. Given:
+        // f = |a, (b, (c, d)), _, e|
+        // Arg IDs should then be:
+        // [Some(a), None, None, Some(e), Some(b), Some(c), Some(d)]
+        // ... with Some(b) onwards having any order
+
+        let mut result = Vec::new();
+        let mut nested_ids = Vec::new();
+
+        for arg in args.iter() {
+            match &ast.node(*arg).node {
+                Node::Id(id_index) => result.push(Some(*id_index)),
+                Node::Wildcard => result.push(None),
+                Node::List(nested_args) | Node::Tuple(nested_args) => {
+                    result.push(None);
+                    nested_ids.extend(self.collect_nested_arg_ids(nested_args, ast)?);
+                }
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID in function args, found {}",
+                        unexpected
+                    )
+                }
+            }
+        }
+
+        result.extend(nested_ids.iter().map(|id| Some(*id)));
+        Ok(result)
+    }
+
+    fn collect_nested_arg_ids(
+        &self,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<Vec<ConstantIndex>, CompilerError> {
+        let mut result = Vec::new();
+
+        for arg in args.iter() {
+            match &ast.node(*arg).node {
+                Node::Id(id_index) => result.push(*id_index),
+                Node::Wildcard => {}
+                Node::List(nested_args) | Node::Tuple(nested_args) => {
+                    result.extend_from_slice(&self.collect_nested_arg_ids(nested_args, ast)?);
+                }
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID in function args, found {}",
+                        unexpected
+                    )
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn compile_unpack_nested_args(
+        &mut self,
+        container_register: u8,
+        args: &[AstIndex],
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        for (arg_index, arg) in args.iter().enumerate() {
+            match &ast.node(*arg).node {
+                Node::Wildcard => {}
+                Node::Id(constant_index) => {
+                    let local_register = self.assign_local_register(*constant_index)?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[local_register, container_register, arg_index as u8],
+                    );
+                }
+                Node::List(nested_args) => {
+                    let list_register = self.push_register()?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[list_register, container_register, arg_index as u8],
+                    );
+                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
+                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                    self.pop_register()?; // list_register
+                }
+                Node::Tuple(nested_args) => {
+                    let tuple_register = self.push_register()?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[tuple_register, container_register, arg_index as u8],
+                    );
+                    self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
+                    self.push_op(Op::CheckSize, &[tuple_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(tuple_register, nested_args, ast)?;
+                    self.pop_register()?; // tuple_register
+                }
+                _ => {}
+            }
+        }
 
         Ok(())
     }
@@ -1863,103 +2011,98 @@ impl Compiler {
         function: &Function,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::*;
-
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                let arg_count = match u8::try_from(function.args.len()) {
-                    Ok(x) => x,
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Function has too many arguments: {}",
-                            function.args.len()
-                        );
-                    }
-                };
-
-                let captures = self
-                    .frame()
-                    .captures_for_nested_frame(&function.accessed_non_locals);
-                if captures.len() > u8::MAX as usize {
+        if let Some(result) = self.get_result_register(result_register)? {
+            let arg_count = match u8::try_from(function.args.len()) {
+                Ok(x) => x,
+                Err(_) => {
                     return compiler_error!(
                         self,
-                        "Function captures too many values: {}",
-                        captures.len(),
+                        "Function has too many arguments: {}",
+                        function.args.len()
                     );
                 }
-                let capture_count = captures.len() as u8;
+            };
 
-                let flags = FunctionFlags {
-                    instance_function: function.is_instance_function,
-                    variadic: function.is_variadic,
-                    generator: function.is_generator,
-                };
-
-                self.push_op(
-                    Function,
-                    &[result.register, arg_count, capture_count, flags.as_byte()],
+            let captures = self
+                .frame()
+                .captures_for_nested_frame(&function.accessed_non_locals);
+            if captures.len() > u8::MAX as usize {
+                return compiler_error!(
+                    self,
+                    "Function captures too many values: {}",
+                    captures.len(),
                 );
-
-                let function_size_ip = self.push_offset_placeholder();
-
-                let local_count = match u8::try_from(function.local_count) {
-                    Ok(x) => x,
-                    Err(_) => {
-                        return compiler_error!(
-                            self,
-                            "Function has too many locals: {}",
-                            function.args.len()
-                        );
-                    }
-                };
-
-                let allow_implicit_return = !function.is_generator;
-
-                match &ast.node(function.body).node {
-                    Node::Block(expressions) => {
-                        self.compile_frame(
-                            local_count,
-                            &expressions,
-                            &function.args,
-                            &captures,
-                            ast,
-                            allow_implicit_return,
-                        )?;
-                    }
-                    _ => {
-                        self.compile_frame(
-                            local_count,
-                            &[function.body],
-                            &function.args,
-                            &captures,
-                            ast,
-                            allow_implicit_return,
-                        )?;
-                    }
-                };
-
-                self.update_offset_placeholder(function_size_ip);
-
-                for (i, capture) in captures.iter().enumerate() {
-                    if let Some(local_register) = self.frame().get_local_register(*capture) {
-                        self.push_op(Capture, &[result.register, i as u8, local_register]);
-                    } else {
-                        let capture_register = self.push_register()?;
-                        self.compile_load_non_local_id(capture_register, *capture);
-
-                        self.push_op(Capture, &[result.register, i as u8, capture_register]);
-
-                        self.pop_register()?;
-                    }
-                }
-
-                Some(result)
             }
-            None => None,
-        };
+            let capture_count = captures.len() as u8;
 
-        Ok(result)
+            let flags = FunctionFlags {
+                instance_function: function.is_instance_function,
+                variadic: function.is_variadic,
+                generator: function.is_generator,
+            };
+
+            self.push_op(
+                Op::Function,
+                &[result.register, arg_count, capture_count, flags.as_byte()],
+            );
+
+            let function_size_ip = self.push_offset_placeholder();
+
+            let local_count = match u8::try_from(function.local_count) {
+                Ok(x) => x,
+                Err(_) => {
+                    return compiler_error!(
+                        self,
+                        "Function has too many locals: {}",
+                        function.args.len()
+                    );
+                }
+            };
+
+            let allow_implicit_return = !function.is_generator;
+
+            match &ast.node(function.body).node {
+                Node::Block(expressions) => {
+                    self.compile_frame(
+                        local_count,
+                        &expressions,
+                        &function.args,
+                        &captures,
+                        ast,
+                        allow_implicit_return,
+                    )?;
+                }
+                _ => {
+                    self.compile_frame(
+                        local_count,
+                        &[function.body],
+                        &function.args,
+                        &captures,
+                        ast,
+                        allow_implicit_return,
+                    )?;
+                }
+            };
+
+            self.update_offset_placeholder(function_size_ip);
+
+            for (i, capture) in captures.iter().enumerate() {
+                if let Some(local_register) = self.frame().get_local_register(*capture) {
+                    self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
+                } else {
+                    let capture_register = self.push_register()?;
+                    self.compile_load_non_local_id(capture_register, *capture);
+
+                    self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
+
+                    self.pop_register()?;
+                }
+            }
+
+            Ok(Some(result))
+        } else {
+            Ok(None)
+        }
     }
 
     fn compile_lookup(

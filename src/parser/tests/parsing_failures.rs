@@ -117,6 +117,16 @@ x = |
             fn varargs_on_wildcard() {
                 check_parsing_fails("f = |x, _...| x");
             }
+
+            #[test]
+            fn missing_terminator_for_tuple_arg() {
+                check_parsing_fails("f = |a, (b, c, d| a");
+            }
+
+            #[test]
+            fn missing_terminator_for_list_arg() {
+                check_parsing_fails("f = |a, [b, c, d| a");
+            }
         }
 
         mod lookups {

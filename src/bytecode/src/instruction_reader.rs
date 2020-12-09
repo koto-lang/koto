@@ -1,5 +1,5 @@
 use {
-    crate::{Chunk, FunctionFlags, Op},
+    crate::{Chunk, FunctionFlags, Op, TypeId},
     koto_parser::ConstantIndex,
     std::{convert::TryInto, fmt, sync::Arc},
 };
@@ -296,6 +296,14 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
+    CheckType {
+        register: u8,
+        type_id: TypeId,
+    },
+    CheckSize {
+        register: u8,
+        size: usize,
+    },
 }
 
 impl fmt::Display for Instruction {
@@ -367,6 +375,8 @@ impl fmt::Display for Instruction {
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
             Debug { .. } => write!(f, "Debug"),
+            CheckType { .. } => write!(f, "CheckType"),
+            CheckSize { .. } => write!(f, "CheckSize"),
         }
     }
 }
@@ -729,6 +739,12 @@ impl fmt::Debug for Instruction {
             TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
                 write!(f, "Debug\t\tregister: {}\tconstant: {}", register, constant)
+            }
+            CheckType { register, type_id } => {
+                write!(f, "CheckType\tregister: {}\ttype: {:?}", register, type_id)
+            }
+            CheckSize { register, size } => {
+                write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
             }
         }
     }
@@ -1159,6 +1175,19 @@ impl Iterator for InstructionReader {
             Op::Debug => Some(Debug {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
+            }),
+            Op::CheckType => {
+                let register = get_byte!();
+                match TypeId::from_byte(get_byte!()) {
+                    Ok(type_id) => Some(CheckType { register, type_id }),
+                    Err(byte) => Some(Error {
+                        message: format!("Unexpected value for CheckType id: {}", byte),
+                    }),
+                }
+            }
+            Op::CheckSize => Some(CheckSize {
+                register: get_byte!(),
+                size: get_byte!() as usize,
             }),
             _ => Some(Error {
                 message: format!("Unexpected opcode {:?} found at instruction {}", op, op_ip),

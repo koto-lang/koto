@@ -152,7 +152,7 @@ impl fmt::Display for Node {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
-    pub args: Vec<Option<ConstantIndex>>,
+    pub args: Vec<AstIndex>,
     pub local_count: usize,
     // Any ID or lookup root that's accessed in a function and which wasn't previously assigned
     // locally, is either a global or needs to be captured. The compiler takes care of determining
