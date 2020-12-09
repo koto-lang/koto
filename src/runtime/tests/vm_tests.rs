@@ -848,6 +848,24 @@ f 1 (2, (3, 4), 5) 6
         }
 
         #[test]
+        fn function_arg_unpacking_list() {
+            let script = "
+f = |a, [_, c], d| a + c + d
+f 1 [2, 3] 4
+";
+            test_script(script, Number(8.0));
+        }
+
+        #[test]
+        fn function_arg_unpacking_mixed() {
+            let script = "
+f = |a, (b, [_, d]), e| a + b + d + e
+f 1 (2, [3, 4]) 5
+";
+            test_script(script, Number(12.0));
+        }
+
+        #[test]
         fn variadic_function() {
             let script = "
 f = |a, b...|

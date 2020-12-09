@@ -289,12 +289,15 @@ impl From<u8> for Op {
 #[derive(Debug)]
 #[repr(u8)]
 pub enum TypeId {
+    List,
     Tuple,
 }
 
 impl TypeId {
     fn from_byte(byte: u8) -> Result<Self, u8> {
-        if byte == Self::Tuple as u8 {
+        if byte == Self::List as u8 {
+            Ok(Self::List)
+        } else if byte == Self::Tuple as u8 {
             Ok(Self::Tuple)
         } else {
             Err(byte)
@@ -331,7 +334,7 @@ impl FunctionFlags {
         }
         if self.generator {
             result |= Self::GENERATOR;
-       }
+        }
         result
     }
 }

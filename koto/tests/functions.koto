@@ -24,6 +24,10 @@ export tests =
     foo = |a, _, c| a + c
     assert_eq (foo 1 2 3) 4
 
+  test_list_unpacking: ||
+    foo = |a, [b, [c, d]], e| a * b * c * d * e
+    assert_eq (foo 1 [2, [3, 4]] 5) 120
+
   test_tuple_unpacking: ||
     foo = |a, (b, (c, d)), e| a + b + c + d + e
     assert_eq (foo 1 (2, (3, 4)) 5) 15

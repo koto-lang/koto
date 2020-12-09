@@ -13,7 +13,7 @@
   - tuple.deep_copy
 - Strings are now iterable by default
 - Tuples or lists in function arguments can be unpacked automatically.
-  - e.g. `f = |a, (b, (c, d))| a + b + c + d`
+  - e.g. `f = |a, (b, [c, d])| a + b + c + d`
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.

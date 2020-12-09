@@ -325,6 +325,16 @@ impl<'source> Parser<'source> {
                     nested_args.push(self.push_node(Node::Wildcard)?)
                 }
                 None => match self.peek_token() {
+                    Some(Token::ListStart) => {
+                        self.consume_token();
+
+                        let list_args = self.parse_nested_function_args(arg_ids)?;
+                        nested_args.push(self.push_node(Node::List(list_args))?);
+
+                        if self.consume_next_token(&mut args_context) != Some(Token::ListEnd) {
+                            return syntax_error!(ExpectedListEnd, self);
+                        }
+                    }
                     Some(Token::ParenOpen) => {
                         self.consume_token();
 
@@ -392,6 +402,16 @@ impl<'source> Parser<'source> {
                     arg_nodes.push(self.push_node(Node::Wildcard)?)
                 }
                 None => match self.peek_token() {
+                    Some(Token::ListStart) => {
+                        self.consume_token();
+
+                        let list_args = self.parse_nested_function_args(&mut arg_ids)?;
+                        arg_nodes.push(self.push_node(Node::List(list_args))?);
+
+                        if self.consume_next_token(&mut args_context) != Some(Token::ListEnd) {
+                            return syntax_error!(ExpectedListEnd, self);
+                        }
+                    }
                     Some(Token::ParenOpen) => {
                         self.consume_token();
 

@@ -2444,6 +2444,11 @@ impl Vm {
     ) -> Result<(), Error> {
         let value = self.get_register(register);
         match type_id {
+            TypeId::List => {
+                if !matches!(value, Value::List(_)) {
+                    return self.unexpected_type_error("Expected List", &value, instruction_ip);
+                }
+            }
             TypeId::Tuple => {
                 if !matches!(value, Value::Tuple(_)) {
                     return self.unexpected_type_error("Expected Tuple", &value, instruction_ip);

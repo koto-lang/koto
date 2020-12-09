@@ -731,6 +731,12 @@ impl Compiler {
         // unpack nested args
         for (arg_index, arg) in args.iter().enumerate() {
             match &ast.node(*arg).node {
+                Node::List(nested_args) => {
+                    let list_register = arg_index as u8;
+                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
+                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                }
                 Node::Tuple(nested_args) => {
                     let tuple_register = arg_index as u8;
                     self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
@@ -790,7 +796,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Some(*id_index)),
                 Node::Wildcard => result.push(None),
-                Node::Tuple(nested_args) => {
+                Node::List(nested_args) | Node::Tuple(nested_args) => {
                     result.push(None);
                     nested_ids.extend(self.collect_nested_arg_ids(nested_args, ast)?);
                 }
@@ -819,7 +825,7 @@ impl Compiler {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(*id_index),
                 Node::Wildcard => {}
-                Node::Tuple(nested_args) => {
+                Node::List(nested_args) | Node::Tuple(nested_args) => {
                     result.extend_from_slice(&self.collect_nested_arg_ids(nested_args, ast)?);
                 }
                 unexpected => {
@@ -850,6 +856,17 @@ impl Compiler {
                         Op::ValueIndex,
                         &[local_register, container_register, arg_index as u8],
                     );
+                }
+                Node::List(nested_args) => {
+                    let list_register = self.push_register()?;
+                    self.push_op(
+                        Op::ValueIndex,
+                        &[list_register, container_register, arg_index as u8],
+                    );
+                    self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
+                    self.push_op(Op::CheckSize, &[list_register, nested_args.len() as u8]);
+                    self.compile_unpack_nested_args(list_register, nested_args, ast)?;
+                    self.pop_register()?; // list_register
                 }
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
