@@ -900,26 +900,39 @@ impl Vm {
     ) -> InstructionResult {
         use Value::*;
 
-        match self.get_register(value) {
+        let result = match self.get_register(value) {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
-                let result = list.data().get(index).cloned().unwrap_or(Empty);
-                self.set_register(register, result);
+                list.data().get(index).cloned().unwrap_or(Empty)
             }
             Tuple(tuple) => {
                 let index = signed_index_to_unsigned(index, tuple.data().len());
-                let result = tuple.data().get(index).cloned().unwrap_or(Empty);
-                self.set_register(register, result);
+                tuple.data().get(index).cloned().unwrap_or(Empty)
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
-                let result = if (index.abs() as u8) < count {
+                if (index.abs() as u8) < count {
                     let index = signed_index_to_unsigned(index, count as usize);
                     self.clone_register(start + index as u8)
                 } else {
                     Empty
-                };
-                self.set_register(register, result);
+                }
+            }
+            Num2(n) => {
+                let index = signed_index_to_unsigned(index, 2);
+                if index < 2 {
+                    Number(n[index])
+                } else {
+                    Empty
+                }
+            }
+            Num4(n) => {
+                let index = signed_index_to_unsigned(index, 4);
+                if index < 4 {
+                    Number(n[index] as f64)
+                } else {
+                    Empty
+                }
             }
             unexpected => {
                 return self.unexpected_type_error(
@@ -929,6 +942,8 @@ impl Vm {
                 );
             }
         };
+
+        self.set_register(register, result);
 
         Ok(())
     }
@@ -2661,7 +2676,7 @@ impl fmt::Debug for Vm {
 
 fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
     if index < 0 {
-        size - (index.abs() as usize)
+        size - (index.abs() as usize).min(size)
     } else {
         index as usize
     }

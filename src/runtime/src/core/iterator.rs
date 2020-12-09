@@ -1,10 +1,13 @@
-use crate::{
-    external_error, type_as_string, value,
-    value_iterator::{
-        is_iterable, make_iterator, ValueIterator, ValueIteratorOutput as Output,
-        ValueIteratorResult,
+use {
+    crate::{
+        external_error, type_as_string, value,
+        value_iterator::{
+            is_iterable, make_iterator, ValueIterator, ValueIteratorOutput as Output,
+            ValueIteratorResult,
+        },
+        Value, ValueHashMap, ValueList, ValueMap, ValueVec,
     },
-    Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+    std::cmp,
 };
 
 pub fn make_module() -> ValueMap {
@@ -223,7 +226,7 @@ pub fn make_module() -> ValueMap {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => std::cmp::max(result, value),
+                            Some(result) => cmp::max(result, value),
                             None => value,
                         })
                     }
@@ -245,7 +248,7 @@ pub fn make_module() -> ValueMap {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => std::cmp::min(result, value),
+                            Some(result) => cmp::min(result, value),
                             None => value,
                         })
                     }
@@ -257,6 +260,30 @@ pub fn make_module() -> ValueMap {
             Ok(result.unwrap_or(Empty))
         }
         _ => external_error!("iterator.min: Expected iterable as argument"),
+    });
+
+    result.add_fn("min_max", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => {
+            let mut result = None;
+
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Ok(Output::Value(value)) => {
+                        result = Some(match result {
+                            Some((min, max)) => {
+                                (cmp::min(min, value.clone()), cmp::max(max, value))
+                            }
+                            None => (value.clone(), value),
+                        })
+                    }
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
+        }
+        _ => external_error!("iterator.min_max: Expected iterable as argument"),
     });
 
     result.add_fn("next", |vm, args| match vm.get_args(args) {

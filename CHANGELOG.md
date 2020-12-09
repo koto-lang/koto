@@ -5,6 +5,7 @@
 ### Added
 
 - Core Ops
+  - iterator.min_max
   - list.copy
   - list.deep_copy
   - map.copy
@@ -14,6 +15,13 @@
 - Strings are now iterable by default
 - Tuples or lists in function arguments can be unpacked automatically.
   - e.g. `f = |a, (b, [c, d])| a + b + c + d`
+- Num2 and num4 values can now used in unpacking expressions
+  - e.g.
+    ```
+    x = num2 1 2
+    a, b = x
+    assert_eq b 2
+    ```
 
 ### Fixed
 - iterator.consume and iterator.count now propagate errors correctly.

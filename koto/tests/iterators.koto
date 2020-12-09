@@ -99,6 +99,10 @@ export tests =
     assert_eq (2, -1, 9).min() -1
     assert_eq ("hello", "goodbye").min() "goodbye"
 
+  test_min_max: ||
+    assert_eq (2, -1, 9).min_max() (-1, 9)
+    assert_eq ("hello", "to the", "world").min_max() ("hello", "world")
+
   test_position: ||
     assert_eq
       (100..1000).position |x| x >= 110
