@@ -5,6 +5,7 @@
 ### Added
 
 - Core Ops
+  - iterator.chain
   - tuple.sort_copy
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.

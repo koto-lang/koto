@@ -79,6 +79,18 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.any: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("chain", |vm, args| match vm.get_args(args) {
+        [iterable_a, iterable_b] if is_iterable(iterable_a) && is_iterable(iterable_b) => {
+            let iter_a = make_iterator(iterable_a).unwrap();
+            let iter_b = make_iterator(iterable_b).unwrap();
+
+            let mut iter = iter_a.chain(iter_b);
+
+            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+        }
+        _ => external_error!("iterator.chain: Expected two iterables as arguments"),
+    });
+
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
         [iterable] if is_iterable(iterable) => {
             let iter = make_iterator(iterable).unwrap();
