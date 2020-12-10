@@ -42,6 +42,15 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("tuple.size: Expected tuple as argument"),
     });
 
+    result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
+        [Tuple(t)] => {
+            let mut result = t.data().to_vec();
+            result.sort();
+            Ok(Tuple(result.into()))
+        }
+        _ => external_error!("tuple.sort_copy: Expected tuple as argument"),
+    });
+
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(List(ValueList::from_slice(t.data()))),
         _ => external_error!("tuple.to_list: Expected tuple as argument"),

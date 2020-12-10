@@ -98,6 +98,28 @@ x = |
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn else_at_same_indentation_as_if_body() {
+                let source = "
+if f x
+  0
+  else
+    1
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn else_if_at_same_indentation_as_if_body() {
+                let source = "
+if f x
+  0
+  else if g x
+    1
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod functions {

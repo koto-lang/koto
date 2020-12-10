@@ -3,7 +3,9 @@
 ## Unreleased
 
 ### Added
-
+- Core Ops
+  - iterator.chain
+  - tuple.sort_copy
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
   - The value to match against is now optional, and when it's ommitted then
@@ -17,11 +19,14 @@
         else "???"
       ```
 
+### Fixed
+- else and else if blocks with the incorrect indentation will now trigger a
+  parser error.
+
 
 ## [0.4.0] 2020.12.10
 
 ### Added
-
 - Core Ops
   - iterator.min_max
   - list.copy
