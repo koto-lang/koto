@@ -54,6 +54,10 @@ export tests =
     assert_eq (1, 2, 3).size() 3
     assert_eq ((1, 2), (3, 4)).size() 2
 
+  test_sort_copy: ||
+    assert_eq (3, 1, 2).sort_copy() (1, 2, 3)
+    assert_eq ("tuple", "sort", "copy").sort_copy() ("copy", "sort", "tuple")
+
   test_to_list: ||
     assert_eq (1, 2).to_list() [1, 2]
     assert_eq ((1, 2), (3, 4)).to_list() [(1, 2), (3, 4)]

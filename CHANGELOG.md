@@ -4,6 +4,8 @@
 
 ### Added
 
+- Core Ops
+  - tuple.sort_copy
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
   - The value to match against is now optional, and when it's ommitted then
