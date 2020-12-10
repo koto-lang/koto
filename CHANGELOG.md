@@ -4,7 +4,18 @@
 
 ### Added
 
-- `else` can be now used as the fallback arm in a match expression.
+- `match` improvements
+  - `else` can be now used as the fallback arm in a match expression.
+  - The value to match against is now optional, and when it's ommitted then
+    so are match patterns.
+    - e.g.
+      ```
+      n = 0
+      match
+        n == 0 then "zero"
+        n == 1 then "one"
+        else "???"
+      ```
 
 
 ## [0.4.0] 2020.12.10

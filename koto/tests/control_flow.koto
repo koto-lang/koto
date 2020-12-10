@@ -39,14 +39,23 @@ export tests =
 
   test_match: ||
     fib = |n|
-      match n
-        _ if n <= 0 then 0
-        1 then 1
+      match
+        n <= 0 then 0
+        n == 1 then 1
         else (fib n - 1) + (fib n - 2)
 
     assert_eq 13 (fib 7)
 
-  test_match_multiple_expressions: ||
+  test_match_with_value: ||
+    inspect = |n|
+      match n
+        x if x < 0 then "negative"
+        0 or 2 or 4 or 6 or 8 then "even"
+        1 or 3 or 5 or 7 or 9 then "odd"
+        else ">= 10"
+    assert_eq (inspect 7) "odd"
+
+  test_match_multiple_values: ||
     fizz_buzz = |n|
       match n % 3, n % 5
         0, 0 then "Fizz Buzz"
@@ -59,20 +68,16 @@ export tests =
       .to_tuple()
     assert_eq x ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
 
-  test_match_alternative_patterns: ||
-    inspect = |n|
-      match n
-        x if x < 0 then "negative"
-        0 or 2 or 4 or 6 or 8 then "even"
-        1 or 3 or 5 or 7 or 9 then "odd"
-        else ">= 10"
-    assert_eq (inspect 7) "odd"
-
   test_match_lists_and_tuples: ||
     z = [1, 2, (3, 4), (5, [6, 7, 8])]
+
     a = match z
+      # ... matches against any number of elements
       [3, 4, ...] then "starts with 3, 4"
-      [first..., 9, 10] then "ends with 9, 10"
+      # A name can be given to capture the matched elements
+      [start..., y, 10]
+        "starts with {} elements and ends with {}, 10".format start.size() y
+      # Matched lists and tuples can be nested
       [a, b, (3, 4), (c, [6, rest...])]
         a + b + c + rest.size()
     assert_eq a 10

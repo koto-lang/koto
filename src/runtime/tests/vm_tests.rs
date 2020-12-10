@@ -726,6 +726,19 @@ m.value_1 + m.value_2
 "#;
             test_script(script, Number(24.0));
         }
+
+        #[test]
+        fn match_without_expression() {
+            let script = r#"
+n = 42
+match
+  n < 0 then -1
+  n == 0 then 0
+  n == 42 then 99
+  else 1
+"#;
+            test_script(script, Number(99.0));
+        }
     }
 
     mod prelude {
