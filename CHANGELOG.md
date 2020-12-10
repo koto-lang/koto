@@ -3,7 +3,6 @@
 ## Unreleased
 
 ### Added
-
 - Core Ops
   - iterator.chain
   - tuple.sort_copy
@@ -20,11 +19,14 @@
         else "???"
       ```
 
+### Fixed
+- else and else if blocks with the incorrect indentation will now trigger a
+  parser error.
+
 
 ## [0.4.0] 2020.12.10
 
 ### Added
-
 - Core Ops
   - iterator.min_max
   - list.copy

@@ -1732,8 +1732,8 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let current_indent = self.lexer.current_indent();
-        context.expected_indentation = Some(current_indent);
+        let expected_indentation = self.lexer.current_indent();
+        context.expected_indentation = Some(expected_indentation);
 
         if self.consume_next_token(context) != Some(Token::If) {
             return internal_error!(UnexpectedToken, self);
@@ -1771,6 +1771,11 @@ impl<'source> Parser<'source> {
 
             while let Some((Token::ElseIf, _)) = self.peek_next_token(context) {
                 self.consume_next_token(context);
+
+                if self.lexer.current_indent() != expected_indentation {
+                    return syntax_error!(UnexpectedElseIfIndentation, self);
+                }
+
                 if let Some(else_if_condition) =
                     self.parse_expression(&mut ExpressionContext::inline())?
                 {
@@ -1786,6 +1791,11 @@ impl<'source> Parser<'source> {
 
             let else_node = if let Some((Token::Else, _)) = self.peek_next_token(context) {
                 self.consume_next_token(context);
+
+                if self.lexer.current_indent() != expected_indentation {
+                    return syntax_error!(UnexpectedElseIndentation, self);
+                }
+
                 if let Some(else_block) = self.parse_indented_map_or_block()? {
                     Some(else_block)
                 } else {
