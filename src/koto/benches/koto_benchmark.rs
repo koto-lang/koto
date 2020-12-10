@@ -15,6 +15,9 @@ struct BenchmarkRunner {
 impl BenchmarkRunner {
     fn new(script_path: &str, args: &[String]) -> Self {
         let mut path = current_dir().unwrap().canonicalize().unwrap();
+        path.push("..");
+        path.push("..");
+        path.push("koto");
         path.push("benches");
         path.push(script_path);
         let script = read_to_string(path).expect("Unable to load path");

@@ -83,7 +83,7 @@ While there's not yet a complete guide to Koto, there are some code examples
 that are a good starting point for getting to know the language.
 
 * [Koto test scripts, organized by feature](./koto/tests/)
-* [Koto benchmark scripts](./src/koto/benches/)
+* [Koto benchmark scripts](./koto/benches/)
 * [Example Rust application with Koto bindings](./examples/poetry/)
 
 
