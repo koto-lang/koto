@@ -577,7 +577,7 @@ impl Compiler {
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
             Node::Match { expression, arms } => {
-                self.compile_match(result_register, *expression, arms, ast)?
+                self.compile_match(result_register, expression, arms, ast)?
             }
             Node::Ellipsis(_) => {
                 return compiler_error!(self, "Ellipsis found outside of match patterns")
@@ -2437,7 +2437,7 @@ impl Compiler {
     fn compile_match(
         &mut self,
         result_register: ResultRegister,
-        match_expression: AstIndex,
+        match_expression: &Option<AstIndex>,
         arms: &[MatchArm],
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2445,7 +2445,7 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
-        let match_node = ast.node(match_expression);
+        let match_node = ast.node(match_expression.unwrap());
         let match_register = self
             .compile_node(ResultRegister::Any, match_node, ast)?
             .unwrap();

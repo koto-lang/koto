@@ -1820,7 +1820,7 @@ impl<'source> Parser<'source> {
         let start_span = self.lexer.span();
 
         let expression = match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
-            Some(expression) => expression,
+            Some(expression) => Some(expression),
             None => return syntax_error!(ExpectedMatchExpression, self),
         };
 

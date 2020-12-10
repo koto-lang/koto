@@ -3270,7 +3270,7 @@ x = match y
                     Id(3), // 5
                     Number(4),
                     Match {
-                        expression: 1,
+                        expression: Some(1),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![2, 3],
@@ -3324,7 +3324,7 @@ match x
                     Str(4),
                     Break, // 5
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3380,7 +3380,7 @@ match (x, y, z)
                     Tuple(vec![9, 12, 13]),
                     Number0, // 15
                     Match {
-                        expression: 3,
+                        expression: Some(3),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![7],
@@ -3429,7 +3429,7 @@ match x
                     Tuple(vec![5, 6]),
                     Number1,
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![3],
@@ -3474,7 +3474,7 @@ match y
                     Tuple(vec![6, 7, 8]),
                     Number1, // 10
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![4],
@@ -3535,7 +3535,7 @@ match x
                     Id(1),
                     Number(4),
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3598,7 +3598,7 @@ match x, y
                     Id(5),
                     Number0, // 15
                     Match {
-                        expression: 2,
+                        expression: Some(2),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5, 8],
@@ -3634,7 +3634,7 @@ match x, y
         }
 
         #[test]
-        fn match_condition_is_lookup_call() {
+        fn match_expression_is_lookup_call() {
             let source = "
 match x.foo 42
   () then 0
@@ -3652,7 +3652,7 @@ match x.foo 42
                     Number0,
                     Number1,
                     Match {
-                        expression: 4,
+                        expression: Some(4),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5],
