@@ -149,5 +149,29 @@ x. foo
                 check_parsing_fails(source);
             }
         }
+
+        mod match_expressions {
+            use super::*;
+
+            #[test]
+            fn else_used_with_pattern() {
+                let source = "
+match x
+  0 then 1
+  1 else 2
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn else_used_with_condition() {
+                let source = "
+match x
+  0 then 1
+  if true else 2
+";
+                check_parsing_fails(source);
+            }
+        }
     }
 }

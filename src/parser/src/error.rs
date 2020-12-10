@@ -84,6 +84,7 @@ pub enum SyntaxError {
     TooManyNum2Terms,
     TooManyNum4Terms,
     UnexpectedEscapeInString,
+    UnexpectedMatchElse,
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
@@ -255,6 +256,9 @@ impl fmt::Display for SyntaxError {
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
+            UnexpectedMatchElse => {
+                f.write_str("else can only be used in a match arm without a pattern or condition")
+            }
             UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {

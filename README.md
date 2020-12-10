@@ -65,7 +65,7 @@ fizz_buzz = (1..100)
       0, 0 then "Fizz Buzz"
       0, _ then "Fizz"
       _, 0 then "Buzz"
-      _ then n
+      else n
   .to_list()
 assert_eq
   fizz_buzz

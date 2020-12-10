@@ -1866,10 +1866,6 @@ impl<'source> Parser<'source> {
                 }
             }
 
-            if arm_patterns.len() != expected_arm_count {
-                return syntax_error!(ExpectedMatchPattern, self);
-            }
-
             let condition = if self.peek_next_token_on_same_line() == Some(Token::If) {
                 self.consume_next_token_on_same_line();
                 match self.parse_expression(&mut ExpressionContext::inline())? {
@@ -1880,16 +1876,46 @@ impl<'source> Parser<'source> {
                 None
             };
 
-            let expression = if self.peek_next_token_on_same_line() == Some(Token::Then) {
-                self.consume_next_token_on_same_line();
-                match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
-                    Some(expression) => expression,
-                    None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
+            let expression = match self.peek_next_token_on_same_line() {
+                Some(Token::Else) => {
+                    if !arm_patterns.is_empty() || condition.is_some() {
+                        return syntax_error!(UnexpectedMatchElse, self);
+                    }
+
+                    self.consume_next_token_on_same_line();
+
+                    if let Some(expression) =
+                        self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                    {
+                        expression
+                    } else if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                        indented_expression
+                    } else {
+                        return syntax_error!(ExpectedMatchArmExpression, self);
+                    }
                 }
-            } else if let Some(indented_expression) = self.parse_indented_map_or_block()? {
-                indented_expression
-            } else {
-                return syntax_error!(ExpectedMatchArmExpression, self);
+                Some(Token::Then) => {
+                    if arm_patterns.len() != expected_arm_count {
+                        return syntax_error!(ExpectedMatchPattern, self);
+                    }
+
+                    self.consume_next_token_on_same_line();
+                    match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                        Some(expression) => expression,
+                        None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
+                    }
+                }
+                _ => {
+                    if arm_patterns.len() != expected_arm_count {
+                        return syntax_error!(ExpectedMatchPattern, self);
+                    }
+
+                    if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                        indented_expression
+                    } else {
+                        return syntax_error!(ExpectedMatchArmExpression, self);
+                    }
+                }
             };
 
             arms.push(MatchArm {

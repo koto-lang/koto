@@ -565,7 +565,7 @@ match x % 3, x % 5
   0, 0 then "Fizz Buzz"
   0, _ then "Fizz"
   _, 0 then "Buzz"
-  _ then x
+  _ then x # alternative to else
 "#;
             test_script(script, Number(11.0));
         }
@@ -591,7 +591,7 @@ match 42
   1 or 2 then 11
   3 or 4 or 5 then 22
   21 or 42 then 33
-  _ then 44
+  else 44
 ";
             test_script(script, Number(33.0));
         }
@@ -602,7 +602,7 @@ match 42
 match (1, (2, 3), 4)
   (1, (x, y), (p, (q, r))) then -1
   (_, (a, b), _) then a + b
-  _ then 123
+  else 123
 ";
             test_script(script, Number(5.0));
         }
@@ -614,7 +614,7 @@ match [1, [2, 3], [4, 5, 6]]
   (1, (2, 3), (4, 5, 6)) then -1 # Tuples don't match against lists
   [1, [x, -1], [_, y, _]] then x + y
   [1, [x, 3], [_, 5, y]] then x + y
-  _ then 123
+  else 123
 ";
             test_script(script, Number(8.0));
         }
@@ -626,7 +626,7 @@ x = [0]
 match x
   [0] or [1] then 123
   [x, y] or [x, y, z] then 99
-  _ then -1
+  else -1
 ";
             test_script(script, Number(123.0));
         }
@@ -639,7 +639,7 @@ match x
   [0, ...] then 0
   [..., 1] then -1
   [1, ...] then 1
-  _ then 123
+  else 123
 ";
             test_script(script, Number(1.0));
         }
@@ -652,7 +652,7 @@ match x
   [0, rest...] then rest
   [rest..., 3, 2, 1] then rest
   [1, 2, rest...] then rest
-  _ then 123
+  else 123
 ";
             test_script(script, number_list(&[3.0, 4.0, 5.0]));
         }
@@ -665,7 +665,7 @@ match x
   [0, rest...] then rest
   [rest..., 3, 4, 5] then rest
   [1, 2, rest...] then rest
-  _ then 123
+  else 123
 ";
             test_script(script, number_list(&[1.0, 2.0]));
         }
@@ -678,7 +678,7 @@ match x
   (0, rest...) then rest
   (rest..., 3, 4, 5) then rest
   (1, 2, rest...) then rest
-  _ then 123
+  else 123
 ";
             test_script(script, number_tuple(&[1.0, 2.0]));
         }
@@ -691,7 +691,7 @@ match 0, 1
   _, 0 or _, 99 then -2
   x, 0 or x, 2 then -3
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
-  _ then -5
+  else -5
 ";
             test_script(script, Number(-4.0));
         }
@@ -704,7 +704,7 @@ match 0, 1
   _, 0 or _, 99 then -2
   x, 1 or x, 2 then -3 # The first alternative (x, 1) should match
   0, _ or 1, _ then -4
-  _ then -5
+  else -5
 ";
             test_script(script, Number(-3.0));
         }
@@ -719,7 +719,7 @@ m = match "hello"
   "hello"
     value_1: 4
     value_2: 20
-  _
+  _ # alternative to else
     value_1: 10
     value_2: 7
 m.value_1 + m.value_2

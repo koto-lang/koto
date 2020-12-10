@@ -42,7 +42,7 @@ export tests =
       match n
         _ if n <= 0 then 0
         1 then 1
-        _ then (fib n - 1) + (fib n - 2)
+        else (fib n - 1) + (fib n - 2)
 
     assert_eq 13 (fib 7)
 
@@ -52,7 +52,7 @@ export tests =
         0, 0 then "Fizz Buzz"
         0, _ then "Fizz"
         _, 0 then "Buzz"
-        _ then n
+        else n
 
     x = (10..=15)
       .each |n| fizz_buzz n
@@ -65,7 +65,7 @@ export tests =
         x if x < 0 then "negative"
         0 or 2 or 4 or 6 or 8 then "even"
         1 or 3 or 5 or 7 or 9 then "odd"
-        _ then ">= 10"
+        else ">= 10"
     assert_eq (inspect 7) "odd"
 
   test_match_lists_and_tuples: ||

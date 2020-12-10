@@ -4,7 +4,7 @@ fib = |n|
   match n
     _ if n <= 0 then 0
     1 then 1
-    _ then (fib n - 1) + (fib n - 2)
+    else (fib n - 1) + (fib n - 2)
 
 export main = ||
   n = match koto.args.get 0

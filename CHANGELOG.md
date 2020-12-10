@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `else` can be now used as the fallback arm in a match expression.
+
 
 ## [0.4.0] 2020.12.10
 
