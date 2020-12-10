@@ -63,7 +63,7 @@ pub enum Node {
     },
     If(AstIf),
     Match {
-        expression: AstIndex,
+        expression: Option<AstIndex>,
         arms: Vec<MatchArm>,
     },
     Wildcard,

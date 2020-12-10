@@ -80,10 +80,13 @@ pub enum SyntaxError {
     ImportFromExpressionHasTooManyItems,
     LexerError,
     MatchEllipsisOutsideOfNestedPatterns,
+    MatchElseNotInLastArm,
     SelfArgNotInFirstPosition,
     TooManyNum2Terms,
     TooManyNum4Terms,
     UnexpectedEscapeInString,
+    UnexpectedMatchElse,
+    UnexpectedMatchIf,
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
@@ -251,10 +254,15 @@ impl fmt::Display for SyntaxError {
             MatchEllipsisOutsideOfNestedPatterns => {
                 f.write_str("Ellipsis found outside of nested match patterns")
             }
+            MatchElseNotInLastArm => {
+                f.write_str("else can only be used in the last arm in a match expression")
+            }
             SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
+            UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
+            UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
             UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {

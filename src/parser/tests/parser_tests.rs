@@ -3270,7 +3270,7 @@ x = match y
                     Id(3), // 5
                     Number(4),
                     Match {
-                        expression: 1,
+                        expression: Some(1),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![2, 3],
@@ -3324,7 +3324,7 @@ match x
                     Str(4),
                     Break, // 5
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3380,7 +3380,7 @@ match (x, y, z)
                     Tuple(vec![9, 12, 13]),
                     Number0, // 15
                     Match {
-                        expression: 3,
+                        expression: Some(3),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![7],
@@ -3429,7 +3429,7 @@ match x
                     Tuple(vec![5, 6]),
                     Number1,
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![3],
@@ -3474,7 +3474,7 @@ match y
                     Tuple(vec![6, 7, 8]),
                     Number1, // 10
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![4],
@@ -3535,7 +3535,7 @@ match x
                     Id(1),
                     Number(4),
                     Match {
-                        expression: 0,
+                        expression: Some(0),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3576,7 +3576,7 @@ match x, y
   0, 1 or 2, 3 if z then 0
   a, ()
     a
-  _ then 0
+  else 0
 ";
             check_ast(
                 source,
@@ -3596,10 +3596,9 @@ match x, y
                     Empty,
                     TempTuple(vec![11, 12]),
                     Id(5),
-                    Wildcard, // 15
-                    Number0,
+                    Number0, // 15
                     Match {
-                        expression: 2,
+                        expression: Some(2),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5, 8],
@@ -3612,14 +3611,14 @@ match x, y
                                 expression: 14,
                             },
                             MatchArm {
-                                patterns: vec![15],
+                                patterns: vec![],
                                 condition: None,
-                                expression: 16,
+                                expression: 15,
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![17],
+                        body: vec![16],
                         local_count: 1,
                     },
                 ],
@@ -3635,11 +3634,11 @@ match x, y
         }
 
         #[test]
-        fn match_condition_is_lookup_call() {
+        fn match_expression_is_lookup_call() {
             let source = "
 match x.foo 42
   () then 0
-  _ then 1
+  else 1
 ";
             check_ast(
                 source,
@@ -3651,10 +3650,9 @@ match x.foo 42
                     Lookup((LookupNode::Root(0), Some(3))),
                     Empty, // 5
                     Number0,
-                    Wildcard,
                     Number1,
                     Match {
-                        expression: 4,
+                        expression: Some(4),
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5],
@@ -3662,14 +3660,14 @@ match x.foo 42
                                 expression: 6,
                             },
                             MatchArm {
-                                patterns: vec![7],
+                                patterns: vec![],
                                 condition: None,
-                                expression: 8,
+                                expression: 7,
                             },
                         ],
                     },
                     MainBlock {
-                        body: vec![9],
+                        body: vec![8],
                         local_count: 0,
                     },
                 ],

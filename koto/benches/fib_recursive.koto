@@ -1,10 +1,10 @@
 import koto, test.assert_eq
 
 fib = |n|
-  match n
-    _ if n <= 0 then 0
-    1 then 1
-    _ then (fib n - 1) + (fib n - 2)
+  match
+    n <= 0 then 0
+    n == 1 then 1
+    else (fib n - 1) + (fib n - 2)
 
 export main = ||
   n = match koto.args.get 0

@@ -149,5 +149,49 @@ x. foo
                 check_parsing_fails(source);
             }
         }
+
+        mod match_expressions {
+            use super::*;
+
+            #[test]
+            fn else_used_with_pattern() {
+                let source = "
+match x
+  0 then 1
+  1 else 2
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn else_not_in_last_arm() {
+                let source = "
+match x
+  else 2
+  0 then 1
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn else_used_with_condition() {
+                let source = "
+match x
+  0 then 1
+  if true else 2
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn pattern_used_with_no_match_value() {
+                let source = "
+match
+  0 if true then 1
+  else 2
+";
+                check_parsing_fails(source);
+            }
+        }
     }
 }
