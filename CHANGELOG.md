@@ -5,6 +5,7 @@
 ### Added
 - Core Ops
   - iterator.chain
+  - list.clear
   - list.swap
   - tuple.first
   - tuple.last

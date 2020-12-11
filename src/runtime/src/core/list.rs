@@ -10,6 +10,14 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("clear", |vm, args| match vm.get_args(args) {
+        [List(l)] => {
+            l.data_mut().clear();
+            Ok(Empty)
+        }
+        _ => external_error!("list.clear: Expected list as argument"),
+    });
+
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [List(l), value] => Ok(Bool(l.data().contains(value))),
         _ => external_error!("list.contains: Expected list and value as arguments"),
