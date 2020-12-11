@@ -9,6 +9,14 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("clear", |vm, args| match vm.get_args(args) {
+        [Map(m)] => {
+            m.data_mut().clear();
+            Ok(Empty)
+        }
+        _ => external_error!("map.clear: Expected map as argument"),
+    });
+
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
         [Map(m), key] => Ok(Bool(m.data().contains_key(key))),
         [other_a, other_b, ..] => external_error!(

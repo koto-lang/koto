@@ -17,6 +17,9 @@ export tests =
     assert_eq x [0, 1]
     x += [2, 3]
     assert_eq x [0, 1, 2, 3]
+    # Tuples can also be added to lists
+    x += (4, 5)
+    assert_eq x [0, 1, 2, 3, 4, 5]
 
   test_list_unpacking: ||
     a, b, c = [10, 20, 30, 40]

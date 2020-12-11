@@ -5,6 +5,13 @@
 ### Added
 - Core Ops
   - iterator.chain
+  - list.clear
+  - list.swap
+  - map.clear
+  - os.cpu_count
+  - os.physical_cpu_count
+  - tuple.first
+  - tuple.last
   - tuple.sort_copy
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
@@ -18,6 +25,15 @@
         n == 1 then "one"
         else "???"
       ```
+- Tuples may now be added to lists with the `+` and `+=` operators.
+  - e.g.
+    ```
+    x = [1, 2] + (3, 4)
+    assert_eq x [1, 2, 3, 4]
+    ```
+
+### Changed
+- thread.join now returns the result of the thread's function
 
 ### Fixed
 - else and else if blocks with the incorrect indentation will now trigger a

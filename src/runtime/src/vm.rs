@@ -50,6 +50,7 @@ impl Default for VmContext {
         prelude.add_map("koto", core_lib.koto.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("os", core_lib.os.clone());
         prelude.add_map("number", core_lib.number.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
@@ -1169,6 +1170,11 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a + b),
             (Num4(a), Number(b)) => Num4(a + b),
             (List(a), List(b)) => {
+                let mut result = ValueVec::new();
+                result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                List(ValueList::with_data(result))
+            }
+            (List(a), Tuple(b)) => {
                 let mut result = ValueVec::new();
                 result.extend(a.data().iter().chain(b.data().iter()).cloned());
                 List(ValueList::with_data(result))

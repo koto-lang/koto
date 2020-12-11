@@ -18,6 +18,14 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("tuple.deep_copy: Expected tuple as argument"),
     });
 
+    result.add_fn("first", |vm, args| match vm.get_args(args) {
+        [Tuple(t)] => match t.data().first() {
+            Some(value) => Ok(value.clone()),
+            None => Ok(Value::Empty),
+        },
+        _ => external_error!("tuple.first: Expected tuple as argument"),
+    });
+
     result.add_fn("get", |vm, args| match vm.get_args(args) {
         [Tuple(t), Number(n)] => {
             if *n < 0.0 {
@@ -35,6 +43,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Iterator(ValueIterator::with_tuple(t.clone()))),
         _ => external_error!("tuple.iter: Expected tuple as argument"),
+    });
+
+    result.add_fn("last", |vm, args| match vm.get_args(args) {
+        [Tuple(t)] => match t.data().last() {
+            Some(value) => Ok(value.clone()),
+            None => Ok(Value::Empty),
+        },
+        _ => external_error!("tuple.last: Expected tuple as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {

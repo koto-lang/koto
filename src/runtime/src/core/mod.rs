@@ -8,6 +8,7 @@ pub mod map;
 pub mod num2;
 pub mod num4;
 pub mod number;
+pub mod os;
 pub mod range;
 pub mod string;
 pub mod test;
@@ -23,6 +24,7 @@ pub struct CoreLib {
     pub koto: ValueMap,
     pub list: ValueMap,
     pub map: ValueMap,
+    pub os: ValueMap,
     pub num2: ValueMap,
     pub num4: ValueMap,
     pub number: ValueMap,
@@ -41,6 +43,7 @@ impl Default for CoreLib {
             koto: koto::make_module(),
             list: list::make_module(),
             map: map::make_module(),
+            os: os::make_module(),
             num2: num2::make_module(),
             num4: num4::make_module(),
             number: number::make_module(),

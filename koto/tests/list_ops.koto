@@ -3,9 +3,10 @@ from test import assert, assert_eq
 
 
 export tests =
-  test_is_empty: ||
-    assert [].is_empty()
-    assert not [1, 2, 3].is_empty()
+  test_clear: ||
+    x = [1, 2, 3, 4, 5]
+    x.clear()
+    assert_eq x []
 
   test_contains: ||
     assert ([0..10].contains 5)
@@ -52,6 +53,10 @@ export tests =
     z = [1, 2, 3]
     assert_eq z.first() 1
     assert_eq z.last() 3
+
+  test_is_empty: ||
+    assert [].is_empty()
+    assert not [1, 2, 3].is_empty()
 
   test_remove_insert: ||
     z = [1, 2, 3]
@@ -102,6 +107,15 @@ export tests =
     z = [3, 2, 1]
     z.sort()
     assert_eq z [1, 2, 3]
+
+  test_swap: ||
+    a = [1, 2, 3]
+    b = [7, 8, 9]
+
+    a.swap b
+
+    assert_eq a [7, 8, 9]
+    assert_eq b [1, 2, 3]
 
   test_sort_copy: ||
     assert_eq [42, 10, 9].sort_copy() [9, 10, 42]
