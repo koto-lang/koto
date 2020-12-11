@@ -17,7 +17,7 @@ pub fn make_module() -> ValueMap {
             let join_handle = thread::spawn({
                 let mut thread_vm = vm.spawn_shared_concurrent_vm();
                 move || match thread_vm.run_function(&f, &[]) {
-                    Ok(_) => Ok(()),
+                    Ok(result) => Ok(result),
                     Err(e) => Err(e),
                 }
             });
@@ -49,11 +49,11 @@ pub fn make_module() -> ValueMap {
 
 #[derive(Debug)]
 struct Thread {
-    join_handle: Option<JoinHandle<Result<(), Error>>>,
+    join_handle: Option<JoinHandle<Result<Value, Error>>>,
 }
 
 impl Thread {
-    fn make_thread_map(join_handle: JoinHandle<Result<(), Error>>) -> Value {
+    fn make_thread_map(join_handle: JoinHandle<Result<Value, Error>>) -> Value {
         let mut result = ValueMap::new();
 
         result.add_instance_fn("join", |vm, args| {
@@ -61,7 +61,7 @@ impl Thread {
             get_external_instance!(args, "Thread", "join", Thread, thread, {
                 let result = thread.join_handle.take().unwrap().join();
                 match result {
-                    Ok(Ok(_)) => Ok(Value::Empty),
+                    Ok(Ok(result)) => Ok(result),
                     Ok(Err(koto_error)) => Err(koto_error),
                     Err(_) => external_error!("thread.join: thread panicked"),
                 }

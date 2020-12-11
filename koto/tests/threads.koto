@@ -4,15 +4,21 @@ export tests =
   test_spawn_4_threads_and_join: ||
     data = list.with_size 8 0
 
+    worker_count = 4
+    worker_indices = (0..worker_count).to_tuple()
+
     worker = |i|
       data[i] = 10 + i
-      data[i + 4] = 14 + i
+      data[i + worker_count] = 10 + worker_count + i
+      i
 
-    threads = (0..4)
+    threads = worker_indices
       .each |i| return thread.create || worker i
       .to_tuple()
 
-    for t in threads
-      t.join()
+    thread_results = threads
+      .each |t| t.join()
+      .to_tuple()
 
+    assert_eq thread_results worker_indices
     assert_eq data [10..18]

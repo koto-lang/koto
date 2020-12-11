@@ -32,6 +32,9 @@
     assert_eq x [1, 2, 3, 4]
     ```
 
+### Changed
+- thread.join now returns the result of the thread's function
+
 ### Fixed
 - else and else if blocks with the incorrect indentation will now trigger a
   parser error.
