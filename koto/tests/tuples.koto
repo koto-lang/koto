@@ -27,6 +27,10 @@ export tests =
     x2[1][0] = 42
     assert_eq x2[0][0] 1
 
+  test_first: ||
+    assert_eq (1, 2, 3).first() 1
+    assert_eq [].to_tuple().first() ()
+
   test_get: ||
     x = 1, 2, 3
     assert_eq (x.get 0) 1
@@ -48,6 +52,10 @@ export tests =
         .each |n| "{}".format n
         .to_tuple()
       ("1", "2", "3")
+
+  test_last: ||
+    assert_eq (1, 2, 3).last() 3
+    assert_eq [].to_tuple().last() ()
 
   test_size: ||
     assert_eq (1, 2).size() 2
