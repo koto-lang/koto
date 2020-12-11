@@ -1174,6 +1174,11 @@ impl Vm {
                 result.extend(a.data().iter().chain(b.data().iter()).cloned());
                 List(ValueList::with_data(result))
             }
+            (List(a), Tuple(b)) => {
+                let mut result = ValueVec::new();
+                result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                List(ValueList::with_data(result))
+            }
             (Map(a), Map(b)) => {
                 let mut result = a.data().clone();
                 result.extend(&b.data());

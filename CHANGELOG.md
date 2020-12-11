@@ -25,6 +25,12 @@
         n == 1 then "one"
         else "???"
       ```
+- Tuples may now be added to lists with the `+` and `+=` operators.
+  - e.g.
+    ```
+    x = [1, 2] + (3, 4)
+    assert_eq x [1, 2, 3, 4]
+    ```
 
 ### Fixed
 - else and else if blocks with the incorrect indentation will now trigger a
