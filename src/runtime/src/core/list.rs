@@ -30,7 +30,7 @@ pub fn make_module() -> ValueMap {
             for v in l.data_mut().iter_mut() {
                 *v = value.clone();
             }
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.fill: Expected list and value as arguments"),
     });
@@ -38,7 +38,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("first", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data().first() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Value::Empty),
+            None => Ok(Empty),
         },
         _ => external_error!("list.first: Expected list as argument"),
     });
@@ -68,7 +68,7 @@ pub fn make_module() -> ValueMap {
             }
 
             l.data_mut().insert(index, value.clone());
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.insert: Expected list, number, and value as arguments"),
     });
@@ -86,7 +86,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data().last() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Value::Empty),
+            None => Ok(Empty),
         },
         _ => external_error!("list.last: Expected list as argument"),
     });
@@ -94,7 +94,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("pop", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data_mut().pop() {
             Some(value) => Ok(value),
-            None => Ok(Value::Empty),
+            None => Ok(Empty),
         },
         _ => external_error!("list.pop: Expected list as argument"),
     });
@@ -102,7 +102,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("push", |vm, args| match vm.get_args(args) {
         [List(l), value] => {
             l.data_mut().push(value.clone());
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.push: Expected list and value as arguments"),
     });
@@ -133,7 +133,7 @@ pub fn make_module() -> ValueMap {
                 return external_error!("list.resize: Negative sizes aren't allowed");
             }
             l.data_mut().resize(*n as usize, value.clone());
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.resize: Expected list, number, and value as arguments"),
     });
@@ -171,7 +171,7 @@ pub fn make_module() -> ValueMap {
                         }
                     }
                 }
-                l.data_mut().resize(write_index, Value::Empty);
+                l.data_mut().resize(write_index, Empty);
             }
             [List(l), value] => {
                 l.data_mut().retain(|x| x == value);
@@ -183,13 +183,13 @@ pub fn make_module() -> ValueMap {
             }
         }
 
-        Ok(Value::Empty)
+        Ok(Empty)
     });
 
     result.add_fn("reverse", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             l.data_mut().reverse();
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.reverse: Expected list as argument"),
     });
@@ -202,7 +202,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             l.data_mut().sort();
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.sort: Expected list as argument"),
     });
@@ -220,7 +220,7 @@ pub fn make_module() -> ValueMap {
         [List(a), List(b)] => {
             std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
 
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.swap: Expected two lists as arguments"),
     });
@@ -248,7 +248,7 @@ pub fn make_module() -> ValueMap {
                 *value = vm.run_function(&f, &[value.clone()])?;
             }
 
-            Ok(Value::Empty)
+            Ok(Empty)
         }
         _ => external_error!("list.transform expects a list and function as arguments"),
     });
@@ -260,7 +260,7 @@ pub fn make_module() -> ValueMap {
             }
 
             let result = smallvec::smallvec![value.clone(); *n as usize];
-            Ok(Value::List(ValueList::with_data(result)))
+            Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.with_size: Expected number and value as arguments"),
     });
