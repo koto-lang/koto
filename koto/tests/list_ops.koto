@@ -103,6 +103,15 @@ export tests =
     z.sort()
     assert_eq z [1, 2, 3]
 
+  test_swap: ||
+    a = [1, 2, 3]
+    b = [7, 8, 9]
+
+    a.swap b
+
+    assert_eq a [7, 8, 9]
+    assert_eq b [1, 2, 3]
+
   test_sort_copy: ||
     assert_eq [42, 10, 9].sort_copy() [9, 10, 42]
 

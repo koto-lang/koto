@@ -1,5 +1,8 @@
-use crate::{
-    external_error, value, value::deep_copy_value, Value, ValueIterator, ValueList, ValueMap,
+use {
+    crate::{
+        external_error, value, value::deep_copy_value, Value, ValueIterator, ValueList, ValueMap,
+    },
+    std::ops::DerefMut,
 };
 
 pub fn make_module() -> ValueMap {
@@ -211,6 +214,15 @@ pub fn make_module() -> ValueMap {
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.sort_copy: Expected list as argument"),
+    });
+
+    result.add_fn("swap", |vm, args| match vm.get_args(args) {
+        [List(a), List(b)] => {
+            std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
+
+            Ok(Value::Empty)
+        }
+        _ => external_error!("list.swap: Expected two lists as arguments"),
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
