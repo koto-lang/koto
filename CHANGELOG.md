@@ -7,6 +7,7 @@
   - iterator.chain
   - list.clear
   - list.swap
+  - map.clear
   - tuple.first
   - tuple.last
   - tuple.sort_copy

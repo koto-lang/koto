@@ -136,6 +136,11 @@ impl ValueHashMap {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+
+    #[inline]
     pub fn get(&self, key: &Value) -> Option<&Value> {
         self.0.get(key)
     }

@@ -2,13 +2,10 @@ import map
 from test import assert, assert_eq
 
 export tests =
-  test_is_empty: ||
-    assert {}.is_empty()
-    assert not {foo: 42}.is_empty()
-
-  test_size: ||
-    assert_eq {}.size() 0
-    assert_eq {foo: 42}.size() 1
+  test_clear: ||
+    m = {foo: 42, bar: 99}
+    m.clear()
+    assert_eq m {}
 
   test_contains_key: ||
     m = {foo: 42, bar: 99}
@@ -45,6 +42,10 @@ export tests =
     m.insert 1 "one"
     m.insert 2 "two"
 
+  test_is_empty: ||
+    assert {}.is_empty()
+    assert not {foo: 42}.is_empty()
+
   test_get: ||
     m = {foo: 42}
     assert_eq (m.get "foo") 42
@@ -71,6 +72,10 @@ export tests =
     assert_eq (m.remove "foo") 42
     assert_eq (m.remove "bar") 99
     assert_eq (m.remove "foo") ()
+
+  test_size: ||
+    assert_eq {}.size() 0
+    assert_eq {foo: 42}.size() 1
 
   test_update: ||
     m = {foo: 42}
