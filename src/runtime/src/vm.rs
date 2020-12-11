@@ -50,6 +50,7 @@ impl Default for VmContext {
         prelude.add_map("koto", core_lib.koto.clone());
         prelude.add_map("list", core_lib.list.clone());
         prelude.add_map("map", core_lib.map.clone());
+        prelude.add_map("os", core_lib.os.clone());
         prelude.add_map("number", core_lib.number.clone());
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());

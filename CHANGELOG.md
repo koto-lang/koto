@@ -8,6 +8,8 @@
   - list.clear
   - list.swap
   - map.clear
+  - os.cpu_count
+  - os.physical_cpu_count
   - tuple.first
   - tuple.last
   - tuple.sort_copy

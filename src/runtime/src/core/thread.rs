@@ -11,19 +11,6 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("sleep", |vm, args| match vm.get_args(args) {
-        [Number(seconds)] => {
-            if *seconds < 0.0 {
-                return external_error!("thread.sleep: negative durations aren't supported");
-            }
-
-            thread::sleep(Duration::from_millis((*seconds * 1000.0) as u64));
-
-            Ok(Empty)
-        }
-        _ => external_error!("thread.sleep: Expected number as argument"),
-    });
-
     result.add_fn("create", |vm, args| match vm.get_args(args) {
         [Function(f)] => {
             let f = f.clone();
@@ -42,6 +29,19 @@ pub fn make_module() -> ValueMap {
             type_as_string(unexpected),
         ),
         _ => external_error!("thread.create: Expected function as argument"),
+    });
+
+    result.add_fn("sleep", |vm, args| match vm.get_args(args) {
+        [Number(seconds)] => {
+            if *seconds < 0.0 {
+                return external_error!("thread.sleep: negative durations aren't supported");
+            }
+
+            thread::sleep(Duration::from_millis((*seconds * 1000.0) as u64));
+
+            Ok(Empty)
+        }
+        _ => external_error!("thread.sleep: Expected number as argument"),
     });
 
     result

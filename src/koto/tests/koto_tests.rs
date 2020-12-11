@@ -110,6 +110,7 @@ assert_near 1 2 0.1
     koto_test!(map_ops);
     koto_test!(maps);
     koto_test!(maps_and_lists);
+    koto_test!(os);
     koto_test!(numbers);
     koto_test!(num2_4);
     koto_test!(primes);
