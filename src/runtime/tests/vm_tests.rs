@@ -710,6 +710,32 @@ match 0, 1
         }
 
         #[test]
+        fn match_with_lookup_as_pattern() {
+            let script = "
+x = {foo: 42, bar: 99}
+match 99
+  x.foo then 1
+  x.bar then 2
+  else -1
+";
+            test_script(script, Number(2.0));
+        }
+
+        #[test]
+        fn match_with_lookup_as_pattern_in_function() {
+            let script = "
+x = {foo: 42, bar: 99}
+f = ||
+  match 42
+    x.foo then 1
+    x.bar then 2
+    else -1
+f()
+";
+            test_script(script, Number(1.0));
+        }
+
+        #[test]
         fn match_map_result() {
             let script = r#"
 m = match "hello"

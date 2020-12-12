@@ -32,3 +32,12 @@ export tests =
     assert_eq (enum.get 0) "foo"
     assert_eq (enum.get 1) "bar"
     assert_eq (enum.get 2) "baz"
+
+  test_match_against_enum_values: ||
+    enum = make_enum "a" "b" "c"
+    x = enum.b
+    y = match x
+      enum.a then 1
+      enum.b then 2
+      enum.c then 3
+    assert_eq y 2

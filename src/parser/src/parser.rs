@@ -1981,18 +1981,25 @@ impl<'source> Parser<'source> {
                 True | False | Number | String => return self.parse_term(&mut pattern_context),
                 Id => match self.parse_id(&mut pattern_context) {
                     Some(id) => {
-                        self.frame_mut()?.ids_assigned_in_scope.insert(id);
                         let result = if self.peek_token() == Some(Ellipsis) {
                             self.consume_token();
                             if in_nested_patterns {
-                                Node::Ellipsis(Some(id))
+                                self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                                self.push_node(Node::Ellipsis(Some(id)))?
                             } else {
                                 return syntax_error!(MatchEllipsisOutsideOfNestedPatterns, self);
                             }
                         } else {
-                            Node::Id(id)
+                            let id_node = self.push_node(Node::Id(id))?;
+                            if self.next_token_is_lookup_start(&mut pattern_context) {
+                                self.frame_mut()?.increment_expression_access_for_id(id);
+                                self.parse_lookup(id_node, &mut pattern_context)?
+                            } else {
+                                self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                                id_node
+                            }
                         };
-                        Some(self.push_node(result)?)
+                        Some(result)
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },

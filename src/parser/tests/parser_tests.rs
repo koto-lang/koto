@@ -3678,5 +3678,36 @@ match x.foo 42
                 ]),
             )
         }
+
+        #[test]
+        fn match_pattern_is_lookup() {
+            let source = "
+match x
+  y.foo then 0
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((LookupNode::Root(1), Some(2))),
+                    Number0,
+                    Match {
+                        expression: Some(0),
+                        arms: vec![MatchArm {
+                            patterns: vec![3],
+                            condition: None,
+                            expression: 4,
+                        }],
+                    },
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("foo")]),
+            )
+        }
     }
 }
