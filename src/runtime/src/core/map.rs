@@ -50,6 +50,19 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("map.get: Expected map and key as arguments"),
     });
 
+    result.add_fn("get_index", |vm, args| match vm.get_args(args) {
+        [Map(m), Number(n)] => {
+            if *n < 0.0 {
+                return external_error!("map.get_index: Negative indices aren't allowed");
+            }
+            match m.data().get_index(*n as usize) {
+                Some((key, value)) => Ok(Tuple(vec![key.clone(), value.clone()].into())),
+                None => Ok(Empty),
+            }
+        }
+        _ => external_error!("map.get_index: Expected map and index as arguments"),
+    });
+
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
         [Map(m), key] if value_is_immutable(key) => match m.data_mut().insert(key.clone(), Empty) {
             Some(old_value) => Ok(old_value),
