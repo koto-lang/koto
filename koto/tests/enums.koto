@@ -1,0 +1,43 @@
+import test.assert_eq
+
+make_enum = |entries...|
+  entries
+    .enumerate()
+    .each |(index, id)| id, index
+    .to_map()
+
+make_bidirectional_enum = |entries...|
+  entries
+    .enumerate()
+    .fold {} |enum, (index, id)|
+      enum.insert id index
+      enum.insert index id
+      enum
+
+export tests =
+  test_make_enum: ||
+    enum = make_enum "foo" "bar" "baz"
+    assert_eq enum.foo 0
+    assert_eq enum.bar 1
+    assert_eq enum.baz 2
+    assert_eq (enum.get_index 0)[0] "foo"
+    assert_eq (enum.get_index 1)[0] "bar"
+    assert_eq (enum.get_index 2)[0] "baz"
+
+  test_make_bidirectional_enum: ||
+    enum = make_bidirectional_enum "foo" "bar" "baz"
+    assert_eq enum.foo 0
+    assert_eq enum.bar 1
+    assert_eq enum.baz 2
+    assert_eq (enum.get 0) "foo"
+    assert_eq (enum.get 1) "bar"
+    assert_eq (enum.get 2) "baz"
+
+  test_match_against_enum_values: ||
+    enum = make_enum "a" "b" "c"
+    x = enum.b
+    y = match x
+      enum.a then 1
+      enum.b then 2
+      enum.c then 3
+    assert_eq y 2

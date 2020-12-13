@@ -57,6 +57,11 @@ export tests =
     assert_eq (m.get 1) "O_o"
     assert_eq (m.get (num2 1 2)) ()
 
+  test_get_index: ||
+    m = {foo: 42, bar: 99, baz: 123}
+    assert_eq (m.get_index 1) ("bar", 99)
+    assert_eq (m.get_index 2) ("baz", 123)
+
   test_keys: ||
     m = {foo: 42}
     assert_eq m.keys().to_tuple() ("foo",)

@@ -55,6 +55,15 @@ export tests =
         else ">= 10"
     assert_eq (inspect 7) "odd"
 
+  test_match_against_lookups: ||
+    m = {foo: 42, bar: 99}
+    z = match 99
+      # Lookups (map/list accesses, function calls) match if their results are equal
+      m.foo then "foo"
+      m.bar then "bar"
+      other then "{}".format other
+    assert_eq z "bar"
+
   test_match_multiple_values: ||
     fizz_buzz = |n|
       match n % 3, n % 5

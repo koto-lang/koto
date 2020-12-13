@@ -95,6 +95,7 @@ assert_near 1 2 0.1
     koto_test!(assignment);
     koto_test!(comments);
     koto_test!(control_flow);
+    koto_test!(enums);
     koto_test!(error_handling);
     koto_test!(function_closures);
     koto_test!(functions);

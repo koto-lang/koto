@@ -8,6 +8,7 @@
   - list.clear
   - list.swap
   - map.clear
+  - map.get_index
   - os.cpu_count
   - os.physical_cpu_count
   - tuple.first
@@ -24,6 +25,15 @@
         n == 0 then "zero"
         n == 1 then "one"
         else "???"
+      ```
+  - The results of list/map accesses or function calls can be used as match
+    patterns.
+    - e.g.
+      ```
+      match x
+        f y then "x == f y"
+        m.foo then "x == m.foo"
+        z[10] then "x == z[10]"
       ```
 - Tuples may now be added to lists with the `+` and `+=` operators.
   - e.g.
