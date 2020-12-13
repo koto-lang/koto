@@ -760,7 +760,7 @@ impl<'source> Parser<'source> {
             } else {
                 Node::MultiAssign {
                     targets,
-                    expressions: rhs,
+                    expression: rhs,
                 }
             };
             Ok(Some(self.push_node(node)?))

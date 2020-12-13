@@ -448,6 +448,24 @@ a, b, c";
                 value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
             );
         }
+
+        #[test]
+        fn swap_values() {
+            let script = "
+a, b = 0, 1
+a, b = b, a
+b";
+            test_script(script, Number(0.0));
+        }
+
+        #[test]
+        fn swap_values_with_expressions() {
+            let script = "
+a, b = 10, 7
+a, b = a + b, a % b
+b";
+            test_script(script, Number(3.0));
+        }
     }
 
     mod if_expressions {

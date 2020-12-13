@@ -743,7 +743,7 @@ num4(
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 7,
+                        expression: 7,
                     },
                     MainBlock {
                         body: vec![8],
@@ -780,7 +780,7 @@ x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 4,
+                        expression: 4,
                     }, // 5
                     Id(0),
                     MainBlock {
@@ -819,7 +819,7 @@ x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 5,
+                        expression: 5,
                     },
                     MainBlock {
                         body: vec![6],
@@ -1370,7 +1370,7 @@ a";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 9,
+                        expression: 9,
                     }, // 10
                     MainBlock {
                         body: vec![10],
@@ -1956,7 +1956,7 @@ f x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expressions: 12,
+                        expression: 12,
                     },
                     MainBlock {
                         body: vec![13],
