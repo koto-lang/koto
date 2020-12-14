@@ -35,6 +35,16 @@
         m.foo then "x == m.foo"
         z[10] then "x == z[10]"
       ```
+  - match arms that have indented bodies can now optionally use `then`,
+    which can look clearer when the match pattern is short.
+    - e.g.
+      ```
+      match x
+        0 then # <-- `then` was previously disallowed here
+          "zero"
+        1 then
+          "one"
+      ```
 - Tuples may now be added to lists with the `+` and `+=` operators.
   - e.g.
     ```
@@ -43,13 +53,13 @@
     ```
 
 ### Changed
-- thread.join now returns the result of the thread's function
+- thread.join now returns the result of the thread's function.
 
 ### Fixed
-- else and else if blocks with the incorrect indentation will now trigger a
+- else and else if blocks with unexpected indentation will now trigger a
   parser error.
 - Multi-assignment of values where the values are used in the expressions now
-  works correctly.
+  works as expected.
   - e.g.
     ```
     a, b = 1, 2
@@ -57,6 +67,7 @@
     # Previously this would result in b being re-assigned to itself
     assert_eq b 1
     ```
+- Generator functions can now capture non-local values.
 
 ## [0.4.0] 2020.12.10
 
