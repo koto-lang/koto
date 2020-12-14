@@ -1691,6 +1691,18 @@ z = gen(1..=5).to_tuple()
 z[1]";
             test_script(script, number_tuple(&[1, 2]));
         }
+
+        #[test]
+        fn generator_with_captured_data() {
+            let script = "
+x = 1, 2, 3
+gen = ||
+  for y in x
+    yield y
+gen().to_tuple()
+";
+            test_script(script, number_tuple(&[1, 2, 3]));
+        }
     }
 
     mod num2_test {

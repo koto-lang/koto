@@ -1053,25 +1053,28 @@ impl Vm {
         value: u8,
         instruction_ip: usize,
     ) -> InstructionResult {
-        match self.get_register(function) {
-            Value::Function(f) => match &f.captures {
-                Some(captures) => {
-                    captures.data_mut()[capture_index as usize] = self.clone_register(value)
-                }
-                None => {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "Capture: missing capture list for function"
-                    )
-                }
-            },
+        let capture_list = match self.get_register(function) {
+            Value::Function(f) => &f.captures,
+            Value::Generator(g) => &g.captures,
             unexpected => {
                 return self.unexpected_type_error(
                     "Capture: expected Function",
                     unexpected,
                     instruction_ip,
                 );
+            }
+        };
+
+        match capture_list {
+            Some(capture_list) => {
+                capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
+            }
+            None => {
+                return vm_error!(
+                    self.chunk(),
+                    instruction_ip,
+                    "Capture: missing capture list for function"
+                )
             }
         }
 
