@@ -49,10 +49,14 @@ export tests =
   test_match_with_value: ||
     inspect = |n|
       match n
-        x if x < 0 then "negative"
-        0 or 2 or 4 or 6 or 8 then "even"
-        1 or 3 or 5 or 7 or 9 then "odd"
-        else ">= 10"
+        x if x < 0 then # 'then' is optional in a match arm when the body is indented
+          "negative"
+        0 or 2 or 4 or 6 or 8
+          "even"
+        1 or 3 or 5 or 7 or 9
+          "odd"
+        else
+          ">= 10"
     assert_eq (inspect 7) "odd"
 
   test_match_against_lookups: ||

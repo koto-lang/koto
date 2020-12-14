@@ -1916,7 +1916,13 @@ impl<'source> Parser<'source> {
                     self.consume_next_token_on_same_line();
                     match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
                         Some(expression) => expression,
-                        None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
+                        None => {
+                            if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                                indented_expression
+                            } else {
+                                return syntax_error!(ExpectedMatchArmExpressionAfterThen, self);
+                            }
+                        }
                     }
                 }
                 Some(Token::If) => return syntax_error!(UnexpectedMatchIf, self),
