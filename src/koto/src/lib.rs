@@ -33,9 +33,7 @@ use {
         chunk_to_string, chunk_to_string_annotated, Chunk, CompilerError, LoaderError,
     },
     koto_parser::{ParserError, Position},
-    koto_runtime::{
-        type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueMap, ValueVec, Vm,
-    },
+    koto_runtime::{type_as_string, Error, Loader, Value, ValueList, ValueMap, ValueVec, Vm},
     std::{path::PathBuf, sync::Arc},
 };
 
@@ -136,7 +134,7 @@ impl Koto {
 
             if let Some(main) = self.runtime.get_global_function("main") {
                 self.runtime
-                    .run_function(&main, &[])
+                    .run_function(main, &[])
                     .map_err(|e| self.format_error(e))
             } else {
                 Ok(result)
@@ -216,7 +214,7 @@ impl Koto {
         args: &[Value],
     ) -> Result<Value, String> {
         match self.runtime.get_global_function(function_name) {
-            Some(f) => self.call_function(&f, args),
+            Some(f) => self.call_function(f, args),
             None => Err(format!(
                 "Runtime error: function '{}' not found",
                 function_name
@@ -224,11 +222,7 @@ impl Koto {
         }
     }
 
-    pub fn call_function(
-        &mut self,
-        function: &RuntimeFunction,
-        args: &[Value],
-    ) -> Result<Value, String> {
+    pub fn call_function(&mut self, function: Value, args: &[Value]) -> Result<Value, String> {
         self.runtime
             .run_function(function, args)
             .map_err(|e| self.format_error(e))

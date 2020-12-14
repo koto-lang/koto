@@ -359,12 +359,24 @@ pub fn make_external_value(value: impl ExternalValue) -> Value {
     Value::ExternalValue(Arc::new(RwLock::new(value)))
 }
 
+pub fn value_is_callable(value: &Value) -> bool {
+    use Value::*;
+    matches!(value, Function{..} | ExternalFunction(_))
+}
+
 pub fn value_is_immutable(value: &Value) -> bool {
     use Value::*;
-
     matches!(
         value,
         Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+    )
+}
+
+pub fn value_is_iterable(value: &Value) -> bool {
+    use Value::*;
+    matches!(
+        value,
+        Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
     )
 }
 

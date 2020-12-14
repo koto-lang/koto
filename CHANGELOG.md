@@ -9,6 +9,13 @@
 
 ### Changed
 - Error messages in core ops that call functors have been made a bit clearer.
+- Core ops that accept function arguments can now take external functions.
+  - e.g.
+    ```
+    x = [[1, 2, 3], [1], [1, 2]]
+    x.sort list.size
+    assert_eq x [[1], [1, 2], [1, 2, 3]]
+    ```
 
 
 ## [0.5.0] 2020.12.17

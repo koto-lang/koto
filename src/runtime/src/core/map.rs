@@ -1,7 +1,9 @@
 use crate::{
-    external_error, type_as_string, value::deep_copy_value, value_is_immutable,
-    value_iterator::ValueIteratorOutput as Output, RuntimeFunction, RuntimeResult, Value,
-    ValueHashMap, ValueIterator, ValueMap, Vm,
+    external_error, type_as_string,
+    value::{deep_copy_value, value_is_callable},
+    value_is_immutable,
+    value_iterator::ValueIteratorOutput as Output,
+    RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -135,14 +137,14 @@ pub fn make_module() -> ValueMap {
             m.data_mut().sort_keys();
             Ok(Empty)
         }
-        [Map(l), Function(f)] => {
+        [Map(l), f] if value_is_callable(f) => {
             let m = l.clone();
             let f = f.clone();
             let mut vm = vm.spawn_shared_vm();
             let mut error = None;
 
             let mut get_sort_key = |cache: &mut ValueHashMap, key: &Value, value: &Value| {
-                let value = match vm.run_function(&f, &[key.clone(), value.clone()]) {
+                let value = match vm.run_function(f.clone(), &[key.clone(), value.clone()]) {
                     Ok(value) => value,
                     Err(e) => {
                         error.get_or_insert(Err(e.with_prefix("map.sort")));
@@ -185,20 +187,22 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, Function(f)] if value_is_immutable(key) => do_map_update(
+        [Map(m), key, f] if value_is_immutable(key) && value_is_callable(f) => do_map_update(
             m.clone(),
             key.clone(),
             Empty,
             f.clone(),
             vm.spawn_shared_vm(),
         ),
-        [Map(m), key, default, Function(f)] if value_is_immutable(key) => do_map_update(
-            m.clone(),
-            key.clone(),
-            default.clone(),
-            f.clone(),
-            vm.spawn_shared_vm(),
-        ),
+        [Map(m), key, default, f] if value_is_immutable(key) && value_is_callable(f) => {
+            do_map_update(
+                m.clone(),
+                key.clone(),
+                default.clone(),
+                f.clone(),
+                vm.spawn_shared_vm(),
+            )
+        }
         _ => external_error!("map.update: Expected map, key, and function as arguments"),
     });
 
@@ -222,19 +226,13 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn do_map_update(
-    map: ValueMap,
-    key: Value,
-    default: Value,
-    f: RuntimeFunction,
-    mut vm: Vm,
-) -> RuntimeResult {
+fn do_map_update(map: ValueMap, key: Value, default: Value, f: Value, mut vm: Vm) -> RuntimeResult {
     let mut vm = vm.spawn_shared_vm();
     if !map.data().contains_key(&key) {
         map.data_mut().insert(key.clone(), default);
     }
     let value = map.data().get(&key).cloned().unwrap();
-    match vm.run_function(&f, &[value]) {
+    match vm.run_function(f, &[value]) {
         Ok(new_value) => {
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)
