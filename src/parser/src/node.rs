@@ -54,7 +54,7 @@ pub enum Node {
     },
     MultiAssign {
         targets: Vec<AssignTarget>,
-        expressions: AstIndex,
+        expression: AstIndex,
     },
     BinaryOp {
         op: AstOp,

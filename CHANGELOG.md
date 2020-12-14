@@ -48,7 +48,15 @@
 ### Fixed
 - else and else if blocks with the incorrect indentation will now trigger a
   parser error.
-
+- Multi-assignment of values where the values are used in the expressions now
+  works correctly.
+  - e.g.
+    ```
+    a, b = 1, 2
+    a, b = b, a
+    # Previously this would result in b being re-assigned to itself
+    assert_eq b 1
+    ```
 
 ## [0.4.0] 2020.12.10
 

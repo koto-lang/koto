@@ -54,7 +54,9 @@ enum LocalRegister {
     Assigned(ConstantIndex),
     // The register is currently being assigned to,
     // it will become assigned at the end of the assignment expression.
-    Reserved(ConstantIndex),
+    // Instructions can be deferred until the register is committed,
+    // e.g. for functions that need to capture themselves after they've been fully assigned
+    Reserved(ConstantIndex, Vec<u8>),
     // The register contains a value not associated with an id, e.g. a wildcard function arg
     Allocated,
 }
@@ -121,7 +123,7 @@ impl Frame {
             .position(|local_register| {
                 let register_index = match local_register {
                     LocalRegister::Assigned(register_index) => register_index,
-                    LocalRegister::Reserved(register_index) => register_index,
+                    LocalRegister::Reserved(register_index, _) => register_index,
                     LocalRegister::Allocated => return false,
                 };
                 *register_index == index
@@ -145,7 +147,7 @@ impl Frame {
             .iter()
             .position(|local_register| {
                 matches!(local_register,
-                    LocalRegister::Reserved(assigned_index) if *assigned_index == index
+                    LocalRegister::Reserved(assigned_index, _) if *assigned_index == index
                 )
             })
             .map(|position| position as u8)
@@ -155,7 +157,8 @@ impl Frame {
         match self.get_local_assigned_register(local) {
             Some(assigned) => Ok(assigned),
             None => {
-                self.local_registers.push(LocalRegister::Reserved(local));
+                self.local_registers
+                    .push(LocalRegister::Reserved(local, vec![]));
 
                 let new_local_register = self.local_registers.len() - 1;
 
@@ -168,13 +171,30 @@ impl Frame {
         }
     }
 
-    fn commit_local_register(&mut self, local_register: u8) -> Result<(), String> {
-        let local_register = local_register as usize;
-        let index = match self.local_registers.get_mut(local_register) {
-            Some(LocalRegister::Assigned(_)) => {
-                return Ok(());
+    fn defer_op_until_register_is_committed(
+        &mut self,
+        reserved_register: u8,
+        bytes: Vec<u8>,
+    ) -> Result<(), String> {
+        match self.local_registers.get_mut(reserved_register as usize) {
+            Some(LocalRegister::Reserved(_, deferred_ops)) => {
+                deferred_ops.extend_from_slice(&bytes);
+                Ok(())
             }
-            Some(LocalRegister::Reserved(index)) => index,
+            _ => Err(format!(
+                "defer_op_until_register_is_committed: register {} hasn't been reserved",
+                reserved_register
+            )),
+        }
+    }
+
+    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<u8>, String> {
+        let local_register = local_register as usize;
+        let (index, deferred_ops) = match self.local_registers.get(local_register) {
+            Some(LocalRegister::Assigned(_)) => {
+                return Ok(vec![]);
+            }
+            Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.clone()),
             _ => {
                 return Err(format!(
                     "commit_local_register: register {} hasn't been reserved",
@@ -183,8 +203,8 @@ impl Frame {
             }
         };
 
-        self.local_registers[local_register] = LocalRegister::Assigned(*index);
-        Ok(())
+        self.local_registers[local_register] = LocalRegister::Assigned(index);
+        Ok(deferred_ops)
     }
 
     fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
@@ -192,7 +212,13 @@ impl Frame {
             Some(assigned) => assigned,
             None => match self.get_local_reserved_register(local) {
                 Some(reserved) => {
-                    self.commit_local_register(reserved)?;
+                    let deferred_ops = self.commit_local_register(reserved)?;
+                    if !deferred_ops.is_empty() {
+                        return Err(
+                            "assign_local_register: committing register that has remaining ops"
+                                .to_string(),
+                        );
+                    }
                     reserved
                 }
                 None => {
@@ -201,7 +227,7 @@ impl Frame {
                     let new_local_register = self.local_registers.len() - 1;
 
                     if new_local_register > self.temporary_base as usize {
-                        return Err("declare_local_register: Locals overflowed".to_string());
+                        return Err("assign_local_register: Locals overflowed".to_string());
                     }
 
                     new_local_register as u8
@@ -267,7 +293,7 @@ impl Frame {
                         .contains(&LocalRegister::Assigned(*non_local))
                     || self
                         .local_registers
-                        .contains(&LocalRegister::Reserved(*non_local))
+                        .contains(&LocalRegister::Reserved(*non_local, vec![]))
             })
             .cloned()
             .collect()
@@ -565,13 +591,8 @@ impl Compiler {
             } => self.compile_assign(result_register, target, *op, *expression, ast)?,
             Node::MultiAssign {
                 targets,
-                expressions,
-            } => match &ast.node(*expressions).node {
-                Node::TempTuple(expressions) => {
-                    self.compile_multi_assign(result_register, targets, &expressions, ast)?
-                }
-                _ => self.compile_multi_assign(result_register, targets, &[*expressions], ast)?,
-            },
+                expression,
+            } => self.compile_multi_assign(result_register, targets, *expression, ast)?,
             Node::BinaryOp { op, lhs, rhs } => {
                 self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?
             }
@@ -1069,173 +1090,88 @@ impl Compiler {
         &mut self,
         result_register: ResultRegister,
         targets: &[AssignTarget],
-        expressions: &[AstIndex],
+        expression: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
         assert!(targets.len() < u8::MAX as usize);
-        assert!(expressions.len() < u8::MAX as usize);
 
-        let result = match expressions {
-            [] => {
-                return compiler_error!(self, "compile_multi_assign: Missing expression");
-            }
-            [expression] => {
-                let rhs = self
-                    .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
-                    .unwrap();
-
-                for (i, target) in targets.iter().enumerate() {
-                    match &ast.node(target.target_index).node {
-                        Node::Id(id_index) => {
-                            if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
-                                let capture_register = self.push_register()?;
-
-                                self.push_op(
-                                    ValueIndex,
-                                    &[capture_register, rhs.register, i as u8],
-                                );
-                                self.push_op(SetCapture, &[capture_slot, capture_register]);
-
-                                self.pop_register()?;
-                            } else {
-                                let local_register = self.assign_local_register(*id_index)?;
-
-                                self.push_op(ValueIndex, &[local_register, rhs.register, i as u8]);
-                            }
-                        }
-                        Node::Lookup(lookup) => {
-                            let register = self.push_register()?;
-
-                            self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
-                            self.compile_lookup(
-                                ResultRegister::None,
-                                &lookup,
-                                None,
-                                Some(register),
-                                ast,
-                            )?;
-
-                            self.pop_register()?;
-                        }
-                        Node::Wildcard => {}
-                        unexpected => {
-                            return compiler_error!(
-                                self,
-                                "Expected ID or lookup in AST, found {}",
-                                unexpected
-                            );
-                        }
-                    };
-                }
-
-                match result_register {
-                    ResultRegister::Fixed(register) => {
-                        self.push_op(Copy, &[register, rhs.register]);
-
-                        if rhs.is_temporary {
-                            self.pop_register()?;
-                        }
-
-                        Some(CompileResult::with_assigned(register))
+        let result = {
+            // reserve ids on lhs before compiling rhs
+            for target in targets.iter() {
+                match &ast.node(target.target_index).node {
+                    Node::Id(id_index) => {
+                        self.reserve_local_register(*id_index)?;
                     }
-                    ResultRegister::Any => Some(rhs),
-                    ResultRegister::None => None,
+                    _ => {}
                 }
             }
-            _ => {
-                let result = self.get_result_register(result_register)?;
-                let stack_count = self.frame().register_stack.len();
 
-                let mut i = 0;
-                for target in targets.iter() {
-                    match expressions.get(i) {
-                        Some(expression) => {
-                            if result.is_some() {
-                                let register = self.push_register()?;
-                                self.compile_assign(
-                                    ResultRegister::Fixed(register),
-                                    target,
-                                    AssignOp::Equal,
-                                    *expression,
-                                    ast,
-                                )?;
-                            } else {
-                                self.compile_assign(
-                                    ResultRegister::None,
-                                    target,
-                                    AssignOp::Equal,
-                                    *expression,
-                                    ast,
-                                )?;
-                            }
-                        }
-                        None => {
-                            let empty_register = self.push_register()?;
-                            let mut empty_set = false;
+            let rhs = self
+                .compile_node(ResultRegister::Any, ast.node(expression), ast)?
+                .unwrap();
 
-                            match &ast.node(target.target_index).node {
-                                Node::Id(id_index) => {
-                                    if let Some(capture) = self.frame().capture_slot(*id_index) {
-                                        self.push_op(SetEmpty, &[empty_register]);
-                                        empty_set = true;
-                                        self.push_op(SetCapture, &[capture, empty_register]);
-                                    } else {
-                                        let local_register =
-                                            self.assign_local_register(*id_index)?;
-                                        self.push_op(SetEmpty, &[local_register]);
-                                    }
-                                }
-                                Node::Lookup(lookup) => {
-                                    self.push_op(SetEmpty, &[empty_register]);
-                                    empty_set = true;
-                                    self.compile_lookup(
-                                        ResultRegister::None,
-                                        &lookup,
-                                        None,
-                                        Some(empty_register),
-                                        ast,
-                                    )?;
-                                }
-                                unexpected => {
-                                    return compiler_error!(
-                                        self,
-                                        "Expected ID or lookup in AST, found {}",
-                                        unexpected
-                                    );
-                                }
-                            }
+            for (i, target) in targets.iter().enumerate() {
+                match &ast.node(target.target_index).node {
+                    Node::Id(id_index) => {
+                        if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
+                            let capture_register = self.push_register()?;
 
-                            if !empty_set && result.is_some() {
-                                self.push_op(SetEmpty, &[empty_register]);
-                            }
+                            self.push_op(ValueIndex, &[capture_register, rhs.register, i as u8]);
+                            self.push_op(SetCapture, &[capture_slot, capture_register]);
+
+                            self.pop_register()?;
+                        } else {
+                            let local_register = match self.frame().get_local_register(*id_index) {
+                                Some(register) => register,
+                                None => {
+                                    return compiler_error!(self, "Missing register for target")
+                                }
+                            };
+                            // Get the value for the target by index
+                            self.push_op(ValueIndex, &[local_register, rhs.register, i as u8]);
+                            // Commit the register now that it's assigned
+                            self.commit_local_register(local_register)?;
                         }
                     }
+                    Node::Lookup(lookup) => {
+                        let register = self.push_register()?;
 
-                    i += 1;
+                        self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
+                        self.compile_lookup(
+                            ResultRegister::None,
+                            &lookup,
+                            None,
+                            Some(register),
+                            ast,
+                        )?;
+
+                        self.pop_register()?;
+                    }
+                    Node::Wildcard => {}
+                    unexpected => {
+                        return compiler_error!(
+                            self,
+                            "Expected ID or lookup in AST, found {}",
+                            unexpected
+                        );
+                    }
+                };
+            }
+
+            match result_register {
+                ResultRegister::Fixed(register) => {
+                    self.push_op(Copy, &[register, rhs.register]);
+
+                    if rhs.is_temporary {
+                        self.pop_register()?;
+                    }
+
+                    Some(CompileResult::with_assigned(register))
                 }
-
-                while i < expressions.len() {
-                    // Remaining expressions need to be evaulated even if there's no assignment
-                    self.compile_node(ResultRegister::None, ast.node(expressions[i]), ast)?;
-                    i += 1;
-                }
-
-                if let Some(result) = result {
-                    // capture the assigned values in a tuple
-
-                    let start_register = self.peek_register(targets.len() - 1)?;
-
-                    self.push_op(
-                        MakeTuple,
-                        &[result.register, start_register as u8, targets.len() as u8],
-                    );
-                }
-
-                self.truncate_register_stack(stack_count)?;
-
-                result
+                ResultRegister::Any => Some(rhs),
+                ResultRegister::None => None,
             }
         };
 
@@ -2087,7 +2023,17 @@ impl Compiler {
             self.update_offset_placeholder(function_size_ip);
 
             for (i, capture) in captures.iter().enumerate() {
-                if let Some(local_register) = self.frame().get_local_register(*capture) {
+                if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
+                    println!("deferring capture");
+                    self.frame_mut()
+                        .defer_op_until_register_is_committed(
+                            local_register,
+                            vec![Op::Capture as u8, result.register, i as u8, local_register],
+                        )
+                        .map_err(|e| self.make_error(e))?;
+                } else if let Some(local_register) =
+                    self.frame().get_local_assigned_register(*capture)
+                {
                     self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
@@ -2993,7 +2939,7 @@ impl Compiler {
         if self.settings.repl_mode && self.frame_stack.len() == 1 {
             for maybe_arg in args.iter() {
                 if let Some(arg) = maybe_arg {
-                    let arg_register = match self.frame().get_local_register(*arg) {
+                    let arg_register = match self.frame().get_local_assigned_register(*arg) {
                         Some(register) => register,
                         None => return compiler_error!(self, "Missing arg register"),
                     };
@@ -3183,10 +3129,15 @@ impl Compiler {
             .map_err(|e| self.make_error(e))
     }
 
-    fn commit_local_register(&mut self, local_register: u8) -> Result<(), CompilerError> {
-        self.frame_mut()
-            .commit_local_register(local_register)
-            .map_err(|e| self.make_error(e))
+    fn commit_local_register(&mut self, register: u8) -> Result<u8, CompilerError> {
+        let deferred_ops = self
+            .frame_mut()
+            .commit_local_register(register)
+            .map_err(|e| self.make_error(e))?;
+
+        self.push_bytes(&deferred_ops);
+
+        Ok(register)
     }
 
     fn make_error(&self, message: String) -> CompilerError {
