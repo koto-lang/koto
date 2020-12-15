@@ -9,15 +9,8 @@ use {
 fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     let result = match value {
         Toml::Boolean(b) => Value::Bool(*b),
-        Toml::Integer(i) => {
-            let result = *i as f64;
-            if result as i64 == *i {
-                Value::Number(result)
-            } else {
-                return Err(format!("Number is out of range for an f64: {}", i));
-            }
-        }
-        Toml::Float(f) => Value::Number(*f),
+        Toml::Integer(i) => Value::Number(i.into()),
+        Toml::Float(f) => Value::Number(f.into()),
         Toml::String(s) => Value::Str(s.as_str().into()),
         Toml::Array(a) => {
             match a

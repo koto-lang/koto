@@ -56,8 +56,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("list.get: Negative indices aren't allowed");
             }
-            let index = *n as usize;
-            match l.data().get(index) {
+            match l.data().get(usize::from(n)) {
                 Some(value) => Ok(value.clone()),
                 None => Ok(Value::Empty),
             }
@@ -70,7 +69,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("list.insert: Negative indices aren't allowed");
             }
-            let index = *n as usize;
+            let index: usize = n.into();
             if index > l.data().len() {
                 return external_error!("list.insert: Index out of bounds");
             }
@@ -120,7 +119,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("list.remove: Negative indices aren't allowed");
             }
-            let index = *n as usize;
+            let index: usize = n.into();
             if index >= l.data().len() {
                 return external_error!(
                     "list.remove: Index out of bounds - \
@@ -140,7 +139,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("list.resize: Negative sizes aren't allowed");
             }
-            l.data_mut().resize(*n as usize, value.clone());
+            l.data_mut().resize(n.into(), value.clone());
             Ok(Empty)
         }
         _ => external_error!("list.resize: Expected list, number, and value as arguments"),
@@ -203,7 +202,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(Number(l.len() as f64)),
+        [List(l)] => Ok(Number(l.len().into())),
         _ => external_error!("list.size: Expected list as argument"),
     });
 
@@ -267,7 +266,7 @@ pub fn make_module() -> ValueMap {
                 return external_error!("list.with_size: Negative sizes aren't allowed");
             }
 
-            let result = smallvec::smallvec![value.clone(); *n as usize];
+            let result = smallvec::smallvec![value.clone(); n.into()];
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.with_size: Expected number and value as arguments"),

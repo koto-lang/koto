@@ -114,7 +114,7 @@ pub fn make_module() -> ValueMap {
                 }
                 result += 1;
             }
-            Ok(Number(result as f64))
+            Ok(Number(result.into()))
         }
         _ => external_error!("iterator.count: Expected iterable as argument"),
     });
@@ -145,7 +145,7 @@ pub fn make_module() -> ValueMap {
                 .unwrap()
                 .enumerate()
                 .map(|(i, iter_output)| match collect_pair(iter_output) {
-                    Ok(Output::Value(value)) => Ok(Output::ValuePair(Number(i as f64), value)),
+                    Ok(Output::Value(value)) => Ok(Output::ValuePair(Number(i.into()), value)),
                     other => other,
                 });
 
@@ -322,7 +322,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => match vm.run_function(&f, &[value.clone()]) {
                         Ok(Bool(result)) => {
                             if result {
-                                return Ok(Number(i as f64));
+                                return Ok(Number(i.into()));
                             }
                         }
                         Ok(unexpected) => {
@@ -348,7 +348,7 @@ pub fn make_module() -> ValueMap {
         [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap();
 
-            for _ in 0..*n as usize {
+            for _ in 0..n.into() {
                 if let Some(Err(error)) = iter.next() {
                     return Err(error);
                 }
@@ -363,7 +363,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
-            let mut iter = make_iterator(iterable).unwrap().take(*n as usize);
+            let mut iter = make_iterator(iterable).unwrap().take(n.into());
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }

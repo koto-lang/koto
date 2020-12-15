@@ -52,10 +52,6 @@ macro_rules! syntax_error {
     }};
 }
 
-fn f64_eq(a: f64, b: f64) -> bool {
-    (a - b).abs() < std::f64::EPSILON
-}
-
 enum ConstantIndexOrWildcard {
     Index(ConstantIndex),
     Wildcard,
@@ -1254,20 +1250,27 @@ impl<'source> Parser<'source> {
                 Token::ParenOpen => self.parse_nested_expressions(context)?,
                 Token::Number => {
                     self.consume_next_token(context);
-                    let number_node = match f64::from_str(self.lexer.slice()) {
+                    let slice = self.lexer.slice();
+                    let number_node = match i64::from_str(slice) {
                         Ok(n) => {
-                            if f64_eq(n, 0.0) {
+                            if n == 0 {
                                 self.push_node(Number0)?
-                            } else if f64_eq(n, 1.0) {
+                            } else if n == 1 {
                                 self.push_node(Number1)?
                             } else {
-                                let constant_index = self.constants.add_number(n) as u32;
-                                self.push_node(Number(constant_index))?
+                                let constant_index = self.constants.add_i64(n) as u32;
+                                self.push_node(Int(constant_index))?
                             }
                         }
-                        Err(_) => {
-                            return internal_error!(NumberParseFailure, self);
-                        }
+                        Err(_) => match f64::from_str(slice) {
+                            Ok(n) => {
+                                let constant_index = self.constants.add_f64(n) as u32;
+                                self.push_node(Float(constant_index))?
+                            }
+                            Err(_) => {
+                                return internal_error!(NumberParseFailure, self);
+                            }
+                        },
                     };
                     if self.next_token_is_lookup_start(context) {
                         Some(self.parse_lookup(number_node, context)?)

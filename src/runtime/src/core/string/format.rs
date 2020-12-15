@@ -302,10 +302,10 @@ mod tests {
 
         #[test]
         fn positional_placeholders() {
-            check_format_output("{} foo {0}", &[Value::Number(1.0)], "1 foo 1");
+            check_format_output("{} foo {0}", &[Value::Number(1.into())], "1 foo 1");
             check_format_output(
                 "{1} - {0} {} - {}",
-                &[Value::Number(2.0), Value::Empty],
+                &[Value::Number(2.into()), Value::Empty],
                 "() - 2 2 - ()",
             );
         }
@@ -313,8 +313,8 @@ mod tests {
         #[test]
         fn identifier_placeholders() {
             let mut map_data = ValueHashMap::new();
-            map_data.insert("x".into(), Value::Number(42.0));
-            map_data.insert("y".into(), Value::Number(-1.0));
+            map_data.insert("x".into(), Value::Number(42.into()));
+            map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
             let map = Value::Map(ValueMap::with_data(map_data));
 
             check_format_output("{x} - {y}", &[map], "42 - -1");

@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Value, ValueMap};
+use crate::{external_error, type_as_string, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -48,7 +48,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b), Number(allowed_diff)] => {
-            if f64_near(*a, *b, *allowed_diff) {
+            if number_near(*a, *b, *allowed_diff) {
                 Ok(Empty)
             } else {
                 external_error!(
@@ -60,7 +60,8 @@ pub fn make_module() -> ValueMap {
             }
         }
         [Num2(a), Num2(b), Number(allowed_diff)] => {
-            if f64_near(a.0, b.0, *allowed_diff) && f64_near(a.1, b.1, *allowed_diff) {
+            let allowed_diff: f64 = allowed_diff.into();
+            if f64_near(a.0, b.0, allowed_diff) && f64_near(a.1, b.1, allowed_diff) {
                 Ok(Empty)
             } else {
                 external_error!(
@@ -72,7 +73,7 @@ pub fn make_module() -> ValueMap {
             }
         }
         [Num4(a), Num4(b), Number(allowed_diff)] => {
-            let allowed_diff = *allowed_diff as f32;
+            let allowed_diff: f32 = allowed_diff.into();
             if f32_near(a.0, b.0, allowed_diff)
                 && f32_near(a.1, b.1, allowed_diff)
                 && f32_near(a.2, b.2, allowed_diff)
@@ -113,5 +114,9 @@ fn f32_near(a: f32, b: f32, allowed_diff: f32) -> bool {
 }
 
 fn f64_near(a: f64, b: f64, allowed_diff: f64) -> bool {
+    (a - b).abs() <= allowed_diff
+}
+
+fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: ValueNumber) -> bool {
     (a - b).abs() <= allowed_diff
 }

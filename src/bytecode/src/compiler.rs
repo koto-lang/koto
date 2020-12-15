@@ -420,23 +420,24 @@ impl Compiler {
                 }
                 result
             }
-            Node::Number(constant) => {
+            Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    let constant = *constant;
-                    if constant <= u8::MAX as u32 {
-                        self.push_op(LoadNumber, &[result.register, constant as u8]);
-                    } else {
-                        self.push_op(LoadNumberLong, &[result.register]);
-                        self.push_bytes(&constant.to_le_bytes());
-                    }
+                    self.load_constant(result.register, *constant, LoadFloat, LoadFloatLong);
+                }
+                result
+            }
+            Node::Int(constant) => {
+                let result = self.get_result_register(result_register)?;
+                if let Some(result) = result {
+                    self.load_constant(result.register, *constant, LoadInt, LoadIntLong);
                 }
                 result
             }
             Node::Str(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.load_string(result.register, *constant);
+                    self.load_constant(result.register, *constant, LoadString, LoadStringLong);
                 }
                 result
             }
@@ -2594,7 +2595,8 @@ impl Compiler {
                 | Node::BoolFalse
                 | Node::Number0
                 | Node::Number1
-                | Node::Number(_)
+                | Node::Float(_)
+                | Node::Int(_)
                 | Node::Str(_)
                 | Node::Lookup(_) => {
                     let pattern = self.push_register()?;
@@ -3010,13 +3012,17 @@ impl Compiler {
         Ok(result)
     }
 
-    fn load_string(&mut self, result_register: u8, index: ConstantIndex) {
-        use Op::*;
-
+    fn load_constant(
+        &mut self,
+        result_register: u8,
+        index: ConstantIndex,
+        short_op: Op,
+        long_op: Op,
+    ) {
         if index <= u8::MAX as u32 {
-            self.push_op(LoadString, &[result_register, index as u8]);
+            self.push_op(short_op, &[result_register, index as u8]);
         } else {
-            self.push_op(LoadStringLong, &[result_register]);
+            self.push_op(long_op, &[result_register]);
             self.push_bytes(&index.to_le_bytes());
         }
     }

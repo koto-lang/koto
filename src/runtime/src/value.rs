@@ -1,7 +1,7 @@
 use {
     crate::{
         num2, num4, ExternalFunction, ExternalValue, IntRange, ValueIterator, ValueList, ValueMap,
-        ValueString, ValueTuple, ValueVec,
+        ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     std::{
@@ -16,7 +16,7 @@ use {
 pub enum Value {
     Empty,
     Bool(bool),
-    Number(f64),
+    Number(ValueNumber),
     Num2(num2::Num2),
     Num4(num4::Num4),
     Range(IntRange),
@@ -39,7 +39,7 @@ pub enum Value {
 pub enum ValueRef<'a> {
     Empty,
     Bool(&'a bool),
-    Number(&'a f64),
+    Number(&'a ValueNumber),
     Num2(&'a num2::Num2),
     Num4(&'a num4::Num4),
     Range(&'a IntRange),
@@ -190,12 +190,7 @@ impl Ord for Value {
         use Value::*;
 
         match (self, other) {
-            (Number(a), Number(b)) => match (a.is_nan(), b.is_nan()) {
-                (true, true) => Ordering::Equal,
-                (false, true) => Ordering::Less,
-                (true, false) => Ordering::Greater,
-                (false, false) => a.partial_cmp(b).unwrap(),
-            },
+            (Number(a), Number(b)) => a.cmp(b),
             (Str(a), Str(b)) => a.cmp(b),
             (a, b) => panic!(format!("cmp unsupported for {} and {}", a, b)),
         }
@@ -217,7 +212,7 @@ impl<'a> Hash for ValueRef<'a> {
         match self {
             Empty | ExternalDataId => {}
             Bool(b) => b.hash(state),
-            Number(n) => state.write_u64(n.to_bits()),
+            Number(n) => n.hash(state),
             Num2(n) => n.hash(state),
             Num4(n) => n.hash(state),
             Str(s) => s.hash(state),
@@ -333,7 +328,8 @@ pub fn type_as_string(value: &Value) -> String {
     match &value {
         Empty => "Empty".to_string(),
         Bool(_) => "Bool".to_string(),
-        Number(_) => "Number".to_string(),
+        Number(ValueNumber::F64(_)) => "Float".to_string(),
+        Number(ValueNumber::I64(_)) => "Int".to_string(),
         Num2(_) => "Num2".to_string(),
         Num4(_) => "Num4".to_string(),
         List(_) => "List".to_string(),

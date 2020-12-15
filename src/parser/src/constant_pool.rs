@@ -10,13 +10,15 @@ use {
 
 #[derive(Clone, Debug, Hash, PartialEq)]
 enum ConstantInfo {
-    Number(usize),
+    F64(usize),
+    I64(usize),
     Str(Range<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Constant<'a> {
-    Number(f64),
+    F64(f64),
+    I64(i64),
     Str(&'a str),
 }
 
@@ -25,7 +27,8 @@ pub struct ConstantPool {
     index: Vec<ConstantInfo>,
     // Constant strings concatanated into one
     strings: String,
-    numbers: Vec<f64>,
+    floats: Vec<f64>,
+    ints: Vec<i64>,
     hash: u64,
 }
 
@@ -34,7 +37,8 @@ impl Default for ConstantPool {
         Self {
             index: vec![],
             strings: String::default(),
-            numbers: vec![],
+            floats: vec![],
+            ints: vec![],
             hash: 0,
         }
     }
@@ -52,8 +56,9 @@ impl ConstantPool {
     pub fn get(&self, index: ConstantIndex) -> Option<Constant> {
         match self.index.get(index as usize) {
             Some(constant_info) => match constant_info {
-                ConstantInfo::Number(index) => Some(Constant::Number(self.numbers[*index])),
-                ConstantInfo::Str(bounds) => Some(Constant::Str(&self.strings[bounds.clone()])),
+                ConstantInfo::F64(index) => Some(Constant::F64(self.floats[*index])),
+                ConstantInfo::I64(index) => Some(Constant::I64(self.ints[*index])),
+                ConstantInfo::Str(range) => Some(Constant::Str(&self.strings[range.clone()])),
             },
             None => None,
         }
@@ -71,14 +76,21 @@ impl ConstantPool {
 
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
         match self.index.get(index as usize) {
-            Some(ConstantInfo::Str(bounds)) => bounds.clone(),
+            Some(ConstantInfo::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
         }
     }
 
-    pub fn get_number(&self, index: ConstantIndex) -> f64 {
+    pub fn get_f64(&self, index: ConstantIndex) -> f64 {
         match self.index.get(index as usize) {
-            Some(ConstantInfo::Number(index)) => self.numbers[*index],
+            Some(ConstantInfo::F64(index)) => self.floats[*index],
+            _ => panic!("Invalid index"),
+        }
+    }
+
+    pub fn get_i64(&self, index: ConstantIndex) -> i64 {
+        match self.index.get(index as usize) {
+            Some(ConstantInfo::I64(index)) => self.ints[*index],
             _ => panic!("Invalid index"),
         }
     }
@@ -114,7 +126,8 @@ impl fmt::Display for ConstantPool {
         for (i, constant) in self.iter().enumerate() {
             write!(f, "{}\t", i)?;
             match constant {
-                Constant::Number(n) => write!(f, "Number\t{}", n)?,
+                Constant::F64(n) => write!(f, "Float\t{}", n)?,
+                Constant::I64(n) => write!(f, "Int\t{}", n)?,
                 Constant::Str(s) => write!(f, "String\t{}", s)?,
             }
             writeln!(f)?;
@@ -125,7 +138,7 @@ impl fmt::Display for ConstantPool {
 
 impl PartialEq for ConstantPool {
     fn eq(&self, other: &Self) -> bool {
-        self.index == other.index && self.strings == other.strings && self.numbers == other.numbers
+        self.hash == other.hash
     }
 }
 
@@ -140,7 +153,8 @@ pub struct ConstantPoolBuilder {
     pool: ConstantPool,
     hasher: DefaultHasher, // Used to incrementally hash the constant pool's contents
     string_map: HashMap<String, ConstantIndex>,
-    number_map: HashMap<[u8; 8], ConstantIndex>,
+    float_map: HashMap<u64, ConstantIndex>,
+    int_map: HashMap<i64, ConstantIndex>,
 }
 
 impl ConstantPoolBuilder {
@@ -167,20 +181,38 @@ impl ConstantPoolBuilder {
         }
     }
 
-    pub fn add_number(&mut self, n: f64) -> ConstantIndex {
-        let bytes = n.to_ne_bytes();
+    pub fn add_f64(&mut self, n: f64) -> ConstantIndex {
+        let n_u64 = n.to_bits();
 
-        match self.number_map.get(&bytes) {
+        match self.float_map.get(&n_u64) {
             Some(index) => *index,
             None => {
-                let number_index = self.pool.numbers.len();
-                self.pool.numbers.push(n);
-                bytes.hash(&mut self.hasher);
+                let number_index = self.pool.floats.len();
+                self.pool.floats.push(n);
+                n_u64.hash(&mut self.hasher);
 
                 let result = self.pool.index.len() as ConstantIndex;
-                self.pool.index.push(ConstantInfo::Number(number_index));
+                self.pool.index.push(ConstantInfo::F64(number_index));
 
-                self.number_map.insert(bytes, result);
+                self.float_map.insert(n_u64, result);
+
+                result
+            }
+        }
+    }
+
+    pub fn add_i64(&mut self, n: i64) -> ConstantIndex {
+        match self.int_map.get(&n) {
+            Some(index) => *index,
+            None => {
+                let number_index = self.pool.ints.len();
+                self.pool.ints.push(n);
+                n.hash(&mut self.hasher);
+
+                let result = self.pool.index.len() as ConstantIndex;
+                self.pool.index.push(ConstantInfo::I64(number_index));
+
+                self.int_map.insert(n, result);
 
                 result
             }
@@ -233,43 +265,43 @@ mod tests {
     fn test_adding_numbers() {
         let mut builder = ConstantPoolBuilder::new();
 
-        let f1 = 1.23456789;
-        let f2 = 9.87654321;
+        let n1 = 3;
+        let n2 = 9.87654321;
 
-        assert_eq!(0, builder.add_number(f1));
-        assert_eq!(1, builder.add_number(f2));
+        assert_eq!(0, builder.add_i64(n1));
+        assert_eq!(1, builder.add_f64(n2));
 
         // don't duplicate numbers
-        assert_eq!(0, builder.add_number(f1));
-        assert_eq!(1, builder.add_number(f2));
+        assert_eq!(0, builder.add_i64(n1));
+        assert_eq!(1, builder.add_f64(n2));
 
         let pool = builder.build();
 
-        assert!(floats_are_equal(f1, pool.get_number(0)));
-        assert!(floats_are_equal(f2, pool.get_number(1)));
+        assert_eq!(n1, pool.get_i64(0));
+        assert!(floats_are_equal(n2, pool.get_f64(1)));
 
         assert_eq!(2, pool.len());
     }
 
     #[test]
-    fn test_adding_mixed_types() {
+    fn test_adding_numbers_and_strings() {
         let mut builder = ConstantPoolBuilder::new();
 
-        let f1 = -1.1;
-        let f2 = 99.9;
+        let n1 = -1.1;
+        let n2 = 99;
         let s1 = "O_o";
         let s2 = "^_^";
 
-        assert_eq!(0, builder.add_number(f1));
+        assert_eq!(0, builder.add_f64(n1));
         assert_eq!(1, builder.add_string(s1));
-        assert_eq!(2, builder.add_number(f2));
+        assert_eq!(2, builder.add_i64(n2));
         assert_eq!(3, builder.add_string(s2));
 
         let pool = builder.build();
 
-        assert!(floats_are_equal(f1, pool.get_number(0)));
-        assert!(floats_are_equal(f2, pool.get_number(2)));
+        assert!(floats_are_equal(n1, pool.get_f64(0)));
         assert_eq!(s1, pool.get_str(1));
+        assert_eq!(n2, pool.get_i64(2));
         assert_eq!(s2, pool.get_str(3));
 
         assert_eq!(4, pool.len());
@@ -279,22 +311,22 @@ mod tests {
     fn test_iter() {
         let mut builder = ConstantPoolBuilder::new();
 
-        let f1 = -1.1;
-        let f2 = 99.9;
+        let n1 = -1;
+        let n2 = 99.9;
         let s1 = "O_o";
         let s2 = "^_^";
 
-        builder.add_number(f1);
+        builder.add_i64(n1);
         builder.add_string(s1);
-        builder.add_number(f2);
+        builder.add_f64(n2);
         builder.add_string(s2);
 
         let pool = builder.build();
 
         let mut iter = pool.iter();
-        assert_eq!(iter.next(), Some(Constant::Number(-1.1)));
+        assert_eq!(iter.next(), Some(Constant::I64(-1)));
         assert_eq!(iter.next(), Some(Constant::Str("O_o")));
-        assert_eq!(iter.next(), Some(Constant::Number(99.9)));
+        assert_eq!(iter.next(), Some(Constant::F64(99.9)));
         assert_eq!(iter.next(), Some(Constant::Str("^_^")));
         assert_eq!(iter.next(), None);
     }

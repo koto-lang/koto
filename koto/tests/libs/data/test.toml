@@ -3,7 +3,8 @@ bool = true
 string = "O_o"
 
 [nested]
-number = -1.0
+number_float = -1.2
+number_int = 123
 string = "hello"
 
 [[entries]]

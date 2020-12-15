@@ -10,9 +10,12 @@ fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> 
     let result = match value {
         JsonValue::Null => Value::Empty,
         JsonValue::Bool(b) => Value::Bool(*b),
-        JsonValue::Number(n) => match n.as_f64() {
-            Some(n64) => Value::Number(n64),
-            None => return Err(format!("Number is out of range for an f64: {}", n)),
+        JsonValue::Number(n) => match n.as_i64() {
+            Some(n64) => Value::Number(n64.into()),
+            None => match n.as_f64() {
+                Some(n64) => Value::Number(n64.into()),
+                None => return Err(format!("Number is out of range: {}", n)),
+            },
         },
         JsonValue::String(s) => Value::Str(s.as_str().into()),
         JsonValue::Array(a) => {

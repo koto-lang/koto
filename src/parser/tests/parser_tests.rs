@@ -43,7 +43,7 @@ mod parser {
 true
 false
 1
-1.5
+1.0
 \"hello\"
 a
 ()";
@@ -53,7 +53,7 @@ a
                     BoolTrue,
                     BoolFalse,
                     Number1,
-                    Number(0),
+                    Float(0),
                     Str(1),
                     Id(2),
                     Empty,
@@ -63,7 +63,7 @@ a
                     },
                 ],
                 Some(&[
-                    Constant::Number(1.5),
+                    Constant::F64(1.0),
                     Constant::Str("hello"),
                     Constant::Str("a"),
                 ]),
@@ -107,7 +107,7 @@ a
             check_ast(
                 source,
                 &[
-                    Number(0),
+                    Float(0),
                     Id(1),
                     Negate(1),
                     Id(2),
@@ -128,11 +128,7 @@ a
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Number(-12.0),
-                    Constant::Str("a"),
-                    Constant::Str("x"),
-                ]),
+                Some(&[Constant::F64(-12.0), Constant::Str("a"), Constant::Str("x")]),
             )
         }
 
@@ -149,7 +145,7 @@ a
                     Id(0),
                     Str(1),
                     Id(0),
-                    Number(2),
+                    Int(2),
                     List(vec![0, 1, 2, 3, 4]),
                     List(vec![]),
                     MainBlock {
@@ -157,11 +153,7 @@ a
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Str("n"),
-                    Constant::Str("test"),
-                    Constant::Number(-1.0),
-                ]),
+                Some(&[Constant::Str("n"), Constant::Str("test"), Constant::I64(-1)]),
             )
         }
 
@@ -209,7 +201,7 @@ x = [
                 source,
                 &[
                     Map(vec![]),
-                    Number(1),
+                    Int(1),
                     Str(4),
                     // map entries are constant/ast index pairs
                     Map(vec![(0, Some(1)), (2, None), (3, Some(2))]),
@@ -220,7 +212,7 @@ x = [
                 ],
                 Some(&[
                     Constant::Str("foo"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
@@ -240,7 +232,7 @@ x = [
             check_ast(
                 source,
                 &[
-                    Number(1),
+                    Int(1),
                     Str(4),
                     // map entries are constant/ast index pairs
                     Map(vec![(0, Some(0)), (2, None), (3, Some(1))]),
@@ -251,7 +243,7 @@ x = [
                 ],
                 Some(&[
                     Constant::Str("foo"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
@@ -271,8 +263,8 @@ x"#;
             check_ast(
                 source,
                 &[
-                    Id(0),     // x
-                    Number(2), // 42
+                    Id(0),  // x
+                    Int(2), // 42
                     Number0,
                     // map entries are constant/ast pairs
                     Map(vec![(1, Some(2))]), // baz, nested map
@@ -294,7 +286,7 @@ x"#;
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                 ]),
@@ -387,7 +379,7 @@ min..max
                         expression: 1,
                     },
                     Id(1),
-                    Number(2),
+                    Int(2),
                     Assign {
                         target: AssignTarget {
                             target_index: 3,
@@ -411,7 +403,7 @@ min..max
                 Some(&[
                     Constant::Str("min"),
                     Constant::Str("max"),
-                    Constant::Number(10.0),
+                    Constant::I64(10),
                 ]),
             )
         }
@@ -463,13 +455,13 @@ min..max
                     },
                     List(vec![2]),
                     Number0,
-                    Number(0), // 5
+                    Int(0), // 5
                     Range {
                         start: 4,
                         end: 5,
                         inclusive: false,
                     },
-                    Number(0),
+                    Int(0),
                     Number0,
                     Range {
                         start: 7,
@@ -482,7 +474,7 @@ min..max
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Number(10.0)]),
+                Some(&[Constant::I64(10)]),
             )
         }
 
@@ -693,8 +685,8 @@ num4(
                     Number0,
                     Number1,
                     Tuple(vec![1, 2]),
-                    Number(1),
-                    Number(2), // 5
+                    Int(1),
+                    Int(2), // 5
                     Tuple(vec![4, 5]),
                     Tuple(vec![3, 6]),
                     Assign {
@@ -710,11 +702,7 @@ num4(
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
-                ]),
+                Some(&[Constant::Str("x"), Constant::I64(2), Constant::I64(3)]),
             )
         }
 
@@ -862,7 +850,7 @@ x %= 4";
                         expression: 4,
                     }, // 5
                     Id(0),
-                    Number(1),
+                    Int(1),
                     Assign {
                         target: AssignTarget {
                             target_index: 6,
@@ -872,7 +860,7 @@ x %= 4";
                         expression: 7,
                     },
                     Id(0),
-                    Number(2), // 10
+                    Int(2), // 10
                     Assign {
                         target: AssignTarget {
                             target_index: 9,
@@ -882,7 +870,7 @@ x %= 4";
                         expression: 10,
                     },
                     Id(0),
-                    Number(3),
+                    Int(3),
                     Assign {
                         target: AssignTarget {
                             target_index: 12,
@@ -898,9 +886,9 @@ x %= 4";
                 ],
                 Some(&[
                     Constant::Str("x"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
-                    Constant::Number(4.0),
+                    Constant::I64(2),
+                    Constant::I64(3),
+                    Constant::I64(4),
                 ]),
             )
         }
@@ -1011,14 +999,14 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Number(0),
-                    Number(1),
+                    Int(0),
+                    Int(1),
                     BinaryOp {
                         op: AstOp::Divide,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Number(2),
+                    Int(2),
                     BinaryOp {
                         op: AstOp::Modulo,
                         lhs: 2,
@@ -1029,11 +1017,7 @@ x %= 4";
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Number(18.0),
-                    Constant::Number(3.0),
-                    Constant::Number(4.0),
-                ]),
+                Some(&[Constant::I64(18), Constant::I64(3), Constant::I64(4)]),
             )
         }
 
@@ -1107,8 +1091,8 @@ a = 1 +
                 &[
                     Id(0),
                     Number1,
-                    Number(1),
-                    Number(2),
+                    Int(1),
+                    Int(2),
                     BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 2,
@@ -1132,11 +1116,7 @@ a = 1 +
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("a"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
-                ]),
+                Some(&[Constant::Str("a"), Constant::I64(2), Constant::I64(3)]),
             )
         }
 
@@ -1152,8 +1132,8 @@ a = 1
                 &[
                     Id(0),
                     Number1,
-                    Number(1),
-                    Number(2),
+                    Int(1),
+                    Int(2),
                     BinaryOp {
                         op: AstOp::Multiply,
                         lhs: 2,
@@ -1177,11 +1157,7 @@ a = 1
                         local_count: 1,
                     },
                 ],
-                Some(&[
-                    Constant::Str("a"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
-                ]),
+                Some(&[Constant::Str("a"), Constant::I64(2), Constant::I64(3)]),
             )
         }
     }
@@ -1523,7 +1499,7 @@ a()";
                 source,
                 &[
                     Id(0),
-                    Number(1),
+                    Int(1),
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
@@ -1549,7 +1525,7 @@ a()";
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("a"), Constant::Number(42.0)]),
+                Some(&[Constant::Str("a"), Constant::I64(42)]),
             )
         }
 
@@ -1668,7 +1644,7 @@ f 42";
                         expression: 7,
                     },
                     Id(0),
-                    Number(3), // 10
+                    Int(3), // 10
                     Call {
                         function: 9,
                         args: vec![10],
@@ -1682,7 +1658,7 @@ f 42";
                     Constant::Str("f"),
                     Constant::Str("x"),
                     Constant::Str("y"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                 ]),
             )
         }
@@ -1745,7 +1721,7 @@ f 42";
                         expression: 11,
                     },
                     Id(0), // f
-                    Number(4),
+                    Int(4),
                     Call {
                         function: 13,
                         args: vec![14],
@@ -1760,7 +1736,7 @@ f 42";
                     Constant::Str("x"),
                     Constant::Str("y"),
                     Constant::Str("z"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                 ]),
             )
         }
@@ -1973,7 +1949,7 @@ f x";
             check_ast(
                 source,
                 &[
-                    Number(1),
+                    Int(1),
                     Id(3), // self
                     Id(4), // x
                     Id(3),
@@ -2006,7 +1982,7 @@ f x";
                 ],
                 Some(&[
                     Constant::Str("foo"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("self"),
                     Constant::Str("x"),
@@ -2071,7 +2047,7 @@ f()";
                 source,
                 &[
                     Id(0),
-                    Number(2),
+                    Int(2),
                     Id(4), // self
                     Id(5), // x
                     Id(4),
@@ -2125,7 +2101,7 @@ f()";
                 Some(&[
                     Constant::Str("f"),
                     Constant::Str("foo"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("self"),
                     Constant::Str("x"),
@@ -2272,7 +2248,7 @@ y z";
                     Id(0), // z
                     Id(1), // y
                     Number0,
-                    Number(2),
+                    Int(2),
                     Range {
                         start: 2,
                         end: 3,
@@ -2322,7 +2298,7 @@ y z";
                 Some(&[
                     Constant::Str("z"),
                     Constant::Str("y"),
-                    Constant::Number(20.0),
+                    Constant::I64(20),
                     Constant::Str("x"),
                 ]),
             )
@@ -2392,7 +2368,7 @@ y z";
             check_ast(
                 source,
                 &[
-                    Number(1),
+                    Int(1),
                     Map(vec![(0, Some(0))]),
                     Yield(1),
                     Function(koto_parser::Function {
@@ -2409,7 +2385,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("foo"), Constant::Number(42.0)]),
+                Some(&[Constant::Str("foo"), Constant::I64(42)]),
             )
         }
 
@@ -2555,7 +2531,7 @@ y z";
                 source,
                 &[
                     Id(0),
-                    Number(1),
+                    Int(1),
                     RangeTo {
                         end: 1,
                         inclusive: false,
@@ -2567,7 +2543,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Number(3.0)]),
+                Some(&[Constant::Str("x"), Constant::I64(3)]),
             )
         }
 
@@ -2578,7 +2554,7 @@ y z";
                 source,
                 &[
                     Id(0),
-                    Number(1),
+                    Int(1),
                     RangeFrom { start: 1 },
                     Number0,
                     Lookup((LookupNode::Index(3), None)),
@@ -2589,7 +2565,7 @@ y z";
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Number(10.0)]),
+                Some(&[Constant::Str("x"), Constant::I64(10)]),
             )
         }
 
@@ -2672,7 +2648,7 @@ x.bar()."baz" = 1
                 source,
                 &[
                     Id(0),
-                    Number(2),
+                    Int(2),
                     Lookup((LookupNode::Call(vec![1]), None)),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
@@ -2681,11 +2657,7 @@ x.bar()."baz" = 1
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("foo"),
-                    Constant::Number(42.0),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
             )
         }
 
@@ -3266,9 +3238,9 @@ x = match y
                     Id(1),
                     Number0,
                     Number1,
-                    Number(2),
+                    Int(2),
                     Id(3), // 5
-                    Number(4),
+                    Int(4),
                     Match {
                         expression: Some(1),
                         arms: vec![
@@ -3300,9 +3272,9 @@ x = match y
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("y"),
-                    Constant::Number(42.0),
+                    Constant::I64(42),
                     Constant::Str("z"),
-                    Constant::Number(-1.0),
+                    Constant::I64(-1),
                 ]),
             )
         }
@@ -3319,7 +3291,7 @@ match x
                 &[
                     Id(0),
                     Str(1),
-                    Number(2),
+                    Int(2),
                     Str(3),
                     Str(4),
                     Break, // 5
@@ -3346,7 +3318,7 @@ match x
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("foo"),
-                    Constant::Number(99.0), // 5
+                    Constant::I64(99), // 5
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                 ]),
@@ -3517,7 +3489,7 @@ match x
                     Id(0),
                     Id(1),
                     Id(1),
-                    Number(2),
+                    Int(2),
                     BinaryOp {
                         op: AstOp::Greater,
                         lhs: 2,
@@ -3526,7 +3498,7 @@ match x
                     Number0, // 5
                     Id(1),
                     Id(1),
-                    Number(3),
+                    Int(3),
                     BinaryOp {
                         op: AstOp::Less,
                         lhs: 7,
@@ -3534,7 +3506,7 @@ match x
                     },
                     Number1, // 10
                     Id(1),
-                    Number(4),
+                    Int(4),
                     Match {
                         expression: Some(0),
                         arms: vec![
@@ -3563,9 +3535,9 @@ match x
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("z"),
-                    Constant::Number(5.0),
-                    Constant::Number(10.0),
-                    Constant::Number(-1.0),
+                    Constant::I64(5),
+                    Constant::I64(10),
+                    Constant::I64(-1),
                 ]),
             )
         }
@@ -3588,8 +3560,8 @@ match x, y
                     Number0,
                     Number1,
                     TempTuple(vec![3, 4]), // 5
-                    Number(2),
-                    Number(3),
+                    Int(2),
+                    Int(3),
                     TempTuple(vec![6, 7]),
                     Id(4),
                     Number0, // 10
@@ -3626,8 +3598,8 @@ match x, y
                 Some(&[
                     Constant::Str("x"),
                     Constant::Str("y"),
-                    Constant::Number(2.0),
-                    Constant::Number(3.0),
+                    Constant::I64(2),
+                    Constant::I64(3),
                     Constant::Str("z"),
                     Constant::Str("a"),
                 ]),
@@ -3645,7 +3617,7 @@ match x.foo 42
                 source,
                 &[
                     Id(0),
-                    Number(2),
+                    Int(2),
                     Lookup((LookupNode::Call(vec![1]), None)),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
@@ -3672,11 +3644,7 @@ match x.foo 42
                         local_count: 0,
                     },
                 ],
-                Some(&[
-                    Constant::Str("x"),
-                    Constant::Str("foo"),
-                    Constant::Number(42.0),
-                ]),
+                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
             )
         }
 

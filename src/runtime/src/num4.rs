@@ -1,7 +1,10 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-    ops,
+use {
+    crate::ValueNumber,
+    std::{
+        fmt,
+        hash::{Hash, Hasher},
+        ops,
+    },
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialOrd)]
@@ -192,6 +195,38 @@ macro_rules! num4_op {
                     *self as f32 $op other.2,
                     *self as f32 $op other.3,
                 )
+            }
+        }
+
+        impl ops::$trait<ValueNumber> for Num4 {
+            type Output = Num4;
+
+            fn $fn(self, other: ValueNumber) -> Num4 {
+                self $op f32::from(other)
+            }
+        }
+
+        impl ops::$trait<&ValueNumber> for &Num4 {
+            type Output = Num4;
+
+            fn $fn(self, other: &ValueNumber) -> Num4 {
+                *self $op f32::from(other)
+            }
+        }
+
+        impl ops::$trait<Num4> for ValueNumber {
+            type Output = Num4;
+
+            fn $fn(self, other: Num4) -> Num4 {
+                f32::from(self) $op other
+            }
+        }
+
+        impl ops::$trait<&Num4> for &ValueNumber {
+            type Output = Num4;
+
+            fn $fn(self, other: &Num4) -> Num4 {
+                f32::from(self) $op *other
             }
         }
     };

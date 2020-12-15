@@ -89,7 +89,7 @@ pub fn make_file_map() -> ValueMap {
                     if *n < 0.0 {
                         return external_error!("File.seek: Negative seek positions not allowed");
                     }
-                    match file_handle.file.seek(SeekFrom::Start(*n as u64)) {
+                    match file_handle.file.seek(SeekFrom::Start(n.into())) {
                         Ok(_) => Ok(Value::Empty),
                         Err(e) => external_error!("File.seek: Error while seeking in file: {}", e),
                     }

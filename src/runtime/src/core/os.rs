@@ -5,10 +5,10 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
-    result.add_fn("cpu_count", |_vm, _args| Ok(Number(num_cpus::get() as f64)));
+    result.add_fn("cpu_count", |_vm, _args| Ok(Number(num_cpus::get().into())));
 
     result.add_fn("physical_cpu_count", |_vm, _args| {
-        Ok(Number(num_cpus::get_physical() as f64))
+        Ok(Number(num_cpus::get_physical().into()))
     });
 
     result

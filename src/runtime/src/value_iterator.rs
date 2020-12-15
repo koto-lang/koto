@@ -74,7 +74,7 @@ impl Iterator for ValueIteratorInternals {
                     let result = *start + self.index as isize;
                     if result < *end {
                         self.index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(result as f64))))
+                        Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
                     } else {
                         None
                     }
@@ -83,7 +83,7 @@ impl Iterator for ValueIteratorInternals {
                     let result = *start - self.index as isize;
                     if result > *end {
                         self.index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(result as f64))))
+                        Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
                     } else {
                         None
                     }

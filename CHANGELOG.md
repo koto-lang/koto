@@ -54,6 +54,10 @@
 
 ### Changed
 - thread.join now returns the result of the thread's function.
+- Numbers now can either be integers or floats.
+  - The integer representation is `i64`.
+  - Arithmetic involving only integers will produce an integer result,
+    otherwise the result will be floating point.
 
 ### Fixed
 - else and else if blocks with unexpected indentation will now trigger a

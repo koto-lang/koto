@@ -47,7 +47,7 @@ impl ChaChaRng {
         result.add_instance_fn("number", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "number", Self, rng, {
-                Ok(Number(rng.0.gen::<f64>()))
+                Ok(Number(rng.0.gen::<f64>().into()))
             })
         });
 
@@ -88,7 +88,7 @@ impl ChaChaRng {
                         };
                         let size = end - start;
                         let index = rng.0.gen_range(0, size);
-                        Ok(Number((start + index) as f64))
+                        Ok(Number((start + index).into()))
                     }
                     _ => external_error!("random.pick - expected list or range as argument"),
                 }

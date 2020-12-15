@@ -6,7 +6,8 @@ use {
         num2, num4, type_as_string,
         value::{self, value_size, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueString, ValueVec,
+        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
+        ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::ConstantIndex,
@@ -375,12 +376,17 @@ impl Vm {
                 Ok(())
             }
             Instruction::SetNumber { register, value } => {
-                self.set_register(register, Number(value));
+                self.set_register(register, Number(value.into()));
                 Ok(())
             }
-            Instruction::LoadNumber { register, constant } => {
-                let n = self.reader.chunk.constants.get_number(constant);
-                self.set_register(register, Number(n));
+            Instruction::LoadFloat { register, constant } => {
+                let n = self.reader.chunk.constants.get_f64(constant);
+                self.set_register(register, Number(n.into()));
+                Ok(())
+            }
+            Instruction::LoadInt { register, constant } => {
+                let n = self.reader.chunk.constants.get_i64(constant);
+                self.set_register(register, Number(n.into()));
                 Ok(())
             }
             Instruction::LoadString { register, constant } => {
@@ -732,14 +738,17 @@ impl Vm {
 
         let range = match (start, end) {
             (Some(Number(start)), Some(Number(end))) => {
+                let istart = isize::from(start);
+                let iend = isize::from(end);
+
                 let (start, end) = if inclusive {
-                    if start <= end {
-                        (*start as isize, *end as isize + 1)
+                    if istart <= iend {
+                        (istart, iend + 1)
                     } else {
-                        (*start as isize, *end as isize - 1)
+                        (istart, iend - 1)
                     }
                 } else {
-                    (*start as isize, *end as isize)
+                    (istart, iend)
                 };
 
                 Range(IntRange { start, end })
@@ -754,9 +763,9 @@ impl Vm {
                     );
                 }
                 let end = if inclusive {
-                    *end as usize + 1
+                    usize::from(end) + 1
                 } else {
-                    *end as usize
+                    usize::from(end)
                 };
                 IndexRange(value::IndexRange {
                     start: 0,
@@ -773,7 +782,7 @@ impl Vm {
                     );
                 }
                 IndexRange(value::IndexRange {
-                    start: *start as usize,
+                    start: usize::from(start),
                     end: None,
                 })
             }
@@ -922,7 +931,7 @@ impl Vm {
             Num2(n) => {
                 let index = signed_index_to_unsigned(index, 2);
                 if index < 2 {
-                    Number(n[index])
+                    Number(n[index].into())
                 } else {
                     Empty
                 }
@@ -930,7 +939,7 @@ impl Vm {
             Num4(n) => {
                 let index = signed_index_to_unsigned(index, 4);
                 if index < 4 {
-                    Number(n[index] as f64)
+                    Number(n[index].into())
                 } else {
                     Empty
                 }
@@ -1478,7 +1487,7 @@ impl Vm {
 
     fn run_size(&mut self, register: u8, value: u8) -> InstructionResult {
         let result = value_size(self.get_register(value));
-        self.set_register(register, Value::Number(result as f64));
+        self.set_register(register, Value::Number(result.into()));
         Ok(())
     }
 
@@ -1583,13 +1592,13 @@ impl Vm {
 
         let result = if element_count == 1 {
             match self.get_register(element_register) {
-                Number(n) => num2::Num2(*n, *n),
+                Number(n) => num2::Num2(n.into(), n.into()),
                 Num2(n) => *n,
                 List(list) => {
                     let mut result = num2::Num2::default();
                     for (i, value) in list.data().iter().take(2).enumerate() {
                         match value {
-                            Number(n) => result[i] = *n,
+                            Number(n) => result[i] = n.into(),
                             unexpected => {
                                 return self.unexpected_type_error(
                                     "num2: Expected Number",
@@ -1613,7 +1622,7 @@ impl Vm {
             let mut result = num2::Num2::default();
             for i in 0..element_count {
                 match self.get_register(element_register + i) {
-                    Number(n) => result[i as usize] = *n,
+                    Number(n) => result[i as usize] = n.into(),
                     unexpected => {
                         return self.unexpected_type_error(
                             "num2: Expected Number, Num2, or List",
@@ -1641,7 +1650,7 @@ impl Vm {
         let result = if element_count == 1 {
             match self.get_register(element_register) {
                 Number(n) => {
-                    let n = *n as f32;
+                    let n = n.into();
                     num4::Num4(n, n, n, n)
                 }
                 Num2(n) => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
@@ -1650,7 +1659,7 @@ impl Vm {
                     let mut result = num4::Num4::default();
                     for (i, value) in list.data().iter().take(4).enumerate() {
                         match value {
-                            Number(n) => result[i] = *n as f32,
+                            Number(n) => result[i] = n.into(),
                             unexpected => {
                                 return self.unexpected_type_error(
                                     "num4: Expected Number",
@@ -1674,7 +1683,7 @@ impl Vm {
             let mut result = num4::Num4::default();
             for i in 0..element_count {
                 match self.get_register(element_register + i) {
-                    Number(n) => result[i as usize] = *n as f32,
+                    Number(n) => result[i as usize] = n.into(),
                     unexpected => {
                         return self.unexpected_type_error(
                             "num4: Expected Number, Num4, or List",
@@ -1743,7 +1752,7 @@ impl Vm {
                 let list_len = list.len();
                 match index_value {
                     Number(index) => {
-                        let u_index = index as usize;
+                        let u_index = usize::from(index);
                         if index >= 0.0 && u_index < list_len {
                             list.data_mut()[u_index] = value;
                         } else {
@@ -1844,8 +1853,13 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: f64, size: usize, instruction_ip: usize) -> InstructionResult {
-        let index = n as usize;
+    fn validate_index(
+        &self,
+        n: ValueNumber,
+        size: usize,
+        instruction_ip: usize,
+    ) -> Result<usize, Error> {
+        let index = usize::from(n);
 
         if n < 0.0 {
             vm_error!(
@@ -1863,7 +1877,7 @@ impl Vm {
                 size
             )
         } else {
-            Ok(())
+            Ok(index)
         }
     }
 
@@ -1950,8 +1964,8 @@ impl Vm {
 
         match (value, index) {
             (List(l), Number(n)) => {
-                self.validate_index(n, l.len(), instruction_ip)?;
-                self.set_register(result_register, l.data()[n as usize].clone());
+                let index = self.validate_index(n, l.len(), instruction_ip)?;
+                self.set_register(result_register, l.data()[index].clone());
             }
 
             (List(l), Range(IntRange { start, end })) => {
@@ -1972,8 +1986,8 @@ impl Vm {
                 )
             }
             (Tuple(t), Number(n)) => {
-                self.validate_index(n, t.data().len(), instruction_ip)?;
-                self.set_register(result_register, t.data()[n as usize].clone());
+                let index = self.validate_index(n, t.data().len(), instruction_ip)?;
+                self.set_register(result_register, t.data()[index].clone());
             }
 
             (Tuple(t), Range(IntRange { start, end })) => {
@@ -1989,9 +2003,9 @@ impl Vm {
                 self.set_register(result_register, Tuple(t.data()[start..end].into()))
             }
             (Num2(n), Number(i)) => {
-                let i = i.floor() as usize;
+                let i = usize::from(i);
                 match i {
-                    0 | 1 => self.set_register(result_register, Number(n[i])),
+                    0 | 1 => self.set_register(result_register, Number(n[i].into())),
                     other => {
                         return vm_error!(
                             self.chunk(),
@@ -2003,7 +2017,7 @@ impl Vm {
                 }
             }
             (Num4(n), Number(i)) => {
-                let i = i.floor() as usize;
+                let i = usize::from(i);
                 match i {
                     0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
                     other => {
