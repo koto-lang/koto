@@ -281,7 +281,20 @@ impl<'a> TokenLexer<'a> {
 
                     match chars.peek() {
                         Some(c) if is_digit(*c) => {}
-                        Some(&'e') => {}
+                        Some(&'e') => {
+                            // lookahead to check that this isn't a function call starting with 'e'
+                            // e.g. 1.exp()
+                            let mut lookahead = chars.clone();
+                            lookahead.next();
+                            match lookahead.peek() {
+                                Some(c) if is_digit(*c) => {}
+                                Some(&'+') | Some(&'-') => {}
+                                _ => {
+                                    self.advance_line(char_bytes);
+                                    return Some(Number);
+                                }
+                            }
+                        }
                         _ => {
                             self.advance_line(char_bytes);
                             return Some(Number);
@@ -841,7 +854,7 @@ true"#;
 1.0.sin()
 -1e-3.abs()
 1.min x
-";
+9.exp()";
         check_lexer_output(
             input,
             &[
@@ -862,6 +875,11 @@ true"#;
                 (Id, Some("min"), 3),
                 (Id, Some("x"), 3),
                 (NewLine, None, 4),
+                (Number, Some("9"), 4),
+                (Dot, None, 4),
+                (Id, Some("exp"), 4),
+                (ParenOpen, None, 4),
+                (ParenClose, None, 4),
             ],
         );
     }

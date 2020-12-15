@@ -55,7 +55,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("map.get_index: Negative indices aren't allowed");
             }
-            match m.data().get_index(*n as usize) {
+            match m.data().get_index(n.into()) {
                 Some((key, value)) => Ok(Tuple(vec![key.clone(), value.clone()].into())),
                 None => Ok(Empty),
             }
@@ -131,7 +131,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Number(m.data().len() as f64)),
+        [Map(m)] => Ok(Number(m.data().len().into())),
         [other, ..] => external_error!(
             "map.size: Expected map as argument, found '{}'",
             type_as_string(other),

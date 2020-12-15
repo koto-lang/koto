@@ -4,16 +4,24 @@
 
 ### Added
 - Core Ops
-  - iterator.chain
-  - list.clear
-  - list.swap
-  - map.clear
-  - map.get_index
-  - os.cpu_count
-  - os.physical_cpu_count
-  - tuple.first
-  - tuple.last
-  - tuple.sort_copy
+  - `iterator.chain`
+  - `list.clear`
+  - `list.swap`
+  - `map.clear`
+  - `map.get_index`
+  - `number.is_nan`
+  - `number.to_float`
+  - `number.to_int`
+  - `os.cpu_count`
+  - `os.physical_cpu_count`
+  - `tuple.first`
+  - `tuple.last`
+  - `tuple.sort_copy`
+- Core Constants
+  - `number.e`
+  - `number.infinity`
+  - `number.nan`
+  - `number.negative_infinity`
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
   - The value to match against is now optional, and when it's ommitted then
@@ -53,10 +61,14 @@
     ```
 
 ### Changed
-- thread.join now returns the result of the thread's function.
+- `thread.join` now returns the result of the thread's function.
+- Numbers now can either be integers or floats.
+  - The integer representation is `i64`.
+  - Arithmetic involving only integers will produce an integer result,
+    otherwise the result will be floating point.
 
 ### Fixed
-- else and else if blocks with unexpected indentation will now trigger a
+- `else` and `else if` blocks with unexpected indentation will now trigger a
   parser error.
 - Multi-assignment of values where the values are used in the expressions now
   works as expected.
@@ -68,18 +80,20 @@
     assert_eq b 1
     ```
 - Generator functions can now capture non-local values.
+- `1.exp()` is now parsed correctly as a number followed by a call to `exp()`,
+  rather than `1.e` followed by `xp()`.
 
 ## [0.4.0] 2020.12.10
 
 ### Added
 - Core Ops
-  - iterator.min_max
-  - list.copy
-  - list.deep_copy
-  - map.copy
-  - map.deep_copy
-  - map.update
-  - tuple.deep_copy
+  - `iterator.min_max`
+  - `list.copy`
+  - `list.deep_copy`
+  - `map.copy`
+  - `map.deep_copy`
+  - `map.update`
+  - `tuple.deep_copy`
 - Strings are now iterable by default
 - Tuples or lists in function arguments can be unpacked automatically.
   - e.g. `f = |a, (b, [c, d])| a + b + c + d`
@@ -105,18 +119,18 @@
 
 ### Added
 - Core Ops
-  - iterator.all
-  - iterator.any
-  - iterator.max
-  - iterator.min
-  - iterator.position
-  - iterator.skip
-  - string.size
+  - `iterator.all`
+  - `iterator.any`
+  - `iterator.max`
+  - `iterator.min`
+  - `iterator.position`
+  - `iterator.skip`
+  - `string.size`
 - Strings can now be used with the ordered comparison operators.
 
 ### Changed
 - Map blocks can now be used in return and yield expressions.
-- iterator.each and iterator.keep now collect iterator pairs into tuples.
+- `iterator.each` and `iterator.keep` now collect iterator pairs into tuples.
 - Space-separated function calls are allowed in function args when the arg is on
   a new line.
 - Unparenthesized expressions can now be used for range boundaries.
@@ -126,8 +140,8 @@
 - Vim support has been moved to [its own repo][vim].
 
 ### Fixed
-- iterator.fold, list.retain, and list.transform could cause runtime errors or
-  stack overflows when being called after other functions.
+- `iterator.fold`, `list.retain`, and `list.transform` could cause runtime
+  errors or stack overflows when being called after other functions.
   - [Bug report](https://github.com/koto-lang/koto/issues/6)
 
 [vim]: https://github.com/koto-lang/koto.vim
@@ -136,13 +150,13 @@
 ## [0.2.0] - 2020.12.02
 
 ### Added
-- iterator.count
-- string.chars
-- tuple.contains
+- `iterator.count`
+- `string.chars`
+- `tuple.contains`
 
 ### Changed
-- koto.script_dir is now canonicalized and includes a trailing slash.
-- koto.script_path is now canonicalized.
+- `koto.script_dir` is now canonicalized and includes a trailing slash.
+- `koto.script_path` is now canonicalized.
 
 ### Fixed
 - Multiline strings broke following spans.

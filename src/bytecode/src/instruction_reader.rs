@@ -75,9 +75,13 @@ pub enum Instruction {
     },
     SetNumber {
         register: u8,
-        value: f64,
+        value: i64,
     },
-    LoadNumber {
+    LoadFloat {
+        register: u8,
+        constant: ConstantIndex,
+    },
+    LoadInt {
         register: u8,
         constant: ConstantIndex,
     },
@@ -368,7 +372,8 @@ impl fmt::Display for Instruction {
             SetEmpty { .. } => write!(f, "SetEmpty"),
             SetBool { .. } => write!(f, "SetBool"),
             SetNumber { .. } => write!(f, "SetNumber"),
-            LoadNumber { .. } => write!(f, "LoadNumber"),
+            LoadFloat { .. } => write!(f, "LoadFloat"),
+            LoadInt { .. } => write!(f, "LoadInt"),
             LoadString { .. } => write!(f, "LoadString"),
             LoadGlobal { .. } => write!(f, "LoadGlobal"),
             SetGlobal { .. } => write!(f, "SetGlobal"),
@@ -447,11 +452,12 @@ impl fmt::Debug for Instruction {
             SetNumber { register, value } => {
                 write!(f, "SetNumber\tresult: {}\tvalue: {}", register, value)
             }
-            LoadNumber { register, constant } => write!(
-                f,
-                "LoadNumber\tresult: {}\tconstant: {}",
-                register, constant
-            ),
+            LoadFloat { register, constant } => {
+                write!(f, "LoadFloat\tresult: {}\tconstant: {}", register, constant)
+            }
+            LoadInt { register, constant } => {
+                write!(f, "LoadInt\tresult: {}\tconstant: {}", register, constant)
+            }
             LoadString { register, constant } => write!(
                 f,
                 "LoadString\tresult: {}\tconstant: {}",
@@ -896,21 +902,29 @@ impl Iterator for InstructionReader {
             }),
             Op::Set0 => Some(SetNumber {
                 register: get_byte!(),
-                value: 0.0,
+                value: 0,
             }),
             Op::Set1 => Some(SetNumber {
                 register: get_byte!(),
-                value: 1.0,
+                value: 1,
             }),
             Op::SetNumberU8 => Some(SetNumber {
                 register: get_byte!(),
-                value: get_byte!() as f64,
+                value: get_byte!() as i64,
             }),
-            Op::LoadNumber => Some(LoadNumber {
+            Op::LoadFloat => Some(LoadFloat {
                 register: get_byte!(),
                 constant: get_byte!() as ConstantIndex,
             }),
-            Op::LoadNumberLong => Some(LoadNumber {
+            Op::LoadFloatLong => Some(LoadFloat {
+                register: get_byte!(),
+                constant: get_u32!() as ConstantIndex,
+            }),
+            Op::LoadInt => Some(LoadInt {
+                register: get_byte!(),
+                constant: get_byte!() as ConstantIndex,
+            }),
+            Op::LoadIntLong => Some(LoadInt {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),

@@ -31,7 +31,7 @@ pub fn make_module() -> ValueMap {
             if *n < 0.0 {
                 return external_error!("tuple.get: Negative indices aren't allowed");
             }
-            let index = *n as usize;
+            let index: usize = n.into();
             match t.data().get(index) {
                 Some(value) => Ok(value.clone()),
                 None => Ok(Value::Empty),
@@ -54,7 +54,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => Ok(Number(t.data().len() as f64)),
+        [Tuple(t)] => Ok(Number(t.data().len().into())),
         _ => external_error!("tuple.size: Expected tuple as argument"),
     });
 

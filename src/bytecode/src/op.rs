@@ -11,8 +11,10 @@ pub enum Op {
     Set0,             // register
     Set1,             // register
     SetNumberU8,      // register, number
-    LoadNumber,       // register, constant
-    LoadNumberLong,   // register, constant[4]
+    LoadFloat,        // register, constant
+    LoadFloatLong,    // register, constant[4]
+    LoadInt,          // register, constant
+    LoadIntLong,      // register, constant[4]
     LoadString,       // register, constant
     LoadStringLong,   // register, constant[4]
     LoadGlobal,       // register, constant
@@ -83,8 +85,6 @@ pub enum Op {
     Debug,            // register, constant[4]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
-    Unused79,
-    Unused80,
     Unused81,
     Unused82,
     Unused83,

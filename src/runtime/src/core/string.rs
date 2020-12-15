@@ -88,13 +88,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Number(s.graphemes(true).count() as f64)),
+        [Str(s)] => Ok(Number(s.graphemes(true).count().into())),
         _ => external_error!("string.size: Expected string as argument"),
     });
 
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
         [Str(input), Number(from)] => {
-            let bounds = (*from as usize)..input.len();
+            let bounds = usize::from(*from)..input.len();
             let result = match input.with_bounds(bounds) {
                 Ok(result) => Str(result),
                 Err(_) => Empty,
@@ -102,7 +102,7 @@ pub fn make_module() -> ValueMap {
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
-            let bounds = (*from as usize)..(*to as usize);
+            let bounds = usize::from(*from)..usize::from(*to);
             let result = match input.with_bounds(bounds) {
                 Ok(result) => Str(result),
                 Err(_) => Empty,
@@ -147,9 +147,14 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("to_number", |vm, args| match vm.get_args(args) {
-        [Str(s)] => match s.parse::<f64>() {
-            Ok(n) => Ok(Number(n)),
-            Err(_) => external_error!("string.to_number: Failed to convert '{}'", s),
+        [Str(s)] => match s.parse::<i64>() {
+            Ok(n) => Ok(Number(n.into())),
+            Err(_) => match s.parse::<f64>() {
+                Ok(n) => Ok(Number(n.into())),
+                Err(_) => {
+                    external_error!("string.to_number: Failed to convert '{}'", s)
+                }
+            },
         },
         _ => external_error!("string.to_number: Expected string as argument"),
     });

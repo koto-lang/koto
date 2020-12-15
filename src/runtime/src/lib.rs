@@ -10,6 +10,7 @@ pub mod value;
 mod value_iterator;
 mod value_list;
 mod value_map;
+mod value_number;
 mod value_string;
 mod value_tuple;
 mod vm;
@@ -27,6 +28,7 @@ pub use {
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_list::{ValueList, ValueVec},
     value_map::{ValueHashMap, ValueMap, ValueMapKey},
+    value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
     vm::{Vm, VmContext},

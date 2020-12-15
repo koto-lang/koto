@@ -8,7 +8,8 @@ export tests =
     assert_eq data.number 99
     assert_eq data.bool true
     assert_eq data.string "O_o"
-    assert_eq data.nested.number -1
+    assert_eq data.nested.number_float -1.2
+    assert_eq data.nested.number_int 123
     assert_eq data.nested.string "hello"
     assert_eq data.entries[0].foo "bar"
     assert_eq data.entries[1].foo "baz"
