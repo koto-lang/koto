@@ -9,6 +9,7 @@
   - list.swap
   - map.clear
   - map.get_index
+  - number.is_nan
   - number.to_float
   - number.to_int
   - os.cpu_count
@@ -16,6 +17,11 @@
   - tuple.first
   - tuple.last
   - tuple.sort_copy
+- Core Constants
+  - number.e
+  - number.infinity
+  - number.nan
+  - number.negative_infinity
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
   - The value to match against is now optional, and when it's ommitted then

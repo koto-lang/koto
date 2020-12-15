@@ -53,12 +53,23 @@ pub fn make_module() -> ValueMap {
     number_f64_fn!(cos);
     number_f64_fn!(cosh);
     number_f64_fn!("degrees", to_degrees);
+
+    result.add_value("e", Number(std::f64::consts::E.into()));
+
     number_f64_fn!(exp);
     number_f64_fn!(exp2);
     number_fn!(floor);
-    number_f64_fn!(log10);
-    number_f64_fn!(log2);
+
+    result.add_value("infinity", Number(std::f64::INFINITY.into()));
+
+    result.add_fn("is_nan", |vm, args| match vm.get_args(args) {
+        [Number(n)] => Ok(Bool(n.is_nan())),
+        _ => external_error!("number.is_nan: Expected Number as argument"),
+    });
+
     number_f64_fn!(ln);
+    number_f64_fn!(log2);
+    number_f64_fn!(log10);
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(*a.max(b))),
@@ -70,7 +81,10 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("number.min: Expected two numbers as arguments"),
     });
 
+    result.add_value("nan", Number(std::f64::NAN.into()));
+    result.add_value("negative_infinity", Number(std::f64::NEG_INFINITY.into()));
     result.add_value("pi", Number(std::f64::consts::PI.into()));
+
     result.add_fn("pow", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(a.pow(*b))),
         _ => external_error!("number.pow: Expected two numbers as arguments"),
@@ -88,6 +102,7 @@ pub fn make_module() -> ValueMap {
         [Number(n)] => Ok(Number(f64::from(n).into())),
         _ => external_error!("number.to_float: Expected Number as argument"),
     });
+
     result.add_fn("to_int", |vm, args| match vm.get_args(args) {
         [Number(n)] => Ok(Number(i64::from(n).into())),
         _ => external_error!("number.to_int: Expected Number as argument"),

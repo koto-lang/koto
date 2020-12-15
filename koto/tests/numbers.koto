@@ -1,26 +1,131 @@
-import number, koto.type
-from test import assert_eq, assert_near
+import koto.type, number
+from number import e, infinity, negative_infinity, pi, tau,
+from test import assert, assert_eq, assert_near
+
+epsilon = 1.0e-15
 
 export tests =
-  test_trigonometry: ||
-    assert_near number.pi.sin() 0 1.0e-15
-    assert_eq number.pi.cos() -1
-    assert_eq number.tau.cos() 1
+  test_abs: ||
+    assert_eq -1.abs() 1
+    assert_eq 3.abs() 3
+    assert_eq -1.5.abs() 1.5
+    assert_eq 9.1.abs() 9.1
 
-  test_pow: ||
-    assert_eq (2.pow 8) 256
+  test_acos: ||
+    assert_eq 0.acos() pi / 2
+    assert_eq 1.acos() 0
 
-  test_min_max: ||
-    assert_eq (1.min 2) 1
-    assert_eq (1.max 2) 2
+  test_asin: ||
+    assert_eq 0.asin() 0
+    assert_eq 1.asin() pi / 2
+
+  test_atan: ||
+    assert_eq 0.atan() 0
+    assert_eq 1.atan() pi / 4
+
+  test_ceil: ||
+    assert_eq 0.ceil() 0
+    assert_eq 0.5.ceil() 1
+    assert_eq 1.ceil() 1
 
   test_clamp: ||
     assert_eq (0.clamp 1 2) 1
     assert_eq (1.5.clamp 1 2) 1.5
     assert_eq (3.clamp 1 2) 2
 
-  test_float_int_conversion: ||
+  test_cos: ||
+    assert_eq 0.cos() 1
+    assert_near (pi / 2).cos() 0 epsilon
+
+  test_cosh: ||
+    assert_eq 0.cosh() 1
+    assert_near 1.cosh() ((1 + e.pow(2)) / (2 * e)) epsilon
+
+  test_degrees: ||
+    assert_eq 0.degrees() 0
+    assert_eq pi.degrees() 180
+    assert_eq tau.degrees() 360
+
+  test_exp: ||
+    assert_eq (0).exp() 1
+    assert_eq (1).exp() e
+
+  test_exp2: ||
+    assert_eq (0).exp2() 1
+    assert_eq (2).exp2() 4
+
+  test_floor: ||
+    assert_eq 1.5.floor() 1
+    assert_eq -1.2.floor() -2
+    assert_eq type(1.1.floor()) "Int"
+
+  test_is_nan: ||
+    assert not 0.is_nan()
+    assert (0 / 0).is_nan()
+
+  test_ln: ||
+    assert_eq 0.ln() negative_infinity
+    assert_eq 1.ln() 0
+    assert_eq e.ln() 1
+
+  test_log2: ||
+    assert_eq 0.log2() negative_infinity
+    assert_eq 256.log2() 8
+
+  test_log10: ||
+    assert_eq 0.log10() negative_infinity
+    assert_eq 100.log10() 2
+
+  test_max: ||
+    assert_eq (1.5.max 2) 2
+
+  test_min: ||
+    assert_eq (1.min 2) 1
+
+  test_pow: ||
+    assert_eq (2.pow 8) 256
+    assert_eq (4.pow 1.5) 8
+
+  test_radians: ||
+    assert_eq 0.radians() 0
+    assert_eq 180.radians() pi
+    assert_eq 360.radians() tau
+
+  test_recip: ||
+    assert_eq -2.recip() -0.5
+    assert_eq 0.recip() infinity
+    assert_eq 2.recip() 0.5
+    assert_eq 4.recip() 0.25
+
+  test_sin: ||
+    assert_near 0.sin() 0 epsilon
+    assert_eq (pi / 2).sin() 1
+
+  test_sinh: ||
+    assert_near 0.sinh() 0 epsilon
+    assert_near 1.sinh() ((e.pow(2) - 1) / (2 * e)) epsilon
+
+  test_sqrt: ||
+    assert_eq 64.sqrt() 8
+    assert -1.sqrt().is_nan()
+
+  test_tan: ||
+    assert_near (pi / 4).tan() 1 epsilon
+    assert_eq 0.tan() 0
+    assert_near 1.tan() (1.sin() / 1.cos()) epsilon
+
+  test_tanh: ||
+    assert_eq 0.tanh() 0
+    assert_eq 1.tanh() (1.sinh() / 1.cosh())
+
+  test_to_float: ||
     x = 1
     assert_eq type(x) "Int"
     assert_eq type(x.to_float()) "Float"
-    assert_eq type(x.to_float().to_int()) "Int"
+    assert_eq x.to_float() x
+
+  test_to_int: ||
+    x = 1.0
+    assert_eq type(x) "Float"
+    assert_eq type(x.to_int()) "Int"
+    assert_eq x.to_int() x
