@@ -2022,7 +2022,6 @@ impl Compiler {
 
             for (i, capture) in captures.iter().enumerate() {
                 if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
-                    println!("deferring capture");
                     self.frame_mut()
                         .defer_op_until_register_is_committed(
                             local_register,
