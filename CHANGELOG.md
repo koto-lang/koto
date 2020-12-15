@@ -80,6 +80,8 @@
     assert_eq b 1
     ```
 - Generator functions can now capture non-local values.
+- `1.exp()` is now parsed correctly as a number followed by a call to `exp()`,
+  rather than `1.e` followed by `xp()`.
 
 ## [0.4.0] 2020.12.10
 

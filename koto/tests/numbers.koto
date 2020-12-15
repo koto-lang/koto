@@ -47,12 +47,12 @@ export tests =
     assert_eq tau.degrees() 360
 
   test_exp: ||
-    assert_eq (0).exp() 1
-    assert_eq (1).exp() e
+    assert_eq 0.exp() 1
+    assert_eq 1.exp() e
 
   test_exp2: ||
-    assert_eq (0).exp2() 1
-    assert_eq (2).exp2() 4
+    assert_eq 0.exp2() 1
+    assert_eq 2.exp2() 4
 
   test_floor: ||
     assert_eq 1.5.floor() 1
