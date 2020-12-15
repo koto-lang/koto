@@ -456,7 +456,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "LoadFloat\tresult: {}\tconstant: {}", register, constant)
             }
             LoadInt { register, constant } => {
-                write!(f, "LoadInt\tresult: {}\tconstant: {}", register, constant)
+                write!(f, "LoadInt\t\tresult: {}\tconstant: {}", register, constant)
             }
             LoadString { register, constant } => write!(
                 f,
@@ -682,7 +682,7 @@ impl fmt::Debug for Instruction {
                 arg_count,
             } => write!(
                 f,
-                "CallChild\tresult: {}\tfunction: {}\tframe_base: {}\targs: {}\t\tparent: {}",
+                "CallChild\tresult: {}\tfunction: {}\tframe_base: {}\n\t\t\targs: {}\t\tparent: {}",
                 result, function, frame_base, arg_count, parent
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
@@ -748,7 +748,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "IsList\t\tresult: {}\tvalue: {}", register, value)
             }
             ListPushValue { list, value } => {
-                write!(f, "ListPushValue\tlist: {}\t\tvalue: {}", list, value)
+                write!(f, "ListPushValue\tlist: {}\tvalue: {}", list, value)
             }
             ListPushValues {
                 list,
