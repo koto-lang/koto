@@ -1,4 +1,4 @@
-import number
+import number, koto.type
 from test import assert_eq, assert_near
 
 export tests =
@@ -18,3 +18,9 @@ export tests =
     assert_eq (0.clamp 1 2) 1
     assert_eq (1.5.clamp 1 2) 1.5
     assert_eq (3.clamp 1 2) 2
+
+  test_float_int_conversion: ||
+    x = 1
+    assert_eq type(x) "Int"
+    assert_eq type(x.to_float()) "Float"
+    assert_eq type(x.to_float().to_int()) "Int"

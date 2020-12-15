@@ -9,6 +9,8 @@
   - list.swap
   - map.clear
   - map.get_index
+  - number.to_float
+  - number.to_int
   - os.cpu_count
   - os.physical_cpu_count
   - tuple.first

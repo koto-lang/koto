@@ -84,6 +84,15 @@ pub fn make_module() -> ValueMap {
     number_f64_fn!(tan);
     number_f64_fn!(tanh);
 
+    result.add_fn("to_float", |vm, args| match vm.get_args(args) {
+        [Number(n)] => Ok(Number(f64::from(n).into())),
+        _ => external_error!("number.to_float: Expected Number as argument"),
+    });
+    result.add_fn("to_int", |vm, args| match vm.get_args(args) {
+        [Number(n)] => Ok(Number(i64::from(n).into())),
+        _ => external_error!("number.to_int: Expected Number as argument"),
+    });
+
     result.add_value("tau", Number(std::f64::consts::TAU.into()));
 
     result
