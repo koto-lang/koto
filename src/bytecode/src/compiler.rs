@@ -1101,11 +1101,8 @@ impl Compiler {
         let result = {
             // reserve ids on lhs before compiling rhs
             for target in targets.iter() {
-                match &ast.node(target.target_index).node {
-                    Node::Id(id_index) => {
-                        self.reserve_local_register(*id_index)?;
-                    }
-                    _ => {}
+                if let Node::Id(id_index) = &ast.node(target.target_index).node {
+                    self.reserve_local_register(*id_index)?;
                 }
             }
 
