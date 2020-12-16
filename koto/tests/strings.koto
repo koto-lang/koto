@@ -31,6 +31,11 @@ export tests =
     assert "O_o".contains("_")
     assert not "O_o".contains("@")
 
+  test_ends_with: ||
+    assert "a,b,c".ends_with("")
+    assert "a,b,c".ends_with(",c")
+    assert not "a,b,c".ends_with(",b")
+
   test_escape: ||
     x = "
 "
@@ -82,6 +87,11 @@ zzz
     assert_eq "a,b,c".split(",").to_tuple() ("a", "b", "c")
     assert_eq "O_O".split("O").to_tuple() ("", "_", "")
     assert_eq "a - b - c".split(" - ").to_tuple() ("a", "b", "c")
+
+  test_starts_with: ||
+    assert "a,b,c".starts_with("")
+    assert "a,b,c".starts_with("a,")
+    assert not "a,b,c".starts_with(",b")
 
   test_to_lowercase: ||
     assert_eq (string.to_lowercase "ABC 123") "abc 123"

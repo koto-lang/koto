@@ -34,6 +34,14 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("string.is_empty: Expected string as argument"),
     });
 
+    result.add_fn("ends_with", |vm, args| match vm.get_args(args) {
+        [Str(s), Str(pattern)] => {
+            let result = s.as_str().ends_with(pattern.as_str());
+            Ok(Bool(result))
+        }
+        _ => external_error!("string.ends_with: Expected two strings as arguments"),
+    });
+
     result.add_fn("format", |vm, args| match vm.get_args(args) {
         [result @ Str(_)] => Ok(result.clone()),
         [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
@@ -137,6 +145,14 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(iterator))
         }
         _ => external_error!("string.split: Expected two strings as arguments"),
+    });
+
+    result.add_fn("starts_with", |vm, args| match vm.get_args(args) {
+        [Str(s), Str(pattern)] => {
+            let result = s.as_str().starts_with(pattern.as_str());
+            Ok(Bool(result))
+        }
+        _ => external_error!("string.starts_with: Expected two strings as arguments"),
     });
 
     result.add_fn("to_lowercase", |vm, args| match vm.get_args(args) {

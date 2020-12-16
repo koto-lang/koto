@@ -16,6 +16,8 @@
   - `number.to_int`
   - `os.cpu_count`
   - `os.physical_cpu_count`
+  - `string.ends_with`
+  - `string.starts_with`
   - `tuple.first`
   - `tuple.last`
   - `tuple.sort_copy`
