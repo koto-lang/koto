@@ -69,6 +69,12 @@
 - The RWLock implementation used in Koto is now the one from
   [parking_lot](https://crates.io/crates/parking_lot).
   - Performance improvements of up to 13% were seen in testing.
+- Accessing the runtime's prelude is now performed via `Koto::prelude()` rather
+  than via `Koto::context_mut()`, which has been removed.
+  - The prelude was the only reason to expose the context, so it's cleaner to
+    make this explicit.
+  - Behind this change is a small performance improvement whereby core
+    operations have one RWLock fewer to get past.
 
 
 ### Fixed

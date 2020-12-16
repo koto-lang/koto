@@ -33,16 +33,13 @@ pub enum ControlFlow {
 // Instructions will place their results in registers, there's no Ok type
 pub type InstructionResult = Result<(), Error>;
 
-pub struct VmContext {
+/// Context shared by all VMs across modules
+struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
-    global: ValueMap,
-    loader: Loader,
-    modules: HashMap<PathBuf, Option<ValueMap>>,
-    spawned_stop_flags: Vec<Arc<AtomicBool>>,
 }
 
-impl Default for VmContext {
+impl Default for SharedContext {
     fn default() -> Self {
         let core_lib = CoreLib::default();
 
@@ -60,22 +57,22 @@ impl Default for VmContext {
         prelude.add_map("thread", core_lib.thread.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
 
-        Self {
-            prelude,
-            core_lib,
-            global: Default::default(),
-            loader: Default::default(),
-            modules: Default::default(),
-            spawned_stop_flags: Default::default(),
-        }
+        Self { prelude, core_lib }
     }
 }
 
-impl VmContext {
+/// VM Context shared by VMs running in the same module
+#[derive(Default)]
+pub struct ModuleContext {
+    global: ValueMap,
+    loader: Loader,
+    modules: HashMap<PathBuf, Option<ValueMap>>,
+    spawned_stop_flags: Vec<Arc<AtomicBool>>,
+}
+
+impl ModuleContext {
     fn spawn_new_context(&self) -> Self {
         Self {
-            prelude: self.prelude.clone(),
-            core_lib: self.core_lib.clone(),
             loader: self.loader.clone(),
             modules: self.modules.clone(),
             global: Default::default(),
@@ -84,6 +81,7 @@ impl VmContext {
     }
 
     fn reset(&mut self) {
+        // self.global.clear();
         self.loader = Default::default();
         self.stop_spawned_vms();
     }
@@ -96,14 +94,15 @@ impl VmContext {
     }
 }
 
-impl Drop for VmContext {
+impl Drop for ModuleContext {
     fn drop(&mut self) {
         self.stop_spawned_vms();
     }
 }
 
 pub struct Vm {
-    context: Arc<RwLock<VmContext>>,
+    context: Arc<RwLock<ModuleContext>>,
+    context_shared: Arc<SharedContext>,
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -113,7 +112,8 @@ pub struct Vm {
 impl Default for Vm {
     fn default() -> Self {
         Self {
-            context: Arc::new(RwLock::new(VmContext::default())),
+            context: Arc::new(RwLock::new(ModuleContext::default())),
+            context_shared: Arc::new(SharedContext::default()),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -126,6 +126,7 @@ impl Vm {
     pub fn spawn_new_vm(&mut self) -> Self {
         Self {
             context: Arc::new(RwLock::new(self.context().spawn_new_context())),
+            context_shared: self.context_shared.clone(),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -136,8 +137,9 @@ impl Vm {
     pub fn spawn_shared_vm(&mut self) -> Self {
         Self {
             context: self.context.clone(),
+            context_shared: self.context_shared.clone(),
             reader: self.reader.clone(),
-            value_stack: Vec::with_capacity(32),
+            value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: None,
         }
@@ -151,18 +153,23 @@ impl Vm {
 
         Self {
             context: self.context.clone(),
+            context_shared: self.context_shared.clone(),
             reader: self.reader.clone(),
-            value_stack: Vec::with_capacity(32),
+            value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: Some(stop_flag),
         }
     }
 
-    pub fn context(&self) -> RwLockReadGuard<VmContext> {
+    pub fn prelude(&self) -> ValueMap {
+        self.context_shared.prelude.clone()
+    }
+
+    fn context(&self) -> RwLockReadGuard<ModuleContext> {
         self.context.read()
     }
 
-    pub fn context_mut(&mut self) -> RwLockWriteGuard<VmContext> {
+    fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
         self.context.write()
     }
 
@@ -1510,7 +1517,7 @@ impl Vm {
             self.set_register(result_register, value);
         } else {
             let maybe_in_prelude = self
-                .context()
+                .context_shared
                 .prelude
                 .data()
                 .get_with_string(&import_name)
@@ -2085,7 +2092,7 @@ impl Vm {
             ($module:ident, $iterator_fallback:expr) => {{
                 let op = self.get_core_op(
                     key_string,
-                    &self.context().core_lib.$module,
+                    &self.context_shared.core_lib.$module,
                     stringify!($module),
                     $iterator_fallback,
                     instruction_ip,
@@ -2133,7 +2140,7 @@ impl Vm {
 
         let maybe_op = match module.data().get_with_string(key).cloned() {
             None if iterator_fallback => self
-                .context()
+                .context_shared
                 .core_lib
                 .iterator
                 .data()
