@@ -81,7 +81,7 @@ where
 {
     match map.data().get(&Value::ExternalDataId) {
         Some(Value::ExternalValue(maybe_external)) => {
-            let mut value = maybe_external.as_ref().write().unwrap();
+            let mut value = maybe_external.as_ref().write();
             match value.downcast_mut::<T>() {
                 Some(external) => f(external),
                 None => external_error!(
@@ -99,9 +99,7 @@ where
     T: ExternalValue,
 {
     match map.data().get(&Value::ExternalDataId) {
-        Some(Value::ExternalValue(maybe_external)) => {
-            maybe_external.as_ref().read().unwrap().is::<T>()
-        }
+        Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
         _ => false,
     }
 }

@@ -66,6 +66,10 @@
   - The integer representation is `i64`.
   - Arithmetic involving only integers will produce an integer result,
     otherwise the result will be floating point.
+- The RWLock implementation used in Koto is now the one from
+  [parking_lot](https://crates.io/crates/parking_lot).
+  - Performance improvements of up to 13% were seen in testing.
+
 
 ### Fixed
 - `else` and `else if` blocks with unexpected indentation will now trigger a

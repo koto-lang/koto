@@ -11,13 +11,14 @@ use {
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::ConstantIndex,
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         collections::HashMap,
         fmt,
         path::PathBuf,
         sync::{
             atomic::{AtomicBool, Ordering},
-            Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+            Arc,
         },
     },
 };
@@ -158,11 +159,11 @@ impl Vm {
     }
 
     pub fn context(&self) -> RwLockReadGuard<VmContext> {
-        self.context.read().unwrap()
+        self.context.read()
     }
 
     pub fn context_mut(&mut self) -> RwLockWriteGuard<VmContext> {
-        self.context.write().unwrap()
+        self.context.write()
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {

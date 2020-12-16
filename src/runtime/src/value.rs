@@ -4,11 +4,12 @@ use {
         ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
+    parking_lot::RwLock,
     std::{
         cmp::Ordering,
         fmt,
         hash::{Hash, Hasher},
-        sync::{Arc, RwLock},
+        sync::Arc,
     },
 };
 
@@ -113,7 +114,7 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(ref value) => f.write_str(&value.read().unwrap().to_string()),
+            ExternalValue(ref value) => f.write_str(&value.read().to_string()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
@@ -341,7 +342,7 @@ pub fn type_as_string(value: &Value) -> String {
         Function { .. } => "Function".to_string(),
         Generator { .. } => "Generator".to_string(),
         ExternalFunction(_) => "ExternalFunction".to_string(),
-        ExternalValue(value) => value.read().unwrap().value_type(),
+        ExternalValue(value) => value.read().value_type(),
         Iterator(_) => "Iterator".to_string(),
         TemporaryTuple { .. } => "TemporaryTuple".to_string(),
         ExternalDataId => "ExternalDataId".to_string(),
@@ -357,7 +358,8 @@ pub fn value_is_immutable(value: &Value) -> bool {
 
     matches!(
         value,
-        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_))
+        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+    )
 }
 
 pub fn value_size(value: &Value) -> usize {

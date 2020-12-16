@@ -36,10 +36,8 @@ use {
     koto_runtime::{
         type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueVec, Vm, VmContext,
     },
-    std::{
-        path::PathBuf,
-        sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
-    },
+    parking_lot::{RwLockReadGuard, RwLockWriteGuard},
+    std::{path::PathBuf, sync::Arc},
 };
 
 /// Settings used to control the behaviour of the [Koto] runtime
