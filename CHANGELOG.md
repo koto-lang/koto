@@ -11,6 +11,7 @@
   - `list.swap`
   - `map.clear`
   - `map.get_index`
+  - `map.sort`
   - `number.is_nan`
   - `number.to_float`
   - `number.to_int`
@@ -79,6 +80,8 @@
     make this explicit.
   - Behind this change is a small performance improvement whereby core
     operations have one RWLock fewer to get past.
+- `list.sort` and `map.sort` can now take an optional function to customize the
+  sorting behaviour.
 
 
 ### Fixed

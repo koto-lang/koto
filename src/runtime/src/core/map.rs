@@ -1,7 +1,7 @@
 use crate::{
     external_error, type_as_string, value::deep_copy_value, value_is_immutable,
     value_iterator::ValueIteratorOutput as Output, RuntimeFunction, RuntimeResult, Value,
-    ValueIterator, ValueMap, Vm,
+    ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -128,6 +128,51 @@ pub fn make_module() -> ValueMap {
             type_as_string(other_b)
         ),
         _ => external_error!("map.remove: Expected map and key as arguments"),
+    });
+
+    result.add_fn("sort", |vm, args| match vm.get_args(args) {
+        [Map(m)] => {
+            m.data_mut().sort_keys();
+            Ok(Empty)
+        }
+        [Map(l), Function(f)] => {
+            let m = l.clone();
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+            let mut error = None;
+
+            let mut get_sort_key = |cache: &mut ValueHashMap, key: &Value, value: &Value| {
+                let value = match vm.run_function(&f, &[key.clone(), value.clone()]) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        error.get_or_insert(Err(e));
+                        Empty
+                    }
+                };
+                cache.insert(key.clone(), value.clone());
+                value
+            };
+
+            let mut cache = ValueHashMap::with_capacity(m.len());
+            m.data_mut().sort_by(|key_a, value_a, key_b, value_b| {
+                let value_a = match cache.get(key_a) {
+                    Some(value) => value.clone(),
+                    None => get_sort_key(&mut cache, key_a, value_a),
+                };
+                let value_b = match cache.get(key_b) {
+                    Some(value) => value.clone(),
+                    None => get_sort_key(&mut cache, key_b, value_b),
+                };
+                value_a.cmp(&value_b)
+            });
+
+            if let Some(error) = error {
+                error
+            } else {
+                Ok(Empty)
+            }
+        }
+        _ => external_error!("map.sort: Expected map as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {

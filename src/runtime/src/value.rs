@@ -177,6 +177,9 @@ impl PartialOrd for Value {
         use Value::*;
 
         match (self, other) {
+            (Empty, Empty) => Some(Ordering::Equal),
+            (Empty, _) => Some(Ordering::Less),
+            (_, Empty) => Some(Ordering::Greater),
             (Number(a), Number(b)) => a.partial_cmp(b),
             (Num2(a), Num2(b)) => a.partial_cmp(b),
             (Num4(a), Num4(b)) => a.partial_cmp(b),
@@ -191,6 +194,9 @@ impl Ord for Value {
         use Value::*;
 
         match (self, other) {
+            (Empty, Empty) => Ordering::Equal,
+            (Empty, _) => Ordering::Less,
+            (_, Empty) => Ordering::Greater,
             (Number(a), Number(b)) => a.cmp(b),
             (Str(a), Str(b)) => a.cmp(b),
             (a, b) => panic!(format!("cmp unsupported for {} and {}", a, b)),
