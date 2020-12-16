@@ -118,7 +118,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if value_is_immutable(key) => match m.data_mut().remove(key) {
+        [Map(m), key] if value_is_immutable(key) => match m.data_mut().shift_remove(key) {
             Some(old_value) => Ok(old_value),
             None => Ok(Empty),
         },

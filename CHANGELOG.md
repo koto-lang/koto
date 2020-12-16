@@ -82,6 +82,7 @@
     operations have one RWLock fewer to get past.
 - `list.sort` and `map.sort` can now take an optional function to customize the
   sorting behaviour.
+- The ordering of entries is now preserved when calling `map.remove`.
 
 
 ### Fixed

@@ -69,8 +69,9 @@ export tests =
     assert_eq m.keys().to_tuple() ("foo", 0)
 
   test_remove: ||
-    m = {foo: 42, bar: 99}
+    m = {foo: 42, bar: 99, baz: -1}
     assert_eq (m.remove "foo") 42
+    assert_eq m.keys().to_tuple() ("bar", "baz")
     assert_eq (m.remove "bar") 99
     assert_eq (m.remove "foo") ()
 
