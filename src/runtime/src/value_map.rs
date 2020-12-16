@@ -7,13 +7,15 @@ use {
         map::{Iter, Keys, Values},
         IndexMap,
     },
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
         borrow::Borrow,
         fmt,
         hash::{BuildHasherDefault, Hash, Hasher},
         iter::{FromIterator, IntoIterator},
-        sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+        sync::Arc,
+        // sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     },
 };
 
@@ -232,12 +234,12 @@ impl ValueMap {
 
     #[inline]
     pub fn data(&self) -> RwLockReadGuard<ValueHashMap> {
-        self.0.read().unwrap()
+        self.0.read()
     }
 
     #[inline]
     pub fn data_mut(&self) -> RwLockWriteGuard<ValueHashMap> {
-        self.0.write().unwrap()
+        self.0.write()
     }
 
     #[inline]
@@ -337,7 +339,7 @@ impl<'map> Iterator for ValueMapIter<'map> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        match self.map.read().unwrap().get_index(self.index) {
+        match self.map.read().get_index(self.index) {
             Some((key, value)) => {
                 self.index += 1;
                 Some((key.clone(), value.clone()))

@@ -89,8 +89,7 @@ fn main() {
         ..Default::default()
     });
 
-    koto.context_mut()
-        .prelude
+    koto.prelude()
         .add_map("poetry", koto_bindings::make_module());
 
     let script_path = PathBuf::from_str(&args.script).expect("Failed to parse script path");

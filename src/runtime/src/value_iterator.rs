@@ -213,7 +213,10 @@ impl Iterator for ValueIterator {
 
 pub fn is_iterable(value: &Value) -> bool {
     use Value::*;
-    matches!(value, Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_))
+    matches!(
+        value,
+        Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+    )
 }
 
 pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {

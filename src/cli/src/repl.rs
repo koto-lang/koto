@@ -31,9 +31,9 @@ impl Repl {
     pub fn with_settings(mut settings: KotoSettings) -> Self {
         settings.repl_mode = true;
 
-        let mut koto = Koto::with_settings(settings);
+        let koto = Koto::with_settings(settings);
 
-        let mut prelude = koto.context().prelude.clone();
+        let mut prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());
         prelude.add_map("random", koto_random::make_module());
         prelude.add_map("tempfile", koto_tempfile::make_module());

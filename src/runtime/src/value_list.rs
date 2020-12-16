@@ -1,7 +1,7 @@
-use crate::Value;
-use std::{
-    fmt,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+use {
+    crate::Value,
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    std::{fmt, sync::Arc},
 };
 
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
@@ -39,12 +39,12 @@ impl ValueList {
 
     #[inline]
     pub fn data(&self) -> RwLockReadGuard<ValueVec> {
-        self.0.read().unwrap()
+        self.0.read()
     }
 
     #[inline]
     pub fn data_mut(&self) -> RwLockWriteGuard<ValueVec> {
-        self.0.write().unwrap()
+        self.0.write()
     }
 }
 

@@ -34,12 +34,9 @@ use {
     },
     koto_parser::{ParserError, Position},
     koto_runtime::{
-        type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueVec, Vm, VmContext,
+        type_as_string, Error, Loader, RuntimeFunction, Value, ValueList, ValueMap, ValueVec, Vm,
     },
-    std::{
-        path::PathBuf,
-        sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
-    },
+    std::{path::PathBuf, sync::Arc},
 };
 
 /// Settings used to control the behaviour of the [Koto] runtime
@@ -147,12 +144,8 @@ impl Koto {
         }
     }
 
-    pub fn context(&mut self) -> RwLockReadGuard<VmContext> {
-        self.runtime.context()
-    }
-
-    pub fn context_mut(&mut self) -> RwLockWriteGuard<VmContext> {
-        self.runtime.context_mut()
+    pub fn prelude(&self) -> ValueMap {
+        self.runtime.prelude()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
@@ -165,8 +158,7 @@ impl Koto {
 
         match self
             .runtime
-            .context_mut()
-            .prelude
+            .prelude()
             .data_mut()
             .get_with_string_mut("koto")
             .unwrap()
@@ -204,8 +196,7 @@ impl Koto {
 
         match self
             .runtime
-            .context_mut()
-            .prelude
+            .prelude()
             .data_mut()
             .get_with_string_mut("koto")
             .unwrap()
