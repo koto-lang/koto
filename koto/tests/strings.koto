@@ -81,6 +81,7 @@ zzz
   test_split: ||
     assert_eq "a,b,c".split(",").to_tuple() ("a", "b", "c")
     assert_eq "O_O".split("O").to_tuple() ("", "_", "")
+    assert_eq "a - b - c".split(" - ").to_tuple() ("a", "b", "c")
 
   test_to_lowercase: ||
     assert_eq (string.to_lowercase "ABC 123") "abc 123"

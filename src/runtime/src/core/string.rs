@@ -118,6 +118,7 @@ pub fn make_module() -> ValueMap {
             let pattern = pattern.clone();
 
             let mut start = 0;
+            let pattern_len = pattern.len();
             let iterator = ValueIterator::make_external(move || {
                 if start <= input.len() {
                     let end = match input[start..].find(pattern.as_str()) {
@@ -126,7 +127,7 @@ pub fn make_module() -> ValueMap {
                     };
 
                     let result = Str(input.with_bounds(start..end).unwrap());
-                    start = end + 1;
+                    start = end + pattern_len;
                     Some(Ok(ValueIteratorOutput::Value(result)))
                 } else {
                     None
