@@ -3,10 +3,7 @@ use {
         external::{Args, ExternalFunction},
         RuntimeResult, Value, ValueList, ValueRef, Vm,
     },
-    indexmap::{
-        map::{Iter, Keys, Values},
-        IndexMap,
-    },
+    indexmap::IndexMap,
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
@@ -14,8 +11,8 @@ use {
         fmt,
         hash::{BuildHasherDefault, Hash, Hasher},
         iter::{FromIterator, IntoIterator},
+        ops::{Deref, DerefMut},
         sync::Arc,
-        // sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     },
 };
 
@@ -122,34 +119,8 @@ impl ValueHashMap {
     }
 
     #[inline]
-    pub fn insert(&mut self, key: Value, value: Value) -> Option<Value> {
-        #[allow(clippy::useless_conversion)]
-        self.0.insert(key.into(), value)
-    }
-
-    #[inline]
-    pub fn remove(&mut self, key: &Value) -> Option<Value> {
-        self.0.remove(key)
-    }
-
-    #[inline]
     pub fn extend(&mut self, other: &ValueHashMap) {
         self.0.extend(other.0.clone().into_iter());
-    }
-
-    #[inline]
-    pub fn clear(&mut self) {
-        self.0.clear()
-    }
-
-    #[inline]
-    pub fn get(&self, key: &Value) -> Option<&Value> {
-        self.0.get(key)
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, key: &dyn ValueMapKey) -> Option<&mut Value> {
-        self.0.get_mut(key)
     }
 
     #[inline]
@@ -161,40 +132,19 @@ impl ValueHashMap {
     pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.0.get_mut(&key as &dyn ValueMapKey)
     }
+}
 
-    #[inline]
-    pub fn get_index(&self, index: usize) -> Option<(&Value, &Value)> {
-        self.0.get_index(index)
+impl Deref for ValueHashMap {
+    type Target = ValueHashMapType;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
+}
 
-    #[inline]
-    pub fn contains_key(&self, key: &dyn ValueMapKey) -> bool {
-        self.0.contains_key(key)
-    }
-
-    #[inline]
-    pub fn keys(&self) -> Keys<'_, Value, Value> {
-        self.0.keys()
-    }
-
-    #[inline]
-    pub fn values(&self) -> Values<'_, Value, Value> {
-        self.0.values()
-    }
-
-    #[inline]
-    pub fn iter(&self) -> Iter<'_, Value, Value> {
-        self.0.iter()
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+impl DerefMut for ValueHashMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
