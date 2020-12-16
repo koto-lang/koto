@@ -1,11 +1,12 @@
 use {
     crate::{
         external_error, type_as_string, value,
+        value::{add_values, multiply_values},
         value_iterator::{
             is_iterable, make_iterator, ValueIterator, ValueIteratorOutput as Output,
             ValueIteratorResult,
         },
-        Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+        RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
     },
     std::cmp,
 };
@@ -344,6 +345,14 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.position: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("product", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => iterator_product(iterable, &Value::Number(1.into())),
+        [iterable, initial_value] if is_iterable(iterable) => {
+            iterator_product(iterable, initial_value)
+        }
+        _ => external_error!("iterator.product: Expected iterable as argument"),
+    });
+
     result.add_fn("skip", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if is_iterable(iterable) && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap();
@@ -359,6 +368,12 @@ pub fn make_module() -> ValueMap {
         _ => {
             external_error!("iterator.skip: Expected iterable and non-negative number as arguments")
         }
+    });
+
+    result.add_fn("sum", |vm, args| match vm.get_args(args) {
+        [iterable] if is_iterable(iterable) => iterator_sum(iterable, &Value::Number(0.into())),
+        [iterable, initial_value] if is_iterable(iterable) => iterator_sum(iterable, initial_value),
+        _ => external_error!("iterator.sum: Expected iterable as argument"),
     });
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
@@ -466,4 +481,54 @@ fn collect_pair(iterator_output: ValueIteratorResult) -> ValueIteratorResult {
         }
         _ => iterator_output,
     }
+}
+
+fn iterator_product(iterable: &Value, initial_value: &Value) -> RuntimeResult {
+    let mut result = initial_value.clone();
+
+    for output in make_iterator(iterable).unwrap().map(collect_pair) {
+        match output {
+            Ok(Output::Value(value)) => {
+                result = match multiply_values(&result, &value) {
+                    Some(add_result) => add_result,
+                    None => {
+                        return external_error!(
+                            "iterator.product: failed to add '{}' and '{}'",
+                            type_as_string(&result),
+                            type_as_string(&value)
+                        )
+                    }
+                };
+            }
+            Err(error) => return Err(error),
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(result)
+}
+
+fn iterator_sum(iterable: &Value, initial_value: &Value) -> RuntimeResult {
+    let mut result = initial_value.clone();
+
+    for output in make_iterator(iterable).unwrap().map(collect_pair) {
+        match output {
+            Ok(Output::Value(value)) => {
+                result = match add_values(&result, &value) {
+                    Some(add_result) => add_result,
+                    None => {
+                        return external_error!(
+                            "iterator.sum: failed to add '{}' and '{}'",
+                            type_as_string(&result),
+                            type_as_string(&value)
+                        )
+                    }
+                };
+            }
+            Err(error) => return Err(error),
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(result)
 }

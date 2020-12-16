@@ -5,6 +5,8 @@
 ### Added
 - Core Ops
   - `iterator.chain`
+  - `iterator.product`
+  - `iterator.sum`
   - `list.clear`
   - `list.swap`
   - `map.clear`

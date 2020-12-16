@@ -4,7 +4,7 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{self, value_size, RegisterSlice, RuntimeFunction},
+        value::{self, add_values, multiply_values, value_size, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
         ValueString, ValueVec,
@@ -1177,44 +1177,16 @@ impl Vm {
         instruction: &Instruction,
         instruction_ip: usize,
     ) -> InstructionResult {
-        use Value::*;
-
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a + b),
-            (Number(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Num2(b)) => Num2(a + b),
-            (Num2(a), Number(b)) => Num2(a + b),
-            (Number(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Num4(b)) => Num4(a + b),
-            (Num4(a), Number(b)) => Num4(a + b),
-            (List(a), List(b)) => {
-                let mut result = ValueVec::new();
-                result.extend(a.data().iter().chain(b.data().iter()).cloned());
-                List(ValueList::with_data(result))
-            }
-            (List(a), Tuple(b)) => {
-                let mut result = ValueVec::new();
-                result.extend(a.data().iter().chain(b.data().iter()).cloned());
-                List(ValueList::with_data(result))
-            }
-            (Map(a), Map(b)) => {
-                let mut result = a.data().clone();
-                result.extend(&b.data());
-                Map(ValueMap::with_data(result))
-            }
-            (Str(a), Str(b)) => {
-                let result = a.to_string() + b.as_ref();
-                Str(result.into())
-            }
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
-            }
-        };
-        self.set_register(register, result);
 
-        Ok(())
+        match add_values(lhs_value, rhs_value) {
+            Some(result) => {
+                self.set_register(register, result);
+                Ok(())
+            }
+            None => self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip),
+        }
     }
 
     fn run_subtract(
@@ -1254,25 +1226,16 @@ impl Vm {
         instruction: &Instruction,
         instruction_ip: usize,
     ) -> InstructionResult {
-        use Value::*;
-
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
-            (Number(a), Number(b)) => Number(a * b),
-            (Number(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Num2(b)) => Num2(a * b),
-            (Num2(a), Number(b)) => Num2(a * b),
-            (Number(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Num4(b)) => Num4(a * b),
-            (Num4(a), Number(b)) => Num4(a * b),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip);
-            }
-        };
-        self.set_register(register, result);
 
-        Ok(())
+        match multiply_values(lhs_value, rhs_value) {
+            Some(result) => {
+                self.set_register(register, result);
+                Ok(())
+            }
+            None => self.binary_op_error(lhs_value, rhs_value, instruction, instruction_ip),
+        }
     }
 
     fn run_divide(

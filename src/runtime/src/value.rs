@@ -377,3 +377,60 @@ pub fn value_size(value: &Value) -> usize {
         _ => 1,
     }
 }
+
+pub fn add_values(value_a: &Value, value_b: &Value) -> Option<Value> {
+    use Value::*;
+
+    let result = match (value_a, value_b) {
+        (Number(a), Number(b)) => Number(a + b),
+        (Number(a), Num2(b)) => Num2(a + b),
+        (Num2(a), Num2(b)) => Num2(a + b),
+        (Num2(a), Number(b)) => Num2(a + b),
+        (Number(a), Num4(b)) => Num4(a + b),
+        (Num4(a), Num4(b)) => Num4(a + b),
+        (Num4(a), Number(b)) => Num4(a + b),
+        (List(a), List(b)) => {
+            let mut result = ValueVec::new();
+            result.extend(a.data().iter().chain(b.data().iter()).cloned());
+            List(ValueList::with_data(result))
+        }
+        (List(a), Tuple(b)) => {
+            let mut result = ValueVec::new();
+            result.extend(a.data().iter().chain(b.data().iter()).cloned());
+            List(ValueList::with_data(result))
+        }
+        (Map(a), Map(b)) => {
+            let mut result = a.data().clone();
+            result.extend(&b.data());
+            Map(ValueMap::with_data(result))
+        }
+        (Str(a), Str(b)) => {
+            let result = a.to_string() + b.as_ref();
+            Str(result.into())
+        }
+        _ => {
+            return None;
+        }
+    };
+
+    Some(result)
+}
+
+pub fn multiply_values(value_a: &Value, value_b: &Value) -> Option<Value> {
+    use Value::*;
+
+    let result = match (value_a, value_b) {
+        (Number(a), Number(b)) => Number(a * b),
+        (Number(a), Num2(b)) => Num2(a * b),
+        (Num2(a), Num2(b)) => Num2(a * b),
+        (Num2(a), Number(b)) => Num2(a * b),
+        (Number(a), Num4(b)) => Num4(a * b),
+        (Num4(a), Num4(b)) => Num4(a * b),
+        (Num4(a), Number(b)) => Num4(a * b),
+        _ => {
+            return None;
+        }
+    };
+
+    Some(result)
+}
