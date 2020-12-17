@@ -374,7 +374,10 @@ impl Vm {
             Instruction::Error { message } => {
                 vm_error!(self.chunk(), instruction_ip, "{}", message)
             }
-            Instruction::Copy { target, source } => self.run_copy(target, source),
+            Instruction::Copy { target, source } => {
+                self.run_copy(target, source);
+                Ok(())
+            }
             Instruction::SetEmpty { register } => {
                 self.set_register(register, Empty);
                 Ok(())
@@ -405,7 +408,10 @@ impl Vm {
             Instruction::LoadGlobal { register, constant } => {
                 self.run_load_global(register, constant, instruction_ip)
             }
-            Instruction::SetGlobal { global, source } => self.run_set_global(global, source),
+            Instruction::SetGlobal { global, source } => {
+                self.run_set_global(global, source);
+                Ok(())
+            }
             Instruction::Import { register, constant } => {
                 self.run_import(register, constant, instruction_ip)
             }
@@ -413,7 +419,10 @@ impl Vm {
                 register,
                 start,
                 count,
-            } => self.run_make_tuple(register, start, count),
+            } => {
+                self.run_make_tuple(register, start, count);
+                Ok(())
+            }
             Instruction::MakeTempTuple {
                 register,
                 start,
@@ -471,7 +480,10 @@ impl Vm {
             Instruction::MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable, instruction_ip)
             }
-            Instruction::Function { .. } => self.run_make_function(instruction),
+            Instruction::Function { .. } => {
+                self.run_make_function(instruction);
+                Ok(())
+            }
             Instruction::Capture {
                 function,
                 target,
@@ -513,8 +525,14 @@ impl Vm {
             Instruction::GreaterOrEqual { register, lhs, rhs } => {
                 self.run_greater_or_equal(register, lhs, rhs, &instruction, instruction_ip)
             }
-            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
-            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
+            Instruction::Equal { register, lhs, rhs } => {
+                self.run_equal(register, lhs, rhs);
+                Ok(())
+            }
+            Instruction::NotEqual { register, lhs, rhs } => {
+                self.run_not_equal(register, lhs, rhs);
+                Ok(())
+            }
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
                 Ok(())
@@ -571,7 +589,10 @@ impl Vm {
                 control_flow = ControlFlow::Yield(self.clone_register(register));
                 Ok(())
             }
-            Instruction::Size { register, value } => self.run_size(register, value),
+            Instruction::Size { register, value } => {
+                self.run_size(register, value);
+                Ok(())
+            }
             Instruction::IsTuple { register, value } => {
                 let result = matches!(self.get_register(value), Tuple(_));
                 self.set_register(register, Bool(result));
@@ -657,7 +678,8 @@ impl Vm {
                 Ok(())
             }
             Instruction::Debug { register, constant } => {
-                self.run_debug(register, constant, instruction_ip)
+                self.run_debug(register, constant, instruction_ip);
+                Ok(())
             }
             Instruction::CheckType { register, type_id } => {
                 self.run_check_type(register, type_id, instruction_ip)
@@ -670,7 +692,7 @@ impl Vm {
         Ok(control_flow)
     }
 
-    fn run_copy(&mut self, target: u8, source: u8) -> InstructionResult {
+    fn run_copy(&mut self, target: u8, source: u8) {
         let value = match self.clone_register(source) {
             Value::TemporaryTuple(RegisterSlice { start, count }) => {
                 // A temporary tuple shouldn't make it into a named value,
@@ -680,7 +702,6 @@ impl Vm {
             other => other,
         };
         self.set_register(target, value);
-        Ok(())
     }
 
     fn run_load_global(
@@ -706,21 +727,16 @@ impl Vm {
         }
     }
 
-    fn run_set_global(
-        &mut self,
-        constant_index: ConstantIndex,
-        source_register: u8,
-    ) -> InstructionResult {
+    fn run_set_global(&mut self, constant_index: ConstantIndex, source_register: u8) {
         let global_name = Value::Str(self.value_string_from_constant(constant_index));
         let value = self.clone_register(source_register);
         self.context_mut()
             .global
             .data_mut()
             .insert(global_name, value);
-        Ok(())
     }
 
-    fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) -> InstructionResult {
+    fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
         let mut copied = Vec::with_capacity(count as usize);
 
         for register in start..start + count {
@@ -728,7 +744,6 @@ impl Vm {
         }
 
         self.set_register(register, Value::Tuple(copied.into()));
-        Ok(())
     }
 
     fn run_make_range(
@@ -1017,7 +1032,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_make_function(&mut self, function_instruction: Instruction) -> InstructionResult {
+    fn run_make_function(&mut self, function_instruction: Instruction) {
         use Value::*;
 
         match function_instruction {
@@ -1059,8 +1074,6 @@ impl Vm {
             }
             _ => unreachable!(),
         }
-
-        Ok(())
     }
 
     fn run_capture_value(
@@ -1392,20 +1405,18 @@ impl Vm {
         Ok(())
     }
 
-    fn run_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result = (lhs_value == rhs_value).into();
         self.set_register(register, result);
-        Ok(())
     }
 
-    fn run_not_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
+    fn run_not_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result = (lhs_value != rhs_value).into();
         self.set_register(register, result);
-        Ok(())
     }
 
     fn run_jump_if(
@@ -1456,10 +1467,9 @@ impl Vm {
         Ok(())
     }
 
-    fn run_size(&mut self, register: u8, value: u8) -> InstructionResult {
+    fn run_size(&mut self, register: u8, value: u8) {
         let result = value_size(self.get_register(value));
         self.set_register(register, Value::Number(result.into()));
-        Ok(())
     }
 
     fn run_import(
@@ -2425,12 +2435,7 @@ impl Vm {
         }
     }
 
-    fn run_debug(
-        &self,
-        register: u8,
-        constant: ConstantIndex,
-        instruction_ip: usize,
-    ) -> InstructionResult {
+    fn run_debug(&self, register: u8, constant: ConstantIndex, instruction_ip: usize) {
         let prefix = match (
             self.reader.chunk.debug_info.get_source_span(instruction_ip),
             self.reader.chunk.source_path.as_ref(),
@@ -2442,7 +2447,6 @@ impl Vm {
         };
         let value = self.get_register(register);
         println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
-        Ok(())
     }
 
     fn run_check_type(

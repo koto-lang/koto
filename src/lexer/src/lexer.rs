@@ -165,6 +165,7 @@ impl<'a> TokenLexer<'a> {
         } else {
             NewLineIndented
         };
+
         Some(result)
     }
 
