@@ -211,6 +211,27 @@ pub fn make_module() -> ValueMap {
             l.data_mut().sort();
             Ok(Empty)
         }
+        [List(l), Function(f)] => {
+            let l = l.clone();
+            let f = f.clone();
+            let mut vm = vm.spawn_shared_vm();
+            let mut error = None;
+
+            l.data_mut()
+                .sort_by_cached_key(|value| match vm.run_function(&f, &[value.clone()]) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error.get_or_insert(Err(e));
+                        Empty
+                    }
+                });
+
+            if let Some(error) = error {
+                error
+            } else {
+                Ok(Empty)
+            }
+        }
         _ => external_error!("list.sort: Expected list as argument"),
     });
 

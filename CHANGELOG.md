@@ -5,15 +5,20 @@
 ### Added
 - Core Ops
   - `iterator.chain`
+  - `iterator.product`
+  - `iterator.sum`
   - `list.clear`
   - `list.swap`
   - `map.clear`
   - `map.get_index`
+  - `map.sort`
   - `number.is_nan`
   - `number.to_float`
   - `number.to_int`
   - `os.cpu_count`
   - `os.physical_cpu_count`
+  - `string.ends_with`
+  - `string.starts_with`
   - `tuple.first`
   - `tuple.last`
   - `tuple.sort_copy`
@@ -75,6 +80,9 @@
     make this explicit.
   - Behind this change is a small performance improvement whereby core
     operations have one RWLock fewer to get past.
+- `list.sort` and `map.sort` can now take an optional function to customize the
+  sorting behaviour.
+- The ordering of entries is now preserved when calling `map.remove`.
 
 
 ### Fixed
@@ -92,6 +100,8 @@
 - Generator functions can now capture non-local values.
 - `1.exp()` is now parsed correctly as a number followed by a call to `exp()`,
   rather than `1.e` followed by `xp()`.
+- `string.split` now works correctly when used with multi-character patterns.
+
 
 ## [0.4.0] 2020.12.10
 
