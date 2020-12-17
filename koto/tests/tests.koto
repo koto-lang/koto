@@ -1,0 +1,27 @@
+from test import assert, assert_eq, assert_ne, assert_near
+
+# A script can export a map named 'tests' to have the tests automatically run when
+# the script is loaded.
+export tests =
+  # 'pre_test' will be run before each test
+  pre_test: |self|
+    self.test_data = 1, 2, 3
+
+  # 'post_test' will be run after each test
+  post_test: |self|
+    self.test_data = ()
+
+  # Functions with a name starting with 'test_' will be automatically run as tests
+  test_size: |self|
+    # assert_eq checks that its two arguments are equal
+    assert_eq self.test_data.size() 3
+    # assert_ne checks that its two arguments are not equal
+    assert_ne self.test_data.size() 1
+
+  # Test functions don't have to be instance functions
+  test_extra: ||
+    # assert checks that its argument is true
+    assert 1 > 0
+    # assert_near checks that its arguments are equal, within a specied margin
+    allowed_error = 0.1
+    assert_near 1.3 1.301 allowed_error

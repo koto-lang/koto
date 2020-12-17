@@ -117,6 +117,7 @@ assert_near 1 2 0.1
     koto_test!(primes);
     koto_test!(ranges);
     koto_test!(strings);
+    koto_test!(tests);
     koto_test!(threads);
     koto_test!(tuples);
     koto_test!(types);
