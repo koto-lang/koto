@@ -162,20 +162,21 @@ pub fn make_module() -> ValueMap {
                 let mut write_index = 0;
                 for read_index in 0..l.len() {
                     let value = l.data()[read_index].clone();
-                    match vm.run_function(&f, &[value.clone()])? {
-                        Bool(result) => {
+                    match vm.run_function(&f, &[value.clone()]) {
+                        Ok(Bool(result)) => {
                             if result {
                                 l.data_mut()[write_index] = value;
                                 write_index += 1;
                             }
                         }
-                        unexpected => {
+                        Ok(unexpected) => {
                             return external_error!(
                                 "list.retain expects a Bool to be returned from the \
                                  predicate, found '{}'",
                                 value::type_as_string(&unexpected),
                             );
                         }
+                        Err(error) => return Err(error.with_prefix("list.retain")),
                     }
                 }
                 l.data_mut().resize(write_index, Empty);
@@ -221,7 +222,7 @@ pub fn make_module() -> ValueMap {
                 .sort_by_cached_key(|value| match vm.run_function(&f, &[value.clone()]) {
                     Ok(result) => result,
                     Err(e) => {
-                        error.get_or_insert(Err(e));
+                        error.get_or_insert(Err(e.with_prefix("list.sort")));
                         Empty
                     }
                 });
@@ -273,7 +274,10 @@ pub fn make_module() -> ValueMap {
             }
 
             for value in l.data_mut().iter_mut() {
-                *value = vm.run_function(&f, &[value.clone()])?;
+                *value = match vm.run_function(&f, &[value.clone()]) {
+                    Ok(result) => result,
+                    Err(error) => return Err(error.with_prefix("list.transform")),
+                }
             }
 
             Ok(Empty)

@@ -18,7 +18,7 @@ pub fn make_module() -> ValueMap {
                 let mut thread_vm = vm.spawn_shared_concurrent_vm();
                 move || match thread_vm.run_function(&f, &[]) {
                     Ok(result) => Ok(result),
-                    Err(e) => Err(e),
+                    Err(e) => Err(e.with_prefix("thread.create")),
                 }
             });
 

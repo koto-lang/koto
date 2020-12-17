@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- Core Ops
+  - `range.expanded`
+  - `range.union`
+
+### Changed
+- Error messages in core ops that call functors have been made a bit clearer.
+
 
 ## [0.5.0] 2020.12.17
 

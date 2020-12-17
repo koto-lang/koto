@@ -22,6 +22,34 @@ pub enum Error {
     },
 }
 
+impl Error {
+    pub fn with_prefix(self, prefix: &str) -> Self {
+        use Error::*;
+
+        match self {
+            VmError {
+                message,
+                chunk,
+                instruction,
+                extra_error,
+            } => VmError {
+                message: format!("{}: {}", prefix, message),
+                chunk,
+                instruction,
+                extra_error,
+            },
+            TestError { message, error } => TestError {
+                message: format!("{}: {}", prefix, message),
+                error,
+            },
+            ErrorWithoutLocation { message } => ErrorWithoutLocation {
+                message: format!("{}: {}", prefix, message),
+            },
+            LoaderError(error) => LoaderError(error), // TODO
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {

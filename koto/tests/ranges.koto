@@ -37,10 +37,6 @@ export tests =
     assert_eq [r] [2, 1]
     assert_eq [2..=0] [2, 1, 0]
 
-  test_range_size: ||
-    assert_eq (0..10).size() 10
-    assert_eq (0..=10).size() 11
-
   test_range_contains: ||
     assert (0..10).contains(5)
     assert not (0..10).contains(15)
@@ -48,9 +44,47 @@ export tests =
     assert not (0..10).contains(10)
     assert (0..=10).contains(10)
 
-  test_start_end: ||
+  test_range_expanded: ||
+    x = 10..20
+    assert_eq x.expanded(5) 5..25
+    assert_eq x.expanded(-1) 11..19
+
+  test_range_expanded_descending: ||
+    x = 10..0
+    assert_eq x.expanded(5) 15..-5
+    assert_eq x.expanded(-5) 5..5
+
+  test_range_size: ||
+    assert_eq (0..10).size() 10
+    assert_eq (0..=10).size() 11
+
+  test_range_start_end: ||
     x = 10..20
     assert_eq x.start() 10
     assert_eq x.end() 20
 
     assert_eq (10..=20).end() 21
+
+  test_range_union: ||
+    x = 10..20
+
+    assert_eq x.union(5) 5..20
+    assert_eq x.union(15) 10..20
+    assert_eq x.union(25) 10..=25
+
+    assert_eq x.union(1..15) 1..20
+    assert_eq x.union(12..100) 10..100
+    assert_eq x.union(5..=25) 5..=25
+    assert_eq x.union(25..=5) 5..=25
+
+  test_range_union_descending: ||
+    x = 10..0
+
+    assert_eq x.union(-5) 10..=-5
+    assert_eq x.union(5) 10..0
+    assert_eq x.union(15) 15..0
+
+    assert_eq x.union(1..=15) 15..0
+    assert_eq x.union(5..=100) 100..0
+    assert_eq x.union(-5..=25) 25..-5
+    assert_eq x.union(99..0) 99..0
