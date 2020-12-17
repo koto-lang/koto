@@ -4,7 +4,10 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{self, add_values, multiply_values, value_size, RegisterSlice, RuntimeFunction},
+        value::{
+            self, add_values, multiply_values, value_is_callable, value_size, RegisterSlice,
+            RuntimeFunction,
+        },
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
         ValueString, ValueVec,
@@ -177,9 +180,9 @@ impl Vm {
         self.context().global.data().get_with_string(id).cloned()
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<RuntimeFunction> {
+    pub fn get_global_function(&self, id: &str) -> Option<Value> {
         match self.get_global_value(id) {
-            Some(Value::Function(function)) => Some(function),
+            Some(function) if value_is_callable(&function) => Some(function),
             _ => None,
         }
     }
@@ -203,67 +206,107 @@ impl Vm {
         }
     }
 
-    pub fn run_function(&mut self, function: &RuntimeFunction, args: &[Value]) -> RuntimeResult {
+    pub fn run_function(&mut self, function: Value, args: &[Value]) -> RuntimeResult {
+        self.call_and_run_function(None, function, args)
+    }
+
+    pub fn run_instance_function(
+        &mut self,
+        instance: Value,
+        function: Value,
+        args: &[Value],
+    ) -> RuntimeResult {
+        self.call_and_run_function(Some(instance), function, args)
+    }
+
+    fn call_and_run_function(
+        &mut self,
+        instance: Option<Value>,
+        function: Value,
+        args: &[Value],
+    ) -> RuntimeResult {
         if !self.call_stack.is_empty() {
             return vm_error!(
                 self.chunk(),
                 self.ip(),
-                "run_function: the call stack isn't empty"
+                "run_function: the call stack must be empty,
+                 are you calling run_function on an active VM?"
             );
         }
 
-        let current_chunk = self.chunk();
-        let current_ip = self.ip();
-
-        if args.len() as u8 != function.arg_count {
+        if !value_is_callable(&function) {
             return vm_error!(
                 self.chunk(),
                 self.ip(),
-                "Incorrect argument count, expected {}, found {}",
-                function.arg_count,
-                args.len(),
+                "run_function: the provided value isn't a function"
             );
         }
 
-        let frame_base = if let Some(frame) = self.call_stack.last() {
-            frame.register_base
+        let result_register = 0;
+        let frame_base = 1;
+        // If there's an instance value then it goes in the frame base
+        let instance_register = if instance.is_some() {
+            Some(frame_base)
         } else {
-            0
+            None
         };
 
-        let arg_register = (self.value_stack.len() - frame_base) as u8;
+        self.value_stack.clear();
+        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(instance.unwrap_or_default()); // frame base
         self.value_stack.extend_from_slice(args);
 
-        self.push_frame(
-            function.chunk.clone(),
-            function.ip,
-            arg_register,
-            function.captures.clone(),
-        );
+        self.call_function(
+            result_register,
+            function,
+            frame_base,
+            args.len() as u8,
+            instance_register,
+            0,
+        )?;
 
-        self.frame_mut().catch_barrier = true;
-
-        let result = self.execute_instructions();
-        if result.is_err() {
-            self.pop_frame(Value::Empty)?;
+        if self.call_stack.is_empty() {
+            // If the call stack is empty, then an external function was called and the result
+            // should be in the frame base.
+            match self.value_stack.first() {
+                Some(value) => Ok(value.clone()),
+                None => vm_error!(
+                    self.chunk(),
+                    self.ip(),
+                    "run_function: missing return register"
+                ),
+            }
+        } else {
+            self.frame_mut().catch_barrier = true;
+            let result = self.execute_instructions();
+            if result.is_err() {
+                self.pop_frame(Value::Empty)?;
+            }
+            result
         }
-
-        self.set_chunk_and_ip(current_chunk, current_ip);
-
-        result
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
+        use Value::*;
+
         // It's important here to make sure we don't hang on to any references to the internal
         // test map data while calling the test functions, otherwise we'll end up in deadlocks.
-        let self_arg = [Value::Map(tests.clone())];
+        let self_arg = Map(tests.clone());
 
         let pre_test = tests.data().get_with_string("pre_test").cloned();
         let post_test = tests.data().get_with_string("post_test").cloned();
+        let pass_self_to_pre_test = match &pre_test {
+            Some(Function(f)) => f.arg_count == 1,
+            _ => false,
+        };
+        let pass_self_to_post_test = match &post_test {
+            Some(Function(f)) => f.arg_count == 1,
+            _ => false,
+        };
 
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
-                (Value::Str(id), Value::Function(test)) if id.starts_with("test_") => {
+                (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
                     let make_test_error = |error, message: &str| {
                         Err(Error::TestError {
                             message: format!("{} '{}'", message, &id[5..]),
@@ -271,34 +314,46 @@ impl Vm {
                         })
                     };
 
-                    if let Some(Value::Function(pre_test)) = &pre_test {
-                        let pre_test_result = match pre_test.arg_count {
-                            0 => self.run_function(&pre_test.clone(), &[]),
-                            _ => self.run_function(&pre_test.clone(), &self_arg),
-                        };
+                    if let Some(pre_test) = &pre_test {
+                        if value_is_callable(pre_test) {
+                            let pre_test_result = if pass_self_to_pre_test {
+                                self.run_instance_function(self_arg.clone(), pre_test.clone(), &[])
+                            } else {
+                                self.run_function(pre_test.clone(), &[])
+                            };
 
-                        if let Err(error) = pre_test_result {
-                            return make_test_error(error, "Error while preparing to run test");
+                            if let Err(error) = pre_test_result {
+                                return make_test_error(error, "Error while preparing to run test");
+                            }
                         }
                     }
 
-                    let test_result = match test.arg_count {
-                        0 => self.run_function(&test, &[]),
-                        _ => self.run_function(&test, &self_arg),
+                    let pass_self_to_test = match &test {
+                        Function(f) => f.arg_count == 1,
+                        _ => false,
+                    };
+
+                    let test_result = if pass_self_to_test {
+                        self.run_instance_function(self_arg.clone(), test, &[])
+                    } else {
+                        self.run_function(test, &[])
                     };
 
                     if let Err(error) = test_result {
                         return make_test_error(error, "Error while running test");
                     }
 
-                    if let Some(Value::Function(post_test)) = &post_test {
-                        let post_test_result = match post_test.arg_count {
-                            0 => self.run_function(&post_test.clone(), &[]),
-                            _ => self.run_function(&post_test.clone(), &self_arg),
-                        };
+                    if let Some(post_test) = &post_test {
+                        if value_is_callable(post_test) {
+                            let post_test_result = if pass_self_to_post_test {
+                                self.run_instance_function(self_arg.clone(), post_test.clone(), &[])
+                            } else {
+                                self.run_function(post_test.clone(), &[])
+                            };
 
-                        if let Err(error) = post_test_result {
-                            return make_test_error(error, "Error after running test");
+                            if let Err(error) = post_test_result {
+                                return make_test_error(error, "Error after running test");
+                            }
                         }
                     }
                 }
@@ -306,7 +361,7 @@ impl Vm {
             }
         }
 
-        Ok(Value::Empty)
+        Ok(Empty)
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
@@ -1535,7 +1590,7 @@ impl Vm {
                         match vm.run(module_chunk) {
                             Ok(_) => {
                                 if let Some(main) = vm.get_global_function("main") {
-                                    if let Err(error) = vm.run_function(&main, &[]) {
+                                    if let Err(error) = vm.run_function(main, &[]) {
                                         self.context_mut().modules.remove(&module_path);
                                         return Err(error);
                                     }
@@ -2186,8 +2241,10 @@ impl Vm {
 
         let adjusted_frame_base = if external_function.is_instance_function {
             if let Some(instance_register) = instance_register {
-                let parent = self.clone_register(instance_register);
-                self.set_register(frame_base, parent);
+                if instance_register != frame_base {
+                    let instance = self.clone_register(instance_register);
+                    self.set_register(frame_base, instance);
+                }
                 call_arg_count += 1;
                 frame_base
             } else {
@@ -2374,8 +2431,10 @@ impl Vm {
                 // Clone the instance register into the first register of the frame
                 let adjusted_frame_base = if instance_function {
                     if let Some(instance_register) = instance_register {
-                        let instance = self.clone_register(instance_register);
-                        self.set_register(frame_base, instance);
+                        if instance_register != frame_base {
+                            let instance = self.clone_register(instance_register);
+                            self.set_register(frame_base, instance);
+                        }
                         frame_base
                     } else {
                         return vm_error!(
@@ -2421,8 +2480,10 @@ impl Vm {
                     );
                 }
 
-                // Set info for when the current frame is returned to
-                self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+                if !self.call_stack.is_empty() {
+                    // Set info for when the current frame is returned to
+                    self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+                }
 
                 // Set up a new frame for the called function
                 self.push_frame(chunk, function_ip, adjusted_frame_base, captures);

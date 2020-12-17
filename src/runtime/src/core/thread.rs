@@ -1,22 +1,22 @@
 use {
     crate::{
-        external_error, get_external_instance, make_external_value, type_as_string, Error,
-        ExternalValue, Value, ValueMap,
+        external_error, get_external_instance, make_external_value, type_as_string,
+        value::value_is_callable, Error, ExternalValue, Value, ValueMap,
     },
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
 
 pub fn make_module() -> ValueMap {
-    use Value::{Empty, Function, Number};
+    use Value::{Empty, Number};
 
     let mut result = ValueMap::new();
 
     result.add_fn("create", |vm, args| match vm.get_args(args) {
-        [Function(f)] => {
+        [f] if value_is_callable(f) => {
             let f = f.clone();
             let join_handle = thread::spawn({
                 let mut thread_vm = vm.spawn_shared_concurrent_vm();
-                move || match thread_vm.run_function(&f, &[]) {
+                move || match thread_vm.run_function(f, &[]) {
                     Ok(result) => Ok(result),
                     Err(e) => Err(e.with_prefix("thread.create")),
                 }
@@ -25,10 +25,10 @@ pub fn make_module() -> ValueMap {
             Ok(Thread::make_thread_map(join_handle))
         }
         [unexpected] => external_error!(
-            "thread.create: Expected function as argument, found '{}'",
+            "thread.create: Expected callable value as argument, found '{}'",
             type_as_string(unexpected),
         ),
-        _ => external_error!("thread.create: Expected function as argument"),
+        _ => external_error!("thread.create: Expected callable value as argument"),
     });
 
     result.add_fn("sleep", |vm, args| match vm.get_args(args) {

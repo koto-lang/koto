@@ -113,8 +113,9 @@ export tests =
     z.sort |n| -n # reverse sorting
     assert_eq z [3, 2, 2, 1]
 
+    # Sorting with a core op
     z = [[4, 5, 6], [1], [2, 3]]
-    z.sort |l| l.size()
+    z.sort list.size
     assert_eq z [[1], [2, 3], [4, 5, 6]]
 
   test_sort_copy: ||
