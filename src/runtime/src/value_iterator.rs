@@ -13,6 +13,12 @@ pub struct IntRange {
     pub end: isize,
 }
 
+impl IntRange {
+    pub fn is_ascending(&self) -> bool {
+        self.start <= self.end
+    }
+}
+
 pub enum ValueIteratorOutput {
     Value(Value),
     ValuePair(Value, Value),
@@ -66,22 +72,20 @@ impl Iterator for ValueIteratorInternals {
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.iterable {
-            Iterable::Range(IntRange { start, end }) => {
+            Iterable::Range(range @ IntRange { .. }) => {
                 use Value::Number;
 
-                if start <= end {
-                    // ascending range
-                    let result = *start + self.index as isize;
-                    if result < *end {
+                if range.is_ascending() {
+                    let result = range.start + self.index as isize;
+                    if result < range.end {
                         self.index += 1;
                         Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
                     } else {
                         None
                     }
                 } else {
-                    // descending range
-                    let result = *start - self.index as isize;
-                    if result > *end {
+                    let result = range.start - self.index as isize;
+                    if result > range.end {
                         self.index += 1;
                         Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
                     } else {
