@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+
+## [0.5.0] 2020.12.17
+
 ### Added
 - Core Ops
   - `iterator.chain`
@@ -101,6 +104,7 @@
 - `1.exp()` is now parsed correctly as a number followed by a call to `exp()`,
   rather than `1.e` followed by `xp()`.
 - `string.split` now works correctly when used with multi-character patterns.
+
 
 
 ## [0.4.0] 2020.12.10
