@@ -36,7 +36,7 @@ pub fn make_module() -> ValueMap {
                                 type_as_string(&unexpected)
                             )
                         }
-                        Err(error) => return Err(error),
+                        Err(error) => return Err(error.with_prefix("iterator.all")),
                     },
                     Err(error) => return Err(error),
                     _ => unreachable!(),
@@ -68,7 +68,7 @@ pub fn make_module() -> ValueMap {
                                 type_as_string(&unexpected)
                             )
                         }
-                        Err(error) => return Err(error),
+                        Err(error) => return Err(error.with_prefix("iterator.any")),
                     },
                     Err(error) => return Err(error),
                     _ => unreachable!(),
@@ -129,7 +129,7 @@ pub fn make_module() -> ValueMap {
             let mut iter = iter.map(move |iter_output| match iter_output {
                 Ok(Output::Value(value)) => match vm.run_function(&f, &[value]) {
                     Ok(result) => Ok(Output::Value(result)),
-                    Err(error) => Err(error),
+                    Err(error) => Err(error.with_prefix("iterator.each")),
                 },
                 Err(error) => Err(error),
                 _ => unreachable!(),
@@ -171,7 +171,9 @@ pub fn make_module() -> ValueMap {
                                 Ok(Output::Value(value)) => {
                                     match vm.run_function(&f, &[fold_result, value]) {
                                         Ok(result) => fold_result = result,
-                                        Err(error) => return Some(Err(error)),
+                                        Err(error) => {
+                                            return Some(Err(error.with_prefix("iterator.each")))
+                                        }
                                     }
                                 }
                                 Err(error) => return Some(Err(error)),
@@ -219,7 +221,7 @@ pub fn make_module() -> ValueMap {
                                     value::type_as_string(&unexpected),
                                 ))
                             }
-                            Err(error) => return Some(Err(error)),
+                            Err(error) => return Some(Err(error.with_prefix("iterator.keep"))),
                         },
                         Err(error) => return Some(Err(error)),
                         _ => unreachable!(),
@@ -333,7 +335,7 @@ pub fn make_module() -> ValueMap {
                                 value::type_as_string(&unexpected),
                             )
                         }
-                        Err(error) => return Err(error),
+                        Err(error) => return Err(error.with_prefix("iterator.position")),
                     },
                     Err(error) => return Err(error),
                     _ => unreachable!(),

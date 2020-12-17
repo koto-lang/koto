@@ -145,7 +145,7 @@ pub fn make_module() -> ValueMap {
                 let value = match vm.run_function(&f, &[key.clone(), value.clone()]) {
                     Ok(value) => value,
                     Err(e) => {
-                        error.get_or_insert(Err(e));
+                        error.get_or_insert(Err(e.with_prefix("map.sort")));
                         Empty
                     }
                 };
@@ -239,6 +239,6 @@ fn do_map_update(
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)
         }
-        Err(error) => Err(error),
+        Err(error) => Err(error.with_prefix("map.update")),
     }
 }
