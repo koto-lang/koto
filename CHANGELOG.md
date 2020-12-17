@@ -5,6 +5,7 @@
 ### Added
 - Core Ops
   - `range.expanded`
+  - `range.union`
 
 
 ## [0.5.0] 2020.12.17

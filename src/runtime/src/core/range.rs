@@ -48,5 +48,45 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("range.start: Expected range as argument"),
     });
 
+    result.add_fn("union", |vm, args| match vm.get_args(args) {
+        [Range(r), Number(n)] => {
+            let n = isize::from(n);
+            if r.is_ascending() {
+                Ok(Range(IntRange {
+                    start: r.start.min(n),
+                    end: r.end.max(n + 1),
+                }))
+            } else {
+                Ok(Range(IntRange {
+                    start: r.start.max(n),
+                    end: r.end.min(n - 1),
+                }))
+            }
+        }
+        [Range(a), Range(b)] => {
+            let result = match (a.is_ascending(), b.is_ascending()) {
+                (true, true) => Range(IntRange {
+                    start: a.start.min(b.start),
+                    end: a.end.max(b.end),
+                }),
+                (true, false) => Range(IntRange {
+                    start: a.start.min(b.end + 1),
+                    end: a.end.max(b.start + 1),
+                }),
+                (false, true) => Range(IntRange {
+                    start: a.start.max(b.end - 1),
+                    end: a.end.min(b.start),
+                }),
+                (false, false) => Range(IntRange {
+                    start: a.start.max(b.start),
+                    end: a.end.min(b.end),
+                }),
+            };
+
+            Ok(result)
+        }
+        _ => external_error!("range.union: Expected range and number/range as arguments"),
+    });
+
     result
 }
