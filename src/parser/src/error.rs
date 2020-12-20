@@ -33,6 +33,7 @@ pub enum ExpectedIndentation {
     ExpectedLoopBody,
     ExpectedMatchArm,
     ExpectedRhsExpression,
+    ExpectedSwitchArm,
     ExpectedThenKeywordOrBlock,
     ExpectedTryBody,
     ExpectedUntilBody,
@@ -74,6 +75,8 @@ pub enum SyntaxError {
     ExpectedMatchExpression,
     ExpectedMatchPattern,
     ExpectedNegatableExpression,
+    ExpectedSwitchArmExpression,
+    ExpectedSwitchArmExpressionAfterThen,
     ExpectedThenExpression,
     ExpectedUntilCondition,
     ExpectedWhileCondition,
@@ -82,6 +85,7 @@ pub enum SyntaxError {
     MatchEllipsisOutsideOfNestedPatterns,
     MatchElseNotInLastArm,
     SelfArgNotInFirstPosition,
+    SwitchElseNotInLastArm,
     TooManyNum2Terms,
     TooManyNum4Terms,
     UnexpectedElseIndentation,
@@ -89,6 +93,7 @@ pub enum SyntaxError {
     UnexpectedEscapeInString,
     UnexpectedMatchElse,
     UnexpectedMatchIf,
+    UnexpectedSwitchElse,
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
@@ -193,6 +198,7 @@ impl fmt::Display for ExpectedIndentation {
             ExpectedFunctionBody => f.write_str("Expected function body"),
             ExpectedLoopBody => f.write_str("Expected indented block in loop"),
             ExpectedMatchArm => f.write_str("Expected indented arm for match expression"),
+            ExpectedSwitchArm => f.write_str("Expected indented arm for switch expression"),
             ExpectedRhsExpression => f.write_str("Expected expression"),
             ExpectedThenKeywordOrBlock => f.write_str(
                 "Error parsing if expression, expected 'then' keyword or indented block.",
@@ -246,6 +252,10 @@ impl fmt::Display for SyntaxError {
             ExpectedMatchExpression => f.write_str("Expected expression after match"),
             ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
+            ExpectedSwitchArmExpression => f.write_str("Expected expression in switch arm"),
+            ExpectedSwitchArmExpressionAfterThen => {
+                f.write_str("Expected expression after then in switch arm")
+            }
             ExpectedThenExpression => f.write_str("Expected 'then' expression."),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedWhileCondition => f.write_str("Expected condition in while loop"),
@@ -259,6 +269,9 @@ impl fmt::Display for SyntaxError {
             MatchElseNotInLastArm => {
                 f.write_str("else can only be used in the last arm in a match expression")
             }
+            SwitchElseNotInLastArm => {
+                f.write_str("else can only be used in the last arm in a switch expression")
+            }
             SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
@@ -267,6 +280,7 @@ impl fmt::Display for SyntaxError {
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
             UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
             UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
+            UnexpectedSwitchElse => f.write_str("Unexpected else in switch arm"),
             UnexpectedToken => f.write_str("Unexpected token"),
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {

@@ -8,6 +8,8 @@
   - `range.union`
 
 ### Changed
+- `match` when used without a value to match against has been renamed to
+  `switch`.
 - Error messages in core ops that call functors have been made a bit clearer.
 - Core ops that accept function arguments can now take external functions.
   - e.g.
@@ -57,6 +59,8 @@
         n == 1 then "one"
         else "???"
       ```
+    - *Note* (20.12.2020): After v0.5.0 this form of expression was renamed to
+      `switch`.
   - The results of list/map accesses or function calls can be used as match
     patterns.
     - e.g.

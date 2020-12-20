@@ -77,6 +77,7 @@ pub enum Token {
     Num4,
     Or,
     Return,
+    Switch,
     Then,
     True,
     Try,
@@ -382,6 +383,7 @@ impl<'a> TokenLexer<'a> {
         check_keyword!("num4", Num4);
         check_keyword!("or", Or);
         check_keyword!("return", Return);
+        check_keyword!("switch", Switch);
         check_keyword!("then", Then);
         check_keyword!("true", True);
         check_keyword!("try", Try);

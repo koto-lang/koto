@@ -1336,6 +1336,7 @@ impl<'source> Parser<'source> {
                     self.parse_if_expression(context)?
                 }
                 Token::Match => self.parse_match_expression(context)?,
+                Token::Switch => self.parse_switch_expression(context)?,
                 Token::Function => self.parse_function(context)?,
                 Token::Subtract => {
                     if let Some(token_after_subtract) = self.peek_token_n(peek_count + 1) {
@@ -1821,6 +1822,98 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
+    fn parse_switch_expression(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        if self.consume_next_token(context) != Some(Token::Switch) {
+            return Ok(None);
+        }
+
+        let current_indent = self.lexer.current_indent();
+        let start_span = self.lexer.span();
+
+        self.consume_until_next_token(context);
+
+        if self.lexer.current_indent() <= current_indent {
+            return indentation_error!(ExpectedSwitchArm, self);
+        }
+
+        let mut arms = Vec::new();
+
+        while self.peek_token().is_some() {
+            let condition = self.parse_expression(&mut ExpressionContext::inline())?;
+
+            let arm_body = match self.peek_next_token_on_same_line() {
+                Some(Token::Else) => {
+                    if condition.is_some() {
+                        return syntax_error!(UnexpectedSwitchElse, self);
+                    }
+
+                    self.consume_next_token_on_same_line();
+
+                    if let Some(expression) =
+                        self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                    {
+                        expression
+                    } else if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                        indented_expression
+                    } else {
+                        return syntax_error!(ExpectedSwitchArmExpression, self);
+                    }
+                }
+                Some(Token::Then) => {
+                    self.consume_next_token_on_same_line();
+                    match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                        Some(expression) => expression,
+                        None => {
+                            if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                                indented_expression
+                            } else {
+                                return syntax_error!(ExpectedSwitchArmExpressionAfterThen, self);
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                        indented_expression
+                    } else {
+                        return syntax_error!(ExpectedSwitchArmExpression, self);
+                    }
+                }
+            };
+
+            arms.push(SwitchArm {
+                condition,
+                expression: arm_body,
+            });
+
+            if self.peek_next_token(context).is_none() {
+                break;
+            }
+
+            self.consume_until_next_token(context);
+        }
+
+        // Check for errors now that the match expression is complete
+
+        for (arm_index, arm) in arms.iter().enumerate() {
+            let last_arm = arm_index == arms.len() - 1;
+
+            if arm.condition.is_none() && !last_arm {
+                return Err(ParserError::new(
+                    SyntaxError::SwitchElseNotInLastArm.into(),
+                    start_span,
+                ));
+            }
+        }
+
+        Ok(Some(self.push_node_with_start_span(
+            Node::Switch(arms),
+            start_span,
+        )?))
+    }
     fn parse_match_expression(
         &mut self,
         context: &mut ExpressionContext,
@@ -1832,12 +1925,17 @@ impl<'source> Parser<'source> {
         let current_indent = self.lexer.current_indent();
         let start_span = self.lexer.span();
 
-        let match_expression = self.parse_expressions(&mut ExpressionContext::inline(), true)?;
+        let match_expression =
+            match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                Some(expression) => expression,
+                None => {
+                    return syntax_error!(ExpectedMatchExpression, self);
+                }
+            };
 
         self.consume_until_next_token(context);
 
-        let match_indent = self.lexer.current_indent();
-        if match_indent <= current_indent {
+        if self.lexer.current_indent() <= current_indent {
             return indentation_error!(ExpectedMatchArm, self);
         }
 
@@ -1850,13 +1948,9 @@ impl<'source> Parser<'source> {
             //   2, 3 or 4, 5 then ...
             //   other then ...
             let mut arm_patterns = Vec::new();
-            let mut expected_arm_count = 0;
+            let mut expected_arm_count = 1;
 
-            let condition = if match_expression.is_none() {
-                self.parse_expression(&mut ExpressionContext::inline())?
-            } else {
-                expected_arm_count = 1;
-
+            let condition = {
                 while let Some(pattern) = self.parse_match_pattern(false)? {
                     // Match patterns, separated by commas in the case of matching multi-expressions
                     let mut patterns = vec![pattern];

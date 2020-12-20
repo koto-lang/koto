@@ -773,12 +773,16 @@ m.value_1 + m.value_2
 "#;
             test_script(script, Number(24.0.into()));
         }
+    }
+
+    mod switch_expressions {
+        use super::*;
 
         #[test]
         fn match_without_expression() {
             let script = r#"
 n = 42
-match
+switch
   n < 0 then -1
   n == 0 then 0
   n == 42 then 99
