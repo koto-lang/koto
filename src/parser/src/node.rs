@@ -64,9 +64,10 @@ pub enum Node {
     },
     If(AstIf),
     Match {
-        expression: Option<AstIndex>,
+        expression: AstIndex,
         arms: Vec<MatchArm>,
     },
+    Switch(Vec<SwitchArm>),
     Wildcard,
     Ellipsis(Option<ConstantIndex>),
     For(AstFor),
@@ -135,6 +136,7 @@ impl fmt::Display for Node {
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
+            Switch { .. } => write!(f, "Switch"),
             Wildcard => write!(f, "Wildcard"),
             Ellipsis(_) => write!(f, "Ellipsis"),
             For(_) => write!(f, "For"),
@@ -239,6 +241,12 @@ pub struct AssignTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MatchArm {
     pub patterns: Vec<AstIndex>,
+    pub condition: Option<AstIndex>,
+    pub expression: AstIndex,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwitchArm {
     pub condition: Option<AstIndex>,
     pub expression: AstIndex,
 }

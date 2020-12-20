@@ -2,7 +2,7 @@ use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span,
+        ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span, SwitchArm,
     },
     smallvec::SmallVec,
     std::convert::TryFrom,
@@ -599,8 +599,9 @@ impl Compiler {
             }
             Node::If(ast_if) => self.compile_if(result_register, ast_if, ast)?,
             Node::Match { expression, arms } => {
-                self.compile_match(result_register, expression, arms, ast)?
+                self.compile_match(result_register, *expression, arms, ast)?
             }
+            Node::Switch(arms) => self.compile_switch(result_register, arms, ast)?,
             Node::Ellipsis(_) => {
                 return compiler_error!(self, "Ellipsis found outside of match patterns")
             }
@@ -2377,10 +2378,68 @@ impl Compiler {
         Ok(result)
     }
 
+    fn compile_switch(
+        &mut self,
+        result_register: ResultRegister,
+        arms: &[SwitchArm],
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+
+        let stack_count = self.frame().register_stack.len();
+
+        let mut result_jump_placeholders = Vec::new();
+
+        for (arm_index, arm) in arms.iter().enumerate() {
+            let is_last_arm = arm_index == arms.len() - 1;
+
+            let arm_end_jump_placeholder = if let Some(condition) = arm.condition {
+                let condition_register = self
+                    .compile_node(ResultRegister::Any, ast.node(condition), ast)?
+                    .unwrap();
+
+                self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+
+                if condition_register.is_temporary {
+                    self.pop_register()?;
+                }
+
+                Some(self.push_offset_placeholder())
+            } else {
+                None
+            };
+
+            let body_result_register = if let Some(result) = result {
+                ResultRegister::Fixed(result.register)
+            } else {
+                ResultRegister::None
+            };
+
+            self.compile_node(body_result_register, ast.node(arm.expression), ast)?;
+
+            if !is_last_arm {
+                self.push_op_without_span(Op::Jump, &[]);
+                result_jump_placeholders.push(self.push_offset_placeholder())
+            }
+
+            if let Some(jump_placeholder) = arm_end_jump_placeholder {
+                self.update_offset_placeholder(jump_placeholder);
+            }
+        }
+
+        for jump_placeholder in result_jump_placeholders.iter() {
+            self.update_offset_placeholder(*jump_placeholder);
+        }
+
+        self.truncate_register_stack(stack_count)?;
+
+        Ok(result)
+    }
+
     fn compile_match(
         &mut self,
         result_register: ResultRegister,
-        match_expression: &Option<AstIndex>,
+        match_expression: AstIndex,
         arms: &[MatchArm],
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2388,19 +2447,13 @@ impl Compiler {
 
         let stack_count = self.frame().register_stack.len();
 
-        let (match_register, match_len) = match match_expression {
-            Some(expression) => {
-                let match_node = ast.node(*expression);
-                let match_register = self
-                    .compile_node(ResultRegister::Any, match_node, ast)?
-                    .unwrap();
-                let match_len = match &match_node.node {
-                    Node::TempTuple(expressions) => expressions.len(),
-                    _ => 1,
-                };
-                (Some(match_register.register), match_len)
-            }
-            None => (None, 0),
+        let match_node = ast.node(match_expression);
+        let match_register = self
+            .compile_node(ResultRegister::Any, match_node, ast)?
+            .unwrap();
+        let match_len = match &match_node.node {
+            Node::TempTuple(expressions) => expressions.len(),
+            _ => 1,
         };
 
         let mut result_jump_placeholders = Vec::new();
@@ -2408,9 +2461,14 @@ impl Compiler {
         for (arm_index, arm) in arms.iter().enumerate() {
             let is_last_arm = arm_index == arms.len() - 1;
 
-            if let Some(placeholder) =
-                self.compile_match_arm(result, match_register, match_len, arm, is_last_arm, ast)?
-            {
+            if let Some(placeholder) = self.compile_match_arm(
+                result,
+                match_register.register,
+                match_len,
+                arm,
+                is_last_arm,
+                ast,
+            )? {
                 result_jump_placeholders.push(placeholder);
             }
         }
@@ -2427,7 +2485,7 @@ impl Compiler {
     fn compile_match_arm(
         &mut self,
         result: Option<CompileResult>,
-        match_register: Option<u8>,
+        match_register: u8,
         match_len: usize,
         arm: &MatchArm,
         is_last_arm: bool,
@@ -2435,90 +2493,88 @@ impl Compiler {
     ) -> Result<Option<usize>, CompilerError> {
         let mut jumps = MatchJumpPlaceholders::default();
 
-        if let Some(match_register) = match_register {
-            for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
-                let is_last_alternative = alternative_index == arm.patterns.len() - 1;
+        for (alternative_index, arm_pattern) in arm.patterns.iter().enumerate() {
+            let is_last_alternative = alternative_index == arm.patterns.len() - 1;
 
-                jumps.alternative_end.clear();
+            jumps.alternative_end.clear();
 
-                let arm_node = ast.node(*arm_pattern);
-                self.span_stack.push(*ast.span(arm_node.span));
-                let patterns = match &arm_node.node {
-                    Node::TempTuple(patterns) => {
-                        if patterns.len() != match_len {
-                            return compiler_error!(
-                                self,
-                                "Expected {} patterns in match arm, found {}",
-                                match_len,
-                                patterns.len()
-                            );
-                        }
-
-                        Some(patterns.clone())
+            let arm_node = ast.node(*arm_pattern);
+            self.span_stack.push(*ast.span(arm_node.span));
+            let patterns = match &arm_node.node {
+                Node::TempTuple(patterns) => {
+                    if patterns.len() != match_len {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found {}",
+                            match_len,
+                            patterns.len()
+                        );
                     }
-                    Node::List(patterns) | Node::Tuple(patterns) => {
-                        if match_len != 1 {
-                            return compiler_error!(
-                                self,
-                                "Expected {} patterns in match arm, found 1",
-                                match_len,
-                            );
-                        }
 
-                        let type_check_op = if matches!(arm_node.node, Node::List(_)) {
-                            Op::IsList
-                        } else {
-                            Op::IsTuple
-                        };
-                        self.compile_nested_match_arm_patterns(
-                            MatchArmParameters {
-                                match_register,
-                                is_last_alternative,
-                                has_last_pattern: true,
-                                jumps: &mut jumps,
-                            },
-                            None, // pattern index
-                            patterns,
-                            type_check_op,
-                            ast,
-                        )?;
-
-                        None
+                    Some(patterns.clone())
+                }
+                Node::List(patterns) | Node::Tuple(patterns) => {
+                    if match_len != 1 {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found 1",
+                            match_len,
+                        );
                     }
-                    Node::Wildcard => Some(vec![*arm_pattern]),
-                    _ => {
-                        if match_len != 1 {
-                            return compiler_error!(
-                                self,
-                                "Expected {} patterns in match arm, found 1",
-                                match_len,
-                            );
-                        }
-                        Some(vec![*arm_pattern])
-                    }
-                };
 
-                if let Some(patterns) = patterns {
-                    // Check that the number of patterns is correct
-                    self.compile_match_arm_patterns(
+                    let type_check_op = if matches!(arm_node.node, Node::List(_)) {
+                        Op::IsList
+                    } else {
+                        Op::IsTuple
+                    };
+                    self.compile_nested_match_arm_patterns(
                         MatchArmParameters {
                             match_register,
                             is_last_alternative,
                             has_last_pattern: true,
                             jumps: &mut jumps,
                         },
-                        patterns.len() > 1, // match_is_container
-                        &patterns,
+                        None, // pattern index
+                        patterns,
+                        type_check_op,
                         ast,
                     )?;
-                }
 
-                for jump_placeholder in jumps.alternative_end.iter() {
-                    self.update_offset_placeholder(*jump_placeholder);
+                    None
                 }
+                Node::Wildcard => Some(vec![*arm_pattern]),
+                _ => {
+                    if match_len != 1 {
+                        return compiler_error!(
+                            self,
+                            "Expected {} patterns in match arm, found 1",
+                            match_len,
+                        );
+                    }
+                    Some(vec![*arm_pattern])
+                }
+            };
 
-                self.span_stack.pop(); // arm node
+            if let Some(patterns) = patterns {
+                // Check that the number of patterns is correct
+                self.compile_match_arm_patterns(
+                    MatchArmParameters {
+                        match_register,
+                        is_last_alternative,
+                        has_last_pattern: true,
+                        jumps: &mut jumps,
+                    },
+                    patterns.len() > 1, // match_is_container
+                    &patterns,
+                    ast,
+                )?;
             }
+
+            for jump_placeholder in jumps.alternative_end.iter() {
+                self.update_offset_placeholder(*jump_placeholder);
+            }
+
+            self.span_stack.pop(); // arm node
         }
 
         // Update the match end jump placeholders before the condition

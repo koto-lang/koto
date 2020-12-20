@@ -3221,7 +3221,7 @@ finally
         }
     }
 
-    mod match_expression {
+    mod match_and_switch {
         use super::*;
 
         #[test]
@@ -3242,7 +3242,7 @@ x = match y
                     Id(3), // 5
                     Int(4),
                     Match {
-                        expression: Some(1),
+                        expression: 1,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![2, 3],
@@ -3296,7 +3296,7 @@ match x
                     Str(4),
                     Break, // 5
                     Match {
-                        expression: Some(0),
+                        expression: 0,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3352,7 +3352,7 @@ match (x, y, z)
                     Tuple(vec![9, 12, 13]),
                     Number0, // 15
                     Match {
-                        expression: Some(3),
+                        expression: 3,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![7],
@@ -3401,7 +3401,7 @@ match x
                     Tuple(vec![5, 6]),
                     Number1,
                     Match {
-                        expression: Some(0),
+                        expression: 0,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![3],
@@ -3446,7 +3446,7 @@ match y
                     Tuple(vec![6, 7, 8]),
                     Number1, // 10
                     Match {
-                        expression: Some(0),
+                        expression: 0,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![4],
@@ -3508,7 +3508,7 @@ match x
                     Id(1),
                     Int(4),
                     Match {
-                        expression: Some(0),
+                        expression: 0,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![1],
@@ -3571,7 +3571,7 @@ match x, y
                     Id(5),
                     Number0, // 15
                     Match {
-                        expression: Some(2),
+                        expression: 2,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5, 8],
@@ -3625,7 +3625,7 @@ match x.foo 42
                     Number0,
                     Number1,
                     Match {
-                        expression: Some(4),
+                        expression: 4,
                         arms: vec![
                             MatchArm {
                                 patterns: vec![5],
@@ -3663,7 +3663,7 @@ match x
                     Lookup((LookupNode::Root(1), Some(2))),
                     Number0,
                     Match {
-                        expression: Some(0),
+                        expression: 0,
                         arms: vec![MatchArm {
                             patterns: vec![3],
                             condition: None,
@@ -3676,6 +3676,57 @@ match x
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("foo")]),
+            )
+        }
+
+        #[test]
+        fn switch_expression() {
+            let source = "
+switch
+  1 == 0 then 0
+  a > b then 1
+  else a
+";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Number0,
+                    BinaryOp {
+                        op: AstOp::Equal,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    Number0,
+                    Id(0),
+                    Id(1), // 5
+                    BinaryOp {
+                        op: AstOp::Greater,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    Number1,
+                    Id(0),
+                    Switch(vec![
+                        SwitchArm {
+                            condition: Some(2),
+                            expression: 3,
+                        },
+                        SwitchArm {
+                            condition: Some(6),
+                            expression: 7,
+                        },
+                        SwitchArm {
+                            condition: None,
+                            expression: 8,
+                        },
+                    ]),
+                    MainBlock {
+                        body: vec![9],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("b")]),
             )
         }
     }

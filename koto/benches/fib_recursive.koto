@@ -1,7 +1,7 @@
 import koto, test.assert_eq
 
 fib = |n|
-  match
+  switch
     n <= 0 then 0
     n == 1 then 1
     else (fib n - 1) + (fib n - 2)
