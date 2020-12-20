@@ -6,18 +6,18 @@ export main = ||
     arg then arg.to_number()
 
   for _ in 0..n
-    assert_eq (num4 0) (num4 0 0 0 0)
-    assert_eq (num4 1) (num4 1 1 1 1)
-    assert_eq (num4 1 1) (num4 1 1 0 0)
-    assert_eq (num4 1 1 1) (num4 1 1 1 0)
-    assert_eq (num4 1 1 1 1) (num4 1 1 1 1)
+    assert_eq (num4 0), (num4 0, 0, 0, 0)
+    assert_eq (num4 1), (num4 1, 1, 1, 1)
+    assert_eq (num4 1, 1), (num4 1, 1, 0, 0)
+    assert_eq (num4 1, 1, 1), (num4 1, 1, 1, 0)
+    assert_eq (num4 1, 1, 1, 1), (num4 1, 1, 1, 1)
 
-    assert_eq (num4 [-1, 1]) (num4 -1 1 0 0)
-    assert_eq (num4 num4 1) (num4 1)
+    assert_eq (num4 [-1, 1]), (num4 -1, 1, 0, 0)
+    assert_eq (num4 num4 1), (num4 1)
 
-    assert_eq ((num4 1) + (num4 0.5)) (num4 1.5)
-    assert_eq ((num4 2 4 6 8) - 1) (num4 1 3 5 7)
+    assert_eq ((num4 1) + (num4 0.5)), (num4 1.5)
+    assert_eq ((num4 2, 4, 6, 8) - 1), (num4 1, 3, 5, 7)
 
-    assert_eq ((num4 2) * (num4 0.5)) (num4 1)
-    assert_eq ((num4 2 4 6 8) * 0.5) (num4 1 2 3 4)
-    assert_eq (8 / (num4 2 4 8 16)) (num4 4 2 1 0.5)
+    assert_eq ((num4 2) * (num4 0.5)), (num4 1)
+    assert_eq ((num4 2, 4, 6, 8) * 0.5), (num4 1, 2, 3, 4)
+    assert_eq (8 / (num4 2, 4, 8, 16)), (num4 4, 2, 1, 0.5)

@@ -6,7 +6,7 @@ export tests =
     z = []
     for x in a
       z.push x
-    assert_eq z [1, 2, 3]
+    assert_eq z, [1, 2, 3]
 
   test_contains: ||
     x = 1, 2, 3
@@ -21,51 +21,51 @@ export tests =
     x2 = x.deep_copy()
     # modifying a is reflected in x, but not x2
     a[0] = 99
-    assert_eq x[1][0] 99
-    assert_eq x2[0][0] 1
+    assert_eq x[1][0], 99
+    assert_eq x2[0][0], 1
     # modifying one list in x2 doesn't affect the others
     x2[1][0] = 42
-    assert_eq x2[0][0] 1
+    assert_eq x2[0][0], 1
 
   test_first: ||
-    assert_eq (1, 2, 3).first() 1
-    assert_eq [].to_tuple().first() ()
+    assert_eq (1, 2, 3).first(), 1
+    assert_eq [].to_tuple().first(), ()
 
   test_get: ||
     x = 1, 2, 3
-    assert_eq (x.get 0) 1
-    assert_eq (x.get 2) 3
-    assert_eq (x.get 4) ()
+    assert_eq (x.get 0), 1
+    assert_eq (x.get 2), 3
+    assert_eq (x.get 4), ()
 
   test_indexing: ||
     x = 1, 2, 3
-    assert_eq x[0] 1
-    assert_eq x[2] 3
-    assert_eq x[..] x
-    assert_eq x[0..2] (1, 2)
-    assert_eq x[1..] (2, 3)
-    assert_eq x[..=1] (1, 2)
+    assert_eq x[0], 1
+    assert_eq x[2], 3
+    assert_eq x[..], x
+    assert_eq x[0..2], (1, 2)
+    assert_eq x[1..], (2, 3)
+    assert_eq x[..=1], (1, 2)
 
   test_iter: ||
     assert_eq
       (1, 2, 3)
         .each |n| "{}".format n
-        .to_tuple()
+        .to_tuple(),
       ("1", "2", "3")
 
   test_last: ||
-    assert_eq (1, 2, 3).last() 3
-    assert_eq [].to_tuple().last() ()
+    assert_eq (1, 2, 3).last(), 3
+    assert_eq [].to_tuple().last(), ()
 
   test_size: ||
-    assert_eq (1, 2).size() 2
-    assert_eq (1, 2, 3).size() 3
-    assert_eq ((1, 2), (3, 4)).size() 2
+    assert_eq (1, 2).size(), 2
+    assert_eq (1, 2, 3).size(), 3
+    assert_eq ((1, 2), (3, 4)).size(), 2
 
   test_sort_copy: ||
-    assert_eq (3, 1, 2).sort_copy() (1, 2, 3)
-    assert_eq ("tuple", "sort", "copy").sort_copy() ("copy", "sort", "tuple")
+    assert_eq (3, 1, 2).sort_copy(), (1, 2, 3)
+    assert_eq ("tuple", "sort", "copy").sort_copy(), ("copy", "sort", "tuple")
 
   test_to_list: ||
-    assert_eq (1, 2).to_list() [1, 2]
-    assert_eq ((1, 2), (3, 4)).to_list() [(1, 2), (3, 4)]
+    assert_eq (1, 2).to_list(), [1, 2]
+    assert_eq ((1, 2), (3, 4)).to_list(), [(1, 2), (3, 4)]

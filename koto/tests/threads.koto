@@ -2,7 +2,7 @@ import list, thread, test.assert_eq
 
 export tests =
   test_spawn_4_threads_and_join: ||
-    data = list.with_size 8 0
+    data = list.with_size 8, 0
 
     worker_count = 4
     worker_indices = (0..worker_count).to_tuple()
@@ -20,5 +20,5 @@ export tests =
       .each |t| t.join()
       .to_tuple()
 
-    assert_eq thread_results worker_indices
-    assert_eq data [10..18]
+    assert_eq thread_results, worker_indices
+    assert_eq data, [10..18]

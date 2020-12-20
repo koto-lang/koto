@@ -9,7 +9,7 @@ export tests =
     assert_eq
       multipliers
         .each |multiplier| multiplier 2
-        .to_tuple()
+        .to_tuple(),
       (2, 4, 6, 8)
 
   test_outer_value_captured_in_nested_function: ||
@@ -20,7 +20,7 @@ export tests =
         inner2 a
       b, c = (), () # inner and inner2 have captured their own copies of b and c
       inner()
-    assert_eq (capture_test 1 2 3) 6
+    assert_eq (capture_test 1, 2, 3), 6
 
   test_mutable_captured_values: ||
     counter = ||
@@ -30,8 +30,8 @@ export tests =
 
     c = counter()
     c2 = counter()
-    assert_eq c() 1
-    assert_eq c() 2
-    assert_eq c2() 1
-    assert_eq c() 3
-    assert_eq c2() 2
+    assert_eq c(), 1
+    assert_eq c(), 2
+    assert_eq c2(), 1
+    assert_eq c(), 3
+    assert_eq c2(), 2

@@ -810,7 +810,7 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    fn parse_space_separated_call_args(
+    fn parse_call_args(
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Vec<AstIndex>, ParserError> {
@@ -841,6 +841,12 @@ impl<'source> Parser<'source> {
             } else {
                 break;
             }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
+            } else {
+                break;
+            }
         }
 
         Ok(args)
@@ -858,7 +864,7 @@ impl<'source> Parser<'source> {
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if context.allow_space_separated_call => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         id_index
@@ -877,7 +883,7 @@ impl<'source> Parser<'source> {
                 }
                 Some(_) if context.allow_space_separated_call && context.allow_linebreaks => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         id_index
@@ -1034,7 +1040,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Whitespace if node_context.allow_space_separated_call => {
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         break;
@@ -1303,7 +1309,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        self.parse_space_separated_call_args(&mut ExpressionContext::permissive())?
+                        self.parse_call_args(&mut ExpressionContext::permissive())?
                     };
 
                     if args.is_empty() {
@@ -1321,7 +1327,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        self.parse_space_separated_call_args(&mut ExpressionContext::permissive())?
+                        self.parse_call_args(&mut ExpressionContext::permissive())?
                     };
 
                     if args.is_empty() {

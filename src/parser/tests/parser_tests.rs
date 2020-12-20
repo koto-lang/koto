@@ -483,7 +483,7 @@ min..max
             let source = "\
 num2 0
 num2
-  1
+  1,
   x";
             check_ast(
                 source,
@@ -506,7 +506,7 @@ num2
         fn num4() {
             let source = "\
 num4 0
-num4 1 x
+num4 1, x
 num4(
   x, 0,
   1, x,
@@ -1743,7 +1743,7 @@ f 42";
 
         #[test]
         fn call_negative_arg() {
-            let source = "f x -x";
+            let source = "f x, -x";
             check_ast(
                 source,
                 &[
@@ -1789,7 +1789,7 @@ f 42";
         fn call_over_lines() {
             let source = "
 foo
-  x
+  x,
   y";
             check_ast(
                 source,
@@ -2240,7 +2240,7 @@ f = |n|
         #[test]
         fn call_with_function() {
             let source = "\
-z = y [0..20] |x| x > 1
+z = y [0..20], |x| x > 1
 y z";
             check_ast(
                 source,
@@ -2933,7 +2933,7 @@ return 1";
             let source = r#"
 not true
 debug x + x
-assert_eq x "hello"
+assert_eq x, "hello"
 "#;
             check_ast(
                 source,

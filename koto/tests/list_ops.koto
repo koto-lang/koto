@@ -6,53 +6,53 @@ export tests =
   test_clear: ||
     x = [1, 2, 3, 4, 5]
     x.clear()
-    assert_eq x []
+    assert_eq x, []
 
   test_contains: ||
-    assert ([0..10].contains 5)
-    assert not ([0..10].contains 15)
+    assert [0..10].contains 5
+    assert not [0..10].contains 15
 
   test_copy: ||
     x = [1, 2, 3]
     x2 = x
     x3 = x.copy()
     x[0] = 99
-    assert_eq x2[0] 99
-    assert_eq x3[0] 1
+    assert_eq x2[0], 99
+    assert_eq x3[0], 1
 
   test_deep_copy: ||
     x = [1, [2, 3]]
     x2 = x.deep_copy()
     x[1][0] = 99
-    assert_eq x2[1][0] 2
+    assert_eq x2[1][0], 2
 
   test_push_pop: ||
     z = [1]
     z.push 2
-    assert_eq z [1, 2]
+    assert_eq z, [1, 2]
     # list ops are also available in the list module
-    list.push z 3
-    assert_eq z [1, 2, 3]
-    assert_eq z.pop() 3
-    assert_eq z [1, 2]
+    list.push z, 3
+    assert_eq z, [1, 2, 3]
+    assert_eq z.pop(), 3
+    assert_eq z, [1, 2]
     z.pop()
     z.pop()
-    assert_eq z []
+    assert_eq z, []
     list.pop z
-    assert_eq z []
+    assert_eq z, []
 
   test_first_last: ||
     z = []
-    assert_eq z.first() ()
-    assert_eq z.last() ()
+    assert_eq z.first(), ()
+    assert_eq z.last(), ()
 
     z = [99]
-    assert_eq z.first() 99
-    assert_eq z.last() 99
+    assert_eq z.first(), 99
+    assert_eq z.last(), 99
 
     z = [1, 2, 3]
-    assert_eq z.first() 1
-    assert_eq z.last() 3
+    assert_eq z.first(), 1
+    assert_eq z.last(), 3
 
   test_is_empty: ||
     assert [].is_empty()
@@ -60,66 +60,66 @@ export tests =
 
   test_remove_insert: ||
     z = [1, 2, 3]
-    assert_eq (z.remove 1) 2
-    assert_eq z [1, 3]
-    z.insert 1 42
-    assert_eq z [1, 42, 3]
-    z.insert 3 -1
-    assert_eq z [1, 42, 3, -1]
+    assert_eq (z.remove 1), 2
+    assert_eq z, [1, 3]
+    z.insert 1, 42
+    assert_eq z, [1, 42, 3]
+    z.insert 3, -1
+    assert_eq z, [1, 42, 3, -1]
 
   test_get: ||
-    assert_eq ([0..10].get 5) 5
-    assert_eq ([0..10].get 15) ()
+    assert_eq ([0..10].get 5), 5
+    assert_eq ([0..10].get 15), ()
 
   test_fill: ||
     a = [1, 2, 3]
     a.fill 42
-    assert_eq a [42, 42, 42]
+    assert_eq a, [42, 42, 42]
 
   test_resize: ||
     z = [42]
-    z.resize 4 99
-    assert_eq z [42, 99, 99, 99]
+    z.resize 4, 99
+    assert_eq z, [42, 99, 99, 99]
 
-    z.resize 2 -1
-    assert_eq z [42, 99]
+    z.resize 2, -1
+    assert_eq z, [42, 99]
 
   test_retain_value: ||
-    z = ["hello", 42, num4 0, "hello"]
+    z = ["hello", 42, (num4 0), "hello"]
     z.retain "hello"
-    assert_eq z ["hello", "hello"]
+    assert_eq z, ["hello", "hello"]
 
   test_retain_predicate: ||
     z = [0..10]
     z.retain |n| n % 2 == 0
-    assert_eq z [0, 2, 4, 6, 8]
+    assert_eq z, [0, 2, 4, 6, 8]
 
   test_reverse: ||
     a = [1, 2, 3]
     a.reverse()
-    assert_eq a [3, 2, 1]
+    assert_eq a, [3, 2, 1]
 
   test_size: ||
-    assert_eq [].size() 0
-    assert_eq [1, 2, 3].size() 3
+    assert_eq [].size(), 0
+    assert_eq [1, 2, 3].size(), 3
 
   test_sort: ||
     z = [3, 2, 1]
     z.sort()
-    assert_eq z [1, 2, 3]
+    assert_eq z, [1, 2, 3]
 
     # Sorting with a key function
     z = [3, 2, 1, 2]
     z.sort |n| -n # reverse sorting
-    assert_eq z [3, 2, 2, 1]
+    assert_eq z, [3, 2, 2, 1]
 
     # Sorting with a core op
     z = [[4, 5, 6], [1], [2, 3]]
     z.sort list.size
-    assert_eq z [[1], [2, 3], [4, 5, 6]]
+    assert_eq z, [[1], [2, 3], [4, 5, 6]]
 
   test_sort_copy: ||
-    assert_eq [42, 10, 9].sort_copy() [9, 10, 42]
+    assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]
 
   test_swap: ||
     a = [1, 2, 3]
@@ -127,22 +127,22 @@ export tests =
 
     a.swap b
 
-    assert_eq a [7, 8, 9]
-    assert_eq b [1, 2, 3]
+    assert_eq a, [7, 8, 9]
+    assert_eq b, [1, 2, 3]
 
   test_to_tuple: ||
-    assert_eq [1, 2, 3].to_tuple() (1, 2, 3)
+    assert_eq [1, 2, 3].to_tuple(), (1, 2, 3)
 
   test_transform: ||
     z = ["1", "2", "3"]
     z.transform |x| x.to_number()
-    assert_eq z [1, 2, 3]
+    assert_eq z, [1, 2, 3]
 
   test_with_size: ||
     assert_eq
-      (list.with_size 3 "x")
+      (list.with_size 3, "x"),
       ["x", "x", "x"]
 
     assert_eq
-      (list.with_size 5 42)
+      (list.with_size 5, 42),
       [42, 42, 42, 42, 42]

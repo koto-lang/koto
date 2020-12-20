@@ -7,15 +7,15 @@ export tests =
       bar:
         baz: [-1, -2, -3]
 
-    assert_eq x.foo[2] 12
+    assert_eq x.foo[2], 12
     x.foo[2] = 42
-    assert_eq x.foo[2] 42
-    assert_eq x.bar.baz[1] -2
+    assert_eq x.foo[2], 42
+    assert_eq x.bar.baz[1], -2
     x.bar.baz[1] = 99
-    assert_eq x.bar.baz[1] 99
+    assert_eq x.bar.baz[1], 99
 
     # Nested mutation doesn't affect parent nodes
-    assert_eq x.foo[2] 42
+    assert_eq x.foo[2], 42
 
   test_maps_in_lists: ||
     make_foo = |x|
@@ -24,15 +24,15 @@ export tests =
 
     # Getting a value
     foos = [(make_foo 42), (make_foo 99)]
-    assert_eq foos[0].foo 42
-    assert_eq foos[1].foo 99
+    assert_eq foos[0].foo, 42
+    assert_eq foos[1].foo, 99
 
     # Setting a value directly
     foos[0].foo = -1
-    assert_eq foos[0].foo -1
+    assert_eq foos[0].foo, -1
 
     # Calling a function
     foos[0].set_foo -42
     foos[1].set_foo -123
-    assert_eq foos[0].foo -42
-    assert_eq foos[1].foo -123
+    assert_eq foos[0].foo, -42
+    assert_eq foos[1].foo, -123

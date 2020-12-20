@@ -11,12 +11,12 @@ export tests =
     assert not random.bool()
 
   test_number: ||
-    assert_near random.number() 0.024 0.001
-    assert_near random.number() 0.982 0.001
+    assert_near random.number(), 0.024, 0.001
+    assert_near random.number(), 0.982, 0.001
 
   test_num2_num4: ||
-    assert_near random.number2() (num2 0.024 0.982) 0.001
-    assert_near random.number4() (num4 0.006 0.861 0.823 0.186) 0.001
+    assert_near random.number2(), (num2 0.024, 0.982), 0.001
+    assert_near random.number4(), (num4 0.006, 0.861, 0.823, 0.186), 0.001
 
   test_pick: ||
     x = ["foo", "bar", "baz"]
@@ -36,9 +36,9 @@ export tests =
 
     output1 = get_rng_output rng1
 
-    assert_eq output1 (get_rng_output rng2)
-    assert_ne output1 (get_rng_output rng3)
+    assert_eq output1, (get_rng_output rng2)
+    assert_ne output1, (get_rng_output rng3)
 
     # seed can be used to reseed the unique generator
     rng3.seed 0
-    assert_eq output1 (get_rng_output rng3)
+    assert_eq output1, (get_rng_output rng3)

@@ -2,54 +2,54 @@ import test.assert_eq
 
 export tests =
   test_creating: ||
-    assert_eq (num4 0) (num4 0 0 0 0)
-    assert_eq (num2 1) (num2 1 1)
-    assert_eq (num4 (num2 1)) (num4 1 1 0 0)
+    assert_eq (num4 0), (num4 0, 0, 0, 0)
+    assert_eq (num2 1), (num2 1, 1)
+    assert_eq (num4 (num2 1)), (num4 1, 1, 0, 0)
 
   test_mutation_num2: ||
-    x = num2 10 11
+    x = num2 10, 11
     x *= 2
-    assert_eq x (num2 20 22)
+    assert_eq x, (num2 20, 22)
     x %= 5
-    assert_eq x (num2 0 2)
+    assert_eq x, (num2 0, 2)
     x += num2 10
-    assert_eq x (num2 10 12)
+    assert_eq x, (num2 10, 12)
 
   test_mutation_num4: ||
-    x = num4 5 6 7 8
+    x = num4 5, 6, 7, 8
     x *= 2
-    assert_eq x (num4 10 12 14 16)
+    assert_eq x, (num4 10, 12, 14, 16)
     x %= 5
-    assert_eq x (num4 0 2 4 1)
+    assert_eq x, (num4 0, 2, 4, 1)
     x += num4 10
-    assert_eq x (num4 10 12 14 11)
+    assert_eq x, (num4 10, 12, 14, 11)
 
   test_sum: ||
-    assert_eq (num2 1 2).sum() 3
-    assert_eq (num4 1 2 3 4).sum() 10
+    assert_eq (num2 1, 2).sum(), 3
+    assert_eq (num4 1, 2, 3, 4).sum(), 10
 
   test_element_access_num2: ||
-    x = num2 10 20
-    assert_eq x[0] 10
-    assert_eq x[1] 20
+    x = num2 10, 20
+    assert_eq x[0], 10
+    assert_eq x[1], 20
 
   test_element_access_num4: ||
-    x = num4 2 3 4 5
-    assert_eq x[0] 2
-    assert_eq x[3] 5
+    x = num4 2, 3, 4, 5
+    assert_eq x[0], 2
+    assert_eq x[3], 5
 
   test_element_unpacking_num2: ||
-    x = num2 1 2
+    x = num2 1, 2
     a, b, c = x
-    assert_eq a 1
-    assert_eq b 2
-    assert_eq c ()
+    assert_eq a, 1
+    assert_eq b, 2
+    assert_eq c, ()
 
   test_element_unpacking_num4: ||
-    x = num4 5 6 7 8
+    x = num4 5, 6, 7, 8
     a, b, c, d, e = x
-    assert_eq a 5
-    assert_eq b 6
-    assert_eq c 7
-    assert_eq d 8
-    assert_eq e ()
+    assert_eq a, 5
+    assert_eq b, 6
+    assert_eq c, 7
+    assert_eq d, 8
+    assert_eq e, ()

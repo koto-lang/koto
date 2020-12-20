@@ -815,7 +815,7 @@ assert 1 + 1 == 2";
         fn function_two_args() {
             let script = "
 import assert
-assert (1 + 1 == 2) (2 < 3)";
+assert 1 + 1 == 2, 2 < 3";
             test_script(script, Empty);
         }
     }
@@ -844,7 +844,7 @@ square 8";
             let script = "
 add = |a, b|
   a + b
-add 5 6";
+add 5, 6";
             test_script(script, Number(11.0.into()));
         }
 
@@ -858,11 +858,11 @@ add(5, 6)";
         }
 
         #[test]
-        fn space_separated_call_in_parens() {
+        fn nested_call_in_parens() {
             let script = "
 add = |a, b|
   a + b
-add(5, add 6 7)";
+add(5, add 6, 7)";
             test_script(script, Number(18.0.into()));
         }
 
@@ -870,7 +870,7 @@ add(5, add 6 7)";
         fn wildcard_arg_at_start() {
             let script = "
 f = |_, b, c| b + c
-f 1 2 3
+f 1, 2, 3
 ";
             test_script(script, Number(5.0.into()));
         }
@@ -879,7 +879,7 @@ f 1 2 3
         fn wildcard_arg_in_middle() {
             let script = "
 f = |a, _, c| a + c
-f 1 2 3
+f 1, 2, 3
 ";
             test_script(script, Number(4.0.into()));
         }
@@ -888,7 +888,7 @@ f 1 2 3
         fn wildcard_arg_at_end() {
             let script = "
 f = |a, b, _| a + b
-f 1 2 3
+f 1, 2, 3
 ";
             test_script(script, Number(3.0.into()));
         }
@@ -897,7 +897,7 @@ f 1 2 3
         fn function_arg_unpacking_tuple() {
             let script = "
 f = |a, (_, c), d| a + c + d
-f 1 (2, 3) 4
+f 1, (2, 3), 4
 ";
             test_script(script, Number(8.0.into()));
         }
@@ -906,7 +906,7 @@ f 1 (2, 3) 4
         fn function_arg_unpacking_tuple_nested() {
             let script = "
 f = |a, (_, (c, d), _), f| a + c + d + f
-f 1 (2, (3, 4), 5) 6
+f 1, (2, (3, 4), 5), 6
 ";
             test_script(script, Number(14.0.into()));
         }
@@ -915,7 +915,7 @@ f 1 (2, (3, 4), 5) 6
         fn function_arg_unpacking_list() {
             let script = "
 f = |a, [_, c], d| a + c + d
-f 1 [2, 3] 4
+f 1, [2, 3], 4
 ";
             test_script(script, Number(8.0.into()));
         }
@@ -924,7 +924,7 @@ f 1 [2, 3] 4
         fn function_arg_unpacking_mixed() {
             let script = "
 f = |a, (b, [_, d]), e| a + b + d + e
-f 1 (2, [3, 4]) 5
+f 1, (2, [3, 4]), 5
 ";
             test_script(script, Number(12.0.into()));
         }
@@ -933,8 +933,8 @@ f 1 (2, [3, 4]) 5
         fn variadic_function() {
             let script = "
 f = |a, b...|
-  a + b.fold 0 |x, y| x + y
-f 5 10 20 30";
+  a + b.fold 0, |x, y| x + y
+f 5, 10, 20, 30";
             test_script(script, Number(65.0.into()));
         }
 
@@ -943,8 +943,8 @@ f 5 10 20 30";
             let script = "
 add = |a, b|
   add2 = |x, y| x + y
-  add2 a b
-add 10 20";
+  add2 a, b
+add 10, 20";
             test_script(script, Number(30.0.into()));
         }
 
@@ -952,7 +952,7 @@ add 10 20";
         fn nested_calls() {
             let script = "
 add = |a, b| a + b
-add 10 (add 20 30)";
+add 10, (add 20, 30)";
             test_script(script, Number(60.0.into()));
         }
 
@@ -990,7 +990,7 @@ fib 4
 f, g =
   (|n| if n == 0 then 1 else f n - 1),
   (|n| if n == 0 then 2 else g n - 1)
-f 4, g 4
+(f 4), (g 4)
 ";
             test_script(script, number_tuple(&[1, 2]));
         }
@@ -1069,7 +1069,7 @@ capture_test = |a, b, c|
     inner2 a
   b, c = (), () # inner and inner2 have captured their own copies of b and c
   inner()
-capture_test 1 2 3";
+capture_test 1, 2, 3";
             test_script(script, Number(6.0.into()));
         }
 
@@ -1116,7 +1116,7 @@ x";
         fn multi_assignment_of_function_results() {
             let script = "
 f = |n| n
-a, b = f 1, f 2
+a, b = (f 1), (f 2)
 a";
             test_script(script, Number(1.0.into()));
         }
@@ -1155,7 +1155,7 @@ f3 1";
             // iterator.fold() was incorrectly reusing its vm rather than spawning a new one
             let script = "
 f = || 1, 2, 3
-f().fold 0 |x, n| x += n
+f().fold 0, |x, n| x += n
 ";
             test_script(script, Number(6.0.into()));
         }
@@ -1389,7 +1389,7 @@ make_o = ||
   foo: 0
   set_foo: |self, a, b| self.foo = a + b
 o = make_o()
-o.set_foo 10 20
+o.set_foo 10, 20
 o.foo";
             test_script(script, Number(30.0.into()));
         }
@@ -1495,8 +1495,8 @@ m.get_map().foo";
             let script = "
 m =
   foo: |x, xs...|
-    xs.fold x |a, b| a + b
-m.foo 1 2 3
+    xs.fold x, |a, b| a + b
+m.foo 1, 2, 3
 ";
             test_script(script, Number(6.0.into()));
         }
@@ -1506,9 +1506,9 @@ m.foo 1 2 3
             let script = "
 m =
   foo: |self, x, xs...|
-    self.offset + xs.fold x |a, b| a + b
+    self.offset + xs.fold x, |a, b| a + b
   offset: 10
-m.foo 1 2 3
+m.foo 1, 2, 3
 ";
             test_script(script, Number(16.0.into()));
         }
@@ -1521,7 +1521,7 @@ m =
     debug self
     for x in xs
       yield self.offset + first + x
-    self.offset + xs.fold x |a, b| a + b
+    self.offset + xs.fold x, |a, b| a + b
   offset: 100
 m.foo(10, 1, 2, 3).to_tuple()
 ";
@@ -1601,18 +1601,18 @@ result.size()
             let script = r#"
 equal = |x, y| x == y
 equal
-  (0..10).position |n| n == 5
+  (0..10).position(|n| n == 5),
   5
 "#;
             test_script(script, Bool(true));
         }
 
         #[test]
-        fn range_in_space_separated_call_args() {
+        fn range_in_call_args() {
             let script = r#"
 foo = |range, x| range.size() + x
 min, max = 0, 10
-foo min..max 20
+foo min..max, 20
 "#;
             test_script(script, Number(30.0.into()));
         }
@@ -1636,9 +1636,9 @@ a, c";
 fold = |xs, f|
   result = 0
   for x in xs
-    result = f result x
+    result = f result, x
   result
-fold 0..5 |n, _| n + 1";
+fold 0..5, |n, _| n + 1";
             test_script(script, Number(5.0.into()));
         }
     }
@@ -1727,7 +1727,7 @@ gen().to_tuple()
 
         #[test]
         fn with_2_args() {
-            test_script("num2 1 2", num2(1.0, 2.0));
+            test_script("num2 1, 2", num2(1.0, 2.0));
         }
 
         #[test]
@@ -1737,7 +1737,7 @@ gen().to_tuple()
 
         #[test]
         fn from_num2() {
-            test_script("num2 (num2 1 2)", num2(1.0, 2.0));
+            test_script("num2 (num2 1, 2)", num2(1.0, 2.0));
         }
 
         #[test]
@@ -1747,18 +1747,18 @@ gen().to_tuple()
 
         #[test]
         fn subtract_divide() {
-            test_script("((num2 10 20) - (num2 2)) / 2.0", num2(4.0, 9.0));
+            test_script("((num2 10, 20) - (num2 2)) / 2.0", num2(4.0, 9.0));
         }
 
         #[test]
         fn modulo() {
-            test_script("(num2 15 25) % (num2 10) % 4", num2(1.0, 1.0));
+            test_script("(num2 15, 25) % (num2 10) % 4", num2(1.0, 1.0));
         }
 
         #[test]
         fn negation() {
             let script = "
-x = num2 1 -2
+x = num2 1, -2
 -x";
             test_script(script, num2(-1.0, 2.0));
         }
@@ -1766,7 +1766,7 @@ x = num2 1 -2
         #[test]
         fn index() {
             let script = "
-x = num2 4 5
+x = num2 4, 5
 x[1]";
             test_script(script, Number(5.0.into()));
         }
@@ -1787,17 +1787,17 @@ x[1]";
 
         #[test]
         fn with_2_args() {
-            test_script("num4 1 2", num4(1.0, 2.0, 0.0, 0.0));
+            test_script("num4 1, 2", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn with_3_args() {
-            test_script("num4 3 2 1", num4(3.0, 2.0, 1.0, 0.0));
+            test_script("num4 3, 2, 1", num4(3.0, 2.0, 1.0, 0.0));
         }
 
         #[test]
         fn with_4_args() {
-            test_script("num4 -1 1 -2 2", num4(-1.0, 1.0, -2.0, 2.0));
+            test_script("num4 -1, 1, -2, 2", num4(-1.0, 1.0, -2.0, 2.0));
         }
 
         #[test]
@@ -1807,12 +1807,12 @@ x[1]";
 
         #[test]
         fn from_num2() {
-            test_script("num4 (num2 1 2)", num4(1.0, 2.0, 0.0, 0.0));
+            test_script("num4 (num2 1, 2)", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn from_num4() {
-            test_script("num4 (num4 3 4)", num4(3.0, 4.0, 0.0, 0.0));
+            test_script("num4 (num4 3, 4)", num4(3.0, 4.0, 0.0, 0.0));
         }
 
         #[test]
@@ -1823,7 +1823,7 @@ x[1]";
         #[test]
         fn subtract_divide() {
             test_script(
-                "((num4 10 20 30 40) - (num4 2)) / 2.0",
+                "((num4 10, 20, 30, 40) - (num4 2)) / 2.0",
                 num4(4.0, 9.0, 14.0, 19.0),
             );
         }
@@ -1831,7 +1831,7 @@ x[1]";
         #[test]
         fn modulo() {
             test_script(
-                "(num4 15 25 35 45) % (num4 10) % 4",
+                "(num4 15, 25, 35, 45) % (num4 10) % 4",
                 num4(1.0, 1.0, 1.0, 1.0),
             );
         }
@@ -1839,7 +1839,7 @@ x[1]";
         #[test]
         fn negation() {
             let script = "
-x = num4 1 -2 3 -4
+x = num4 1, -2, 3, -4
 -x";
             test_script(script, num4(-1.0, 2.0, -3.0, 4.0));
         }
@@ -1847,7 +1847,7 @@ x = num4 1 -2 3 -4
         #[test]
         fn index() {
             let script = "
-x = num4 9 8 7 6
+x = num4 9, 8, 7, 6
 x[3]";
             test_script(script, Number(6.0.into()));
         }

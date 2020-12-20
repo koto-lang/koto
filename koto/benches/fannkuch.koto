@@ -60,7 +60,7 @@ fannkuch = |n|
         s[i] = i
         # Rotate 1<-...<-i+1.
         t = p.remove 1
-        p.insert (i + 1) t
+        p.insert (i + 1), t
 
 export main = ||
   n = match koto.args.get 0
@@ -76,5 +76,5 @@ export main = ||
 export tests =
   test_5: ||
     sum, flips = fannkuch 5
-    assert_eq sum 11
-    assert_eq flips 7
+    assert_eq sum, 11
+    assert_eq flips, 7
