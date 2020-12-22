@@ -68,7 +68,7 @@ test.assert false
     fn check_assert_eq() {
         let script = "
 import test.assert_eq
-assert_eq 0 1
+assert_eq 0, 1
 ";
         run_script(script, None, true);
     }
@@ -77,7 +77,7 @@ assert_eq 0 1
     fn check_assert_ne() {
         let script = "
 import test.assert_ne
-assert_ne 1 1
+assert_ne 1, 1
 ";
         run_script(script, None, true);
     }
@@ -86,7 +86,7 @@ assert_ne 1 1
     fn check_assert_near() {
         let script = "
 import test.assert_near
-assert_near 1 2 0.1
+assert_near 1, 2, 0.1
 ";
         run_script(script, None, true);
     }

@@ -1,11 +1,11 @@
 import test.assert_eq
 
 a = num4
-  0 1 2 3
+  0, 1, 2, 3
 b = num4
-  0 1
-  2 3
-assert_eq a b
+  0, 1,
+  2, 3
+assert_eq a, b
 
 a = num4(1,
   2, 3,
@@ -16,19 +16,19 @@ b = num4(
   2, 3, # Comments can be included in the num4 construction
   4
 )
-assert_eq a b
+assert_eq a, b
 
 x = (1, 2, 3).fold(
   0,
   |a, b| a + b
 )
-assert_eq x 6
+assert_eq x, 6
 
 x = (1, 2, 3)
   .each |n| n
   # This comment shouldn't interrupt the chain
-  .fold 0 |a, b| a + b
-assert_eq x 6
+  .fold 0, |a, b| a + b
+assert_eq x, 6
 
 assert_equal = |
   long_arg, # This is an argument that needs an explanation
@@ -40,7 +40,7 @@ assert_equal = |
     long_arg_2
 
 assert_equal
-  1234
+  1234,
   1234
 
 m = {
@@ -49,17 +49,17 @@ m = {
   bar:
     -1,
 }
-assert_eq m.bar -1
+assert_eq m.bar, -1
 
 x = [
   42,
   99,
 ]
-assert_eq x[1] 99
+assert_eq x[1], 99
 
 
 a = 1 +
     2 + #- inline comment -# 3 +
     # Another comment
     4
-assert_eq a 10
+assert_eq a, 10
