@@ -15,7 +15,7 @@ export main = ||
     for count in word_counts
       line = generator
         .take count
-        .fold "" |line, word| line += word + " "
+        .fold "", |line, word| line += word + " "
       print line.trim()
     print ""
 
