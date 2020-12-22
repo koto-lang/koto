@@ -276,6 +276,12 @@ impl<'source> Parser<'source> {
 
             if let Some(expression) = self.parse_line()? {
                 body.push(expression);
+
+                match self.peek_next_token_on_same_line() {
+                    Some(Token::NewLine) | Some(Token::NewLineIndented) => continue,
+                    None => break,
+                    _ => return syntax_error!(UnexpectedToken, self),
+                }
             } else {
                 self.lexer.next();
                 return syntax_error!(ExpectedExpressionInMainBlock, self);
@@ -524,21 +530,8 @@ impl<'source> Parser<'source> {
         context: &mut ExpressionContext,
         temp_result: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let current_indent = self.lexer.current_indent();
-
-        if context.allow_initial_indentation
-            && self.peek_next_token_on_same_line() == Some(Token::NewLineIndented)
-        {
-            self.consume_until_next_token(context);
-
-            let indent = self.lexer.current_indent();
-            if indent <= current_indent {
-                return Ok(None);
-            }
-
-            if let Some(map_block) = self.parse_map_block(context)? {
-                return Ok(Some(map_block));
-            }
+        if let Some(map_block) = self.parse_map_block(context)? {
+            return Ok(Some(map_block));
         }
 
         let mut expression_context = ExpressionContext {
@@ -549,14 +542,10 @@ impl<'source> Parser<'source> {
         if let Some(first) = self.parse_expression(&mut expression_context)? {
             let mut expressions = vec![first];
             let mut encountered_comma = false;
+
             while let Some(Token::Comma) = self.peek_next_token_on_same_line() {
                 self.consume_next_token_on_same_line();
                 encountered_comma = true;
-
-                if self.peek_next_token(context).is_none() {
-                    break;
-                }
-                self.consume_until_next_token(context);
 
                 if let Some(next_expression) =
                     self.parse_expression_with_lhs(Some(&expressions), &mut expression_context)?
@@ -581,6 +570,7 @@ impl<'source> Parser<'source> {
                     expressions.push(next_expression);
                 }
             }
+
             if expressions.len() == 1 && !encountered_comma {
                 Ok(Some(first))
             } else {
@@ -1032,9 +1022,10 @@ impl<'source> Parser<'source> {
                     if !matches!(self.peek_token(), Some(Token::Id) | Some(Token::String)) {
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) = self.parse_id_or_string()? {
+                        node_start_span = self.lexer.span();
                         lookup.push((
                             LookupNode::Id(id_index),
-                            self.span_with_start(self.lexer.span()),
+                            self.span_with_start(node_start_span),
                         ));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
@@ -2343,6 +2334,13 @@ impl<'source> Parser<'source> {
         while let Some(expression) = self.parse_line()? {
             body.push(expression);
 
+            match self.peek_next_token_on_same_line() {
+                None => break,
+                Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
+                _ => return syntax_error!(UnexpectedToken, self),
+            }
+
+            // Peek ahead to see if the indented block continues after this line
             if self.peek_next_token(context).is_none() {
                 break;
             }
@@ -2648,7 +2646,7 @@ impl<'source> Parser<'source> {
 
         while let Some(peeked) = self.peek_token_n(peek_count) {
             match peeked {
-                Whitespace | CommentMulti => {}
+                Whitespace | CommentMulti | CommentSingle => {}
                 token => return Some(token),
             }
 
@@ -2664,7 +2662,7 @@ impl<'source> Parser<'source> {
 
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti => {}
+                Whitespace | CommentMulti | CommentSingle => {}
                 _ => return,
             }
 
@@ -2678,7 +2676,7 @@ impl<'source> Parser<'source> {
 
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti => {}
+                Whitespace | CommentMulti | CommentSingle => {}
                 _ => return self.lexer.next(),
             }
 

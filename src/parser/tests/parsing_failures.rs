@@ -162,6 +162,20 @@ for x in y if f x
             fn missing_terminator_for_list_arg() {
                 check_parsing_fails("f = |a, [b, c, d| a");
             }
+
+            #[test]
+            fn missing_commas_in_call() {
+                check_parsing_fails("f 1 2 3");
+            }
+
+            #[test]
+            fn missing_commas_in_call_in_indented_block() {
+                let source = "
+f = ||
+  f 1 2 3
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod lookups {

@@ -1356,6 +1356,46 @@ a";
                 Some(&[Constant::Str("a"), Constant::Str("b")]),
             )
         }
+
+        #[test]
+        fn if_block_in_function_followed_by_id() {
+            let source = "
+||
+  if true
+    return
+  x
+";
+
+            check_ast(
+                source,
+                &[
+                    BoolTrue,
+                    Return,
+                    If(AstIf {
+                        condition: 0,
+                        then_node: 1,
+                        else_if_blocks: vec![],
+                        else_node: None,
+                    }),
+                    Id(0),
+                    Block(vec![2, 3]),
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![0],
+                        body: 4,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
     }
 
     mod loops {
