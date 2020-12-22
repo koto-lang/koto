@@ -44,18 +44,18 @@ a try, your early feedback will be invaluable.
 import test.assert_eq
 
 # Numbers
-assert_eq (1 + 2.5) 3.5
+assert_eq (1 + 2.5), 3.5
 
 # Strings
-hello = "{}, {}!".format "Hello" "World"
+hello = "{}, {}!".format "Hello", "World"
 hello.print()
 
 # Functions
 square = |n| n * n
-assert_eq (square 8) 64
+assert_eq (square 8), 64
 
 add_squares = |a, b| (square a) + (square b)
-assert_eq (add_squares 2 4) 20
+assert_eq (add_squares 2, 4), 20
 
 # Iterators, ranges, and lists
 fizz_buzz = (1..100)
@@ -68,12 +68,12 @@ fizz_buzz = (1..100)
       else n
   .to_list()
 assert_eq
-  fizz_buzz
+  fizz_buzz,
   ["Buzz", 11, "Fizz", 13, 14, "Fizz Buzz"]
 
 # Maps and tuples
 x = {foo: 42, bar: "bar"}
-assert_eq x.keys().to_tuple() ("foo", "bar")
+assert_eq x.keys().to_tuple(), ("foo", "bar")
 ```
 
 
@@ -108,7 +108,7 @@ Launching the `koto` CLI without providing a script enters the REPL.
 Welcome to Koto v0.1.0
 » 1 + 1
 2
-» "{}, {}!".print "Hello" "World"
+» "{}, {}!".print "Hello", "World"
 Hello, World!
 ()
 ```
