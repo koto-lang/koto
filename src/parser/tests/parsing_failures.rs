@@ -176,6 +176,11 @@ f = ||
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn missing_commas_in_lookup_call() {
+                check_parsing_fails("f.bar 1 2 3");
+            }
         }
 
         mod lookups {

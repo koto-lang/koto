@@ -280,7 +280,10 @@ impl<'source> Parser<'source> {
                 match self.peek_next_token_on_same_line() {
                     Some(Token::NewLine) | Some(Token::NewLineIndented) => continue,
                     None => break,
-                    _ => return syntax_error!(UnexpectedToken, self),
+                    _ => {
+                        self.consume_next_token_on_same_line();
+                        return syntax_error!(UnexpectedToken, self);
+                    }
                 }
             } else {
                 self.lexer.next();
@@ -1032,8 +1035,9 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Whitespace if node_context.allow_space_separated_call => {
-                    let args = self.parse_call_args(context)?;
+                    node_context.allow_space_separated_call = false;
 
+                    let args = self.parse_call_args(context)?;
                     if args.is_empty() {
                         break;
                     } else {
@@ -2337,7 +2341,10 @@ impl<'source> Parser<'source> {
             match self.peek_next_token_on_same_line() {
                 None => break,
                 Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
-                _ => return syntax_error!(UnexpectedToken, self),
+                _ => {
+                    self.consume_next_token_on_same_line();
+                    return syntax_error!(UnexpectedToken, self);
+                }
             }
 
             // Peek ahead to see if the indented block continues after this line

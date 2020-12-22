@@ -229,7 +229,7 @@ impl<'a> TokenLexer<'a> {
         // The '"' character has already been matched
         chars.next();
 
-        let mut string_bytes = 1;
+        let mut string_bytes = 1; // 1 for '"'
         let mut position = self.position;
 
         while let Some(c) = chars.next() {
@@ -249,6 +249,8 @@ impl<'a> TokenLexer<'a> {
                     position.column = 1;
                 }
                 '"' => {
+                    // +1 to get the column 1 past the end of the string
+                    position.column += 1;
                     self.advance_to_position(string_bytes, position);
                     return Some(String);
                 }
