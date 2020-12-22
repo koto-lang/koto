@@ -15,5 +15,5 @@ export main = ||
 
 export tests =
   test_fib: ||
-    assert_eq (fib 4) 3
-    assert_eq (fib 5) 5
+    assert_eq (fib 4), 3
+    assert_eq (fib 5), 5

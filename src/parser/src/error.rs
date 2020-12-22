@@ -80,6 +80,7 @@ pub enum SyntaxError {
     ExpectedThenExpression,
     ExpectedUntilCondition,
     ExpectedWhileCondition,
+    IfBlockNotAllowedInThisContext,
     ImportFromExpressionHasTooManyItems,
     LexerError,
     MatchEllipsisOutsideOfNestedPatterns,
@@ -259,6 +260,9 @@ impl fmt::Display for SyntaxError {
             ExpectedThenExpression => f.write_str("Expected 'then' expression."),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedWhileCondition => f.write_str("Expected condition in while loop"),
+            IfBlockNotAllowedInThisContext => {
+                f.write_str("Non-inline if expression isn't allowed in this context.")
+            }
             ImportFromExpressionHasTooManyItems => {
                 f.write_str("Too many items listed after 'from' in import expression")
             }

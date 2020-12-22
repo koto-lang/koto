@@ -36,7 +36,7 @@ assert_equal = |
 |
   # The body must be indented
   assert_eq
-    long_arg # call args can be indented
+    long_arg, # call args can be indented
     long_arg_2
 
 assert_equal

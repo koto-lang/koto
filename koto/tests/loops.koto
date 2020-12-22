@@ -5,12 +5,12 @@ export tests =
     count = 0
     for x in 0..10
       for y in -5..5 if x == y and x < 3
-        assert_eq x y
+        assert_eq x, y
 
         # loop bodies share scope of statement
         count += 1
 
-    assert_eq count 3
+    assert_eq count, 3
 
   test_for_break_continue: ||
     count = 0
@@ -21,7 +21,7 @@ export tests =
         break
       else
         count += 1
-    assert_eq count 2 # 2 odd numbers less than 5
+    assert_eq count, 2 # 2 odd numbers less than 5
 
   test_while_block: ||
     count = 0
@@ -38,14 +38,14 @@ export tests =
       else
         break
       assert false
-    assert_eq count 10
+    assert_eq count, 10
 
   test_until_block: ||
     count = 5
     until count == 0
       count -= 1
       assert count < 5
-    assert_eq count 0
+    assert_eq count, 0
 
   test_loop_break: ||
     count = 0
@@ -53,4 +53,4 @@ export tests =
       count += 1
       if count == 5
         break
-    assert_eq count 5
+    assert_eq count, 5

@@ -17,31 +17,31 @@ Av = |x, y, n|
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result, n|
+    x.fold 0, |result, n|
       j += 1
-      result + n * (A i j)
+      result + n * (A i, j)
 
 Atv = |x, y, n|
   i = 0
   y.transform |n|
     i += 1
     j = 0
-    x.fold 0 |result, n|
+    x.fold 0, |result, n|
       j += 1
-      result + n * (A j i)
+      result + n * (A j, i)
 
 AtAv = |x, y, t, n|
-  Av x t n
-  Atv t y n
+  Av x, t, n
+  Atv t, y, n
 
 spectral_norm = |n|
-  u = list.with_size n 1
-  v = list.with_size n 0
-  t = list.with_size n 0
+  u = list.with_size n, 1
+  v = list.with_size n, 0
+  t = list.with_size n, 0
 
   for _ in 0..10
-    AtAv u v t n
-    AtAv v u t n
+    AtAv u, v, t, n
+    AtAv v, u, t, n
   vBv, vv = 0, 0
   for ui, vi in u.zip v
     vBv = vBv + ui * vi
@@ -62,4 +62,4 @@ export main = ||
 
 export tests =
   test_5: ||
-    assert_near (spectral_norm 5) 1.261218 1e-6
+    assert_near (spectral_norm 5), 1.261218, 1e-6

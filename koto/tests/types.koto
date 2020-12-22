@@ -2,19 +2,19 @@ import koto.type, test.assert_eq
 
 export tests =
   test_type_returns_type_name: ||
-    assert_eq (type true) "Bool"
-    assert_eq (type |x| x * x) "Function"
-    assert_eq (type [1, 2, 3]) "List"
-    assert_eq (type {foo: 42}) "Map"
-    assert_eq (type 0) "Int"
-    assert_eq (type 0.0) "Float"
-    assert_eq (type (num2 0)) "Num2"
-    assert_eq (type (num4 0)) "Num4"
-    assert_eq (type 0..10) "Range"
-    assert_eq (type "foo") "String"
+    assert_eq (type true), "Bool"
+    assert_eq (type |x| x * x), "Function"
+    assert_eq (type [1, 2, 3]), "List"
+    assert_eq (type {foo: 42}), "Map"
+    assert_eq (type 0), "Int"
+    assert_eq (type 0.0), "Float"
+    assert_eq (type (num2 0)), "Num2"
+    assert_eq (type (num4 0)), "Num4"
+    assert_eq (type 0..10), "Range"
+    assert_eq (type "foo"), "String"
 
     x = 1
-    assert_eq (type x) "Int"
+    assert_eq (type x), "Int"
 
     x = "bar"
-    assert_eq (type x) "String"
+    assert_eq (type x), "String"

@@ -8,6 +8,11 @@
   - `range.union`
 
 ### Changed
+- Function calls without parentheses now require commas to separate arguments.
+  - e.g. `f a b c` now needs to be written as `f a, b, c`.
+  - Care needs to be taken when adapting programs to this change.
+    - e.g. `f a, b c` was parsed as two separate expressions
+      (i.e. `(f a), (b c)`), and it's now parsed as `f(a, (b c))`.
 - `match` when used without a value to match against has been renamed to
   `switch`.
 - Error messages in core ops that call functors have been made a bit clearer.

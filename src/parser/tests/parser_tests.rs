@@ -483,7 +483,7 @@ min..max
             let source = "\
 num2 0
 num2
-  1
+  1,
   x";
             check_ast(
                 source,
@@ -506,7 +506,7 @@ num2
         fn num4() {
             let source = "\
 num4 0
-num4 1 x
+num4 1, x
 num4(
   x, 0,
   1, x,
@@ -1485,6 +1485,40 @@ for x in y
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
             )
         }
+
+        #[test]
+        fn for_with_range_from_lookup_call() {
+            let source = "\
+for a in x.zip y
+  a
+";
+            check_ast(
+                source,
+                &[
+                    Id(1),
+                    Id(3),
+                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((LookupNode::Id(2), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    Id(0),
+                    For(AstFor {
+                        args: vec![Some(0)], // constant 0
+                        range: 4,            // ast 1
+                        body: 5,
+                    }),
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("a"),
+                    Constant::Str("x"),
+                    Constant::Str("zip"),
+                    Constant::Str("y"),
+                ]),
+            )
+        }
     }
 
     mod functions {
@@ -1743,7 +1777,7 @@ f 42";
 
         #[test]
         fn call_negative_arg() {
-            let source = "f x -x";
+            let source = "f x, -x";
             check_ast(
                 source,
                 &[
@@ -1789,7 +1823,7 @@ f 42";
         fn call_over_lines() {
             let source = "
 foo
-  x
+  x,
   y";
             check_ast(
                 source,
@@ -2240,7 +2274,7 @@ f = |n|
         #[test]
         fn call_with_function() {
             let source = "\
-z = y [0..20] |x| x > 1
+z = y [0..20], |x| x > 1
 y z";
             check_ast(
                 source,
@@ -2933,7 +2967,7 @@ return 1";
             let source = r#"
 not true
 debug x + x
-assert_eq x "hello"
+assert_eq x, "hello"
 "#;
             check_ast(
                 source,

@@ -2,7 +2,7 @@
 
 # std modules should be available to import
 import number.pi, test.assert_eq
-assert_eq pi pi
+assert_eq pi, pi
 
 export qux = ()
 # main functions should be run when loading a module

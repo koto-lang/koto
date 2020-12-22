@@ -7,7 +7,7 @@ export tests =
       42
     catch error
       assert false
-    assert_eq x 42
+    assert_eq x, 42
 
   test_catch: ||
     x = try
@@ -16,7 +16,7 @@ export tests =
       99
     catch error
       -1
-    assert_eq x -1
+    assert_eq x, -1
 
   test_finally: ||
     error_caught = false
@@ -29,7 +29,7 @@ export tests =
     finally
       x = 42
     assert error_caught
-    assert_eq x 42
+    assert_eq x, 42
 
   test_error_in_other_module: ||
     x = 0
@@ -37,4 +37,4 @@ export tests =
       error_handling_module.error_function()
     catch error
       x = 99
-    assert_eq x 99
+    assert_eq x, 99

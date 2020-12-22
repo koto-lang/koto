@@ -11,7 +11,7 @@ tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eight
 number_to_english = |n|
   n = n.floor()
   if n < 0
-    "minus {}".format (number_to_english n.abs())
+    "minus {}".format number_to_english n.abs()
   else if n < 20
     digits[n]
   else if n < 100
@@ -20,15 +20,15 @@ number_to_english = |n|
     if y == 0
       tens[x]
     else
-      "{}-{}".format tens[x] digits[y]
+      "{}-{}".format tens[x], digits[y]
   else if n < 1000
     x = (n / 100).floor()
-    x_string = (number_to_english x)
+    x_string = number_to_english x
     y = n % 100
     if y == 0
       "{} hundred".format x_string
     else
-      "{} hundred and {}".format x_string (number_to_english y)
+      "{} hundred and {}".format x_string, number_to_english y
   else
     "???"
 
@@ -46,7 +46,7 @@ export main = ||
 
 export tests =
   test_number_to_english: ||
-    assert_eq (number_to_english 0) "zero"
-    assert_eq (number_to_english -42) "minus forty-two"
-    assert_eq (number_to_english 217) "two hundred and seventeen"
-    assert_eq (number_to_english 999) "nine hundred and ninety-nine"
+    assert_eq (number_to_english 0), "zero"
+    assert_eq (number_to_english -42), "minus forty-two"
+    assert_eq (number_to_english 217), "two hundred and seventeen"
+    assert_eq (number_to_english 999), "nine hundred and ninety-nine"

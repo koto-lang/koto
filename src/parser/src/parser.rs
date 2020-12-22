@@ -141,16 +141,19 @@ impl Frame {
 
 #[derive(Clone, Copy, Debug)]
 struct ExpressionContext {
-    // e.g. a = f x y
-    // `x` and `y` are `f`'s arguments, and while parsing them this flag is set to false,
-    // preventing further function calls from being started.
+    // e.g.
+    //
+    // match x
+    //   foo.bar if x == 0 then...
+    //
+    // Without the flag, `if f == 0...` would be parsed as being an argument for a call to foo.bar.
     allow_space_separated_call: bool,
     // e.g. f = |x|
     //        x + x
     // This function can have an indented body.
     //
     // foo
-    //   bar
+    //   bar,
     //   baz
     // This function call can be broken over lines.
     //
@@ -810,12 +813,17 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
-    fn parse_space_separated_call_args(
+    fn parse_call_args(
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Vec<AstIndex>, ParserError> {
         let mut last_arg_line = self.lexer.line_number();
         let mut args = Vec::new();
+
+        let mut arg_context = ExpressionContext {
+            expected_indentation: None,
+            ..*context
+        };
 
         while let Some((_, peek_count)) = self.peek_next_token(&context) {
             let peeked_line = self.lexer.peek_line_number(peek_count);
@@ -829,15 +837,14 @@ impl<'source> Parser<'source> {
                 break;
             }
 
-            let mut arg_context = ExpressionContext {
-                allow_space_separated_call: new_line,
-                allow_linebreaks: true,
-                allow_initial_indentation: false,
-                expected_indentation: None,
-            };
-
             if let Some(expression) = self.parse_expression(&mut arg_context)? {
                 args.push(expression);
+            } else {
+                break;
+            }
+
+            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                self.consume_next_token_on_same_line();
             } else {
                 break;
             }
@@ -858,7 +865,7 @@ impl<'source> Parser<'source> {
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if context.allow_space_separated_call => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         id_index
@@ -877,7 +884,7 @@ impl<'source> Parser<'source> {
                 }
                 Some(_) if context.allow_space_separated_call && context.allow_linebreaks => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         id_index
@@ -1034,17 +1041,12 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Whitespace if node_context.allow_space_separated_call => {
-                    let args = self.parse_space_separated_call_args(context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         break;
                     } else {
                         lookup.push((LookupNode::Call(args), node_start_span));
-
-                        node_context = ExpressionContext {
-                            allow_space_separated_call: false,
-                            ..node_context
-                        };
                     }
                 }
                 _ if matches!(self.peek_next_token(&node_context), Some((Token::Dot, _))) => {
@@ -1303,7 +1305,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        self.parse_space_separated_call_args(&mut ExpressionContext::permissive())?
+                        self.parse_call_args(&mut ExpressionContext::permissive())?
                     };
 
                     if args.is_empty() {
@@ -1321,7 +1323,7 @@ impl<'source> Parser<'source> {
                     let args = if self.peek_token() == Some(Token::ParenOpen) {
                         self.parse_parenthesized_args()?
                     } else {
-                        self.parse_space_separated_call_args(&mut ExpressionContext::permissive())?
+                        self.parse_call_args(&mut ExpressionContext::permissive())?
                     };
 
                     if args.is_empty() {
@@ -1332,9 +1334,7 @@ impl<'source> Parser<'source> {
 
                     Some(self.push_node_with_start_span(Num4(args), start_span)?)
                 }
-                Token::If if context.allow_space_separated_call => {
-                    self.parse_if_expression(context)?
-                }
+                Token::If => self.parse_if_expression(context)?,
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Switch => self.parse_switch_expression(context)?,
                 Token::Function => self.parse_function(context)?,
@@ -1400,9 +1400,7 @@ impl<'source> Parser<'source> {
                     Some(result)
                 }
                 Token::From | Token::Import => self.parse_import_expression(context)?,
-                Token::Try if context.allow_space_separated_call => {
-                    self.parse_try_expression(context)?
-                }
+                Token::Try => self.parse_try_expression(context)?,
                 // Token::NewLineIndented => self.parse_map_block(current_indent, None)?,
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => None,
@@ -1770,53 +1768,59 @@ impl<'source> Parser<'source> {
                 else_if_blocks: vec![],
                 else_node,
             }))?
-        } else if let Some(then_node) = self.parse_indented_map_or_block()? {
-            let mut else_if_blocks = Vec::new();
-
-            while let Some((Token::ElseIf, _)) = self.peek_next_token(context) {
-                self.consume_next_token(context);
-
-                if self.lexer.current_indent() != expected_indentation {
-                    return syntax_error!(UnexpectedElseIfIndentation, self);
-                }
-
-                if let Some(else_if_condition) =
-                    self.parse_expression(&mut ExpressionContext::inline())?
-                {
-                    if let Some(else_if_block) = self.parse_indented_map_or_block()? {
-                        else_if_blocks.push((else_if_condition, else_if_block));
-                    } else {
-                        return indentation_error!(ExpectedElseIfBlock, self);
-                    }
-                } else {
-                    return syntax_error!(ExpectedElseIfCondition, self);
-                }
+        } else {
+            if !context.allow_linebreaks {
+                return syntax_error!(IfBlockNotAllowedInThisContext, self);
             }
 
-            let else_node = if let Some((Token::Else, _)) = self.peek_next_token(context) {
-                self.consume_next_token(context);
+            if let Some(then_node) = self.parse_indented_map_or_block()? {
+                let mut else_if_blocks = Vec::new();
 
-                if self.lexer.current_indent() != expected_indentation {
-                    return syntax_error!(UnexpectedElseIndentation, self);
+                while let Some((Token::ElseIf, _)) = self.peek_next_token(context) {
+                    self.consume_next_token(context);
+
+                    if self.lexer.current_indent() != expected_indentation {
+                        return syntax_error!(UnexpectedElseIfIndentation, self);
+                    }
+
+                    if let Some(else_if_condition) =
+                        self.parse_expression(&mut ExpressionContext::inline())?
+                    {
+                        if let Some(else_if_block) = self.parse_indented_map_or_block()? {
+                            else_if_blocks.push((else_if_condition, else_if_block));
+                        } else {
+                            return indentation_error!(ExpectedElseIfBlock, self);
+                        }
+                    } else {
+                        return syntax_error!(ExpectedElseIfCondition, self);
+                    }
                 }
 
-                if let Some(else_block) = self.parse_indented_map_or_block()? {
-                    Some(else_block)
+                let else_node = if let Some((Token::Else, _)) = self.peek_next_token(context) {
+                    self.consume_next_token(context);
+
+                    if self.lexer.current_indent() != expected_indentation {
+                        return syntax_error!(UnexpectedElseIndentation, self);
+                    }
+
+                    if let Some(else_block) = self.parse_indented_map_or_block()? {
+                        Some(else_block)
+                    } else {
+                        return indentation_error!(ExpectedElseBlock, self);
+                    }
                 } else {
-                    return indentation_error!(ExpectedElseBlock, self);
-                }
-            } else {
-                None
-            };
+                    None
+                };
 
-            self.push_node(Node::If(AstIf {
-                condition,
-                then_node,
-                else_if_blocks,
-                else_node,
-            }))?
-        } else {
-            return indentation_error!(ExpectedThenKeywordOrBlock, self);
+                self.push_node(Node::If(AstIf {
+                    condition,
+                    then_node,
+                    else_if_blocks,
+                    else_node,
+                }))?
+            } else {
+                return indentation_error!(ExpectedThenKeywordOrBlock, self);
+            }
         };
 
         Ok(Some(result))

@@ -3,25 +3,25 @@ from test import assert, assert_eq
 export tests =
   test_inline_if: ||
     x = if true then 10 else 20
-    assert_eq x 10
+    assert_eq x, 10
 
   test_inline_if_function_call: ||
     is_zero = |x| x == 0
     x = 0
     x = if is_zero 0 then 42
-    assert_eq x 42
+    assert_eq x, 42
     assert if is_zero 0 then true else false
 
   test_inline_if_multi_assignment: ||
     a, b = if true then 10, 20 else 30, 40
-    assert_eq b 20
+    assert_eq b, 20
 
   test_if_block: ||
     x = true
     a = 0
     if x
       a = 42
-    assert_eq a 42
+    assert_eq a, 42
 
   test_if_else_if: ||
     x = true
@@ -44,7 +44,7 @@ export tests =
         n == 1 then 1
         else (fib n - 1) + (fib n - 2)
 
-    assert_eq 13 (fib 7)
+    assert_eq 13, fib 7
 
   test_match: ||
     inspect = |n|
@@ -57,7 +57,7 @@ export tests =
           "odd"
         else
           ">= 10"
-    assert_eq (inspect 7) "odd"
+    assert_eq (inspect 7), "odd"
 
   test_match_against_lookups: ||
     m = {foo: 42, bar: 99}
@@ -66,7 +66,7 @@ export tests =
       m.foo then "foo"
       m.bar then "bar"
       other then "{}".format other
-    assert_eq z "bar"
+    assert_eq z, "bar"
 
   test_match_multiple_values: ||
     fizz_buzz = |n|
@@ -79,7 +79,7 @@ export tests =
     x = (10..=15)
       .each |n| fizz_buzz n
       .to_tuple()
-    assert_eq x ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
+    assert_eq x, ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
 
   test_match_lists_and_tuples: ||
     z = [1, 2, (3, 4), (5, [6, 7, 8])]
@@ -93,4 +93,4 @@ export tests =
       # Matched lists and tuples can be nested
       [a, b, (3, 4), (c, [6, rest...])]
         a + b + c + rest.size()
-    assert_eq a 10
+    assert_eq a, 10
