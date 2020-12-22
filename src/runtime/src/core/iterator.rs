@@ -173,7 +173,7 @@ pub fn make_module() -> ValueMap {
                                     match vm.run_function(f.clone(), &[fold_result, value]) {
                                         Ok(result) => fold_result = result,
                                         Err(error) => {
-                                            return Some(Err(error.with_prefix("iterator.each")))
+                                            return Some(Err(error.with_prefix("iterator.fold")))
                                         }
                                     }
                                 }

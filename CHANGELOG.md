@@ -24,6 +24,10 @@
     assert_eq x [[1], [1, 2], [1, 2, 3]]
     ```
 
+### Fixed
+- Error messages produced in the functor passed to `iterator.fold` were reported
+  as coming from `iterator.each`.
+
 
 ## [0.5.0] 2020.12.17
 
