@@ -280,7 +280,10 @@ impl<'source> Parser<'source> {
                 match self.peek_next_token_on_same_line() {
                     Some(Token::NewLine) | Some(Token::NewLineIndented) => continue,
                     None => break,
-                    _ => return syntax_error!(UnexpectedToken, self),
+                    _ => {
+                        self.consume_next_token_on_same_line();
+                        return syntax_error!(UnexpectedToken, self);
+                    }
                 }
             } else {
                 self.lexer.next();
@@ -2337,7 +2340,10 @@ impl<'source> Parser<'source> {
             match self.peek_next_token_on_same_line() {
                 None => break,
                 Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
-                _ => return syntax_error!(UnexpectedToken, self),
+                _ => {
+                    self.consume_next_token_on_same_line();
+                    return syntax_error!(UnexpectedToken, self);
+                }
             }
 
             // Peek ahead to see if the indented block continues after this line
