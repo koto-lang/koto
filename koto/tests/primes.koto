@@ -7,11 +7,12 @@ get_primes = |n|
   sieve = []
   sieve.resize (n + 1), true
 
-  for x in 2..=n.sqrt() if sieve[x]
-    i = x * x
-    while i <= n
-      sieve[i] = false
-      i += x
+  for x in 2..=n.sqrt()
+    if sieve[x]
+      i = x * x
+      while i <= n
+        sieve[i] = false
+        i += x
 
   (2..=n).keep |x| sieve[x]
 

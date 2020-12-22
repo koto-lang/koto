@@ -606,6 +606,19 @@ match x
         }
 
         #[test]
+        fn match_with_condition_after_lookup() {
+            let script = r#"
+foo = {bar: 0, baz: 1}
+x = 42
+match 0
+  foo.bar if x == -1 then 0
+  foo.bar if x == 42 then 42
+  else -1
+"#;
+            test_script(script, Number(42.0.into()));
+        }
+
+        #[test]
         fn match_on_alternative() {
             let script = "
 match 42
@@ -855,6 +868,15 @@ add = |a, b|
   a + b
 add(5, 6)";
             test_script(script, Number(11.0.into()));
+        }
+
+        #[test]
+        fn nested_call_without_parens() {
+            let script = "
+add = |a, b|
+  a + b
+add 2, add 3, 4";
+            test_script(script, Number(9.0.into()));
         }
 
         #[test]

@@ -122,6 +122,19 @@ if f x
             }
         }
 
+        mod loops {
+            use super::*;
+
+            #[test]
+            fn if_following_for() {
+                let source = "
+for x in y if f x
+  debug x
+";
+                check_parsing_fails(source);
+            }
+        }
+
         mod functions {
             use super::*;
 
