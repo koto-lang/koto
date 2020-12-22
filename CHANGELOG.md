@@ -27,6 +27,14 @@
 ### Fixed
 - Error messages produced in the functor passed to `iterator.fold` were reported
   as coming from `iterator.each`.
+- Error messages associated with accessed IDs now have the correct spans.
+  - e.g.
+    ```
+    x = (1..10).fold 42
+
+    ```
+    Previously the error (wrong arguments for `.fold`) would be connected with
+    the range rather than the function call.
 
 
 ## [0.5.0] 2020.12.17

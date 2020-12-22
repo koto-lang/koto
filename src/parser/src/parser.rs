@@ -1022,9 +1022,10 @@ impl<'source> Parser<'source> {
                     if !matches!(self.peek_token(), Some(Token::Id) | Some(Token::String)) {
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) = self.parse_id_or_string()? {
+                        node_start_span = self.lexer.span();
                         lookup.push((
                             LookupNode::Id(id_index),
-                            self.span_with_start(self.lexer.span()),
+                            self.span_with_start(node_start_span),
                         ));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
