@@ -1035,8 +1035,9 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Whitespace if node_context.allow_space_separated_call => {
-                    let args = self.parse_call_args(context)?;
+                    node_context.allow_space_separated_call = false;
 
+                    let args = self.parse_call_args(context)?;
                     if args.is_empty() {
                         break;
                     } else {
