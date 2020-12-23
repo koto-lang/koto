@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build_and_test:
     strategy:
       matrix:
         os: [macos-10.15, ubuntu-20.04]
@@ -25,12 +25,15 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --all-targets --verbose
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --all-targets --verbose
 
-  clean:
+      - name: Run poetry example
+        run: cargo run --example poetry -- -s examples/poetry/scripts/poetry.koto
+
+  fmt_and_clippy:
     runs-on: ubuntu-latest
 
     steps:
