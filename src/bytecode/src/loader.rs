@@ -1,7 +1,7 @@
 use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     koto_parser::{Parser, ParserError},
-    std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
+    std::{collections::HashMap, error, fmt, path::PathBuf, sync::Arc},
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -35,6 +35,8 @@ impl fmt::Display for LoaderError {
         }
     }
 }
+
+impl error::Error for LoaderError {}
 
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]

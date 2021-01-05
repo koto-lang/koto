@@ -1,4 +1,7 @@
-use {koto_lexer::Span, std::fmt};
+use {
+    koto_lexer::Span,
+    std::{error, fmt},
+};
 
 #[derive(Clone, Debug)]
 pub enum InternalError {
@@ -158,6 +161,8 @@ impl fmt::Display for ParserError {
         self.error.fmt(f)
     }
 }
+
+impl error::Error for ParserError {}
 
 impl fmt::Display for InternalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

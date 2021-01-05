@@ -1,7 +1,10 @@
 use {
     crate::{LoaderError, Value},
     koto_bytecode::Chunk,
-    std::{fmt, sync::Arc},
+    std::{
+        sync::Arc,
+        {error, fmt},
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -69,6 +72,8 @@ impl fmt::Display for RuntimeError {
         }
     }
 }
+
+impl error::Error for RuntimeError {}
 
 pub type RuntimeResult = Result<Value, RuntimeError>;
 

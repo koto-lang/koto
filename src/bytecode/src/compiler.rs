@@ -5,7 +5,7 @@ use {
         ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span, SwitchArm,
     },
     smallvec::SmallVec,
-    std::convert::TryFrom,
+    std::{convert::TryFrom, error, fmt},
 };
 
 /// The error type used to report errors during compilation
@@ -14,6 +14,14 @@ pub struct CompilerError {
     pub message: String,
     pub span: Span,
 }
+
+impl fmt::Display for CompilerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self.message)
+    }
+}
+
+impl error::Error for CompilerError {}
 
 macro_rules! make_compiler_error {
     ($span:expr, $message:expr) => {{
