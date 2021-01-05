@@ -9,12 +9,27 @@ use {
     koto::{Koto, KotoSettings},
     poetry::*,
     std::{
-        fs,
+        error::Error,
+        fmt, fs,
         path::{Path, PathBuf},
         str::FromStr,
         time::Duration,
     },
 };
+
+#[derive(Debug)]
+struct PoetryError {
+    prefix: String,
+    error: Box<dyn Error>,
+}
+
+impl fmt::Display for PoetryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.prefix, self.error)
+    }
+}
+
+impl Error for PoetryError {}
 
 fn version_string() -> String {
     format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
@@ -65,22 +80,22 @@ fn parse_arguments() -> Result<PoetryArgs, String> {
     })
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = match parse_arguments() {
         Ok(args) => {
             if args.help {
                 println!("{}", help_string());
-                return;
+                return Ok(());
             }
             if args.version {
                 println!("{}", version_string());
-                return;
+                return Ok(());
             }
             args
         }
         Err(error) => {
             println!("{}\n\n{}", help_string(), error);
-            return;
+            return Err("Failed to parse arguments".to_string().into());
         }
     };
 
@@ -95,9 +110,11 @@ fn main() {
     let script_path = PathBuf::from_str(&args.script).expect("Failed to parse script path");
     koto.set_script_path(Some(script_path.clone()));
 
-    compile_and_run(&mut koto, &script_path);
-
     if args.watch {
+        if let Err(e) = compile_and_run(&mut koto, &script_path) {
+            eprintln!("{}", e);
+        }
+
         let mut hotwatch = Hotwatch::new_with_custom_delay(Duration::from_secs_f64(0.25))
             .expect("Failed to initialize file watcher");
         hotwatch
@@ -105,7 +122,9 @@ fn main() {
                 // dbg!(&event);
                 match event {
                     Event::Create(script_path) | Event::Write(script_path) => {
-                        compile_and_run(&mut koto, &script_path);
+                        if let Err(e) = compile_and_run(&mut koto, &script_path) {
+                            eprintln!("{}", e);
+                        }
                     }
                     _ => {}
                 }
@@ -113,20 +132,33 @@ fn main() {
             })
             .expect("failed to watch file!");
         hotwatch.run();
+        Ok(())
+    } else {
+        match compile_and_run(&mut koto, &script_path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }
 
-fn compile_and_run(koto: &mut Koto, script_path: &Path) {
-    let script = fs::read_to_string(script_path).expect("Unable to load script");
+fn compile_and_run(koto: &mut Koto, script_path: &Path) -> Result<(), Box<dyn Error>> {
+    let script = fs::read_to_string(script_path)?;
     match koto.compile(&script) {
         Ok(_) => match koto.run() {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error while running script: {}", e);
+            Ok(_) => Ok(()),
+            Err(e) => Err(PoetryError {
+                prefix: "Error while running script".into(),
+                error: e.into(),
             }
+            .into()),
         },
-        Err(e) => {
-            eprintln!("Error while compiling script: {}", e);
+        Err(e) => Err(PoetryError {
+            prefix: "Error while compiling script".into(),
+            error: e.into(),
         }
+        .into()),
     }
 }
