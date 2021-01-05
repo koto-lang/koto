@@ -5,26 +5,26 @@ use {
 };
 
 #[derive(Clone, Debug)]
-pub enum Error {
+pub enum RuntimeError {
     VmError {
         message: String,
         chunk: Arc<Chunk>,
         instruction: usize,
-        extra_error: Option<Box<Error>>,
+        extra_error: Option<Box<RuntimeError>>,
     },
     LoaderError(LoaderError),
     TestError {
         message: String,
-        error: Box<Error>,
+        error: Box<RuntimeError>,
     },
     ErrorWithoutLocation {
         message: String,
     },
 }
 
-impl Error {
+impl RuntimeError {
     pub fn with_prefix(self, prefix: &str) -> Self {
-        use Error::*;
+        use RuntimeError::*;
 
         match self {
             VmError {
@@ -50,30 +50,32 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use RuntimeError::*;
+
         match &self {
-            Error::VmError {
+            VmError {
                 message,
                 extra_error,
                 ..
             } if extra_error.is_some() => {
                 write!(f, "{}: {}", message, extra_error.as_ref().unwrap())
             }
-            Error::VmError { message, .. } => f.write_str(message),
-            Error::LoaderError(e) => f.write_str(&e.to_string()),
-            Error::TestError { message, error } => write!(f, "{}: {}", message, error),
-            Error::ErrorWithoutLocation { message } => f.write_str(message),
+            VmError { message, .. } => f.write_str(message),
+            LoaderError(e) => f.write_str(&e.to_string()),
+            TestError { message, error } => write!(f, "{}: {}", message, error),
+            ErrorWithoutLocation { message } => f.write_str(message),
         }
     }
 }
 
-pub type RuntimeResult = Result<Value, Error>;
+pub type RuntimeResult = Result<Value, RuntimeError>;
 
 #[macro_export]
 macro_rules! make_vm_error {
     ($chunk:expr, $ip:expr, $message:expr) => {{
-        let error = $crate::Error::VmError {
+        let error = $crate::RuntimeError::VmError {
             message: $message,
             chunk: $chunk,
             instruction: $ip,
@@ -100,7 +102,7 @@ macro_rules! vm_error {
 #[macro_export]
 macro_rules! make_external_error {
     ($message:expr) => {{
-        let error = $crate::Error::ErrorWithoutLocation { message: $message };
+        let error = $crate::RuntimeError::ErrorWithoutLocation { message: $message };
         #[cfg(panic_on_runtime_error)]
         {
             panic!();

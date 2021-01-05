@@ -1,7 +1,7 @@
 use {
     crate::{
         external_error, get_external_instance, make_external_value, type_as_string,
-        value::value_is_callable, Error, ExternalValue, Value, ValueMap,
+        value::value_is_callable, ExternalValue, RuntimeError, Value, ValueMap,
     },
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
@@ -49,11 +49,11 @@ pub fn make_module() -> ValueMap {
 
 #[derive(Debug)]
 struct Thread {
-    join_handle: Option<JoinHandle<Result<Value, Error>>>,
+    join_handle: Option<JoinHandle<Result<Value, RuntimeError>>>,
 }
 
 impl Thread {
-    fn make_thread_map(join_handle: JoinHandle<Result<Value, Error>>) -> Value {
+    fn make_thread_map(join_handle: JoinHandle<Result<Value, RuntimeError>>) -> Value {
         let mut result = ValueMap::new();
 
         result.add_instance_fn("join", |vm, args| {

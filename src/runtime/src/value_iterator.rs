@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
+    crate::{RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
     std::{
         fmt,
         sync::{Arc, Mutex},
@@ -24,7 +24,7 @@ pub enum ValueIteratorOutput {
     ValuePair(Value, Value),
 }
 
-pub type ValueIteratorResult = Result<ValueIteratorOutput, Error>;
+pub type ValueIteratorResult = Result<ValueIteratorOutput, RuntimeError>;
 
 #[derive(Debug)]
 pub enum Iterable {
@@ -195,7 +195,7 @@ impl ValueIterator {
     ) -> Option<ValueIteratorResult> {
         match self.0.lock() {
             Ok(mut internals) => f(&mut internals),
-            Err(_) => Some(Err(Error::ErrorWithoutLocation {
+            Err(_) => Some(Err(RuntimeError::ErrorWithoutLocation {
                 message: "Failed to access iterator internals".to_string(),
             })),
         }
@@ -208,7 +208,7 @@ impl Iterator for ValueIterator {
     fn next(&mut self) -> Option<Self::Item> {
         match self.0.lock() {
             Ok(mut internals) => internals.next(),
-            Err(_) => Some(Err(Error::ErrorWithoutLocation {
+            Err(_) => Some(Err(RuntimeError::ErrorWithoutLocation {
                 message: "Failed to access iterator internals".to_string(),
             })),
         }

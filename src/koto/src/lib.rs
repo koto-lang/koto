@@ -33,7 +33,9 @@ use {
         chunk_to_string, chunk_to_string_annotated, Chunk, CompilerError, LoaderError,
     },
     koto_parser::{ParserError, Position},
-    koto_runtime::{type_as_string, Error, Loader, Value, ValueList, ValueMap, ValueVec, Vm},
+    koto_runtime::{
+        type_as_string, Loader, RuntimeError, Value, ValueList, ValueMap, ValueVec, Vm,
+    },
     std::{path::PathBuf, sync::Arc},
 };
 
@@ -228,8 +230,9 @@ impl Koto {
             .map_err(|e| self.format_error(e))
     }
 
-    pub fn format_error(&self, error: Error) -> String {
-        use Error::*;
+    pub fn format_error(&self, error: RuntimeError) -> String {
+        use RuntimeError::*;
+
         match error {
             VmError {
                 message,
