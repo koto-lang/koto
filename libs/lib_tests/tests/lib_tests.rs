@@ -25,12 +25,12 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
             }
             Err(error) => {
                 if !should_fail_at_runtime {
-                    panic!(error);
+                    panic!("{}", error);
                 }
             }
         },
         Err(error) => {
-            panic!(error);
+            panic!("{}", error);
         }
     }
 }
