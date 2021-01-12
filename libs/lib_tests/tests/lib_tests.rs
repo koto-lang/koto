@@ -30,7 +30,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
             }
         },
         Err(error) => {
-            panic!("{}", error);
+            panic!(error);
         }
     }
 }

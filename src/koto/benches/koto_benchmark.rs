@@ -33,7 +33,7 @@ impl BenchmarkRunner {
 
                 runtime.settings.run_tests = false;
             }
-            Err(error) => panic!("{}", runtime.format_loader_error(error, &script)),
+            Err(error) => panic!("{}", error),
         }
 
         Self { runtime }

@@ -1,40 +1,104 @@
 use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
-    koto_parser::{Parser, ParserError},
-    std::{collections::HashMap, fmt, path::PathBuf, sync::Arc},
+    koto_parser::{format_error_with_excerpt, Parser, ParserError},
+    std::{collections::HashMap, error, fmt, path::PathBuf, sync::Arc},
 };
 
 /// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]
-pub enum LoaderError {
+pub enum LoaderErrorType {
     ParserError(ParserError),
     CompilerError(CompilerError),
     IoError(String),
 }
 
-impl From<ParserError> for LoaderError {
-    fn from(e: ParserError) -> Self {
-        Self::ParserError(e)
-    }
+#[derive(Clone, Debug)]
+pub struct LoaderError {
+    error: LoaderErrorType,
+    source: String,
+    source_path: Option<PathBuf>,
 }
 
-impl From<CompilerError> for LoaderError {
-    fn from(e: CompilerError) -> Self {
-        Self::CompilerError(e)
+impl LoaderError {
+    pub fn from_parser_error(
+        error: ParserError,
+        source: &str,
+        source_path: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            error: LoaderErrorType::ParserError(error),
+            source: source.into(),
+            source_path,
+        }
+    }
+
+    pub fn from_compiler_error(
+        error: CompilerError,
+        source: &str,
+        source_path: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            error: LoaderErrorType::CompilerError(error),
+            source: source.into(),
+            source_path,
+        }
+    }
+
+    pub fn io_error(error: String) -> Self {
+        Self {
+            error: LoaderErrorType::IoError(error),
+            source: "".into(),
+            source_path: None,
+        }
+    }
+
+    pub fn is_indentation_error(&self) -> bool {
+        match &self.error {
+            LoaderErrorType::ParserError(e) => e.is_indentation_error(),
+            _ => false,
+        }
     }
 }
 
 impl fmt::Display for LoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use LoaderError::*;
+        use LoaderErrorType::*;
 
-        match self {
-            ParserError(e) => f.write_str(&e.to_string()),
-            CompilerError(e) => f.write_str(&e.message),
-            IoError(e) => f.write_str(&e),
+        if f.alternate() {
+            match &self.error {
+                ParserError(koto_parser::ParserError { error, .. }) => {
+                    f.write_str(&error.to_string())
+                }
+                CompilerError(crate::CompilerError { message, .. }) => f.write_str(message),
+                IoError(e) => f.write_str(&e),
+            }
+        } else {
+            match &self.error {
+                ParserError(koto_parser::ParserError { error, span }) => {
+                    f.write_str(&format_error_with_excerpt(
+                        &error.to_string(),
+                        &self.source_path,
+                        &self.source,
+                        span.start,
+                        span.end,
+                    ))
+                }
+                CompilerError(crate::CompilerError { message, span }) => {
+                    f.write_str(&format_error_with_excerpt(
+                        &message,
+                        &self.source_path,
+                        &self.source,
+                        span.start,
+                        span.end,
+                    ))
+                }
+                IoError(e) => f.write_str(&e),
+            }
         }
     }
 }
+
+impl error::Error for LoaderError {}
 
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
@@ -53,7 +117,7 @@ impl Loader {
             Ok((ast, constants)) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),
-                    Err(e) => return Err(e.into()),
+                    Err(e) => return Err(LoaderError::from_compiler_error(e, script, script_path)),
                 };
 
                 debug_info.source = script.to_string();
@@ -65,7 +129,7 @@ impl Loader {
                     debug_info,
                 )))
             }
-            Err(e) => Err(e.into()),
+            Err(e) => return Err(LoaderError::from_parser_error(e, script, script_path)),
         }
     }
 
@@ -92,17 +156,17 @@ impl Loader {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
                     None => {
-                        return Err(LoaderError::IoError(
+                        return Err(LoaderError::io_error(
                             "Failed to get parent of provided path".to_string(),
                         ))
                     }
                 },
                 Ok(canonicalized) => canonicalized,
-                Err(e) => return Err(LoaderError::IoError(e.to_string())),
+                Err(e) => return Err(LoaderError::io_error(e.to_string())),
             },
             None => match std::env::current_dir() {
                 Ok(path) => path,
-                Err(e) => return Err(LoaderError::IoError(e.to_string())),
+                Err(e) => return Err(LoaderError::io_error(e.to_string())),
             },
         };
 
@@ -119,7 +183,7 @@ impl Loader {
                     self.chunks.insert(module_path.clone(), chunk.clone());
                     Ok((chunk, module_path))
                 }
-                Err(_) => Err(LoaderError::IoError(format!(
+                Err(_) => Err(LoaderError::io_error(format!(
                     "File not found: {}",
                     module_path.to_string_lossy()
                 ))),
@@ -140,7 +204,7 @@ impl Loader {
             if module_path.exists() {
                 load_module_from_path(module_path)
             } else {
-                Err(LoaderError::IoError(format!(
+                Err(LoaderError::io_error(format!(
                     "Unable to find module '{}'",
                     name
                 )))

@@ -1,4 +1,7 @@
-use {koto_lexer::Span, std::fmt};
+use {
+    koto_lexer::{Position, Span},
+    std::{error, fmt, path::PathBuf},
+};
 
 #[derive(Clone, Debug)]
 pub enum InternalError {
@@ -147,10 +150,10 @@ impl ParserError {
     pub fn new(error: ErrorType, span: Span) -> Self {
         Self { error, span }
     }
-}
 
-pub fn is_indentation_error(error: &ParserError) -> bool {
-    matches!(error.error, ErrorType::ExpectedIndentation(_))
+    pub fn is_indentation_error(&self) -> bool {
+        matches!(self.error, ErrorType::ExpectedIndentation(_))
+    }
 }
 
 impl fmt::Display for ParserError {
@@ -158,6 +161,8 @@ impl fmt::Display for ParserError {
         self.error.fmt(f)
     }
 }
+
+impl error::Error for ParserError {}
 
 impl fmt::Display for InternalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -292,4 +297,81 @@ impl fmt::Display for SyntaxError {
             }
         }
     }
+}
+
+pub fn format_error_with_excerpt(
+    message: &str,
+    source_path: &Option<PathBuf>,
+    source: &str,
+    start_pos: Position,
+    end_pos: Position,
+) -> String {
+    let (excerpt, padding) = {
+        let excerpt_lines = source
+            .lines()
+            .skip((start_pos.line - 1) as usize)
+            .take((end_pos.line - start_pos.line + 1) as usize)
+            .collect::<Vec<_>>();
+
+        let line_numbers = (start_pos.line..=end_pos.line)
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>();
+
+        let number_width = line_numbers.iter().max_by_key(|n| n.len()).unwrap().len();
+
+        let padding = " ".repeat(number_width + 2);
+
+        if start_pos.line == end_pos.line {
+            let mut excerpt = format!(
+                " {:>width$} | {}\n",
+                line_numbers.first().unwrap(),
+                excerpt_lines.first().unwrap(),
+                width = number_width
+            );
+
+            excerpt += &format!(
+                "{}|{}",
+                padding,
+                format!(
+                    "{}{}",
+                    " ".repeat(start_pos.column as usize),
+                    "^".repeat((end_pos.column - start_pos.column) as usize)
+                ),
+            );
+
+            (excerpt, padding)
+        } else {
+            let mut excerpt = String::new();
+
+            for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
+                excerpt += &format!(
+                    " {:>width$} | {}\n",
+                    line_number,
+                    excerpt_line,
+                    width = number_width
+                );
+            }
+
+            (excerpt, padding)
+        }
+    };
+
+    let position_info = if let Some(path) = source_path {
+        format!(
+            "{} - {}:{}",
+            path.display(),
+            start_pos.line,
+            start_pos.column
+        )
+    } else {
+        format!("{}:{}", start_pos.line, start_pos.column)
+    };
+
+    format!(
+        "{message}\n --> {}\n{padding}|\n{excerpt}",
+        position_info,
+        padding = padding,
+        excerpt = excerpt,
+        message = message
+    )
 }

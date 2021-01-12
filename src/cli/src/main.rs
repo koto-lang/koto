@@ -123,13 +123,9 @@ fn main() {
         match koto.compile(&script) {
             Ok(_) => match koto.run_with_args(&args.script_args) {
                 Ok(_) => {}
-                Err(e) => {
-                    eprintln!("{}", e);
-                }
+                Err(e) => eprintln!("{}", e),
             },
-            Err(e) => {
-                eprintln!("{}", koto.format_loader_error(e, &script));
-            }
+            Err(e) => eprintln!("{}", e),
         }
     } else {
         let mut repl = Repl::with_settings(settings);

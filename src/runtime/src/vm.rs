@@ -9,7 +9,7 @@ use {
             RuntimeFunction,
         },
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, Error, Loader, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
+        vm_error, Loader, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
         ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
@@ -34,7 +34,7 @@ pub enum ControlFlow {
 }
 
 // Instructions will place their results in registers, there's no Ok type
-pub type InstructionResult = Result<(), Error>;
+pub type InstructionResult = Result<(), RuntimeError>;
 
 /// Context shared by all VMs across modules
 struct SharedContext {
@@ -307,11 +307,8 @@ impl Vm {
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
                 (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
-                    let make_test_error = |error, message: &str| {
-                        Err(Error::TestError {
-                            message: format!("{} '{}'", message, &id[5..]),
-                            error: Box::new(error),
-                        })
+                    let make_test_error = |error: RuntimeError, message: &str| {
+                        Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
                     };
 
                     if let Some(pre_test) = &pre_test {
@@ -420,7 +417,7 @@ impl Vm {
         &mut self,
         instruction: Instruction,
         instruction_ip: usize,
-    ) -> Result<ControlFlow, Error> {
+    ) -> Result<ControlFlow, RuntimeError> {
         use Value::*;
 
         let mut control_flow = ControlFlow::Continue;
@@ -967,12 +964,9 @@ impl Vm {
                     self.set_register(register, Tuple(vec![first, second].into()));
                 }
             }
-            (Some(Err(error)), _) => match error {
-                Error::ErrorWithoutLocation { message } => {
-                    return vm_error!(self.chunk(), instruction_ip, message)
-                }
-                _ => return Err(error),
-            },
+            (Some(Err(error)), _) => {
+                return vm_error!(self.chunk(), instruction_ip, error.to_string())
+            }
             (None, _) => self.jump_ip(jump_offset),
         };
 
@@ -1894,7 +1888,7 @@ impl Vm {
         n: ValueNumber,
         size: usize,
         instruction_ip: usize,
-    ) -> Result<usize, Error> {
+    ) -> Result<usize, RuntimeError> {
         let index = usize::from(n);
 
         if n < 0.0 {
@@ -2273,14 +2267,7 @@ impl Vm {
                 // so drop the function args here now that the call has been completed.
                 self.truncate_registers(frame_base);
             }
-            Err(error) => {
-                match error {
-                    Error::ErrorWithoutLocation { message } => {
-                        return vm_error!(self.chunk(), instruction_ip, message)
-                    }
-                    _ => return Err(error), // TODO extract external error and enforce its use
-                }
-            }
+            Err(error) => return vm_error!(self.chunk(), instruction_ip, error.to_string()),
         }
 
         Ok(())
@@ -2515,7 +2502,7 @@ impl Vm {
         register: u8,
         type_id: TypeId,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RuntimeError> {
         let value = self.get_register(register);
         match type_id {
             TypeId::List => {
@@ -2537,7 +2524,7 @@ impl Vm {
         register: u8,
         expected_size: usize,
         instruction_ip: usize,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RuntimeError> {
         let value_size = value_size(self.get_register(register));
 
         if value_size == expected_size {
@@ -2604,7 +2591,7 @@ impl Vm {
         self.set_chunk_and_ip(chunk, ip);
     }
 
-    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, Error> {
+    fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, RuntimeError> {
         self.truncate_registers(0);
 
         if self.call_stack.pop().is_none() {
@@ -2701,7 +2688,7 @@ impl Vm {
         message: &str,
         value: &Value,
         instruction_ip: usize,
-    ) -> Result<T, Error> {
+    ) -> Result<T, RuntimeError> {
         vm_error!(
             self.chunk(),
             instruction_ip,
