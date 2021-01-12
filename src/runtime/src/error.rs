@@ -13,7 +13,6 @@ pub enum RuntimeError {
         message: String,
         chunk: Arc<Chunk>,
         instruction: usize,
-        extra_error: Option<Box<RuntimeError>>,
     },
     ExternalError {
         message: String,
@@ -29,12 +28,10 @@ impl RuntimeError {
                 message,
                 chunk,
                 instruction,
-                extra_error,
             } => VmError {
                 message: format!("{}: {}", prefix, message),
                 chunk,
                 instruction,
-                extra_error,
             },
             ExternalError { message } => ExternalError {
                 message: format!("{}: {}", prefix, message),
@@ -48,13 +45,6 @@ impl fmt::Display for RuntimeError {
         use RuntimeError::*;
 
         match &self {
-            VmError {
-                message,
-                extra_error,
-                ..
-            } if extra_error.is_some() => {
-                write!(f, "{}: {}", message, extra_error.as_ref().unwrap())
-            }
             VmError { message, .. } => f.write_str(message),
             ExternalError { message } => f.write_str(message),
         }
@@ -72,7 +62,6 @@ macro_rules! make_vm_error {
             message: $message,
             chunk: $chunk,
             instruction: $ip,
-            extra_error: None,
         };
         #[cfg(panic_on_runtime_error)]
         {

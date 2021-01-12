@@ -238,18 +238,7 @@ impl Koto {
                 message,
                 chunk,
                 instruction,
-                extra_error,
-            } => {
-                if let Some(extra_error) = extra_error {
-                    self.format_vm_error(
-                        &format!("{}: {}", message, extra_error),
-                        chunk,
-                        instruction,
-                    )
-                } else {
-                    self.format_vm_error(&message, chunk, instruction)
-                }
-            }
+            } => self.format_vm_error(&message, chunk, instruction),
             ExternalError { message } => format!("Error: {}\n", message,),
         }
     }
