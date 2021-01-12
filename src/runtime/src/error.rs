@@ -15,10 +15,6 @@ pub enum RuntimeError {
         instruction: usize,
         extra_error: Option<Box<RuntimeError>>,
     },
-    TestError {
-        message: String,
-        error: Box<RuntimeError>,
-    },
     ErrorWithoutLocation {
         message: String,
     },
@@ -40,10 +36,6 @@ impl RuntimeError {
                 instruction,
                 extra_error,
             },
-            TestError { message, error } => TestError {
-                message: format!("{}: {}", prefix, message),
-                error,
-            },
             ErrorWithoutLocation { message } => ErrorWithoutLocation {
                 message: format!("{}: {}", prefix, message),
             },
@@ -64,7 +56,6 @@ impl fmt::Display for RuntimeError {
                 write!(f, "{}: {}", message, extra_error.as_ref().unwrap())
             }
             VmError { message, .. } => f.write_str(message),
-            TestError { message, error } => write!(f, "{}: {}", message, error),
             ErrorWithoutLocation { message } => f.write_str(message),
         }
     }

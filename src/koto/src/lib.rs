@@ -250,9 +250,6 @@ impl Koto {
                     self.format_vm_error(&message, chunk, instruction)
                 }
             }
-            TestError { message, error } => {
-                format!("{}: {}", message, self.format_error(error.as_ref().clone()))
-            }
             ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
         }
     }

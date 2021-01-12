@@ -307,11 +307,8 @@ impl Vm {
         for (key, value) in tests.cloned_iter() {
             match (key, value) {
                 (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
-                    let make_test_error = |error, message: &str| {
-                        Err(RuntimeError::TestError {
-                            message: format!("{} '{}'", message, &id[5..]),
-                            error: Box::new(error),
-                        })
+                    let make_test_error = |error: RuntimeError, message: &str| {
+                        Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
                     };
 
                     if let Some(pre_test) = &pre_test {
