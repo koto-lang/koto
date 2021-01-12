@@ -253,9 +253,6 @@ impl Koto {
             TestError { message, error } => {
                 format!("{}: {}", message, self.format_error(error.as_ref().clone()))
             }
-            LoaderError(error) => {
-                self.format_loader_error(error, &self.runtime.chunk().debug_info.source)
-            }
             ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
         }
     }

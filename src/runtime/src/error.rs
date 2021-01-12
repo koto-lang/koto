@@ -1,5 +1,5 @@
 use {
-    crate::{LoaderError, Value},
+    crate::Value,
     koto_bytecode::Chunk,
     std::{
         sync::Arc,
@@ -15,7 +15,6 @@ pub enum RuntimeError {
         instruction: usize,
         extra_error: Option<Box<RuntimeError>>,
     },
-    LoaderError(LoaderError),
     TestError {
         message: String,
         error: Box<RuntimeError>,
@@ -48,7 +47,6 @@ impl RuntimeError {
             ErrorWithoutLocation { message } => ErrorWithoutLocation {
                 message: format!("{}: {}", prefix, message),
             },
-            LoaderError(error) => LoaderError(error), // TODO
         }
     }
 }
@@ -66,7 +64,6 @@ impl fmt::Display for RuntimeError {
                 write!(f, "{}: {}", message, extra_error.as_ref().unwrap())
             }
             VmError { message, .. } => f.write_str(message),
-            LoaderError(e) => f.write_str(&e.to_string()),
             TestError { message, error } => write!(f, "{}: {}", message, error),
             ErrorWithoutLocation { message } => f.write_str(message),
         }
