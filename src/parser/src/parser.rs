@@ -655,7 +655,7 @@ impl<'source> Parser<'source> {
             _ => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        if let Some((next, peek_count)) = self.peek_next_token(context) {
+        if let Some((next, _)) = self.peek_next_token(context) {
             match next {
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
@@ -665,37 +665,33 @@ impl<'source> Parser<'source> {
                 AssignModulo => return self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some((left_priority, right_priority)) = operator_precedence(next) {
-                        if let Some(token_after_op) = self.peek_token_n(peek_count + 1) {
-                            if token_is_whitespace(token_after_op)
-                                && left_priority >= min_precedence
-                            {
-                                let op = self.consume_next_token(context).unwrap();
+                        if left_priority >= min_precedence {
+                            let op = self.consume_next_token(context).unwrap();
 
-                                // Move on to the token after the operator
-                                if self.peek_next_token(context).is_none() {
-                                    return indentation_error!(ExpectedRhsExpression, self);
-                                }
-                                self.consume_until_next_token(context);
-
-                                let rhs = if let Some(map_block) =
-                                    self.parse_map_block(&mut ExpressionContext::permissive())?
-                                {
-                                    map_block
-                                } else if let Some(rhs_expression) =
-                                    self.parse_expression_start(None, right_priority, context)?
-                                {
-                                    rhs_expression
-                                } else {
-                                    return indentation_error!(ExpectedRhsExpression, self);
-                                };
-
-                                let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                                return self.parse_expression_continued(
-                                    &[op_node],
-                                    min_precedence,
-                                    context,
-                                );
+                            // Move on to the token after the operator
+                            if self.peek_next_token(context).is_none() {
+                                return indentation_error!(ExpectedRhsExpression, self);
                             }
+                            self.consume_until_next_token(context);
+
+                            let rhs = if let Some(map_block) =
+                                self.parse_map_block(&mut ExpressionContext::permissive())?
+                            {
+                                map_block
+                            } else if let Some(rhs_expression) =
+                                self.parse_expression_start(None, right_priority, context)?
+                            {
+                                rhs_expression
+                            } else {
+                                return indentation_error!(ExpectedRhsExpression, self);
+                            };
+
+                            let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                            return self.parse_expression_continued(
+                                &[op_node],
+                                min_precedence,
+                                context,
+                            );
                         }
                     }
                 }
