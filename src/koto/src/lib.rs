@@ -250,7 +250,7 @@ impl Koto {
                     self.format_vm_error(&message, chunk, instruction)
                 }
             }
-            ErrorWithoutLocation { message } => format!("Error: {}\n", message,),
+            ExternalError { message } => format!("Error: {}\n", message,),
         }
     }
 

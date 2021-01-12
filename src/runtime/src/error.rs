@@ -15,7 +15,7 @@ pub enum RuntimeError {
         instruction: usize,
         extra_error: Option<Box<RuntimeError>>,
     },
-    ErrorWithoutLocation {
+    ExternalError {
         message: String,
     },
 }
@@ -36,7 +36,7 @@ impl RuntimeError {
                 instruction,
                 extra_error,
             },
-            ErrorWithoutLocation { message } => ErrorWithoutLocation {
+            ExternalError { message } => ExternalError {
                 message: format!("{}: {}", prefix, message),
             },
         }
@@ -56,7 +56,7 @@ impl fmt::Display for RuntimeError {
                 write!(f, "{}: {}", message, extra_error.as_ref().unwrap())
             }
             VmError { message, .. } => f.write_str(message),
-            ErrorWithoutLocation { message } => f.write_str(message),
+            ExternalError { message } => f.write_str(message),
         }
     }
 }
@@ -95,7 +95,7 @@ macro_rules! vm_error {
 #[macro_export]
 macro_rules! make_external_error {
     ($message:expr) => {{
-        let error = $crate::RuntimeError::ErrorWithoutLocation { message: $message };
+        let error = $crate::RuntimeError::ExternalError { message: $message };
         #[cfg(panic_on_runtime_error)]
         {
             panic!();

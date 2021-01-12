@@ -1,5 +1,7 @@
 use {
-    crate::{RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
+    crate::{
+        external_error, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
+    },
     std::{
         fmt,
         sync::{Arc, Mutex},
@@ -195,9 +197,7 @@ impl ValueIterator {
     ) -> Option<ValueIteratorResult> {
         match self.0.lock() {
             Ok(mut internals) => f(&mut internals),
-            Err(_) => Some(Err(RuntimeError::ErrorWithoutLocation {
-                message: "Failed to access iterator internals".to_string(),
-            })),
+            Err(_) => Some(external_error!("Failed to access iterator internals")),
         }
     }
 }
@@ -208,9 +208,7 @@ impl Iterator for ValueIterator {
     fn next(&mut self) -> Option<Self::Item> {
         match self.0.lock() {
             Ok(mut internals) => internals.next(),
-            Err(_) => Some(Err(RuntimeError::ErrorWithoutLocation {
-                message: "Failed to access iterator internals".to_string(),
-            })),
+            Err(_) => Some(external_error!("Failed to access iterator internals")),
         }
     }
 }

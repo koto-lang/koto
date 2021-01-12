@@ -964,12 +964,9 @@ impl Vm {
                     self.set_register(register, Tuple(vec![first, second].into()));
                 }
             }
-            (Some(Err(error)), _) => match error {
-                RuntimeError::ErrorWithoutLocation { message } => {
-                    return vm_error!(self.chunk(), instruction_ip, message)
-                }
-                _ => return Err(error),
-            },
+            (Some(Err(error)), _) => {
+                return vm_error!(self.chunk(), instruction_ip, error.to_string())
+            }
             (None, _) => self.jump_ip(jump_offset),
         };
 
@@ -2270,14 +2267,7 @@ impl Vm {
                 // so drop the function args here now that the call has been completed.
                 self.truncate_registers(frame_base);
             }
-            Err(error) => {
-                match error {
-                    RuntimeError::ErrorWithoutLocation { message } => {
-                        return vm_error!(self.chunk(), instruction_ip, message)
-                    }
-                    _ => return Err(error), // TODO extract external error and enforce its use
-                }
-            }
+            Err(error) => return vm_error!(self.chunk(), instruction_ip, error.to_string()),
         }
 
         Ok(())
