@@ -64,26 +64,36 @@ impl fmt::Display for LoaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use LoaderErrorType::*;
 
-        match &self.error {
-            ParserError(koto_parser::ParserError { error, span }) => {
-                f.write_str(&format_error_with_excerpt(
-                    &error.to_string(),
-                    &self.source_path,
-                    &self.source,
-                    span.start,
-                    span.end,
-                ))
+        if f.alternate() {
+            match &self.error {
+                ParserError(koto_parser::ParserError { error, .. }) => {
+                    f.write_str(&error.to_string())
+                }
+                CompilerError(crate::CompilerError { message, .. }) => f.write_str(message),
+                IoError(e) => f.write_str(&e),
             }
-            CompilerError(crate::CompilerError { message, span }) => {
-                f.write_str(&format_error_with_excerpt(
-                    &message,
-                    &self.source_path,
-                    &self.source,
-                    span.start,
-                    span.end,
-                ))
+        } else {
+            match &self.error {
+                ParserError(koto_parser::ParserError { error, span }) => {
+                    f.write_str(&format_error_with_excerpt(
+                        &error.to_string(),
+                        &self.source_path,
+                        &self.source,
+                        span.start,
+                        span.end,
+                    ))
+                }
+                CompilerError(crate::CompilerError { message, span }) => {
+                    f.write_str(&format_error_with_excerpt(
+                        &message,
+                        &self.source_path,
+                        &self.source,
+                        span.start,
+                        span.end,
+                    ))
+                }
+                IoError(e) => f.write_str(&e),
             }
-            IoError(e) => f.write_str(&e),
         }
     }
 }

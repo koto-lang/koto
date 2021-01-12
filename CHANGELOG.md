@@ -23,6 +23,9 @@
     x.sort list.size
     assert_eq x [[1], [1, 2], [1, 2, 3]]
     ```
+- The `Koto` struct now returns a concrete error type instead of a `String`.
+- It's no longer necessary to call helper functions to get formatted source
+  extracts for errors.
 
 ### Fixed
 - Error messages produced in the functor passed to `iterator.fold` were reported

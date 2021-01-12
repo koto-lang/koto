@@ -18,6 +18,9 @@ pub enum RuntimeError {
     ExternalError {
         message: String,
     },
+    FunctionNotFound {
+        name: String,
+    },
 }
 
 impl RuntimeError {
@@ -37,6 +40,7 @@ impl RuntimeError {
             ExternalError { message } => ExternalError {
                 message: format!("{}: {}", prefix, message),
             },
+            FunctionNotFound { .. } => unimplemented!(),
         }
     }
 }
@@ -46,6 +50,7 @@ impl fmt::Display for RuntimeError {
         use RuntimeError::*;
 
         match &self {
+            VmError { message, .. } if f.alternate() => f.write_str(message),
             VmError {
                 message,
                 chunk,
@@ -58,12 +63,14 @@ impl fmt::Display for RuntimeError {
                     span.start,
                     span.end,
                 )),
-                None => f.write_str(&format!(
+                None => write!(
+                    f,
                     "Runtime error at instruction {}: {}",
                     instruction, message
-                )),
+                ),
             },
             ExternalError { message } => f.write_str(message),
+            FunctionNotFound { name } => write!(f, "Function '{}' not found", name),
         }
     }
 }

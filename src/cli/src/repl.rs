@@ -313,11 +313,11 @@ impl Repl {
             )
             .unwrap();
             tty.suspend_raw_mode().unwrap();
-            println!("{}", error);
+            println!("{:#}", error);
             tty.activate_raw_mode().unwrap();
             write!(tty, "{}", style::Reset).unwrap();
         } else {
-            write!(stdout, "{}", error).unwrap();
+            write!(stdout, "{:#}", error).unwrap();
         }
     }
 }
