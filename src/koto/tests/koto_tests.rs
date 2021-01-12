@@ -24,7 +24,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
             }
         },
         Err(error) => {
-            panic!("{}", koto.format_loader_error(error, &script));
+            panic!("{}", error);
         }
     }
 }

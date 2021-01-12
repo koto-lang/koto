@@ -9,7 +9,7 @@ mod parser;
 pub use {
     ast::*,
     constant_pool::{Constant, ConstantPool},
-    error::{is_indentation_error, ParserError},
+    error::{format_error_with_excerpt, ParserError},
     koto_lexer::{Position, Span},
     node::*,
     parser::Parser,

@@ -1,5 +1,5 @@
 use {
-    koto::{bytecode::LoaderError, parser::is_indentation_error, Koto, KotoSettings},
+    koto::{Koto, KotoSettings},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -243,18 +243,15 @@ impl Repl {
                     }
                     self.continued_lines.clear();
                 }
-                Err(e) => match e {
-                    LoaderError::ParserError(e)
-                        if is_indentation_error(&e) && self.continued_lines.is_empty() =>
-                    {
+                Err(e) => {
+                    if e.is_indentation_error() && self.continued_lines.is_empty() {
                         self.continued_lines.push(self.input.clone());
                         indent_next_line = true;
-                    }
-                    _ => {
-                        self.print_error(stdout, tty, &self.koto.format_loader_error(e, &input));
+                    } else {
+                        self.print_error(stdout, tty, &e.to_string());
                         self.continued_lines.clear();
                     }
-                },
+                }
             }
         } else {
             // We're in a continued expression, so cache the input for execution later
@@ -263,11 +260,8 @@ impl Repl {
             // Check if we should add indentation on the next line
             let input = self.continued_lines.join("\n");
             if let Err(e) = self.koto.compile(&input) {
-                match e {
-                    LoaderError::ParserError(e) if is_indentation_error(&e) => {
-                        indent_next_line = true;
-                    }
-                    _ => {}
+                if e.is_indentation_error() {
+                    indent_next_line = true;
                 }
             }
         }

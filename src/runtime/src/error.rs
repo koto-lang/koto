@@ -1,6 +1,7 @@
 use {
     crate::Value,
     koto_bytecode::Chunk,
+    koto_parser::format_error_with_excerpt,
     std::{
         sync::Arc,
         {error, fmt},
@@ -45,7 +46,23 @@ impl fmt::Display for RuntimeError {
         use RuntimeError::*;
 
         match &self {
-            VmError { message, .. } => f.write_str(message),
+            VmError {
+                message,
+                chunk,
+                instruction,
+            } => match chunk.debug_info.get_source_span(*instruction) {
+                Some(span) => f.write_str(&format_error_with_excerpt(
+                    message,
+                    &chunk.source_path,
+                    &chunk.debug_info.source,
+                    span.start,
+                    span.end,
+                )),
+                None => f.write_str(&format!(
+                    "Runtime error at instruction {}: {}",
+                    instruction, message
+                )),
+            },
             ExternalError { message } => f.write_str(message),
         }
     }

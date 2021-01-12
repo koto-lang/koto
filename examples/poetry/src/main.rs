@@ -126,10 +126,7 @@ fn compile_and_run(koto: &mut Koto, script_path: &Path) {
             }
         },
         Err(e) => {
-            eprintln!(
-                "Error while compiling script: {}",
-                koto.format_loader_error(e, &script)
-            );
+            eprintln!("Error while compiling script: {}", e);
         }
     }
 }
