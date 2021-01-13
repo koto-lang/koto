@@ -86,6 +86,18 @@ pub enum Token {
     Yield,
 }
 
+impl Token {
+    pub fn is_whitespace(&self) -> bool {
+        use Token::*;
+        matches!(self, Whitespace | CommentMulti | CommentSingle)
+    }
+
+    pub fn is_newline(&self) -> bool {
+        use Token::*;
+        matches!(self, NewLine | NewLineIndented)
+    }
+}
+
 #[derive(Clone)]
 struct TokenLexer<'a> {
     source: &'a str,
@@ -261,77 +273,53 @@ impl<'a> TokenLexer<'a> {
         Some(Error)
     }
 
-    fn consume_number_or_subtract(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
         use Token::*;
 
-        let mut char_bytes = 0;
+        let mut char_bytes = consume_and_count(&mut chars, is_digit);
 
-        if chars.peek() == Some(&'-') {
+        if chars.peek() == Some(&'.') {
             chars.next();
-            char_bytes += 1;
 
-            if chars.peek() == Some(&'=') {
-                self.advance_line(2);
-                return Some(AssignSubtract);
-            }
-        }
-
-        match chars.peek() {
-            Some(c) if is_digit(*c) => {
-                char_bytes += consume_and_count(&mut chars, is_digit);
-
-                if chars.peek() == Some(&'.') {
-                    chars.next();
-
-                    match chars.peek() {
+            match chars.peek() {
+                Some(c) if is_digit(*c) => {}
+                Some(&'e') => {
+                    // lookahead to check that this isn't a function call starting with 'e'
+                    // e.g. 1.exp()
+                    let mut lookahead = chars.clone();
+                    lookahead.next();
+                    match lookahead.peek() {
                         Some(c) if is_digit(*c) => {}
-                        Some(&'e') => {
-                            // lookahead to check that this isn't a function call starting with 'e'
-                            // e.g. 1.exp()
-                            let mut lookahead = chars.clone();
-                            lookahead.next();
-                            match lookahead.peek() {
-                                Some(c) if is_digit(*c) => {}
-                                Some(&'+') | Some(&'-') => {}
-                                _ => {
-                                    self.advance_line(char_bytes);
-                                    return Some(Number);
-                                }
-                            }
-                        }
+                        Some(&'+') | Some(&'-') => {}
                         _ => {
                             self.advance_line(char_bytes);
                             return Some(Number);
                         }
                     }
-
-                    char_bytes += 1 + consume_and_count(&mut chars, is_digit);
                 }
-
-                if chars.peek() == Some(&'e') {
-                    chars.next();
-                    char_bytes += 1;
-
-                    if matches!(chars.peek(), Some(&'+') | Some(&'-')) {
-                        chars.next();
-                        char_bytes += 1;
-                    }
-
-                    char_bytes += consume_and_count(&mut chars, is_digit);
-                }
-
-                self.advance_line(char_bytes);
-                Some(Number)
-            }
-            _ => {
-                if char_bytes == 1 {
-                    self.advance_line(1);
-                    Some(Subtract)
-                } else {
-                    Some(Error)
+                _ => {
+                    self.advance_line(char_bytes);
+                    return Some(Number);
                 }
             }
+
+            char_bytes += 1 + consume_and_count(&mut chars, is_digit);
         }
+
+        if chars.peek() == Some(&'e') {
+            chars.next();
+            char_bytes += 1;
+
+            if matches!(chars.peek(), Some(&'+') | Some(&'-')) {
+                chars.next();
+                char_bytes += 1;
+            }
+
+            char_bytes += consume_and_count(&mut chars, is_digit);
+        }
+
+        self.advance_line(char_bytes);
+        Some(Number)
     }
 
     fn consume_id_or_keyword(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
@@ -423,17 +411,17 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("<", Less);
 
         check_symbol!("+=", AssignAdd);
+        check_symbol!("-=", AssignSubtract);
         check_symbol!("*=", AssignMultiply);
         check_symbol!("/=", AssignDivide);
         check_symbol!("%=", AssignModulo);
         check_symbol!("=", Assign);
 
         check_symbol!("+", Add);
+        check_symbol!("-", Subtract);
         check_symbol!("*", Multiply);
         check_symbol!("/", Divide);
         check_symbol!("%", Modulo);
-
-        // Subtract and AssignSubtract are checked separately to allow for negative numbers
 
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
@@ -470,7 +458,7 @@ impl<'a> Iterator for TokenLexer<'a> {
                     Some('\n') => self.consume_newline(chars),
                     Some('#') => self.consume_comment(chars),
                     Some('"') => self.consume_string(chars),
-                    Some('0'..='9') | Some('-') => self.consume_number_or_subtract(chars),
+                    Some('0'..='9') => self.consume_number(chars),
                     Some(c) if is_id_start(*c) => self.consume_id_or_keyword(chars),
                     Some(_) => {
                         if let Some(id) = self.consume_symbol(remaining) {
@@ -844,11 +832,13 @@ true"#;
                 (NewLine, None, 2),
                 (Number, Some("55.5"), 2),
                 (NewLine, None, 3),
-                (Number, Some("-1e-3"), 3),
+                (Subtract, None, 3),
+                (Number, Some("1e-3"), 3),
                 (NewLine, None, 4),
                 (Number, Some("0.5e+9"), 4),
                 (NewLine, None, 5),
-                (Number, Some("-8e8"), 5),
+                (Subtract, None, 5),
+                (Number, Some("8e8"), 5),
             ],
         );
     }
@@ -869,7 +859,8 @@ true"#;
                 (ParenOpen, None, 1),
                 (ParenClose, None, 1),
                 (NewLine, None, 2),
-                (Number, Some("-1e-3"), 2),
+                (Subtract, None, 2),
+                (Number, Some("1e-3"), 2),
                 (Dot, None, 2),
                 (Id, Some("abs"), 2),
                 (ParenOpen, None, 2),

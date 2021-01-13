@@ -26,6 +26,8 @@
 - The `Koto` struct now returns a concrete error type instead of a `String`.
 - It's no longer necessary to call helper functions to get formatted source
   extracts for errors.
+- Whitespace is no longer required after operators,
+  e.g. `1+1==2` would previously trigger a parsing error.
 
 ### Fixed
 - Error messages produced in the functor passed to `iterator.fold` were reported

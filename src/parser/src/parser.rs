@@ -655,7 +655,7 @@ impl<'source> Parser<'source> {
             _ => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        if let Some((next, peek_count)) = self.peek_next_token(context) {
+        if let Some((next, _)) = self.peek_next_token(context) {
             match next {
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
@@ -665,37 +665,33 @@ impl<'source> Parser<'source> {
                 AssignModulo => return self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
                     if let Some((left_priority, right_priority)) = operator_precedence(next) {
-                        if let Some(token_after_op) = self.peek_token_n(peek_count + 1) {
-                            if token_is_whitespace(token_after_op)
-                                && left_priority >= min_precedence
-                            {
-                                let op = self.consume_next_token(context).unwrap();
+                        if left_priority >= min_precedence {
+                            let op = self.consume_next_token(context).unwrap();
 
-                                // Move on to the token after the operator
-                                if self.peek_next_token(context).is_none() {
-                                    return indentation_error!(ExpectedRhsExpression, self);
-                                }
-                                self.consume_until_next_token(context);
-
-                                let rhs = if let Some(map_block) =
-                                    self.parse_map_block(&mut ExpressionContext::permissive())?
-                                {
-                                    map_block
-                                } else if let Some(rhs_expression) =
-                                    self.parse_expression_start(None, right_priority, context)?
-                                {
-                                    rhs_expression
-                                } else {
-                                    return indentation_error!(ExpectedRhsExpression, self);
-                                };
-
-                                let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                                return self.parse_expression_continued(
-                                    &[op_node],
-                                    min_precedence,
-                                    context,
-                                );
+                            // Move on to the token after the operator
+                            if self.peek_next_token(context).is_none() {
+                                return indentation_error!(ExpectedRhsExpression, self);
                             }
+                            self.consume_until_next_token(context);
+
+                            let rhs = if let Some(map_block) =
+                                self.parse_map_block(&mut ExpressionContext::permissive())?
+                            {
+                                map_block
+                            } else if let Some(rhs_expression) =
+                                self.parse_expression_start(None, right_priority, context)?
+                            {
+                                rhs_expression
+                            } else {
+                                return indentation_error!(ExpectedRhsExpression, self);
+                            };
+
+                            let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                            return self.parse_expression_continued(
+                                &[op_node],
+                                min_precedence,
+                                context,
+                            );
                         }
                     }
                 }
@@ -855,6 +851,7 @@ impl<'source> Parser<'source> {
                 .increment_expression_access_for_id(constant_index);
 
             let id_index = self.push_node(Node::Id(constant_index))?;
+
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if context.allow_space_separated_call => {
                     let start_span = self.lexer.span();
@@ -1232,8 +1229,6 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
-        // let current_indent = self.lexer.current_indent();
-
         if let Some((token, peek_count)) = self.peek_next_token(context) {
             let result = match token {
                 Token::True => {
@@ -1245,36 +1240,7 @@ impl<'source> Parser<'source> {
                     Some(self.push_node(BoolFalse)?)
                 }
                 Token::ParenOpen => self.parse_nested_expressions(context)?,
-                Token::Number => {
-                    self.consume_next_token(context);
-                    let slice = self.lexer.slice();
-                    let number_node = match i64::from_str(slice) {
-                        Ok(n) => {
-                            if n == 0 {
-                                self.push_node(Number0)?
-                            } else if n == 1 {
-                                self.push_node(Number1)?
-                            } else {
-                                let constant_index = self.constants.add_i64(n) as u32;
-                                self.push_node(Int(constant_index))?
-                            }
-                        }
-                        Err(_) => match f64::from_str(slice) {
-                            Ok(n) => {
-                                let constant_index = self.constants.add_f64(n) as u32;
-                                self.push_node(Float(constant_index))?
-                            }
-                            Err(_) => {
-                                return internal_error!(NumberParseFailure, self);
-                            }
-                        },
-                    };
-                    if self.next_token_is_lookup_start(context) {
-                        Some(self.parse_lookup(number_node, context)?)
-                    } else {
-                        Some(number_node)
-                    }
-                }
+                Token::Number => self.parse_number(false, context)?,
                 Token::String => {
                     self.consume_next_token(context);
                     let s = self.parse_string(self.lexer.slice())?;
@@ -1333,24 +1299,22 @@ impl<'source> Parser<'source> {
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Switch => self.parse_switch_expression(context)?,
                 Token::Function => self.parse_function(context)?,
-                Token::Subtract => {
-                    if let Some(token_after_subtract) = self.peek_token_n(peek_count + 1) {
-                        if !token_is_whitespace(token_after_subtract) {
-                            self.consume_next_token(context);
-                            if let Some(term) =
-                                self.parse_term(&mut ExpressionContext::restricted())?
-                            {
-                                Some(self.push_node(Node::Negate(term))?)
-                            } else {
-                                return syntax_error!(ExpectedExpression, self);
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
+                Token::Subtract => match self.peek_token_n(peek_count + 1) {
+                    Some(token) if token.is_whitespace() || token.is_newline() => None,
+                    Some(Token::Number) => {
+                        self.consume_next_token(context);
+                        self.parse_number(true, context)?
                     }
-                }
+                    Some(_) => {
+                        self.consume_next_token(context);
+                        if let Some(term) = self.parse_term(&mut ExpressionContext::restricted())? {
+                            Some(self.push_node(Node::Negate(term))?)
+                        } else {
+                            return syntax_error!(ExpectedExpression, self);
+                        }
+                    }
+                    None => None,
+                },
                 Token::Not => {
                     self.consume_next_token(context);
                     if let Some(expression) = self.parse_expression(&mut ExpressionContext {
@@ -1405,6 +1369,47 @@ impl<'source> Parser<'source> {
         } else {
             Ok(None)
         }
+    }
+
+    fn parse_number(
+        &mut self,
+        negate: bool,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        use Node::*;
+
+        self.consume_next_token(context);
+
+        let slice = self.lexer.slice();
+        let number_node = match i64::from_str(slice) {
+            Ok(n) => {
+                if n == 0 {
+                    self.push_node(Number0)?
+                } else if n == 1 && !negate {
+                    self.push_node(Number1)?
+                } else {
+                    let n = if negate { -n } else { n };
+                    let constant_index = self.constants.add_i64(n) as u32;
+                    self.push_node(Int(constant_index))?
+                }
+            }
+            Err(_) => match f64::from_str(slice) {
+                Ok(n) => {
+                    let n = if negate { -n } else { n };
+                    let constant_index = self.constants.add_f64(n) as u32;
+                    self.push_node(Float(constant_index))?
+                }
+                Err(_) => {
+                    return internal_error!(NumberParseFailure, self);
+                }
+            },
+        };
+
+        Ok(if self.next_token_is_lookup_start(context) {
+            Some(self.parse_lookup(number_node, context)?)
+        } else {
+            Some(number_node)
+        })
     }
 
     fn parse_list(
@@ -2080,7 +2085,9 @@ impl<'source> Parser<'source> {
 
         let result = match self.peek_next_token(&pattern_context) {
             Some((token, _)) => match token {
-                True | False | Number | String => return self.parse_term(&mut pattern_context),
+                True | False | Number | String | Subtract => {
+                    return self.parse_term(&mut pattern_context)
+                }
                 Id => match self.parse_id(&mut pattern_context) {
                     Some(id) => {
                         let result = if self.peek_token() == Some(Ellipsis) {
@@ -2193,7 +2200,7 @@ impl<'source> Parser<'source> {
         let items = self.consume_import_items()?;
 
         if let Some(token) = self.peek_next_token_on_same_line() {
-            if !token_is_whitespace(token) {
+            if !token.is_newline() {
                 self.consume_next_token_on_same_line();
                 return syntax_error!(UnexpectedTokenInImportExpression, self);
             }
@@ -2589,13 +2596,11 @@ impl<'source> Parser<'source> {
     // It's expected that a peek has been performed to check that the current expression context
     // allows for the token to be consumed, see peek_next_token().
     fn consume_next_token(&mut self, context: &mut ExpressionContext) -> Option<Token> {
-        use Token::*;
-
         let start_line = self.lexer.line_number();
 
         while let Some(token) = self.lexer.next() {
             match token {
-                Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() || token.is_newline() => {}
                 token => {
                     if self.lexer.line_number() > start_line
                         && context.allow_linebreaks
@@ -2620,13 +2625,11 @@ impl<'source> Parser<'source> {
     // It's expected that a peek has been performed to check that the current expression context
     // allows for the token to be consumed, see peek_next_token().
     fn consume_until_next_token(&mut self, context: &mut ExpressionContext) -> Option<Token> {
-        use Token::*;
-
         let start_line = self.lexer.line_number();
 
         while let Some(peeked) = self.peek_token_n(0) {
             match peeked {
-                Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() || token.is_newline() => {}
                 token => {
                     if self.lexer.peek_line_number(0) > start_line
                         && context.allow_linebreaks
@@ -2647,13 +2650,11 @@ impl<'source> Parser<'source> {
 
     // Peeks past whitespace on the same line until the next token is found
     fn peek_next_token_on_same_line(&mut self) -> Option<Token> {
-        use Token::*;
-
         let mut peek_count = 0;
 
         while let Some(peeked) = self.peek_token_n(peek_count) {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 token => return Some(token),
             }
 
@@ -2665,11 +2666,9 @@ impl<'source> Parser<'source> {
 
     // Consumes whitespace on the same line up until the next token
     fn consume_until_next_token_on_same_line(&mut self) {
-        use Token::*;
-
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 _ => return,
             }
 
@@ -2679,11 +2678,9 @@ impl<'source> Parser<'source> {
 
     // Consumes whitespace on the same line and returns the next token
     fn consume_next_token_on_same_line(&mut self) -> Option<Token> {
-        use Token::*;
-
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 _ => return self.lexer.next(),
             }
 
@@ -2707,12 +2704,4 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         _ => return None,
     };
     Some(priority)
-}
-
-fn token_is_whitespace(op: Token) -> bool {
-    use Token::*;
-    matches!(
-        op,
-        Whitespace | NewLine | NewLineIndented | CommentSingle | CommentMulti
-    )
 }

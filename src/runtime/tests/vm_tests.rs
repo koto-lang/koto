@@ -148,6 +148,11 @@ mod vm {
         }
 
         #[test]
+        fn add_multiply_compressed_whitespace() {
+            test_script("1+ 2 *3+4", Number(11.0.into()));
+        }
+
+        #[test]
         fn subtract_divide_modulo() {
             test_script("(20 - 2) / 3 % 4", Number(2.0.into()));
         }
@@ -465,7 +470,7 @@ b";
         fn swap_values_with_expressions() {
             let script = "
 a, b = 10, 7
-a, b = a + b, a % b
+a, b = a+b, a%b
 b";
             test_script(script, Number(3.0.into()));
         }

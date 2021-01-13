@@ -129,7 +129,7 @@ impl Loader {
                     debug_info,
                 )))
             }
-            Err(e) => return Err(LoaderError::from_parser_error(e, script, script_path)),
+            Err(e) => Err(LoaderError::from_parser_error(e, script, script_path)),
         }
     }
 

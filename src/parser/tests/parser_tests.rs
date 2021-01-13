@@ -158,6 +158,29 @@ a
         }
 
         #[test]
+        fn list_nested() {
+            let source = r#"
+[0, [1, -1], 2]
+"#;
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Int(0),
+                    List(vec![1, 2]),
+                    Int(1),
+                    List(vec![0, 3, 4]), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::I64(-1), Constant::I64(2)]),
+            )
+        }
+
+        #[test]
         fn list_with_line_breaks() {
             let source = "\
 x = [
@@ -1839,6 +1862,33 @@ f 42";
         }
 
         #[test]
+        fn call_arithmetic_arg() {
+            let source = "f x - 1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(1),
+                    Number1,
+                    BinaryOp {
+                        op: AstOp::Subtract,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Call {
+                        function: 0,
+                        args: vec![3],
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("f"), Constant::Str("x")]),
+            )
+        }
+
+        #[test]
         fn call_with_parentheses() {
             let source = "f(x, -x)";
             check_ast(
@@ -2673,6 +2723,31 @@ y z";
                     Lookup((LookupNode::Root(0), Some(2))),
                     MainBlock {
                         body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("bar")]),
+            )
+        }
+
+        #[test]
+        fn lookup_call_arithmetic_arg() {
+            let source = "x.bar() - 1";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(1), Some(1))),
+                    Lookup((LookupNode::Root(0), Some(2))),
+                    Number1,
+                    BinaryOp {
+                        op: AstOp::Subtract,
+                        lhs: 3,
+                        rhs: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
