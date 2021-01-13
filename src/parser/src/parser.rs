@@ -1300,7 +1300,7 @@ impl<'source> Parser<'source> {
                 Token::Switch => self.parse_switch_expression(context)?,
                 Token::Function => self.parse_function(context)?,
                 Token::Subtract => match self.peek_token_n(peek_count + 1) {
-                    Some(Token::Whitespace) => None,
+                    Some(token) if token.is_whitespace() || token.is_newline() => None,
                     Some(Token::Number) => {
                         self.consume_next_token(context);
                         self.parse_number(true, context)?
@@ -2200,7 +2200,7 @@ impl<'source> Parser<'source> {
         let items = self.consume_import_items()?;
 
         if let Some(token) = self.peek_next_token_on_same_line() {
-            if !token_is_whitespace(token) {
+            if !token.is_newline() {
                 self.consume_next_token_on_same_line();
                 return syntax_error!(UnexpectedTokenInImportExpression, self);
             }
@@ -2596,13 +2596,11 @@ impl<'source> Parser<'source> {
     // It's expected that a peek has been performed to check that the current expression context
     // allows for the token to be consumed, see peek_next_token().
     fn consume_next_token(&mut self, context: &mut ExpressionContext) -> Option<Token> {
-        use Token::*;
-
         let start_line = self.lexer.line_number();
 
         while let Some(token) = self.lexer.next() {
             match token {
-                Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() || token.is_newline() => {}
                 token => {
                     if self.lexer.line_number() > start_line
                         && context.allow_linebreaks
@@ -2627,13 +2625,11 @@ impl<'source> Parser<'source> {
     // It's expected that a peek has been performed to check that the current expression context
     // allows for the token to be consumed, see peek_next_token().
     fn consume_until_next_token(&mut self, context: &mut ExpressionContext) -> Option<Token> {
-        use Token::*;
-
         let start_line = self.lexer.line_number();
 
         while let Some(peeked) = self.peek_token_n(0) {
             match peeked {
-                Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() || token.is_newline() => {}
                 token => {
                     if self.lexer.peek_line_number(0) > start_line
                         && context.allow_linebreaks
@@ -2654,13 +2650,11 @@ impl<'source> Parser<'source> {
 
     // Peeks past whitespace on the same line until the next token is found
     fn peek_next_token_on_same_line(&mut self) -> Option<Token> {
-        use Token::*;
-
         let mut peek_count = 0;
 
         while let Some(peeked) = self.peek_token_n(peek_count) {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 token => return Some(token),
             }
 
@@ -2672,11 +2666,9 @@ impl<'source> Parser<'source> {
 
     // Consumes whitespace on the same line up until the next token
     fn consume_until_next_token_on_same_line(&mut self) {
-        use Token::*;
-
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 _ => return,
             }
 
@@ -2686,11 +2678,9 @@ impl<'source> Parser<'source> {
 
     // Consumes whitespace on the same line and returns the next token
     fn consume_next_token_on_same_line(&mut self) -> Option<Token> {
-        use Token::*;
-
         while let Some(peeked) = self.peek_token() {
             match peeked {
-                Whitespace | CommentMulti | CommentSingle => {}
+                token if token.is_whitespace() => {}
                 _ => return self.lexer.next(),
             }
 
@@ -2714,12 +2704,4 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         _ => return None,
     };
     Some(priority)
-}
-
-fn token_is_whitespace(op: Token) -> bool {
-    use Token::*;
-    matches!(
-        op,
-        Whitespace | NewLine | NewLineIndented | CommentSingle | CommentMulti
-    )
 }

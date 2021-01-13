@@ -86,6 +86,18 @@ pub enum Token {
     Yield,
 }
 
+impl Token {
+    pub fn is_whitespace(&self) -> bool {
+        use Token::*;
+        matches!(self, Whitespace | CommentMulti | CommentSingle)
+    }
+
+    pub fn is_newline(&self) -> bool {
+        use Token::*;
+        matches!(self, NewLine | NewLineIndented)
+    }
+}
+
 #[derive(Clone)]
 struct TokenLexer<'a> {
     source: &'a str,
