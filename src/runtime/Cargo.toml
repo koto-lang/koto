@@ -1,6 +1,6 @@
 [package]
 name = "koto_runtime"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,9 +14,9 @@ default = []
 panic_on_runtime_error = []
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.5.0"}
-koto_lexer = { path = "../lexer", version = "^0.5.0"}
-koto_parser = { path = "../parser", version = "^0.5.0"}
+koto_bytecode = { path = "../bytecode", version = "^0.6.0"}
+koto_lexer = { path = "../lexer", version = "^0.6.0"}
+koto_parser = { path = "../parser", version = "^0.6.0"}
 
 downcast-rs = "1.1.1"
 indexmap = "1.4.0"

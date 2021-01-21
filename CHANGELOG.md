@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+
+## [0.6.0] 2021.01.21
+
 ### Added
 - Core Ops
   - `range.expanded`

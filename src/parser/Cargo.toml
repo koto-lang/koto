@@ -1,6 +1,6 @@
 [package]
 name = "koto_parser"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_lexer = { path = "../lexer", version = "^0.5.0"}
+koto_lexer = { path = "../lexer", version = "^0.6.0"}
 
 [features]
 default = []
