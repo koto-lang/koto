@@ -194,7 +194,7 @@ impl Vm {
     }
 
     pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
-        self.push_frame(chunk, 0, 0, None);
+        self.push_frame(chunk, 0, 0);
         self.execute_instructions()
     }
 
@@ -541,12 +541,6 @@ impl Vm {
                 target,
                 source,
             } => self.run_capture_value(function, target, source, instruction_ip),
-            Instruction::LoadCapture { register, capture } => {
-                self.run_load_capture(register, capture, instruction_ip)
-            }
-            Instruction::SetCapture { capture, source } => {
-                self.run_set_capture(capture, source, instruction_ip)
-            }
             Instruction::Negate { register, source } => {
                 self.run_negate(register, source, instruction_ip)
             }
@@ -1155,56 +1149,6 @@ impl Vm {
                     "Capture: missing capture list for function"
                 )
             }
-        }
-
-        Ok(())
-    }
-
-    fn run_load_capture(
-        &mut self,
-        register: u8,
-        capture_index: u8,
-        instruction_ip: usize,
-    ) -> InstructionResult {
-        match self.frame().get_capture(capture_index) {
-            Some(value) => {
-                self.set_register(register, value);
-            }
-            None => {
-                if self.call_stack.len() == 1 {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "LoadCapture: attempting to capture outside of function"
-                    );
-                } else {
-                    return vm_error!(
-                        self.chunk(),
-                        instruction_ip,
-                        "LoadCapture: invalid capture index"
-                    );
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn run_set_capture(
-        &mut self,
-        capture_index: u8,
-        value_register: u8,
-        instruction_ip: usize,
-    ) -> InstructionResult {
-        let value = self.clone_register(value_register);
-
-        if !self.frame_mut().set_capture(capture_index, value) {
-            return vm_error!(
-                self.chunk(),
-                instruction_ip,
-                "SetCapture: invalid capture index: {} ",
-                capture_index
-            );
         }
 
         Ok(())
@@ -2298,7 +2242,6 @@ impl Vm {
             chunk,
             function_ip,
             0, // arguments will be copied starting in register 0
-            captures,
         );
 
         let expected_arg_count = match (instance_function, variadic) {
@@ -2364,6 +2307,14 @@ impl Vm {
             generator_vm.set_register(arg_index as u8 + arg_offset, arg);
         }
 
+        if let Some(captures) = captures {
+            // Copy the function's captures into the generator vm
+            let capture_offset = arg_offset + expected_arg_count;
+            for (capture_index, capture) in captures.data().iter().cloned().enumerate() {
+                generator_vm.set_register(capture_index as u8 + capture_offset, capture);
+            }
+        }
+
         // The args have been cloned into the generator vm, so at this point they can be removed
         self.truncate_registers(frame_base);
 
@@ -2409,7 +2360,7 @@ impl Vm {
                 variadic,
                 captures,
             }) => {
-                let expected_count = match (instance_function, variadic) {
+                let expected_arg_count = match (instance_function, variadic) {
                     (true, true) => function_arg_count - 2,
                     (true, false) | (false, true) => function_arg_count - 1,
                     (false, false) => function_arg_count,
@@ -2437,13 +2388,13 @@ impl Vm {
                 };
 
                 if variadic {
-                    if call_arg_count >= expected_count {
+                    if call_arg_count >= expected_arg_count {
                         // The last defined arg is the start of the var_args,
                         // e.g. f = |x, y, z...|
                         // arg index 2 is the first vararg, and where the tuple will be placed
                         let arg_base = frame_base + 1;
-                        let varargs_start = arg_base + expected_count;
-                        let varargs_count = call_arg_count - expected_count;
+                        let varargs_start = arg_base + expected_arg_count;
+                        let varargs_count = call_arg_count - expected_arg_count;
                         let varargs =
                             Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
                         self.set_register(varargs_start, varargs);
@@ -2453,18 +2404,33 @@ impl Vm {
                             self.chunk(),
                             instruction_ip,
                             "Insufficient arguments for function call, expected {}, found {}",
-                            expected_count,
+                            expected_arg_count,
                             call_arg_count,
                         );
                     }
-                } else if call_arg_count != expected_count {
+                } else if call_arg_count != expected_arg_count {
                     return vm_error!(
                         self.chunk(),
                         instruction_ip,
                         "Incorrect argument count, expected {}, found {}",
-                        expected_count,
+                        expected_arg_count,
                         call_arg_count,
                     );
+                }
+
+                if let Some(captures) = captures {
+                    // Ensure that the value stack is initialized to the end of the args,
+                    // so that the captures can be directly copied to the correct position.
+                    // Q: Why would the stack need to be truncated?
+                    // A: Registers aren't automatically cleaned up during execution.
+                    // Q: Why would the stack need to be extended?
+                    // A: If there are no args then the frame base may have been left
+                    //    uninitialized, so using .extend() here for the captures would place them
+                    //    in the wrong position.
+                    let captures_start =
+                        self.register_index(adjusted_frame_base + function_arg_count);
+                    self.value_stack.resize(captures_start, Value::Empty);
+                    self.value_stack.extend(captures.data().iter().cloned());
                 }
 
                 if !self.call_stack.is_empty() {
@@ -2473,7 +2439,7 @@ impl Vm {
                 }
 
                 // Set up a new frame for the called function
-                self.push_frame(chunk, function_ip, adjusted_frame_base, captures);
+                self.push_frame(chunk, function_ip, adjusted_frame_base);
 
                 Ok(())
             }
@@ -2572,13 +2538,7 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(
-        &mut self,
-        chunk: Arc<Chunk>,
-        ip: usize,
-        frame_base: u8,
-        captures: Option<ValueList>,
-    ) {
+    fn push_frame(&mut self, chunk: Arc<Chunk>, ip: usize, frame_base: u8) {
         let previous_frame_base = if let Some(frame) = self.call_stack.last() {
             frame.register_base
         } else {
@@ -2587,7 +2547,7 @@ impl Vm {
         let new_frame_base = previous_frame_base + frame_base as usize;
 
         self.call_stack
-            .push(Frame::new(chunk.clone(), new_frame_base, captures));
+            .push(Frame::new(chunk.clone(), new_frame_base));
         self.set_chunk_and_ip(chunk, ip);
     }
 

@@ -172,14 +172,6 @@ pub enum Instruction {
         target: u8,
         source: u8,
     },
-    LoadCapture {
-        register: u8,
-        capture: u8,
-    },
-    SetCapture {
-        capture: u8,
-        source: u8,
-    },
     Negate {
         register: u8,
         source: u8,
@@ -393,8 +385,6 @@ impl fmt::Display for Instruction {
             MakeIterator { .. } => write!(f, "MakeIterator"),
             Function { .. } => write!(f, "Function"),
             Capture { .. } => write!(f, "Capture"),
-            LoadCapture { .. } => write!(f, "LoadCapture"),
-            SetCapture { .. } => write!(f, "SetCapture"),
             Negate { .. } => write!(f, "Negate"),
             Add { .. } => write!(f, "Add"),
             Subtract { .. } => write!(f, "Subtract"),
@@ -580,12 +570,6 @@ impl fmt::Debug for Instruction {
                 "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
                 function, target, source
             ),
-            LoadCapture { register, capture } => {
-                write!(f, "LoadCapture\tresult: {}\tcapture: {}", register, capture)
-            }
-            SetCapture { capture, source } => {
-                write!(f, "SetCapture\tcapture: {}\tsource {}", capture, source)
-            }
             Negate { register, source } => {
                 write!(f, "Negate\t\tresult: {}\tsource: {}", register, source)
             }
@@ -1045,14 +1029,6 @@ impl Iterator for InstructionReader {
             Op::Capture => Some(Capture {
                 function: get_byte!(),
                 target: get_byte!(),
-                source: get_byte!(),
-            }),
-            Op::LoadCapture => Some(LoadCapture {
-                register: get_byte!(),
-                capture: get_byte!(),
-            }),
-            Op::SetCapture => Some(SetCapture {
-                capture: get_byte!(),
                 source: get_byte!(),
             }),
             Op::Negate => Some(Negate {

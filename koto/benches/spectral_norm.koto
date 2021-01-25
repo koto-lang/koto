@@ -13,22 +13,20 @@ A = |i, j|
   1.0 / (ij * (ij - 1) * 0.5 + i)
 
 Av = |x, y, n|
-  i = 0
-  y.transform |n|
-    i += 1
-    j = 0
-    x.fold 0, |result, n|
-      j += 1
-      result + n * (A i, j)
+  for i in 0..y.size()
+    i2 = i + 1
+    y[i] = x
+      .enumerate()
+      .each |(j, n)| n * (A i2, (j + 1))
+      .sum()
 
 Atv = |x, y, n|
-  i = 0
-  y.transform |n|
-    i += 1
-    j = 0
-    x.fold 0, |result, n|
-      j += 1
-      result + n * (A j, i)
+  for i in 0..y.size()
+    i2 = i + 1
+    y[i] = x
+      .enumerate()
+      .each |(j, n)| n * (A (j + 1), i2)
+      .sum()
 
 AtAv = |x, y, t, n|
   Av x, t, n

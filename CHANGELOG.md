@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Changed
+- Captured values in functions are now immutable.
+  - e.g.
+    ```
+    x = 100
+    f = |n|
+      x = x + n # Assigning to x here now only affects the local copy of x
+    debug f 42  # 142
+    debug x     # 100 - The value of x in this scope is unchanged
+    ```
+  - Captured values can now be thought of as 'hidden arguments' for a function
+    rather than 'hidden mutable state', which simplifies things quite a bit.
+  - If mutable state is required then you can use a list or map, e.g.
+    ```
+    state = {x: 100}
+    f = |n|
+      state.x = state.x + n # The function has a local copy of the state,
+                            # which shares its data with the outer scope's copy.
+    debug f 42    # 142
+    debug state.x # 142
+    ```
+
 
 ## [0.6.0] 2021.01.21
 
