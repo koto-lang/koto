@@ -1101,24 +1101,34 @@ capture_test 1, 2, 3";
         }
 
         #[test]
-        fn modifying_a_captured_value() {
+        fn local_copy_of_captured_value() {
             let script = "
-import assert
-make_counter = ||
-  count = 0
-  return || count += 1
-c = make_counter()
-c2 = make_counter()
-assert c() == 1
-assert c() == 2
-assert c2() == 1
-assert c() == 3
-c2()";
-            test_script(script, Number(2.0.into()));
+x = 99
+f = ||
+  x = x + 1
+  x
+if f() == 100
+  x
+else
+  -1
+";
+            test_script(script, Number(99.0.into()));
         }
 
         #[test]
-        fn multi_assignment_of_captured_values() {
+        fn mutation_of_captured_map() {
+            let script = "
+f = |x|
+  inner = ||
+    x.foo = 123
+  inner()
+  x.foo
+f {foo: 42, bar: 99}";
+            test_script(script, Number(123.0.into()));
+        }
+
+        #[test]
+        fn multi_assignment_to_captured_list() {
             let script = "
 f = |x|
   inner = ||
