@@ -957,6 +957,16 @@ f 1, (2, [3, 4]), 5
         }
 
         #[test]
+        fn function_arg_unpacking_with_capture() {
+            let script = "
+x = 10
+f = |a, (b, c)| a + b + c + x
+f 1, (2, 3)
+";
+            test_script(script, Number(16.0.into()));
+        }
+
+        #[test]
         fn variadic_function() {
             let script = "
 f = |a, b...|
@@ -1067,10 +1077,9 @@ f().bar";
         #[test]
         fn captured_value() {
             let script = "
-f = |x|
-  inner = || x * x
-  inner()
-f 3";
+x = 3
+f = || x * x
+f()";
             test_script(script, Number(9.0.into()));
         }
 
@@ -1080,7 +1089,7 @@ f 3";
 data = [1, 2, 3]
 f = ||
   data[1] = 99
-  data = () # reassignment doesn't affect the original copy of data
+  data = () # shadowed assignment doesn't affect the original copy of data
 f()
 data[1]";
             test_script(script, Number(99.0.into()));
@@ -1101,24 +1110,34 @@ capture_test 1, 2, 3";
         }
 
         #[test]
-        fn modifying_a_captured_value() {
+        fn local_copy_of_captured_value() {
             let script = "
-import assert
-make_counter = ||
-  count = 0
-  return || count += 1
-c = make_counter()
-c2 = make_counter()
-assert c() == 1
-assert c() == 2
-assert c2() == 1
-assert c() == 3
-c2()";
-            test_script(script, Number(2.0.into()));
+x = 99
+f = ||
+  x = x + 1
+  x
+if f() == 100
+  x
+else
+  -1
+";
+            test_script(script, Number(99.0.into()));
         }
 
         #[test]
-        fn multi_assignment_of_captured_values() {
+        fn mutation_of_captured_map() {
+            let script = "
+f = |x|
+  inner = ||
+    x.foo = 123
+  inner()
+  x.foo
+f {foo: 42, bar: 99}";
+            test_script(script, Number(123.0.into()));
+        }
+
+        #[test]
+        fn multi_assignment_to_captured_list() {
             let script = "
 f = |x|
   inner = ||

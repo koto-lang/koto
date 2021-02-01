@@ -34,8 +34,6 @@ pub enum Op {
     MakeIterator,     // register, range
     Function,         // register, arg count, capture count, flags, size[2]
     Capture,          // function, target, source
-    LoadCapture,      // register, capture
-    SetCapture,       // capture, source
     Range,            // register, start, end
     RangeInclusive,   // register, start, end
     RangeTo,          // register, end
@@ -85,6 +83,8 @@ pub enum Op {
     Debug,            // register, constant[4]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
+    Unused79,
+    Unused80,
     Unused81,
     Unused82,
     Unused83,

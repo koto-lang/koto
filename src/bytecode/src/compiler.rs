@@ -56,6 +56,12 @@ impl Loop {
     }
 }
 
+enum Arg {
+    Local(ConstantIndex),
+    Unpacked(ConstantIndex),
+    Placeholder,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 enum LocalRegister {
     // The register is assigned to a specific id.
@@ -74,43 +80,43 @@ struct Frame {
     loop_stack: Vec<Loop>,
     register_stack: Vec<u8>,
     local_registers: Vec<LocalRegister>,
-    captures: Vec<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
     last_op: Option<Op>, // used to decide if an additional return instruction is needed
 }
 
 impl Frame {
-    fn new(local_count: u8, args: &[Option<ConstantIndex>], captures: &[ConstantIndex]) -> Self {
-        let mut temporary_base = local_count;
+    fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
+        let temporary_base = local_count
+            + captures.len() as u8
+            + args
+                .iter()
+                .filter(|arg| matches!(arg, Arg::Placeholder))
+                .count() as u8;
 
-        let arg_registers = args
-            .iter()
-            .map(|id| match id {
-                Some(id) => LocalRegister::Assigned(*id),
-                None => {
-                    // Wildcard args or unpacked args need to bump the temporary_base to avoid
-                    // temp registers being written over arg registers
-                    temporary_base += 1;
-                    LocalRegister::Allocated
-                }
-            })
-            .collect::<Vec<_>>();
+        // First, assign registers to the 'top-level' args, including placeholder registers
+        let mut local_registers = Vec::with_capacity(args.len() + captures.len());
+        local_registers.extend(args.iter().filter_map(|arg| match arg {
+            Arg::Local(id) => Some(LocalRegister::Assigned(*id)),
+            Arg::Placeholder => Some(LocalRegister::Allocated),
+            _ => None,
+        }));
+
+        // Next, assign registers for the function's captures
+        local_registers.extend(captures.iter().map(|id| LocalRegister::Assigned(*id)));
+
+        // Finally, assign registers for args that will be unpacked when the function is called
+        local_registers.extend(args.iter().filter_map(|arg| match arg {
+            Arg::Unpacked(id) => Some(LocalRegister::Assigned(*id)),
+            _ => None,
+        }));
 
         Self {
-            register_stack: Vec::with_capacity(local_count as usize),
-            local_registers: arg_registers,
-            captures: captures.to_vec(),
+            register_stack: Vec::with_capacity(temporary_base as usize),
+            local_registers,
             temporary_base,
             ..Default::default()
         }
-    }
-
-    fn capture_slot(&self, index: ConstantIndex) -> Option<u8> {
-        self.captures
-            .iter()
-            .position(|constant_index| index == *constant_index)
-            .map(|position| position as u8)
     }
 
     fn push_register(&mut self) -> Result<u8, String> {
@@ -292,13 +298,13 @@ impl Frame {
         &self,
         accessed_non_locals: &[ConstantIndex],
     ) -> Vec<ConstantIndex> {
+        // The non-locals accessed in the nested frame should be captured if they're in the current
+        // frame's local scope.
         accessed_non_locals
             .iter()
             .filter(|&non_local| {
-                self.captures.contains(non_local)
-                    || self
-                        .local_registers
-                        .contains(&LocalRegister::Assigned(*non_local))
+                self.local_registers
+                    .contains(&LocalRegister::Assigned(*non_local))
                     || self
                         .local_registers
                         .contains(&LocalRegister::Reserved(*non_local, vec![]))
@@ -564,7 +570,7 @@ impl Compiler {
                             };
 
                             let function_register = self.push_register()?;
-                            self.compile_load_non_local_id(function_register, *id);
+                            self.compile_load_global(function_register, *id);
 
                             self.compile_call(
                                 call_result_register,
@@ -755,7 +761,7 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         self.frame_stack.push(Frame::new(
             local_count,
-            &self.collect_arg_ids(args, ast)?,
+            &self.collect_args(args, ast)?,
             captures,
         ));
 
@@ -805,31 +811,29 @@ impl Compiler {
         Ok(())
     }
 
-    fn collect_arg_ids(
-        &self,
-        args: &[AstIndex],
-        ast: &Ast,
-    ) -> Result<Vec<Option<ConstantIndex>>, CompilerError> {
-        // Collect arg ids for local assignment in the new frame
-        // Top-level IDs need to match the arguments as they appear in the arg list, with None for
-        // wildcards and unpackable containers.
-        // Nested IDs that will be unpacked can appear in any order after the top-level IDs.
+    fn collect_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
+        // Collect args for local assignment in the new frame
+        // Top-level args need to match the arguments as they appear in the arg list, with
+        // Placeholders for wildcards and containers that are being unpacked.
+        // Nested IDs that will be unpacked are assigned registers after the top-level IDs.
         // e.g. Given:
         // f = |a, (b, (c, d)), _, e|
-        // Arg IDs should then be:
-        // [Some(a), None, None, Some(e), Some(b), Some(c), Some(d)]
-        // ... with Some(b) onwards having any order
+        // Args should then appear as:
+        // [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
+        //
+        // Note that the value stack at runtime will have the function's captures loaded in after
+        // the top-level locals and placeholders, and before unpacked args.
 
         let mut result = Vec::new();
-        let mut nested_ids = Vec::new();
+        let mut nested_args = Vec::new();
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(Some(*id_index)),
-                Node::Wildcard => result.push(None),
-                Node::List(nested_args) | Node::Tuple(nested_args) => {
-                    result.push(None);
-                    nested_ids.extend(self.collect_nested_arg_ids(nested_args, ast)?);
+                Node::Id(id_index) => result.push(Arg::Local(*id_index)),
+                Node::Wildcard => result.push(Arg::Placeholder),
+                Node::List(nested) | Node::Tuple(nested) => {
+                    result.push(Arg::Placeholder);
+                    nested_args.extend(self.collect_nested_args(nested, ast)?);
                 }
                 unexpected => {
                     return compiler_error!(
@@ -841,23 +845,19 @@ impl Compiler {
             }
         }
 
-        result.extend(nested_ids.iter().map(|id| Some(*id)));
+        result.extend(nested_args);
         Ok(result)
     }
 
-    fn collect_nested_arg_ids(
-        &self,
-        args: &[AstIndex],
-        ast: &Ast,
-    ) -> Result<Vec<ConstantIndex>, CompilerError> {
+    fn collect_nested_args(&self, args: &[AstIndex], ast: &Ast) -> Result<Vec<Arg>, CompilerError> {
         let mut result = Vec::new();
 
         for arg in args.iter() {
             match &ast.node(*arg).node {
-                Node::Id(id_index) => result.push(*id_index),
+                Node::Id(id_index) => result.push(Arg::Unpacked(*id_index)),
                 Node::Wildcard => {}
                 Node::List(nested_args) | Node::Tuple(nested_args) => {
-                    result.extend_from_slice(&self.collect_nested_arg_ids(nested_args, ast)?);
+                    result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
                 unexpected => {
                     return compiler_error!(
@@ -966,13 +966,7 @@ impl Compiler {
     ) -> Result<Option<u8>, CompilerError> {
         let result = match self.scope_for_assign_target(target) {
             Scope::Local => match &ast.node(target.target_index).node {
-                Node::Id(constant_index) => {
-                    if self.frame().capture_slot(*constant_index).is_some() {
-                        None
-                    } else {
-                        Some(self.reserve_local_register(*constant_index)?)
-                    }
-                }
+                Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
                 Node::Lookup(_) | Node::Wildcard => None,
                 unexpected => {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
@@ -1055,10 +1049,6 @@ impl Compiler {
                             // reserved local as assigned after the rhs has been compiled.
                             self.commit_local_register(value_register.register)?;
                         }
-
-                        if let Some(capture) = self.frame().capture_slot(*id_index) {
-                            self.push_op(SetCapture, &[capture, value_register.register]);
-                        }
                     }
                     Scope::Global => {
                         self.compile_set_global(*id_index, value_register.register);
@@ -1122,25 +1112,14 @@ impl Compiler {
             for (i, target) in targets.iter().enumerate() {
                 match &ast.node(target.target_index).node {
                     Node::Id(id_index) => {
-                        if let Some(capture_slot) = self.frame().capture_slot(*id_index) {
-                            let capture_register = self.push_register()?;
-
-                            self.push_op(ValueIndex, &[capture_register, rhs.register, i as u8]);
-                            self.push_op(SetCapture, &[capture_slot, capture_register]);
-
-                            self.pop_register()?;
-                        } else {
-                            let local_register = match self.frame().get_local_register(*id_index) {
-                                Some(register) => register,
-                                None => {
-                                    return compiler_error!(self, "Missing register for target")
-                                }
-                            };
-                            // Get the value for the target by index
-                            self.push_op(ValueIndex, &[local_register, rhs.register, i as u8]);
-                            // Commit the register now that it's assigned
-                            self.commit_local_register(local_register)?;
-                        }
+                        let local_register = match self.frame().get_local_register(*id_index) {
+                            Some(register) => register,
+                            None => return compiler_error!(self, "Missing register for target"),
+                        };
+                        // Get the value for the target by index
+                        self.push_op(ValueIndex, &[local_register, rhs.register, i as u8]);
+                        // Commit the register now that it's assigned
+                        self.commit_local_register(local_register)?;
                     }
                     Node::Lookup(lookup) => {
                         let register = self.push_register()?;
@@ -1202,7 +1181,7 @@ impl Compiler {
         } else {
             match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.compile_load_non_local_id(result.register, id);
+                    self.compile_load_global(result.register, id);
                     Some(result)
                 }
                 None => None,
@@ -1221,19 +1200,14 @@ impl Compiler {
         }
     }
 
-    fn compile_load_non_local_id(&mut self, result_register: u8, id: ConstantIndex) {
+    fn compile_load_global(&mut self, result_register: u8, id: ConstantIndex) {
         use Op::*;
 
-        if let Some(capture_slot) = self.frame().capture_slot(id) {
-            self.push_op(LoadCapture, &[result_register, capture_slot]);
+        if id <= u8::MAX as u32 {
+            self.push_op(LoadGlobal, &[result_register, id as u8]);
         } else {
-            // global
-            if id <= u8::MAX as u32 {
-                self.push_op(LoadGlobal, &[result_register, id as u8]);
-            } else {
-                self.push_op(LoadGlobalLong, &[result_register]);
-                self.push_bytes(&id.to_le_bytes());
-            }
+            self.push_op(LoadGlobalLong, &[result_register]);
+            self.push_bytes(&id.to_le_bytes());
         }
     }
 
@@ -1344,10 +1318,8 @@ impl Compiler {
             if local_register != result_register {
                 self.push_op(Copy, &[result_register, local_register]);
             }
-        } else if let Some(capture_slot) = self.frame().capture_slot(id) {
-            self.push_op(LoadCapture, &[result_register, capture_slot]);
         } else {
-            // If the id isn't a local or capture, then it needs to be imported
+            // If the id isn't a local then it needs to be imported
             if id <= u8::MAX as u32 {
                 self.push_op(Import, &[result_register, id as u8]);
             } else {
@@ -1918,7 +1890,7 @@ impl Compiler {
                             Some(register) => CompileResult::with_assigned(register),
                             None => {
                                 let register = self.push_register()?;
-                                self.compile_load_non_local_id(register, *key);
+                                self.compile_load_global(register, *key);
                                 CompileResult::with_temporary(register)
                             }
                         },
@@ -2043,10 +2015,8 @@ impl Compiler {
                     self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
-                    self.compile_load_non_local_id(capture_register, *capture);
-
+                    self.compile_load_global(capture_register, *capture);
                     self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
-
                     self.pop_register()?;
                 }
             }

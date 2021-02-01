@@ -39,10 +39,11 @@ export tests =
   test_single_evaluation_of_chained_token: ||
     make_counter = ||
       count = 0
-      || count += 1
+      loop
+        yield count += 1
     f = make_counter()
-    assert 0 < f() < 2
-    assert_eq f(), 2
+    assert 0 < f.next() < 2
+    assert_eq f.next(), 2
 
   test_fiddly_chained_comparison: ||
     f = |x, y, z| if x < y < z > y > x then 0 else 1

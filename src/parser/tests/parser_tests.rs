@@ -2329,7 +2329,55 @@ f = |n|
 
         #[test]
         fn non_local_access() {
-            let source = "|| x += 1";
+            let source = "
+||
+  x = x + 1
+  x
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Id(0),
+                    Number1,
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 1,
+                        rhs: 2,
+                    },
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 3,
+                    },
+                    Id(0), // 5
+                    Block(vec![4, 5]),
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 1,
+                        accessed_non_locals: vec![0], // initial read of x via capture
+                        body: 6,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![7],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn non_local_update_assignment() {
+            let source = "
+|| x += 1
+";
             check_ast(
                 source,
                 &[

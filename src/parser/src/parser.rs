@@ -3,11 +3,7 @@
 use {
     crate::{constant_pool::ConstantPoolBuilder, error::*, *},
     koto_lexer::{Lexer, Span, Token},
-    std::{
-        collections::{HashMap, HashSet},
-        iter::FromIterator,
-        str::FromStr,
-    },
+    std::{collections::HashSet, iter::FromIterator, str::FromStr},
 };
 
 macro_rules! make_internal_error {
@@ -65,45 +61,16 @@ struct Frame {
     ids_assigned_in_scope: HashSet<ConstantIndex>,
     // IDs and lookup roots which have been accessed without being locally assigned previously
     accessed_non_locals: HashSet<ConstantIndex>,
-    // Due to single-pass parsing, we don't know while parsing an ID if it's the lhs of an
-    // assignment or not. We have to wait until the expression is complete to determine if the
-    // reference to an ID was non-local or not.
-    // To achieve this, while an expression is being parsed we can maintain a running count:
-    // +1 for reading, -1 for assignment. At the end of the expression, a positive count indicates
-    // a non-local access.
-    //
-    // e.g.
-    //
-    // a is a local, it's on lhs of expression, so its a local assignment.
-    // || a = 1
-    // (access count == 0: +1 -1)
-    //
-    // a is first accessed as a non-local before being assigned locally.
-    // || a = a
-    // (access count == 1: +1 -1 +1)
-    //
-    // a is assigned locally twice from a non-local.
-    // || a = a = a
-    // (access count == 1: +1 -1 +1 -1 +1)
-    //
-    // a is a non-local in the inner frame, so is also a non-local in the outer frame
-    // (|| a) for b in 0..10
-    // (access count of a == 1: +1)
-    //
-    // a is a non-local in the inner frame, but a local in the outer frame.
-    // The inner-frame non-local access counts as an outer access,
-    // but the loop arg is a local assignment so the non-local access doesn't need to propagate out.
-    // (|| a) for a in 0..10
-    // (access count == 0: +1 -1)
-    expression_id_accesses: HashMap<ConstantIndex, usize>,
+    // While an expression is being parsed we keep track of lhs assignments and rhs accesses.
+    // At the end of the expresson (see `finish_expression`) accessed IDs that aren't locally
+    // assigned are then counted as non-local accesses.
+    pending_accesses: HashSet<ConstantIndex>,
+    pending_assignments: HashSet<ConstantIndex>,
 }
 
 impl Frame {
-    // Locals in a frame are assigned values that weren't first accessed non-locally
     fn local_count(&self) -> usize {
-        self.ids_assigned_in_scope
-            .difference(&self.accessed_non_locals)
-            .count()
+        self.ids_assigned_in_scope.len()
     }
 
     // Non-locals accessed in a nested frame need to be declared as also accessed in this
@@ -111,31 +78,33 @@ impl Frame {
     // creating the nested inner scope.
     fn add_nested_accessed_non_locals(&mut self, nested_frame: &Frame) {
         for non_local in nested_frame.accessed_non_locals.iter() {
-            self.increment_expression_access_for_id(*non_local);
-        }
-    }
-
-    fn increment_expression_access_for_id(&mut self, id: ConstantIndex) {
-        *self.expression_id_accesses.entry(id).or_insert(0) += 1;
-    }
-
-    fn decrement_expression_access_for_id(&mut self, id: ConstantIndex) -> Result<(), ()> {
-        match self.expression_id_accesses.get_mut(&id) {
-            Some(entry) => {
-                *entry -= 1;
-                Ok(())
-            }
-            None => Err(()),
-        }
-    }
-
-    fn finish_expressions(&mut self) {
-        for (id, access_count) in self.expression_id_accesses.iter() {
-            if *access_count > 0 && !self.ids_assigned_in_scope.contains(id) {
-                self.accessed_non_locals.insert(*id);
+            if !self.pending_assignments.contains(non_local) {
+                self.add_id_access(*non_local);
             }
         }
-        self.expression_id_accesses.clear();
+    }
+
+    fn add_id_access(&mut self, id: ConstantIndex) {
+        self.pending_accesses.insert(id);
+    }
+
+    fn remove_id_access(&mut self, id: ConstantIndex) {
+        self.pending_accesses.remove(&id);
+    }
+
+    fn add_id_assignment(&mut self, id: ConstantIndex) {
+        self.pending_assignments.insert(id);
+    }
+
+    fn finish_expression(&mut self) {
+        for id in self.pending_accesses.drain() {
+            if !self.ids_assigned_in_scope.contains(&id) {
+                self.accessed_non_locals.insert(id);
+            }
+        }
+
+        self.ids_assigned_in_scope
+            .extend(self.pending_assignments.drain());
     }
 }
 
@@ -457,7 +426,7 @@ impl<'source> Parser<'source> {
             // If the body is a Map block, then finish_expressions is needed here to finalise the
             // captures for the Map values. Normally parse_line takes care of calling
             // finish_expressions, but this is a situation where it can be bypassed.
-            self.frame_mut()?.finish_expressions();
+            self.frame_mut()?.finish_expression();
             block
         } else {
             self.consume_until_next_token_on_same_line();
@@ -523,7 +492,7 @@ impl<'source> Parser<'source> {
             None
         };
 
-        self.frame_mut()?.finish_expressions();
+        self.frame_mut()?.finish_expression();
 
         Ok(result)
     }
@@ -714,11 +683,8 @@ impl<'source> Parser<'source> {
             match self.ast.node(*lhs_expression).node.clone() {
                 Node::Id(id_index) => {
                     if matches!(assign_op, AssignOp::Equal) {
-                        self.frame_mut()?
-                            .decrement_expression_access_for_id(id_index)
-                            .map_err(|_| make_internal_error!(UnexpectedIdInExpression, self))?;
-
-                        self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                        self.frame_mut()?.add_id_assignment(id_index);
+                        self.frame_mut()?.remove_id_access(id_index);
                     }
                 }
                 Node::Lookup(_) | Node::Wildcard => {}
@@ -847,8 +813,7 @@ impl<'source> Parser<'source> {
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id(context) {
-            self.frame_mut()?
-                .increment_expression_access_for_id(constant_index);
+            self.frame_mut()?.add_id_access(constant_index);
 
             let id_index = self.push_node(Node::Id(constant_index))?;
 
@@ -2101,7 +2066,7 @@ impl<'source> Parser<'source> {
                         } else {
                             let id_node = self.push_node(Node::Id(id))?;
                             if self.next_token_is_lookup_start(&mut pattern_context) {
-                                self.frame_mut()?.increment_expression_access_for_id(id);
+                                self.frame_mut()?.add_id_access(id);
                                 self.parse_lookup(id_node, &mut pattern_context)?
                             } else {
                                 self.frame_mut()?.ids_assigned_in_scope.insert(id);

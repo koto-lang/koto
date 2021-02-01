@@ -21,17 +21,3 @@ export tests =
       b, c = (), () # inner and inner2 have captured their own copies of b and c
       inner()
     assert_eq (capture_test 1, 2, 3), 6
-
-  test_mutable_captured_values: ||
-    counter = ||
-      # make a counter functor with count initialized to 0
-      count = 0
-      return || count += 1
-
-    c = counter()
-    c2 = counter()
-    assert_eq c(), 1
-    assert_eq c(), 2
-    assert_eq c2(), 1
-    assert_eq c(), 3
-    assert_eq c2(), 2

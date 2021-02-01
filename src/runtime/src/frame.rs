@@ -1,8 +1,4 @@
-use {
-    crate::{Value, ValueList},
-    koto_bytecode::Chunk,
-    std::sync::Arc,
-};
+use {koto_bytecode::Chunk, std::sync::Arc};
 
 #[derive(Debug)]
 pub(crate) struct Frame {
@@ -18,37 +14,16 @@ pub(crate) struct Frame {
     // True if the frame should prevent errors from being caught further down the stack,
     // e.g. when an external function is calling back into the VM with a functor
     pub catch_barrier: bool,
-    // The captures that are available in this frame
-    captures: Option<ValueList>,
 }
 
 impl Frame {
-    pub fn new(chunk: Arc<Chunk>, register_base: usize, captures: Option<ValueList>) -> Self {
+    pub fn new(chunk: Arc<Chunk>, register_base: usize) -> Self {
         Self {
             chunk,
             register_base,
-            captures,
             return_register_and_ip: None,
             catch_stack: vec![],
             catch_barrier: false,
         }
-    }
-
-    pub fn get_capture(&self, capture: u8) -> Option<Value> {
-        if let Some(captures) = &self.captures {
-            captures.data().get(capture as usize).cloned()
-        } else {
-            None
-        }
-    }
-
-    pub fn set_capture(&self, capture_index: u8, value: Value) -> bool {
-        if let Some(captures) = &self.captures {
-            if let Some(capture) = captures.data_mut().get_mut(capture_index as usize) {
-                *capture = value;
-                return true;
-            }
-        }
-        false
     }
 }
