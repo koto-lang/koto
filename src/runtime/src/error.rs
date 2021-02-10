@@ -9,11 +9,16 @@ use {
 };
 
 #[derive(Clone, Debug)]
+pub struct ErrorFrame {
+    chunk: Arc<Chunk>,
+    instruction: usize,
+}
+
+#[derive(Clone, Debug)]
 pub enum RuntimeError {
     VmError {
         message: String,
-        chunk: Arc<Chunk>,
-        instruction: usize,
+        trace: Vec<ErrorFrame>,
     },
     ExternalError {
         message: String,
@@ -28,19 +33,20 @@ impl RuntimeError {
         use RuntimeError::*;
 
         match self {
-            VmError {
-                message,
-                chunk,
-                instruction,
-            } => VmError {
+            VmError { message, trace } => VmError {
                 message: format!("{}: {}", prefix, message),
-                chunk,
-                instruction,
+                trace,
             },
             ExternalError { message } => ExternalError {
                 message: format!("{}: {}", prefix, message),
             },
             FunctionNotFound { .. } => unimplemented!(),
+        }
+    }
+
+    pub fn extend_trace(&mut self, chunk: Arc<Chunk>, instruction: usize) {
+        if let Self::VmError { trace, .. } = self {
+            trace.push(ErrorFrame { chunk, instruction });
         }
     }
 }
@@ -51,24 +57,33 @@ impl fmt::Display for RuntimeError {
 
         match &self {
             VmError { message, .. } if f.alternate() => f.write_str(message),
-            VmError {
-                message,
-                chunk,
-                instruction,
-            } => match chunk.debug_info.get_source_span(*instruction) {
-                Some(span) => f.write_str(&format_error_with_excerpt(
-                    message,
-                    &chunk.source_path,
-                    &chunk.debug_info.source,
-                    span.start,
-                    span.end,
-                )),
-                None => write!(
-                    f,
-                    "Runtime error at instruction {}: {}",
-                    instruction, message
-                ),
-            },
+            VmError { message, trace } => {
+                let mut first_frame = true;
+                for frame in trace.iter() {
+                    let frame_message = if first_frame {
+                        first_frame = false;
+                        Some(message.as_str())
+                    } else {
+                        None
+                    };
+
+                    match frame.chunk.debug_info.get_source_span(frame.instruction) {
+                        Some(span) => f.write_str(&format_error_with_excerpt(
+                            frame_message,
+                            &frame.chunk.source_path,
+                            &frame.chunk.debug_info.source,
+                            span.start,
+                            span.end,
+                        ))?,
+                        None => write!(
+                            f,
+                            "Runtime error at instruction {}: {}",
+                            frame.instruction, message
+                        )?,
+                    };
+                }
+                Ok(())
+            }
             ExternalError { message } => f.write_str(message),
             FunctionNotFound { name } => write!(f, "Function '{}' not found", name),
         }
@@ -81,11 +96,10 @@ pub type RuntimeResult = Result<Value, RuntimeError>;
 
 #[macro_export]
 macro_rules! make_vm_error {
-    ($chunk:expr, $ip:expr, $message:expr) => {{
+    ($message:expr) => {{
         let error = $crate::RuntimeError::VmError {
             message: $message,
-            chunk: $chunk,
-            instruction: $ip,
+            trace: Vec::new(),
         };
         #[cfg(panic_on_runtime_error)]
         {
@@ -97,11 +111,11 @@ macro_rules! make_vm_error {
 
 #[macro_export]
 macro_rules! vm_error {
-    ($chunk:expr, $ip:expr, $error:expr) => {
-        Err($crate::make_vm_error!($chunk, $ip, String::from($error)))
+    ($error:expr) => {
+        Err($crate::make_vm_error!(String::from($error)))
     };
-    ($chunk:expr, $ip:expr, $error:expr, $($y:expr),+ $(,)?) => {
-        Err($crate::make_vm_error!($chunk, $ip, format!($error, $($y),+)))
+    ($error:expr, $($y:expr),+ $(,)?) => {
+        Err($crate::make_vm_error!(format!($error, $($y),+)))
     };
 }
 

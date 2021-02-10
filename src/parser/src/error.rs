@@ -300,7 +300,7 @@ impl fmt::Display for SyntaxError {
 }
 
 pub fn format_error_with_excerpt(
-    message: &str,
+    message: Option<&str>,
     source_path: &Option<PathBuf>,
     source: &str,
     start_pos: Position,
@@ -368,10 +368,10 @@ pub fn format_error_with_excerpt(
     };
 
     format!(
-        "{message}\n --> {}\n{padding}|\n{excerpt}",
+        "{message}\n --- {}\n{padding}|\n{excerpt}",
         position_info,
         padding = padding,
         excerpt = excerpt,
-        message = message
+        message = message.unwrap_or(""),
     )
 }

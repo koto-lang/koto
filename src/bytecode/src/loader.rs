@@ -76,7 +76,7 @@ impl fmt::Display for LoaderError {
             match &self.error {
                 ParserError(koto_parser::ParserError { error, span }) => {
                     f.write_str(&format_error_with_excerpt(
-                        &error.to_string(),
+                        Some(&error.to_string()),
                         &self.source_path,
                         &self.source,
                         span.start,
@@ -85,7 +85,7 @@ impl fmt::Display for LoaderError {
                 }
                 CompilerError(crate::CompilerError { message, span }) => {
                     f.write_str(&format_error_with_excerpt(
-                        &message,
+                        Some(&message),
                         &self.source_path,
                         &self.source,
                         span.start,
