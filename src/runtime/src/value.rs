@@ -361,7 +361,7 @@ pub fn make_external_value(value: impl ExternalValue) -> Value {
 
 pub fn value_is_callable(value: &Value) -> bool {
     use Value::*;
-    matches!(value, Function{..} | ExternalFunction(_))
+    matches!(value, Function { .. } | ExternalFunction(_))
 }
 
 pub fn value_is_immutable(value: &Value) -> bool {
