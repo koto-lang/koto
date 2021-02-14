@@ -23,6 +23,7 @@
     debug f 42    # 142
     debug state.x # 142
     ```
+- Runtime errors now provide a full backtrace.
 
 
 ## [0.6.0] 2021.01.21

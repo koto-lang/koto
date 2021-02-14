@@ -300,7 +300,7 @@ impl fmt::Display for SyntaxError {
 }
 
 pub fn format_error_with_excerpt(
-    message: &str,
+    message: Option<&str>,
     source_path: &Option<PathBuf>,
     source: &str,
     start_pos: Position,
@@ -357,21 +357,26 @@ pub fn format_error_with_excerpt(
     };
 
     let position_info = if let Some(path) = source_path {
-        format!(
-            "{} - {}:{}",
-            path.display(),
-            start_pos.line,
-            start_pos.column
-        )
+        let display_path = if let Ok(current_dir) = std::env::current_dir() {
+            if let Ok(stripped) = path.strip_prefix(current_dir) {
+                stripped.display()
+            } else {
+                path.display()
+            }
+        } else {
+            path.display()
+        };
+
+        format!("{} - {}:{}", display_path, start_pos.line, start_pos.column)
     } else {
         format!("{}:{}", start_pos.line, start_pos.column)
     };
 
     format!(
-        "{message}\n --> {}\n{padding}|\n{excerpt}",
-        position_info,
+        "{message}\n --- {position_info}\n{padding}|\n{excerpt}",
+        message = message.unwrap_or(""),
+        position_info = position_info,
         padding = padding,
         excerpt = excerpt,
-        message = message
     )
 }
