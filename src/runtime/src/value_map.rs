@@ -4,6 +4,7 @@ use {
         RuntimeResult, Value, ValueList, ValueRef, Vm,
     },
     indexmap::IndexMap,
+    koto_parser::MetaId,
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
@@ -168,9 +169,39 @@ impl PartialEq for ValueHashMap {
 }
 impl Eq for ValueHashMap {}
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
-    None,
+    Operator(Operator),
+}
+
+impl From<Operator> for MetaKey {
+    fn from(op: Operator) -> Self {
+        Self::Operator(op)
+    }
+}
+
+impl From<MetaId> for MetaKey {
+    fn from(id: MetaId) -> Self {
+        use Operator::*;
+
+        match id {
+            MetaId::Add => MetaKey::Operator(Add),
+            MetaId::Subtract => MetaKey::Operator(Subtract),
+            MetaId::Multiply => MetaKey::Operator(Multiply),
+            MetaId::Divide => MetaKey::Operator(Divide),
+            MetaId::Modulo => MetaKey::Operator(Modulo),
+            _ => unreachable!("Invalid MetaId"),
+        }
+    }
 }
 
 type MetaMap = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;

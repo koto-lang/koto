@@ -1,6 +1,6 @@
 use {
     crate::{Chunk, Op},
-    koto_parser::ConstantIndex,
+    koto_parser::{ConstantIndex, MetaId},
     std::{convert::TryInto, fmt, sync::Arc},
 };
 
@@ -331,6 +331,11 @@ pub enum Instruction {
         value: u8,
         key: ConstantIndex,
     },
+    MetaInsert {
+        register: u8,
+        value: u8,
+        id: MetaId,
+    },
     Access {
         register: u8,
         map: u8,
@@ -419,6 +424,7 @@ impl fmt::Display for Instruction {
             ListUpdate { .. } => write!(f, "ListUpdate"),
             Index { .. } => write!(f, "Index"),
             MapInsert { .. } => write!(f, "MapInsert"),
+            MetaInsert { .. } => write!(f, "MetaInsert"),
             Access { .. } => write!(f, "Access"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
@@ -765,6 +771,15 @@ impl fmt::Debug for Instruction {
                 f,
                 "MapInsert\tmap: {}\t\tvalue: {}\tkey: {}",
                 register, value, key
+            ),
+            MetaInsert {
+                register,
+                value,
+                id,
+            } => write!(
+                f,
+                "MetaInsert\tmap: {}\t\tvalue: {}\tid: {:?}",
+                register, value, id
             ),
             Access { register, map, key } => write!(
                 f,
@@ -1200,6 +1215,25 @@ impl Iterator for InstructionReader {
                 value: get_byte!(),
                 key: get_u32!() as ConstantIndex,
             }),
+            Op::MetaInsert => {
+                let register = get_byte!();
+                let value = get_byte!();
+                let meta_id = get_byte!();
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaInsert {
+                        register,
+                        value,
+                        id,
+                    })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
             Op::Access => Some(Access {
                 register: get_byte!(),
                 map: get_byte!(),

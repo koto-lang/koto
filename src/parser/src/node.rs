@@ -1,5 +1,7 @@
-use crate::ast::AstIndex;
-use std::fmt;
+use {
+    crate::ast::AstIndex,
+    std::{convert::TryFrom, fmt},
+};
 
 pub type ConstantIndex = u32;
 
@@ -33,7 +35,7 @@ pub enum Node {
         inclusive: bool,
     },
     RangeFull,
-    Map(Vec<(ConstantIndex, Option<AstIndex>)>),
+    Map(Vec<(MapKey, Option<AstIndex>)>),
     MainBlock {
         body: Vec<AstIndex>,
         local_count: usize,
@@ -249,4 +251,36 @@ pub struct MatchArm {
 pub struct SwitchArm {
     pub condition: Option<AstIndex>,
     pub expression: AstIndex,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum MetaId {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+
+    // Must be last, see TryFrom<u8> for MetaId
+    Invalid,
+}
+
+impl TryFrom<u8> for MetaId {
+    type Error = u8;
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        if byte < Self::Invalid as u8 {
+            // Safety: Any value less than Invalid is safe to transmute.
+            Ok(unsafe { std::mem::transmute(byte) })
+        } else {
+            Err(byte)
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MapKey {
+    Id(ConstantIndex),
+    Meta(MetaId),
 }

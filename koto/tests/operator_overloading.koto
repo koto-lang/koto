@@ -1,0 +1,32 @@
+import test.assert_eq
+
+locals = {}
+
+foo = |x|
+  foo =
+    x: x
+  foo + locals.foo_meta
+
+locals.foo_meta =
+  # Arithmetic operators
+  @add: |self, other| foo self.x + other.x
+  @subtract: |self, other| foo self.x - other.x
+  @multiply: |self, other| foo self.x * other.x
+  @divide: |self, other| foo self.x / other.x
+  @modulo: |self, other| foo self.x % other.x
+
+export tests =
+  test_add: ||
+    assert_eq (foo(10) + foo(20)), foo 30
+
+  test_subtract: ||
+    assert_eq (foo(99) - foo(100)), foo -1
+
+  test_multiply: ||
+    assert_eq (foo(6) * foo(7)), foo 42
+
+  test_divide: ||
+    assert_eq (foo(42) / foo(2)), foo 21
+
+  test_modulo: ||
+    assert_eq (foo(42) % foo(10)), foo 2
