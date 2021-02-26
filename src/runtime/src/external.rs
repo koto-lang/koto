@@ -79,7 +79,7 @@ pub fn visit_external_value<T>(
 where
     T: ExternalValue,
 {
-    match map.data().get(&Value::ExternalDataId) {
+    match map.contents().data.get(&Value::ExternalDataId) {
         Some(Value::ExternalValue(maybe_external)) => {
             let mut value = maybe_external.as_ref().write();
             match value.downcast_mut::<T>() {
@@ -98,7 +98,7 @@ pub fn is_external_instance<T>(map: &ValueMap) -> bool
 where
     T: ExternalValue,
 {
-    match map.data().get(&Value::ExternalDataId) {
+    match map.contents().data.get(&Value::ExternalDataId) {
         Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
         _ => false,
     }

@@ -16,6 +16,7 @@ use {
     },
 };
 
+// A trait that allows for allocation-free map accesses with &str
 pub trait ValueMapKey {
     fn to_value_ref(&self) -> ValueRef;
 }
@@ -60,6 +61,10 @@ impl<'a> Borrow<dyn ValueMapKey + 'a> for &'a str {
 
 type ValueHashMapType = IndexMap<Value, Value, BuildHasherDefault<FxHasher>>;
 
+/// The Value -> Value hash map used for Koto map data
+///
+/// See also: ValueMap
+#[repr(C)]
 #[derive(Clone, Debug, Default)]
 pub struct ValueHashMap(ValueHashMapType);
 
@@ -163,48 +168,91 @@ impl PartialEq for ValueHashMap {
 }
 impl Eq for ValueHashMap {}
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum MetaKey {
+    None,
+}
+
+type MetaMap = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
+
+/// The contents of a ValueMap, combining a data map with a meta map
 #[derive(Clone, Debug, Default)]
-pub struct ValueMap(Arc<RwLock<ValueHashMap>>);
+pub struct ValueMapContents {
+    pub data: ValueHashMap,
+    pub meta: MetaMap,
+}
 
-impl ValueMap {
-    #[inline]
-    pub fn new() -> Self {
-        Self(Arc::new(RwLock::new(ValueHashMap::default())))
-    }
-
+impl ValueMapContents {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Arc::new(RwLock::new(ValueHashMap::with_capacity(capacity))))
+        Self {
+            data: ValueHashMap::with_capacity(capacity),
+            meta: MetaMap::default(),
+        }
     }
 
     #[inline]
     pub fn with_data(data: ValueHashMap) -> Self {
-        Self(Arc::new(RwLock::new(data)))
+        Self {
+            data,
+            meta: MetaMap::default(),
+        }
+    }
+
+    pub fn extend(&mut self, other: &ValueMapContents) {
+        self.data.extend(&other.data);
+        self.meta.extend(other.meta.clone().into_iter());
+    }
+}
+
+/// The Map value type used in Koto
+#[derive(Clone, Debug, Default)]
+pub struct ValueMap(Arc<RwLock<ValueMapContents>>);
+
+impl ValueMap {
+    #[inline]
+    pub fn new() -> Self {
+        Self::with_contents(ValueMapContents::default())
     }
 
     #[inline]
-    pub fn data(&self) -> RwLockReadGuard<ValueHashMap> {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self::with_contents(ValueMapContents::with_capacity(capacity))
+    }
+
+    #[inline]
+    pub fn with_data(data: ValueHashMap) -> Self {
+        Self::with_contents(ValueMapContents::with_data(data))
+    }
+
+    #[inline]
+    pub fn with_contents(contents: ValueMapContents) -> Self {
+        Self(Arc::new(RwLock::new(contents)))
+    }
+
+    #[inline]
+    pub fn contents(&self) -> RwLockReadGuard<ValueMapContents> {
         self.0.read()
     }
 
     #[inline]
-    pub fn data_mut(&self) -> RwLockWriteGuard<ValueHashMap> {
+    pub fn contents_mut(&self) -> RwLockWriteGuard<ValueMapContents> {
         self.0.write()
     }
 
     #[inline]
     pub fn insert(&mut self, key: Value, value: Value) {
-        self.data_mut().insert(key, value);
+        self.contents_mut().data.insert(key, value);
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.data().len()
+        self.contents().data.len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.data().is_empty()
+        self.contents().data.is_empty()
     }
 
     #[inline]
@@ -253,7 +301,7 @@ impl fmt::Display for ValueMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
         let mut first = true;
-        for (key, value) in self.data().iter() {
+        for (key, value) in self.contents().data.iter() {
             if !first {
                 write!(f, ", ")?;
             }
@@ -267,19 +315,19 @@ impl fmt::Display for ValueMap {
 impl PartialEq for ValueMap {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        *self.data() == *other.data()
+        *self.contents().data == *other.contents().data
     }
 }
 impl Eq for ValueMap {}
 
 pub struct ValueMapIter<'map> {
-    map: &'map RwLock<ValueHashMap>,
+    map: &'map RwLock<ValueMapContents>,
     index: usize,
 }
 
 impl<'map> ValueMapIter<'map> {
     #[inline]
-    fn new(map: &'map RwLock<ValueHashMap>) -> Self {
+    fn new(map: &'map RwLock<ValueMapContents>) -> Self {
         Self { map, index: 0 }
     }
 }
@@ -289,7 +337,7 @@ impl<'map> Iterator for ValueMapIter<'map> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        match self.map.read().get_index(self.index) {
+        match self.map.read().data.get_index(self.index) {
             Some((key, value)) => {
                 self.index += 1;
                 Some((key.clone(), value.clone()))
