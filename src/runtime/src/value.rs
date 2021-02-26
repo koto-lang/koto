@@ -320,7 +320,8 @@ pub fn deep_copy_value(value: &Value) -> Value {
         }
         Map(m) => {
             let result = m
-                .data()
+                .contents()
+                .data
                 .iter()
                 .map(|(k, v)| (k.clone(), deep_copy_value(v)))
                 .collect();
@@ -418,9 +419,9 @@ pub fn add_values(value_a: &Value, value_b: &Value) -> Option<Value> {
             List(ValueList::with_data(result))
         }
         (Map(a), Map(b)) => {
-            let mut result = a.data().clone();
-            result.extend(&b.data());
-            Map(ValueMap::with_data(result))
+            let mut result = a.contents().clone();
+            result.extend(&b.contents());
+            Map(ValueMap::with_contents(result))
         }
         (Str(a), Str(b)) => {
             let result = a.to_string() + b.as_ref();

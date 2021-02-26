@@ -177,7 +177,12 @@ impl Vm {
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.context().global.data().get_with_string(id).cloned()
+        self.context()
+            .global
+            .contents()
+            .data
+            .get_with_string(id)
+            .cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<Value> {
@@ -282,8 +287,8 @@ impl Vm {
         // test map data while calling the test functions, otherwise we'll end up in deadlocks.
         let self_arg = Map(tests.clone());
 
-        let pre_test = tests.data().get_with_string("pre_test").cloned();
-        let post_test = tests.data().get_with_string("post_test").cloned();
+        let pre_test = tests.contents().data.get_with_string("pre_test").cloned();
+        let post_test = tests.contents().data.get_with_string("post_test").cloned();
         let pass_self_to_pre_test = match &pre_test {
             Some(Function(f)) => f.arg_count == 1,
             _ => false,
@@ -734,7 +739,8 @@ impl Vm {
         let global = self
             .context()
             .global
-            .data()
+            .contents()
+            .data
             .get_with_string(global_name)
             .cloned();
 
@@ -752,7 +758,8 @@ impl Vm {
         let value = self.clone_register(source_register);
         self.context_mut()
             .global
-            .data_mut()
+            .contents_mut()
+            .data
             .insert(global_name, value);
     }
 
@@ -1368,7 +1375,8 @@ impl Vm {
         let maybe_global = self
             .context()
             .global
-            .data()
+            .contents()
+            .data
             .get_with_string(&import_name)
             .cloned();
         if let Some(value) = maybe_global {
@@ -1377,7 +1385,8 @@ impl Vm {
             let maybe_in_prelude = self
                 .context_shared
                 .prelude
-                .data()
+                .contents()
+                .data
                 .get_with_string(&import_name)
                 .cloned();
             if let Some(value) = maybe_in_prelude {
@@ -1800,7 +1809,9 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(Value::Str(key_string), value);
+                map.contents_mut()
+                    .data
+                    .insert(Value::Str(key_string), value);
                 Ok(())
             }
             unexpected => vm_error!(
@@ -1834,7 +1845,7 @@ impl Vm {
         };
 
         match map_value {
-            Map(map) => match map.data().get_with_string(&key_string) {
+            Map(map) => match map.contents().data.get_with_string(&key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
@@ -1865,12 +1876,13 @@ impl Vm {
     ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_op = match module.data().get_with_string(key).cloned() {
+        let maybe_op = match module.contents().data.get_with_string(key).cloned() {
             None if iterator_fallback => self
                 .context_shared
                 .core_lib
                 .iterator
-                .data()
+                .contents()
+                .data
                 .get_with_string(&key)
                 .cloned(),
             maybe_op => maybe_op,

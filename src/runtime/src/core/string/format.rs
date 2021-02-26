@@ -165,7 +165,7 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
             FormatToken::Identifier(id) => match format_args.first() {
                 Some(Value::Map(map)) => {
                     // TODO pass in runtime's string cache
-                    match map.data().get_with_string(id) {
+                    match map.contents().data.get_with_string(id) {
                         Some(value) => result.push_str(&value.to_string()),
                         None => return Err(format!("Key '{}' not found in map", id)),
                     }

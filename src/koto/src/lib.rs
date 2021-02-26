@@ -184,12 +184,14 @@ impl Koto {
         match self
             .runtime
             .prelude()
-            .data_mut()
+            .contents_mut()
+            .data
             .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => map
-                .data_mut()
+                .contents_mut()
+                .data
                 .add_list("args", ValueList::with_data(koto_args)),
             _ => unreachable!(),
         }
@@ -222,12 +224,13 @@ impl Koto {
         match self
             .runtime
             .prelude()
-            .data_mut()
+            .contents_mut()
+            .data
             .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => {
-                let mut map = map.data_mut();
+                let map = &mut map.contents_mut().data;
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
             }
