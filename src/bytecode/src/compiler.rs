@@ -2,7 +2,7 @@ use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, LookupNode, MatchArm, Node, Scope, Span, SwitchArm,
+        ConstantIndex, Function, LookupNode, MapKey, MatchArm, Node, Scope, Span, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -1864,7 +1864,7 @@ impl Compiler {
     fn compile_make_map(
         &mut self,
         result_register: ResultRegister,
-        entries: &[(ConstantIndex, Option<AstIndex>)],
+        entries: &[(MapKey, Option<AstIndex>)],
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -1880,20 +1880,29 @@ impl Compiler {
                 }
 
                 for (key, maybe_value_node) in entries.iter() {
-                    let value = match maybe_value_node {
-                        Some(value_node) => {
+                    let value = match (key, maybe_value_node) {
+                        (_, Some(value_node)) => {
                             let value_node = ast.node(*value_node);
                             self.compile_node(ResultRegister::Any, value_node, ast)?
                                 .unwrap()
                         }
-                        None => match self.frame().get_local_assigned_register(*key) {
-                            Some(register) => CompileResult::with_assigned(register),
-                            None => {
-                                let register = self.push_register()?;
-                                self.compile_load_global(register, *key);
-                                CompileResult::with_temporary(register)
+                        (MapKey::Id(id), None) => {
+                            match self.frame().get_local_assigned_register(*id) {
+                                Some(register) => CompileResult::with_assigned(register),
+                                None => {
+                                    let register = self.push_register()?;
+                                    self.compile_load_global(register, *id);
+                                    CompileResult::with_temporary(register)
+                                }
                             }
-                        },
+                        }
+                        (MapKey::Meta(key), None) => {
+                            return compiler_error!(
+                                self,
+                                "Value missing for meta map key: @{:?}",
+                                key
+                            );
+                        }
                     };
 
                     self.compile_map_insert(result.register, value.register, *key);
@@ -2077,7 +2086,7 @@ impl Compiler {
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, id);
+                            self.compile_map_insert(map_register, set_value, MapKey::Id(id));
                         } else if let Some(result) = result {
                             self.compile_access(result.register, map_register, id);
                         }
@@ -2181,12 +2190,25 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: ConstantIndex) {
-        if key <= u8::MAX as u32 {
-            self.push_op_without_span(Op::MapInsert, &[map_register, value_register, key as u8]);
-        } else {
-            self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
-            self.push_bytes(&key.to_le_bytes());
+    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: MapKey) {
+        match key {
+            MapKey::Id(id) => {
+                if id <= u8::MAX as u32 {
+                    self.push_op_without_span(
+                        Op::MapInsert,
+                        &[map_register, value_register, id as u8],
+                    );
+                } else {
+                    self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
+                    self.push_bytes(&id.to_le_bytes());
+                }
+            }
+            MapKey::Meta(key) => {
+                self.push_op_without_span(
+                    Op::MetaInsert,
+                    &[map_register, value_register, key as u8],
+                );
+            }
         }
     }
 

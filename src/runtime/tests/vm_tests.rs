@@ -1979,4 +1979,26 @@ catch _
             test_script(script, Number(4.0.into()));
         }
     }
+
+    mod operator_overloading {
+        use super::*;
+
+        #[test]
+        fn arithmetic() {
+            let script = "
+locals = {}
+foo = |x| {x} + locals.foo_meta
+locals.foo_meta =
+  @add: |self, other| foo self.x + other.x
+  @subtract: |self, other| foo self.x - other.x
+  @multiply: |self, other| foo self.x * other.x
+  @divide: |self, other| foo self.x / other.x
+  @modulo: |self, other| foo self.x % other.x
+
+z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
+z.x
+";
+            test_script(script, Number(1.0.into()));
+        }
+    }
 }
