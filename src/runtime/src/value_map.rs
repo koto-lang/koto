@@ -176,6 +176,12 @@ pub enum Operator {
     Multiply,
     Divide,
     Modulo,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+    Equal,
+    NotEqual,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -199,6 +205,12 @@ impl From<MetaId> for MetaKey {
             MetaId::Multiply => MetaKey::Operator(Multiply),
             MetaId::Divide => MetaKey::Operator(Divide),
             MetaId::Modulo => MetaKey::Operator(Modulo),
+            MetaId::Less => MetaKey::Operator(Less),
+            MetaId::LessOrEqual => MetaKey::Operator(LessOrEqual),
+            MetaId::Greater => MetaKey::Operator(Greater),
+            MetaId::GreaterOrEqual => MetaKey::Operator(GreaterOrEqual),
+            MetaId::Equal => MetaKey::Operator(Equal),
+            MetaId::NotEqual => MetaKey::Operator(NotEqual),
             _ => unreachable!("Invalid MetaId"),
         }
     }

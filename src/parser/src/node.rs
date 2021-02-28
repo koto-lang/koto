@@ -261,6 +261,12 @@ pub enum MetaId {
     Multiply,
     Divide,
     Modulo,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+    Equal,
+    NotEqual,
 
     // Must be last, see TryFrom<u8> for MetaId
     Invalid,

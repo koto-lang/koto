@@ -788,6 +788,12 @@ impl<'source> Parser<'source> {
                     "multiply" => MetaId::Multiply,
                     "divide" => MetaId::Divide,
                     "modulo" => MetaId::Modulo,
+                    "less" => MetaId::Less,
+                    "less_or_equal" => MetaId::LessOrEqual,
+                    "greater" => MetaId::Greater,
+                    "greater_or_equal" => MetaId::GreaterOrEqual,
+                    "equal" => MetaId::Equal,
+                    "not_equal" => MetaId::NotEqual,
                     _ => return syntax_error!(UnexpectedMetaKey, self),
                 };
 

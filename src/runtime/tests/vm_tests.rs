@@ -2000,5 +2000,77 @@ z.x
 ";
             test_script(script, Number(1.0.into()));
         }
+
+        #[test]
+        fn less() {
+            let script = "
+foo = |x|
+  x: x
+  @less: |self, other| self.x < other.x
+
+(foo 10) < (foo 20) and not (foo 30) < (foo 30)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn less_or_equal() {
+            let script = "
+foo = |x|
+  x: x
+  @less_or_equal: |self, other| self.x <= other.x
+
+(foo 10) <= (foo 20) and (foo 30) <= (foo 30)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn greater() {
+            let script = "
+foo = |x|
+  x: x
+  @greater: |self, other| self.x > other.x
+
+(foo 0) > (foo -1) and not (foo 0) > (foo 0)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn greater_or_equal() {
+            let script = "
+foo = |x|
+  x: x
+  @greater_or_equal: |self, other| self.x >= other.x
+
+(foo 50) >= (foo 40) and (foo 50) >= (foo 50)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn equal() {
+            let script = "
+foo = |x|
+  x: x
+  @equal: |self, other| self.x == other.x
+
+(foo 42) == (foo 42) and not (foo 42) == (foo 41)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn not_equal() {
+            let script = "
+foo = |x|
+  x: x
+  @equal: |self, other| self.x != other.x
+
+(foo 99) != (foo 100) and not (foo 99) != (foo 99)
+";
+            test_script(script, Bool(true));
+        }
     }
 }
