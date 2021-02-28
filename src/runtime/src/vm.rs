@@ -107,6 +107,7 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
     stop_flag: Option<Arc<AtomicBool>>,
+    child_vm: Option<Box<Vm>>,
 }
 
 impl Default for Vm {
@@ -118,6 +119,7 @@ impl Default for Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 }
@@ -131,6 +133,7 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 
@@ -142,6 +145,7 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 
@@ -158,7 +162,15 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: Some(stop_flag),
+            child_vm: None,
         }
+    }
+
+    pub fn child_vm(&mut self) -> &mut Vm {
+        if self.child_vm.is_none() {
+            self.child_vm = Some(Box::new(self.spawn_shared_vm()))
+        }
+        self.child_vm.as_mut().unwrap()
     }
 
     pub fn prelude(&self) -> ValueMap {
@@ -584,12 +596,8 @@ impl Vm {
             Instruction::GreaterOrEqual { register, lhs, rhs } => {
                 self.run_greater_or_equal(register, lhs, rhs)
             }
-            Instruction::Equal { register, lhs, rhs } => {
-                self.run_equal(register, lhs, rhs)
-            }
-            Instruction::NotEqual { register, lhs, rhs } => {
-                self.run_not_equal(register, lhs, rhs)
-            }
+            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
+            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
                 Ok(())

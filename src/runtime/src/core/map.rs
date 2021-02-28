@@ -142,7 +142,7 @@ pub fn make_module() -> ValueMap {
         [Map(l), f] if value_is_callable(f) => {
             let m = l.clone();
             let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
             let mut error = None;
 
             let mut get_sort_key = |cache: &mut ValueHashMap, key: &Value, value: &Value| {
@@ -191,20 +191,16 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, f] if value_is_immutable(key) && value_is_callable(f) => do_map_update(
-            m.clone(),
-            key.clone(),
-            Empty,
-            f.clone(),
-            vm.spawn_shared_vm(),
-        ),
+        [Map(m), key, f] if value_is_immutable(key) && value_is_callable(f) => {
+            do_map_update(m.clone(), key.clone(), Empty, f.clone(), vm.child_vm())
+        }
         [Map(m), key, default, f] if value_is_immutable(key) && value_is_callable(f) => {
             do_map_update(
                 m.clone(),
                 key.clone(),
                 default.clone(),
                 f.clone(),
-                vm.spawn_shared_vm(),
+                vm.child_vm(),
             )
         }
         _ => external_error!("map.update: Expected map, key, and function as arguments"),
@@ -230,8 +226,13 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn do_map_update(map: ValueMap, key: Value, default: Value, f: Value, mut vm: Vm) -> RuntimeResult {
-    let mut vm = vm.spawn_shared_vm();
+fn do_map_update(
+    map: ValueMap,
+    key: Value,
+    default: Value,
+    f: Value,
+    vm: &mut Vm,
+) -> RuntimeResult {
     if !map.contents().data.contains_key(&key) {
         map.contents_mut().data.insert(key.clone(), default);
     }

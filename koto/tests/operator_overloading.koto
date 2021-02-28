@@ -58,9 +58,16 @@ export tests =
     assert foo(40) >= foo(40)
 
   test_equal: ||
-    assert foo(21) == foo(21)
-    assert not (foo(21) == foo(22))
-    # TODO Add an assert_eq test
+    bar = |x, y|
+      x: x
+      y: y
+      @==: |self, other|
+        # Maps already have equality comparison that compare each member,
+        # so to show the effect of overloading, ignore y
+        self.x == other.x
+    assert bar(21, -1) == bar(21, -2)
+    assert not (bar(21, -1) == bar(22, -1))
+    assert_eq bar(100, -1), bar(100, -2)
 
   test_not_equal: ||
     assert foo(7) != foo(8)

@@ -19,24 +19,26 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for iter_output in iter {
                 match iter_output {
-                    Ok(Output::Value(value)) => match vm.run_function(f.clone(), &[value]) {
-                        Ok(Bool(result)) => {
-                            if !result {
-                                return Ok(Bool(false));
+                    Ok(Output::Value(value)) => {
+                        match vm.run_function(f.clone(), &[value]) {
+                            Ok(Bool(result)) => {
+                                if !result {
+                                    return Ok(Bool(false));
+                                }
                             }
+                            Ok(unexpected) => {
+                                return external_error!(
+                                    "iterator.all: Predicate should return a bool, found '{}'",
+                                    type_as_string(&unexpected)
+                                )
+                            }
+                            Err(error) => return Err(error.with_prefix("iterator.all")),
                         }
-                        Ok(unexpected) => {
-                            return external_error!(
-                                "iterator.all: Predicate should return a bool, found '{}'",
-                                type_as_string(&unexpected)
-                            )
-                        }
-                        Err(error) => return Err(error.with_prefix("iterator.all")),
-                    },
+                    }
                     Err(error) => return Err(error),
                     _ => unreachable!(),
                 }
@@ -51,7 +53,7 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for iter_output in iter {
                 match iter_output {
@@ -162,7 +164,7 @@ pub fn make_module() -> ValueMap {
                 let result = result.clone();
                 let f = f.clone();
                 let mut iter = make_iterator(iterable).unwrap();
-                let mut vm = vm.spawn_shared_vm();
+                let vm = vm.child_vm();
 
                 match iter
                     .lock_internals(|iterator| {
@@ -321,7 +323,7 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for (i, output) in iter.enumerate() {
                 match output {
@@ -514,7 +516,7 @@ fn fold_with_operator(
     initial_value: Value,
     operator: Operator,
 ) -> RuntimeResult {
-    let mut vm = vm.spawn_shared_vm();
+    let vm = vm.child_vm();
     let mut result = initial_value;
 
     for output in make_iterator(&iterable).unwrap().map(collect_pair) {
