@@ -296,6 +296,12 @@ impl Vm {
             Operator::Multiply => self.run_multiply(0, 1, 2)?,
             Operator::Divide => self.run_divide(0, 1, 2)?,
             Operator::Modulo => self.run_modulo(0, 1, 2)?,
+            Operator::Less => self.run_less(0, 1, 2)?,
+            Operator::LessOrEqual => self.run_less_or_equal(0, 1, 2)?,
+            Operator::Greater => self.run_greater(0, 1, 2)?,
+            Operator::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
+            Operator::Equal => self.run_equal(0, 1, 2)?,
+            Operator::NotEqual => self.run_not_equal(0, 1, 2)?,
         }
 
         if self.call_stack.is_empty() {
@@ -579,12 +585,10 @@ impl Vm {
                 self.run_greater_or_equal(register, lhs, rhs)
             }
             Instruction::Equal { register, lhs, rhs } => {
-                self.run_equal(register, lhs, rhs);
-                Ok(())
+                self.run_equal(register, lhs, rhs)
             }
             Instruction::NotEqual { register, lhs, rhs } => {
-                self.run_not_equal(register, lhs, rhs);
-                Ok(())
+                self.run_not_equal(register, lhs, rhs)
             }
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
@@ -1267,78 +1271,142 @@ impl Vm {
         Ok(())
     }
 
-    fn run_less(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use Value::*;
+    fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::Less, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Less)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Less);
+            }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_less_or_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use Value::*;
+    fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::LessOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::Operator(LessOrEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, LessOrEqual);
+            }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_greater(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use Value::*;
+    fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::Greater, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::Operator(Greater)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Greater);
+            }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_greater_or_equal(&mut self, register: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use Value::*;
+    fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::GreaterOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::Operator(GreaterOrEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, GreaterOrEqual);
+            }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
+    fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::Equal, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = (lhs_value == rhs_value).into();
-        self.set_register(register, result);
+        let result_value = match (lhs_value, rhs_value) {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Equal)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
+            }
+
+            _ => (lhs_value == rhs_value).into(),
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
     }
 
-    fn run_not_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
+    fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {Operator::NotEqual, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = (lhs_value != rhs_value).into();
-        self.set_register(register, result);
+        let result_value = match (lhs_value, rhs_value) {
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::Operator(NotEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
+            }
+
+            _ => (lhs_value != rhs_value).into(),
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
     }
 
     fn call_overloaded_binary_op(
