@@ -152,7 +152,7 @@ pub fn make_module() -> ValueMap {
             [List(l), f] if value_is_callable(f) => {
                 let l = l.clone();
                 let f = f.clone();
-                let mut vm = vm.spawn_shared_vm();
+                let vm = vm.child_vm();
 
                 let mut write_index = 0;
                 for read_index in 0..l.len() {
@@ -210,7 +210,7 @@ pub fn make_module() -> ValueMap {
         [List(l), f] if value_is_callable(f) => {
             let l = l.clone();
             let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
             let mut error = None;
 
             l.data_mut().sort_by_cached_key(|value| {
@@ -259,7 +259,7 @@ pub fn make_module() -> ValueMap {
         [List(l), f] if value_is_callable(f) => {
             let l = l.clone();
             let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for value in l.data_mut().iter_mut() {
                 *value = match vm.run_function(f.clone(), &[value.clone()]) {

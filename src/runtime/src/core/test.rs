@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Value, ValueMap, ValueNumber};
+use crate::{external_error, type_as_string, Operator, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -26,10 +26,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
         [a, b] => {
-            if a == b {
-                Ok(Empty)
-            } else {
-                external_error!("Assertion failed, '{}' is not equal to '{}'", a, b,)
+            let a = a.clone();
+            let b = b.clone();
+            let result = vm
+                .child_vm()
+                .run_binary_op(Operator::Equal, a.clone(), b.clone());
+            match result {
+                Ok(Bool(true)) => Ok(Empty),
+                Ok(Bool(false)) => {
+                    external_error!("Assertion failed, '{}' is not equal to '{}'", a, b)
+                }
+                Ok(unexpected) => external_error!(
+                    "assert_eq: expected Bool from comparison, found '{}'",
+                    type_as_string(&unexpected)
+                ),
+                Err(e) => Err(e.with_prefix("assert_eq")),
             }
         }
         _ => external_error!("assert_eq expects two arguments"),
@@ -37,10 +48,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
         [a, b] => {
-            if a != b {
-                Ok(Empty)
-            } else {
-                external_error!("Assertion failed, '{}' should not be equal to '{}'", a, b,)
+            let a = a.clone();
+            let b = b.clone();
+            let result = vm
+                .child_vm()
+                .run_binary_op(Operator::NotEqual, a.clone(), b.clone());
+            match result {
+                Ok(Bool(true)) => Ok(Empty),
+                Ok(Bool(false)) => {
+                    external_error!("Assertion failed, '{}' should not be equal to '{}'", a, b)
+                }
+                Ok(unexpected) => external_error!(
+                    "assert_ne: expected Bool from comparison, found '{}'",
+                    type_as_string(&unexpected)
+                ),
+                Err(e) => Err(e.with_prefix("assert_ne")),
             }
         }
         _ => external_error!("assert_ne expects two arguments"),
