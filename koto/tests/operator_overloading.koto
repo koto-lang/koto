@@ -10,19 +10,19 @@ foo = |x|
 # The overloaded operators are implemented after foo has been declared
 locals.foo_meta =
   # Arithmetic operators
-  @add: |self, other| foo self.x + other.x
-  @subtract: |self, other| foo self.x - other.x
-  @multiply: |self, other| foo self.x * other.x
-  @divide: |self, other| foo self.x / other.x
-  @modulo: |self, other| foo self.x % other.x
+  @+: |self, other| foo self.x + other.x
+  @-: |self, other| foo self.x - other.x
+  @*: |self, other| foo self.x * other.x
+  @/: |self, other| foo self.x / other.x
+  @%: |self, other| foo self.x % other.x
 
   #Comparison operators
-  @less: |self, other| self.x < other.x
-  @less_or_equal: |self, other| self.x <= other.x
-  @greater: |self, other| self.x > other.x
-  @greater_or_equal: |self, other| self.x >= other.x
-  @equal: |self, other| self.x == other.x
-  @not_equal: |self, other| not self == other
+  @<: |self, other| self.x < other.x
+  @<=: |self, other| self.x <= other.x
+  @>: |self, other| self.x > other.x
+  @>=: |self, other| self.x >= other.x
+  @==: |self, other| self.x == other.x
+  @!=: |self, other| not self == other
 
 
 export tests =

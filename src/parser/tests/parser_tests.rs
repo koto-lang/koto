@@ -219,7 +219,7 @@ x = [
         fn map_inline() {
             let source = r#"
 {}
-{"foo": 42, bar, baz: "hello", @add: 99}"#;
+{"foo": 42, bar, baz: "hello", @+: 99}"#;
             check_ast(
                 source,
                 &[
@@ -291,7 +291,7 @@ x =
   bar
   "baz":
     foo: 0
-  @subtract: -1
+  @-: -1
 x"#;
             check_ast(
                 source,
@@ -336,8 +336,8 @@ x"#;
         fn map_block_meta() {
             let source = r#"
 x =
-  @add: 0
-  @subtract: 1
+  @+: 0
+  @-: 1
 "#;
             check_ast(
                 source,

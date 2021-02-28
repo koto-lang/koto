@@ -778,22 +778,18 @@ impl<'source> Parser<'source> {
             Some(Token::At) => {
                 self.consume_next_token_on_same_line();
 
-                if self.consume_token() != Some(Token::Id) {
-                    return syntax_error!(ExpectedMetaKey, self);
-                }
-
-                let meta_key = match self.lexer.slice() {
-                    "add" => MetaId::Add,
-                    "subtract" => MetaId::Subtract,
-                    "multiply" => MetaId::Multiply,
-                    "divide" => MetaId::Divide,
-                    "modulo" => MetaId::Modulo,
-                    "less" => MetaId::Less,
-                    "less_or_equal" => MetaId::LessOrEqual,
-                    "greater" => MetaId::Greater,
-                    "greater_or_equal" => MetaId::GreaterOrEqual,
-                    "equal" => MetaId::Equal,
-                    "not_equal" => MetaId::NotEqual,
+                let meta_key = match self.consume_token() {
+                    Some(Token::Add) => MetaId::Add,
+                    Some(Token::Subtract) => MetaId::Subtract,
+                    Some(Token::Multiply) => MetaId::Multiply,
+                    Some(Token::Divide) => MetaId::Divide,
+                    Some(Token::Modulo) => MetaId::Modulo,
+                    Some(Token::Less) => MetaId::Less,
+                    Some(Token::LessOrEqual) => MetaId::LessOrEqual,
+                    Some(Token::Greater) => MetaId::Greater,
+                    Some(Token::GreaterOrEqual) => MetaId::GreaterOrEqual,
+                    Some(Token::Equal) => MetaId::Equal,
+                    Some(Token::NotEqual) => MetaId::NotEqual,
                     _ => return syntax_error!(UnexpectedMetaKey, self),
                 };
 
@@ -1510,7 +1506,7 @@ impl<'source> Parser<'source> {
 
             match (peeked_0, peeked_1, peeked_2) {
                 (Token::Id, Some(Token::Colon), _) => {}
-                (Token::At, Some(Token::Id), Some(Token::Colon)) => {}
+                (Token::At, Some(_), Some(Token::Colon)) => {}
                 _ => return Ok(None),
             }
         } else {

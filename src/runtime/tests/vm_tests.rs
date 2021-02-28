@@ -1989,11 +1989,11 @@ catch _
 locals = {}
 foo = |x| {x} + locals.foo_meta
 locals.foo_meta =
-  @add: |self, other| foo self.x + other.x
-  @subtract: |self, other| foo self.x - other.x
-  @multiply: |self, other| foo self.x * other.x
-  @divide: |self, other| foo self.x / other.x
-  @modulo: |self, other| foo self.x % other.x
+  @+: |self, other| foo self.x + other.x
+  @-: |self, other| foo self.x - other.x
+  @*: |self, other| foo self.x * other.x
+  @/: |self, other| foo self.x / other.x
+  @%: |self, other| foo self.x % other.x
 
 z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
 z.x
@@ -2006,7 +2006,7 @@ z.x
             let script = "
 foo = |x|
   x: x
-  @less: |self, other| self.x < other.x
+  @<: |self, other| self.x < other.x
 
 (foo 10) < (foo 20) and not (foo 30) < (foo 30)
 ";
@@ -2018,7 +2018,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @less_or_equal: |self, other| self.x <= other.x
+  @<=: |self, other| self.x <= other.x
 
 (foo 10) <= (foo 20) and (foo 30) <= (foo 30)
 ";
@@ -2030,7 +2030,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @greater: |self, other| self.x > other.x
+  @>: |self, other| self.x > other.x
 
 (foo 0) > (foo -1) and not (foo 0) > (foo 0)
 ";
@@ -2042,7 +2042,7 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @greater_or_equal: |self, other| self.x >= other.x
+  @>=: |self, other| self.x >= other.x
 
 (foo 50) >= (foo 40) and (foo 50) >= (foo 50)
 ";
@@ -2054,9 +2054,11 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @equal: |self, other| self.x == other.x
+  @==: |self, other|
+    # Invert the default map equality behaviour to show its effect
+    self.x != other.x
 
-(foo 42) == (foo 42) and not (foo 42) == (foo 41)
+(foo 41) == (foo 42) and not (foo 42) == (foo 42)
 ";
             test_script(script, Bool(true));
         }
@@ -2066,9 +2068,11 @@ foo = |x|
             let script = "
 foo = |x|
   x: x
-  @equal: |self, other| self.x != other.x
+  @!=: |self, other|
+    # Invert the default map inequality behaviour to show its effect
+    self.x == other.x
 
-(foo 99) != (foo 100) and not (foo 99) != (foo 99)
+(foo 99) != (foo 99) and not (foo 99) != (foo 100)
 ";
             test_script(script, Bool(true));
         }
