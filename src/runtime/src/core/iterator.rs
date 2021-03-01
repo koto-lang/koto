@@ -23,22 +23,20 @@ pub fn make_module() -> ValueMap {
 
             for iter_output in iter {
                 match iter_output {
-                    Ok(Output::Value(value)) => {
-                        match vm.run_function(f.clone(), &[value]) {
-                            Ok(Bool(result)) => {
-                                if !result {
-                                    return Ok(Bool(false));
-                                }
+                    Ok(Output::Value(value)) => match vm.run_function(f.clone(), &[value]) {
+                        Ok(Bool(result)) => {
+                            if !result {
+                                return Ok(Bool(false));
                             }
-                            Ok(unexpected) => {
-                                return external_error!(
-                                    "iterator.all: Predicate should return a bool, found '{}'",
-                                    type_as_string(&unexpected)
-                                )
-                            }
-                            Err(error) => return Err(error.with_prefix("iterator.all")),
                         }
-                    }
+                        Ok(unexpected) => {
+                            return external_error!(
+                                "iterator.all: Predicate should return a bool, found '{}'",
+                                type_as_string(&unexpected)
+                            )
+                        }
+                        Err(error) => return Err(error.with_prefix("iterator.all")),
+                    },
                     Err(error) => return Err(error),
                     _ => unreachable!(),
                 }
@@ -246,18 +244,24 @@ pub fn make_module() -> ValueMap {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => cmp::max(result, value),
+                            Some(result) => {
+                                match vm.run_binary_op(Operator::Less, result, value) {
+                                    Ok(Bool(true)) => value,
+                                    Ok(Bool(false)) => result,
+                                    Err(error) => return Err(error.with_prefix("iterator.max")),
+                                }
+                            }
                             None => value,
                         })
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.with_prefix("iterator.max")),
                     _ => unreachable!(),
                 }
             }
 
             Ok(result.unwrap_or(Empty))
         }
-        _ => external_error!("iterator.min: Expected iterable as argument"),
+        _ => external_error!("iterator.max: Expected iterable as argument"),
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
@@ -268,11 +272,15 @@ pub fn make_module() -> ValueMap {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => cmp::min(result, value),
+                            Some(result) => match vm.run_binary_op(Operator::Less, result, value) {
+                                Ok(Bool(true)) => result,
+                                Ok(Bool(false)) => value,
+                                Err(error) => return Err(error.with_prefix("iterator.min")),
+                            },
                             None => value,
                         })
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.with_prefix("iterator.min")),
                     _ => unreachable!(),
                 }
             }
