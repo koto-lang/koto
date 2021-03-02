@@ -1,8 +1,9 @@
 use {
     crate::{
         external_error, value,
-        value::{deep_copy_value, quick_sort, value_is_callable},
-        RuntimeError, Value, ValueIterator, ValueList, ValueMap,
+        value::{deep_copy_value, value_is_callable},
+        value_sort::quick_sort,
+        Value, ValueIterator, ValueList, ValueMap,
     },
     std::ops::DerefMut,
 };
@@ -234,7 +235,7 @@ pub fn make_module() -> ValueMap {
         [List(l)] => {
             let mut result = l.data().clone();
             let end = result.len() - 1;
-            quick_sort(vm, &mut result, 0, end);
+            quick_sort(vm, &mut result, 0, end)?;
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.sort_copy: Expected list as argument"),

@@ -1,7 +1,7 @@
 use {
     crate::{
-        num2, num4, ExternalFunction, ExternalValue, IntRange, Operator, RuntimeError,
-        ValueIterator, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec, Vm,
+        num2, num4, ExternalFunction, ExternalValue, IntRange, ValueIterator, ValueList, ValueMap,
+        ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
@@ -394,59 +394,4 @@ pub fn value_size(value: &Value) -> usize {
         Range(IntRange { start, end }) => (end - start) as usize,
         _ => 1,
     }
-}
-
-pub fn quick_sort(
-    vm: &mut Vm,
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<(), RuntimeError> {
-    if start >= end {
-        return Ok(());
-    }
-
-    let pivot = partition(vm, arr, start, end)?;
-
-    quick_sort(vm, arr, start, (pivot - 1) as usize)?;
-    quick_sort(vm, arr, (pivot + 1) as usize, end)?;
-
-    Ok(())
-}
-
-fn partition(
-    vm: &mut Vm,
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<usize, RuntimeError> {
-    let mut pivot = arr[end];
-    let mut index = start;
-    let mut i = start;
-
-    while i < end {
-        if is_less(vm, arr[i].clone(), pivot.clone())? {
-            swap(arr, i, index);
-            index += 1;
-        }
-
-        i += 1;
-    }
-
-    swap(arr, index, end);
-
-    Ok(index)
-}
-
-fn is_less(vm: &mut Vm, a: Value, b: Value) -> Result<bool, RuntimeError> {
-    match vm.run_binary_op(Operator::Less, a, b)? {
-        Value::Bool(val) => Ok(val),
-        _ => unreachable!(),
-    }
-}
-
-fn swap(arr: &mut [Value], i: usize, j: usize) {
-    let temp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = temp;
 }
