@@ -425,7 +425,7 @@ fn partition(
     let mut i = start;
 
     while i < end {
-        if is_less(vm, arr[i], pivot)? {
+        if is_less(vm, arr[i].clone(), pivot.clone())? {
             swap(arr, i, index);
             index += 1;
         }
