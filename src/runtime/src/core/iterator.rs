@@ -235,16 +235,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let mut result: Option<Value> = None;
 
             for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => match vm.run_binary_op(Operator::Less, result, value) {
+                            Some(result) => match vm.run_binary_op(
+                                Operator::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
                                 Ok(Bool(true)) => value,
                                 Ok(Bool(false)) => result,
                                 Err(error) => return Err(error.with_prefix("iterator.max")),
+                                _ => unreachable!(),
                             },
                             None => value,
                         })
@@ -261,16 +266,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let mut result: Option<Value> = None;
 
             for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => match vm.run_binary_op(Operator::Less, result, value) {
+                            Some(result) => match vm.run_binary_op(
+                                Operator::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
                                 Ok(Bool(true)) => result,
                                 Ok(Bool(false)) => value,
                                 Err(error) => return Err(error.with_prefix("iterator.min")),
+                                _ => unreachable!(),
                             },
                             None => value,
                         })
@@ -289,8 +299,8 @@ pub fn make_module() -> ValueMap {
         [iterable] if value_is_iterable(iterable) => {
             let mut result = None;
 
-            let cmp = |op, a, b| -> RuntimeResult {
-                match vm.run_binary_op(op, a, b) {
+            let cmp = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
+                match vm.run_binary_op(op, a.clone(), b.clone()) {
                     Ok(Bool(true)) => Ok(a),
                     Ok(Bool(false)) => Ok(b),
                     Err(error) => Err(error.with_prefix("iterator.min_max")),
@@ -303,8 +313,8 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
                             Some((min, max)) => (
-                                cmp(Operator::Less, min, value.clone())?,
-                                cmp(Operator::Greater, max, value)?,
+                                cmp(vm, Operator::Less, min, value.clone())?,
+                                cmp(vm, Operator::Greater, max, value)?,
                             ),
                             None => (value.clone(), value),
                         })

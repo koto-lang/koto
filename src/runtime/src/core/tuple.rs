@@ -61,8 +61,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => {
             let mut result = t.data().to_vec();
+            let end = result.len() - 1;
 
-            quick_sort(vm, &mut result, 0, result.len())?;
+            quick_sort(vm, &mut result, 0, end)?;
 
             Ok(Tuple(result.into()))
         }

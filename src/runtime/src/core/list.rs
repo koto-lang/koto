@@ -205,23 +205,25 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut data = l.data_mut();
-            quick_sort(vm, &mut data, 0, data.len())?;
+            let end = data.len() - 1;
+            quick_sort(vm, &mut data, 0, end)?;
             Ok(Empty)
         }
         [List(l), f] if value_is_callable(f) => {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut data: Result<Vec<Value>, RuntimeError> = l
+            let mut data = l
                 .data_mut()
-                .into_iter()
+                .iter()
                 .map(|value| {
                     vm.run_function(f.clone(), &[value.clone()])
                         .map_err(|e| e.with_prefix("list.sort"))
                 })
-                .collect();
+                .collect::<Result<Vec<Value>, RuntimeError>>()?;
+            let end = data.len() - 1;
 
-            quick_sort(vm, &mut data?, 0, data?.len())?;
+            quick_sort(vm, &mut data, 0, end)?;
 
             Ok(Empty)
         }
@@ -231,7 +233,8 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut result = l.data().clone();
-            quick_sort(vm, &mut result, 0, result.len());
+            let end = result.len() - 1;
+            quick_sort(vm, &mut result, 0, end);
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.sort_copy: Expected list as argument"),
