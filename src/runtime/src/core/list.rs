@@ -213,14 +213,14 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut data = l
-                .data_mut()
-                .iter()
-                .map(|value| {
-                    vm.run_function(f.clone(), &[value.clone()])
-                        .map_err(|e| e.with_prefix("list.sort"))
-                })
-                .collect::<Result<Vec<Value>, RuntimeError>>()?;
+            let mut data = l.data_mut();
+
+            for (n, value) in data.clone().into_iter().enumerate() {
+                data[n] = vm
+                    .run_function(f.clone(), &[value])
+                    .map_err(|e| e.with_prefix("list.sort"))?;
+            }
+
             let end = data.len() - 1;
 
             quick_sort(vm, &mut data, 0, end)?;
