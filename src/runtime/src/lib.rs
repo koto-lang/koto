@@ -11,6 +11,7 @@ mod value_iterator;
 mod value_list;
 mod value_map;
 mod value_number;
+mod value_sort;
 mod value_string;
 mod value_tuple;
 mod vm;

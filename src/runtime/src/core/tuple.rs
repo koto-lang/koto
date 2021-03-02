@@ -1,5 +1,5 @@
 use crate::{
-    external_error, value::deep_copy_value, value::quick_sort, value_iterator::ValueIterator,
+    external_error, value::deep_copy_value, value_iterator::ValueIterator, value_sort::quick_sort,
     Value, ValueList, ValueMap,
 };
 
