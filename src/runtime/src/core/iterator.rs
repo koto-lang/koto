@@ -244,13 +244,11 @@ pub fn make_module() -> ValueMap {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => {
-                                match vm.run_binary_op(Operator::Less, result, value) {
-                                    Ok(Bool(true)) => value,
-                                    Ok(Bool(false)) => result,
-                                    Err(error) => return Err(error.with_prefix("iterator.max")),
-                                }
-                            }
+                            Some(result) => match vm.run_binary_op(Operator::Less, result, value) {
+                                Ok(Bool(true)) => value,
+                                Ok(Bool(false)) => result,
+                                Err(error) => return Err(error.with_prefix("iterator.max")),
+                            },
                             None => value,
                         })
                     }
@@ -294,13 +292,22 @@ pub fn make_module() -> ValueMap {
         [iterable] if value_is_iterable(iterable) => {
             let mut result = None;
 
+            let cmp = |op, a, b| -> RuntimeResult {
+                match vm.run_binary_op(op, a, b) {
+                    Ok(Bool(true)) => Ok(a),
+                    Ok(Bool(false)) => Ok(b),
+                    Err(error) => Err(error.with_prefix("iterator.min_max")),
+                }
+            };
+
             for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some((min, max)) => {
-                                (cmp::min(min, value.clone()), cmp::max(max, value))
-                            }
+                            Some((min, max)) => (
+                                cmp(Operator::Less, min, value.clone())?,
+                                cmp(Operator::Greater, max, value)?,
+                            ),
                             None => (value.clone(), value),
                         })
                     }
