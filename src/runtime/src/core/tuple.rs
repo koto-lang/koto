@@ -1,6 +1,6 @@
 use crate::{
-    external_error, value::deep_copy_value, value_iterator::ValueIterator, Value, ValueList,
-    ValueMap,
+    external_error, value::deep_copy_value, value_iterator::ValueIterator, Operator, RuntimeError,
+    Value, ValueList, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -61,7 +61,64 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => {
             let mut result = t.data().to_vec();
-            result.sort();
+
+            fn is_less(vm: &mut Vm, a: Value, b: Value) -> Result<bool, RuntimeError> {
+                match vm.run_binary_op(Operator::Less, a, b)? {
+                    Bool(val) => Ok(val),
+                    _ => unreachable!(),
+                }
+            }
+
+            fn swap(arr: &mut [Value], i: usize, j: usize) {
+                let temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+
+            fn partition(
+                vm: &mut Vm,
+                arr: &mut [Value],
+                start: usize,
+                end: usize,
+            ) -> Result<usize, RuntimeError> {
+                let mut pivot = arr[end];
+                let mut index = start;
+                let mut i = start;
+
+                while i < end {
+                    if is_less(vm, arr[i], pivot)? {
+                        swap(arr, i, index);
+                        index += 1;
+                    }
+
+                    i += 1;
+                }
+
+                swap(arr, index, end);
+
+                Ok(index)
+            }
+
+            fn quick_sort(
+                vm: &mut Vm,
+                arr: &mut [Value],
+                start: usize,
+                end: usize,
+            ) -> Result<(), RuntimeError> {
+                if start >= end {
+                    return Ok(());
+                }
+
+                let pivot = partition(vm, arr, start, end)?;
+
+                quick_sort(vm, arr, start, (pivot - 1) as usize)?;
+                quick_sort(vm, arr, (pivot + 1) as usize, end)?;
+
+                Ok(())
+            }
+
+            quick_sort(vm, &mut result, 0, result.len())?;
+
             Ok(Tuple(result.into()))
         }
         _ => external_error!("tuple.sort_copy: Expected tuple as argument"),
