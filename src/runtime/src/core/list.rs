@@ -215,13 +215,13 @@ pub fn make_module() -> ValueMap {
             let mut data: Result<Vec<Value>, RuntimeError> = l
                 .data_mut()
                 .into_iter()
-                .map(|value| match vm.run_function(f.clone(), &[value.clone()]) {
-                    Ok(result) => Ok(result),
-                    Err(e) => Err(e.with_prefix("list.sort")),
+                .map(|value| {
+                    vm.run_function(f.clone(), &[value.clone()])
+                        .map_err(|e| e.with_prefix("list.sort"))
                 })
                 .collect();
 
-            quick_sort(vm, &mut data?, 0, data?.len());
+            quick_sort(vm, &mut data?, 0, data?.len())?;
 
             Ok(Empty)
         }
