@@ -1,13 +1,10 @@
-use {
-    crate::{
-        external_error, type_as_string, value,
-        value::{value_is_callable, value_is_iterable},
-        value_iterator::{
-            make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
-        },
-        Operator, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
+use crate::{
+    external_error, type_as_string, value,
+    value::{value_is_callable, value_is_iterable},
+    value_iterator::{
+        make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
-    std::cmp,
+    Operator, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -297,6 +294,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(true)) => Ok(a),
                     Ok(Bool(false)) => Ok(b),
                     Err(error) => Err(error.with_prefix("iterator.min_max")),
+                    _ => unreachable!(),
                 }
             };
 
