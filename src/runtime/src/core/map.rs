@@ -1,9 +1,11 @@
+use std::cmp::Ordering;
+
 use crate::{
     external_error, type_as_string,
     value::{deep_copy_value, value_is_callable},
     value_is_immutable,
     value_iterator::ValueIteratorOutput as Output,
-    RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
+    Operator, RuntimeError, RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -136,7 +138,21 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            m.contents_mut().data.sort_keys();
+            let m = m.clone();
+            let cmp = |vm: &mut Vm, a: &Value, b: &Value| -> Result<Ordering, RuntimeError> {
+                if let Bool(true) = vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
+                    return Ok(Ordering::Equal);
+                }
+
+                match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
+                    Bool(true) => Ok(Ordering::Less),
+                    Bool(false) => Ok(Ordering::Greater),
+                    _ => unreachable!(),
+                }
+            };
+            m.contents_mut()
+                .data
+                .sort_by(|key_a, _, key_b, _| cmp(vm, key_a, key_b).unwrap());
             Ok(Empty)
         }
         [Map(l), f] if value_is_callable(f) => {
