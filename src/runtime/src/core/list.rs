@@ -1,8 +1,8 @@
 use {
     crate::{
         external_error, value,
-        value::{deep_copy_value, value_is_callable, quick_sort},
-        Value, ValueIterator, ValueList, ValueMap,
+        value::{deep_copy_value, quick_sort, value_is_callable},
+        RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
     std::ops::DerefMut,
 };
@@ -212,23 +212,18 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut error = None;
+            let mut data: Result<Vec<Value>, RuntimeError> = l
+                .data_mut()
+                .into_iter()
+                .map(|value| match vm.run_function(f.clone(), &[value.clone()]) {
+                    Ok(result) => Ok(result),
+                    Err(e) => Err(e.with_prefix("list.sort")),
+                })
+                .collect();
 
-            l.data_mut().sort_by_cached_key(|value| {
-                match vm.run_function(f.clone(), &[value.clone()]) {
-                    Ok(result) => result,
-                    Err(e) => {
-                        error.get_or_insert(Err(e.with_prefix("list.sort")));
-                        Empty
-                    }
-                }
-            });
+            quick_sort(vm, &mut data?, 0, data?.len());
 
-            if let Some(error) = error {
-                error
-            } else {
-                Ok(Empty)
-            }
+            Ok(Empty)
         }
         _ => external_error!("list.sort: Expected list as argument"),
     });
