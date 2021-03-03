@@ -2,7 +2,7 @@ use {
     crate::{
         external_error, value,
         value::{deep_copy_value, value_is_callable},
-        value_sort::quick_sort,
+        value_sort::{quick_sort, quick_sort_by_key},
         Value, ValueIterator, ValueList, ValueMap,
     },
     std::ops::DerefMut,
@@ -216,17 +216,15 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut error = None;
+            let mut arr = l.data_mut();
+            let mut key = arr.clone();
+            let end = arr.len() - 1;
+            
+            for (n, value) in key.clone().iter().enumerate() {
+                key[n] = vm.run_function(f.clone(), &[value.clone()])?;
+            }
 
-            l.data_mut().sort_by_cached_key(|value| {
-                match vm.run_function(f.clone(), &[value.clone()]) {
-                    Ok(result) => result,
-                    Err(e) => {
-                        error.get_or_insert(Err(e.with_prefix("list.sort")));
-                        Empty
-                    }
-                }
-            });
+            quick_sort_by_key(vm, &mut key, &mut arr, 0, end)?;
 
             Ok(Empty)
         }
@@ -236,6 +234,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut result = l.data().clone();
+            let vm = vm.child_vm();
             let end = result.len() - 1;
             quick_sort(vm, &mut result, 0, end)?;
             Ok(List(ValueList::with_data(result)))
