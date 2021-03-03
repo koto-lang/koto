@@ -219,7 +219,7 @@ pub fn make_module() -> ValueMap {
             let mut arr = l.data_mut();
             let mut key = arr.clone();
             let end = arr.len() - 1;
-            
+
             for (n, value) in key.clone().iter().enumerate() {
                 key[n] = vm.run_function(f.clone(), &[value.clone()])?;
             }
