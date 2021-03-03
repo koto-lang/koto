@@ -216,17 +216,17 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut data = l.data_mut();
+            let mut error = None;
 
-            for (n, value) in data.clone().into_iter().enumerate() {
-                data[n] = vm
-                    .run_function(f.clone(), &[value])
-                    .map_err(|e| e.with_prefix("list.sort"))?;
-            }
-
-            let end = data.len() - 1;
-
-            quick_sort(vm, &mut data, 0, end)?;
+            l.data_mut().sort_by_cached_key(|value| {
+                match vm.run_function(f.clone(), &[value.clone()]) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error.get_or_insert(Err(e.with_prefix("list.sort")));
+                        Empty
+                    }
+                }
+            });
 
             Ok(Empty)
         }
