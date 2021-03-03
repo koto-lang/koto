@@ -235,9 +235,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
             let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
@@ -266,9 +268,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
             let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
@@ -297,6 +301,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
             let mut result = None;
 
             let cmp = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
@@ -308,7 +314,7 @@ pub fn make_module() -> ValueMap {
                 }
             };
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {

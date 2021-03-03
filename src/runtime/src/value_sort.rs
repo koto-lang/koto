@@ -15,8 +15,12 @@ pub fn quick_sort(
 
     let pivot = partition(vm, arr, start, end)?;
 
-    quick_sort(vm, arr, start, (pivot - 1) as usize)?;
-    quick_sort(vm, arr, (pivot + 1) as usize, end)?;
+    if pivot < 1 {
+        return Ok(());
+    }
+
+    quick_sort(vm, arr, start, pivot - 1)?;
+    quick_sort(vm, arr, pivot + 1, end)?;
 
     Ok(())
 }
