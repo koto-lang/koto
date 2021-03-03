@@ -140,6 +140,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let m = m.clone();
+            let vm = vm.child_vm();
 
             let mut error = None;
 
