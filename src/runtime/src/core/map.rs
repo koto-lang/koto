@@ -150,9 +150,23 @@ pub fn make_module() -> ValueMap {
                     _ => unreachable!(),
                 }
             };
+
+            let mut error = None;
+
             m.contents_mut()
                 .data
-                .sort_by(|key_a, _, key_b, _| cmp(vm, key_a, key_b).unwrap());
+                .sort_by(|key_a, _, key_b, _| match cmp(vm, key_a, key_b) {
+                    Ok(ordering) => ordering,
+                    Err(e) => {
+                        error.get_or_insert(e);
+                        Ordering::Equal
+                    }
+                });
+
+            if let Some(err) = error {
+                return Err(err);
+            }
+
             Ok(Empty)
         }
         [Map(l), f] if value_is_callable(f) => {
