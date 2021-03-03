@@ -5,7 +5,8 @@ use crate::{
     value::{deep_copy_value, value_is_callable},
     value_is_immutable,
     value_iterator::ValueIteratorOutput as Output,
-    Operator, RuntimeError, RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
+    value_sort::cmp,
+    RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -139,17 +140,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let m = m.clone();
-            let cmp = |vm: &mut Vm, a: &Value, b: &Value| -> Result<Ordering, RuntimeError> {
-                if let Bool(true) = vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
-                    return Ok(Ordering::Equal);
-                }
-
-                match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
-                    Bool(true) => Ok(Ordering::Less),
-                    Bool(false) => Ok(Ordering::Greater),
-                    _ => unreachable!(),
-                }
-            };
 
             let mut error = None;
 
@@ -175,16 +165,14 @@ pub fn make_module() -> ValueMap {
             let vm = vm.child_vm();
             let mut error = None;
 
-            let mut get_sort_key = |cache: &mut ValueHashMap, key: &Value, value: &Value| {
-                let value = match vm.run_function(f.clone(), &[key.clone(), value.clone()]) {
-                    Ok(value) => value,
-                    Err(e) => {
-                        error.get_or_insert(Err(e.with_prefix("map.sort")));
-                        Empty
-                    }
-                };
+            let get_sort_key = |vm: &mut Vm,
+                                cache: &mut ValueHashMap,
+                                key: &Value,
+                                value: &Value|
+             -> RuntimeResult {
+                let value = vm.run_function(f.clone(), &[key.clone(), value.clone()])?;
                 cache.insert(key.clone(), value.clone());
-                value
+                Ok(value)
             };
 
             let mut cache = ValueHashMap::with_capacity(m.len());
@@ -193,13 +181,32 @@ pub fn make_module() -> ValueMap {
                 .sort_by(|key_a, value_a, key_b, value_b| {
                     let value_a = match cache.get(key_a) {
                         Some(value) => value.clone(),
-                        None => get_sort_key(&mut cache, key_a, value_a),
+                        None => match get_sort_key(vm, &mut cache, key_a, value_a) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                error.get_or_insert(Err(e.with_prefix("map.sort")));
+                                Empty
+                            }
+                        },
                     };
                     let value_b = match cache.get(key_b) {
                         Some(value) => value.clone(),
-                        None => get_sort_key(&mut cache, key_b, value_b),
+                        None => match get_sort_key(vm, &mut cache, key_b, value_b) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                error.get_or_insert(Err(e.with_prefix("map.sort")));
+                                Empty
+                            }
+                        },
                     };
-                    value_a.cmp(&value_b)
+
+                    match cmp(vm, &value_a, &value_b) {
+                        Ok(ordering) => ordering,
+                        Err(e) => {
+                            error.get_or_insert(Err(e));
+                            Ordering::Equal
+                        }
+                    }
                 });
 
             if let Some(error) = error {
