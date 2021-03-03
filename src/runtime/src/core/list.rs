@@ -206,6 +206,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let l = l.clone();
+            let vm = vm.child_vm();
             let mut data = l.data_mut();
             let end = data.len() - 1;
             quick_sort(vm, &mut data, 0, end)?;
