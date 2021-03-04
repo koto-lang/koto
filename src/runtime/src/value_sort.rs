@@ -4,7 +4,7 @@
 
 use std::cmp::Ordering;
 
-use crate::{Operator, RuntimeError, Value, Vm};
+use crate::{external_error, type_as_string, Operator, RuntimeError, Value, Vm};
 
 /// An implementation of the quick sort algorithm for a slice of [Value].
 pub fn quick_sort(
@@ -108,13 +108,23 @@ fn partition_with_key(
 
 /// Replaces `Ord::cmp` in implementations where `Ordering` needed.
 pub fn cmp(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
-    if let Value::Bool(true) = vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
-        return Ok(Ordering::Equal);
+    match vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
+        Value::Bool(true) => return Ok(Ordering::Equal),
+        Value::Bool(false) => (),
+        unexpected => {
+            return external_error!(
+                "iterator.min: Expected Bool from == comparison, found '{}'",
+                type_as_string(&unexpected)
+            );
+        }
     }
 
     match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
         Value::Bool(true) => Ok(Ordering::Less),
         Value::Bool(false) => Ok(Ordering::Greater),
-        _ => unreachable!(),
+        unexpected => external_error!(
+            "iterator.min: Expected Bool from < comparison, found '{}'",
+            type_as_string(&unexpected)
+        ),
     }
 }

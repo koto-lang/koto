@@ -1,5 +1,5 @@
 use crate::{
-    external_error, type_as_string, value,
+    external_error, operator_as_string, type_as_string, value,
     value::{value_is_callable, value_is_iterable},
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
@@ -250,8 +250,14 @@ pub fn make_module() -> ValueMap {
                             ) {
                                 Ok(Bool(true)) => value,
                                 Ok(Bool(false)) => result,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.max: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
                                 Err(error) => return Err(error.with_prefix("iterator.max")),
-                                _ => unreachable!(),
                             },
                             None => value,
                         })
@@ -283,8 +289,14 @@ pub fn make_module() -> ValueMap {
                             ) {
                                 Ok(Bool(true)) => result,
                                 Ok(Bool(false)) => value,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.min: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
                                 Err(error) => return Err(error.with_prefix("iterator.min")),
-                                _ => unreachable!(),
                             },
                             None => value,
                         })
@@ -309,8 +321,15 @@ pub fn make_module() -> ValueMap {
                 match vm.run_binary_op(op, a.clone(), b.clone()) {
                     Ok(Bool(true)) => Ok(a),
                     Ok(Bool(false)) => Ok(b),
+                    Ok(unexpected) => {
+                        return external_error!(
+                            "iterator.min_max: \
+                             Expected Bool from {} comparison, found '{}'",
+                            operator_as_string(&op),
+                            type_as_string(&unexpected)
+                        );
+                    }
                     Err(error) => Err(error.with_prefix("iterator.min_max")),
-                    _ => unreachable!(),
                 }
             };
 
