@@ -1,5 +1,5 @@
 use crate::{
-    external_error, operator_as_string, type_as_string, value,
+    external_error, type_as_string, value,
     value::{value_is_callable, value_is_iterable},
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
@@ -325,7 +325,7 @@ pub fn make_module() -> ValueMap {
                         return external_error!(
                             "iterator.min_max: \
                              Expected Bool from {} comparison, found '{}'",
-                            operator_as_string(&op),
+                            op,
                             type_as_string(&unexpected)
                         );
                     }
