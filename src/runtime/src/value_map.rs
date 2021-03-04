@@ -184,6 +184,25 @@ pub enum Operator {
     NotEqual,
 }
 
+/// Get string representation of [Operator].
+pub fn operator_as_string(op: &Operator) -> String {
+    use Operator::*;
+
+    match op {
+        Add => "+".to_string(),
+        Subtract => "-".to_string(),
+        Multiply => "*".to_string(),
+        Divide => "/".to_string(),
+        Modulo => "%".to_string(),
+        Less => "<".to_string(),
+        LessOrEqual => "<=".to_string(),
+        Greater => ">".to_string(),
+        GreaterOrEqual => ">=".to_string(),
+        Equal => "==".to_string(),
+        NotEqual => "!=".to_string(),
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
     Operator(Operator),
