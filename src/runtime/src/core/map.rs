@@ -139,29 +139,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            let m = m.clone();
-            let vm = vm.child_vm();
-
-            let mut error = None;
-
-            m.contents_mut().data.sort_by(|key_a, _, key_b, _| {
-                if error.is_some() {
-                    return Ordering::Equal;
-                }
-
-                match compare_values(vm, key_a, key_b) {
-                    Ok(ordering) => ordering,
-                    Err(e) => {
-                        error.get_or_insert(e);
-                        Ordering::Equal
-                    }
-                }
-            });
-
-            if let Some(err) = error {
-                return Err(err);
-            }
-
+            m.contents_mut().data.sort_keys();
             Ok(Empty)
         }
         [Map(l), f] if value_is_callable(f) => {
