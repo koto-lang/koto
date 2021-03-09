@@ -125,13 +125,4 @@ pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, Run
             )
         }
     }
-
-    // match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
-    // Value::Bool(true) => Ok(Ordering::Less),
-    // Value::Bool(false) => Ok(Ordering::Greater),
-    // unexpected => external_error!(
-    // "Expected Bool from < comparison, found '{}'",
-    // type_as_string(&unexpected)
-    // ),
-    // }
 }
