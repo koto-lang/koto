@@ -1,6 +1,12 @@
 import map
 from test import assert, assert_eq
 
+make_foo = |x|
+  x: x
+  @<: |self, other| self.x < other.x
+  @>: |self, other| self.x > other.x
+  @==: |self, other| self.x == other.x
+
 export tests =
   test_clear: ||
     m = {foo: 42, bar: 99}
@@ -93,6 +99,14 @@ export tests =
     # and returns a value which is then used for sorting.
     m.sort |key, value| value
     assert_eq m.keys().to_tuple(), ("foo", "bar")
+
+    m = 
+      foo: make_foo(27)
+      bar: make_foo(42)
+      baz: make_foo(-1)
+
+    m.sort |key, value| value
+    assert_eq m.keys().to_tuple(), ("baz", "foo", "bar")
 
   test_update: ||
     m = {foo: 42}
