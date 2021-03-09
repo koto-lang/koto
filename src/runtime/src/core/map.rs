@@ -162,6 +162,10 @@ pub fn make_module() -> ValueMap {
             m.contents_mut()
                 .data
                 .sort_by(|key_a, value_a, key_b, value_b| {
+                    if error.is_some() {
+                        return Ordering::Equal;
+                    }
+
                     let value_a = match cache.get(key_a) {
                         Some(value) => value.clone(),
                         None => match get_sort_key(vm, &mut cache, key_a, value_a) {
