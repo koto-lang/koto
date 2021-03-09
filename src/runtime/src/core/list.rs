@@ -230,7 +230,7 @@ pub fn make_module() -> ValueMap {
 
             let mut error = None;
 
-            // sort array by key
+            // sort array by key (i.e. from [key, value])
             pairs.sort_by(|a, b| {
                 if error.is_some() {
                     return Ordering::Equal;
