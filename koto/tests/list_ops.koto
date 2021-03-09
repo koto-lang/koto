@@ -1,6 +1,11 @@
 import list
 from test import assert, assert_eq
 
+make_foo = |x|
+  x: x
+  @<: |self, other| self.x < other.x
+  @>: |self, other| self.x > other.x
+  @==: |self, other| self.x == other.x
 
 export tests =
   test_clear: ||
@@ -117,6 +122,20 @@ export tests =
     z = [[4, 5, 6], [1], [2, 3]]
     z.sort list.size
     assert_eq z, [[1], [2, 3], [4, 5, 6]]
+
+    # values with overloaded operators
+    a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
+    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
+    z.sort()
+
+    for n in 0..z.size()
+      assert_eq z[n], a[n]
+
+    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
+    z.sort |n| -n.x # reverse sorting
+
+    for n in 0..z.size()
+      assert_eq z[n], a[a.size() - 1 - n]
 
   test_sort_copy: ||
     assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]
