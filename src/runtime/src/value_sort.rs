@@ -31,59 +31,6 @@ pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), RuntimeError> {
     Ok(())
 }
 
-/// The same as [quick_sort], but sorts the `arr` by provided `key`.
-///
-/// Notice, this function doesn't check equality of sizes between arrays.
-pub fn quick_sort_by_key(
-    vm: &mut Vm,
-    key: &mut [Value],
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<(), RuntimeError> {
-    if start >= end {
-        return Ok(());
-    }
-
-    let pivot = partition_with_key(vm, key, arr, start, end)?;
-
-    if pivot < 1 {
-        return Ok(());
-    }
-
-    quick_sort_by_key(vm, key, arr, start, pivot - 1)?;
-    quick_sort_by_key(vm, key, arr, pivot + 1, end)?;
-
-    Ok(())
-}
-
-fn partition_with_key(
-    vm: &mut Vm,
-    key: &mut [Value],
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<usize, RuntimeError> {
-    let pivot = key[end].clone();
-    let mut index = start;
-    let mut i = start;
-
-    while i < end {
-        if let Ordering::Less = compare_values(vm, &key[i], &pivot)? {
-            key.swap(i, index);
-            arr.swap(i, index);
-            index += 1;
-        }
-
-        i += 1;
-    }
-
-    key.swap(index, end);
-    arr.swap(index, end);
-
-    Ok(index)
-}
-
 /// Compares values using Koto operators.
 pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
     match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {

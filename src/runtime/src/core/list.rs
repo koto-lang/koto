@@ -2,9 +2,11 @@ use {
     crate::{
         external_error, value,
         value::{deep_copy_value, value_is_callable},
-        value_sort::{quick_sort_by_key, sort_values},
-        Value, ValueIterator, ValueList, ValueMap,
+        value_sort::{compare_values, sort_values},
+        RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
+    smallvec::SmallVec,
+    std::cmp::Ordering,
     std::ops::DerefMut,
 };
 
@@ -215,15 +217,44 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let mut arr = l.data_mut();
-            let mut key = arr.clone();
-            let end = arr.len() - 1;
+            let arr = l.data().clone();
 
-            for (n, value) in key.clone().iter().enumerate() {
-                key[n] = vm.run_function(f.clone(), &[value.clone()])?;
-            }
+            // apply function and contruct array [key, value]
+            let mut pairs = arr
+                .iter()
+                .map(|val| match vm.run_function(f.clone(), &[val.clone()]) {
+                    Ok(v) => Ok([v, val.clone()]),
+                    Err(e) => Err(e),
+                })
+                .collect::<Result<Vec<[Value; 2]>, RuntimeError>>()?;
 
-            quick_sort_by_key(vm, &mut key, &mut arr, 0, end)?;
+            let mut error = None;
+
+            // sort array by key
+            pairs.sort_by(|a, b| {
+                if error.is_some() {
+                    return Ordering::Equal;
+                }
+
+                match compare_values(vm, &a[0], &b[0]) {
+                    Ok(ordering) => ordering,
+                    Err(e) => {
+                        error.get_or_insert(e);
+                        Ordering::Equal
+                    }
+                }
+            });
+
+            // collect values
+            *l.data_mut() = pairs
+                .iter()
+                .map(|val| {
+                    if let Some(e) = error.as_ref() {
+                        return Err(e.clone());
+                    }
+                    Ok(val[1].clone())
+                })
+                .collect::<Result<SmallVec<[Value; 4]>, RuntimeError>>()?;
 
             Ok(Empty)
         }
