@@ -1,0 +1,35 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: white;
+}
+
+.flex-container {
+  display: flex;
+  flex-wrap: wrap;
+  height: 100%;
+}
+
+.flex-left {
+  flex: 50%;
+}
+
+.flex-right {
+  flex: 50%;
+}
+
+@media (max-width: 800px) {
+  .flex-left, .flex-right {
+    flex: 100%;
+  }
+}
+
+#editor {
+  flex-grow: 1;
+}

@@ -27,3 +27,6 @@ test_all:
 
 test_benches:
   cargo watch -x "test --benches"
+
+wasm:
+  cd examples/wasm && wasm-pack build
