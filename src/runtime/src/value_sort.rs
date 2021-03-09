@@ -39,7 +39,7 @@ pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, Run
             Value::Bool(true) => Ok(Ordering::Greater),
             Value::Bool(false) => Ok(Ordering::Equal),
             unexpected => external_error!(
-                "Expected Bool from comparison, found '{}'",
+                "Expected Bool from > comparison, found '{}'",
                 type_as_string(&unexpected)
             ),
         },
