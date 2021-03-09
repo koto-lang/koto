@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Logging behaviour via print and debug logging can now be customized.
+- Koto can now be compiled to wasm.
+
+
 ### Changed
 - Captured values in functions are now immutable.
   - e.g.
