@@ -40,7 +40,7 @@ fn partition(
     let mut i = start;
 
     while i < end {
-        if let Ordering::Less = cmp(vm, &arr[i], &pivot)? {
+        if let Ordering::Less = compare_values(vm, &arr[i], &pivot)? {
             arr.swap(i, index);
             index += 1;
         }
@@ -91,7 +91,7 @@ fn partition_with_key(
     let mut i = start;
 
     while i < end {
-        if let Ordering::Less = cmp(vm, &key[i], &pivot)? {
+        if let Ordering::Less = compare_values(vm, &key[i], &pivot)? {
             key.swap(i, index);
             arr.swap(i, index);
             index += 1;
@@ -106,14 +106,14 @@ fn partition_with_key(
     Ok(index)
 }
 
-/// Replaces `Ord::cmp` in implementations where `Ordering` needed.
-pub fn cmp(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
+/// Compares values using Koto operators.
+pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
     match vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
         Value::Bool(true) => return Ok(Ordering::Equal),
         Value::Bool(false) => (),
         unexpected => {
             return external_error!(
-                "iterator.min: Expected Bool from == comparison, found '{}'",
+                "Expected Bool from == comparison, found '{}'",
                 type_as_string(&unexpected)
             );
         }
@@ -123,7 +123,7 @@ pub fn cmp(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> 
         Value::Bool(true) => Ok(Ordering::Less),
         Value::Bool(false) => Ok(Ordering::Greater),
         unexpected => external_error!(
-            "iterator.min: Expected Bool from < comparison, found '{}'",
+            "Expected Bool from < comparison, found '{}'",
             type_as_string(&unexpected)
         ),
     }
