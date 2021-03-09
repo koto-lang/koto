@@ -108,23 +108,30 @@ fn partition_with_key(
 
 /// Compares values using Koto operators.
 pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, RuntimeError> {
-    match vm.run_binary_op(Operator::Equal, a.clone(), b.clone())? {
-        Value::Bool(true) => return Ok(Ordering::Equal),
-        Value::Bool(false) => (),
-        unexpected => {
-            return external_error!(
-                "Expected Bool from == comparison, found '{}'",
+    match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
+        Value::Bool(true) => Ok(Ordering::Less),
+        Value::Bool(false) => match vm.run_binary_op(Operator::Greater, a.clone(), b.clone())? {
+            Value::Bool(true) => Ok(Ordering::Greater),
+            Value::Bool(false) => Ok(Ordering::Equal),
+            unexpected => external_error!(
+                "Expected Bool from comparison, found '{}'",
                 type_as_string(&unexpected)
-            );
+            ),
+        },
+        unexpected => {
+            external_error!(
+                "Expected Bool from < comparison, found '{}'",
+                type_as_string(&unexpected)
+            )
         }
     }
 
-    match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
-        Value::Bool(true) => Ok(Ordering::Less),
-        Value::Bool(false) => Ok(Ordering::Greater),
-        unexpected => external_error!(
-            "Expected Bool from < comparison, found '{}'",
-            type_as_string(&unexpected)
-        ),
-    }
+    // match vm.run_binary_op(Operator::Less, a.clone(), b.clone())? {
+    // Value::Bool(true) => Ok(Ordering::Less),
+    // Value::Bool(false) => Ok(Ordering::Greater),
+    // unexpected => external_error!(
+    // "Expected Bool from < comparison, found '{}'",
+    // type_as_string(&unexpected)
+    // ),
+    // }
 }
