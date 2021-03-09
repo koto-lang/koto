@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- Binary operators overloading are now supported.
+- Binary operators overloading is now supported.
 - Captured values in functions are now immutable.
   - e.g.
     ```
