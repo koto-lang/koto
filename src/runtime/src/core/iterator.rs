@@ -317,7 +317,7 @@ pub fn make_module() -> ValueMap {
             let vm = vm.child_vm();
             let mut result = None;
 
-            let cmp = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
+            let compare_values = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
                 match vm.run_binary_op(op, a.clone(), b.clone()) {
                     Ok(Bool(true)) => Ok(a),
                     Ok(Bool(false)) => Ok(b),
@@ -338,8 +338,8 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
                             Some((min, max)) => (
-                                cmp(vm, Operator::Less, min, value.clone())?,
-                                cmp(vm, Operator::Greater, max, value)?,
+                                compare_values(vm, Operator::Less, min, value.clone())?,
+                                compare_values(vm, Operator::Greater, max, value)?,
                             ),
                             None => (value.clone(), value),
                         })

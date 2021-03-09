@@ -5,7 +5,7 @@ use crate::{
     value::{deep_copy_value, value_is_callable},
     value_is_immutable,
     value_iterator::ValueIteratorOutput as Output,
-    value_sort::cmp,
+    value_sort::compare_values,
     RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
@@ -146,7 +146,7 @@ pub fn make_module() -> ValueMap {
 
             m.contents_mut()
                 .data
-                .sort_by(|key_a, _, key_b, _| match cmp(vm, key_a, key_b) {
+                .sort_by(|key_a, _, key_b, _| match compare_values(vm, key_a, key_b) {
                     Ok(ordering) => ordering,
                     Err(e) => {
                         error.get_or_insert(e);
@@ -201,7 +201,7 @@ pub fn make_module() -> ValueMap {
                         },
                     };
 
-                    match cmp(vm, &value_a, &value_b) {
+                    match compare_values(vm, &value_a, &value_b) {
                         Ok(ordering) => ordering,
                         Err(e) => {
                             error.get_or_insert(Err(e));
