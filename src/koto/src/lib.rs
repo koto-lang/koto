@@ -29,7 +29,7 @@
 pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
-    koto_bytecode::{chunk_to_string, chunk_to_string_annotated, Chunk, LoaderError},
+    koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
         type_as_string, DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueList,
         ValueMap, ValueVec, Vm, VmSettings,
@@ -78,8 +78,6 @@ pub type KotoResult = Result<Value, KotoError>;
 #[derive(Clone)]
 pub struct KotoSettings {
     pub run_tests: bool,
-    pub show_annotated: bool,
-    pub show_bytecode: bool,
     pub repl_mode: bool,
     pub logger: Arc<dyn KotoLogger>,
 }
@@ -88,8 +86,6 @@ impl Default for KotoSettings {
     fn default() -> Self {
         Self {
             run_tests: true,
-            show_annotated: false,
-            show_bytecode: false,
             repl_mode: false,
             logger: Arc::new(DefaultLogger {}),
         }
@@ -140,22 +136,6 @@ impl Koto {
         match compile_result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
-                if self.settings.show_annotated {
-                    self.runtime.logger().writeln(&format!(
-                        "Constants\n---------\n{}\n",
-                        chunk.constants.to_string()
-                    ));
-
-                    let script_lines = script.lines().collect::<Vec<_>>();
-                    self.runtime.logger().writeln(&format!(
-                        "Instructions\n------------\n{}",
-                        chunk_to_string_annotated(chunk.clone(), &script_lines)
-                    ));
-                } else if self.settings.show_bytecode {
-                    self.runtime
-                        .logger()
-                        .writeln(&chunk_to_string(chunk.clone()));
-                }
                 Ok(chunk)
             }
             Err(error) => Err(error),

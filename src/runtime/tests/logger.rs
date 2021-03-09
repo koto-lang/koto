@@ -1,5 +1,5 @@
 use {
-    koto_bytecode::{chunk_to_string_annotated, Chunk},
+    koto_bytecode::Chunk,
     koto_runtime::{KotoLogger, Loader, Vm, VmSettings},
     parking_lot::Mutex,
     std::sync::Arc,
@@ -34,7 +34,7 @@ mod vm {
             println!("Constants\n---------\n{}\n", chunk.constants.to_string());
             println!(
                 "Instructions\n------------\n{}",
-                chunk_to_string_annotated(chunk, &script_lines)
+                Chunk::instructions_as_string(chunk, &script_lines)
             );
         };
 
