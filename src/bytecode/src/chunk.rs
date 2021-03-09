@@ -84,61 +84,72 @@ impl Chunk {
             debug_info,
         }
     }
-}
 
-/// Returns a [String] displaying the instructions contained in the compiled [Chunk]
-pub fn chunk_to_string(chunk: Arc<Chunk>) -> String {
-    let mut result = String::new();
-    let mut reader = InstructionReader::new(chunk);
-    let mut ip = reader.ip;
+    /// Returns a [String] displaying the instructions contained in the compiled [Chunk]
+    pub fn bytes_as_string(chunk: Arc<Chunk>) -> String {
+        let mut iter = chunk.bytes.iter();
+        let mut result = String::new();
 
-    while let Some(instruction) = reader.next() {
-        result += &format!("{}\t{}\n", ip, &instruction.to_string());
-        ip = reader.ip;
-    }
+        'outer: loop {
+            for i in 1..=16 {
+                match iter.next() {
+                    Some(byte) => result += &format!("{:02x}", byte),
+                    None => break 'outer,
+                }
+                if i < 16 {
+                    result += " ";
 
-    result
-}
-
-/// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
-pub fn chunk_to_string_annotated(chunk: Arc<Chunk>, source_lines: &[&str]) -> String {
-    let mut result = String::new();
-    let mut reader = InstructionReader::new(chunk);
-    let mut ip = reader.ip;
-    let mut span: Option<Span> = None;
-    let mut first = true;
-
-    while let Some(instruction) = reader.next() {
-        let instruction_span = reader
-            .chunk
-            .debug_info
-            .get_source_span(ip)
-            .expect("Missing source span");
-
-        let print_source_lines = if let Some(span) = span {
-            instruction_span.start.line != span.start.line
-        } else {
-            true
-        };
-
-        if print_source_lines && !source_lines.is_empty() {
-            if !first {
-                result += "\n";
+                    if i % 4 == 0 {
+                        result += " ";
+                    }
+                }
             }
-            first = false;
-
-            let line = instruction_span
-                .start
-                .line
-                .min(source_lines.len() as u32)
-                .max(1) as usize;
-            result += &format!("|{}| {}\n", line.to_string(), source_lines[line - 1]);
-            span = Some(instruction_span);
+            result += "\n";
         }
 
-        result += &format!("{}\t{:?}\n", ip, &instruction);
-        ip = reader.ip;
+        result
     }
 
-    result
+    /// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
+    pub fn instructions_as_string(chunk: Arc<Chunk>, source_lines: &[&str]) -> String {
+        let mut result = String::new();
+        let mut reader = InstructionReader::new(chunk);
+        let mut ip = reader.ip;
+        let mut span: Option<Span> = None;
+        let mut first = true;
+
+        while let Some(instruction) = reader.next() {
+            let instruction_span = reader
+                .chunk
+                .debug_info
+                .get_source_span(ip)
+                .expect("Missing source span");
+
+            let print_source_lines = if let Some(span) = span {
+                instruction_span.start.line != span.start.line
+            } else {
+                true
+            };
+
+            if print_source_lines && !source_lines.is_empty() {
+                if !first {
+                    result += "\n";
+                }
+                first = false;
+
+                let line = instruction_span
+                    .start
+                    .line
+                    .min(source_lines.len() as u32)
+                    .max(1) as usize;
+                result += &format!("|{}| {}\n", line.to_string(), source_lines[line - 1]);
+                span = Some(instruction_span);
+            }
+
+            result += &format!("{}\t{:?}\n", ip, &instruction);
+            ip = reader.ip;
+        }
+
+        result
+    }
 }

@@ -4,6 +4,7 @@ pub mod core;
 mod error;
 mod external;
 mod frame;
+mod logger;
 pub mod num2;
 pub mod num4;
 pub mod value;
@@ -20,6 +21,7 @@ pub use {
     external::{is_external_instance, visit_external_value, ExternalFunction, ExternalValue},
     koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
+    logger::{DefaultLogger, KotoLogger},
     num2::Num2,
     num4::Num4,
     value::{
@@ -31,5 +33,5 @@ pub use {
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
-    vm::Vm,
+    vm::{Vm, VmSettings},
 };

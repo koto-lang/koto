@@ -18,7 +18,11 @@ koto_bytecode = { path = "../bytecode", version = "^0.6.0"}
 koto_parser = { path = "../parser", version = "^0.6.0"}
 koto_runtime = { path = "../runtime", version = "^0.6.0"}
 
+[target.'cfg(not(wasm32))'.dependencies]
 parking_lot = "0.11.1"
+
+[target.'cfg(wasm32)'.dependencies]
+parking_lot = { version = "0.11.1", features=["wasm-bindgen"] }
 
 [dev-dependencies]
 criterion = "0.3.1"

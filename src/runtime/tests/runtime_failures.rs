@@ -1,6 +1,6 @@
 mod runtime {
     use {
-        koto_bytecode::chunk_to_string_annotated,
+        koto_bytecode::Chunk,
         koto_runtime::{Loader, Vm},
     };
 
@@ -11,7 +11,7 @@ mod runtime {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
-            println!("{}", chunk_to_string_annotated(chunk, &script_lines));
+            println!("{}", Chunk::instructions_as_string(chunk, &script_lines));
         };
 
         let mut loader = Loader::default();

@@ -1,16 +1,17 @@
 use {
-    crate::{
-        external_error, get_external_instance, make_external_value, type_as_string,
-        value::value_is_callable, ExternalValue, RuntimeError, Value, ValueMap,
-    },
+    crate::{external_error, ExternalValue, RuntimeError, Value, ValueMap},
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{get_external_instance, make_external_value, type_as_string, value::value_is_callable};
 
 pub fn make_module() -> ValueMap {
     use Value::{Empty, Number};
 
     let mut result = ValueMap::new();
 
+    #[cfg(not(target_arch = "wasm32"))]
     result.add_fn("create", |vm, args| match vm.get_args(args) {
         [f] if value_is_callable(f) => {
             let f = f.clone();
@@ -29,6 +30,11 @@ pub fn make_module() -> ValueMap {
             type_as_string(unexpected),
         ),
         _ => external_error!("thread.create: Expected callable value as argument"),
+    });
+
+    #[cfg(target_arch = "wasm32")]
+    result.add_fn("create", |_, _| {
+        external_error!("thread.create: Not supported on this platform")
     });
 
     result.add_fn("sleep", |vm, args| match vm.get_args(args) {
@@ -53,6 +59,7 @@ struct Thread {
 }
 
 impl Thread {
+    #[cfg(not(target_arch = "wasm32"))]
     fn make_thread_map(join_handle: JoinHandle<Result<Value, RuntimeError>>) -> Value {
         let mut result = ValueMap::new();
 

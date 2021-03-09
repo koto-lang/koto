@@ -1,8 +1,8 @@
 mod repl;
 
 use {
-    koto::{Koto, KotoSettings},
-    repl::Repl,
+    koto::{bytecode::Chunk, Koto, KotoSettings},
+    repl::{Repl, ReplSettings},
     std::fs,
 };
 
@@ -42,7 +42,7 @@ struct KotoArgs {
     version: bool,
     run_tests: bool,
     show_bytecode: bool,
-    show_annotated: bool,
+    show_instructions: bool,
     script: Option<String>,
     script_args: Vec<String>,
 }
@@ -54,7 +54,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
     let version = args.contains(["-v", "--version"]);
     let run_tests = args.contains(["-t", "--tests"]);
     let show_bytecode = args.contains(["-b", "--show_bytecode"]);
-    let show_annotated = args.contains(["-i", "--show_instructions"]);
+    let show_instructions = args.contains(["-i", "--show_instructions"]);
 
     let script = args
         .subcommand()
@@ -77,7 +77,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
         version,
         run_tests,
         show_bytecode,
-        show_annotated,
+        show_instructions,
         script,
         script_args,
     })
@@ -102,15 +102,13 @@ fn main() {
         return;
     }
 
-    let settings = KotoSettings {
+    let koto_settings = KotoSettings {
         run_tests: args.run_tests,
-        show_bytecode: args.show_bytecode,
-        show_annotated: args.show_annotated,
         ..Default::default()
     };
 
     if let Some(script_path) = args.script {
-        let mut koto = Koto::with_settings(settings);
+        let mut koto = Koto::with_settings(koto_settings);
 
         let mut prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());
@@ -121,14 +119,34 @@ fn main() {
         let script = fs::read_to_string(&script_path).expect("Unable to load script");
         koto.set_script_path(Some(script_path.into()));
         match koto.compile(&script) {
-            Ok(_) => match koto.run_with_args(&args.script_args) {
-                Ok(_) => {}
-                Err(e) => eprintln!("{}", e),
-            },
+            Ok(chunk) => {
+                if args.show_bytecode {
+                    println!("{}\n", &Chunk::bytes_as_string(chunk.clone()));
+                }
+                if args.show_instructions {
+                    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+
+                    let script_lines = script.lines().collect::<Vec<_>>();
+                    println!(
+                        "Instructions\n------------\n{}",
+                        Chunk::instructions_as_string(chunk.clone(), &script_lines)
+                    );
+                }
+                match koto.run_with_args(&args.script_args) {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("{}", e),
+                }
+            }
             Err(e) => eprintln!("{}", e),
         }
     } else {
-        let mut repl = Repl::with_settings(settings);
+        let mut repl = Repl::with_settings(
+            ReplSettings {
+                show_instructions: args.show_instructions,
+                show_bytecode: args.show_bytecode,
+            },
+            koto_settings,
+        );
         repl.run();
     }
 }

@@ -1,5 +1,5 @@
 use {
-    koto::{Koto, KotoSettings},
+    koto::{bytecode::Chunk, Koto, KotoSettings},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -18,8 +18,15 @@ const CONTINUED: &str = "… ";
 const INDENT_SIZE: usize = 2;
 
 #[derive(Default)]
+pub struct ReplSettings {
+    pub show_bytecode: bool,
+    pub show_instructions: bool,
+}
+
+#[derive(Default)]
 pub struct Repl {
     koto: Koto,
+    settings: ReplSettings,
     input: String,
     continued_lines: Vec<String>,
     input_history: Vec<String>,
@@ -28,10 +35,10 @@ pub struct Repl {
 }
 
 impl Repl {
-    pub fn with_settings(mut settings: KotoSettings) -> Self {
-        settings.repl_mode = true;
+    pub fn with_settings(repl_settings: ReplSettings, mut koto_settings: KotoSettings) -> Self {
+        koto_settings.repl_mode = true;
 
-        let koto = Koto::with_settings(settings);
+        let koto = Koto::with_settings(koto_settings);
 
         let mut prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());
@@ -41,6 +48,7 @@ impl Repl {
 
         Self {
             koto,
+            settings: repl_settings,
             ..Self::default()
         }
     }
@@ -236,7 +244,19 @@ impl Repl {
             }
 
             match self.koto.compile(&input) {
-                Ok(_) => {
+                Ok(chunk) => {
+                    if self.settings.show_bytecode {
+                        println!("{}\n", &Chunk::bytes_as_string(chunk.clone()));
+                    }
+                    if self.settings.show_instructions {
+                        println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+
+                        let script_lines = input.lines().collect::<Vec<_>>();
+                        println!(
+                            "Instructions\n------------\n{}",
+                            Chunk::instructions_as_string(chunk, &script_lines)
+                        );
+                    }
                     match self.koto.run() {
                         Ok(result) => writeln!(stdout, "{}", result).unwrap(),
                         Err(error) => self.print_error(stdout, tty, &error),

@@ -1,6 +1,6 @@
 mod vm {
     use {
-        koto_bytecode::{chunk_to_string_annotated, Chunk},
+        koto_bytecode::Chunk,
         koto_runtime::{
             external_error, num2, num4, type_as_string, IntRange, Loader, Value, Value::*,
             ValueHashMap, ValueList, ValueMap, Vm,
@@ -39,7 +39,7 @@ mod vm {
             println!("Constants\n---------\n{}\n", chunk.constants.to_string());
             println!(
                 "Instructions\n------------\n{}",
-                chunk_to_string_annotated(chunk, &script_lines)
+                Chunk::instructions_as_string(chunk, &script_lines)
             );
         };
 
