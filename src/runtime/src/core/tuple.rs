@@ -1,5 +1,5 @@
 use crate::{
-    external_error, value::deep_copy_value, value_iterator::ValueIterator, value_sort::quick_sort,
+    external_error, value::deep_copy_value, value_iterator::ValueIterator, value_sort::sort_values,
     Value, ValueList, ValueMap,
 };
 
@@ -62,9 +62,8 @@ pub fn make_module() -> ValueMap {
         [Tuple(t)] => {
             let mut result = t.data().to_vec();
             let vm = vm.child_vm();
-            let end = result.len() - 1;
 
-            quick_sort(vm, &mut result, 0, end)?;
+            sort_values(vm, &mut result)?;
 
             Ok(Tuple(result.into()))
         }

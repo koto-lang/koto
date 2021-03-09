@@ -144,15 +144,19 @@ pub fn make_module() -> ValueMap {
 
             let mut error = None;
 
-            m.contents_mut()
-                .data
-                .sort_by(|key_a, _, key_b, _| match compare_values(vm, key_a, key_b) {
+            m.contents_mut().data.sort_by(|key_a, _, key_b, _| {
+                if error.is_some() {
+                    return Ordering::Equal;
+                }
+
+                match compare_values(vm, key_a, key_b) {
                     Ok(ordering) => ordering,
                     Err(e) => {
                         error.get_or_insert(e);
                         Ordering::Equal
                     }
-                });
+                }
+            });
 
             if let Some(err) = error {
                 return Err(err);

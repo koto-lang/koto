@@ -2,7 +2,7 @@ use {
     crate::{
         external_error, value,
         value::{deep_copy_value, value_is_callable},
-        value_sort::{quick_sort, quick_sort_by_key},
+        value_sort::{quick_sort_by_key, sort_values},
         Value, ValueIterator, ValueList, ValueMap,
     },
     std::ops::DerefMut,
@@ -208,8 +208,7 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let vm = vm.child_vm();
             let mut data = l.data_mut();
-            let end = data.len() - 1;
-            quick_sort(vm, &mut data, 0, end)?;
+            sort_values(vm, &mut data)?;
             Ok(Empty)
         }
         [List(l), f] if value_is_callable(f) => {
@@ -235,8 +234,7 @@ pub fn make_module() -> ValueMap {
         [List(l)] => {
             let mut result = l.data().clone();
             let vm = vm.child_vm();
-            let end = result.len() - 1;
-            quick_sort(vm, &mut result, 0, end)?;
+            sort_values(vm, &mut result)?;
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.sort_copy: Expected list as argument"),

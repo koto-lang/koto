@@ -6,51 +6,29 @@ use std::cmp::Ordering;
 
 use crate::{external_error, type_as_string, Operator, RuntimeError, Value, Vm};
 
-/// An implementation of the quick sort algorithm for a slice of [Value].
-pub fn quick_sort(
-    vm: &mut Vm,
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<(), RuntimeError> {
-    if start >= end {
-        return Ok(());
-    }
+/// Sorts values in a slice using Koto operators for comparison.
+pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), RuntimeError> {
+    let mut error = None;
 
-    let pivot = partition(vm, arr, start, end)?;
-
-    if pivot < 1 {
-        return Ok(());
-    }
-
-    quick_sort(vm, arr, start, pivot - 1)?;
-    quick_sort(vm, arr, pivot + 1, end)?;
-
-    Ok(())
-}
-
-fn partition(
-    vm: &mut Vm,
-    arr: &mut [Value],
-    start: usize,
-    end: usize,
-) -> Result<usize, RuntimeError> {
-    let pivot = arr[end].clone();
-    let mut index = start;
-    let mut i = start;
-
-    while i < end {
-        if let Ordering::Less = compare_values(vm, &arr[i], &pivot)? {
-            arr.swap(i, index);
-            index += 1;
+    arr.sort_by(|a, b| {
+        if error.is_some() {
+            return Ordering::Equal;
         }
 
-        i += 1;
+        match compare_values(vm, a, b) {
+            Ok(ordering) => ordering,
+            Err(e) => {
+                error.get_or_insert(e);
+                Ordering::Equal
+            }
+        }
+    });
+
+    if let Some(err) = error {
+        return Err(err);
     }
 
-    arr.swap(index, end);
-
-    Ok(index)
+    Ok(())
 }
 
 /// The same as [quick_sort], but sorts the `arr` by provided `key`.
