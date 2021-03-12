@@ -28,3 +28,8 @@ export tests =
     assert_eq x, 42
     assert_eq y, -1
 
+  test_access_export: ||
+    import koto
+    x = "value_x"
+    koto.exports().insert x, 99
+    assert_eq value_x, 99

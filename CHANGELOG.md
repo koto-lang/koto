@@ -4,6 +4,7 @@
 
 ### Added
 
+- Direct access to the module's export map is now allowed via `koto.exports()`.
 - Logging behaviour via print and debug logging can now be customized.
 - Koto can now be compiled to wasm.
 

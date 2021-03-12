@@ -15,6 +15,10 @@ pub fn make_module() -> ValueMap {
         Ok(result)
     });
 
+    result.add_fn("exports", |vm, _| {
+        Ok(Value::Map(vm.context_mut().global.clone()))
+    });
+
     result.add_value("script_dir", Str("".into()));
     result.add_value("script_path", Str("".into()));
 
