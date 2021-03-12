@@ -9,8 +9,8 @@ use {
             RuntimeFunction,
         },
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, Loader, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueNumber,
-        ValueString, ValueVec,
+        vm_error, DefaultLogger, KotoLogger, Loader, RuntimeError, RuntimeResult, Value, ValueList,
+        ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::ConstantIndex,
@@ -40,10 +40,17 @@ pub type InstructionResult = Result<(), RuntimeError>;
 struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
+    logger: Arc<dyn KotoLogger>,
 }
 
 impl Default for SharedContext {
     fn default() -> Self {
+        Self::with_logger(Arc::new(DefaultLogger {}))
+    }
+}
+
+impl SharedContext {
+    fn with_logger(logger: Arc<dyn KotoLogger>) -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -60,7 +67,11 @@ impl Default for SharedContext {
         prelude.add_map("thread", core_lib.thread.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
 
-        Self { prelude, core_lib }
+        Self {
+            prelude,
+            core_lib,
+            logger,
+        }
     }
 }
 
@@ -104,6 +115,18 @@ impl Drop for ModuleContext {
     }
 }
 
+pub struct VmSettings {
+    pub logger: Arc<dyn KotoLogger>,
+}
+
+impl Default for VmSettings {
+    fn default() -> Self {
+        Self {
+            logger: Arc::new(DefaultLogger {}),
+        }
+    }
+}
+
 pub struct Vm {
     context: Arc<RwLock<ModuleContext>>,
     context_shared: Arc<SharedContext>,
@@ -115,18 +138,22 @@ pub struct Vm {
 
 impl Default for Vm {
     fn default() -> Self {
+        Self::with_settings(VmSettings::default())
+    }
+}
+
+impl Vm {
+    pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             context: Arc::new(RwLock::new(ModuleContext::default())),
-            context_shared: Arc::new(SharedContext::default()),
+            context_shared: Arc::new(SharedContext::with_logger(settings.logger)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
         }
     }
-}
 
-impl Vm {
     pub fn spawn_new_vm(&mut self) -> Self {
         Self {
             context: Arc::new(RwLock::new(self.context().spawn_new_context())),
@@ -176,6 +203,10 @@ impl Vm {
     /// Access module context.
     pub fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
         self.context.write()
+    }
+
+    pub fn logger(&self) -> &Arc<dyn KotoLogger> {
+        &self.context_shared.logger
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
@@ -2188,7 +2219,12 @@ impl Vm {
             (None, None) => "[#ERR] ".to_string(),
         };
         let value = self.get_register(register);
-        println!("{}{}: {}", prefix, self.get_constant_str(constant), value);
+        self.logger().writeln(&format!(
+            "{}{}: {}",
+            prefix,
+            self.get_constant_str(constant),
+            value
+        ));
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {

@@ -1,0 +1,15 @@
+{
+  "name": "koto-wasm-example",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "parcel public/index.html --open",
+    "build": "parcel build public/index.html"
+  },
+  "dependencies": {
+    "brace": "^0.11.1"
+  }
+  "devDependencies": {
+    "parcel-bundler": "1.12.3",
+    "parcel-plugin-wasm.rs": "^1.2.16"
+  },
+}

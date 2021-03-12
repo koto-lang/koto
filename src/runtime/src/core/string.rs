@@ -85,9 +85,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("print", |vm, args| {
         match vm.get_args(args) {
-            [Str(s)] => println!("{}", s.as_str()),
+            [Str(s)] => vm.logger().writeln(s.as_str()),
             [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
-                Ok(result) => println!("{}", result.as_str()),
+                Ok(result) => vm.logger().writeln(&result),
                 Err(error) => return external_error!("string.print: {}", error),
             },
             _ => return external_error!("string.print: Expected a string as first argument"),

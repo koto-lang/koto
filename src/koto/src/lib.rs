@@ -29,9 +29,10 @@
 pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
-    koto_bytecode::{chunk_to_string, chunk_to_string_annotated, Chunk, LoaderError},
+    koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        type_as_string, Loader, RuntimeError, Value, ValueList, ValueMap, ValueVec, Vm,
+        type_as_string, DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueList,
+        ValueMap, ValueVec, Vm, VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
@@ -74,35 +75,55 @@ impl From<RuntimeError> for KotoError {
 pub type KotoResult = Result<Value, KotoError>;
 
 /// Settings used to control the behaviour of the [Koto] runtime
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone)]
 pub struct KotoSettings {
     pub run_tests: bool,
-    pub show_annotated: bool,
-    pub show_bytecode: bool,
     pub repl_mode: bool,
+    pub logger: Arc<dyn KotoLogger>,
+}
+
+impl Default for KotoSettings {
+    fn default() -> Self {
+        Self {
+            run_tests: true,
+            repl_mode: false,
+            logger: Arc::new(DefaultLogger {}),
+        }
+    }
 }
 
 /// The main interface for the Koto language.
 ///
 /// Example
-#[derive(Default)]
 pub struct Koto {
-    script_path: Option<PathBuf>,
     runtime: Vm,
-    pub settings: KotoSettings,
+    pub settings: KotoSettings, // TODO make private, needs enable / disable tests methods
+    script_path: Option<PathBuf>,
     loader: Loader,
     chunk: Option<Arc<Chunk>>,
 }
 
+impl Default for Koto {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Koto {
     pub fn new() -> Self {
-        Self::default()
+        Self::with_settings(KotoSettings::default())
     }
 
     pub fn with_settings(settings: KotoSettings) -> Self {
-        let mut result = Self::new();
-        result.settings = settings;
-        result
+        Self {
+            settings: settings.clone(),
+            runtime: Vm::with_settings(VmSettings {
+                logger: settings.logger,
+            }),
+            loader: Loader::default(),
+            chunk: None,
+            script_path: None,
+        }
     }
 
     pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
@@ -115,17 +136,6 @@ impl Koto {
         match compile_result {
             Ok(chunk) => {
                 self.chunk = Some(chunk.clone());
-                if self.settings.show_annotated {
-                    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
-
-                    let script_lines = script.lines().collect::<Vec<_>>();
-                    println!(
-                        "Instructions\n------------\n{}",
-                        chunk_to_string_annotated(chunk.clone(), &script_lines)
-                    );
-                } else if self.settings.show_bytecode {
-                    println!("{}", chunk_to_string(chunk.clone()));
-                }
                 Ok(chunk)
             }
             Err(error) => Err(error),
