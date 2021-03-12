@@ -67,7 +67,8 @@ impl Default for SharedContext {
 /// VM Context shared by VMs running in the same module
 #[derive(Default)]
 pub struct ModuleContext {
-    global: ValueMap,
+    /// Global context.
+    pub global: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, Option<ValueMap>>,
     spawned_stop_flags: Vec<Arc<AtomicBool>>,
@@ -172,7 +173,8 @@ impl Vm {
         self.context.read()
     }
 
-    fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
+    /// Access module context.
+    pub fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
         self.context.write()
     }
 

@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- Direct access to the module's export map is now allowed via `koto.exports()`.
 - Captured values in functions are now immutable.
   - e.g.
     ```
