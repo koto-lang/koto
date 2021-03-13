@@ -768,6 +768,53 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
+    fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
+        let result = match self.peek_next_token_on_same_line() {
+            Some(Token::Id) => {
+                self.consume_next_token_on_same_line();
+                let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                Some(MapKey::Id(id))
+            }
+            Some(Token::At) => {
+                self.consume_next_token_on_same_line();
+
+                let meta_key = match self.consume_token() {
+                    Some(Token::Add) => MetaId::Add,
+                    Some(Token::Subtract) => MetaId::Subtract,
+                    Some(Token::Multiply) => MetaId::Multiply,
+                    Some(Token::Divide) => MetaId::Divide,
+                    Some(Token::Modulo) => MetaId::Modulo,
+                    Some(Token::Less) => MetaId::Less,
+                    Some(Token::LessOrEqual) => MetaId::LessOrEqual,
+                    Some(Token::Greater) => MetaId::Greater,
+                    Some(Token::GreaterOrEqual) => MetaId::GreaterOrEqual,
+                    Some(Token::Equal) => MetaId::Equal,
+                    Some(Token::NotEqual) => MetaId::NotEqual,
+                    Some(Token::Id) => match self.lexer.slice() {
+                        "negate" => MetaId::Negate,
+                        "type" => MetaId::Type,
+                        _ => return syntax_error!(UnexpectedMetaKey, self),
+                    },
+                    Some(Token::ListStart) => match self.consume_token() {
+                        Some(Token::ListEnd) => MetaId::Index,
+                        _ => return syntax_error!(UnexpectedMetaKey, self),
+                    },
+                    _ => return syntax_error!(UnexpectedMetaKey, self),
+                };
+
+                Some(MapKey::Meta(meta_key))
+            }
+            Some(Token::String) => {
+                self.consume_next_token_on_same_line();
+                let s = self.parse_string(self.lexer.slice())?;
+                let id = self.constants.add_string(&s) as ConstantIndex;
+                Some(MapKey::Id(id))
+            }
+            _ => None,
+        };
+        Ok(result)
+    }
+
     fn parse_call_args(
         &mut self,
         context: &mut ExpressionContext,
@@ -1460,10 +1507,16 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if let Some((_, peek_count)) = self.peek_next_token(context) {
-            // The first entry in a map block should have a defined value
-            if self.peek_token_n(peek_count + 1) != Some(Token::Colon) {
-                return Ok(None);
+        if let Some((peeked_0, peek_count)) = self.peek_next_token(context) {
+            // The first entry in a map block should have a defined value,
+            // i.e. either `id: value`, or `@meta: value`.
+            let peeked_1 = self.peek_token_n(peek_count + 1);
+            let peeked_2 = self.peek_token_n(peek_count + 2);
+
+            match (peeked_0, peeked_1, peeked_2) {
+                (Token::Id, Some(Token::Colon), _) => {}
+                (Token::At, Some(_), Some(Token::Colon)) => {}
+                _ => return Ok(None),
             }
         } else {
             return Ok(None);
@@ -1474,7 +1527,7 @@ impl<'source> Parser<'source> {
 
         let mut entries = Vec::new();
 
-        while let Some(key) = self.parse_id_or_string()? {
+        while let Some(key) = self.parse_map_key()? {
             if self.peek_next_token_on_same_line() == Some(Token::Colon) {
                 self.consume_next_token_on_same_line();
 
@@ -1529,7 +1582,7 @@ impl<'source> Parser<'source> {
         while self.peek_next_token(context).is_some() {
             self.consume_until_next_token(context);
 
-            if let Some(key) = self.parse_id_or_string()? {
+            if let Some(key) = self.parse_map_key()? {
                 if self.peek_token() == Some(Token::Colon) {
                     self.consume_token();
 

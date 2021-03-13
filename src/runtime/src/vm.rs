@@ -4,16 +4,13 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         num2, num4, type_as_string,
-        value::{
-            self, add_values, multiply_values, value_is_callable, value_size, RegisterSlice,
-            RuntimeFunction,
-        },
+        value::{self, value_is_callable, value_size, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, DefaultLogger, KotoLogger, Loader, RuntimeError, RuntimeResult, Value, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueVec,
+        vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
+        RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
-    koto_parser::ConstantIndex,
+    koto_parser::{ConstantIndex, MetaId},
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         collections::HashMap,
@@ -134,6 +131,7 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
     stop_flag: Option<Arc<AtomicBool>>,
+    child_vm: Option<Box<Vm>>,
 }
 
 impl Default for Vm {
@@ -151,6 +149,7 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 
@@ -162,6 +161,7 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 
@@ -173,6 +173,7 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: None,
+            child_vm: None,
         }
     }
 
@@ -189,7 +190,15 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: Some(stop_flag),
+            child_vm: None,
         }
+    }
+
+    pub fn child_vm(&mut self) -> &mut Vm {
+        if self.child_vm.is_none() {
+            self.child_vm = Some(Box::new(self.spawn_shared_vm()))
+        }
+        self.child_vm.as_mut().unwrap()
     }
 
     pub fn prelude(&self) -> ValueMap {
@@ -210,7 +219,12 @@ impl Vm {
     }
 
     pub fn get_global_value(&self, id: &str) -> Option<Value> {
-        self.context().global.data().get_with_string(id).cloned()
+        self.context()
+            .global
+            .contents()
+            .data
+            .get_with_string(id)
+            .cloned()
     }
 
     pub fn get_global_function(&self, id: &str) -> Option<Value> {
@@ -308,6 +322,43 @@ impl Vm {
         }
     }
 
+    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
+        if !self.call_stack.is_empty() {
+            return vm_error!(
+                "run_binary_op: the call stack must be empty,
+                 are you calling run_binary_op on an active VM?"
+            );
+        }
+
+        self.value_stack.clear();
+        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(lhs);
+        self.value_stack.push(rhs);
+
+        match op {
+            BinaryOp::Add => self.run_add(0, 1, 2)?,
+            BinaryOp::Subtract => self.run_subtract(0, 1, 2)?,
+            BinaryOp::Multiply => self.run_multiply(0, 1, 2)?,
+            BinaryOp::Divide => self.run_divide(0, 1, 2)?,
+            BinaryOp::Modulo => self.run_modulo(0, 1, 2)?,
+            BinaryOp::Less => self.run_less(0, 1, 2)?,
+            BinaryOp::LessOrEqual => self.run_less_or_equal(0, 1, 2)?,
+            BinaryOp::Greater => self.run_greater(0, 1, 2)?,
+            BinaryOp::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
+            BinaryOp::Equal => self.run_equal(0, 1, 2)?,
+            BinaryOp::NotEqual => self.run_not_equal(0, 1, 2)?,
+            BinaryOp::Index => self.run_index(0, 1, 2)?,
+        }
+
+        if self.call_stack.is_empty() {
+            // If the call stack is empty, then the result will be in the result register
+            Ok(self.clone_register(0))
+        } else {
+            // If the call stack isn't empty, then an overloaded operator has been called.
+            self.execute_instructions()
+        }
+    }
+
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
         use Value::*;
 
@@ -315,8 +366,8 @@ impl Vm {
         // test map data while calling the test functions, otherwise we'll end up in deadlocks.
         let self_arg = Map(tests.clone());
 
-        let pre_test = tests.data().get_with_string("pre_test").cloned();
-        let post_test = tests.data().get_with_string("post_test").cloned();
+        let pre_test = tests.contents().data.get_with_string("pre_test").cloned();
+        let post_test = tests.contents().data.get_with_string("post_test").cloned();
         let pass_self_to_pre_test = match &pre_test {
             Some(Function(f)) => f.arg_count == 1,
             _ => false,
@@ -566,41 +617,21 @@ impl Vm {
                 source,
             } => self.run_capture_value(function, target, source),
             Instruction::Negate { register, source } => self.run_negate(register, source),
-            Instruction::Add { register, lhs, rhs } => {
-                self.run_add(register, lhs, rhs, &instruction)
-            }
-            Instruction::Subtract { register, lhs, rhs } => {
-                self.run_subtract(register, lhs, rhs, &instruction)
-            }
-            Instruction::Multiply { register, lhs, rhs } => {
-                self.run_multiply(register, lhs, rhs, &instruction)
-            }
-            Instruction::Divide { register, lhs, rhs } => {
-                self.run_divide(register, lhs, rhs, &instruction)
-            }
-            Instruction::Modulo { register, lhs, rhs } => {
-                self.run_modulo(register, lhs, rhs, &instruction)
-            }
-            Instruction::Less { register, lhs, rhs } => {
-                self.run_less(register, lhs, rhs, &instruction)
-            }
+            Instruction::Add { register, lhs, rhs } => self.run_add(register, lhs, rhs),
+            Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
+            Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
+            Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
+            Instruction::Modulo { register, lhs, rhs } => self.run_modulo(register, lhs, rhs),
+            Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
             Instruction::LessOrEqual { register, lhs, rhs } => {
-                self.run_less_or_equal(register, lhs, rhs, &instruction)
+                self.run_less_or_equal(register, lhs, rhs)
             }
-            Instruction::Greater { register, lhs, rhs } => {
-                self.run_greater(register, lhs, rhs, &instruction)
-            }
+            Instruction::Greater { register, lhs, rhs } => self.run_greater(register, lhs, rhs),
             Instruction::GreaterOrEqual { register, lhs, rhs } => {
-                self.run_greater_or_equal(register, lhs, rhs, &instruction)
+                self.run_greater_or_equal(register, lhs, rhs)
             }
-            Instruction::Equal { register, lhs, rhs } => {
-                self.run_equal(register, lhs, rhs);
-                Ok(())
-            }
-            Instruction::NotEqual { register, lhs, rhs } => {
-                self.run_not_equal(register, lhs, rhs);
-                Ok(())
-            }
+            Instruction::Equal { register, lhs, rhs } => self.run_equal(register, lhs, rhs),
+            Instruction::NotEqual { register, lhs, rhs } => self.run_not_equal(register, lhs, rhs),
             Instruction::Jump { offset } => {
                 self.jump_ip(offset);
                 Ok(())
@@ -722,6 +753,11 @@ impl Vm {
                 value,
                 key,
             } => self.run_map_insert(register, value, key),
+            Instruction::MetaInsert {
+                register,
+                value,
+                id,
+            } => self.run_meta_insert(register, value, id),
             Instruction::Access { register, map, key } => self.run_access(register, map, key),
             Instruction::TryStart {
                 arg_register,
@@ -767,7 +803,8 @@ impl Vm {
         let global = self
             .context()
             .global
-            .data()
+            .contents()
+            .data
             .get_with_string(global_name)
             .cloned();
 
@@ -785,7 +822,8 @@ impl Vm {
         let value = self.clone_register(source_register);
         self.context_mut()
             .global
-            .data_mut()
+            .contents_mut()
+            .data
             .insert(global_name, value);
     }
 
@@ -1103,54 +1141,77 @@ impl Vm {
         Ok(())
     }
 
-    fn run_negate(&mut self, register: u8, value: u8) -> InstructionResult {
-        use Value::*;
+    fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
+        use {UnaryOp::Negate, Value::*};
 
-        let result = match &self.get_register(value) {
+        let result_value = match &self.get_register(value) {
             Bool(b) => Bool(!b),
             Number(n) => Number(-n),
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
+            Map(map) if map.contents().meta.contains_key(&MetaKey::UnaryOp(Negate)) => {
+                let map = map.clone();
+                return self.call_overloaded_unary_op(result, value, map, Negate);
+            }
             unexpected => {
                 return self.unexpected_type_error("Negate: expected negatable value", unexpected);
             }
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_add(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
+    fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Add, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-
-        match add_values(lhs_value, rhs_value) {
-            Some(result) => {
-                self.set_register(register, result);
-                Ok(())
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a + b),
+            (Number(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Num2(b)) => Num2(a + b),
+            (Num2(a), Number(b)) => Num2(a + b),
+            (Number(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Num4(b)) => Num4(a + b),
+            (Num4(a), Number(b)) => Num4(a + b),
+            (List(a), List(b)) => {
+                let mut result = ValueVec::new();
+                result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                List(ValueList::with_data(result))
             }
-            None => self.binary_op_error(lhs_value, rhs_value, instruction),
-        }
+            (List(a), Tuple(b)) => {
+                let mut result = ValueVec::new();
+                result.extend(a.data().iter().chain(b.data().iter()).cloned());
+                List(ValueList::with_data(result))
+            }
+            (Str(a), Str(b)) => {
+                let result = a.to_string() + b.as_ref();
+                Str(result.into())
+            }
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Add)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Add);
+            }
+            (Map(a), Map(b)) => {
+                let mut result = a.contents().clone();
+                result.extend(&b.contents());
+                Map(ValueMap::with_contents(result))
+            }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
+        };
+
+        self.set_register(result, result_value);
+        Ok(())
     }
 
-    fn run_subtract(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Subtract, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a - b),
             (Number(a), Num2(b)) => Num2(a - b),
             (Num2(a), Num2(b)) => Num2(a - b),
@@ -1158,46 +1219,60 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a - b),
             (Num4(a), Num4(b)) => Num4(a - b),
             (Num4(a), Number(b)) => Num4(a - b),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(Subtract)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Subtract);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
         };
-        self.set_register(register, result);
 
+        self.set_register(result, result_value);
         Ok(())
     }
 
-    fn run_multiply(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
+    fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Multiply, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
 
-        match multiply_values(lhs_value, rhs_value) {
-            Some(result) => {
-                self.set_register(register, result);
-                Ok(())
+        let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => Number(a * b),
+            (Number(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Num2(b)) => Num2(a * b),
+            (Num2(a), Number(b)) => Num2(a * b),
+            (Number(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Num4(b)) => Num4(a * b),
+            (Num4(a), Number(b)) => Num4(a * b),
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(Multiply)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Multiply);
             }
-            None => self.binary_op_error(lhs_value, rhs_value, instruction),
-        }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
+        };
+
+        self.set_register(result, result_value);
+        Ok(())
     }
 
-    fn run_divide(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Divide, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a / b),
             (Number(a), Num2(b)) => Num2(a / b),
             (Num2(a), Num2(b)) => Num2(a / b),
@@ -1205,27 +1280,24 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a / b),
             (Num4(a), Num4(b)) => Num4(a / b),
             (Num4(a), Number(b)) => Num4(a / b),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Divide)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Divide);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
         };
-        self.set_register(register, result);
 
+        self.set_register(result, result_value);
         Ok(())
     }
 
-    fn run_modulo(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_modulo(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Modulo, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Number(a % b),
             (Number(a), Num2(b)) => Num2(a % b),
             (Num2(a), Num2(b)) => Num2(a % b),
@@ -1233,119 +1305,210 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a % b),
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Modulo)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Modulo);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_less(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Less, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Less)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Less);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_less_or_equal(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::LessOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(LessOrEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, LessOrEqual);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_greater(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Greater, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(Greater)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Greater);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_greater_or_equal(
-        &mut self,
-        register: u8,
-        lhs: u8,
-        rhs: u8,
-        instruction: &Instruction,
-    ) -> InstructionResult {
-        use Value::*;
+    fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::GreaterOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = match (lhs_value, rhs_value) {
+        let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
-            _ => {
-                return self.binary_op_error(lhs_value, rhs_value, instruction);
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(GreaterOrEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, GreaterOrEqual);
             }
+            _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
-    fn run_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
+    fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Equal, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = (lhs_value == rhs_value).into();
-        self.set_register(register, result);
+        let result_value = match (lhs_value, rhs_value) {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Equal)) => {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
+            }
+
+            _ => (lhs_value == rhs_value).into(),
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
     }
 
-    fn run_not_equal(&mut self, register: u8, lhs: u8, rhs: u8) {
+    fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::NotEqual, Value::*};
+
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
-        let result = (lhs_value != rhs_value).into();
-        self.set_register(register, result);
+        let result_value = match (lhs_value, rhs_value) {
+            (Map(map), value)
+                if map
+                    .contents()
+                    .meta
+                    .contains_key(&MetaKey::BinaryOp(NotEqual)) =>
+            {
+                let map = map.clone();
+                let value = value.clone();
+                return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
+            }
+
+            _ => (lhs_value != rhs_value).into(),
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
+    }
+
+    fn call_overloaded_unary_op(
+        &mut self,
+        result_register: u8,
+        map_register: u8,
+        map: ValueMap,
+        op: UnaryOp,
+    ) -> InstructionResult {
+        let op = match map.contents().meta.get(&MetaKey::UnaryOp(op)) {
+            Some(op) => op.clone(),
+            None => return vm_error!("Missing overloaded {:?} key", op),
+        };
+
+        // Set up the call registers at the end of the stack
+        let stack_len = self.value_stack.len();
+        let frame_base = (stack_len - self.register_base()) as u8;
+        self.value_stack.push(Value::Empty); // frame_base
+        self.call_function(
+            result_register,
+            op,
+            frame_base,
+            0, // 0 args
+            Some(map_register),
+        )?;
+
+        Ok(())
+    }
+
+    fn call_overloaded_binary_op(
+        &mut self,
+        result_register: u8,
+        map_register: u8,
+        map: ValueMap,
+        rhs: Value,
+        op: BinaryOp,
+    ) -> InstructionResult {
+        let op = match map.contents().meta.get(&MetaKey::BinaryOp(op)) {
+            Some(op) => op.clone(),
+            None => return vm_error!("Missing overloaded {:?} operation", op),
+        };
+
+        // Set up the call registers at the end of the stack
+        let stack_len = self.value_stack.len();
+        let frame_base = (stack_len - self.register_base()) as u8;
+        self.value_stack.push(Value::Empty); // frame_base
+        self.value_stack.push(rhs); // arg
+        self.call_function(
+            result_register,
+            op,
+            frame_base,
+            1, // 1 arg, the rhs value
+            Some(map_register),
+        )?;
+
+        Ok(())
     }
 
     fn run_jump_if(
@@ -1401,7 +1564,8 @@ impl Vm {
         let maybe_global = self
             .context()
             .global
-            .data()
+            .contents()
+            .data
             .get_with_string(&import_name)
             .cloned();
         if let Some(value) = maybe_global {
@@ -1410,7 +1574,8 @@ impl Vm {
             let maybe_in_prelude = self
                 .context_shared
                 .prelude
-                .data()
+                .contents()
+                .data
                 .get_with_string(&import_name)
                 .cloned();
             if let Some(value) = maybe_in_prelude {
@@ -1751,7 +1916,7 @@ impl Vm {
         value_register: u8,
         index_register: u8,
     ) -> InstructionResult {
-        use Value::*;
+        use {BinaryOp::Index, Value::*};
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
@@ -1810,6 +1975,15 @@ impl Vm {
                     other => return vm_error!("Index out of bounds for Num4, {}", other),
                 }
             }
+            (Map(map), index) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Index)) => {
+                return self.call_overloaded_binary_op(
+                    result_register,
+                    value_register,
+                    map,
+                    index,
+                    Index,
+                );
+            }
             (unexpected_value, unexpected_index) => {
                 return vm_error!(
                     "Unable to index '{}' with '{}'",
@@ -1833,11 +2007,33 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(Value::Str(key_string), value);
+                map.contents_mut()
+                    .data
+                    .insert(Value::Str(key_string), value);
                 Ok(())
             }
             unexpected => vm_error!(
                 "MapInsert: Expected Map, found '{}'",
+                type_as_string(&unexpected)
+            ),
+        }
+    }
+
+    fn run_meta_insert(
+        &mut self,
+        map_register: u8,
+        value: u8,
+        meta_id: MetaId,
+    ) -> InstructionResult {
+        let value = self.clone_register(value);
+
+        match self.get_register_mut(map_register) {
+            Value::Map(map) => {
+                map.contents_mut().meta.insert(meta_id.into(), value);
+                Ok(())
+            }
+            unexpected => vm_error!(
+                "MetaInsert: Expected Map, found '{}'",
                 type_as_string(&unexpected)
             ),
         }
@@ -1867,7 +2063,7 @@ impl Vm {
         };
 
         match map_value {
-            Map(map) => match map.data().get_with_string(&key_string) {
+            Map(map) => match map.contents().data.get_with_string(&key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
@@ -1898,12 +2094,13 @@ impl Vm {
     ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_op = match module.data().get_with_string(key).cloned() {
+        let maybe_op = match module.contents().data.get_with_string(key).cloned() {
             None if iterator_fallback => self
                 .context_shared
                 .core_lib
                 .iterator
-                .data()
+                .contents()
+                .data
                 .get_with_string(&key)
                 .cloned(),
             maybe_op => maybe_op,
@@ -1992,7 +2189,7 @@ impl Vm {
                 // so drop the function args here now that the call has been completed.
                 self.truncate_registers(frame_base);
             }
-            Err(error) => return vm_error!(error.to_string()),
+            Err(error) => return Err(error),
         }
 
         Ok(())
@@ -2399,9 +2596,9 @@ impl Vm {
         vm_error!("{}, found '{}'", message, type_as_string(&value))
     }
 
-    fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &Instruction) -> InstructionResult {
+    fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
         vm_error!(
-            "Unable to perform operation {} with '{}' and '{}'",
+            "Unable to perform operation '{}' with '{}' and '{}'",
             op,
             type_as_string(lhs),
             type_as_string(rhs),

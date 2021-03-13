@@ -73,6 +73,7 @@ pub enum Op {
     Index,            // result, list register, index register
     MapInsert,        // map register, value register, key constant
     MapInsertLong,    // map register, value register, key constant[4]
+    MetaInsert,       // map register, value register, key constant
     Access,           // register, value register, key
     AccessLong,       // register, value register, key[4]
     IsList,           // register, value
@@ -83,7 +84,6 @@ pub enum Op {
     Debug,            // register, constant[4]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
-    Unused79,
     Unused80,
     Unused81,
     Unused82,

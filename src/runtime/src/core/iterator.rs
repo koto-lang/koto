@@ -1,13 +1,10 @@
-use {
-    crate::{
-        external_error, type_as_string, value,
-        value::{add_values, multiply_values, value_is_callable, value_is_iterable},
-        value_iterator::{
-            make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
-        },
-        RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec,
+use crate::{
+    external_error, type_as_string, value,
+    value::{value_is_callable, value_is_iterable},
+    value_iterator::{
+        make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
-    std::cmp,
+    BinaryOp, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -19,7 +16,7 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for iter_output in iter {
                 match iter_output {
@@ -51,7 +48,7 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for iter_output in iter {
                 match iter_output {
@@ -162,7 +159,7 @@ pub fn make_module() -> ValueMap {
                 let result = result.clone();
                 let f = f.clone();
                 let mut iter = make_iterator(iterable).unwrap();
-                let mut vm = vm.spawn_shared_vm();
+                let vm = vm.child_vm();
 
                 match iter
                     .lock_internals(|iterator| {
@@ -238,39 +235,73 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
+            let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => cmp::max(result, value),
+                            Some(result) => match vm.run_binary_op(
+                                BinaryOp::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
+                                Ok(Bool(true)) => value,
+                                Ok(Bool(false)) => result,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.max: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
+                                Err(error) => return Err(error.with_prefix("iterator.max")),
+                            },
                             None => value,
                         })
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.with_prefix("iterator.max")),
                     _ => unreachable!(),
                 }
             }
 
             Ok(result.unwrap_or(Empty))
         }
-        _ => external_error!("iterator.min: Expected iterable as argument"),
+        _ => external_error!("iterator.max: Expected iterable as argument"),
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
+            let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => cmp::min(result, value),
+                            Some(result) => match vm.run_binary_op(
+                                BinaryOp::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
+                                Ok(Bool(true)) => result,
+                                Ok(Bool(false)) => value,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.min: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
+                                Err(error) => return Err(error.with_prefix("iterator.min")),
+                            },
                             None => value,
                         })
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.with_prefix("iterator.min")),
                     _ => unreachable!(),
                 }
             }
@@ -282,15 +313,34 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
             let mut result = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            let compare_values = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
+                match vm.run_binary_op(op, a.clone(), b.clone()) {
+                    Ok(Bool(true)) => Ok(a),
+                    Ok(Bool(false)) => Ok(b),
+                    Ok(unexpected) => {
+                        return external_error!(
+                            "iterator.min_max: \
+                             Expected Bool from {} comparison, found '{}'",
+                            op,
+                            type_as_string(&unexpected)
+                        );
+                    }
+                    Err(error) => Err(error.with_prefix("iterator.min_max")),
+                }
+            };
+
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some((min, max)) => {
-                                (cmp::min(min, value.clone()), cmp::max(max, value))
-                            }
+                            Some((min, max)) => (
+                                compare_values(vm, BinaryOp::Less, min, value.clone())?,
+                                compare_values(vm, BinaryOp::Greater, max, value)?,
+                            ),
                             None => (value.clone(), value),
                         })
                     }
@@ -321,7 +371,7 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let vm = vm.child_vm();
 
             for (i, output) in iter.enumerate() {
                 match output {
@@ -352,14 +402,19 @@ pub fn make_module() -> ValueMap {
         _ => external_error!("iterator.position: Expected iterable and function as arguments"),
     });
 
-    result.add_fn("product", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
-            iterator_product(iterable, &Value::Number(1.into()))
-        }
-        [iterable, initial_value] if value_is_iterable(iterable) => {
-            iterator_product(iterable, initial_value)
-        }
-        _ => external_error!("iterator.product: Expected iterable as argument"),
+    result.add_fn("product", |vm, args| {
+        let (iterable, initial_value) = match vm.get_args(args) {
+            [iterable] if value_is_iterable(iterable) => {
+                (iterable.clone(), Value::Number(1.into()))
+            }
+            [iterable, initial_value] if value_is_iterable(iterable) => {
+                (iterable.clone(), initial_value.clone())
+            }
+            _ => return external_error!("iterator.product: Expected iterable as argument"),
+        };
+
+        fold_with_operator(vm, iterable, initial_value, BinaryOp::Multiply)
+            .map_err(|e| e.with_prefix("iterator.product"))
     });
 
     result.add_fn("skip", |vm, args| match vm.get_args(args) {
@@ -379,14 +434,19 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("sum", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
-            iterator_sum(iterable, &Value::Number(0.into()))
-        }
-        [iterable, initial_value] if value_is_iterable(iterable) => {
-            iterator_sum(iterable, initial_value)
-        }
-        _ => external_error!("iterator.sum: Expected iterable as argument"),
+    result.add_fn("sum", |vm, args| {
+        let (iterable, initial_value) = match vm.get_args(args) {
+            [iterable] if value_is_iterable(iterable) => {
+                (iterable.clone(), Value::Number(0.into()))
+            }
+            [iterable, initial_value] if value_is_iterable(iterable) => {
+                (iterable.clone(), initial_value.clone())
+            }
+            _ => return external_error!("iterator.sum: Expected iterable as argument"),
+        };
+
+        fold_with_operator(vm, iterable, initial_value, BinaryOp::Add)
+            .map_err(|e| e.with_prefix("iterator.sum"))
     });
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
@@ -498,47 +558,19 @@ fn collect_pair(iterator_output: ValueIteratorResult) -> ValueIteratorResult {
     }
 }
 
-fn iterator_product(iterable: &Value, initial_value: &Value) -> RuntimeResult {
-    let mut result = initial_value.clone();
+fn fold_with_operator(
+    vm: &mut Vm,
+    iterable: Value,
+    initial_value: Value,
+    operator: BinaryOp,
+) -> RuntimeResult {
+    let vm = vm.child_vm();
+    let mut result = initial_value;
 
-    for output in make_iterator(iterable).unwrap().map(collect_pair) {
+    for output in make_iterator(&iterable).unwrap().map(collect_pair) {
         match output {
-            Ok(Output::Value(value)) => {
-                result = match multiply_values(&result, &value) {
-                    Some(add_result) => add_result,
-                    None => {
-                        return external_error!(
-                            "iterator.product: failed to add '{}' and '{}'",
-                            type_as_string(&result),
-                            type_as_string(&value)
-                        )
-                    }
-                };
-            }
-            Err(error) => return Err(error),
-            _ => unreachable!(),
-        }
-    }
-
-    Ok(result)
-}
-
-fn iterator_sum(iterable: &Value, initial_value: &Value) -> RuntimeResult {
-    let mut result = initial_value.clone();
-
-    for output in make_iterator(iterable).unwrap().map(collect_pair) {
-        match output {
-            Ok(Output::Value(value)) => {
-                result = match add_values(&result, &value) {
-                    Some(add_result) => add_result,
-                    None => {
-                        return external_error!(
-                            "iterator.sum: failed to add '{}' and '{}'",
-                            type_as_string(&result),
-                            type_as_string(&value)
-                        )
-                    }
-                };
+            Ok(Output::Value(rhs_value)) => {
+                result = vm.run_binary_op(operator, result, rhs_value)?;
             }
             Err(error) => return Err(error),
             _ => unreachable!(),

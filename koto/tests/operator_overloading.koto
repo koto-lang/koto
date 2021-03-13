@@ -1,0 +1,96 @@
+from test import assert, assert_eq
+import koto
+
+locals = {}
+
+foo = |x|
+  result =
+    x: x
+  result + locals.foo_meta
+
+# Declaring the overloaded operators once and then copying them into the foo instance
+# is more efficient than declaring them each time foo is called.
+locals.foo_meta =
+  # Arithmetic operators
+  @+: |self, other| foo self.x + other.x
+  @-: |self, other| foo self.x - other.x
+  @*: |self, other| foo self.x * other.x
+  @/: |self, other| foo self.x / other.x
+  @%: |self, other| foo self.x % other.x
+
+  # Comparison operators
+  @<: |self, other| self.x < other.x
+  @<=: |self, other| self.x <= other.x
+  @>: |self, other| self.x > other.x
+  @>=: |self, other| self.x >= other.x
+  @==: |self, other| self.x == other.x
+  @!=: |self, other| not self == other
+
+  # Negation
+  @negate: |self| foo -self.x
+
+  # Indexing
+  @[]: |self, index| self.x + index
+
+  # Type
+  @type: "Foo"
+
+
+export tests =
+  test_add: ||
+    assert_eq (foo(10) + foo(20)), foo 30
+
+  test_subtract: ||
+    assert_eq (foo(99) - foo(100)), foo -1
+
+  test_multiply: ||
+    assert_eq (foo(6) * foo(7)), foo 42
+
+  test_divide: ||
+    assert_eq (foo(42) / foo(2)), foo 21
+
+  test_modulo: ||
+    assert_eq (foo(42) % foo(10)), foo 2
+
+  test_less: ||
+    assert foo(5) < foo(6)
+    assert not (foo(5) < foo(5))
+
+  test_less_or_equal: ||
+    assert foo(5) <= foo(6)
+    assert foo(5) <= foo(5)
+
+  test_greater: ||
+    assert foo(40) > foo(30)
+    assert not (foo(40) > foo(40))
+
+  test_greater_or_equal: ||
+    assert foo(40) >= foo(30)
+    assert foo(40) >= foo(40)
+
+  test_equal: ||
+    bar = |x, y|
+      x: x
+      y: y
+      @==: |self, other|
+        # Maps already have equality comparison that compare each member,
+        # so to show the effect of overloading, ignore y
+        self.x == other.x
+    assert bar(21, -1) == bar(21, -2)
+    assert not (bar(21, -1) == bar(22, -1))
+    assert_eq bar(100, -1), bar(100, -2)
+
+  test_not_equal: ||
+    assert foo(7) != foo(8)
+    assert not (foo(7) != foo(7))
+    # TODO Add an assert_ne test
+
+  test_negate: ||
+    assert_eq -foo(1), foo(-1)
+
+  test_index: ||
+    assert_eq foo(10)[5], 15
+    assert_eq foo(100)[-1], 99
+
+  test_type: ||
+    assert_eq (koto.type (foo 0)), "Foo"

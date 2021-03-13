@@ -1,6 +1,11 @@
 import list
-from test import assert, assert_eq
+from test import assert, assert_ne, assert_eq
 
+make_foo = |x|
+  x: x
+  @<: |self, other| self.x < other.x
+  @>: |self, other| self.x > other.x
+  @==: |self, other| self.x == other.x
 
 export tests =
   test_clear: ||
@@ -94,6 +99,15 @@ export tests =
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 
+  test_retain_with_overloaded_equality_op: ||
+    bar = |x|
+      x: x
+      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+
+    z = [bar(0), bar(1), bar(1), bar(2)]
+    z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped
+    assert_eq z, [bar(0), bar(2)]
+
   test_reverse: ||
     a = [1, 2, 3]
     a.reverse()
@@ -118,8 +132,29 @@ export tests =
     z.sort list.size
     assert_eq z, [[1], [2, 3], [4, 5, 6]]
 
+    # values with overloaded operators
+    a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
+    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
+    z.sort()
+
+    assert_eq z, a
+
+    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
+    z.sort |n| -n.x # reverse sorting
+
+    for n in 0..z.size()
+      assert_eq z[n].x, a[a.size() - 1 - n].x
+
   test_sort_copy: ||
     assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]
+
+    # values with overloaded operators
+    a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
+    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
+    r = z.sort_copy()
+
+    assert_ne r, z
+    assert_eq r, a
 
   test_swap: ||
     a = [1, 2, 3]

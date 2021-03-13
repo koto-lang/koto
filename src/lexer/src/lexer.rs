@@ -18,6 +18,7 @@ pub enum Token {
     Id,
 
     // Symbols
+    At,
     Colon,
     Comma,
     Dot,
@@ -423,6 +424,7 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("/", Divide);
         check_symbol!("%", Modulo);
 
+        check_symbol!("@", At);
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
         check_symbol!(".", Dot);

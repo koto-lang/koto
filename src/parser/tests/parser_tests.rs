@@ -219,17 +219,22 @@ x = [
         fn map_inline() {
             let source = r#"
 {}
-{"foo": 42, bar, baz: "hello"}"#;
+{"foo": 42, bar, baz: "hello", @+: 99}"#;
             check_ast(
                 source,
                 &[
                     Map(vec![]),
                     Int(1),
                     Str(4),
-                    // map entries are constant/ast index pairs
-                    Map(vec![(0, Some(1)), (2, None), (3, Some(2))]),
+                    Int(5),
+                    Map(vec![
+                        (MapKey::Id(0), Some(1)),
+                        (MapKey::Id(2), None),
+                        (MapKey::Id(3), Some(2)),
+                        (MapKey::Meta(MetaId::Add), Some(3)),
+                    ]),
                     MainBlock {
-                        body: vec![0, 3],
+                        body: vec![0, 4],
                         local_count: 0,
                     },
                 ],
@@ -239,6 +244,7 @@ x = [
                     Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::Str("hello"),
+                    Constant::I64(99),
                 ]),
             )
         }
@@ -257,8 +263,11 @@ x = [
                 &[
                     Int(1),
                     Str(4),
-                    // map entries are constant/ast index pairs
-                    Map(vec![(0, Some(0)), (2, None), (3, Some(1))]),
+                    Map(vec![
+                        (MapKey::Id(0), Some(0)),
+                        (MapKey::Id(2), None),
+                        (MapKey::Id(3), Some(1)),
+                    ]),
                     MainBlock {
                         body: vec![2],
                         local_count: 0,
@@ -282,6 +291,7 @@ x =
   bar
   "baz":
     foo: 0
+  @-: -1
 x"#;
             check_ast(
                 source,
@@ -289,20 +299,25 @@ x"#;
                     Id(0),  // x
                     Int(2), // 42
                     Number0,
-                    // map entries are constant/ast pairs
-                    Map(vec![(1, Some(2))]), // baz, nested map
-                    Map(vec![(1, Some(1)), (3, None), (4, Some(3))]),
+                    Map(vec![(MapKey::Id(1), Some(2))]), // baz, nested map
+                    Int(5),
+                    Map(vec![
+                        (MapKey::Id(1), Some(1)),
+                        (MapKey::Id(3), None),
+                        (MapKey::Id(4), Some(3)),
+                        (MapKey::Meta(MetaId::Subtract), Some(4)),
+                    ]), // 5
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 4,
-                    }, // 5
+                        expression: 5,
+                    },
                     Id(0),
                     MainBlock {
-                        body: vec![5, 6],
+                        body: vec![6, 7],
                         local_count: 1,
                     },
                 ],
@@ -312,7 +327,42 @@ x"#;
                     Constant::I64(42),
                     Constant::Str("bar"),
                     Constant::Str("baz"),
+                    Constant::I64(-1),
                 ]),
+            )
+        }
+
+        #[test]
+        fn map_block_meta() {
+            let source = r#"
+x =
+  @+: 0
+  @-: 1
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0), // x
+                    Number0,
+                    Number1,
+                    Map(vec![
+                        (MapKey::Meta(MetaId::Add), Some(1)),
+                        (MapKey::Meta(MetaId::Subtract), Some(2)),
+                    ]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
 
@@ -2097,8 +2147,7 @@ f x";
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    // Map entries are constant/ast index pairs
-                    Map(vec![(0, Some(0)), (2, Some(8))]),
+                    Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(8))]),
                     MainBlock {
                         body: vec![9],
                         local_count: 0,
@@ -2127,8 +2176,7 @@ f = ||
                     Id(0),
                     Id(2),
                     Number0,
-                    // Map entries are constant/ast index pairs
-                    Map(vec![(1, Some(1)), (3, Some(2))]),
+                    Map(vec![(MapKey::Id(1), Some(1)), (MapKey::Id(3), Some(2))]),
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
@@ -2195,8 +2243,7 @@ f()";
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    // Map entries are constant/ast index pairs
-                    Map(vec![(1, Some(1)), (3, Some(9))]), // 10
+                    Map(vec![(MapKey::Id(1), Some(1)), (MapKey::Id(3), Some(9))]), // 10
                     Function(koto_parser::Function {
                         args: vec![],
                         local_count: 0,
@@ -2541,7 +2588,7 @@ y z";
                 source,
                 &[
                     Int(1),
-                    Map(vec![(0, Some(0))]),
+                    Map(vec![(MapKey::Id(0), Some(0))]),
                     Yield(1),
                     Function(koto_parser::Function {
                         args: vec![],
@@ -3027,7 +3074,7 @@ x.bar()."baz" = 1
             check_ast(
                 source,
                 &[
-                    Map(vec![(0, None)]),
+                    Map(vec![(MapKey::Id(0), None)]),
                     Lookup((LookupNode::Call(vec![]), None)),
                     Lookup((LookupNode::Id(1), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
