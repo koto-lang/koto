@@ -1,4 +1,5 @@
 from test import assert, assert_eq
+import koto
 
 locals = {}
 
@@ -7,7 +8,8 @@ foo = |x|
     x: x
   result + locals.foo_meta
 
-# The overloaded operators are implemented after foo has been declared
+# Declaring the overloaded operators once and then copying them into the foo instance
+# is more efficient than declaring them each time foo is called.
 locals.foo_meta =
   # Arithmetic operators
   @+: |self, other| foo self.x + other.x
@@ -29,6 +31,9 @@ locals.foo_meta =
 
   # Indexing
   @[]: |self, index| self.x + index
+
+  # Type
+  @type: "Foo"
 
 
 export tests =
@@ -86,3 +91,6 @@ export tests =
   test_index: ||
     assert_eq foo(10)[5], 15
     assert_eq foo(100)[-1], 99
+
+  test_type: ||
+    assert_eq (koto.type (foo 0)), "Foo"

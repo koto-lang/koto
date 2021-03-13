@@ -1,7 +1,7 @@
 use {
     crate::{
-        num2, num4, ExternalFunction, ExternalValue, IntRange, ValueIterator, ValueList, ValueMap,
-        ValueNumber, ValueString, ValueTuple, ValueVec,
+        num2, num4, ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList,
+        ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
@@ -343,7 +343,11 @@ pub fn type_as_string(value: &Value) -> String {
         List(_) => "List".to_string(),
         Range { .. } => "Range".to_string(),
         IndexRange { .. } => "IndexRange".to_string(),
-        Map(_) => "Map".to_string(),
+        Map(m) => match m.contents().meta.get(&MetaKey::Type) {
+            Some(Str(s)) => s.as_str().to_string(),
+            Some(_) => "Error: expected string for overloaded type".to_string(),
+            None => "Map".to_string(),
+        },
         Str(_) => "String".to_string(),
         Tuple(_) => "Tuple".to_string(),
         Function { .. } => "Function".to_string(),

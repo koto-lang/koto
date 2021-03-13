@@ -233,6 +233,7 @@ impl fmt::Display for UnaryOp {
 pub enum MetaKey {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
+    Type,
 }
 
 impl From<BinaryOp> for MetaKey {
@@ -265,6 +266,7 @@ impl From<MetaId> for MetaKey {
             MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
             MetaId::Index => MetaKey::BinaryOp(Index),
             MetaId::Negate => MetaKey::UnaryOp(Negate),
+            MetaId::Type => MetaKey::Type,
             _ => unreachable!("Invalid MetaId"),
         }
     }
