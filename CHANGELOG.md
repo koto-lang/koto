@@ -7,10 +7,16 @@
 - Direct access to the module's export map is now allowed via `koto.exports()`.
 - Logging behaviour via print and debug logging can now be customized.
 - Koto can now be compiled to wasm.
-
+- Operator overloading for maps is now supported.
+  - e.g.
+    ```
+    foo = |x|
+      x: x
+      @+: |self, other| foo self.x + other.x
+    assert_eq (foo(10) + foo(20)), foo(30)
+    ```
 
 ### Changed
-- Binary operators overloading is now supported.
 - Captured values in functions are now immutable.
   - e.g.
     ```
