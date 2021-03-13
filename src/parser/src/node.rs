@@ -267,6 +267,7 @@ pub enum MetaId {
     GreaterOrEqual,
     Equal,
     NotEqual,
+    Negate,
 
     // Must be last, see TryFrom<u8> for MetaId
     Invalid,

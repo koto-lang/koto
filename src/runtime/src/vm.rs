@@ -6,8 +6,8 @@ use {
         num2, num4, type_as_string,
         value::{self, value_is_callable, value_size, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, DefaultLogger, KotoLogger, Loader, MetaKey, Operator, RuntimeError,
-        RuntimeResult, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
+        RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaId},
@@ -322,7 +322,7 @@ impl Vm {
         }
     }
 
-    pub fn run_binary_op(&mut self, op: Operator, lhs: Value, rhs: Value) -> RuntimeResult {
+    pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
         if !self.call_stack.is_empty() {
             return vm_error!(
                 "run_binary_op: the call stack must be empty,
@@ -336,17 +336,17 @@ impl Vm {
         self.value_stack.push(rhs);
 
         match op {
-            Operator::Add => self.run_add(0, 1, 2)?,
-            Operator::Subtract => self.run_subtract(0, 1, 2)?,
-            Operator::Multiply => self.run_multiply(0, 1, 2)?,
-            Operator::Divide => self.run_divide(0, 1, 2)?,
-            Operator::Modulo => self.run_modulo(0, 1, 2)?,
-            Operator::Less => self.run_less(0, 1, 2)?,
-            Operator::LessOrEqual => self.run_less_or_equal(0, 1, 2)?,
-            Operator::Greater => self.run_greater(0, 1, 2)?,
-            Operator::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
-            Operator::Equal => self.run_equal(0, 1, 2)?,
-            Operator::NotEqual => self.run_not_equal(0, 1, 2)?,
+            BinaryOp::Add => self.run_add(0, 1, 2)?,
+            BinaryOp::Subtract => self.run_subtract(0, 1, 2)?,
+            BinaryOp::Multiply => self.run_multiply(0, 1, 2)?,
+            BinaryOp::Divide => self.run_divide(0, 1, 2)?,
+            BinaryOp::Modulo => self.run_modulo(0, 1, 2)?,
+            BinaryOp::Less => self.run_less(0, 1, 2)?,
+            BinaryOp::LessOrEqual => self.run_less_or_equal(0, 1, 2)?,
+            BinaryOp::Greater => self.run_greater(0, 1, 2)?,
+            BinaryOp::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
+            BinaryOp::Equal => self.run_equal(0, 1, 2)?,
+            BinaryOp::NotEqual => self.run_not_equal(0, 1, 2)?,
         }
 
         if self.call_stack.is_empty() {
@@ -1140,25 +1140,29 @@ impl Vm {
         Ok(())
     }
 
-    fn run_negate(&mut self, register: u8, value: u8) -> InstructionResult {
-        use Value::*;
+    fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
+        use {UnaryOp::Negate, Value::*};
 
-        let result = match &self.get_register(value) {
+        let result_value = match &self.get_register(value) {
             Bool(b) => Bool(!b),
             Number(n) => Number(-n),
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
+            Map(map) if map.contents().meta.contains_key(&MetaKey::UnaryOp(Negate)) => {
+                let map = map.clone();
+                return self.call_overloaded_unary_op(result, value, map, Negate);
+            }
             unexpected => {
                 return self.unexpected_type_error("Negate: expected negatable value", unexpected);
             }
         };
-        self.set_register(register, result);
+        self.set_register(result, result_value);
 
         Ok(())
     }
 
     fn run_add(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Add, Value::*};
+        use {BinaryOp::Add, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1184,7 +1188,7 @@ impl Vm {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Add)) => {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Add)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Add);
@@ -1202,7 +1206,7 @@ impl Vm {
     }
 
     fn run_subtract(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Subtract, Value::*};
+        use {BinaryOp::Subtract, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1218,7 +1222,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(Subtract)) =>
+                    .contains_key(&MetaKey::BinaryOp(Subtract)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1232,7 +1236,7 @@ impl Vm {
     }
 
     fn run_multiply(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Multiply, Value::*};
+        use {BinaryOp::Multiply, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1249,7 +1253,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(Multiply)) =>
+                    .contains_key(&MetaKey::BinaryOp(Multiply)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1263,7 +1267,7 @@ impl Vm {
     }
 
     fn run_divide(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Divide, Value::*};
+        use {BinaryOp::Divide, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1275,7 +1279,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a / b),
             (Num4(a), Num4(b)) => Num4(a / b),
             (Num4(a), Number(b)) => Num4(a / b),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Divide)) => {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Divide)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Divide);
@@ -1288,7 +1292,7 @@ impl Vm {
     }
 
     fn run_modulo(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Modulo, Value::*};
+        use {BinaryOp::Modulo, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1300,7 +1304,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a % b),
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Modulo)) => {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Modulo)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Modulo);
@@ -1313,14 +1317,14 @@ impl Vm {
     }
 
     fn run_less(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Less, Value::*};
+        use {BinaryOp::Less, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Less)) => {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Less)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Less);
@@ -1333,7 +1337,7 @@ impl Vm {
     }
 
     fn run_less_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::LessOrEqual, Value::*};
+        use {BinaryOp::LessOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1344,7 +1348,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(LessOrEqual)) =>
+                    .contains_key(&MetaKey::BinaryOp(LessOrEqual)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1358,7 +1362,7 @@ impl Vm {
     }
 
     fn run_greater(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Greater, Value::*};
+        use {BinaryOp::Greater, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1369,7 +1373,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(Greater)) =>
+                    .contains_key(&MetaKey::BinaryOp(Greater)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1383,7 +1387,7 @@ impl Vm {
     }
 
     fn run_greater_or_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::GreaterOrEqual, Value::*};
+        use {BinaryOp::GreaterOrEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1394,7 +1398,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(GreaterOrEqual)) =>
+                    .contains_key(&MetaKey::BinaryOp(GreaterOrEqual)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1408,12 +1412,12 @@ impl Vm {
     }
 
     fn run_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::Equal, Value::*};
+        use {BinaryOp::Equal, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::Operator(Equal)) => {
+            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Equal)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
@@ -1427,7 +1431,7 @@ impl Vm {
     }
 
     fn run_not_equal(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {Operator::NotEqual, Value::*};
+        use {BinaryOp::NotEqual, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1436,7 +1440,7 @@ impl Vm {
                 if map
                     .contents()
                     .meta
-                    .contains_key(&MetaKey::Operator(NotEqual)) =>
+                    .contains_key(&MetaKey::BinaryOp(NotEqual)) =>
             {
                 let map = map.clone();
                 let value = value.clone();
@@ -1450,20 +1454,47 @@ impl Vm {
         Ok(())
     }
 
+    fn call_overloaded_unary_op(
+        &mut self,
+        result_register: u8,
+        map_register: u8,
+        map: ValueMap,
+        op: UnaryOp,
+    ) -> InstructionResult {
+        let op = match map.contents().meta.get(&MetaKey::UnaryOp(op)) {
+            Some(op) => op.clone(),
+            None => return vm_error!("Missing overloaded {:?} key", op),
+        };
+
+        // Set up the call registers at the end of the stack
+        let stack_len = self.value_stack.len();
+        let frame_base = (stack_len - self.register_base()) as u8;
+        self.value_stack.push(Value::Empty); // frame_base
+        self.call_function(
+            result_register,
+            op,
+            frame_base,
+            0, // 0 args
+            Some(map_register),
+        )?;
+
+        Ok(())
+    }
+
     fn call_overloaded_binary_op(
         &mut self,
         result_register: u8,
         map_register: u8,
         map: ValueMap,
         rhs: Value,
-        op: Operator,
+        op: BinaryOp,
     ) -> InstructionResult {
-        let op = match map.contents().meta.get(&MetaKey::Operator(op)) {
+        let op = match map.contents().meta.get(&MetaKey::BinaryOp(op)) {
             Some(op) => op.clone(),
             None => return vm_error!("Missing overloaded {:?} operation", op),
         };
 
-        // Set up the call registers at end of stack
+        // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
         self.value_stack.push(Value::Empty); // frame_base

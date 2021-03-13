@@ -4,7 +4,7 @@ use crate::{
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
-    Operator, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
+    BinaryOp, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -244,7 +244,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
                             Some(result) => match vm.run_binary_op(
-                                Operator::Less,
+                                BinaryOp::Less,
                                 result.clone(),
                                 value.clone(),
                             ) {
@@ -283,7 +283,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
                             Some(result) => match vm.run_binary_op(
-                                Operator::Less,
+                                BinaryOp::Less,
                                 result.clone(),
                                 value.clone(),
                             ) {
@@ -338,8 +338,8 @@ pub fn make_module() -> ValueMap {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
                             Some((min, max)) => (
-                                compare_values(vm, Operator::Less, min, value.clone())?,
-                                compare_values(vm, Operator::Greater, max, value)?,
+                                compare_values(vm, BinaryOp::Less, min, value.clone())?,
+                                compare_values(vm, BinaryOp::Greater, max, value)?,
                             ),
                             None => (value.clone(), value),
                         })
@@ -413,7 +413,7 @@ pub fn make_module() -> ValueMap {
             _ => return external_error!("iterator.product: Expected iterable as argument"),
         };
 
-        fold_with_operator(vm, iterable, initial_value, Operator::Multiply)
+        fold_with_operator(vm, iterable, initial_value, BinaryOp::Multiply)
             .map_err(|e| e.with_prefix("iterator.product"))
     });
 
@@ -445,7 +445,7 @@ pub fn make_module() -> ValueMap {
             _ => return external_error!("iterator.sum: Expected iterable as argument"),
         };
 
-        fold_with_operator(vm, iterable, initial_value, Operator::Add)
+        fold_with_operator(vm, iterable, initial_value, BinaryOp::Add)
             .map_err(|e| e.with_prefix("iterator.sum"))
     });
 
@@ -562,7 +562,7 @@ fn fold_with_operator(
     vm: &mut Vm,
     iterable: Value,
     initial_value: Value,
-    operator: Operator,
+    operator: BinaryOp,
 ) -> RuntimeResult {
     let vm = vm.child_vm();
     let mut result = initial_value;

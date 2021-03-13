@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Operator, Value, ValueMap, ValueNumber};
+use crate::{external_error, type_as_string, BinaryOp, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -30,7 +30,7 @@ pub fn make_module() -> ValueMap {
             let b = b.clone();
             let result = vm
                 .child_vm()
-                .run_binary_op(Operator::Equal, a.clone(), b.clone());
+                .run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
@@ -52,7 +52,7 @@ pub fn make_module() -> ValueMap {
             let b = b.clone();
             let result = vm
                 .child_vm()
-                .run_binary_op(Operator::NotEqual, a.clone(), b.clone());
+                .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {

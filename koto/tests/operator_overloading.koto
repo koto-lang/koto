@@ -16,13 +16,16 @@ locals.foo_meta =
   @/: |self, other| foo self.x / other.x
   @%: |self, other| foo self.x % other.x
 
-  #Comparison operators
+  # Comparison operators
   @<: |self, other| self.x < other.x
   @<=: |self, other| self.x <= other.x
   @>: |self, other| self.x > other.x
   @>=: |self, other| self.x >= other.x
   @==: |self, other| self.x == other.x
   @!=: |self, other| not self == other
+
+  # Negation
+  @negate: |self| foo -self.x
 
 
 export tests =
@@ -73,3 +76,6 @@ export tests =
     assert foo(7) != foo(8)
     assert not (foo(7) != foo(7))
     # TODO Add an assert_ne test
+
+  test_negate: ||
+    assert_eq -foo(1), foo(-1)

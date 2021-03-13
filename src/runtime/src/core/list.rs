@@ -3,7 +3,7 @@ use {
         external_error, type_as_string, value,
         value::{deep_copy_value, value_is_callable},
         value_sort::{compare_values, sort_values},
-        Operator, RuntimeError, Value, ValueIterator, ValueList, ValueMap,
+        BinaryOp, RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
     smallvec::SmallVec,
     std::cmp::Ordering,
@@ -189,7 +189,7 @@ pub fn make_module() -> ValueMap {
                     if error.is_some() {
                         return true;
                     }
-                    match vm.run_binary_op(Operator::Equal, x.clone(), value.clone()) {
+                    match vm.run_binary_op(BinaryOp::Equal, x.clone(), value.clone()) {
                         Ok(Bool(true)) => true,
                         Ok(Bool(false)) => false,
                         Ok(unexpected) => {

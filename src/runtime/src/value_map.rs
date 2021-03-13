@@ -170,7 +170,7 @@ impl PartialEq for ValueHashMap {
 impl Eq for ValueHashMap {}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Operator {
+pub enum BinaryOp {
     Add,
     Subtract,
     Multiply,
@@ -184,9 +184,9 @@ pub enum Operator {
     NotEqual,
 }
 
-impl fmt::Display for Operator {
+impl fmt::Display for BinaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Operator::*;
+        use BinaryOp::*;
 
         write!(
             f,
@@ -208,33 +208,60 @@ impl fmt::Display for Operator {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum MetaKey {
-    Operator(Operator),
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum UnaryOp {
+    Negate,
 }
 
-impl From<Operator> for MetaKey {
-    fn from(op: Operator) -> Self {
-        Self::Operator(op)
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use UnaryOp::*;
+
+        write!(
+            f,
+            "{}",
+            match self {
+                Negate => "negate",
+            }
+        )
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum MetaKey {
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+}
+
+impl From<BinaryOp> for MetaKey {
+    fn from(op: BinaryOp) -> Self {
+        Self::BinaryOp(op)
+    }
+}
+
+impl From<UnaryOp> for MetaKey {
+    fn from(op: UnaryOp) -> Self {
+        Self::UnaryOp(op)
     }
 }
 
 impl From<MetaId> for MetaKey {
     fn from(id: MetaId) -> Self {
-        use Operator::*;
+        use {BinaryOp::*, UnaryOp::*};
 
         match id {
-            MetaId::Add => MetaKey::Operator(Add),
-            MetaId::Subtract => MetaKey::Operator(Subtract),
-            MetaId::Multiply => MetaKey::Operator(Multiply),
-            MetaId::Divide => MetaKey::Operator(Divide),
-            MetaId::Modulo => MetaKey::Operator(Modulo),
-            MetaId::Less => MetaKey::Operator(Less),
-            MetaId::LessOrEqual => MetaKey::Operator(LessOrEqual),
-            MetaId::Greater => MetaKey::Operator(Greater),
-            MetaId::GreaterOrEqual => MetaKey::Operator(GreaterOrEqual),
-            MetaId::Equal => MetaKey::Operator(Equal),
-            MetaId::NotEqual => MetaKey::Operator(NotEqual),
+            MetaId::Add => MetaKey::BinaryOp(Add),
+            MetaId::Subtract => MetaKey::BinaryOp(Subtract),
+            MetaId::Multiply => MetaKey::BinaryOp(Multiply),
+            MetaId::Divide => MetaKey::BinaryOp(Divide),
+            MetaId::Modulo => MetaKey::BinaryOp(Modulo),
+            MetaId::Less => MetaKey::BinaryOp(Less),
+            MetaId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
+            MetaId::Greater => MetaKey::BinaryOp(Greater),
+            MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
+            MetaId::Equal => MetaKey::BinaryOp(Equal),
+            MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
+            MetaId::Negate => MetaKey::UnaryOp(Negate),
             _ => unreachable!("Invalid MetaId"),
         }
     }

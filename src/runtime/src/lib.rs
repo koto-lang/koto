@@ -30,7 +30,7 @@ pub use {
     },
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_list::{ValueList, ValueVec},
-    value_map::{MetaKey, Operator, ValueHashMap, ValueMap, ValueMapKey},
+    value_map::{BinaryOp, MetaKey, UnaryOp, ValueHashMap, ValueMap, ValueMapKey},
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
