@@ -5,14 +5,12 @@ mod parser {
     fn check_parsing_fails(source: &str) {
         let catch_result = std::panic::catch_unwind(|| Parser::parse(source));
 
-        if let Ok(result) = catch_result {
-            if let Ok(ast) = result {
-                panic!(
-                    "Unexpected success while parsing:\n{}\n{:#?}",
-                    source,
-                    ast.0.nodes()
-                );
-            }
+        if let Ok(Ok(ast)) = catch_result {
+            panic!(
+                "Unexpected success while parsing:\n{}\n{:#?}",
+                source,
+                ast.0.nodes()
+            );
         }
     }
 

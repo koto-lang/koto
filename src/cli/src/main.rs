@@ -129,7 +129,7 @@ fn main() {
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(
                         "Instructions\n------------\n{}",
-                        Chunk::instructions_as_string(chunk.clone(), &script_lines)
+                        Chunk::instructions_as_string(chunk, &script_lines)
                     );
                 }
                 match koto.run_with_args(&args.script_args) {
