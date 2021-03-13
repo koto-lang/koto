@@ -99,6 +99,15 @@ export tests =
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 
+  test_retain_with_overloaded_equality_op: ||
+    bar = |x|
+      x: x
+      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+
+    z = [bar(0), bar(1), bar(1), bar(2)]
+    z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped
+    assert_eq z, [bar(0), bar(2)]
+
   test_reverse: ||
     a = [1, 2, 3]
     a.reverse()

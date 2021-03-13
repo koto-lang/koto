@@ -1,9 +1,9 @@
 use {
     crate::{
-        external_error, value,
+        external_error, type_as_string, value,
         value::{deep_copy_value, value_is_callable},
         value_sort::{compare_values, sort_values},
-        RuntimeError, Value, ValueIterator, ValueList, ValueMap,
+        Operator, RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
     smallvec::SmallVec,
     std::cmp::Ordering,
@@ -180,7 +180,34 @@ pub fn make_module() -> ValueMap {
                 l.data_mut().resize(write_index, Empty);
             }
             [List(l), value] => {
-                l.data_mut().retain(|x| x == value);
+                let l = l.clone();
+                let value = value.clone();
+                let vm = vm.child_vm();
+
+                let mut error = None;
+                l.data_mut().retain(|x| {
+                    if error.is_some() {
+                        return true;
+                    }
+                    match vm.run_binary_op(Operator::Equal, x.clone(), value.clone()) {
+                        Ok(Bool(true)) => true,
+                        Ok(Bool(false)) => false,
+                        Ok(unexpected) => {
+                            error = Some(external_error!(
+                                "list.retain:: Expected Bool from == comparison, found '{}'",
+                                type_as_string(&unexpected)
+                            ));
+                            true
+                        }
+                        Err(e) => {
+                            error = Some(Err(e.with_prefix("list.retain")));
+                            true
+                        }
+                    }
+                });
+                if let Some(error) = error {
+                    return error;
+                }
             }
             _ => {
                 return external_error!(
