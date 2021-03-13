@@ -2,8 +2,11 @@ use {
     crate::{
         external_error, value,
         value::{deep_copy_value, value_is_callable},
-        Value, ValueIterator, ValueList, ValueMap,
+        value_sort::{compare_values, sort_values},
+        RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
+    smallvec::SmallVec,
+    std::cmp::Ordering,
     std::ops::DerefMut,
 };
 
@@ -204,30 +207,56 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [List(l)] => {
-            l.data_mut().sort();
+            let l = l.clone();
+            let vm = vm.child_vm();
+            let mut data = l.data_mut();
+            sort_values(vm, &mut data)?;
             Ok(Empty)
         }
         [List(l), f] if value_is_callable(f) => {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
+            let arr = l.data().clone();
+
+            // apply function and contruct array [key, value]
+            let mut pairs = arr
+                .iter()
+                .map(|val| match vm.run_function(f.clone(), &[val.clone()]) {
+                    Ok(v) => Ok([v, val.clone()]),
+                    Err(e) => Err(e),
+                })
+                .collect::<Result<Vec<[Value; 2]>, RuntimeError>>()?;
+
             let mut error = None;
 
-            l.data_mut().sort_by_cached_key(|value| {
-                match vm.run_function(f.clone(), &[value.clone()]) {
-                    Ok(result) => result,
+            // sort array by key (i.e. from [key, value])
+            pairs.sort_by(|a, b| {
+                if error.is_some() {
+                    return Ordering::Equal;
+                }
+
+                match compare_values(vm, &a[0], &b[0]) {
+                    Ok(ordering) => ordering,
                     Err(e) => {
-                        error.get_or_insert(Err(e.with_prefix("list.sort")));
-                        Empty
+                        error.get_or_insert(e);
+                        Ordering::Equal
                     }
                 }
             });
 
-            if let Some(error) = error {
-                error
-            } else {
-                Ok(Empty)
-            }
+            // collect values
+            *l.data_mut() = pairs
+                .iter()
+                .map(|val| {
+                    if let Some(e) = error.as_ref() {
+                        return Err(e.clone());
+                    }
+                    Ok(val[1].clone())
+                })
+                .collect::<Result<SmallVec<[Value; 4]>, RuntimeError>>()?;
+
+            Ok(Empty)
         }
         _ => external_error!("list.sort: Expected list as argument"),
     });
@@ -235,7 +264,8 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut result = l.data().clone();
-            result.sort();
+            let vm = vm.child_vm();
+            sort_values(vm, &mut result)?;
             Ok(List(ValueList::with_data(result)))
         }
         _ => external_error!("list.sort_copy: Expected list as argument"),

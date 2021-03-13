@@ -1,8 +1,11 @@
+use std::cmp::Ordering;
+
 use crate::{
     external_error, type_as_string,
     value::{deep_copy_value, value_is_callable},
     value_is_immutable,
     value_iterator::ValueIteratorOutput as Output,
+    value_sort::compare_values,
     RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
 };
 
@@ -145,31 +148,52 @@ pub fn make_module() -> ValueMap {
             let vm = vm.child_vm();
             let mut error = None;
 
-            let mut get_sort_key = |cache: &mut ValueHashMap, key: &Value, value: &Value| {
-                let value = match vm.run_function(f.clone(), &[key.clone(), value.clone()]) {
-                    Ok(value) => value,
-                    Err(e) => {
-                        error.get_or_insert(Err(e.with_prefix("map.sort")));
-                        Empty
-                    }
-                };
+            let get_sort_key = |vm: &mut Vm,
+                                cache: &mut ValueHashMap,
+                                key: &Value,
+                                value: &Value|
+             -> RuntimeResult {
+                let value = vm.run_function(f.clone(), &[key.clone(), value.clone()])?;
                 cache.insert(key.clone(), value.clone());
-                value
+                Ok(value)
             };
 
             let mut cache = ValueHashMap::with_capacity(m.len());
             m.contents_mut()
                 .data
                 .sort_by(|key_a, value_a, key_b, value_b| {
+                    if error.is_some() {
+                        return Ordering::Equal;
+                    }
+
                     let value_a = match cache.get(key_a) {
                         Some(value) => value.clone(),
-                        None => get_sort_key(&mut cache, key_a, value_a),
+                        None => match get_sort_key(vm, &mut cache, key_a, value_a) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                error.get_or_insert(Err(e.with_prefix("map.sort")));
+                                Empty
+                            }
+                        },
                     };
                     let value_b = match cache.get(key_b) {
                         Some(value) => value.clone(),
-                        None => get_sort_key(&mut cache, key_b, value_b),
+                        None => match get_sort_key(vm, &mut cache, key_b, value_b) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                error.get_or_insert(Err(e.with_prefix("map.sort")));
+                                Empty
+                            }
+                        },
                     };
-                    value_a.cmp(&value_b)
+
+                    match compare_values(vm, &value_a, &value_b) {
+                        Ok(ordering) => ordering,
+                        Err(e) => {
+                            error.get_or_insert(Err(e));
+                            Ordering::Equal
+                        }
+                    }
                 });
 
             if let Some(error) = error {

@@ -1,13 +1,10 @@
-use {
-    crate::{
-        external_error, type_as_string, value,
-        value::{value_is_callable, value_is_iterable},
-        value_iterator::{
-            make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
-        },
-        Operator, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
+use crate::{
+    external_error, type_as_string, value,
+    value::{value_is_callable, value_is_iterable},
+    value_iterator::{
+        make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
-    std::cmp,
+    Operator, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -238,19 +235,30 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
+            let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => {
-                                match vm.run_binary_op(Operator::Less, result, value) {
-                                    Ok(Bool(true)) => value,
-                                    Ok(Bool(false)) => result,
-                                    Err(error) => return Err(error.with_prefix("iterator.max")),
+                            Some(result) => match vm.run_binary_op(
+                                Operator::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
+                                Ok(Bool(true)) => value,
+                                Ok(Bool(false)) => result,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.max: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
                                 }
-                            }
+                                Err(error) => return Err(error.with_prefix("iterator.max")),
+                            },
                             None => value,
                         })
                     }
@@ -266,15 +274,28 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
-            let mut result = None;
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
+            let mut result: Option<Value> = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some(result) => match vm.run_binary_op(Operator::Less, result, value) {
+                            Some(result) => match vm.run_binary_op(
+                                Operator::Less,
+                                result.clone(),
+                                value.clone(),
+                            ) {
                                 Ok(Bool(true)) => result,
                                 Ok(Bool(false)) => value,
+                                Ok(unexpected) => {
+                                    return external_error!(
+                                        "iterator.min: \
+                                         Expected Bool from < comparison, found '{}'",
+                                        type_as_string(&unexpected)
+                                    );
+                                }
                                 Err(error) => return Err(error.with_prefix("iterator.min")),
                             },
                             None => value,
@@ -292,15 +313,34 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
         [iterable] if value_is_iterable(iterable) => {
+            let iterable = iterable.clone();
+            let vm = vm.child_vm();
             let mut result = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            let compare_values = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
+                match vm.run_binary_op(op, a.clone(), b.clone()) {
+                    Ok(Bool(true)) => Ok(a),
+                    Ok(Bool(false)) => Ok(b),
+                    Ok(unexpected) => {
+                        return external_error!(
+                            "iterator.min_max: \
+                             Expected Bool from {} comparison, found '{}'",
+                            op,
+                            type_as_string(&unexpected)
+                        );
+                    }
+                    Err(error) => Err(error.with_prefix("iterator.min_max")),
+                }
+            };
+
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Ok(Output::Value(value)) => {
                         result = Some(match result {
-                            Some((min, max)) => {
-                                (cmp::min(min, value.clone()), cmp::max(max, value))
-                            }
+                            Some((min, max)) => (
+                                compare_values(vm, Operator::Less, min, value.clone())?,
+                                compare_values(vm, Operator::Greater, max, value)?,
+                            ),
                             None => (value.clone(), value),
                         })
                     }

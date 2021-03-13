@@ -184,6 +184,30 @@ pub enum Operator {
     NotEqual,
 }
 
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Operator::*;
+
+        write!(
+            f,
+            "{}",
+            match self {
+                Add => "+",
+                Subtract => "-",
+                Multiply => "*",
+                Divide => "/",
+                Modulo => "%",
+                Less => "<",
+                LessOrEqual => "<=",
+                Greater => ">",
+                GreaterOrEqual => ">=",
+                Equal => "==",
+                NotEqual => "!=",
+            }
+        )
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
     Operator(Operator),

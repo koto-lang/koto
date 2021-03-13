@@ -1,6 +1,6 @@
 use crate::{
-    external_error, value::deep_copy_value, value_iterator::ValueIterator, Value, ValueList,
-    ValueMap,
+    external_error, value::deep_copy_value, value_iterator::ValueIterator, value_sort::sort_values,
+    Value, ValueList, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -61,7 +61,10 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => {
             let mut result = t.data().to_vec();
-            result.sort();
+            let vm = vm.child_vm();
+
+            sort_values(vm, &mut result)?;
+
             Ok(Tuple(result.into()))
         }
         _ => external_error!("tuple.sort_copy: Expected tuple as argument"),
