@@ -347,6 +347,7 @@ impl Vm {
             BinaryOp::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
             BinaryOp::Equal => self.run_equal(0, 1, 2)?,
             BinaryOp::NotEqual => self.run_not_equal(0, 1, 2)?,
+            BinaryOp::Index => self.run_index(0, 1, 2)?,
         }
 
         if self.call_stack.is_empty() {
@@ -1915,7 +1916,7 @@ impl Vm {
         value_register: u8,
         index_register: u8,
     ) -> InstructionResult {
-        use Value::*;
+        use {BinaryOp::Index, Value::*};
 
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
@@ -1973,6 +1974,15 @@ impl Vm {
                     0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
                     other => return vm_error!("Index out of bounds for Num4, {}", other),
                 }
+            }
+            (Map(map), index) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Index)) => {
+                return self.call_overloaded_binary_op(
+                    result_register,
+                    value_register,
+                    map,
+                    index,
+                    Index,
+                );
             }
             (unexpected_value, unexpected_index) => {
                 return vm_error!(

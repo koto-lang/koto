@@ -182,6 +182,7 @@ pub enum BinaryOp {
     GreaterOrEqual,
     Equal,
     NotEqual,
+    Index,
 }
 
 impl fmt::Display for BinaryOp {
@@ -203,6 +204,7 @@ impl fmt::Display for BinaryOp {
                 GreaterOrEqual => ">=",
                 Equal => "==",
                 NotEqual => "!=",
+                Index => "[]",
             }
         )
     }
@@ -261,6 +263,7 @@ impl From<MetaId> for MetaKey {
             MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
             MetaId::Equal => MetaKey::BinaryOp(Equal),
             MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
+            MetaId::Index => MetaKey::BinaryOp(Index),
             MetaId::Negate => MetaKey::UnaryOp(Negate),
             _ => unreachable!("Invalid MetaId"),
         }

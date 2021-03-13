@@ -27,6 +27,9 @@ locals.foo_meta =
   # Negation
   @negate: |self| foo -self.x
 
+  # Indexing
+  @[]: |self, index| self.x + index
+
 
 export tests =
   test_add: ||
@@ -79,3 +82,7 @@ export tests =
 
   test_negate: ||
     assert_eq -foo(1), foo(-1)
+
+  test_index: ||
+    assert_eq foo(10)[5], 15
+    assert_eq foo(100)[-1], 99

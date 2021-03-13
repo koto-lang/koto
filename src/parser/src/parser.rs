@@ -794,7 +794,10 @@ impl<'source> Parser<'source> {
                         "negate" => MetaId::Negate,
                         _ => return syntax_error!(UnexpectedMetaKey, self),
                     },
-
+                    Some(Token::ListStart) => match self.consume_token() {
+                        Some(Token::ListEnd) => MetaId::Index,
+                        _ => return syntax_error!(UnexpectedMetaKey, self),
+                    },
                     _ => return syntax_error!(UnexpectedMetaKey, self),
                 };
 
