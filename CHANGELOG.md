@@ -22,6 +22,13 @@
     assert_eq 0o1000, 512
     assert_eq 0x1000, 4096
     ```
+- Bitwise operations are now available for integers.
+  - `number.and`
+  - `number.flip_bits`
+  - `number.or`
+  - `number.shift_left`
+  - `number.shift_right`
+  - `number.xor`
 
 ### Changed
 - Captured values in functions are now immutable.

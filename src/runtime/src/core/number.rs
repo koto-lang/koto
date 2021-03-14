@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Value, ValueMap};
+use crate::{external_error, type_as_string, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -39,6 +39,38 @@ pub fn make_module() -> ValueMap {
         };
     }
 
+    macro_rules! bitwise_fn {
+        ($name:ident, $op:tt) => {
+            result.add_fn(stringify!($name), |vm, args| {
+                use ValueNumber::I64;
+                match vm.get_args(args) {
+                    [Number(I64(a)), Number(I64(b))] => Ok(Number((a $op b).into())),
+                    _ => external_error!(
+                        "number.{} expects two Integers as arguments",
+                        stringify!($name)
+                    ),
+                }
+            })
+        };
+    }
+
+    macro_rules! bitwise_fn_positive_arg {
+        ($name:ident, $op:tt) => {
+            result.add_fn(stringify!($name), |vm, args| {
+                use ValueNumber::I64;
+                match vm.get_args(args) {
+                    [Number(I64(a)), Number(I64(b))] if *b >= 0 => Ok(Number((a $op b).into())),
+                    _ => external_error!(
+                        "number.{} expects two Integers as arguments,
+                         with a non-negative second argument",
+                        stringify!($name)
+                    ),
+                }
+            })
+        };
+    }
+
+    bitwise_fn!(and, &);
     number_fn!(abs);
     number_f64_fn!(acos);
     number_f64_fn!(asin);
@@ -83,6 +115,13 @@ pub fn make_module() -> ValueMap {
 
     result.add_value("nan", Number(std::f64::NAN.into()));
     result.add_value("negative_infinity", Number(std::f64::NEG_INFINITY.into()));
+
+    result.add_fn("flip_bits", |vm, args| match vm.get_args(args) {
+        [Number(ValueNumber::I64(n))] => Ok(Number((!n).into())),
+        _ => external_error!("number.flip_bits: Expected integer as argument"),
+    });
+    bitwise_fn!(or, |);
+
     result.add_value("pi", Number(std::f64::consts::PI.into()));
 
     result.add_fn("pow", |vm, args| match vm.get_args(args) {
@@ -92,6 +131,10 @@ pub fn make_module() -> ValueMap {
 
     number_f64_fn!("radians", to_radians);
     number_f64_fn!(recip);
+
+    bitwise_fn_positive_arg!(shift_left, <<);
+    bitwise_fn_positive_arg!(shift_right, >>);
+
     number_f64_fn!(sin);
     number_f64_fn!(sinh);
     number_f64_fn!(sqrt);
@@ -109,6 +152,8 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_value("tau", Number(std::f64::consts::TAU.into()));
+
+    bitwise_fn!(xor, ^);
 
     result
 }
