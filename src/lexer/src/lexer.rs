@@ -282,6 +282,11 @@ impl<'a> TokenLexer<'a> {
         let mut allow_exponent = true;
 
         match chars.peek() {
+            Some(&'o') if has_leading_zero && char_bytes == 1 => {
+                chars.next();
+                char_bytes += 1 + consume_and_count(&mut chars, is_octal_digit);
+                allow_exponent = false;
+            }
             Some(&'x') if has_leading_zero && char_bytes == 1 => {
                 chars.next();
                 char_bytes += 1 + consume_and_count(&mut chars, is_hex_digit);
@@ -493,6 +498,10 @@ fn is_digit(c: char) -> bool {
 
 fn is_hex_digit(c: char) -> bool {
     matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
+}
+
+fn is_octal_digit(c: char) -> bool {
+    matches!(c, '0'..='7')
 }
 
 fn is_whitespace(c: char) -> bool {
@@ -842,7 +851,8 @@ true"#;
 0.5e+9
 -8e8
 0xabadcafe
-0xABADCAFE";
+0xABADCAFE
+0o707606";
         check_lexer_output(
             input,
             &[
@@ -861,6 +871,8 @@ true"#;
                 (Number, Some("0xabadcafe"), 6),
                 (NewLine, None, 7),
                 (Number, Some("0xABADCAFE"), 7),
+                (NewLine, None, 8),
+                (Number, Some("0o707606"), 8),
             ],
         );
     }

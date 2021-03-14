@@ -77,6 +77,8 @@ a
 0x1
 0xf
 0xABADCAFE
+0o1
+0o100
 ";
             check_ast(
                 source,
@@ -85,12 +87,14 @@ a
                     Number1,
                     Int(0),
                     Int(1),
+                    Number1,
+                    Int(2),
                     MainBlock {
-                        body: vec![0, 1, 2, 3],
+                        body: vec![0, 1, 2, 3, 4, 5],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(15), Constant::I64(2880293630)]),
+                Some(&[Constant::I64(15), Constant::I64(2880293630), Constant::I64(64)]),
             )
         }
 

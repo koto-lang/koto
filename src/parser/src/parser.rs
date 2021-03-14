@@ -1396,6 +1396,8 @@ impl<'source> Parser<'source> {
 
         let maybe_integer = if let Some(hex) = slice.strip_prefix("0x") {
             i64::from_str_radix(hex, 16)
+        } else if let Some(octal) = slice.strip_prefix("0o") {
+            i64::from_str_radix(octal, 8)
         } else {
             i64::from_str(slice)
         };

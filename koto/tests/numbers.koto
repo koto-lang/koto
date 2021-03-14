@@ -33,6 +33,12 @@ export tests =
     x %= 2
     assert_eq x, 1
 
+  test_octal_notation: ||
+    assert_eq 0o0, 0
+    assert_eq 0o10, 8
+    assert_eq -0o1000, -512
+    assert_eq 0o707606, 233350
+
   test_hex_notation: ||
     assert_eq 0x0, 0
     assert_eq 0xf, 15
