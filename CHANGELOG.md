@@ -45,6 +45,8 @@
     debug state.x # 142
     ```
 - Runtime errors now provide a full backtrace.
+- Keywords can now be used as identifiers in lookups, e.g. `foo.and()` was
+  previously disallowed.
 
 
 ## [0.6.0] 2021.01.21

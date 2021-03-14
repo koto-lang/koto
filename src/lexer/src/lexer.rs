@@ -102,9 +102,10 @@ impl Token {
 #[derive(Clone)]
 struct TokenLexer<'a> {
     source: &'a str,
-    previous: usize,
-    current: usize,
+    previous_byte: usize,
+    current_byte: usize,
     indent: usize,
+    previous_token: Option<Token>,
     position: Position,
     span: Span,
 }
@@ -113,16 +114,17 @@ impl<'a> TokenLexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             source,
-            previous: 0,
-            current: 0,
+            previous_byte: 0,
+            current_byte: 0,
             indent: 0,
+            previous_token: None,
             position: Position::default(),
             span: Span::default(),
         }
     }
 
     pub fn slice(&self) -> &'a str {
-        &self.source[self.previous..self.current]
+        &self.source[self.previous_byte..self.current_byte]
     }
 
     fn advance_line(&mut self, char_bytes: usize) {
@@ -130,8 +132,8 @@ impl<'a> TokenLexer<'a> {
     }
 
     fn advance_line_utf8(&mut self, char_bytes: usize, char_count: usize) {
-        self.previous = self.current;
-        self.current += char_bytes;
+        self.previous_byte = self.current_byte;
+        self.current_byte += char_bytes;
 
         self.position.column += char_count as u32;
 
@@ -142,8 +144,8 @@ impl<'a> TokenLexer<'a> {
     }
 
     fn advance_to_position(&mut self, char_bytes: usize, position: Position) {
-        self.previous = self.current;
-        self.current += char_bytes;
+        self.previous_byte = self.current_byte;
+        self.current_byte += char_bytes;
 
         self.position = position;
 
@@ -353,10 +355,14 @@ impl<'a> TokenLexer<'a> {
         let char_bytes = c.len_utf8() + char_bytes;
         let char_count = 1 + char_count;
 
-        let id = &self.source[self.current..self.current + char_bytes];
+        let id = &self.source[self.current_byte..self.current_byte + char_bytes];
 
         if id == "else" {
-            if self.source.get(self.current..self.current + char_bytes + 3) == Some("else if") {
+            if self
+                .source
+                .get(self.current_byte..self.current_byte + char_bytes + 3)
+                == Some("else if")
+            {
                 self.advance_line(7);
                 return Some(ElseIf);
             } else {
@@ -374,33 +380,35 @@ impl<'a> TokenLexer<'a> {
             };
         }
 
-        check_keyword!("and", And);
-        check_keyword!("break", Break);
-        check_keyword!("catch", Catch);
-        check_keyword!("continue", Continue);
-        check_keyword!("debug", Debug);
-        check_keyword!("export", Export);
-        check_keyword!("false", False);
-        check_keyword!("finally", Finally);
-        check_keyword!("for", For);
-        check_keyword!("from", From);
-        check_keyword!("if", If);
-        check_keyword!("import", Import);
-        check_keyword!("in", In);
-        check_keyword!("loop", Loop);
-        check_keyword!("match", Match);
-        check_keyword!("not", Not);
-        check_keyword!("num2", Num2);
-        check_keyword!("num4", Num4);
-        check_keyword!("or", Or);
-        check_keyword!("return", Return);
-        check_keyword!("switch", Switch);
-        check_keyword!("then", Then);
-        check_keyword!("true", True);
-        check_keyword!("try", Try);
-        check_keyword!("until", Until);
-        check_keyword!("while", While);
-        check_keyword!("yield", Yield);
+        if !matches!(self.previous_token, Some(Token::Dot)) {
+            check_keyword!("and", And);
+            check_keyword!("break", Break);
+            check_keyword!("catch", Catch);
+            check_keyword!("continue", Continue);
+            check_keyword!("debug", Debug);
+            check_keyword!("export", Export);
+            check_keyword!("false", False);
+            check_keyword!("finally", Finally);
+            check_keyword!("for", For);
+            check_keyword!("from", From);
+            check_keyword!("if", If);
+            check_keyword!("import", Import);
+            check_keyword!("in", In);
+            check_keyword!("loop", Loop);
+            check_keyword!("match", Match);
+            check_keyword!("not", Not);
+            check_keyword!("num2", Num2);
+            check_keyword!("num4", Num4);
+            check_keyword!("or", Or);
+            check_keyword!("return", Return);
+            check_keyword!("switch", Switch);
+            check_keyword!("then", Then);
+            check_keyword!("true", True);
+            check_keyword!("try", Try);
+            check_keyword!("until", Until);
+            check_keyword!("while", While);
+            check_keyword!("yield", Yield);
+        }
 
         // If no keyword matched, then consume as an Id
         self.advance_line_utf8(char_bytes, char_count);
@@ -467,7 +475,7 @@ impl<'a> Iterator for TokenLexer<'a> {
     fn next(&mut self) -> Option<Token> {
         use Token::*;
 
-        match self.source.get(self.current..) {
+        let result = match self.source.get(self.current_byte..) {
             Some(remaining) => {
                 let mut chars = remaining.chars().peekable();
 
@@ -493,7 +501,10 @@ impl<'a> Iterator for TokenLexer<'a> {
                 }
             }
             None => None,
-        }
+        };
+
+        self.previous_token = result;
+        result
     }
 }
 
@@ -596,7 +607,7 @@ impl<'a> KotoLexer<'a> {
             let span = self.lexer.span;
             let slice = self.lexer.slice();
             let indent = self.lexer.indent;
-            let source_position = self.lexer.current;
+            let source_position = self.lexer.current_byte;
             // getting the token needs to happen after the other properties
             let token = self.lexer.next();
             self.peeked_tokens.push(PeekedToken {
@@ -616,7 +627,7 @@ impl<'a> KotoLexer<'a> {
 
     pub fn source_position(&self) -> usize {
         if self.peeked_tokens.is_empty() {
-            self.lexer.current
+            self.lexer.current_byte
         } else {
             self.peeked_tokens[self.current_peek_index].source_position
         }
@@ -1082,6 +1093,22 @@ else
                 (ListEnd, None, 1),
                 (Dot, None, 1),
                 (Id, Some("bär"), 1),
+                (ParenOpen, None, 1),
+                (ParenClose, None, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn map_lookup_with_keyword_as_key() {
+        let input = "foo.and()";
+
+        check_lexer_output(
+            input,
+            &[
+                (Id, Some("foo"), 1),
+                (Dot, None, 1),
+                (Id, Some("and"), 1),
                 (ParenOpen, None, 1),
                 (ParenClose, None, 1),
             ],
