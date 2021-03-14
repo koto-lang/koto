@@ -91,7 +91,6 @@ assert_near 1, 2, 0.1
         run_script(script, None, true);
     }
 
-    koto_test!(arithmetic);
     koto_test!(assignment);
     koto_test!(comments);
     koto_test!(control_flow);
@@ -111,10 +110,11 @@ assert_near 1, 2, 0.1
     koto_test!(map_ops);
     koto_test!(maps);
     koto_test!(maps_and_lists);
-    koto_test!(operator_overloading);
-    koto_test!(os);
+    koto_test!(number_ops);
     koto_test!(numbers);
     koto_test!(num2_4);
+    koto_test!(operator_overloading);
+    koto_test!(os);
     koto_test!(primes);
     koto_test!(ranges);
     koto_test!(strings);

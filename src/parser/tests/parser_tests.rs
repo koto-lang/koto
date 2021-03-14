@@ -71,6 +71,30 @@ a
         }
 
         #[test]
+        fn number_notation() {
+            let source = "
+1
+0x1
+0xf
+0xABADCAFE
+";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Number1,
+                    Int(0),
+                    Int(1),
+                    MainBlock {
+                        body: vec![0, 1, 2, 3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::I64(15), Constant::I64(2880293630)]),
+            )
+        }
+
+        #[test]
         fn multiline_strings() {
             let source = r#"
 "    foo

@@ -1393,19 +1393,25 @@ impl<'source> Parser<'source> {
         self.consume_next_token(context);
 
         let slice = self.lexer.slice();
-        let number_node = match i64::from_str(slice) {
-            Ok(n) => {
-                if n == 0 {
-                    self.push_node(Number0)?
-                } else if n == 1 && !negate {
-                    self.push_node(Number1)?
-                } else {
-                    let n = if negate { -n } else { n };
-                    let constant_index = self.constants.add_i64(n) as u32;
-                    self.push_node(Int(constant_index))?
-                }
+
+        let maybe_integer = if let Some(hex) = slice.strip_prefix("0x") {
+            i64::from_str_radix(hex, 16)
+        } else {
+            i64::from_str(slice)
+        };
+
+        let number_node = if let Ok(n) = maybe_integer {
+            if n == 0 {
+                self.push_node(Number0)?
+            } else if n == 1 && !negate {
+                self.push_node(Number1)?
+            } else {
+                let n = if negate { -n } else { n };
+                let constant_index = self.constants.add_i64(n) as u32;
+                self.push_node(Int(constant_index))?
             }
-            Err(_) => match f64::from_str(slice) {
+        } else {
+            match f64::from_str(slice) {
                 Ok(n) => {
                     let n = if negate { -n } else { n };
                     let constant_index = self.constants.add_f64(n) as u32;
@@ -1414,7 +1420,7 @@ impl<'source> Parser<'source> {
                 Err(_) => {
                     return internal_error!(NumberParseFailure, self);
                 }
-            },
+            }
         };
 
         Ok(if self.next_token_is_lookup_start(context) {
