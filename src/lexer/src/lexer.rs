@@ -277,37 +277,57 @@ impl<'a> TokenLexer<'a> {
     fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
         use Token::*;
 
+        let has_leading_zero = chars.peek() == Some(&'0');
         let mut char_bytes = consume_and_count(&mut chars, is_digit);
+        let mut allow_exponent = true;
 
-        if chars.peek() == Some(&'.') {
-            chars.next();
+        match chars.peek() {
+            Some(&'b') if has_leading_zero && char_bytes == 1 => {
+                chars.next();
+                char_bytes += 1 + consume_and_count(&mut chars, is_binary_digit);
+                allow_exponent = false;
+            }
+            Some(&'o') if has_leading_zero && char_bytes == 1 => {
+                chars.next();
+                char_bytes += 1 + consume_and_count(&mut chars, is_octal_digit);
+                allow_exponent = false;
+            }
+            Some(&'x') if has_leading_zero && char_bytes == 1 => {
+                chars.next();
+                char_bytes += 1 + consume_and_count(&mut chars, is_hex_digit);
+                allow_exponent = false;
+            }
+            Some(&'.') => {
+                chars.next();
 
-            match chars.peek() {
-                Some(c) if is_digit(*c) => {}
-                Some(&'e') => {
-                    // lookahead to check that this isn't a function call starting with 'e'
-                    // e.g. 1.exp()
-                    let mut lookahead = chars.clone();
-                    lookahead.next();
-                    match lookahead.peek() {
-                        Some(c) if is_digit(*c) => {}
-                        Some(&'+') | Some(&'-') => {}
-                        _ => {
-                            self.advance_line(char_bytes);
-                            return Some(Number);
+                match chars.peek() {
+                    Some(c) if is_digit(*c) => {}
+                    Some(&'e') => {
+                        // lookahead to check that this isn't a function call starting with 'e'
+                        // e.g. 1.exp()
+                        let mut lookahead = chars.clone();
+                        lookahead.next();
+                        match lookahead.peek() {
+                            Some(c) if is_digit(*c) => {}
+                            Some(&'+') | Some(&'-') => {}
+                            _ => {
+                                self.advance_line(char_bytes);
+                                return Some(Number);
+                            }
                         }
                     }
+                    _ => {
+                        self.advance_line(char_bytes);
+                        return Some(Number);
+                    }
                 }
-                _ => {
-                    self.advance_line(char_bytes);
-                    return Some(Number);
-                }
-            }
 
-            char_bytes += 1 + consume_and_count(&mut chars, is_digit);
+                char_bytes += 1 + consume_and_count(&mut chars, is_digit);
+            }
+            _ => {}
         }
 
-        if chars.peek() == Some(&'e') {
+        if chars.peek() == Some(&'e') && allow_exponent {
             chars.next();
             char_bytes += 1;
 
@@ -479,6 +499,18 @@ impl<'a> Iterator for TokenLexer<'a> {
 
 fn is_digit(c: char) -> bool {
     matches!(c, '0'..='9')
+}
+
+fn is_binary_digit(c: char) -> bool {
+    matches!(c, '0' | '1')
+}
+
+fn is_octal_digit(c: char) -> bool {
+    matches!(c, '0'..='7')
+}
+
+fn is_hex_digit(c: char) -> bool {
+    matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')
 }
 
 fn is_whitespace(c: char) -> bool {
@@ -826,7 +858,11 @@ true"#;
 55.5
 -1e-3
 0.5e+9
--8e8";
+-8e8
+0xabadcafe
+0xABADCAFE
+0o707606
+0b1010101";
         check_lexer_output(
             input,
             &[
@@ -841,6 +877,14 @@ true"#;
                 (NewLine, None, 5),
                 (Subtract, None, 5),
                 (Number, Some("8e8"), 5),
+                (NewLine, None, 6),
+                (Number, Some("0xabadcafe"), 6),
+                (NewLine, None, 7),
+                (Number, Some("0xABADCAFE"), 7),
+                (NewLine, None, 8),
+                (Number, Some("0o707606"), 8),
+                (NewLine, None, 9),
+                (Number, Some("0b1010101"), 9),
             ],
         );
     }

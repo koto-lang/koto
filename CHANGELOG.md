@@ -15,6 +15,13 @@
       @+: |self, other| foo self.x + other.x
     assert_eq (foo(10) + foo(20)), foo(30)
     ```
+- Binary, octal, and hex notation for number literals is now supported.
+  - e.g.
+    ```
+    assert_eq 0b1000, 8
+    assert_eq 0o1000, 512
+    assert_eq 0x1000, 4096
+    ```
 
 ### Changed
 - Captured values in functions are now immutable.
