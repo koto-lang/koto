@@ -22,6 +22,13 @@
     assert_eq 0o1000, 512
     assert_eq 0x1000, 4096
     ```
+- Bitwise operations are now available for integers.
+  - `number.and`
+  - `number.flip_bits`
+  - `number.or`
+  - `number.shift_left`
+  - `number.shift_right`
+  - `number.xor`
 
 ### Changed
 - Captured values in functions are now immutable.
@@ -45,6 +52,8 @@
     debug state.x # 142
     ```
 - Runtime errors now provide a full backtrace.
+- Keywords can now be used as identifiers in lookups, e.g. `foo.and()` was
+  previously disallowed.
 
 
 ## [0.6.0] 2021.01.21
