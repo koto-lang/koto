@@ -75,10 +75,12 @@ a
             let source = "
 1
 0x1
-0xf
+0x100
 0xABADCAFE
 0o1
 0o100
+0b1
+0b100
 ";
             check_ast(
                 source,
@@ -89,12 +91,19 @@ a
                     Int(1),
                     Number1,
                     Int(2),
+                    Number1,
+                    Int(3),
                     MainBlock {
-                        body: vec![0, 1, 2, 3, 4, 5],
+                        body: vec![0, 1, 2, 3, 4, 5, 6, 7],
                         local_count: 0,
                     },
                 ],
-                Some(&[Constant::I64(15), Constant::I64(2880293630), Constant::I64(64)]),
+                Some(&[
+                    Constant::I64(256),
+                    Constant::I64(2880293630),
+                    Constant::I64(64),
+                    Constant::I64(4),
+                ]),
             )
         }
 

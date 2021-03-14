@@ -1398,6 +1398,8 @@ impl<'source> Parser<'source> {
             i64::from_str_radix(hex, 16)
         } else if let Some(octal) = slice.strip_prefix("0o") {
             i64::from_str_radix(octal, 8)
+        } else if let Some(binary) = slice.strip_prefix("0b") {
+            i64::from_str_radix(binary, 2)
         } else {
             i64::from_str(slice)
         };
