@@ -28,7 +28,7 @@ pub use {
     num4::Num4,
     value::{make_external_value, type_as_string, RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
-    value_key::{value_is_immutable, ValueKey},
+    value_key::{value_is_immutable, ValueKey, ValueRef},
     value_list::{ValueList, ValueVec},
     value_map::{BinaryOp, MetaKey, UnaryOp, ValueHashMap, ValueMap},
     value_number::ValueNumber,

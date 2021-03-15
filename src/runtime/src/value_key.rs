@@ -1,8 +1,5 @@
 use {
-    crate::{
-        value::{Value, ValueRef},
-        ValueString,
-    },
+    crate::{num2, num4, value::Value, IntRange, ValueNumber, ValueString},
     std::{
         borrow::Borrow,
         cmp::Ordering,
@@ -87,7 +84,7 @@ impl Deref for ValueKey {
 
 impl Hash for ValueKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.as_ref().hash(state)
+        self.as_ref().hash(state)
     }
 }
 
@@ -125,6 +122,75 @@ impl Ord for ValueKey {
 
 impl Eq for ValueKey {}
 
+#[derive(Clone, Debug)]
+pub enum ValueRef<'a> {
+    Empty,
+    Bool(&'a bool),
+    Number(&'a ValueNumber),
+    Num2(&'a num2::Num2),
+    Num4(&'a num4::Num4),
+    Str(&'a str),
+    Range(&'a IntRange),
+    ExternalDataId,
+}
+
+impl<'a> From<&'a Value> for ValueRef<'a> {
+    fn from(value: &'a Value) -> Self {
+        match value {
+            Value::Empty => ValueRef::Empty,
+            Value::Bool(b) => ValueRef::Bool(b),
+            Value::Number(n) => ValueRef::Number(n),
+            Value::Num2(n) => ValueRef::Num2(n),
+            Value::Num4(n) => ValueRef::Num4(n),
+            Value::Str(s) => ValueRef::Str(&s),
+            Value::Range(r) => ValueRef::Range(r),
+            Value::ExternalDataId => ValueRef::ExternalDataId,
+            _ => unreachable!(), // Only immutable values can be used in ValueKey
+        }
+    }
+}
+
+impl<'a> PartialEq for ValueRef<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        use ValueRef::*;
+
+        match (self, other) {
+            (Number(a), Number(b)) => a == b,
+            (Num2(a), Num2(b)) => a == b,
+            (Num4(a), Num4(b)) => a == b,
+            (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a == b,
+            (Range(a), Range(b)) => a == b,
+            (Empty, Empty) => true,
+            (ExternalDataId, ExternalDataId) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Eq for ValueRef<'a> {}
+
+impl<'a> Hash for ValueRef<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        use ValueRef::*;
+
+        std::mem::discriminant(self).hash(state);
+
+        match self {
+            Empty | ExternalDataId => {}
+            Bool(b) => b.hash(state),
+            Number(n) => n.hash(state),
+            Num2(n) => n.hash(state),
+            Num4(n) => n.hash(state),
+            Str(s) => s.hash(state),
+            Range(IntRange { start, end }) => {
+                state.write_isize(*start);
+                state.write_isize(*end);
+            }
+        }
+    }
+}
+
 // A trait that allows for allocation-free map accesses with &str
 pub(crate) trait ValueKeyRef {
     fn to_value_ref(&self) -> ValueRef;
@@ -143,6 +209,12 @@ impl<'a> PartialEq for dyn ValueKeyRef + 'a {
 }
 
 impl<'a> Eq for dyn ValueKeyRef + 'a {}
+
+impl ValueKeyRef for Value {
+    fn to_value_ref(&self) -> ValueRef {
+        self.as_ref()
+    }
+}
 
 impl ValueKeyRef for ValueKey {
     fn to_value_ref(&self) -> ValueRef {
