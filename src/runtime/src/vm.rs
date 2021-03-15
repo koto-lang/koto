@@ -393,7 +393,10 @@ impl Vm {
                             };
 
                             if let Err(error) = pre_test_result {
-                                return make_test_error(error, "Error while preparing to run test");
+                                return make_test_error(
+                                    error,
+                                    "Error while preparing to run test",
+                                );
                             }
                         }
                     }
@@ -416,7 +419,11 @@ impl Vm {
                     if let Some(post_test) = &post_test {
                         if value_is_callable(post_test) {
                             let post_test_result = if pass_self_to_post_test {
-                                self.run_instance_function(self_arg.clone(), post_test.clone(), &[])
+                                self.run_instance_function(
+                                    self_arg.clone(),
+                                    post_test.clone(),
+                                    &[],
+                                )
                             } else {
                                 self.run_function(post_test.clone(), &[])
                             };
@@ -603,7 +610,9 @@ impl Vm {
             Instruction::RangeFrom { register, start } => {
                 self.run_make_range(register, Some(start), None, false)
             }
-            Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
+            Instruction::RangeFull { register } => {
+                self.run_make_range(register, None, None, false)
+            }
             Instruction::MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable)
             }
@@ -882,7 +891,10 @@ impl Vm {
             }
             (Some(Number(start)), None) => {
                 if *start < 0.0 {
-                    return vm_error!("RangeFrom: negative numbers not allowed, found '{}'", start);
+                    return vm_error!(
+                        "RangeFrom: negative numbers not allowed, found '{}'",
+                        start
+                    );
                 }
                 IndexRange(value::IndexRange {
                     start: usize::from(start),
@@ -1064,7 +1076,8 @@ impl Vm {
                 }
             }
             unexpected => {
-                return self.unexpected_type_error("SliceFrom: expected List or Tuple", unexpected);
+                return self
+                    .unexpected_type_error("SliceFrom: expected List or Tuple", unexpected);
             }
         };
 
@@ -1418,15 +1431,44 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => a == b,
+            (Num2(a), Num2(b)) => a == b,
+            (Num4(a), Num4(b)) => a == b,
+            (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a == b,
+            (Range(a), Range(b)) => a == b,
+            (IndexRange(a), IndexRange(b)) => a == b,
+            (Function(a), Function(b)) => a == b,
+            (Empty, Empty) => true,
+            (ExternalDataId, ExternalDataId) => true,
+            (List(a), List(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
+            (Tuple(a), Tuple(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
             (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Equal)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
             }
-
-            _ => (lhs_value == rhs_value).into(),
+            (Map(a), Map(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                self.child_vm().compare_value_maps(a, b)?
+            }
+            _ => false,
         };
-        self.set_register(result, result_value);
+
+        self.set_register(result, result_value.into());
 
         Ok(())
     }
@@ -1437,6 +1479,30 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => a != b,
+            (Num2(a), Num2(b)) => a != b,
+            (Num4(a), Num4(b)) => a != b,
+            (Bool(a), Bool(b)) => a != b,
+            (Str(a), Str(b)) => a != b,
+            (Range(a), Range(b)) => a != b,
+            (IndexRange(a), IndexRange(b)) => a != b,
+            (Function(a), Function(b)) => a != b,
+            (Empty, Empty) => false,
+            (ExternalDataId, ExternalDataId) => false,
+            (List(a), List(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
+            (Tuple(a), Tuple(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
             (Map(map), value)
                 if map
                     .contents()
@@ -1447,12 +1513,76 @@ impl Vm {
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
             }
-
-            _ => (lhs_value != rhs_value).into(),
+            (Map(a), Map(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                !self.child_vm().compare_value_maps(a, b)?
+            }
+            _ => true,
         };
-        self.set_register(result, result_value);
+        self.set_register(result, result_value.into());
 
         Ok(())
+    }
+
+    // Called from run_equal / run_not_equal to compare the contents of lists and tuples
+    fn compare_value_ranges(
+        &mut self,
+        range_a: &[Value],
+        range_b: &[Value],
+    ) -> Result<bool, RuntimeError> {
+        if range_a.len() != range_b.len() {
+            return Ok(false);
+        }
+
+        for (value_a, value_b) in range_a.iter().zip(range_b.iter()) {
+            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                other => {
+                    return vm_error!(
+                        "Expected Bool from equality comparison, found '{}'",
+                        type_as_string(&other)
+                    );
+                }
+            }
+        }
+
+        Ok(true)
+    }
+
+    // Called from run_equal / run_not_equal to compare the contents of maps
+    fn compare_value_maps(
+        &mut self,
+        map_a: ValueMap,
+        map_b: ValueMap,
+    ) -> Result<bool, RuntimeError> {
+        if map_a.len() != map_b.len() {
+            return Ok(false);
+        }
+
+        for ((key_a, value_a), (key_b, value_b)) in map_a
+            .contents()
+            .data
+            .iter()
+            .zip(map_b.contents().data.iter())
+        {
+            if key_a != key_b {
+                return Ok(false);
+            }
+            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                other => {
+                    return vm_error!(
+                        "Expected Bool from equality comparison, found '{}'",
+                        type_as_string(&other)
+                    );
+                }
+            }
+        }
+
+        Ok(true)
     }
 
     fn call_overloaded_unary_op(
@@ -1593,7 +1723,9 @@ impl Vm {
                 let maybe_module = self.context().modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(Some(module)) => self.set_register(result_register, Value::Map(module)),
-                    Some(None) => return vm_error!("Recursive import of module '{}'", import_name),
+                    Some(None) => {
+                        return vm_error!("Recursive import of module '{}'", import_name)
+                    }
                     None => {
                         // Insert a placeholder for the new module, preventing recursive imports
                         self.context_mut().modules.insert(module_path.clone(), None);
@@ -1656,8 +1788,10 @@ impl Vm {
                     result
                 }
                 unexpected => {
-                    return self
-                        .unexpected_type_error("num2: Expected Number, Num2, or List", unexpected);
+                    return self.unexpected_type_error(
+                        "num2: Expected Number, Num2, or List",
+                        unexpected,
+                    );
                 }
             }
         } else {
@@ -1709,8 +1843,10 @@ impl Vm {
                     result
                 }
                 unexpected => {
-                    return self
-                        .unexpected_type_error("num4: Expected Number, Num4, or List", unexpected);
+                    return self.unexpected_type_error(
+                        "num4: Expected Number, Num4, or List",
+                        unexpected,
+                    );
                 }
             }
         } else {

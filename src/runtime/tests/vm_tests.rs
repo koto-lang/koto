@@ -2,8 +2,8 @@ mod vm {
     use {
         koto_bytecode::Chunk,
         koto_runtime::{
-            external_error, num2, num4, type_as_string, IntRange, Loader, Value, Value::*,
-            ValueHashMap, ValueList, ValueMap, Vm,
+            external_error, num2, num4, type_as_string, BinaryOp, IntRange, Loader, Value,
+            Value::*, ValueHashMap, ValueList, ValueMap, Vm,
         },
         std::sync::Arc,
     };
@@ -57,7 +57,27 @@ mod vm {
                 if result != expected_output {
                     print_chunk(script, vm.chunk());
                 }
-                assert_eq!(result, expected_output);
+                match vm.run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone()) {
+                    Ok(Value::Bool(true)) => {}
+                    Ok(Value::Bool(false)) => {
+                        print_chunk(script, vm.chunk());
+                        panic!(
+                            "Unexpected result - expected: {}, result: {}",
+                            expected_output, result
+                        );
+                    }
+                    Ok(other) => {
+                        print_chunk(script, vm.chunk());
+                        panic!("Expected bool from equality comparison, found '{}'", other);
+                    }
+                    Err(e) => {
+                        print_chunk(script, vm.chunk());
+                        panic!(format!(
+                            "Error while comparing output value: {}",
+                            e.to_string()
+                        ));
+                    }
+                }
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
@@ -2073,6 +2093,102 @@ foo = |x|
     self.x == other.x
 
 (foo 99) != (foo 99) and not (foo 99) != (foo 100)
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn equality_of_list_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map inequality behaviour to show its effect
+    self.x != other.x
+
+a = [foo(0), foo(1)]
+b = [foo(1), foo(2)]
+a == b # Should evaluate to true due to the inverted equality operator
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn equality_of_map_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map inequality behaviour to show its effect
+    self.x != other.x
+
+a = { foo: foo(42) }
+b = { foo: foo(99) }
+a == b # Should evaluate to true due to the inverted equality operator
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn equality_of_tuple_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map inequality behaviour to show its effect
+    self.x != other.x
+
+a = (foo(0), foo(1))
+b = (foo(1), foo(2))
+a == b # Should evaluate to true due to the inverted equality operator
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn inequality_of_list_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map equality behaviour to show its effect
+    self.x != other.x
+
+a = [foo(0), foo(0)]
+b = [foo(0), foo(0)]
+a != b # Should evaluate to true due to the inverted equality operator
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn inequality_of_map_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map equality behaviour to show its effect
+    self.x != other.x
+
+a = { foo: foo(42) }
+b = { foo: foo(42) }
+a != b # Should evaluate to true due to the inverted equality operator
+";
+            test_script(script, Bool(true));
+        }
+
+        #[test]
+        fn inequality_of_tuple_containing_overloaded_value() {
+            let script = "
+foo = |x|
+  x: x
+  @==: |self, other|
+    # Invert the default map equality behaviour to show its effect
+    self.x != other.x
+
+a = (foo(1), foo(2))
+b = (foo(1), foo(2))
+a != b # Should evaluate to true due to the inverted equality operator
 ";
             test_script(script, Bool(true));
         }

@@ -1,7 +1,8 @@
 use {
     crate::{
         external::{Args, ExternalFunction},
-        RuntimeResult, Value, ValueList, ValueRef, Vm,
+        value::ValueRef,
+        RuntimeResult, Value, ValueList, Vm,
     },
     indexmap::IndexMap,
     koto_parser::MetaId,

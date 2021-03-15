@@ -104,9 +104,9 @@ export tests =
       x: x
       @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
 
-    z = [bar(0), bar(1), bar(1), bar(2)]
+    z = [bar(0), bar(1), bar(1), bar(1), bar(2)]
     z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped
-    assert_eq z, [bar(0), bar(2)]
+    assert_eq z.size(), 2
 
   test_reverse: ||
     a = [1, 2, 3]

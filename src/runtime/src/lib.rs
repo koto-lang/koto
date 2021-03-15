@@ -25,9 +25,7 @@ pub use {
     logger::{DefaultLogger, KotoLogger},
     num2::Num2,
     num4::Num4,
-    value::{
-        make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value, ValueRef,
-    },
+    value::{make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_list::{ValueList, ValueVec},
     value_map::{BinaryOp, MetaKey, UnaryOp, ValueHashMap, ValueMap, ValueMapKey},
