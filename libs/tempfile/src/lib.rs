@@ -40,7 +40,7 @@ pub fn make_module() -> ValueMap {
             let mut file_map = make_file_map();
 
             file_map.insert(
-                Value::ExternalDataId,
+                Value::ExternalDataId.into(),
                 make_external_value(File {
                     file: temp_file,
                     path,

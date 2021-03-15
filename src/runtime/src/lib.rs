@@ -9,6 +9,7 @@ pub mod num2;
 pub mod num4;
 pub mod value;
 mod value_iterator;
+mod value_key;
 mod value_list;
 mod value_map;
 mod value_number;
@@ -25,10 +26,11 @@ pub use {
     logger::{DefaultLogger, KotoLogger},
     num2::Num2,
     num4::Num4,
-    value::{make_external_value, type_as_string, value_is_immutable, RuntimeFunction, Value},
+    value::{make_external_value, type_as_string, RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
+    value_key::{value_is_immutable, ValueKey},
     value_list::{ValueList, ValueVec},
-    value_map::{BinaryOp, MetaKey, UnaryOp, ValueHashMap, ValueMap, ValueMapKey},
+    value_map::{BinaryOp, MetaKey, UnaryOp, ValueHashMap, ValueMap},
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,

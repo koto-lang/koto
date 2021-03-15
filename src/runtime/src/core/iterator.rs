@@ -489,13 +489,13 @@ pub fn make_module() -> ValueMap {
                     Some(Ok(Output::Value(Tuple(t)))) if t.data().len() == 2 => {
                         let key = t.data()[0].clone();
                         let value = t.data()[1].clone();
-                        result.insert(key, value);
+                        result.insert(key.into(), value);
                     }
                     Some(Ok(Output::Value(value))) => {
-                        result.insert(value, Value::Empty);
+                        result.insert(value.into(), Value::Empty);
                     }
                     Some(Ok(Output::ValuePair(key, value))) => {
-                        result.insert(key, value);
+                        result.insert(key.into(), value);
                     }
                     Some(Err(error)) => return Err(error),
                     None => break,

@@ -1,12 +1,13 @@
-use std::cmp::Ordering;
-
-use crate::{
-    external_error, type_as_string,
-    value::{deep_copy_value, value_is_callable},
-    value_is_immutable,
-    value_iterator::ValueIteratorOutput as Output,
-    value_sort::compare_values,
-    RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
+use {
+    crate::{
+        external_error, type_as_string,
+        value::{deep_copy_value, value_is_callable},
+        value_is_immutable,
+        value_iterator::ValueIteratorOutput as Output,
+        value_sort::compare_values,
+        RuntimeResult, Value, ValueHashMap, ValueIterator, ValueMap, Vm,
+    },
+    std::{cmp::Ordering, ops::Deref},
 };
 
 pub fn make_module() -> ValueMap {
@@ -61,7 +62,7 @@ pub fn make_module() -> ValueMap {
                 return external_error!("map.get_index: Negative indices aren't allowed");
             }
             match m.contents().data.get_index(n.into()) {
-                Some((key, value)) => Ok(Tuple(vec![key.clone(), value.clone()].into())),
+                Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
                 None => Ok(Empty),
             }
         }
@@ -70,13 +71,13 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
         [Map(m), key] if value_is_immutable(key) => {
-            match m.contents_mut().data.insert(key.clone(), Empty) {
+            match m.contents_mut().data.insert(key.clone().into(), Empty) {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Empty),
             }
         }
         [Map(m), key, value] if value_is_immutable(key) => {
-            match m.contents_mut().data.insert(key.clone(), value.clone()) {
+            match m.contents_mut().data.insert(key.clone().into(), value.clone()) {
                 Some(old_value) => Ok(old_value),
                 None => Ok(Empty),
             }
@@ -125,10 +126,12 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if value_is_immutable(key) => match m.contents_mut().data.shift_remove(key) {
-            Some(old_value) => Ok(old_value),
-            None => Ok(Empty),
-        },
+        [Map(m), key] if value_is_immutable(key) => {
+            match m.contents_mut().data.shift_remove(key) {
+                Some(old_value) => Ok(old_value),
+                None => Ok(Empty),
+            }
+        }
         [other_a, other_b, ..] => external_error!(
             "map.remove: Expected map and key as arguments, found '{}' and '{}'",
             type_as_string(other_a),
@@ -154,7 +157,7 @@ pub fn make_module() -> ValueMap {
                                 value: &Value|
              -> RuntimeResult {
                 let value = vm.run_function(f.clone(), &[key.clone(), value.clone()])?;
-                cache.insert(key.clone(), value.clone());
+                cache.insert(key.clone().into(), value.clone());
                 Ok(value)
             };
 
@@ -263,7 +266,7 @@ fn do_map_update(
     let value = map.contents().data.get(&key).cloned().unwrap();
     match vm.run_function(f, &[value]) {
         Ok(new_value) => {
-            map.contents_mut().data.insert(key, new_value.clone());
+            map.contents_mut().data.insert(key.into(), new_value.clone());
             Ok(new_value)
         }
         Err(error) => Err(error.with_prefix("map.update")),

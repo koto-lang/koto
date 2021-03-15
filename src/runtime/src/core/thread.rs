@@ -76,7 +76,7 @@ impl Thread {
         });
 
         result.insert(
-            Value::ExternalDataId,
+            Value::ExternalDataId.into(),
             make_external_value(Self {
                 join_handle: Some(join_handle),
             }),

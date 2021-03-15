@@ -227,12 +227,6 @@ impl<'a> Hash for ValueRef<'a> {
                 state.write_isize(*start);
                 state.write_isize(*end);
             }
-            IndexRange(self::IndexRange { start, end }) => {
-                state.write_usize(*start);
-                if let Some(end) = end {
-                    state.write_usize(*end);
-                }
-            }
             _ => panic!("Hash is only supported for immutable value types"),
         }
     }
@@ -367,14 +361,6 @@ pub fn make_external_value(value: impl ExternalValue) -> Value {
 pub fn value_is_callable(value: &Value) -> bool {
     use Value::*;
     matches!(value, Function { .. } | ExternalFunction(_))
-}
-
-pub fn value_is_immutable(value: &Value) -> bool {
-    use Value::*;
-    matches!(
-        value,
-        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
-    )
 }
 
 pub fn value_is_iterable(value: &Value) -> bool {

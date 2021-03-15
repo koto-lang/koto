@@ -91,7 +91,7 @@ impl KotoPoetry {
             })
         });
 
-        result.insert(Value::ExternalDataId, make_external_value(Self(poetry)));
+        result.insert(Value::ExternalDataId.into(), make_external_value(Self(poetry)));
         result
     }
 }

@@ -133,7 +133,7 @@ pub fn make_module() -> ValueMap {
                         let file_map = make_file_map();
 
                         file_map.contents_mut().data.insert(
-                            Value::ExternalDataId,
+                            Value::ExternalDataId.into(),
                             make_external_value(File {
                                 file,
                                 path: path.to_path_buf(),
@@ -165,7 +165,7 @@ pub fn make_module() -> ValueMap {
                         let mut file_map = make_file_map();
 
                         file_map.insert(
-                            Value::ExternalDataId,
+                            Value::ExternalDataId.into(),
                             make_external_value(File {
                                 file,
                                 path: path.to_path_buf(),

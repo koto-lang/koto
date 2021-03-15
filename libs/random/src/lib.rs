@@ -108,7 +108,7 @@ impl ChaChaRng {
             })
         });
 
-        result.insert(Value::ExternalDataId, make_external_value(Self(rng)));
+        result.insert(Value::ExternalDataId.into(), make_external_value(Self(rng)));
         result
     }
 }

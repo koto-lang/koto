@@ -378,7 +378,7 @@ impl Vm {
         };
 
         for (key, value) in tests.cloned_iter() {
-            match (key, value) {
+            match (key.value(), value) {
                 (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
                     let make_test_error = |error: RuntimeError, message: &str| {
                         Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
@@ -824,7 +824,7 @@ impl Vm {
             .global
             .contents_mut()
             .data
-            .insert(global_name, value);
+            .insert(global_name.into(), value);
     }
 
     fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
@@ -2124,9 +2124,7 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut()
-                    .data
-                    .insert(Value::Str(key_string), value);
+                map.contents_mut().data.insert(key_string.into(), value);
                 Ok(())
             }
             unexpected => vm_error!(
