@@ -121,12 +121,6 @@ impl From<bool> for Value {
     }
 }
 
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        Self::Str(value.into())
-    }
-}
-
 impl From<ValueIterator> for Value {
     fn from(value: ValueIterator) -> Self {
         Self::Iterator(value)
