@@ -3,7 +3,7 @@ use {
     std::{fmt, sync::Arc},
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct ValueTuple(Arc<[Value]>);
 
 impl ValueTuple {

@@ -24,7 +24,25 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
-        [List(l), value] => Ok(Bool(l.data().contains(value))),
+        [List(l), value] => {
+            let l = l.clone();
+            let value = value.clone();
+            let vm = vm.child_vm();
+            for candidate in l.data().iter() {
+                match vm.run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone()) {
+                    Ok(Bool(false)) => {}
+                    Ok(Bool(true)) => return Ok(true.into()),
+                    Ok(unexpected) => {
+                        return external_error!(
+                            "list.contains: Expected Bool from comparison, found '{}'",
+                            type_as_string(&unexpected)
+                        )
+                    }
+                    Err(e) => return Err(e.with_prefix("list.contains")),
+                }
+            }
+            Ok(false.into())
+        }
         _ => external_error!("list.contains: Expected list and value as arguments"),
     });
 

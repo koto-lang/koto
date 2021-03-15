@@ -54,9 +54,6 @@ mod vm {
 
         match vm.run(chunk) {
             Ok(result) => {
-                if result != expected_output {
-                    print_chunk(script, vm.chunk());
-                }
                 match vm.run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone()) {
                     Ok(Value::Bool(true)) => {}
                     Ok(Value::Bool(false)) => {
@@ -2207,5 +2204,21 @@ b >= a
             test_script(script, Bool(true));
         }
 
+        #[test]
+        fn equality_of_functions_with_overloaded_captures() {
+            let script = "
+# Make two functions which capture a different foo
+foos = (0, 1)
+  .each |n|
+    foo =
+      x: n
+      @==: |self, other| self.x != other.x # inverting the usual behaviour to show its effect
+    || foo # The function returns its captured foo
+  .to_tuple()
+
+foos[0] == foos[1]
+";
+            test_script(script, Bool(true));
+        }
     }
 }

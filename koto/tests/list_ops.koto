@@ -17,6 +17,13 @@ export tests =
     assert [0..10].contains 5
     assert not [0..10].contains 15
 
+  test_contains_with_overloaded_equality_op: ||
+    bar = |x|
+      x: x
+      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+
+    assert not [(bar 1)].contains (bar 1)
+
   test_copy: ||
     x = [1, 2, 3]
     x2 = x

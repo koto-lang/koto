@@ -90,31 +90,6 @@ impl fmt::Display for Value {
     }
 }
 
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        use Value::*;
-
-        match (self, other) {
-            (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
-            (Bool(a), Bool(b)) => a == b,
-            (Str(a), Str(b)) => a == b,
-            (List(a), List(b)) => a == b,
-            (Tuple(a), Tuple(b)) => a == b,
-            (Map(a), Map(b)) => a == b,
-            (Range(a), Range(b)) => a == b,
-            (IndexRange(a), IndexRange(b)) => a == b,
-            (Function(a), Function(b)) => a == b,
-            (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for Value {}
-
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
@@ -135,15 +110,6 @@ pub struct RuntimeFunction {
     pub instance_function: bool,
     pub variadic: bool,
     pub captures: Option<ValueList>,
-}
-
-impl PartialEq for RuntimeFunction {
-    fn eq(&self, other: &Self) -> bool {
-        self.chunk == other.chunk
-            && self.ip == other.ip
-            && self.arg_count == other.arg_count
-            && self.captures == other.captures
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

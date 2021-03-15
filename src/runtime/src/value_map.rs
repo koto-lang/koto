@@ -118,14 +118,6 @@ impl FromIterator<(ValueKey, Value)> for ValueHashMap {
     }
 }
 
-impl PartialEq for ValueHashMap {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-impl Eq for ValueHashMap {}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     Add,
@@ -367,14 +359,6 @@ impl fmt::Display for ValueMap {
         write!(f, "}}")
     }
 }
-
-impl PartialEq for ValueMap {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        *self.contents().data == *other.contents().data
-    }
-}
-impl Eq for ValueMap {}
 
 pub struct ValueMapIter<'map> {
     map: &'map RwLock<ValueMapContents>,
