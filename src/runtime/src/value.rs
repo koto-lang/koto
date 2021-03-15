@@ -1,14 +1,13 @@
 use {
     crate::{
-        num2, num4, ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList,
-        ValueMap, ValueNumber, ValueRef, ValueString, ValueTuple, ValueVec,
+        num2, num4,
+        value_map::{ValueMap, ValueMapContents},
+        ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber,
+        ValueRef, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
-    std::{
-        fmt,
-        sync::Arc,
-    },
+    std::{fmt, sync::Arc},
 };
 
 #[derive(Clone, Debug)]
@@ -186,13 +185,14 @@ pub fn deep_copy_value(value: &Value) -> Value {
             Tuple(result.into())
         }
         Map(m) => {
-            let result = m
+            let data = m
                 .contents()
                 .data
                 .iter()
                 .map(|(k, v)| (k.clone(), deep_copy_value(v)))
                 .collect();
-            Map(ValueMap::with_data(result))
+            let meta = m.contents().meta.clone();
+            Map(ValueMap::with_contents(ValueMapContents { data, meta }))
         }
         _ => value.clone(),
     }

@@ -2192,5 +2192,20 @@ a != b # Should evaluate to true due to the inverted equality operator
 ";
             test_script(script, Bool(true));
         }
+
+        #[test]
+        fn deep_copy_includes_meta_map() {
+            let script = "
+foo = |x|
+  x: x
+  @>=: |self, other| self.x >= other.x
+
+a = foo 42
+b = a.deep_copy()
+b >= a
+";
+            test_script(script, Bool(true));
+        }
+
     }
 }
