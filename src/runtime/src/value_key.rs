@@ -20,14 +20,6 @@ impl ValueKey {
     }
 }
 
-pub fn value_is_immutable(value: &Value) -> bool {
-    use Value::*;
-    matches!(
-        value,
-        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
-    )
-}
-
 impl PartialEq for ValueKey {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;
@@ -49,7 +41,7 @@ impl PartialEq for ValueKey {
 impl From<Value> for ValueKey {
     fn from(value: Value) -> Self {
         assert!(
-            value_is_immutable(&value),
+            value.is_immutable(),
             "Only immutable Value types can be used as a ValueKey"
         );
         Self(value)

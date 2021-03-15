@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Value, ValueMap};
+use crate::{external_error, Value, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -11,7 +11,7 @@ pub fn make_module() -> ValueMap {
         )),
         [unexpected] => external_error!(
             "num4.sum: Expected Num4, found '{}'",
-            type_as_string(unexpected)
+            unexpected.type_as_string()
         ),
         _ => external_error!("num4.sum: Expected a Num4 as argument"),
     });

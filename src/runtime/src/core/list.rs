@@ -1,7 +1,6 @@
 use {
     crate::{
-        external_error, type_as_string, value,
-        value::{deep_copy_value, value_is_callable},
+        external_error,
         value_sort::{compare_values, sort_values},
         BinaryOp, RuntimeError, Value, ValueIterator, ValueList, ValueMap,
     },
@@ -35,7 +34,7 @@ pub fn make_module() -> ValueMap {
                     Ok(unexpected) => {
                         return external_error!(
                             "list.contains: Expected Bool from comparison, found '{}'",
-                            type_as_string(&unexpected)
+                            unexpected.type_as_string()
                         )
                     }
                     Err(e) => return Err(e.with_prefix("list.contains")),
@@ -52,7 +51,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ List(_)] => Ok(deep_copy_value(value)),
+        [value @ List(_)] => Ok(value.deep_copy()),
         _ => external_error!("list.deep_copy: Expected list as argument"),
     });
 
@@ -170,7 +169,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("retain", |vm, args| {
         match vm.get_args(args) {
-            [List(l), f] if value_is_callable(f) => {
+            [List(l), f] if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
                 let vm = vm.child_vm();
@@ -189,7 +188,7 @@ pub fn make_module() -> ValueMap {
                             return external_error!(
                                 "list.retain expects a Bool to be returned from the \
                                  predicate, found '{}'",
-                                value::type_as_string(&unexpected),
+                                unexpected.type_as_string(),
                             );
                         }
                         Err(error) => return Err(error.with_prefix("list.retain")),
@@ -213,7 +212,7 @@ pub fn make_module() -> ValueMap {
                         Ok(unexpected) => {
                             error = Some(external_error!(
                                 "list.retain:: Expected Bool from == comparison, found '{}'",
-                                type_as_string(&unexpected)
+                                unexpected.type_as_string()
                             ));
                             true
                         }
@@ -258,7 +257,7 @@ pub fn make_module() -> ValueMap {
             sort_values(vm, &mut data)?;
             Ok(Empty)
         }
-        [List(l), f] if value_is_callable(f) => {
+        [List(l), f] if f.is_callable() => {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
@@ -331,7 +330,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("transform", |vm, args| match vm.get_args(args) {
-        [List(l), f] if value_is_callable(f) => {
+        [List(l), f] if f.is_callable() => {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();

@@ -1,6 +1,6 @@
 use crate::{
-    external_error, type_as_string, value::deep_copy_value, value_iterator::ValueIterator,
-    value_sort::sort_values, BinaryOp, Value, ValueList, ValueMap,
+    external_error, value_iterator::ValueIterator, value_sort::sort_values, BinaryOp, Value,
+    ValueList, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -20,7 +20,7 @@ pub fn make_module() -> ValueMap {
                     Ok(unexpected) => {
                         return external_error!(
                             "tuple.contains: Expected Bool from comparison, found '{}'",
-                            type_as_string(&unexpected)
+                            unexpected.type_as_string()
                         )
                     }
                     Err(e) => return Err(e.with_prefix("tuple.contains")),
@@ -32,7 +32,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ Tuple(_)] => Ok(deep_copy_value(value)),
+        [value @ Tuple(_)] => Ok(value.deep_copy()),
         _ => external_error!("tuple.deep_copy: Expected tuple as argument"),
     });
 

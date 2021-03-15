@@ -48,6 +48,101 @@ impl Value {
             _ => unreachable!(), // Only immutable values can be used in ValueKey
         }
     }
+
+    pub fn deep_copy(&self) -> Value {
+        use Value::{List, Map, Tuple};
+
+        match &self {
+            List(l) => {
+                let result = l.data().iter().map(|v| v.deep_copy()).collect::<ValueVec>();
+                List(ValueList::with_data(result))
+            }
+            Tuple(t) => {
+                let result = t.data().iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
+                Tuple(result.into())
+            }
+            Map(m) => {
+                let data = m
+                    .contents()
+                    .data
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.deep_copy()))
+                    .collect();
+                let meta = m.contents().meta.clone();
+                Map(ValueMap::with_contents(ValueMapContents { data, meta }))
+            }
+            _ => self.clone(),
+        }
+    }
+
+    pub fn is_callable(&self) -> bool {
+        matches!(self, Value::Function { .. } | Value::ExternalFunction(_))
+    }
+
+    pub fn is_immutable(&self) -> bool {
+        use Value::*;
+        matches!(
+            self,
+            Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+        )
+    }
+
+    pub fn is_iterable(&self) -> bool {
+        use Value::*;
+        matches!(
+            self,
+            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+        )
+    }
+
+    pub fn make_external_value(value: impl ExternalValue) -> Value {
+        Value::ExternalValue(Arc::new(RwLock::new(value)))
+    }
+
+    pub fn size(&self) -> usize {
+        use Value::*;
+
+        match &self {
+            List(l) => l.len(),
+            Str(s) => s.len(),
+            Tuple(t) => t.data().len(),
+            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
+            Map(m) => m.len(),
+            Num2(_) => 2,
+            Num4(_) => 4,
+            Range(IntRange { start, end }) => (end - start) as usize,
+            _ => 1,
+        }
+    }
+
+    pub fn type_as_string(&self) -> String {
+        use Value::*;
+        match &self {
+            Empty => "Empty".to_string(),
+            Bool(_) => "Bool".to_string(),
+            Number(ValueNumber::F64(_)) => "Float".to_string(),
+            Number(ValueNumber::I64(_)) => "Int".to_string(),
+            Num2(_) => "Num2".to_string(),
+            Num4(_) => "Num4".to_string(),
+            List(_) => "List".to_string(),
+            Range { .. } => "Range".to_string(),
+            IndexRange { .. } => "IndexRange".to_string(),
+            Map(m) => match m.contents().meta.get(&MetaKey::Type) {
+                Some(Str(s)) => s.as_str().to_string(),
+                Some(_) => "Error: expected string for overloaded type".to_string(),
+                None => "Map".to_string(),
+            },
+            Str(_) => "String".to_string(),
+            Tuple(_) => "Tuple".to_string(),
+            Function { .. } => "Function".to_string(),
+            Generator { .. } => "Generator".to_string(),
+            ExternalFunction(_) => "ExternalFunction".to_string(),
+            ExternalValue(value) => value.read().value_type(),
+            Iterator(_) => "Iterator".to_string(),
+            TemporaryTuple { .. } => "TemporaryTuple".to_string(),
+            ExternalDataId => "ExternalDataId".to_string(),
+        }
+    }
 }
 
 impl Default for Value {
@@ -122,100 +217,4 @@ pub struct IndexRange {
 pub struct RegisterSlice {
     pub start: u8,
     pub count: u8,
-}
-
-pub fn deep_copy_value(value: &Value) -> Value {
-    use Value::{List, Map, Tuple};
-
-    match value {
-        List(l) => {
-            let result = l
-                .data()
-                .iter()
-                .map(|v| deep_copy_value(v))
-                .collect::<ValueVec>();
-            List(ValueList::with_data(result))
-        }
-        Tuple(t) => {
-            let result = t
-                .data()
-                .iter()
-                .map(|v| deep_copy_value(v))
-                .collect::<Vec<_>>();
-            Tuple(result.into())
-        }
-        Map(m) => {
-            let data = m
-                .contents()
-                .data
-                .iter()
-                .map(|(k, v)| (k.clone(), deep_copy_value(v)))
-                .collect();
-            let meta = m.contents().meta.clone();
-            Map(ValueMap::with_contents(ValueMapContents { data, meta }))
-        }
-        _ => value.clone(),
-    }
-}
-
-pub fn type_as_string(value: &Value) -> String {
-    use Value::*;
-    match &value {
-        Empty => "Empty".to_string(),
-        Bool(_) => "Bool".to_string(),
-        Number(ValueNumber::F64(_)) => "Float".to_string(),
-        Number(ValueNumber::I64(_)) => "Int".to_string(),
-        Num2(_) => "Num2".to_string(),
-        Num4(_) => "Num4".to_string(),
-        List(_) => "List".to_string(),
-        Range { .. } => "Range".to_string(),
-        IndexRange { .. } => "IndexRange".to_string(),
-        Map(m) => match m.contents().meta.get(&MetaKey::Type) {
-            Some(Str(s)) => s.as_str().to_string(),
-            Some(_) => "Error: expected string for overloaded type".to_string(),
-            None => "Map".to_string(),
-        },
-        Str(_) => "String".to_string(),
-        Tuple(_) => "Tuple".to_string(),
-        Function { .. } => "Function".to_string(),
-        Generator { .. } => "Generator".to_string(),
-        ExternalFunction(_) => "ExternalFunction".to_string(),
-        ExternalValue(value) => value.read().value_type(),
-        Iterator(_) => "Iterator".to_string(),
-        TemporaryTuple { .. } => "TemporaryTuple".to_string(),
-        ExternalDataId => "ExternalDataId".to_string(),
-    }
-}
-
-pub fn make_external_value(value: impl ExternalValue) -> Value {
-    Value::ExternalValue(Arc::new(RwLock::new(value)))
-}
-
-pub fn value_is_callable(value: &Value) -> bool {
-    use Value::*;
-    matches!(value, Function { .. } | ExternalFunction(_))
-}
-
-pub fn value_is_iterable(value: &Value) -> bool {
-    use Value::*;
-    matches!(
-        value,
-        Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
-    )
-}
-
-pub fn value_size(value: &Value) -> usize {
-    use Value::*;
-
-    match value {
-        List(l) => l.len(),
-        Str(s) => s.len(),
-        Tuple(t) => t.data().len(),
-        TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-        Map(m) => m.len(),
-        Num2(_) => 2,
-        Num4(_) => 4,
-        Range(IntRange { start, end }) => (end - start) as usize,
-        _ => 1,
-    }
 }

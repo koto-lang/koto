@@ -2,7 +2,7 @@
 
 use koto_runtime::{
     core::io::{make_file_map, File},
-    external_error, make_external_value, Value, ValueMap,
+    external_error, Value, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -41,7 +41,7 @@ pub fn make_module() -> ValueMap {
 
             file_map.insert(
                 Value::ExternalDataId.into(),
-                make_external_value(File {
+                Value::make_external_value(File {
                     file: temp_file,
                     path,
                     temporary: true,

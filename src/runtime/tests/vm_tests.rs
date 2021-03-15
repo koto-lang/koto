@@ -2,8 +2,8 @@ mod vm {
     use {
         koto_bytecode::Chunk,
         koto_runtime::{
-            external_error, num2, num4, type_as_string, BinaryOp, IntRange, Loader, Value,
-            Value::*, ValueHashMap, ValueList, ValueMap, Vm,
+            external_error, num2, num4, BinaryOp, IntRange, Loader, Value, Value::*, ValueHashMap,
+            ValueList, ValueMap, Vm,
         },
         std::sync::Arc,
     };
@@ -24,7 +24,7 @@ mod vm {
                     unexpected => {
                         return external_error!(
                             "assert expects booleans as arguments, found '{}'",
-                            type_as_string(unexpected),
+                            unexpected.type_as_string(),
                         )
                     }
                 }

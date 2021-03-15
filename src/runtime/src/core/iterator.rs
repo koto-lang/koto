@@ -1,6 +1,5 @@
 use crate::{
-    external_error, type_as_string, value,
-    value::{value_is_callable, value_is_iterable},
+    external_error,
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
@@ -13,7 +12,7 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("all", |vm, args| match vm.get_args(args) {
-        [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let vm = vm.child_vm();
@@ -29,7 +28,7 @@ pub fn make_module() -> ValueMap {
                         Ok(unexpected) => {
                             return external_error!(
                                 "iterator.all: Predicate should return a bool, found '{}'",
-                                type_as_string(&unexpected)
+                                unexpected.type_as_string()
                             )
                         }
                         Err(error) => return Err(error.with_prefix("iterator.all")),
@@ -45,7 +44,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("any", |vm, args| match vm.get_args(args) {
-        [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let f = f.clone();
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let vm = vm.child_vm();
@@ -61,7 +60,7 @@ pub fn make_module() -> ValueMap {
                         Ok(unexpected) => {
                             return external_error!(
                                 "iterator.any: Predicate should return a bool, found '{}'",
-                                type_as_string(&unexpected)
+                                unexpected.type_as_string()
                             )
                         }
                         Err(error) => return Err(error.with_prefix("iterator.any")),
@@ -77,9 +76,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("chain", |vm, args| match vm.get_args(args) {
-        [iterable_a, iterable_b]
-            if value_is_iterable(iterable_a) && value_is_iterable(iterable_b) =>
-        {
+        [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
             let iter_a = make_iterator(iterable_a).unwrap();
             let iter_b = make_iterator(iterable_b).unwrap();
 
@@ -91,7 +88,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let iter = make_iterator(iterable).unwrap();
             for output in iter {
                 if let Err(error) = output {
@@ -104,7 +101,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("count", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let iter = make_iterator(iterable).unwrap();
             let mut result = 0;
             for output in iter {
@@ -119,7 +116,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("each", |vm, args| match vm.get_args(args) {
-        [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
             let mut vm = vm.spawn_shared_vm();
@@ -139,7 +136,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let mut iter = make_iterator(iterable)
                 .unwrap()
                 .enumerate()
@@ -155,7 +152,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("fold", |vm, args| {
         match vm.get_args(args) {
-            [iterable, result, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+            [iterable, result, f] if iterable.is_iterable() && f.is_callable() => {
                 let result = result.clone();
                 let f = f.clone();
                 let mut iter = make_iterator(iterable).unwrap();
@@ -196,7 +193,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("keep", |vm, args| match vm.get_args(args) {
-        [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let mut iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
             let mut vm = vm.spawn_shared_vm();
@@ -217,7 +214,7 @@ pub fn make_module() -> ValueMap {
                                     return Some(external_error!(
                                         "iterator.keep expects a Bool to be returned from the \
                                          predicate, found '{}'",
-                                        value::type_as_string(&unexpected),
+                                        unexpected.type_as_string(),
                                     ))
                                 }
                                 Err(error) => return Some(Err(error.with_prefix("iterator.keep"))),
@@ -234,7 +231,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let vm = vm.child_vm();
             let mut result: Option<Value> = None;
@@ -254,7 +251,7 @@ pub fn make_module() -> ValueMap {
                                     return external_error!(
                                         "iterator.max: \
                                          Expected Bool from < comparison, found '{}'",
-                                        type_as_string(&unexpected)
+                                        unexpected.type_as_string()
                                     );
                                 }
                                 Err(error) => return Err(error.with_prefix("iterator.max")),
@@ -273,7 +270,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let vm = vm.child_vm();
             let mut result: Option<Value> = None;
@@ -293,7 +290,7 @@ pub fn make_module() -> ValueMap {
                                     return external_error!(
                                         "iterator.min: \
                                          Expected Bool from < comparison, found '{}'",
-                                        type_as_string(&unexpected)
+                                        unexpected.type_as_string()
                                     );
                                 }
                                 Err(error) => return Err(error.with_prefix("iterator.min")),
@@ -312,7 +309,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let vm = vm.child_vm();
             let mut result = None;
@@ -326,7 +323,7 @@ pub fn make_module() -> ValueMap {
                             "iterator.min_max: \
                              Expected Bool from {} comparison, found '{}'",
                             op,
-                            type_as_string(&unexpected)
+                            unexpected.type_as_string()
                         );
                     }
                     Err(error) => Err(error.with_prefix("iterator.min_max")),
@@ -368,7 +365,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
-        [iterable, f] if value_is_iterable(iterable) && value_is_callable(f) => {
+        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
             let vm = vm.child_vm();
@@ -385,8 +382,8 @@ pub fn make_module() -> ValueMap {
                             Ok(unexpected) => {
                                 return external_error!(
                                     "iterator.position expects a Bool to be returned from the \
-                                 predicate, found '{}'",
-                                    value::type_as_string(&unexpected),
+                                     predicate, found '{}'",
+                                    unexpected.type_as_string(),
                                 )
                             }
                             Err(error) => return Err(error.with_prefix("iterator.position")),
@@ -404,10 +401,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("product", |vm, args| {
         let (iterable, initial_value) = match vm.get_args(args) {
-            [iterable] if value_is_iterable(iterable) => {
-                (iterable.clone(), Value::Number(1.into()))
-            }
-            [iterable, initial_value] if value_is_iterable(iterable) => {
+            [iterable] if iterable.is_iterable() => (iterable.clone(), Value::Number(1.into())),
+            [iterable, initial_value] if iterable.is_iterable() => {
                 (iterable.clone(), initial_value.clone())
             }
             _ => return external_error!("iterator.product: Expected iterable as argument"),
@@ -418,7 +413,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("skip", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if value_is_iterable(iterable) && *n >= 0.0 => {
+        [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap();
 
             for _ in 0..n.into() {
@@ -436,10 +431,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sum", |vm, args| {
         let (iterable, initial_value) = match vm.get_args(args) {
-            [iterable] if value_is_iterable(iterable) => {
-                (iterable.clone(), Value::Number(0.into()))
-            }
-            [iterable, initial_value] if value_is_iterable(iterable) => {
+            [iterable] if iterable.is_iterable() => (iterable.clone(), Value::Number(0.into())),
+            [iterable, initial_value] if iterable.is_iterable() => {
                 (iterable.clone(), initial_value.clone())
             }
             _ => return external_error!("iterator.sum: Expected iterable as argument"),
@@ -450,7 +443,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if value_is_iterable(iterable) && *n >= 0.0 => {
+        [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
             let mut iter = make_iterator(iterable).unwrap().take(n.into());
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
@@ -461,7 +454,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let mut iterator = make_iterator(iterable).unwrap();
             let mut result = ValueVec::new();
 
@@ -480,7 +473,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("to_map", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let mut iterator = make_iterator(iterable).unwrap();
             let mut result = ValueHashMap::new();
 
@@ -508,7 +501,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
-        [iterable] if value_is_iterable(iterable) => {
+        [iterable] if iterable.is_iterable() => {
             let mut iterator = make_iterator(iterable).unwrap();
             let mut result = Vec::new();
 
@@ -527,9 +520,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("zip", |vm, args| match vm.get_args(args) {
-        [iterable_a, iterable_b]
-            if value_is_iterable(iterable_a) && value_is_iterable(iterable_b) =>
-        {
+        [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
             let iter_a = make_iterator(iterable_a).unwrap().map(collect_pair);
             let iter_b = make_iterator(iterable_b).unwrap().map(collect_pair);
 

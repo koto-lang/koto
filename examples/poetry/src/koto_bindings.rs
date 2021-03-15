@@ -1,9 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        external_error, get_external_instance, is_external_instance, make_external_value,
-        type_as_string, visit_external_value, ExternalValue, Value, ValueIterator,
-        ValueIteratorOutput, ValueMap,
+        external_error, get_external_instance, is_external_instance, visit_external_value,
+        ExternalValue, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::fmt,
 };
@@ -22,7 +21,7 @@ pub fn make_module() -> ValueMap {
             }
             [unexpected] => external_error!(
                 "poetry.new: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected),
+                unexpected.type_as_string(),
             ),
             _ => external_error!("poetry.new: Expected a String as argument"),
         }
@@ -91,7 +90,10 @@ impl KotoPoetry {
             })
         });
 
-        result.insert(Value::ExternalDataId.into(), make_external_value(Self(poetry)));
+        result.insert(
+            Value::ExternalDataId.into(),
+            Value::make_external_value(Self(poetry)),
+        );
         result
     }
 }

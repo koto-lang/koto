@@ -3,8 +3,8 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
-        num2, num4, type_as_string,
-        value::{self, value_is_callable, value_size, RegisterSlice, RuntimeFunction},
+        num2, num4,
+        value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
         RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
@@ -229,7 +229,7 @@ impl Vm {
 
     pub fn get_global_function(&self, id: &str) -> Option<Value> {
         match self.get_global_value(id) {
-            Some(function) if value_is_callable(&function) => Some(function),
+            Some(function) if function.is_callable() => Some(function),
             _ => None,
         }
     }
@@ -279,7 +279,7 @@ impl Vm {
             );
         }
 
-        if !value_is_callable(&function) {
+        if !function.is_callable() {
             return vm_error!("run_function: the provided value isn't a function");
         }
 
@@ -379,13 +379,13 @@ impl Vm {
 
         for (key, value) in tests.cloned_iter() {
             match (key.value(), value) {
-                (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
+                (Str(id), test) if id.starts_with("test_") && test.is_callable() => {
                     let make_test_error = |error: RuntimeError, message: &str| {
                         Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
                     };
 
                     if let Some(pre_test) = &pre_test {
-                        if value_is_callable(pre_test) {
+                        if pre_test.is_callable() {
                             let pre_test_result = if pass_self_to_pre_test {
                                 self.run_instance_function(self_arg.clone(), pre_test.clone(), &[])
                             } else {
@@ -393,10 +393,7 @@ impl Vm {
                             };
 
                             if let Err(error) = pre_test_result {
-                                return make_test_error(
-                                    error,
-                                    "Error while preparing to run test",
-                                );
+                                return make_test_error(error, "Error while preparing to run test");
                             }
                         }
                     }
@@ -417,13 +414,9 @@ impl Vm {
                     }
 
                     if let Some(post_test) = &post_test {
-                        if value_is_callable(post_test) {
+                        if post_test.is_callable() {
                             let post_test_result = if pass_self_to_post_test {
-                                self.run_instance_function(
-                                    self_arg.clone(),
-                                    post_test.clone(),
-                                    &[],
-                                )
+                                self.run_instance_function(self_arg.clone(), post_test.clone(), &[])
                             } else {
                                 self.run_function(post_test.clone(), &[])
                             };
@@ -610,9 +603,7 @@ impl Vm {
             Instruction::RangeFrom { register, start } => {
                 self.run_make_range(register, Some(start), None, false)
             }
-            Instruction::RangeFull { register } => {
-                self.run_make_range(register, None, None, false)
-            }
+            Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
             Instruction::MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable)
             }
@@ -891,10 +882,7 @@ impl Vm {
             }
             (Some(Number(start)), None) => {
                 if *start < 0.0 {
-                    return vm_error!(
-                        "RangeFrom: negative numbers not allowed, found '{}'",
-                        start
-                    );
+                    return vm_error!("RangeFrom: negative numbers not allowed, found '{}'", start);
                 }
                 IndexRange(value::IndexRange {
                     start: usize::from(start),
@@ -960,7 +948,7 @@ impl Vm {
         let result = match self.get_register_mut(iterator) {
             Iterator(iterator) => iterator.next(),
             unexpected => {
-                return vm_error!("Expected Iterator, found '{}'", type_as_string(unexpected));
+                return vm_error!("Expected Iterator, found '{}'", unexpected.type_as_string());
             }
         };
 
@@ -1076,8 +1064,7 @@ impl Vm {
                 }
             }
             unexpected => {
-                return self
-                    .unexpected_type_error("SliceFrom: expected List or Tuple", unexpected);
+                return self.unexpected_type_error("SliceFrom: expected List or Tuple", unexpected);
             }
         };
 
@@ -1574,7 +1561,7 @@ impl Vm {
                 other => {
                     return vm_error!(
                         "Expected Bool from equality comparison, found '{}'",
-                        type_as_string(&other)
+                        other.type_as_string()
                     );
                 }
             }
@@ -1608,7 +1595,7 @@ impl Vm {
                 other => {
                     return vm_error!(
                         "Expected Bool from equality comparison, found '{}'",
-                        type_as_string(&other)
+                        other.type_as_string()
                     );
                 }
             }
@@ -1712,7 +1699,7 @@ impl Vm {
     }
 
     fn run_size(&mut self, register: u8, value: u8) {
-        let result = value_size(self.get_register(value));
+        let result = self.get_register(value).size();
         self.set_register(register, Value::Number(result.into()));
     }
 
@@ -1755,9 +1742,7 @@ impl Vm {
                 let maybe_module = self.context().modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(Some(module)) => self.set_register(result_register, Value::Map(module)),
-                    Some(None) => {
-                        return vm_error!("Recursive import of module '{}'", import_name)
-                    }
+                    Some(None) => return vm_error!("Recursive import of module '{}'", import_name),
                     None => {
                         // Insert a placeholder for the new module, preventing recursive imports
                         self.context_mut().modules.insert(module_path.clone(), None);
@@ -1820,10 +1805,8 @@ impl Vm {
                     result
                 }
                 unexpected => {
-                    return self.unexpected_type_error(
-                        "num2: Expected Number, Num2, or List",
-                        unexpected,
-                    );
+                    return self
+                        .unexpected_type_error("num2: Expected Number, Num2, or List", unexpected);
                 }
             }
         } else {
@@ -1875,10 +1858,8 @@ impl Vm {
                     result
                 }
                 unexpected => {
-                    return self.unexpected_type_error(
-                        "num4: Expected Number, Num4, or List",
-                        unexpected,
-                    );
+                    return self
+                        .unexpected_type_error("num4: Expected Number, Num4, or List", unexpected);
                 }
             }
         } else {
@@ -2155,8 +2136,8 @@ impl Vm {
             (unexpected_value, unexpected_index) => {
                 return vm_error!(
                     "Unable to index '{}' with '{}'",
-                    type_as_string(&unexpected_value),
-                    type_as_string(&unexpected_index),
+                    unexpected_value.type_as_string(),
+                    unexpected_index.type_as_string(),
                 )
             }
         };
@@ -2180,7 +2161,7 @@ impl Vm {
             }
             unexpected => vm_error!(
                 "MapInsert: Expected Map, found '{}'",
-                type_as_string(&unexpected)
+                unexpected.type_as_string()
             ),
         }
     }
@@ -2200,7 +2181,7 @@ impl Vm {
             }
             unexpected => vm_error!(
                 "MetaInsert: Expected Map, found '{}'",
-                type_as_string(&unexpected)
+                unexpected.type_as_string()
             ),
         }
     }
@@ -2608,7 +2589,7 @@ impl Vm {
     }
 
     fn run_check_size(&self, register: u8, expected_size: usize) -> Result<(), RuntimeError> {
-        let value_size = value_size(self.get_register(register));
+        let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
             Ok(())
@@ -2759,15 +2740,15 @@ impl Vm {
     }
 
     fn unexpected_type_error<T>(&self, message: &str, value: &Value) -> Result<T, RuntimeError> {
-        vm_error!("{}, found '{}'", message, type_as_string(&value))
+        vm_error!("{}, found '{}'", message, value.type_as_string())
     }
 
     fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
         vm_error!(
             "Unable to perform operation '{}' with '{}' and '{}'",
             op,
-            type_as_string(lhs),
-            type_as_string(rhs),
+            lhs.type_as_string(),
+            rhs.type_as_string(),
         )
     }
 }

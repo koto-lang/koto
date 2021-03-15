@@ -2,8 +2,7 @@
 
 use {
     koto_runtime::{
-        external_error, get_external_instance, make_external_value, num2, num4, ExternalValue,
-        Value, ValueMap,
+        external_error, get_external_instance, num2, num4, ExternalValue, Value, ValueMap,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -108,7 +107,10 @@ impl ChaChaRng {
             })
         });
 
-        result.insert(Value::ExternalDataId.into(), make_external_value(Self(rng)));
+        result.insert(
+            Value::ExternalDataId.into(),
+            Value::make_external_value(Self(rng)),
+        );
         result
     }
 }

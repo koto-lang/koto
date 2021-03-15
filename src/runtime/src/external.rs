@@ -102,7 +102,11 @@ pub fn is_external_instance<T>(map: &ValueMap) -> bool
 where
     T: ExternalValue,
 {
-    match map.contents().data.get(&ValueKey::from(Value::ExternalDataId)) {
+    match map
+        .contents()
+        .data
+        .get(&ValueKey::from(Value::ExternalDataId))
+    {
         Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
         _ => false,
     }

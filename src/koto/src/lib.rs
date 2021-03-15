@@ -31,8 +31,8 @@ pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runti
 use {
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        type_as_string, DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueList,
-        ValueMap, ValueVec, Vm, VmSettings,
+        DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueList, ValueMap, ValueVec, Vm,
+        VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
@@ -166,7 +166,7 @@ impl Koto {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
                     }
-                    Some(other) => return Err(KotoError::InvalidTestsType(type_as_string(&other))),
+                    Some(other) => return Err(KotoError::InvalidTestsType(other.type_as_string())),
                     None => {}
                 };
             }
