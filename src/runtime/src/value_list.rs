@@ -60,10 +60,3 @@ impl fmt::Display for ValueList {
         write!(f, "]")
     }
 }
-
-impl PartialEq for ValueList {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        *self.data() == *other.data()
-    }
-}

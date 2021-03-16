@@ -3,8 +3,8 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
-        num2, num4, type_as_string,
-        value::{self, value_is_callable, value_size, RegisterSlice, RuntimeFunction},
+        num2, num4,
+        value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
         RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
@@ -75,8 +75,8 @@ impl SharedContext {
 /// VM Context shared by VMs running in the same module
 #[derive(Default)]
 pub struct ModuleContext {
-    /// Global context.
-    pub global: ValueMap,
+    /// The module's exported values
+    pub exports: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, Option<ValueMap>>,
     spawned_stop_flags: Vec<Arc<AtomicBool>>,
@@ -87,13 +87,12 @@ impl ModuleContext {
         Self {
             loader: self.loader.clone(),
             modules: self.modules.clone(),
-            global: Default::default(),
+            exports: Default::default(),
             spawned_stop_flags: Default::default(),
         }
     }
 
     fn reset(&mut self) {
-        // self.global.clear();
         self.loader = Default::default();
         self.stop_spawned_vms();
     }
@@ -218,18 +217,18 @@ impl Vm {
         &self.context_shared.logger
     }
 
-    pub fn get_global_value(&self, id: &str) -> Option<Value> {
+    pub fn get_exported_value(&self, id: &str) -> Option<Value> {
         self.context()
-            .global
+            .exports
             .contents()
             .data
             .get_with_string(id)
             .cloned()
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<Value> {
-        match self.get_global_value(id) {
-            Some(function) if value_is_callable(&function) => Some(function),
+    pub fn get_exported_function(&self, id: &str) -> Option<Value> {
+        match self.get_exported_value(id) {
+            Some(function) if function.is_callable() => Some(function),
             _ => None,
         }
     }
@@ -279,7 +278,7 @@ impl Vm {
             );
         }
 
-        if !value_is_callable(&function) {
+        if !function.is_callable() {
             return vm_error!("run_function: the provided value isn't a function");
         }
 
@@ -378,14 +377,14 @@ impl Vm {
         };
 
         for (key, value) in tests.cloned_iter() {
-            match (key, value) {
-                (Str(id), test) if id.starts_with("test_") && value_is_callable(&test) => {
+            match (key.value(), value) {
+                (Str(id), test) if id.starts_with("test_") && test.is_callable() => {
                     let make_test_error = |error: RuntimeError, message: &str| {
                         Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
                     };
 
                     if let Some(pre_test) = &pre_test {
-                        if value_is_callable(pre_test) {
+                        if pre_test.is_callable() {
                             let pre_test_result = if pass_self_to_pre_test {
                                 self.run_instance_function(self_arg.clone(), pre_test.clone(), &[])
                             } else {
@@ -414,7 +413,7 @@ impl Vm {
                     }
 
                     if let Some(post_test) = &post_test {
-                        if value_is_callable(post_test) {
+                        if post_test.is_callable() {
                             let post_test_result = if pass_self_to_post_test {
                                 self.run_instance_function(self_arg.clone(), post_test.clone(), &[])
                             } else {
@@ -536,11 +535,11 @@ impl Vm {
                 self.set_register(register, Str(string));
                 Ok(())
             }
-            Instruction::LoadGlobal { register, constant } => {
-                self.run_load_global(register, constant)
+            Instruction::LoadExport { register, constant } => {
+                self.run_load_export(register, constant)
             }
-            Instruction::SetGlobal { global, source } => {
-                self.run_set_global(global, source);
+            Instruction::SetExport { export, source } => {
+                self.run_set_export(export, source);
                 Ok(())
             }
             Instruction::Import { register, constant } => self.run_import(register, constant),
@@ -794,37 +793,37 @@ impl Vm {
         self.set_register(target, value);
     }
 
-    fn run_load_global(
+    fn run_load_export(
         &mut self,
         register: u8,
         constant_index: ConstantIndex,
     ) -> InstructionResult {
-        let global_name = self.get_constant_str(constant_index);
-        let global = self
+        let export_name = self.get_constant_str(constant_index);
+        let export = self
             .context()
-            .global
+            .exports
             .contents()
             .data
-            .get_with_string(global_name)
+            .get_with_string(export_name)
             .cloned();
 
-        match global {
+        match export {
             Some(value) => {
                 self.set_register(register, value);
                 Ok(())
             }
-            None => vm_error!("'{}' not found", global_name),
+            None => vm_error!("'{}' not found", export_name),
         }
     }
 
-    fn run_set_global(&mut self, constant_index: ConstantIndex, source_register: u8) {
-        let global_name = Value::Str(self.value_string_from_constant(constant_index));
+    fn run_set_export(&mut self, constant_index: ConstantIndex, source_register: u8) {
+        let export_name = Value::Str(self.value_string_from_constant(constant_index));
         let value = self.clone_register(source_register);
         self.context_mut()
-            .global
+            .exports
             .contents_mut()
             .data
-            .insert(global_name, value);
+            .insert(export_name.into(), value);
     }
 
     fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
@@ -948,7 +947,7 @@ impl Vm {
         let result = match self.get_register_mut(iterator) {
             Iterator(iterator) => iterator.next(),
             unexpected => {
-                return vm_error!("Expected Iterator, found '{}'", type_as_string(unexpected));
+                return vm_error!("Expected Iterator, found '{}'", unexpected.type_as_string());
             }
         };
 
@@ -1418,15 +1417,60 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => a == b,
+            (Num2(a), Num2(b)) => a == b,
+            (Num4(a), Num4(b)) => a == b,
+            (Bool(a), Bool(b)) => a == b,
+            (Str(a), Str(b)) => a == b,
+            (Range(a), Range(b)) => a == b,
+            (IndexRange(a), IndexRange(b)) => a == b,
+            (Empty, Empty) => true,
+            (ExternalDataId, ExternalDataId) => true,
+            (List(a), List(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
+            (Tuple(a), Tuple(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
             (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Equal)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
             }
-
-            _ => (lhs_value == rhs_value).into(),
+            (Map(a), Map(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                self.child_vm().compare_value_maps(a, b)?
+            }
+            (Function(a), Function(b)) => {
+                if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
+                    match (&a.captures, &b.captures) {
+                        (None, None) => true,
+                        (Some(captures_a), Some(captures_b)) => {
+                            let captures_a = captures_a.clone();
+                            let captures_b = captures_b.clone();
+                            let data_a = captures_a.data();
+                            let data_b = captures_b.data();
+                            self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                        }
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            }
+            _ => false,
         };
-        self.set_register(result, result_value);
+
+        self.set_register(result, result_value.into());
 
         Ok(())
     }
@@ -1437,6 +1481,29 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Number(a), Number(b)) => a != b,
+            (Num2(a), Num2(b)) => a != b,
+            (Num4(a), Num4(b)) => a != b,
+            (Bool(a), Bool(b)) => a != b,
+            (Str(a), Str(b)) => a != b,
+            (Range(a), Range(b)) => a != b,
+            (IndexRange(a), IndexRange(b)) => a != b,
+            (Empty, Empty) => false,
+            (ExternalDataId, ExternalDataId) => false,
+            (List(a), List(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
+            (Tuple(a), Tuple(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                let data_a = a.data();
+                let data_b = b.data();
+                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+            }
             (Map(map), value)
                 if map
                     .contents()
@@ -1447,12 +1514,93 @@ impl Vm {
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
             }
-
-            _ => (lhs_value != rhs_value).into(),
+            (Map(a), Map(b)) => {
+                let a = a.clone();
+                let b = b.clone();
+                !self.child_vm().compare_value_maps(a, b)?
+            }
+            (Function(a), Function(b)) => {
+                if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
+                    match (&a.captures, &b.captures) {
+                        (None, None) => false,
+                        (Some(captures_a), Some(captures_b)) => {
+                            let captures_a = captures_a.clone();
+                            let captures_b = captures_b.clone();
+                            let data_a = captures_a.data();
+                            let data_b = captures_b.data();
+                            !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                        }
+                        _ => true,
+                    }
+                } else {
+                    true
+                }
+            }
+            _ => true,
         };
-        self.set_register(result, result_value);
+        self.set_register(result, result_value.into());
 
         Ok(())
+    }
+
+    // Called from run_equal / run_not_equal to compare the contents of lists and tuples
+    fn compare_value_ranges(
+        &mut self,
+        range_a: &[Value],
+        range_b: &[Value],
+    ) -> Result<bool, RuntimeError> {
+        if range_a.len() != range_b.len() {
+            return Ok(false);
+        }
+
+        for (value_a, value_b) in range_a.iter().zip(range_b.iter()) {
+            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                other => {
+                    return vm_error!(
+                        "Expected Bool from equality comparison, found '{}'",
+                        other.type_as_string()
+                    );
+                }
+            }
+        }
+
+        Ok(true)
+    }
+
+    // Called from run_equal / run_not_equal to compare the contents of maps
+    fn compare_value_maps(
+        &mut self,
+        map_a: ValueMap,
+        map_b: ValueMap,
+    ) -> Result<bool, RuntimeError> {
+        if map_a.len() != map_b.len() {
+            return Ok(false);
+        }
+
+        for ((key_a, value_a), (key_b, value_b)) in map_a
+            .contents()
+            .data
+            .iter()
+            .zip(map_b.contents().data.iter())
+        {
+            if key_a != key_b {
+                return Ok(false);
+            }
+            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                other => {
+                    return vm_error!(
+                        "Expected Bool from equality comparison, found '{}'",
+                        other.type_as_string()
+                    );
+                }
+            }
+        }
+
+        Ok(true)
     }
 
     fn call_overloaded_unary_op(
@@ -1550,7 +1698,7 @@ impl Vm {
     }
 
     fn run_size(&mut self, register: u8, value: u8) {
-        let result = value_size(self.get_register(value));
+        let result = self.get_register(value).size();
         self.set_register(register, Value::Number(result.into()));
     }
 
@@ -1561,14 +1709,14 @@ impl Vm {
     ) -> InstructionResult {
         let import_name = self.value_string_from_constant(import_constant);
 
-        let maybe_global = self
+        let maybe_export = self
             .context()
-            .global
+            .exports
             .contents()
             .data
             .get_with_string(&import_name)
             .cloned();
-        if let Some(value) = maybe_global {
+        if let Some(value) = maybe_export {
             self.set_register(result_register, value);
         } else {
             let maybe_in_prelude = self
@@ -1602,7 +1750,7 @@ impl Vm {
                         let mut vm = self.spawn_new_vm();
                         match vm.run(module_chunk) {
                             Ok(_) => {
-                                if let Some(main) = vm.get_global_function("main") {
+                                if let Some(main) = vm.get_exported_function("main") {
                                     if let Err(error) = vm.run_function(main, &[]) {
                                         self.context_mut().modules.remove(&module_path);
                                         return Err(error);
@@ -1615,13 +1763,13 @@ impl Vm {
                             }
                         }
 
-                        // Cache the resulting module's global map
-                        let module_global = vm.context().global.clone();
+                        // Cache the resulting module's exports map
+                        let module_exports = vm.context().exports.clone();
                         self.context_mut()
                             .modules
-                            .insert(module_path, Some(module_global.clone()));
+                            .insert(module_path, Some(module_exports.clone()));
 
-                        self.set_register(result_register, Value::Map(module_global));
+                        self.set_register(result_register, Value::Map(module_exports));
                     }
                 }
             }
@@ -1987,8 +2135,8 @@ impl Vm {
             (unexpected_value, unexpected_index) => {
                 return vm_error!(
                     "Unable to index '{}' with '{}'",
-                    type_as_string(&unexpected_value),
-                    type_as_string(&unexpected_index),
+                    unexpected_value.type_as_string(),
+                    unexpected_index.type_as_string(),
                 )
             }
         };
@@ -2007,14 +2155,12 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut()
-                    .data
-                    .insert(Value::Str(key_string), value);
+                map.contents_mut().data.insert(key_string.into(), value);
                 Ok(())
             }
             unexpected => vm_error!(
                 "MapInsert: Expected Map, found '{}'",
-                type_as_string(&unexpected)
+                unexpected.type_as_string()
             ),
         }
     }
@@ -2034,7 +2180,7 @@ impl Vm {
             }
             unexpected => vm_error!(
                 "MetaInsert: Expected Map, found '{}'",
-                type_as_string(&unexpected)
+                unexpected.type_as_string()
             ),
         }
     }
@@ -2442,7 +2588,7 @@ impl Vm {
     }
 
     fn run_check_size(&self, register: u8, expected_size: usize) -> Result<(), RuntimeError> {
-        let value_size = value_size(self.get_register(register));
+        let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
             Ok(())
@@ -2593,15 +2739,15 @@ impl Vm {
     }
 
     fn unexpected_type_error<T>(&self, message: &str, value: &Value) -> Result<T, RuntimeError> {
-        vm_error!("{}, found '{}'", message, type_as_string(&value))
+        vm_error!("{}, found '{}'", message, value.type_as_string())
     }
 
     fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
         vm_error!(
             "Unable to perform operation '{}' with '{}' and '{}'",
             op,
-            type_as_string(lhs),
-            type_as_string(rhs),
+            lhs.type_as_string(),
+            rhs.type_as_string(),
         )
     }
 }

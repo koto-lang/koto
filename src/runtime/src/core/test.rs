@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, BinaryOp, Value, ValueMap, ValueNumber};
+use crate::{external_error, BinaryOp, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -16,7 +16,7 @@ pub fn make_module() -> ValueMap {
                 unexpected => {
                     return external_error!(
                         "assert expects booleans as arguments, found '{}'",
-                        type_as_string(unexpected),
+                        unexpected.type_as_string(),
                     )
                 }
             }
@@ -38,7 +38,7 @@ pub fn make_module() -> ValueMap {
                 }
                 Ok(unexpected) => external_error!(
                     "assert_eq: expected Bool from comparison, found '{}'",
-                    type_as_string(&unexpected)
+                    unexpected.type_as_string()
                 ),
                 Err(e) => Err(e.with_prefix("assert_eq")),
             }
@@ -60,7 +60,7 @@ pub fn make_module() -> ValueMap {
                 }
                 Ok(unexpected) => external_error!(
                     "assert_ne: expected Bool from comparison, found '{}'",
-                    type_as_string(&unexpected)
+                    unexpected.type_as_string()
                 ),
                 Err(e) => Err(e.with_prefix("assert_ne")),
             }
@@ -113,9 +113,9 @@ pub fn make_module() -> ValueMap {
         }
         [a, b, c] => external_error!(
             "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
-            type_as_string(&a),
-            type_as_string(&b),
-            type_as_string(&c),
+            a.type_as_string(),
+            b.type_as_string(),
+            c.type_as_string(),
         ),
         _ => external_error!("assert_eq expects three arguments"),
     });

@@ -17,10 +17,10 @@ pub enum Op {
     LoadIntLong,      // register, constant[4]
     LoadString,       // register, constant
     LoadStringLong,   // register, constant[4]
-    LoadGlobal,       // register, constant
-    LoadGlobalLong,   // register, constant[4]
-    SetGlobal,        // global, source
-    SetGlobalLong,    // global[4], source
+    LoadExport,       // register, constant
+    LoadExportLong,   // register, constant[4]
+    SetExport,        // export, source
+    SetExportLong,    // export[4], source
     Import,           // register, constant
     ImportLong,       // register, constant[4]
     MakeTuple,        // register, start register, count
@@ -268,5 +268,19 @@ impl From<u8> for Op {
         //  - Op is repr(u8)
         //  - All 256 possible values are represented in the enum
         unsafe { std::mem::transmute(op) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_op_count() {
+        assert_eq!(
+            Op::Unused255 as u8,
+            255,
+            "Op should have 256 entries (see impl From<u8> for Op)"
+        );
     }
 }

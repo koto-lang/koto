@@ -1,66 +1,23 @@
 use {
     crate::{
         external::{Args, ExternalFunction},
-        RuntimeResult, Value, ValueList, ValueRef, Vm,
+        value_key::ValueKeyRef,
+        RuntimeResult, Value, ValueKey, ValueList, Vm,
     },
     indexmap::IndexMap,
     koto_parser::MetaId,
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
-        borrow::Borrow,
         fmt,
-        hash::{BuildHasherDefault, Hash, Hasher},
+        hash::{BuildHasherDefault, Hash},
         iter::{FromIterator, IntoIterator},
         ops::{Deref, DerefMut},
         sync::Arc,
     },
 };
 
-// A trait that allows for allocation-free map accesses with &str
-pub trait ValueMapKey {
-    fn to_value_ref(&self) -> ValueRef;
-}
-
-impl<'a> Hash for dyn ValueMapKey + 'a {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_value_ref().hash(state);
-    }
-}
-
-impl<'a> PartialEq for dyn ValueMapKey + 'a {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_value_ref() == other.to_value_ref()
-    }
-}
-
-impl<'a> Eq for dyn ValueMapKey + 'a {}
-
-impl ValueMapKey for Value {
-    fn to_value_ref(&self) -> ValueRef {
-        self.as_ref()
-    }
-}
-
-impl<'a> ValueMapKey for &'a str {
-    fn to_value_ref(&self) -> ValueRef {
-        ValueRef::Str(self)
-    }
-}
-
-impl<'a> Borrow<dyn ValueMapKey + 'a> for Value {
-    fn borrow(&self) -> &(dyn ValueMapKey + 'a) {
-        self
-    }
-}
-
-impl<'a> Borrow<dyn ValueMapKey + 'a> for &'a str {
-    fn borrow(&self) -> &(dyn ValueMapKey + 'a) {
-        self
-    }
-}
-
-type ValueHashMapType = IndexMap<Value, Value, BuildHasherDefault<FxHasher>>;
+type ValueHashMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 
 /// The Value -> Value hash map used for Koto map data
 ///
@@ -131,12 +88,12 @@ impl ValueHashMap {
 
     #[inline]
     pub fn get_with_string(&self, key: &str) -> Option<&Value> {
-        self.0.get(&key as &dyn ValueMapKey)
+        self.0.get(&key as &dyn ValueKeyRef)
     }
 
     #[inline]
     pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
-        self.0.get_mut(&key as &dyn ValueMapKey)
+        self.0.get_mut(&key as &dyn ValueKeyRef)
     }
 }
 
@@ -154,20 +111,12 @@ impl DerefMut for ValueHashMap {
     }
 }
 
-impl FromIterator<(Value, Value)> for ValueHashMap {
+impl FromIterator<(ValueKey, Value)> for ValueHashMap {
     #[inline]
-    fn from_iter<T: IntoIterator<Item = (Value, Value)>>(iter: T) -> ValueHashMap {
+    fn from_iter<T: IntoIterator<Item = (ValueKey, Value)>>(iter: T) -> ValueHashMap {
         Self(ValueHashMapType::from_iter(iter))
     }
 }
-
-impl PartialEq for ValueHashMap {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-impl Eq for ValueHashMap {}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
@@ -340,7 +289,7 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn insert(&mut self, key: Value, value: Value) {
+    pub fn insert(&mut self, key: ValueKey, value: Value) {
         self.contents_mut().data.insert(key, value);
     }
 
@@ -404,20 +353,12 @@ impl fmt::Display for ValueMap {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}: {:#}", key, value)?;
+            write!(f, "{}: {:#}", key.value(), value)?;
             first = false;
         }
         write!(f, "}}")
     }
 }
-
-impl PartialEq for ValueMap {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        *self.contents().data == *other.contents().data
-    }
-}
-impl Eq for ValueMap {}
 
 pub struct ValueMapIter<'map> {
     map: &'map RwLock<ValueMapContents>,
@@ -432,7 +373,7 @@ impl<'map> ValueMapIter<'map> {
 }
 
 impl<'map> Iterator for ValueMapIter<'map> {
-    type Item = (Value, Value);
+    type Item = (ValueKey, Value);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

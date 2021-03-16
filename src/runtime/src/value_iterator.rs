@@ -114,7 +114,7 @@ impl Iterator for ValueIteratorInternals {
             Iterable::Map(map) => {
                 let result = match map.contents().data.get_index(self.index) {
                     Some((key, value)) => Some(Ok(ValueIteratorOutput::ValuePair(
-                        key.clone(),
+                        key.value().clone(),
                         value.clone(),
                     ))),
                     None => None,

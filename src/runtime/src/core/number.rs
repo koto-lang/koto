@@ -1,4 +1,4 @@
-use crate::{external_error, type_as_string, Value, ValueMap, ValueNumber};
+use crate::{external_error, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
                 [other] => external_error!(
                     "number.{}: Expected Number as argument, found '{}'",
                     $name,
-                    type_as_string(other)
+                    other.type_as_string()
                 ),
                 _ => external_error!("number.{} expects a Number as argument", $name),
             });
@@ -32,7 +32,7 @@ pub fn make_module() -> ValueMap {
                 [other] => external_error!(
                     "number.{} expects a Number as argument, found {}",
                     $name,
-                    type_as_string(other),
+                    other.type_as_string(),
                 ),
                 _ => external_error!("number.{} expects a Number as argument", $name),
             })

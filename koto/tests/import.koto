@@ -2,8 +2,9 @@ import koto.type, test.assert_eq
 
 export tests =
   test_import_module: ||
-    # importing a module brings the module's global map into scope by assignment
-    # test_module is defined in the test_module directory, with main.koto as its entry point
+    # Importing a module brings the module's exports map into scope by assignment.
+    # The test_module module is defined in the test_module directory,
+    # with test_module/main.koto as its entry point.
     import test_module
     assert_eq (type test_module), "Map"
     assert_eq test_module.foo, 42

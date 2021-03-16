@@ -1,6 +1,6 @@
 use crate::{
-    external_error, value::deep_copy_value, value_iterator::ValueIterator, value_sort::sort_values,
-    Value, ValueList, ValueMap,
+    external_error, value_iterator::ValueIterator, value_sort::sort_values, BinaryOp, Value,
+    ValueList, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -9,12 +9,30 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
-        [Tuple(t), value] => Ok(Bool(t.data().contains(value))),
+        [Tuple(t), value] => {
+            let t = t.clone();
+            let value = value.clone();
+            let vm = vm.child_vm();
+            for candidate in t.data().iter() {
+                match vm.run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone()) {
+                    Ok(Bool(false)) => {}
+                    Ok(Bool(true)) => return Ok(true.into()),
+                    Ok(unexpected) => {
+                        return external_error!(
+                            "tuple.contains: Expected Bool from comparison, found '{}'",
+                            unexpected.type_as_string()
+                        )
+                    }
+                    Err(e) => return Err(e.with_prefix("tuple.contains")),
+                }
+            }
+            Ok(false.into())
+        }
         _ => external_error!("tuple.contains: Expected tuple and value as arguments"),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
-        [value @ Tuple(_)] => Ok(deep_copy_value(value)),
+        [value @ Tuple(_)] => Ok(value.deep_copy()),
         _ => external_error!("tuple.deep_copy: Expected tuple as argument"),
     });
 

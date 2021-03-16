@@ -19,6 +19,14 @@ export tests =
     assert (x.contains 2)
     assert not (x.contains 99)
 
+  test_contains_with_overloaded_equality_op: ||
+    bar = |x|
+      x: x
+      @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
+
+    x = (bar 1), (bar 1)
+    assert not x.contains (bar 1)
+
   test_deep_copy: ||
     a = [1, 2, 3]
     # x contains 3 shared copies of a

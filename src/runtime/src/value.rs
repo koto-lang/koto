@@ -1,85 +1,199 @@
 use {
     crate::{
-        num2, num4, ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
+        num2, num4,
+        value_map::{ValueMap, ValueMapContents},
+        ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber,
+        ValueRef, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
-    std::{
-        cmp::Ordering,
-        fmt,
-        hash::{Hash, Hasher},
-        sync::Arc,
-    },
+    std::{fmt, sync::Arc},
 };
 
+/// The core Value type for Koto
 #[derive(Clone, Debug)]
 pub enum Value {
+    /// The default type representing the absence of a value
     Empty,
-    Bool(bool),
-    Number(ValueNumber),
-    Num2(num2::Num2),
-    Num4(num4::Num4),
-    Range(IntRange),
-    List(ValueList),
-    Tuple(ValueTuple),
-    Map(ValueMap),
-    Str(ValueString),
-    Function(RuntimeFunction),
-    Generator(RuntimeFunction),
-    Iterator(ValueIterator),
-    ExternalFunction(ExternalFunction),
-    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
-    // Internal value types
-    IndexRange(IndexRange),
-    TemporaryTuple(RegisterSlice),
-    ExternalDataId,
-}
 
-#[derive(Clone, Debug)]
-pub enum ValueRef<'a> {
-    Empty,
-    Bool(&'a bool),
-    Number(&'a ValueNumber),
-    Num2(&'a num2::Num2),
-    Num4(&'a num4::Num4),
-    Range(&'a IntRange),
-    List(&'a ValueList),
-    Tuple(&'a ValueTuple),
-    Map(&'a ValueMap),
-    Str(&'a str),
-    Function(&'a RuntimeFunction),
-    Generator(&'a RuntimeFunction),
-    Iterator(&'a ValueIterator),
-    ExternalFunction(&'a ExternalFunction),
-    ExternalValue(&'a Arc<RwLock<dyn ExternalValue>>),
-    IndexRange(&'a IndexRange),
-    TemporaryTuple(&'a RegisterSlice),
+    /// A boolean, can be either true or false
+    Bool(bool),
+
+    /// A number, represented as either a signed 64 bit integer or float
+    Number(ValueNumber),
+
+    /// A pair of 64 bit floats, useful when working with 2 dimensional values
+    Num2(num2::Num2),
+
+    /// A pack of four 32 bit floats, useful in working with 3 or 4 dimensional values
+    Num4(num4::Num4),
+
+    /// A range with start/end boundaries
+    Range(IntRange),
+
+    /// The list type used in Koto
+    List(ValueList),
+
+    /// The tuple type used in Koto
+    Tuple(ValueTuple),
+
+    /// The hash map type used in Koto
+    Map(ValueMap),
+
+    /// The string type used in Koto
+    Str(ValueString),
+
+    /// A callable function
+    Function(RuntimeFunction),
+
+    /// A function that produces an Iterator when called
+    ///
+    /// A [Vm] gets spawned for the function to run in, which pauses each time a yield instruction
+    /// is encountered. See Vm::call_generator and Iterable::Generator.
+    Generator(RuntimeFunction),
+
+    /// The iterator type used in Koto
+    Iterator(ValueIterator),
+
+    /// A function that's defined outside of the Koto runtime
+    ExternalFunction(ExternalFunction),
+
+    /// A value type that's defined outside of the Koto runtime
+    ///
+    /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
+    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+
+    /// The value type used as a key when storing an ExternalValues in a Map
     ExternalDataId,
+
+    /// The range type used as a temporary value in index expressions.
+    ///
+    /// Note: this is intended for internal use only.
+    IndexRange(IndexRange),
+
+    /// A tuple of values that are packed into a contiguous series of registers
+    ///
+    /// Used as an optimization when multiple values are passed around without being assigned to a
+    /// single Tuple value.
+    ///
+    /// Note: this is intended for internal use only.
+    TemporaryTuple(RegisterSlice),
 }
 
 impl Value {
     #[inline]
     pub fn as_ref(&self) -> ValueRef {
-        match self {
+        match &self {
             Value::Empty => ValueRef::Empty,
             Value::Bool(b) => ValueRef::Bool(b),
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
             Value::Num4(n) => ValueRef::Num4(n),
             Value::Str(s) => ValueRef::Str(&s),
-            Value::List(l) => ValueRef::List(l),
-            Value::Map(m) => ValueRef::Map(m),
-            Value::Tuple(m) => ValueRef::Tuple(m),
             Value::Range(r) => ValueRef::Range(r),
-            Value::IndexRange(r) => ValueRef::IndexRange(r),
-            Value::Function(f) => ValueRef::Function(f),
-            Value::Generator(g) => ValueRef::Generator(g),
-            Value::Iterator(i) => ValueRef::Iterator(i),
-            Value::ExternalFunction(f) => ValueRef::ExternalFunction(f),
-            Value::ExternalValue(v) => ValueRef::ExternalValue(v),
-            Value::TemporaryTuple(t) => ValueRef::TemporaryTuple(t),
             Value::ExternalDataId => ValueRef::ExternalDataId,
+            _ => unreachable!(), // Only immutable values can be used in ValueKey
+        }
+    }
+
+    pub fn deep_copy(&self) -> Value {
+        use Value::{List, Map, Tuple};
+
+        match &self {
+            List(l) => {
+                let result = l.data().iter().map(|v| v.deep_copy()).collect::<ValueVec>();
+                List(ValueList::with_data(result))
+            }
+            Tuple(t) => {
+                let result = t.data().iter().map(|v| v.deep_copy()).collect::<Vec<_>>();
+                Tuple(result.into())
+            }
+            Map(m) => {
+                let data = m
+                    .contents()
+                    .data
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.deep_copy()))
+                    .collect();
+                let meta = m.contents().meta.clone();
+                Map(ValueMap::with_contents(ValueMapContents { data, meta }))
+            }
+            _ => self.clone(),
+        }
+    }
+
+    pub fn is_callable(&self) -> bool {
+        matches!(self, Value::Function { .. } | Value::ExternalFunction(_))
+    }
+
+    pub fn is_immutable(&self) -> bool {
+        use Value::*;
+        matches!(
+            self,
+            Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+        )
+    }
+
+    pub fn is_iterable(&self) -> bool {
+        use Value::*;
+        matches!(
+            self,
+            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+        )
+    }
+
+    pub fn make_external_value(value: impl ExternalValue) -> Value {
+        Value::ExternalValue(Arc::new(RwLock::new(value)))
+    }
+
+    /// Returns the 'size' of the value
+    ///
+    /// A value's size is the number of elements that can used in unpacking expressions
+    /// e.g.
+    /// x = [1, 2, 3] # x has size 3
+    /// a, b, c = x
+    ///
+    /// See [Op::Size] and [Op::CheckSize]
+    pub fn size(&self) -> usize {
+        use Value::*;
+
+        match &self {
+            List(l) => l.len(),
+            Tuple(t) => t.data().len(),
+            TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
+            Map(m) => m.len(),
+            Num2(_) => 2,
+            Num4(_) => 4,
+            _ => 1,
+        }
+    }
+
+    pub fn type_as_string(&self) -> String {
+        use Value::*;
+        match &self {
+            Empty => "Empty".to_string(),
+            Bool(_) => "Bool".to_string(),
+            Number(ValueNumber::F64(_)) => "Float".to_string(),
+            Number(ValueNumber::I64(_)) => "Int".to_string(),
+            Num2(_) => "Num2".to_string(),
+            Num4(_) => "Num4".to_string(),
+            List(_) => "List".to_string(),
+            Range { .. } => "Range".to_string(),
+            IndexRange { .. } => "IndexRange".to_string(),
+            Map(m) => match m.contents().meta.get(&MetaKey::Type) {
+                Some(Str(s)) => s.as_str().to_string(),
+                Some(_) => "Error: expected string for overloaded type".to_string(),
+                None => "Map".to_string(),
+            },
+            Str(_) => "String".to_string(),
+            Tuple(_) => "Tuple".to_string(),
+            Function { .. } => "Function".to_string(),
+            Generator { .. } => "Generator".to_string(),
+            ExternalFunction(_) => "ExternalFunction".to_string(),
+            ExternalValue(value) => value.read().value_type(),
+            Iterator(_) => "Iterator".to_string(),
+            TemporaryTuple { .. } => "TemporaryTuple".to_string(),
+            ExternalDataId => "ExternalDataId".to_string(),
         }
     }
 }
@@ -124,129 +238,9 @@ impl fmt::Display for Value {
     }
 }
 
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        use Value::*;
-
-        match (self, other) {
-            (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
-            (Bool(a), Bool(b)) => a == b,
-            (Str(a), Str(b)) => a == b,
-            (List(a), List(b)) => a == b,
-            (Tuple(a), Tuple(b)) => a == b,
-            (Map(a), Map(b)) => a == b,
-            (Range(a), Range(b)) => a == b,
-            (IndexRange(a), IndexRange(b)) => a == b,
-            (Function(a), Function(b)) => a == b,
-            (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
-            _ => false,
-        }
-    }
-}
-
-impl<'a> PartialEq for ValueRef<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        use ValueRef::*;
-
-        match (self, other) {
-            (Number(a), Number(b)) => a == b,
-            (Num2(a), Num2(b)) => a == b,
-            (Num4(a), Num4(b)) => a == b,
-            (Bool(a), Bool(b)) => a == b,
-            (Str(a), Str(b)) => a == b,
-            (List(a), List(b)) => a == b,
-            (Tuple(a), Tuple(b)) => a == b,
-            (Map(a), Map(b)) => a == b,
-            (Range(a), Range(b)) => a == b,
-            (IndexRange(a), IndexRange(b)) => a == b,
-            (Function(a), Function(b)) => a == b,
-            (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for Value {}
-
-impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Value::*;
-
-        match (self, other) {
-            (Empty, Empty) => Some(Ordering::Equal),
-            (Empty, _) => Some(Ordering::Less),
-            (_, Empty) => Some(Ordering::Greater),
-            (Number(a), Number(b)) => a.partial_cmp(b),
-            (Num2(a), Num2(b)) => a.partial_cmp(b),
-            (Num4(a), Num4(b)) => a.partial_cmp(b),
-            (Str(a), Str(b)) => a.partial_cmp(b),
-            (a, b) => panic!(format!("partial_cmp unsupported for {} and {}", a, b)),
-        }
-    }
-}
-
-impl Ord for Value {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Value::*;
-
-        match (self, other) {
-            (Empty, Empty) => Ordering::Equal,
-            (Empty, _) => Ordering::Less,
-            (_, Empty) => Ordering::Greater,
-            (Number(a), Number(b)) => a.cmp(b),
-            (Str(a), Str(b)) => a.cmp(b),
-            (a, b) => panic!(format!("cmp unsupported for {} and {}", a, b)),
-        }
-    }
-}
-
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_ref().hash(state)
-    }
-}
-
-impl<'a> Hash for ValueRef<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        use ValueRef::*;
-
-        std::mem::discriminant(self).hash(state);
-
-        match self {
-            Empty | ExternalDataId => {}
-            Bool(b) => b.hash(state),
-            Number(n) => n.hash(state),
-            Num2(n) => n.hash(state),
-            Num4(n) => n.hash(state),
-            Str(s) => s.hash(state),
-            Range(IntRange { start, end }) => {
-                state.write_isize(*start);
-                state.write_isize(*end);
-            }
-            IndexRange(self::IndexRange { start, end }) => {
-                state.write_usize(*start);
-                if let Some(end) = end {
-                    state.write_usize(*end);
-                }
-            }
-            _ => panic!("Hash is only supported for immutable value types"),
-        }
-    }
-}
-
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
-    }
-}
-
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        Self::Str(value.into())
     }
 }
 
@@ -266,26 +260,6 @@ pub struct RuntimeFunction {
     pub captures: Option<ValueList>,
 }
 
-impl PartialEq for RuntimeFunction {
-    fn eq(&self, other: &Self) -> bool {
-        self.chunk == other.chunk
-            && self.ip == other.ip
-            && self.arg_count == other.arg_count
-            && self.captures == other.captures
-    }
-}
-
-impl Hash for RuntimeFunction {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(Arc::as_ptr(&self.chunk) as *const () as usize);
-        self.ip.hash(state);
-        self.arg_count.hash(state);
-        if let Some(captures) = &self.captures {
-            captures.data().hash(state);
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct IndexRange {
     pub start: usize,
@@ -296,107 +270,4 @@ pub struct IndexRange {
 pub struct RegisterSlice {
     pub start: u8,
     pub count: u8,
-}
-
-pub fn deep_copy_value(value: &Value) -> Value {
-    use Value::{List, Map, Tuple};
-
-    match value {
-        List(l) => {
-            let result = l
-                .data()
-                .iter()
-                .map(|v| deep_copy_value(v))
-                .collect::<ValueVec>();
-            List(ValueList::with_data(result))
-        }
-        Tuple(t) => {
-            let result = t
-                .data()
-                .iter()
-                .map(|v| deep_copy_value(v))
-                .collect::<Vec<_>>();
-            Tuple(result.into())
-        }
-        Map(m) => {
-            let result = m
-                .contents()
-                .data
-                .iter()
-                .map(|(k, v)| (k.clone(), deep_copy_value(v)))
-                .collect();
-            Map(ValueMap::with_data(result))
-        }
-        _ => value.clone(),
-    }
-}
-
-pub fn type_as_string(value: &Value) -> String {
-    use Value::*;
-    match &value {
-        Empty => "Empty".to_string(),
-        Bool(_) => "Bool".to_string(),
-        Number(ValueNumber::F64(_)) => "Float".to_string(),
-        Number(ValueNumber::I64(_)) => "Int".to_string(),
-        Num2(_) => "Num2".to_string(),
-        Num4(_) => "Num4".to_string(),
-        List(_) => "List".to_string(),
-        Range { .. } => "Range".to_string(),
-        IndexRange { .. } => "IndexRange".to_string(),
-        Map(m) => match m.contents().meta.get(&MetaKey::Type) {
-            Some(Str(s)) => s.as_str().to_string(),
-            Some(_) => "Error: expected string for overloaded type".to_string(),
-            None => "Map".to_string(),
-        },
-        Str(_) => "String".to_string(),
-        Tuple(_) => "Tuple".to_string(),
-        Function { .. } => "Function".to_string(),
-        Generator { .. } => "Generator".to_string(),
-        ExternalFunction(_) => "ExternalFunction".to_string(),
-        ExternalValue(value) => value.read().value_type(),
-        Iterator(_) => "Iterator".to_string(),
-        TemporaryTuple { .. } => "TemporaryTuple".to_string(),
-        ExternalDataId => "ExternalDataId".to_string(),
-    }
-}
-
-pub fn make_external_value(value: impl ExternalValue) -> Value {
-    Value::ExternalValue(Arc::new(RwLock::new(value)))
-}
-
-pub fn value_is_callable(value: &Value) -> bool {
-    use Value::*;
-    matches!(value, Function { .. } | ExternalFunction(_))
-}
-
-pub fn value_is_immutable(value: &Value) -> bool {
-    use Value::*;
-    matches!(
-        value,
-        Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
-    )
-}
-
-pub fn value_is_iterable(value: &Value) -> bool {
-    use Value::*;
-    matches!(
-        value,
-        Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
-    )
-}
-
-pub fn value_size(value: &Value) -> usize {
-    use Value::*;
-
-    match value {
-        List(l) => l.len(),
-        Str(s) => s.len(),
-        Tuple(t) => t.data().len(),
-        TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
-        Map(m) => m.len(),
-        Num2(_) => 2,
-        Num4(_) => 4,
-        Range(IntRange { start, end }) => (end - start) as usize,
-        _ => 1,
-    }
 }

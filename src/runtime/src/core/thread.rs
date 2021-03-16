@@ -4,7 +4,7 @@ use {
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::{get_external_instance, make_external_value, type_as_string, value::value_is_callable};
+use crate::get_external_instance;
 
 pub fn make_module() -> ValueMap {
     use Value::{Empty, Number};
@@ -13,7 +13,7 @@ pub fn make_module() -> ValueMap {
 
     #[cfg(not(target_arch = "wasm32"))]
     result.add_fn("create", |vm, args| match vm.get_args(args) {
-        [f] if value_is_callable(f) => {
+        [f] if f.is_callable() => {
             let f = f.clone();
             let join_handle = thread::spawn({
                 let mut thread_vm = vm.spawn_shared_concurrent_vm();
@@ -27,7 +27,7 @@ pub fn make_module() -> ValueMap {
         }
         [unexpected] => external_error!(
             "thread.create: Expected callable value as argument, found '{}'",
-            type_as_string(unexpected),
+            unexpected.type_as_string(),
         ),
         _ => external_error!("thread.create: Expected callable value as argument"),
     });
@@ -76,8 +76,8 @@ impl Thread {
         });
 
         result.insert(
-            Value::ExternalDataId,
-            make_external_value(Self {
+            Value::ExternalDataId.into(),
+            Value::make_external_value(Self {
                 join_handle: Some(join_handle),
             }),
         );

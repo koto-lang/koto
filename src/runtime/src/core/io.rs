@@ -1,8 +1,5 @@
 use {
-    crate::{
-        external_error, get_external_instance, make_external_value, value::type_as_string,
-        ExternalValue, RuntimeResult, Value, ValueMap,
-    },
+    crate::{external_error, get_external_instance, ExternalValue, RuntimeResult, Value, ValueMap},
     std::{
         fmt, fs,
         io::{Read, Seek, SeekFrom, Write},
@@ -96,7 +93,7 @@ pub fn make_file_map() -> ValueMap {
                 }
                 [_, unexpected] => external_error!(
                     "File.seek: Expected Number for seek position, found '{}'",
-                    type_as_string(&unexpected),
+                    unexpected.type_as_string(),
                 ),
                 _ => external_error!("File.seek: Expected seek position as second argument"),
             }
@@ -133,8 +130,8 @@ pub fn make_module() -> ValueMap {
                         let file_map = make_file_map();
 
                         file_map.contents_mut().data.insert(
-                            Value::ExternalDataId,
-                            make_external_value(File {
+                            Value::ExternalDataId.into(),
+                            Value::make_external_value(File {
                                 file,
                                 path: path.to_path_buf(),
                                 temporary: false,
@@ -150,7 +147,7 @@ pub fn make_module() -> ValueMap {
             }
             [unexpected] => external_error!(
                 "io.open: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected),
+                unexpected.type_as_string(),
             ),
             _ => external_error!("io.open: Expected a String as argument"),
         }
@@ -165,8 +162,8 @@ pub fn make_module() -> ValueMap {
                         let mut file_map = make_file_map();
 
                         file_map.insert(
-                            Value::ExternalDataId,
-                            make_external_value(File {
+                            Value::ExternalDataId.into(),
+                            Value::make_external_value(File {
                                 file,
                                 path: path.to_path_buf(),
                                 temporary: false,
@@ -182,7 +179,7 @@ pub fn make_module() -> ValueMap {
             }
             [unexpected] => external_error!(
                 "io.create: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected),
+                unexpected.type_as_string(),
             ),
             _ => external_error!("io.create: Expected a String as argument"),
         }
@@ -207,7 +204,7 @@ pub fn make_module() -> ValueMap {
             }
             [unexpected] => external_error!(
                 "io.remove_file: Expected a String as argument, found '{}'",
-                type_as_string(&unexpected),
+                unexpected.type_as_string(),
             ),
             _ => external_error!("io.remove_file: Expected a String as argument"),
         }
