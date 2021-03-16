@@ -10,27 +10,74 @@ use {
     std::{fmt, sync::Arc},
 };
 
+/// The core Value type for Koto
 #[derive(Clone, Debug)]
 pub enum Value {
+    /// The default type representing the absence of a value
     Empty,
+
+    /// A boolean, can be either true or false
     Bool(bool),
+
+    /// A number, represented as either a signed 64 bit integer or float
     Number(ValueNumber),
+
+    /// A pair of 64 bit floats, useful when working with 2 dimensional values
     Num2(num2::Num2),
+
+    /// A pack of four 32 bit floats, useful in working with 3 or 4 dimensional values
     Num4(num4::Num4),
+
+    /// A range with start/end boundaries
     Range(IntRange),
+
+    /// The list type used in Koto
     List(ValueList),
+
+    /// The tuple type used in Koto
     Tuple(ValueTuple),
+
+    /// The hash map type used in Koto
     Map(ValueMap),
+
+    /// The string type used in Koto
     Str(ValueString),
+
+    /// A callable function
     Function(RuntimeFunction),
+
+    /// A function that produces an Iterator when called
+    ///
+    /// A [Vm] gets spawned for the function to run in, which pauses each time a yield instruction
+    /// is encountered. See Vm::call_generator and Iterable::Generator.
     Generator(RuntimeFunction),
+
+    /// The iterator type used in Koto
     Iterator(ValueIterator),
+
+    /// A function that's defined outside of the Koto runtime
     ExternalFunction(ExternalFunction),
+
+    /// A value type that's defined outside of the Koto runtime
+    ///
+    /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
     ExternalValue(Arc<RwLock<dyn ExternalValue>>),
-    // Internal value types
-    IndexRange(IndexRange),
-    TemporaryTuple(RegisterSlice),
+
+    /// The value type used as a key when storing an ExternalValues in a Map
     ExternalDataId,
+
+    /// The range type used as a temporary value in index expressions.
+    ///
+    /// Note: this is intended for internal use only.
+    IndexRange(IndexRange),
+
+    /// A tuple of values that are packed into a contiguous series of registers
+    ///
+    /// Used as an optimization when multiple values are passed around without being assigned to a
+    /// single Tuple value.
+    ///
+    /// Note: this is intended for internal use only.
+    TemporaryTuple(RegisterSlice),
 }
 
 impl Value {
