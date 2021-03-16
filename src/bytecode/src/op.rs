@@ -270,3 +270,17 @@ impl From<u8> for Op {
         unsafe { std::mem::transmute(op) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_op_count() {
+        assert_eq!(
+            Op::Unused255 as u8,
+            255,
+            "Op should have 256 entries (see impl From<u8> for Op)"
+        );
+    }
+}
