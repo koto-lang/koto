@@ -162,7 +162,7 @@ impl Koto {
             Ok(result)
         } else {
             if self.settings.run_tests {
-                let _test_result = match self.runtime.get_global_value("tests") {
+                let _test_result = match self.runtime.get_exported_value("tests") {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
                     }
@@ -171,7 +171,7 @@ impl Koto {
                 };
             }
 
-            if let Some(main) = self.runtime.get_global_function("main") {
+            if let Some(main) = self.runtime.get_exported_function("main") {
                 self.runtime.run_function(main, &[]).map_err(|e| e.into())
             } else {
                 Ok(result)
@@ -249,7 +249,7 @@ impl Koto {
     }
 
     pub fn call_function_by_name(&mut self, function_name: &str, args: &[Value]) -> KotoResult {
-        match self.runtime.get_global_function(function_name) {
+        match self.runtime.get_exported_function(function_name) {
             Some(f) => self.call_function(f, args),
             None => Err(KotoError::FunctionNotFound(function_name.into())),
         }

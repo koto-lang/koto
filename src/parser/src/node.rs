@@ -161,7 +161,7 @@ pub struct Function {
     pub args: Vec<AstIndex>,
     pub local_count: usize,
     // Any ID or lookup root that's accessed in a function and which wasn't previously assigned
-    // locally, is either a global or needs to be captured. The compiler takes care of determining
+    // locally, is either an export, or needs to be captured. The compiler takes care of determining
     // if an access is a capture or not at the moment the function is created.
     pub accessed_non_locals: Vec<ConstantIndex>,
     pub body: AstIndex,
@@ -222,7 +222,7 @@ pub enum AssignOp {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
-    Global,
+    Export,
     Local,
 }
 

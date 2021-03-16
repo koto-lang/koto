@@ -89,12 +89,12 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    LoadGlobal {
+    LoadExport {
         register: u8,
         constant: ConstantIndex,
     },
-    SetGlobal {
-        global: ConstantIndex,
+    SetExport {
+        export: ConstantIndex,
         source: u8,
     },
     Import {
@@ -372,8 +372,8 @@ impl fmt::Display for Instruction {
             LoadFloat { .. } => write!(f, "LoadFloat"),
             LoadInt { .. } => write!(f, "LoadInt"),
             LoadString { .. } => write!(f, "LoadString"),
-            LoadGlobal { .. } => write!(f, "LoadGlobal"),
-            SetGlobal { .. } => write!(f, "SetGlobal"),
+            LoadExport { .. } => write!(f, "LoadExport"),
+            SetExport { .. } => write!(f, "SetExport"),
             Import { .. } => write!(f, "Import"),
             MakeTuple { .. } => write!(f, "MakeTuple"),
             MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
@@ -459,13 +459,13 @@ impl fmt::Debug for Instruction {
                 "LoadString\tresult: {}\tconstant: {}",
                 register, constant
             ),
-            LoadGlobal { register, constant } => write!(
+            LoadExport { register, constant } => write!(
                 f,
-                "LoadGlobal\tresult: {}\tconstant: {}",
+                "LoadExport\tresult: {}\tconstant: {}",
                 register, constant
             ),
-            SetGlobal { global, source } => {
-                write!(f, "SetGlobal\tglobal: {}\tsource: {}", global, source)
+            SetExport { export, source } => {
+                write!(f, "SetExport\texport: {}\tsource: {}", export, source)
             }
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
@@ -935,20 +935,20 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
-            Op::LoadGlobal => Some(LoadGlobal {
+            Op::LoadExport => Some(LoadExport {
                 register: get_byte!(),
                 constant: get_byte!() as ConstantIndex,
             }),
-            Op::LoadGlobalLong => Some(LoadGlobal {
+            Op::LoadExportLong => Some(LoadExport {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
-            Op::SetGlobal => Some(SetGlobal {
-                global: get_byte!() as ConstantIndex,
+            Op::SetExport => Some(SetExport {
+                export: get_byte!() as ConstantIndex,
                 source: get_byte!(),
             }),
-            Op::SetGlobalLong => Some(SetGlobal {
-                global: get_u32!() as ConstantIndex,
+            Op::SetExportLong => Some(SetExport {
+                export: get_u32!() as ConstantIndex,
                 source: get_byte!(),
             }),
             Op::Import => Some(Import {

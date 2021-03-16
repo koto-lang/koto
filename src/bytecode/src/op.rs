@@ -17,10 +17,10 @@ pub enum Op {
     LoadIntLong,      // register, constant[4]
     LoadString,       // register, constant
     LoadStringLong,   // register, constant[4]
-    LoadGlobal,       // register, constant
-    LoadGlobalLong,   // register, constant[4]
-    SetGlobal,        // global, source
-    SetGlobalLong,    // global[4], source
+    LoadExport,       // register, constant
+    LoadExportLong,   // register, constant[4]
+    SetExport,        // export, source
+    SetExportLong,    // export[4], source
     Import,           // register, constant
     ImportLong,       // register, constant[4]
     MakeTuple,        // register, start register, count

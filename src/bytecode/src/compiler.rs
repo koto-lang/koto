@@ -353,7 +353,7 @@ type CompileNodeResult = Result<Option<CompileResult>, CompilerError>;
 /// The settings used by the [Compiler]
 #[derive(Default)]
 pub struct CompilerSettings {
-    /// Causes all top level identifiers to be exported to global
+    /// Causes all top level identifiers to be exported
     pub repl_mode: bool,
 }
 
@@ -570,7 +570,7 @@ impl Compiler {
                             };
 
                             let function_register = self.push_register()?;
-                            self.compile_load_global(function_register, *id);
+                            self.compile_load_export(function_register, *id);
 
                             self.compile_call(
                                 call_result_register,
@@ -953,7 +953,7 @@ impl Compiler {
 
     fn scope_for_assign_target(&self, target: &AssignTarget) -> Scope {
         if self.settings.repl_mode && self.frame_stack.len() == 1 {
-            Scope::Global
+            Scope::Export
         } else {
             target.scope
         }
@@ -972,7 +972,7 @@ impl Compiler {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
                 }
             },
-            Scope::Global => None,
+            Scope::Export => None,
         };
 
         Ok(result)
@@ -1044,14 +1044,14 @@ impl Compiler {
                 match self.scope_for_assign_target(target) {
                     Scope::Local => {
                         if !value_register.is_temporary {
-                            // To ensure that global rhs ids with the same name as a local that's
+                            // To ensure that exported rhs ids with the same name as a local that's
                             // currently being assigned can be loaded correctly, only commit the
                             // reserved local as assigned after the rhs has been compiled.
                             self.commit_local_register(value_register.register)?;
                         }
                     }
-                    Scope::Global => {
-                        self.compile_set_global(*id_index, value_register.register);
+                    Scope::Export => {
+                        self.compile_set_export(*id_index, value_register.register);
                     }
                 }
             }
@@ -1181,7 +1181,7 @@ impl Compiler {
         } else {
             match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.compile_load_global(result.register, id);
+                    self.compile_load_export(result.register, id);
                     Some(result)
                 }
                 None => None,
@@ -1191,22 +1191,22 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_set_global(&mut self, id: ConstantIndex, register: u8) {
+    fn compile_set_export(&mut self, id: ConstantIndex, register: u8) {
         if id <= u8::MAX as u32 {
-            self.push_op(Op::SetGlobal, &[id as u8, register]);
+            self.push_op(Op::SetExport, &[id as u8, register]);
         } else {
-            self.push_op(Op::SetGlobalLong, &id.to_le_bytes());
+            self.push_op(Op::SetExportLong, &id.to_le_bytes());
             self.push_bytes(&[register]);
         }
     }
 
-    fn compile_load_global(&mut self, result_register: u8, id: ConstantIndex) {
+    fn compile_load_export(&mut self, result_register: u8, id: ConstantIndex) {
         use Op::*;
 
         if id <= u8::MAX as u32 {
-            self.push_op(LoadGlobal, &[result_register, id as u8]);
+            self.push_op(LoadExport, &[result_register, id as u8]);
         } else {
-            self.push_op(LoadGlobalLong, &[result_register]);
+            self.push_op(LoadExportLong, &[result_register]);
             self.push_bytes(&id.to_le_bytes());
         }
     }
@@ -1240,7 +1240,7 @@ impl Compiler {
                 self.commit_local_register(import_register)?;
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_set_global(*import_id, import_register);
+                    self.compile_set_export(*import_id, import_register);
                 }
             }
         } else {
@@ -1266,7 +1266,7 @@ impl Compiler {
                 imported.push(import_register);
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_set_global(*import_id, import_register);
+                    self.compile_set_export(*import_id, import_register);
                 }
             }
 
@@ -1891,7 +1891,7 @@ impl Compiler {
                                 Some(register) => CompileResult::with_assigned(register),
                                 None => {
                                     let register = self.push_register()?;
-                                    self.compile_load_global(register, *id);
+                                    self.compile_load_export(register, *id);
                                     CompileResult::with_temporary(register)
                                 }
                             }
@@ -2024,7 +2024,7 @@ impl Compiler {
                     self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
-                    self.compile_load_global(capture_register, *capture);
+                    self.compile_load_export(capture_register, *capture);
                     self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
                     self.pop_register()?;
                 }
@@ -2997,7 +2997,7 @@ impl Compiler {
                         Some(register) => register,
                         None => return compiler_error!(self, "Missing arg register"),
                     };
-                    self.compile_set_global(*arg, arg_register);
+                    self.compile_set_export(*arg, arg_register);
                 }
             }
         }

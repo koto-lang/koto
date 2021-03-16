@@ -744,7 +744,7 @@ num4(
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
-                            scope: Scope::Global,
+                            scope: Scope::Export,
                         },
                         op: AssignOp::Equal,
                         expression: 3,

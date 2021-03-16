@@ -1173,7 +1173,7 @@ impl<'source> Parser<'source> {
                             let node = Node::Assign {
                                 target: AssignTarget {
                                     target_index: export_id,
-                                    scope: Scope::Global,
+                                    scope: Scope::Export,
                                 },
                                 op: AssignOp::Equal,
                                 expression: rhs,

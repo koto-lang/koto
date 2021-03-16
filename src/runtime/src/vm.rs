@@ -75,8 +75,8 @@ impl SharedContext {
 /// VM Context shared by VMs running in the same module
 #[derive(Default)]
 pub struct ModuleContext {
-    /// Global context.
-    pub global: ValueMap,
+    /// The module's exported values
+    pub exports: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, Option<ValueMap>>,
     spawned_stop_flags: Vec<Arc<AtomicBool>>,
@@ -87,13 +87,12 @@ impl ModuleContext {
         Self {
             loader: self.loader.clone(),
             modules: self.modules.clone(),
-            global: Default::default(),
+            exports: Default::default(),
             spawned_stop_flags: Default::default(),
         }
     }
 
     fn reset(&mut self) {
-        // self.global.clear();
         self.loader = Default::default();
         self.stop_spawned_vms();
     }
@@ -218,17 +217,17 @@ impl Vm {
         &self.context_shared.logger
     }
 
-    pub fn get_global_value(&self, id: &str) -> Option<Value> {
+    pub fn get_exported_value(&self, id: &str) -> Option<Value> {
         self.context()
-            .global
+            .exports
             .contents()
             .data
             .get_with_string(id)
             .cloned()
     }
 
-    pub fn get_global_function(&self, id: &str) -> Option<Value> {
-        match self.get_global_value(id) {
+    pub fn get_exported_function(&self, id: &str) -> Option<Value> {
+        match self.get_exported_value(id) {
             Some(function) if function.is_callable() => Some(function),
             _ => None,
         }
@@ -536,11 +535,11 @@ impl Vm {
                 self.set_register(register, Str(string));
                 Ok(())
             }
-            Instruction::LoadGlobal { register, constant } => {
-                self.run_load_global(register, constant)
+            Instruction::LoadExport { register, constant } => {
+                self.run_load_export(register, constant)
             }
-            Instruction::SetGlobal { global, source } => {
-                self.run_set_global(global, source);
+            Instruction::SetExport { export, source } => {
+                self.run_set_export(export, source);
                 Ok(())
             }
             Instruction::Import { register, constant } => self.run_import(register, constant),
@@ -794,37 +793,37 @@ impl Vm {
         self.set_register(target, value);
     }
 
-    fn run_load_global(
+    fn run_load_export(
         &mut self,
         register: u8,
         constant_index: ConstantIndex,
     ) -> InstructionResult {
-        let global_name = self.get_constant_str(constant_index);
-        let global = self
+        let export_name = self.get_constant_str(constant_index);
+        let export = self
             .context()
-            .global
+            .exports
             .contents()
             .data
-            .get_with_string(global_name)
+            .get_with_string(export_name)
             .cloned();
 
-        match global {
+        match export {
             Some(value) => {
                 self.set_register(register, value);
                 Ok(())
             }
-            None => vm_error!("'{}' not found", global_name),
+            None => vm_error!("'{}' not found", export_name),
         }
     }
 
-    fn run_set_global(&mut self, constant_index: ConstantIndex, source_register: u8) {
-        let global_name = Value::Str(self.value_string_from_constant(constant_index));
+    fn run_set_export(&mut self, constant_index: ConstantIndex, source_register: u8) {
+        let export_name = Value::Str(self.value_string_from_constant(constant_index));
         let value = self.clone_register(source_register);
         self.context_mut()
-            .global
+            .exports
             .contents_mut()
             .data
-            .insert(global_name.into(), value);
+            .insert(export_name.into(), value);
     }
 
     fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
@@ -1710,14 +1709,14 @@ impl Vm {
     ) -> InstructionResult {
         let import_name = self.value_string_from_constant(import_constant);
 
-        let maybe_global = self
+        let maybe_export = self
             .context()
-            .global
+            .exports
             .contents()
             .data
             .get_with_string(&import_name)
             .cloned();
-        if let Some(value) = maybe_global {
+        if let Some(value) = maybe_export {
             self.set_register(result_register, value);
         } else {
             let maybe_in_prelude = self
@@ -1751,7 +1750,7 @@ impl Vm {
                         let mut vm = self.spawn_new_vm();
                         match vm.run(module_chunk) {
                             Ok(_) => {
-                                if let Some(main) = vm.get_global_function("main") {
+                                if let Some(main) = vm.get_exported_function("main") {
                                     if let Err(error) = vm.run_function(main, &[]) {
                                         self.context_mut().modules.remove(&module_path);
                                         return Err(error);
@@ -1764,13 +1763,13 @@ impl Vm {
                             }
                         }
 
-                        // Cache the resulting module's global map
-                        let module_global = vm.context().global.clone();
+                        // Cache the resulting module's exports map
+                        let module_exports = vm.context().exports.clone();
                         self.context_mut()
                             .modules
-                            .insert(module_path, Some(module_global.clone()));
+                            .insert(module_path, Some(module_exports.clone()));
 
-                        self.set_register(result_register, Value::Map(module_global));
+                        self.set_register(result_register, Value::Map(module_exports));
                     }
                 }
             }
