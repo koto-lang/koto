@@ -155,14 +155,14 @@ impl<'a> TokenLexer<'a> {
         };
     }
 
-    fn consume_newline(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_newline(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
         let mut char_bytes = 1;
 
         match chars.next() {
             Some('\n') => {}
-            _ => return Some(Error),
+            _ => return Error,
         }
 
         char_bytes += consume_and_count(&mut chars, is_whitespace);
@@ -176,16 +176,14 @@ impl<'a> TokenLexer<'a> {
             },
         );
 
-        let result = if self.indent == 0 {
+        if self.indent == 0 {
             NewLine
         } else {
             NewLineIndented
-        };
-
-        Some(result)
+        }
     }
 
-    fn consume_comment(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_comment(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
         // The # symbol has already been matched
@@ -229,16 +227,20 @@ impl<'a> TokenLexer<'a> {
 
             self.advance_to_position(char_bytes, position);
 
-            Some(if nest_count == 0 { CommentMulti } else { Error })
+            if nest_count == 0 {
+                CommentMulti
+            } else {
+                Error
+            }
         } else {
             // single-line comment
             let (comment_bytes, comment_width) = consume_and_count_utf8(&mut chars, |c| c != '\n');
             self.advance_line_utf8(comment_bytes + 1, comment_width + 1);
-            Some(CommentSingle)
+            CommentSingle
         }
     }
 
-    fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
         // The '"' character has already been matched
@@ -267,16 +269,16 @@ impl<'a> TokenLexer<'a> {
                     // +1 to get the column 1 past the end of the string
                     position.column += 1;
                     self.advance_to_position(string_bytes, position);
-                    return Some(String);
+                    return String;
                 }
                 _ => {}
             }
         }
 
-        Some(Error)
+        Error
     }
 
-    fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_number(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
         let has_leading_zero = chars.peek() == Some(&'0');
@@ -314,13 +316,13 @@ impl<'a> TokenLexer<'a> {
                             Some(&'+') | Some(&'-') => {}
                             _ => {
                                 self.advance_line(char_bytes);
-                                return Some(Number);
+                                return Number;
                             }
                         }
                     }
                     _ => {
                         self.advance_line(char_bytes);
-                        return Some(Number);
+                        return Number;
                     }
                 }
 
@@ -342,10 +344,10 @@ impl<'a> TokenLexer<'a> {
         }
 
         self.advance_line(char_bytes);
-        Some(Number)
+        Number
     }
 
-    fn consume_id_or_keyword(&mut self, mut chars: Peekable<Chars>) -> Option<Token> {
+    fn consume_id_or_keyword(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
         // The first character has already been matched
@@ -364,10 +366,10 @@ impl<'a> TokenLexer<'a> {
                 == Some("else if")
             {
                 self.advance_line(7);
-                return Some(ElseIf);
+                return ElseIf;
             } else {
                 self.advance_line(4);
-                return Some(Else);
+                return Else;
             }
         }
 
@@ -375,7 +377,7 @@ impl<'a> TokenLexer<'a> {
             ($keyword:expr, $token:ident) => {
                 if id == $keyword {
                     self.advance_line($keyword.len());
-                    return Some($token);
+                    return $token;
                 }
             };
         }
@@ -412,7 +414,7 @@ impl<'a> TokenLexer<'a> {
 
         // If no keyword matched, then consume as an Id
         self.advance_line_utf8(char_bytes, char_count);
-        Some(Token::Id)
+        Token::Id
     }
 
     fn consume_symbol(&mut self, remaining: &str) -> Option<Token> {
@@ -485,11 +487,11 @@ impl<'a> Iterator for TokenLexer<'a> {
                         self.advance_line(count);
                         Some(Whitespace)
                     }
-                    Some('\n') => self.consume_newline(chars),
-                    Some('#') => self.consume_comment(chars),
-                    Some('"') => self.consume_string(chars),
-                    Some('0'..='9') => self.consume_number(chars),
-                    Some(c) if is_id_start(*c) => self.consume_id_or_keyword(chars),
+                    Some('\n') => Some(self.consume_newline(chars)),
+                    Some('#') => Some(self.consume_comment(chars)),
+                    Some('"') => Some(self.consume_string(chars)),
+                    Some('0'..='9') => Some(self.consume_number(chars)),
+                    Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
                     Some(_) => {
                         if let Some(id) = self.consume_symbol(remaining) {
                             Some(id)
