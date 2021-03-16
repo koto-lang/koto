@@ -19,9 +19,9 @@ use {
 
 type ValueHashMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 
-/// The Value -> Value hash map used for Koto map data
+/// The underlying ValueKey -> Value 'data' hash map used in Koto
 ///
-/// See also: ValueMap
+/// See also: [ValueMap]
 #[repr(C)]
 #[derive(Clone, Debug, Default)]
 pub struct ValueHashMap(ValueHashMapType);
