@@ -146,18 +146,24 @@ impl Value {
         Value::ExternalValue(Arc::new(RwLock::new(value)))
     }
 
+    /// Returns the 'size' of the value
+    ///
+    /// A value's size is the number of elements that can used in unpacking expressions
+    /// e.g.
+    /// x = [1, 2, 3] # x has size 3
+    /// a, b, c = x
+    ///
+    /// See [Op::Size] and [Op::CheckSize]
     pub fn size(&self) -> usize {
         use Value::*;
 
         match &self {
             List(l) => l.len(),
-            Str(s) => s.len(),
             Tuple(t) => t.data().len(),
             TemporaryTuple(RegisterSlice { count, .. }) => *count as usize,
             Map(m) => m.len(),
             Num2(_) => 2,
             Num4(_) => 4,
-            Range(IntRange { start, end }) => (end - start) as usize,
             _ => 1,
         }
     }
