@@ -266,6 +266,9 @@ pub enum Instruction {
     Yield {
         register: u8,
     },
+    Throw {
+        register: u8,
+    },
     Size {
         register: u8,
         value: u8,
@@ -410,6 +413,7 @@ impl fmt::Display for Instruction {
             CallChild { .. } => write!(f, "CallChild"),
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
+            Throw { .. } => write!(f, "Throw"),
             Size { .. } => write!(f, "Size"),
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
@@ -677,6 +681,7 @@ impl fmt::Debug for Instruction {
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
+            Throw { register } => write!(f, "Throw\t\tresult: {}", register),
             Size { register, value } => write!(f, "Size\t\tresult: {}\tvalue: {}", register, value),
             IterNext {
                 register,
@@ -1143,6 +1148,9 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
             }),
             Op::Yield => Some(Yield {
+                register: get_byte!(),
+            }),
+            Op::Throw => Some(Throw {
                 register: get_byte!(),
             }),
             Op::Size => Some(Size {

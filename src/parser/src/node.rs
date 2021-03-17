@@ -90,6 +90,7 @@ pub enum Node {
     ReturnExpression(AstIndex),
     Negate(AstIndex),
     Try(AstTry),
+    Throw(AstIndex),
     Yield(AstIndex),
     Debug {
         expression_string: ConstantIndex,
@@ -150,6 +151,7 @@ impl fmt::Display for Node {
             Return => write!(f, "Return"),
             ReturnExpression(_) => write!(f, "ReturnExpression"),
             Try { .. } => write!(f, "Try"),
+            Throw(_) => write!(f, "Throw"),
             Yield { .. } => write!(f, "Yield"),
             Debug { .. } => write!(f, "Debug"),
         }

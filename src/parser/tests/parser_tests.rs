@@ -3500,6 +3500,68 @@ finally
                 Some(&[Constant::Str("f"), Constant::Str("e")]),
             )
         }
+
+        #[test]
+        fn throw_value() {
+            let source = "throw x";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Throw(0),
+                    MainBlock {
+                        body: vec![1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn throw_string() {
+            let source = r#"throw "error!""#;
+            check_ast(
+                source,
+                &[
+                    Str(0),
+                    Throw(0),
+                    MainBlock {
+                        body: vec![1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("error!")]),
+            )
+        }
+
+        #[test]
+        fn throw_map() {
+            let source = r#"
+throw
+  data: x
+  message: "error!"
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(1),
+                    Str(3),
+                    Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(1))]),
+                    Throw(2),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("data"),
+                    Constant::Str("x"),
+                    Constant::Str("message"),
+                    Constant::Str("error!"),
+                ]),
+            )
+        }
     }
 
     mod match_and_switch {

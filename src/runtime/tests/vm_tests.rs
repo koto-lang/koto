@@ -1966,6 +1966,34 @@ catch _
         }
 
         #[test]
+        fn try_catch_with_throw_string() {
+            let script = r#"
+x = 1
+try
+  x += 1
+  throw "{}".format x
+catch error
+  error
+"#;
+            test_script(script, Str("2".into()));
+        }
+
+        #[test]
+        fn try_catch_with_throw_map() {
+            let script = r#"
+x = 1
+try
+  x += 1
+  throw
+    data: x
+    @display: |self| "error!"
+catch error
+  error.data
+"#;
+            test_script(script, Number(2.0.into()));
+        }
+
+        #[test]
         fn try_catch_finally() {
             let script = "
 try

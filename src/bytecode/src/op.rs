@@ -61,6 +61,7 @@ pub enum Op {
     CallChild,        // result, function, arg register, arg count, parent
     Return,           // register
     Yield,            // register
+    Throw,            // register
     IterNext,         // output, iterator, jump offset[2]
     IterNextTemp,     // output, iterator, jump offset[2]
     IterNextQuiet,    // iterator, jump offset[2]
@@ -84,7 +85,6 @@ pub enum Op {
     Debug,            // register, constant[4]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
-    Unused80,
     Unused81,
     Unused82,
     Unused83,

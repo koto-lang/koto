@@ -482,6 +482,8 @@ impl<'source> Parser<'source> {
         } else if let Some(export_id) = self.parse_export_id(&mut ExpressionContext::line_start())?
         {
             Some(export_id)
+        } else if let Some(throw_expression) = self.parse_throw_expression()? {
+            Some(throw_expression)
         } else if let Some(debug_expression) = self.parse_debug_expression()? {
             Some(debug_expression)
         } else if let Some(result) =
@@ -1194,6 +1196,30 @@ impl<'source> Parser<'source> {
         } else {
             Ok(None)
         }
+    }
+
+    fn parse_throw_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        if self.peek_next_token_on_same_line() != Some(Token::Throw) {
+            return Ok(None);
+        }
+
+        self.consume_next_token_on_same_line();
+
+        let start_span = self.lexer.span();
+
+        let expression =
+            if let Some(map_block) = self.parse_map_block(&mut ExpressionContext::permissive())? {
+                map_block
+            } else if let Some(expression) =
+                self.parse_expression(&mut ExpressionContext::permissive())?
+            {
+                expression
+            } else {
+                return syntax_error!(ExpectedExpression, self);
+            };
+
+        let result = self.push_node_with_start_span(Node::Throw(expression), start_span)?;
+        Ok(Some(result))
     }
 
     fn parse_debug_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {

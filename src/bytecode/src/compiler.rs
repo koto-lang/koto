@@ -707,6 +707,19 @@ impl Compiler {
 
                 result
             }
+            Node::Throw(expression) => {
+                let expression_register = self
+                    .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
+                    .unwrap();
+
+                self.push_op(Throw, &[expression_register.register]);
+
+                if expression_register.is_temporary {
+                    self.pop_register()?;
+                }
+
+                None
+            }
             Node::Try(try_expression) => {
                 self.compile_try_expression(result_register, try_expression, ast)?
             }

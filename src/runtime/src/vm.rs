@@ -7,7 +7,8 @@ use {
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
-        RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        RuntimeErrorType, RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber,
+        ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaId},
@@ -503,7 +504,11 @@ impl Vm {
                     }
 
                     if let Some((register, ip)) = recover_register_and_ip {
-                        self.set_register(register, Value::Str(error.to_string().into()));
+                        let catch_value = match error.error {
+                            RuntimeErrorType::KotoError { thrown_value, .. } => thrown_value,
+                            _ => Value::Str(error.to_string().into()),
+                        };
+                        self.set_register(register, catch_value);
                         self.set_ip(ip);
                     } else {
                         return Err(error);
@@ -710,6 +715,27 @@ impl Vm {
             Instruction::Yield { register } => {
                 control_flow = ControlFlow::Yield(self.clone_register(register));
                 Ok(())
+            }
+            Instruction::Throw { register } => {
+                let thrown_value = self.clone_register(register);
+
+                let display_op = MetaKey::UnaryOp(UnaryOp::Display);
+                use RuntimeErrorType::KotoError;
+                match &thrown_value {
+                    Str(_) => Err(RuntimeError::new(KotoError {
+                        thrown_value,
+                        vm: None,
+                    })),
+                    Map(m) if m.contents().meta.contains_key(&display_op) => Err(
+                        RuntimeError::make_koto_error(thrown_value, self.spawn_shared_vm()),
+                    ),
+                    other => {
+                        vm_error!(
+                            "throw: expected string or map with @display function, found '{}'",
+                            other.type_as_string()
+                        )
+                    }
+                }
             }
             Instruction::Size { register, value } => {
                 self.run_size(register, value);
