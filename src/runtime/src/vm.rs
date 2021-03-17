@@ -797,8 +797,7 @@ impl Vm {
                 Ok(())
             }
             Instruction::Debug { register, constant } => {
-                self.run_debug(register, constant, instruction_ip);
-                Ok(())
+                self.run_debug(register, constant, instruction_ip)
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
@@ -2592,7 +2591,24 @@ impl Vm {
         }
     }
 
-    fn run_debug(&self, register: u8, constant: ConstantIndex, instruction_ip: usize) {
+    fn run_debug(
+        &mut self,
+        register: u8,
+        expression_constant: ConstantIndex,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let value = self.clone_register(register);
+        let vm = self.child_vm();
+        let value_string = match vm.run_unary_op(UnaryOp::Display, value)? {
+            result @ Value::Str(_) => result,
+            other => {
+                return vm_error!(
+                    "debug: Expected string to display, found '{}'",
+                    other.type_as_string()
+                )
+            }
+        };
+
         let prefix = match (
             self.reader.chunk.debug_info.get_source_span(instruction_ip),
             self.reader.chunk.source_path.as_ref(),
@@ -2602,13 +2618,15 @@ impl Vm {
             (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
             (None, None) => "[#ERR] ".to_string(),
         };
-        let value = self.get_register(register);
+
+        let expression_string = self.get_constant_str(expression_constant);
+
         self.logger().writeln(&format!(
             "{}{}: {}",
-            prefix,
-            self.get_constant_str(constant),
-            value
+            prefix, expression_string, value_string
         ));
+
+        Ok(())
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {
