@@ -162,6 +162,7 @@ impl fmt::Display for BinaryOp {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     Negate,
+    Display,
 }
 
 impl fmt::Display for UnaryOp {
@@ -173,6 +174,7 @@ impl fmt::Display for UnaryOp {
             "{}",
             match self {
                 Negate => "negate",
+                Display => "display",
             }
         )
     }
@@ -215,6 +217,7 @@ impl From<MetaId> for MetaKey {
             MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
             MetaId::Index => MetaKey::BinaryOp(Index),
             MetaId::Negate => MetaKey::UnaryOp(Negate),
+            MetaId::Display => MetaKey::UnaryOp(Display),
             MetaId::Type => MetaKey::Type,
             _ => unreachable!("Invalid MetaId"),
         }

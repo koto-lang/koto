@@ -44,10 +44,15 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("format", |vm, args| match vm.get_args(args) {
         [result @ Str(_)] => Ok(result.clone()),
-        [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
-            Ok(result) => Ok(Str(result.into())),
-            Err(error) => external_error!("string.format: {}", error),
-        },
+        [Str(format), format_args @ ..] => {
+            let format = format.clone();
+            let format_args = format_args.to_vec();
+            let vm = vm.child_vm();
+            match format::format_string(vm, &format, &format_args) {
+                Ok(result) => Ok(Str(result.into())),
+                Err(error) => Err(error.with_prefix("string.format")),
+            }
+        }
         _ => external_error!("string.format: Expected a string as first argument"),
     });
 
@@ -86,10 +91,15 @@ pub fn make_module() -> ValueMap {
     result.add_fn("print", |vm, args| {
         match vm.get_args(args) {
             [Str(s)] => vm.logger().writeln(s.as_str()),
-            [Str(format), format_args @ ..] => match format::format_string(format, format_args) {
-                Ok(result) => vm.logger().writeln(&result),
-                Err(error) => return external_error!("string.print: {}", error),
-            },
+            [Str(format), format_args @ ..] => {
+                let format = format.clone();
+                let format_args = format_args.to_vec();
+                let vm = vm.child_vm();
+                match format::format_string(vm, &format, &format_args) {
+                    Ok(result) => vm.logger().writeln(&result),
+                    Err(error) => return Err(error.with_prefix("string.print")),
+                }
+            }
             _ => return external_error!("string.print: Expected a string as first argument"),
         }
         Ok(Empty)

@@ -32,6 +32,9 @@ locals.foo_meta =
   # Indexing
   @[]: |self, index| self.x + index
 
+  # Formatting
+  @display: |self| "Foo ({})".format self.x
+
   # Type
   @type: "Foo"
 
@@ -91,6 +94,9 @@ export tests =
   test_index: ||
     assert_eq foo(10)[5], 15
     assert_eq foo(100)[-1], 99
+
+  test_display: ||
+    assert_eq ("{}".format (foo -1)), "Foo (-1)"
 
   test_type: ||
     assert_eq (koto.type (foo 0)), "Foo"

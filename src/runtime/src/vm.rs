@@ -321,6 +321,32 @@ impl Vm {
         }
     }
 
+    pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
+        if !self.call_stack.is_empty() {
+            return vm_error!(
+                "run_unary_op: the call stack must be empty,
+                 are you calling run_unary_op on an active VM?"
+            );
+        }
+
+        self.value_stack.clear();
+        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(value);
+
+        match op {
+            UnaryOp::Negate => self.run_negate(0, 1)?,
+            UnaryOp::Display => self.run_display(0, 1)?,
+        }
+
+        if self.call_stack.is_empty() {
+            // If the call stack is empty, then the result will be in the result register
+            Ok(self.clone_register(0))
+        } else {
+            // If the call stack isn't empty, then an overloaded operator has been called.
+            self.execute_instructions()
+        }
+    }
+
     pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
         if !self.call_stack.is_empty() {
             return vm_error!(
@@ -771,8 +797,7 @@ impl Vm {
                 Ok(())
             }
             Instruction::Debug { register, constant } => {
-                self.run_debug(register, constant, instruction_ip);
-                Ok(())
+                self.run_debug(register, constant, instruction_ip)
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
@@ -1155,6 +1180,21 @@ impl Vm {
             unexpected => {
                 return self.unexpected_type_error("Negate: expected negatable value", unexpected);
             }
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
+    }
+
+    fn run_display(&mut self, result: u8, value: u8) -> InstructionResult {
+        use {UnaryOp::Display, Value::*};
+
+        let result_value = match &self.get_register(value) {
+            Map(map) if map.contents().meta.contains_key(&MetaKey::UnaryOp(Display)) => {
+                let map = map.clone();
+                return self.call_overloaded_unary_op(result, value, map, Display);
+            }
+            other => Str(other.to_string().into()),
         };
         self.set_register(result, result_value);
 
@@ -2551,7 +2591,24 @@ impl Vm {
         }
     }
 
-    fn run_debug(&self, register: u8, constant: ConstantIndex, instruction_ip: usize) {
+    fn run_debug(
+        &mut self,
+        register: u8,
+        expression_constant: ConstantIndex,
+        instruction_ip: usize,
+    ) -> InstructionResult {
+        let value = self.clone_register(register);
+        let vm = self.child_vm();
+        let value_string = match vm.run_unary_op(UnaryOp::Display, value)? {
+            result @ Value::Str(_) => result,
+            other => {
+                return vm_error!(
+                    "debug: Expected string to display, found '{}'",
+                    other.type_as_string()
+                )
+            }
+        };
+
         let prefix = match (
             self.reader.chunk.debug_info.get_source_span(instruction_ip),
             self.reader.chunk.source_path.as_ref(),
@@ -2561,13 +2618,15 @@ impl Vm {
             (None, Some(path)) => format!("[{}: #ERR] ", path.display()),
             (None, None) => "[#ERR] ".to_string(),
         };
-        let value = self.get_register(register);
+
+        let expression_string = self.get_constant_str(expression_constant);
+
         self.logger().writeln(&format!(
             "{}{}: {}",
-            prefix,
-            self.get_constant_str(constant),
-            value
+            prefix, expression_string, value_string
         ));
+
+        Ok(())
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {

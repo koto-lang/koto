@@ -791,6 +791,7 @@ impl<'source> Parser<'source> {
                     Some(Token::Equal) => MetaId::Equal,
                     Some(Token::NotEqual) => MetaId::NotEqual,
                     Some(Token::Id) => match self.lexer.slice() {
+                        "display" => MetaId::Display,
                         "negate" => MetaId::Negate,
                         "type" => MetaId::Type,
                         _ => return syntax_error!(UnexpectedMetaKey, self),

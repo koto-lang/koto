@@ -1,5 +1,5 @@
 use {
-    crate::Value,
+    crate::{external_error, RuntimeError, UnaryOp, Value, Vm},
     koto_lexer::{is_id_continue, is_id_start},
 };
 
@@ -147,7 +147,11 @@ impl<'a> Iterator for FormatLexer<'a> {
     }
 }
 
-pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<String, String> {
+pub fn format_string(
+    vm: &mut Vm,
+    format_string: &str,
+    format_args: &[Value],
+) -> Result<String, RuntimeError> {
     let mut arg_iter = format_args.iter();
     let mut result = String::with_capacity(format_string.len());
 
@@ -155,31 +159,41 @@ pub fn format_string(format_string: &str, format_args: &[Value]) -> Result<Strin
         match token {
             FormatToken::String(s) => result.push_str(s),
             FormatToken::Placeholder => match arg_iter.next() {
-                Some(arg) => result.push_str(&arg.to_string()),
-                None => return Err("Not enough arguments for format string".to_string()),
+                Some(arg) => result.push_str(&value_to_string(vm, arg)?),
+                None => return external_error!("Not enough arguments for format string"),
             },
             FormatToken::Positional(n) => match format_args.get(n as usize) {
-                Some(arg) => result.push_str(&arg.to_string()),
-                None => return Err(format!("Missing argument for index {}", n)),
+                Some(arg) => result.push_str(&value_to_string(vm, arg)?),
+                None => return external_error!("Missing argument for index {}", n),
             },
             FormatToken::Identifier(id) => match format_args.first() {
-                Some(Value::Map(map)) => {
-                    // TODO pass in runtime's string cache
-                    match map.contents().data.get_with_string(id) {
-                        Some(value) => result.push_str(&value.to_string()),
-                        None => return Err(format!("Key '{}' not found in map", id)),
-                    }
-                }
+                Some(Value::Map(map)) => match map.contents().data.get_with_string(id) {
+                    Some(value) => result.push_str(&value_to_string(vm, value)?),
+                    None => return external_error!("Key '{}' not found in map", id),
+                },
                 Some(other) => {
-                    return Err(format!("Expected map as first argument, found {}", other))
+                    return external_error!(
+                        "Expected map as first argument, found '{}'",
+                        other.type_as_string()
+                    )
                 }
-                None => return Err(String::from("Expected map as first argument")),
+                None => return external_error!("Expected map as first argument"),
             },
-            FormatToken::Error => return Err("Error while parsing format string".to_string()),
+            FormatToken::Error => return external_error!("Error while parsing format string"),
         }
     }
 
     Ok(result)
+}
+
+fn value_to_string(vm: &mut Vm, value: &Value) -> Result<String, RuntimeError> {
+    match vm.run_unary_op(UnaryOp::Display, value.clone())? {
+        Value::Str(result) => Ok(result.to_string()),
+        other => external_error!(
+            "Expected string from value display, found '{}'",
+            other.type_as_string()
+        ),
+    }
 }
 
 #[cfg(test)]
@@ -294,7 +308,8 @@ mod tests {
         use super::*;
 
         fn check_format_output(format: &str, args: &[Value], expected: &str) {
-            match format_string(format, args) {
+            let mut vm = Vm::default();
+            match format_string(&mut vm, format, args) {
                 Ok(result) => assert_eq!(result, expected),
                 Err(error) => panic!(error),
             }
