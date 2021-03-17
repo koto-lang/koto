@@ -268,6 +268,8 @@ pub enum MetaId {
     Equal,
     NotEqual,
     Index,
+
+    Display,
     Negate,
     Type,
 
