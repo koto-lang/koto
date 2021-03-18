@@ -5,29 +5,39 @@ export tests =
   test_try: ||
     x = try
       42
-    catch error
-      assert false
+    catch _
+      throw "error!" # This expression shouldn't be reached
     assert_eq x, 42
 
   test_catch: ||
     x = try
-      # List passed to function expecting a map
+      # Error: List passed to function expecting a map
       [0, 1, 2].keys()
       99
     catch error
-      -1
+      -1 # catch catches general runtime errors, not only thrown errors
     assert_eq x, -1
 
-  test_finally: ||
+  test_finally_following_try: ||
+    x = 0
+    try
+      x = 1
+    catch error
+      throw error
+    finally
+      x = 42 # finally is executed following both try and catch blocks
+    assert_eq x, 42
+
+  test_finally_following_catch: ||
     error_caught = false
     x = 0
     try
       # Error in functor passed to external function
-      [0..10].filter |x| x + error_in_functor
+      [0..10].filter |x| throw "error!"
     catch error
       error_caught = true
     finally
-      x = 42
+      x = 42 # finally is executed following both try and catch blocks
     assert error_caught
     assert_eq x, 42
 

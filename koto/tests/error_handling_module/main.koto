@@ -1,2 +1,2 @@
 # Module that errors, used by ../error_handling.koto
-export error_function = || xxxxx
+export error_function = || throw "error!"
