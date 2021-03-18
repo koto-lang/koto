@@ -1,10 +1,9 @@
 use {
     crate::{
-        external_error,
+        runtime_error,
         value_sort::{compare_values, sort_values},
-        BinaryOp, RuntimeError, Value, ValueIterator, ValueList, ValueMap,
+        BinaryOp, Value, ValueIterator, ValueList, ValueMap,
     },
-    smallvec::SmallVec,
     std::cmp::Ordering,
     std::ops::DerefMut,
 };
@@ -19,7 +18,7 @@ pub fn make_module() -> ValueMap {
             l.data_mut().clear();
             Ok(Empty)
         }
-        _ => external_error!("list.clear: Expected list as argument"),
+        _ => runtime_error!("list.clear: Expected list as argument"),
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
@@ -32,7 +31,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(false)) => {}
                     Ok(Bool(true)) => return Ok(true.into()),
                     Ok(unexpected) => {
-                        return external_error!(
+                        return runtime_error!(
                             "list.contains: Expected Bool from comparison, found '{}'",
                             unexpected.type_as_string()
                         )
@@ -42,17 +41,17 @@ pub fn make_module() -> ValueMap {
             }
             Ok(false.into())
         }
-        _ => external_error!("list.contains: Expected list and value as arguments"),
+        _ => runtime_error!("list.contains: Expected list and value as arguments"),
     });
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(List(ValueList::with_data(l.data().clone()))),
-        _ => external_error!("list.copy: Expected list as argument"),
+        _ => runtime_error!("list.copy: Expected list as argument"),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ List(_)] => Ok(value.deep_copy()),
-        _ => external_error!("list.deep_copy: Expected list as argument"),
+        _ => runtime_error!("list.deep_copy: Expected list as argument"),
     });
 
     result.add_fn("fill", |vm, args| match vm.get_args(args) {
@@ -62,7 +61,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Empty)
         }
-        _ => external_error!("list.fill: Expected list and value as arguments"),
+        _ => runtime_error!("list.fill: Expected list and value as arguments"),
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
@@ -70,46 +69,46 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Empty),
         },
-        _ => external_error!("list.first: Expected list as argument"),
+        _ => runtime_error!("list.first: Expected list as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {
         [List(l), Number(n)] => {
             if *n < 0.0 {
-                return external_error!("list.get: Negative indices aren't allowed");
+                return runtime_error!("list.get: Negative indices aren't allowed");
             }
             match l.data().get(usize::from(n)) {
                 Some(value) => Ok(value.clone()),
                 None => Ok(Value::Empty),
             }
         }
-        _ => external_error!("list.get: Expected list and number as arguments"),
+        _ => runtime_error!("list.get: Expected list and number as arguments"),
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
         [List(l), Number(n), value] => {
             if *n < 0.0 {
-                return external_error!("list.insert: Negative indices aren't allowed");
+                return runtime_error!("list.insert: Negative indices aren't allowed");
             }
             let index: usize = n.into();
             if index > l.data().len() {
-                return external_error!("list.insert: Index out of bounds");
+                return runtime_error!("list.insert: Index out of bounds");
             }
 
             l.data_mut().insert(index, value.clone());
             Ok(Empty)
         }
-        _ => external_error!("list.insert: Expected list, number, and value as arguments"),
+        _ => runtime_error!("list.insert: Expected list, number, and value as arguments"),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Bool(l.data().is_empty())),
-        _ => external_error!("list.is_empty: Expected list as argument"),
+        _ => runtime_error!("list.is_empty: Expected list as argument"),
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
-        _ => external_error!("list.iter: Expected list as argument"),
+        _ => runtime_error!("list.iter: Expected list as argument"),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {
@@ -117,7 +116,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Empty),
         },
-        _ => external_error!("list.last: Expected list as argument"),
+        _ => runtime_error!("list.last: Expected list as argument"),
     });
 
     result.add_fn("pop", |vm, args| match vm.get_args(args) {
@@ -125,7 +124,7 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value),
             None => Ok(Empty),
         },
-        _ => external_error!("list.pop: Expected list as argument"),
+        _ => runtime_error!("list.pop: Expected list as argument"),
     });
 
     result.add_fn("push", |vm, args| match vm.get_args(args) {
@@ -133,17 +132,17 @@ pub fn make_module() -> ValueMap {
             l.data_mut().push(value.clone());
             Ok(Empty)
         }
-        _ => external_error!("list.push: Expected list and value as arguments"),
+        _ => runtime_error!("list.push: Expected list and value as arguments"),
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
         [List(l), Number(n)] => {
             if *n < 0.0 {
-                return external_error!("list.remove: Negative indices aren't allowed");
+                return runtime_error!("list.remove: Negative indices aren't allowed");
             }
             let index: usize = n.into();
             if index >= l.data().len() {
-                return external_error!(
+                return runtime_error!(
                     "list.remove: Index out of bounds - \
                      the index is {} but the List only has {} elements",
                     index,
@@ -153,18 +152,18 @@ pub fn make_module() -> ValueMap {
 
             Ok(l.data_mut().remove(index))
         }
-        _ => external_error!("list.remove: Expected list and index as arguments"),
+        _ => runtime_error!("list.remove: Expected list and index as arguments"),
     });
 
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
         [List(l), Number(n), value] => {
             if *n < 0.0 {
-                return external_error!("list.resize: Negative sizes aren't allowed");
+                return runtime_error!("list.resize: Negative sizes aren't allowed");
             }
             l.data_mut().resize(n.into(), value.clone());
             Ok(Empty)
         }
-        _ => external_error!("list.resize: Expected list, number, and value as arguments"),
+        _ => runtime_error!("list.resize: Expected list, number, and value as arguments"),
     });
 
     result.add_fn("retain", |vm, args| {
@@ -185,7 +184,7 @@ pub fn make_module() -> ValueMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return external_error!(
+                            return runtime_error!(
                                 "list.retain expects a Bool to be returned from the \
                                  predicate, found '{}'",
                                 unexpected.type_as_string(),
@@ -210,7 +209,7 @@ pub fn make_module() -> ValueMap {
                         Ok(Bool(true)) => true,
                         Ok(Bool(false)) => false,
                         Ok(unexpected) => {
-                            error = Some(external_error!(
+                            error = Some(runtime_error!(
                                 "list.retain:: Expected Bool from == comparison, found '{}'",
                                 unexpected.type_as_string()
                             ));
@@ -227,7 +226,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
             _ => {
-                return external_error!(
+                return runtime_error!(
                     "list.retain: Expected list and function or value as arguments"
                 )
             }
@@ -241,12 +240,12 @@ pub fn make_module() -> ValueMap {
             l.data_mut().reverse();
             Ok(Empty)
         }
-        _ => external_error!("list.reverse: Expected list as argument"),
+        _ => runtime_error!("list.reverse: Expected list as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Number(l.len().into())),
-        _ => external_error!("list.size: Expected list as argument"),
+        _ => runtime_error!("list.size: Expected list as argument"),
     });
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
@@ -261,16 +260,16 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let f = f.clone();
             let vm = vm.child_vm();
-            let arr = l.data().clone();
 
-            // apply function and contruct array [key, value]
-            let mut pairs = arr
+            // apply function and construct a vec of (key, value)
+            let mut pairs = l
+                .data()
                 .iter()
-                .map(|val| match vm.run_function(f.clone(), &[val.clone()]) {
-                    Ok(v) => Ok([v, val.clone()]),
+                .map(|value| match vm.run_function(f.clone(), &[value.clone()]) {
+                    Ok(key) => Ok((key, value.clone())),
                     Err(e) => Err(e),
                 })
-                .collect::<Result<Vec<[Value; 2]>, RuntimeError>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
 
             let mut error = None;
 
@@ -280,7 +279,7 @@ pub fn make_module() -> ValueMap {
                     return Ordering::Equal;
                 }
 
-                match compare_values(vm, &a[0], &b[0]) {
+                match compare_values(vm, &a.0, &b.0) {
                     Ok(ordering) => ordering,
                     Err(e) => {
                         error.get_or_insert(e);
@@ -289,20 +288,19 @@ pub fn make_module() -> ValueMap {
                 }
             });
 
+            if let Some(error) = error {
+                return Err(error.with_prefix("list.sort"));
+            }
+
             // collect values
             *l.data_mut() = pairs
                 .iter()
-                .map(|val| {
-                    if let Some(e) = error.as_ref() {
-                        return Err(e.clone());
-                    }
-                    Ok(val[1].clone())
-                })
-                .collect::<Result<SmallVec<[Value; 4]>, RuntimeError>>()?;
+                .map(|(_key, value)| value.clone())
+                .collect::<_>();
 
             Ok(Empty)
         }
-        _ => external_error!("list.sort: Expected list as argument"),
+        _ => runtime_error!("list.sort: Expected list as argument"),
     });
 
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
@@ -312,7 +310,7 @@ pub fn make_module() -> ValueMap {
             sort_values(vm, &mut result)?;
             Ok(List(ValueList::with_data(result)))
         }
-        _ => external_error!("list.sort_copy: Expected list as argument"),
+        _ => runtime_error!("list.sort_copy: Expected list as argument"),
     });
 
     result.add_fn("swap", |vm, args| match vm.get_args(args) {
@@ -321,12 +319,12 @@ pub fn make_module() -> ValueMap {
 
             Ok(Empty)
         }
-        _ => external_error!("list.swap: Expected two lists as arguments"),
+        _ => runtime_error!("list.swap: Expected two lists as arguments"),
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Value::Tuple(l.data().as_slice().into())),
-        _ => external_error!("list.to_tuple expects a list as argument"),
+        _ => runtime_error!("list.to_tuple expects a list as argument"),
     });
 
     result.add_fn("transform", |vm, args| match vm.get_args(args) {
@@ -344,19 +342,19 @@ pub fn make_module() -> ValueMap {
 
             Ok(Empty)
         }
-        _ => external_error!("list.transform expects a list and function as arguments"),
+        _ => runtime_error!("list.transform expects a list and function as arguments"),
     });
 
     result.add_fn("with_size", |vm, args| match vm.get_args(args) {
         [Number(n), value] => {
             if *n < 0.0 {
-                return external_error!("list.with_size: Negative sizes aren't allowed");
+                return runtime_error!("list.with_size: Negative sizes aren't allowed");
             }
 
             let result = smallvec::smallvec![value.clone(); n.into()];
             Ok(List(ValueList::with_data(result)))
         }
-        _ => external_error!("list.with_size: Expected number and value as arguments"),
+        _ => runtime_error!("list.with_size: Expected number and value as arguments"),
     });
 
     result

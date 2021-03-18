@@ -29,6 +29,16 @@
   - `number.shift_left`
   - `number.shift_right`
   - `number.xor`
+- `throw` can now be used for throwing errors.
+  - Strings can be used as an error message:
+    `throw "Was für ein Fehler!"`
+  - Maps that implement `@display` can also be thrown:
+    ```
+    throw
+      data: foo
+      @display: |self| "Che errore! - {}".format self.data
+    ```
+
 
 ### Changed
 - Captured values in functions are now immutable.

@@ -80,6 +80,7 @@ pub enum Token {
     Return,
     Switch,
     Then,
+    Throw,
     True,
     Try,
     Until,
@@ -405,6 +406,7 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("return", Return);
             check_keyword!("switch", Switch);
             check_keyword!("then", Then);
+            check_keyword!("throw", Throw);
             check_keyword!("true", True);
             check_keyword!("try", Try);
             check_keyword!("until", Until);

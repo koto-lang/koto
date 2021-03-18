@@ -3,10 +3,10 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
-        num2, num4,
+        num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        vm_error, BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError,
+        BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, RuntimeErrorType,
         RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
@@ -272,14 +272,14 @@ impl Vm {
         args: &[Value],
     ) -> RuntimeResult {
         if !self.call_stack.is_empty() {
-            return vm_error!(
+            return runtime_error!(
                 "run_function: the call stack must be empty,
                  are you calling run_function on an active VM?"
             );
         }
 
         if !function.is_callable() {
-            return vm_error!("run_function: the provided value isn't a function");
+            return runtime_error!("run_function: the provided value isn't a function");
         }
 
         let result_register = 0;
@@ -309,7 +309,7 @@ impl Vm {
             // should be in the frame base.
             match self.value_stack.first() {
                 Some(value) => Ok(value.clone()),
-                None => vm_error!("run_function: missing return register"),
+                None => runtime_error!("run_function: missing return register"),
             }
         } else {
             self.frame_mut().catch_barrier = true;
@@ -323,7 +323,7 @@ impl Vm {
 
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
         if !self.call_stack.is_empty() {
-            return vm_error!(
+            return runtime_error!(
                 "run_unary_op: the call stack must be empty,
                  are you calling run_unary_op on an active VM?"
             );
@@ -349,7 +349,7 @@ impl Vm {
 
     pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
         if !self.call_stack.is_empty() {
-            return vm_error!(
+            return runtime_error!(
                 "run_binary_op: the call stack must be empty,
                  are you calling run_binary_op on an active VM?"
             );
@@ -503,7 +503,11 @@ impl Vm {
                     }
 
                     if let Some((register, ip)) = recover_register_and_ip {
-                        self.set_register(register, Value::Str(error.to_string().into()));
+                        let catch_value = match error.error {
+                            RuntimeErrorType::KotoError { thrown_value, .. } => thrown_value,
+                            _ => Value::Str(error.to_string().into()),
+                        };
+                        self.set_register(register, catch_value);
                         self.set_ip(ip);
                     } else {
                         return Err(error);
@@ -528,7 +532,7 @@ impl Vm {
 
         match instruction {
             Instruction::Error { message } => {
-                vm_error!("{}", message)
+                runtime_error!("{}", message)
             }
             Instruction::Copy { target, source } => {
                 self.run_copy(target, source);
@@ -711,6 +715,27 @@ impl Vm {
                 control_flow = ControlFlow::Yield(self.clone_register(register));
                 Ok(())
             }
+            Instruction::Throw { register } => {
+                let thrown_value = self.clone_register(register);
+
+                let display_op = MetaKey::UnaryOp(UnaryOp::Display);
+                use RuntimeErrorType::KotoError;
+                match &thrown_value {
+                    Str(_) => Err(RuntimeError::new(KotoError {
+                        thrown_value,
+                        vm: None,
+                    })),
+                    Map(m) if m.contents().meta.contains_key(&display_op) => Err(
+                        RuntimeError::from_koto_value(thrown_value, self.spawn_shared_vm()),
+                    ),
+                    other => {
+                        runtime_error!(
+                            "throw: expected string or map with @display function, found '{}'",
+                            other.type_as_string()
+                        )
+                    }
+                }
+            }
             Instruction::Size { register, value } => {
                 self.run_size(register, value);
                 Ok(())
@@ -837,7 +862,7 @@ impl Vm {
                 self.set_register(register, value);
                 Ok(())
             }
-            None => vm_error!("'{}' not found", export_name),
+            None => runtime_error!("'{}' not found", export_name),
         }
     }
 
@@ -892,7 +917,10 @@ impl Vm {
             }
             (None, Some(Number(end))) => {
                 if *end < 0.0 {
-                    return vm_error!("RangeTo: negative numbers not allowed, found '{}'", end);
+                    return runtime_error!(
+                        "RangeTo: negative numbers not allowed, found '{}'",
+                        end
+                    );
                 }
                 let end = if inclusive {
                     usize::from(end) + 1
@@ -906,7 +934,10 @@ impl Vm {
             }
             (Some(Number(start)), None) => {
                 if *start < 0.0 {
-                    return vm_error!("RangeFrom: negative numbers not allowed, found '{}'", start);
+                    return runtime_error!(
+                        "RangeFrom: negative numbers not allowed, found '{}'",
+                        start
+                    );
                 }
                 IndexRange(value::IndexRange {
                     start: usize::from(start),
@@ -972,7 +1003,10 @@ impl Vm {
         let result = match self.get_register_mut(iterator) {
             Iterator(iterator) => iterator.next(),
             unexpected => {
-                return vm_error!("Expected Iterator, found '{}'", unexpected.type_as_string());
+                return runtime_error!(
+                    "Expected Iterator, found '{}'",
+                    unexpected.type_as_string()
+                );
             }
         };
 
@@ -996,7 +1030,7 @@ impl Vm {
                     self.set_register(register, Tuple(vec![first, second].into()));
                 }
             }
-            (Some(Err(error)), _) => return vm_error!(error.to_string()),
+            (Some(Err(error)), _) => return runtime_error!(error.to_string()),
             (None, _) => self.jump_ip(jump_offset),
         };
 
@@ -1159,7 +1193,7 @@ impl Vm {
             Some(capture_list) => {
                 capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
             }
-            None => return vm_error!("Capture: missing capture list for function"),
+            None => return runtime_error!("Capture: missing capture list for function"),
         }
 
         Ok(())
@@ -1598,7 +1632,7 @@ impl Vm {
                 Value::Bool(true) => {}
                 Value::Bool(false) => return Ok(false),
                 other => {
-                    return vm_error!(
+                    return runtime_error!(
                         "Expected Bool from equality comparison, found '{}'",
                         other.type_as_string()
                     );
@@ -1632,7 +1666,7 @@ impl Vm {
                 Value::Bool(true) => {}
                 Value::Bool(false) => return Ok(false),
                 other => {
-                    return vm_error!(
+                    return runtime_error!(
                         "Expected Bool from equality comparison, found '{}'",
                         other.type_as_string()
                     );
@@ -1652,7 +1686,7 @@ impl Vm {
     ) -> InstructionResult {
         let op = match map.contents().meta.get(&MetaKey::UnaryOp(op)) {
             Some(op) => op.clone(),
-            None => return vm_error!("Missing overloaded {:?} key", op),
+            None => return runtime_error!("Missing overloaded {:?} key", op),
         };
 
         // Set up the call registers at the end of the stack
@@ -1680,7 +1714,7 @@ impl Vm {
     ) -> InstructionResult {
         let op = match map.contents().meta.get(&MetaKey::BinaryOp(op)) {
             Some(op) => op.clone(),
-            None => return vm_error!("Missing overloaded {:?} operation", op),
+            None => return runtime_error!("Missing overloaded {:?} operation", op),
         };
 
         // Set up the call registers at the end of the stack
@@ -1776,12 +1810,14 @@ impl Vm {
                     .compile_module(&import_name, source_path);
                 let (module_chunk, module_path) = match compile_result {
                     Ok(chunk) => chunk,
-                    Err(e) => return vm_error!("Failed to import '{}': {}", import_name, e),
+                    Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
                 };
                 let maybe_module = self.context().modules.get(&module_path).cloned();
                 match maybe_module {
                     Some(Some(module)) => self.set_register(result_register, Value::Map(module)),
-                    Some(None) => return vm_error!("Recursive import of module '{}'", import_name),
+                    Some(None) => {
+                        return runtime_error!("Recursive import of module '{}'", import_name)
+                    }
                     None => {
                         // Insert a placeholder for the new module, preventing recursive imports
                         self.context_mut().modules.insert(module_path.clone(), None);
@@ -1940,7 +1976,7 @@ impl Vm {
                 _ => list.data_mut().push(value),
             },
             unexpected => {
-                return vm_error!("Expected List, found '{}'", unexpected,);
+                return runtime_error!("Expected List, found '{}'", unexpected,);
             }
         };
         Ok(())
@@ -1966,7 +2002,7 @@ impl Vm {
                         if index >= 0.0 && u_index < list_len {
                             list.data_mut()[u_index] = value;
                         } else {
-                            return vm_error!("Index '{}' not in List", index);
+                            return runtime_error!("Index '{}' not in List", index);
                         }
                     }
                     Range(IntRange { start, end }) => {
@@ -1974,21 +2010,21 @@ impl Vm {
                         let uend = end as usize;
 
                         if start < 0 || end < 0 {
-                            return vm_error!(
+                            return runtime_error!(
                                 "Indexing with negative indices isn't supported, \
                                                 start: {}, end: {}",
                                 start,
                                 end
                             );
                         } else if start > end {
-                            return vm_error!(
+                            return runtime_error!(
                                 "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
                                 start,
                                 end
                             );
                         } else if ustart > list_len || uend > list_len {
-                            return vm_error!(
+                            return runtime_error!(
                                 "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
                                 list_len,
@@ -2005,14 +2041,14 @@ impl Vm {
                     IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
                         if start > end {
-                            return vm_error!(
+                            return runtime_error!(
                                 "Indexing with a descending range isn't supported, \
                                                 start: {}, end: {}",
                                 start,
                                 end
                             );
                         } else if start > list_len || end > list_len {
-                            return vm_error!(
+                            return runtime_error!(
                                 "Index out of bounds, \
                                                 List has a length of {} - start: {}, end: {}",
                                 list_len,
@@ -2032,7 +2068,7 @@ impl Vm {
                 }
             }
             unexpected => {
-                return vm_error!("Expected List, found '{}'", unexpected);
+                return runtime_error!("Expected List, found '{}'", unexpected);
             }
         };
 
@@ -2043,9 +2079,9 @@ impl Vm {
         let index = usize::from(n);
 
         if n < 0.0 {
-            vm_error!("Negative indices aren't allowed ('{}')", n)
+            runtime_error!("Negative indices aren't allowed ('{}')", n)
         } else if index >= size {
-            vm_error!("Index out of bounds - index: {}, size: {}", n, size)
+            runtime_error!("Index out of bounds - index: {}, size: {}", n, size)
         } else {
             Ok(index)
         }
@@ -2056,19 +2092,19 @@ impl Vm {
         let uend = end as usize;
 
         if start < 0 || end < 0 {
-            vm_error!(
+            runtime_error!(
                 "Indexing with negative indices isn't supported, start: {}, end: {}",
                 start,
                 end
             )
         } else if start > end {
-            vm_error!(
+            runtime_error!(
                 "Indexing with a descending range isn't supported, start: {}, end: {}",
                 start,
                 end
             )
         } else if ustart > size || uend > size {
-            vm_error!(
+            runtime_error!(
                 "Index out of bounds, size of {} - start: {}, end: {}",
                 size,
                 start,
@@ -2081,13 +2117,13 @@ impl Vm {
 
     fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
         if start > end {
-            vm_error!(
+            runtime_error!(
                 "Indexing with a descending range isn't supported, start: {}, end: {}",
                 start,
                 end
             )
         } else if start > size || end > size {
-            vm_error!(
+            runtime_error!(
                 "Index out of bounds, size of {} - start: {}, end: {}",
                 size,
                 start,
@@ -2153,14 +2189,14 @@ impl Vm {
                 let i = usize::from(i);
                 match i {
                     0 | 1 => self.set_register(result_register, Number(n[i].into())),
-                    other => return vm_error!("Index out of bounds for Num2, {}", other),
+                    other => return runtime_error!("Index out of bounds for Num2, {}", other),
                 }
             }
             (Num4(n), Number(i)) => {
                 let i = usize::from(i);
                 match i {
                     0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
-                    other => return vm_error!("Index out of bounds for Num4, {}", other),
+                    other => return runtime_error!("Index out of bounds for Num4, {}", other),
                 }
             }
             (Map(map), index) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Index)) => {
@@ -2173,7 +2209,7 @@ impl Vm {
                 );
             }
             (unexpected_value, unexpected_index) => {
-                return vm_error!(
+                return runtime_error!(
                     "Unable to index '{}' with '{}'",
                     unexpected_value.type_as_string(),
                     unexpected_index.type_as_string(),
@@ -2198,7 +2234,7 @@ impl Vm {
                 map.contents_mut().data.insert(key_string.into(), value);
                 Ok(())
             }
-            unexpected => vm_error!(
+            unexpected => runtime_error!(
                 "MapInsert: Expected Map, found '{}'",
                 unexpected.type_as_string()
             ),
@@ -2218,7 +2254,7 @@ impl Vm {
                 map.contents_mut().meta.insert(meta_id.into(), value);
                 Ok(())
             }
-            unexpected => vm_error!(
+            unexpected => runtime_error!(
                 "MetaInsert: Expected Map, found '{}'",
                 unexpected.type_as_string()
             ),
@@ -2327,7 +2363,7 @@ impl Vm {
                 }
                 other => other,
             },
-            None => return vm_error!("'{}' not found in module '{}'", key, module_name),
+            None => return runtime_error!("'{}' not found in module '{}'", key, module_name),
         };
 
         Ok(result)
@@ -2354,7 +2390,7 @@ impl Vm {
                 call_arg_count += 1;
                 frame_base
             } else {
-                return vm_error!("Expected self for external instance function");
+                return runtime_error!("Expected self for external instance function");
             }
         } else {
             frame_base + 1
@@ -2421,7 +2457,7 @@ impl Vm {
                 generator_vm.set_register(0, instance);
                 1
             } else {
-                return vm_error!("Missing instance for call to instance function");
+                return runtime_error!("Missing instance for call to instance function");
             }
         } else {
             0
@@ -2438,14 +2474,14 @@ impl Vm {
                     Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
                 generator_vm.set_register(expected_arg_count + arg_offset, varargs);
             } else {
-                return vm_error!(
+                return runtime_error!(
                     "Insufficient arguments for function call, expected {}, found {}",
                     expected_arg_count,
                     call_arg_count,
                 );
             }
         } else if call_arg_count != expected_arg_count {
-            return vm_error!(
+            return runtime_error!(
                 "Incorrect argument count, expected {}, found {}",
                 expected_arg_count,
                 call_arg_count,
@@ -2527,7 +2563,7 @@ impl Vm {
                         }
                         frame_base
                     } else {
-                        return vm_error!("Missing instance for call to instance function");
+                        return runtime_error!("Missing instance for call to instance function");
                     }
                 } else {
                     // If there's no self arg, then the frame's instance register is unused,
@@ -2548,14 +2584,14 @@ impl Vm {
                         self.set_register(varargs_start, varargs);
                         self.truncate_registers(varargs_start + 1);
                     } else {
-                        return vm_error!(
+                        return runtime_error!(
                             "Insufficient arguments for function call, expected {}, found {}",
                             expected_arg_count,
                             call_arg_count,
                         );
                     }
                 } else if call_arg_count != expected_arg_count {
-                    return vm_error!(
+                    return runtime_error!(
                         "Incorrect argument count, expected {}, found {}",
                         expected_arg_count,
                         call_arg_count,
@@ -2602,7 +2638,7 @@ impl Vm {
         let value_string = match vm.run_unary_op(UnaryOp::Display, value)? {
             result @ Value::Str(_) => result,
             other => {
-                return vm_error!(
+                return runtime_error!(
                     "debug: Expected string to display, found '{}'",
                     other.type_as_string()
                 )
@@ -2652,7 +2688,7 @@ impl Vm {
         if value_size == expected_size {
             Ok(())
         } else {
-            vm_error!(
+            runtime_error!(
                 "Value has a size of '{}', expected '{}'",
                 value_size,
                 expected_size
@@ -2709,7 +2745,7 @@ impl Vm {
         self.truncate_registers(0);
 
         if self.call_stack.pop().is_none() {
-            return vm_error!("pop_frame: Empty call stack");
+            return runtime_error!("pop_frame: Empty call stack");
         };
 
         if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
@@ -2798,11 +2834,11 @@ impl Vm {
     }
 
     fn unexpected_type_error<T>(&self, message: &str, value: &Value) -> Result<T, RuntimeError> {
-        vm_error!("{}, found '{}'", message, value.type_as_string())
+        runtime_error!("{}, found '{}'", message, value.type_as_string())
     }
 
     fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
-        vm_error!(
+        runtime_error!(
             "Unable to perform operation '{}' with '{}' and '{}'",
             op,
             lhs.type_as_string(),

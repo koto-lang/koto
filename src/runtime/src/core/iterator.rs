@@ -1,5 +1,5 @@
 use crate::{
-    external_error,
+    runtime_error,
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
@@ -26,7 +26,7 @@ pub fn make_module() -> ValueMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return external_error!(
+                            return runtime_error!(
                                 "iterator.all: Predicate should return a bool, found '{}'",
                                 unexpected.type_as_string()
                             )
@@ -40,7 +40,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Bool(true))
         }
-        _ => external_error!("iterator.all: Expected iterable and function as arguments"),
+        _ => runtime_error!("iterator.all: Expected iterable and function as arguments"),
     });
 
     result.add_fn("any", |vm, args| match vm.get_args(args) {
@@ -58,7 +58,7 @@ pub fn make_module() -> ValueMap {
                             }
                         }
                         Ok(unexpected) => {
-                            return external_error!(
+                            return runtime_error!(
                                 "iterator.any: Predicate should return a bool, found '{}'",
                                 unexpected.type_as_string()
                             )
@@ -72,7 +72,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Bool(false))
         }
-        _ => external_error!("iterator.any: Expected iterable and function as arguments"),
+        _ => runtime_error!("iterator.any: Expected iterable and function as arguments"),
     });
 
     result.add_fn("chain", |vm, args| match vm.get_args(args) {
@@ -84,7 +84,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        _ => external_error!("iterator.chain: Expected two iterables as arguments"),
+        _ => runtime_error!("iterator.chain: Expected two iterables as arguments"),
     });
 
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
@@ -97,7 +97,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Empty)
         }
-        _ => external_error!("iterator.consume: Expected iterable as argument"),
+        _ => runtime_error!("iterator.consume: Expected iterable as argument"),
     });
 
     result.add_fn("count", |vm, args| match vm.get_args(args) {
@@ -112,7 +112,7 @@ pub fn make_module() -> ValueMap {
             }
             Ok(Number(result.into()))
         }
-        _ => external_error!("iterator.count: Expected iterable as argument"),
+        _ => runtime_error!("iterator.count: Expected iterable as argument"),
     });
 
     result.add_fn("each", |vm, args| match vm.get_args(args) {
@@ -132,7 +132,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        _ => external_error!("iterator.each: Expected iterable and function as arguments"),
+        _ => runtime_error!("iterator.each: Expected iterable and function as arguments"),
     });
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
@@ -147,7 +147,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        _ => external_error!("iterator.enumerate: Expected iterable as argument"),
+        _ => runtime_error!("iterator.enumerate: Expected iterable as argument"),
     });
 
     result.add_fn("fold", |vm, args| {
@@ -186,7 +186,7 @@ pub fn make_module() -> ValueMap {
                     _ => unreachable!(),
                 }
             }
-            _ => external_error!(
+            _ => runtime_error!(
                 "iterator.fold: Expected iterable, initial value, and function as arguments"
             ),
         }
@@ -211,7 +211,7 @@ pub fn make_module() -> ValueMap {
                                     }
                                 }
                                 Ok(unexpected) => {
-                                    return Some(external_error!(
+                                    return Some(runtime_error!(
                                         "iterator.keep expects a Bool to be returned from the \
                                          predicate, found '{}'",
                                         unexpected.type_as_string(),
@@ -227,7 +227,7 @@ pub fn make_module() -> ValueMap {
                 None
             })))
         }
-        _ => external_error!("iterator.keep: Expected iterable and function as arguments"),
+        _ => runtime_error!("iterator.keep: Expected iterable and function as arguments"),
     });
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
@@ -248,7 +248,7 @@ pub fn make_module() -> ValueMap {
                                 Ok(Bool(true)) => value,
                                 Ok(Bool(false)) => result,
                                 Ok(unexpected) => {
-                                    return external_error!(
+                                    return runtime_error!(
                                         "iterator.max: \
                                          Expected Bool from < comparison, found '{}'",
                                         unexpected.type_as_string()
@@ -266,7 +266,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(result.unwrap_or(Empty))
         }
-        _ => external_error!("iterator.max: Expected iterable as argument"),
+        _ => runtime_error!("iterator.max: Expected iterable as argument"),
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
@@ -287,7 +287,7 @@ pub fn make_module() -> ValueMap {
                                 Ok(Bool(true)) => result,
                                 Ok(Bool(false)) => value,
                                 Ok(unexpected) => {
-                                    return external_error!(
+                                    return runtime_error!(
                                         "iterator.min: \
                                          Expected Bool from < comparison, found '{}'",
                                         unexpected.type_as_string()
@@ -305,7 +305,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(result.unwrap_or(Empty))
         }
-        _ => external_error!("iterator.min: Expected iterable as argument"),
+        _ => runtime_error!("iterator.min: Expected iterable as argument"),
     });
 
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
@@ -319,7 +319,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(true)) => Ok(a),
                     Ok(Bool(false)) => Ok(b),
                     Ok(unexpected) => {
-                        return external_error!(
+                        return runtime_error!(
                             "iterator.min_max: \
                              Expected Bool from {} comparison, found '{}'",
                             op,
@@ -348,7 +348,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
         }
-        _ => external_error!("iterator.min_max: Expected iterable as argument"),
+        _ => runtime_error!("iterator.min_max: Expected iterable as argument"),
     });
 
     result.add_fn("next", |vm, args| match vm.get_args(args) {
@@ -361,7 +361,7 @@ pub fn make_module() -> ValueMap {
             };
             Ok(result)
         }
-        _ => external_error!("iterator.next: Expected iterator as argument"),
+        _ => runtime_error!("iterator.next: Expected iterator as argument"),
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
@@ -380,7 +380,7 @@ pub fn make_module() -> ValueMap {
                                 }
                             }
                             Ok(unexpected) => {
-                                return external_error!(
+                                return runtime_error!(
                                     "iterator.position expects a Bool to be returned from the \
                                      predicate, found '{}'",
                                     unexpected.type_as_string(),
@@ -396,7 +396,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Empty)
         }
-        _ => external_error!("iterator.position: Expected iterable and function as arguments"),
+        _ => runtime_error!("iterator.position: Expected iterable and function as arguments"),
     });
 
     result.add_fn("product", |vm, args| {
@@ -405,7 +405,7 @@ pub fn make_module() -> ValueMap {
             [iterable, initial_value] if iterable.is_iterable() => {
                 (iterable.clone(), initial_value.clone())
             }
-            _ => return external_error!("iterator.product: Expected iterable as argument"),
+            _ => return runtime_error!("iterator.product: Expected iterable as argument"),
         };
 
         fold_with_operator(vm, iterable, initial_value, BinaryOp::Multiply)
@@ -425,7 +425,7 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
         _ => {
-            external_error!("iterator.skip: Expected iterable and non-negative number as arguments")
+            runtime_error!("iterator.skip: Expected iterable and non-negative number as arguments")
         }
     });
 
@@ -435,7 +435,7 @@ pub fn make_module() -> ValueMap {
             [iterable, initial_value] if iterable.is_iterable() => {
                 (iterable.clone(), initial_value.clone())
             }
-            _ => return external_error!("iterator.sum: Expected iterable as argument"),
+            _ => return runtime_error!("iterator.sum: Expected iterable as argument"),
         };
 
         fold_with_operator(vm, iterable, initial_value, BinaryOp::Add)
@@ -449,7 +449,7 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
         _ => {
-            external_error!("iterator.take: Expected iterable and non-negative number as arguments")
+            runtime_error!("iterator.take: Expected iterable and non-negative number as arguments")
         }
     });
 
@@ -469,7 +469,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(List(ValueList::with_data(result)))
         }
-        _ => external_error!("iterator.to_list: Expected iterable as argument"),
+        _ => runtime_error!("iterator.to_list: Expected iterable as argument"),
     });
 
     result.add_fn("to_map", |vm, args| match vm.get_args(args) {
@@ -497,7 +497,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Map(ValueMap::with_data(result)))
         }
-        _ => external_error!("iterator.to_map: Expected iterator as argument"),
+        _ => runtime_error!("iterator.to_map: Expected iterator as argument"),
     });
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
@@ -516,7 +516,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        _ => external_error!("iterator.to_tuple: Expected iterable as argument"),
+        _ => runtime_error!("iterator.to_tuple: Expected iterable as argument"),
     });
 
     result.add_fn("zip", |vm, args| match vm.get_args(args) {
@@ -534,7 +534,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        _ => external_error!("iterator.zip: Expected two iterables as arguments"),
+        _ => runtime_error!("iterator.zip: Expected two iterables as arguments"),
     });
 
     result

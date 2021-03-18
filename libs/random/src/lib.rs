@@ -2,7 +2,7 @@
 
 use {
     koto_runtime::{
-        external_error, get_external_instance, num2, num4, ExternalValue, Value, ValueMap,
+        get_external_instance, num2, num4, runtime_error, ExternalValue, Value, ValueMap,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -21,7 +21,7 @@ pub fn make_module() -> ValueMap {
         [Number(n)] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::seed_from_u64(
             n.to_bits(),
         )))),
-        _ => external_error!("random.generator - expected no arguments, or seed number"),
+        _ => runtime_error!("random.generator - expected no arguments, or seed number"),
     });
 
     result
@@ -89,7 +89,7 @@ impl ChaChaRng {
                         let index = rng.0.gen_range(0, size);
                         Ok(Number((start + index).into()))
                     }
-                    _ => external_error!("random.pick - expected list or range as argument"),
+                    _ => runtime_error!("random.pick - expected list or range as argument"),
                 }
             })
         });
@@ -102,7 +102,7 @@ impl ChaChaRng {
                         *rng = ChaChaRng(ChaCha20Rng::seed_from_u64(n.to_bits()));
                         Ok(Empty)
                     }
-                    _ => external_error!("random.seed - expected number as argument"),
+                    _ => runtime_error!("random.seed - expected number as argument"),
                 }
             })
         });

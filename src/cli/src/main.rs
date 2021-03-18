@@ -134,10 +134,10 @@ fn main() {
                 }
                 match koto.run_with_args(&args.script_args) {
                     Ok(_) => {}
-                    Err(e) => eprintln!("{}", e),
+                    Err(e) => eprintln!("Error: {}", e),
                 }
             }
-            Err(e) => eprintln!("{}", e),
+            Err(e) => eprintln!("Error: {}", e),
         }
     } else {
         let mut repl = Repl::with_settings(

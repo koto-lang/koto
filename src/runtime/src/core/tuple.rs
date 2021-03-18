@@ -1,5 +1,5 @@
 use crate::{
-    external_error, value_iterator::ValueIterator, value_sort::sort_values, BinaryOp, Value,
+    runtime_error, value_iterator::ValueIterator, value_sort::sort_values, BinaryOp, Value,
     ValueList, ValueMap,
 };
 
@@ -18,7 +18,7 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(false)) => {}
                     Ok(Bool(true)) => return Ok(true.into()),
                     Ok(unexpected) => {
-                        return external_error!(
+                        return runtime_error!(
                             "tuple.contains: Expected Bool from comparison, found '{}'",
                             unexpected.type_as_string()
                         )
@@ -28,12 +28,12 @@ pub fn make_module() -> ValueMap {
             }
             Ok(false.into())
         }
-        _ => external_error!("tuple.contains: Expected tuple and value as arguments"),
+        _ => runtime_error!("tuple.contains: Expected tuple and value as arguments"),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ Tuple(_)] => Ok(value.deep_copy()),
-        _ => external_error!("tuple.deep_copy: Expected tuple as argument"),
+        _ => runtime_error!("tuple.deep_copy: Expected tuple as argument"),
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
@@ -41,13 +41,13 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Value::Empty),
         },
-        _ => external_error!("tuple.first: Expected tuple as argument"),
+        _ => runtime_error!("tuple.first: Expected tuple as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {
         [Tuple(t), Number(n)] => {
             if *n < 0.0 {
-                return external_error!("tuple.get: Negative indices aren't allowed");
+                return runtime_error!("tuple.get: Negative indices aren't allowed");
             }
             let index: usize = n.into();
             match t.data().get(index) {
@@ -55,12 +55,12 @@ pub fn make_module() -> ValueMap {
                 None => Ok(Value::Empty),
             }
         }
-        _ => external_error!("tuple.get: Expected tuple and number as arguments"),
+        _ => runtime_error!("tuple.get: Expected tuple and number as arguments"),
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Iterator(ValueIterator::with_tuple(t.clone()))),
-        _ => external_error!("tuple.iter: Expected tuple as argument"),
+        _ => runtime_error!("tuple.iter: Expected tuple as argument"),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {
@@ -68,12 +68,12 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Value::Empty),
         },
-        _ => external_error!("tuple.last: Expected tuple as argument"),
+        _ => runtime_error!("tuple.last: Expected tuple as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Number(t.data().len().into())),
-        _ => external_error!("tuple.size: Expected tuple as argument"),
+        _ => runtime_error!("tuple.size: Expected tuple as argument"),
     });
 
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
@@ -85,12 +85,12 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        _ => external_error!("tuple.sort_copy: Expected tuple as argument"),
+        _ => runtime_error!("tuple.sort_copy: Expected tuple as argument"),
     });
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(List(ValueList::from_slice(t.data()))),
-        _ => external_error!("tuple.to_list: Expected tuple as argument"),
+        _ => runtime_error!("tuple.to_list: Expected tuple as argument"),
     });
 
     result

@@ -1,6 +1,6 @@
 use {
     crate::{
-        external_error, value_iterator::ValueIteratorOutput as Output, value_sort::compare_values,
+        runtime_error, value_iterator::ValueIteratorOutput as Output, value_sort::compare_values,
         RuntimeResult, Value, ValueHashMap, ValueIterator, ValueKey, ValueMap, Vm,
     },
     std::{cmp::Ordering, ops::Deref},
@@ -16,29 +16,29 @@ pub fn make_module() -> ValueMap {
             m.contents_mut().data.clear();
             Ok(Empty)
         }
-        _ => external_error!("map.clear: Expected map as argument"),
+        _ => runtime_error!("map.clear: Expected map as argument"),
     });
 
     result.add_fn("contains_key", |vm, args| match vm.get_args(args) {
         [Map(m), key] if key.is_immutable() => Ok(Bool(
             m.contents().data.contains_key(&ValueKey::from(key.clone())),
         )),
-        [other_a, other_b, ..] => external_error!(
+        [other_a, other_b, ..] => runtime_error!(
             "map.contains_key: Expected map and key as arguments, found '{}' and '{}'",
             other_a.type_as_string(),
             other_b.type_as_string()
         ),
-        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+        _ => runtime_error!("map.contains_key: Expected map and key as arguments"),
     });
 
     result.add_fn("copy", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Map(ValueMap::with_data(m.contents().data.clone()))),
-        _ => external_error!("map.copy: Expected map as argument"),
+        _ => runtime_error!("map.copy: Expected map as argument"),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ Map(_)] => Ok(value.deep_copy()),
-        _ => external_error!("map.deep_copy: Expected map as argument"),
+        _ => runtime_error!("map.deep_copy: Expected map as argument"),
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {
@@ -46,25 +46,25 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(Empty),
         },
-        [other_a, other_b, ..] => external_error!(
+        [other_a, other_b, ..] => runtime_error!(
             "map.get: Expected map and key as arguments, found '{}' and '{}'",
             other_a.type_as_string(),
             other_b.type_as_string()
         ),
-        _ => external_error!("map.get: Expected map and key as arguments"),
+        _ => runtime_error!("map.get: Expected map and key as arguments"),
     });
 
     result.add_fn("get_index", |vm, args| match vm.get_args(args) {
         [Map(m), Number(n)] => {
             if *n < 0.0 {
-                return external_error!("map.get_index: Negative indices aren't allowed");
+                return runtime_error!("map.get_index: Negative indices aren't allowed");
             }
             match m.contents().data.get_index(n.into()) {
                 Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
                 None => Ok(Empty),
             }
         }
-        _ => external_error!("map.get_index: Expected map and index as arguments"),
+        _ => runtime_error!("map.get_index: Expected map and index as arguments"),
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
@@ -84,30 +84,30 @@ pub fn make_module() -> ValueMap {
                 None => Ok(Empty),
             }
         }
-        [other_a, other_b, ..] => external_error!(
+        [other_a, other_b, ..] => runtime_error!(
             "map.insert: Expected map and key as arguments, found '{}' and '{}'",
             other_a.type_as_string(),
             other_b.type_as_string()
         ),
-        _ => external_error!("map.insert: Expected map and key as arguments"),
+        _ => runtime_error!("map.insert: Expected map and key as arguments"),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Bool(m.contents().data.is_empty())),
-        [other, ..] => external_error!(
+        [other, ..] => runtime_error!(
             "map.is_empty: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+        _ => runtime_error!("map.contains_key: Expected map and key as arguments"),
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Iterator(ValueIterator::with_map(m.clone()))),
-        [other, ..] => external_error!(
+        [other, ..] => runtime_error!(
             "map.iter: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => external_error!("map.iter: Expected map as argument"),
+        _ => runtime_error!("map.iter: Expected map as argument"),
     });
 
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
@@ -120,11 +120,11 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        [other, ..] => external_error!(
+        [other, ..] => runtime_error!(
             "map.keys: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => external_error!("map.keys: Expected map as argument"),
+        _ => runtime_error!("map.keys: Expected map as argument"),
     });
 
     result.add_fn("remove", |vm, args| match vm.get_args(args) {
@@ -138,12 +138,12 @@ pub fn make_module() -> ValueMap {
                 None => Ok(Empty),
             }
         }
-        [other_a, other_b, ..] => external_error!(
+        [other_a, other_b, ..] => runtime_error!(
             "map.remove: Expected map and key as arguments, found '{}' and '{}'",
             other_a.type_as_string(),
             other_b.type_as_string()
         ),
-        _ => external_error!("map.remove: Expected map and key as arguments"),
+        _ => runtime_error!("map.remove: Expected map and key as arguments"),
     });
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
@@ -211,16 +211,16 @@ pub fn make_module() -> ValueMap {
                 Ok(Empty)
             }
         }
-        _ => external_error!("map.sort: Expected map as argument"),
+        _ => runtime_error!("map.sort: Expected map as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Map(m)] => Ok(Number(m.len().into())),
-        [other, ..] => external_error!(
+        [other, ..] => runtime_error!(
             "map.size: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => external_error!("map.contains_key: Expected map and key as arguments"),
+        _ => runtime_error!("map.contains_key: Expected map and key as arguments"),
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
@@ -238,7 +238,7 @@ pub fn make_module() -> ValueMap {
             f.clone(),
             vm.child_vm(),
         ),
-        _ => external_error!("map.update: Expected map, key, and function as arguments"),
+        _ => runtime_error!("map.update: Expected map, key, and function as arguments"),
     });
 
     result.add_fn("values", |vm, args| match vm.get_args(args) {
@@ -251,11 +251,11 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
         }
-        [other, ..] => external_error!(
+        [other, ..] => runtime_error!(
             "map.values: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => external_error!("map.values: Expected map as argument"),
+        _ => runtime_error!("map.values: Expected map as argument"),
     });
 
     result

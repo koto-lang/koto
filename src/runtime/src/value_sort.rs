@@ -4,7 +4,7 @@
 
 use std::cmp::Ordering;
 
-use crate::{external_error, BinaryOp, RuntimeError, Value, Vm};
+use crate::{runtime_error, BinaryOp, RuntimeError, Value, Vm};
 
 /// Sorts values in a slice using Koto operators for comparison.
 pub fn sort_values(vm: &mut Vm, arr: &mut [Value]) -> Result<(), RuntimeError> {
@@ -38,13 +38,13 @@ pub fn compare_values(vm: &mut Vm, a: &Value, b: &Value) -> Result<Ordering, Run
         Value::Bool(false) => match vm.run_binary_op(BinaryOp::Greater, a.clone(), b.clone())? {
             Value::Bool(true) => Ok(Ordering::Greater),
             Value::Bool(false) => Ok(Ordering::Equal),
-            unexpected => external_error!(
+            unexpected => runtime_error!(
                 "Expected Bool from > comparison, found '{}'",
                 unexpected.type_as_string()
             ),
         },
         unexpected => {
-            external_error!(
+            runtime_error!(
                 "Expected Bool from < comparison, found '{}'",
                 unexpected.type_as_string()
             )

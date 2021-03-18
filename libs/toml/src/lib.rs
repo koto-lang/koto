@@ -1,7 +1,7 @@
 //! A Koto language module for working with TOML data
 
 use {
-    koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
+    koto_runtime::{runtime_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
     toml::Value as Toml,
 };
@@ -44,22 +44,22 @@ pub fn make_module() -> ValueMap {
         [Str(s)] => match toml::from_str(s) {
             Ok(toml) => match toml_to_koto_value(&toml) {
                 Ok(result) => Ok(result),
-                Err(e) => external_error!("toml.from_string: Error while parsing input: {}", e),
+                Err(e) => runtime_error!("toml.from_string: Error while parsing input: {}", e),
             },
-            Err(e) => external_error!(
+            Err(e) => runtime_error!(
                 "toml.from_string: Error while parsing input: {}",
                 e.to_string()
             ),
         },
-        _ => external_error!("toml.from_string expects a string as argument"),
+        _ => runtime_error!("toml.from_string expects a string as argument"),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match toml::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(result.into())),
-            Err(e) => external_error!("toml.to_string: {}", e),
+            Err(e) => runtime_error!("toml.to_string: {}", e),
         },
-        _ => external_error!("toml.to_string expects a single argument"),
+        _ => runtime_error!("toml.to_string expects a single argument"),
     });
 
     result
