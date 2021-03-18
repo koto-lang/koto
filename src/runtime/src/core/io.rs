@@ -1,5 +1,5 @@
 use {
-    crate::{external_error, get_external_instance, ExternalValue, RuntimeResult, Value, ValueMap},
+    crate::{get_external_instance, runtime_error, ExternalValue, RuntimeResult, Value, ValueMap},
     std::{
         fmt, fs,
         io::{Read, Seek, SeekFrom, Write},
@@ -34,10 +34,10 @@ pub fn make_file_map() -> ValueMap {
 
                     match file_handle.file.write(data.as_bytes()) {
                         Ok(_) => Ok(Value::Empty),
-                        Err(e) => external_error!("File.write: Error while writing to file: {}", e),
+                        Err(e) => runtime_error!("File.write: Error while writing to file: {}", e),
                     }
                 }
-                _ => external_error!("File.write: Expected single value to write as argument"),
+                _ => runtime_error!("File.write: Expected single value to write as argument"),
             }
         })
     });
@@ -48,12 +48,12 @@ pub fn make_file_map() -> ValueMap {
                 [_] => "\n".to_string(),
                 [_, value] => format!("{}\n", value),
                 _ => {
-                    return external_error!("File.write_line: Expected single value as argument");
+                    return runtime_error!("File.write_line: Expected single value as argument");
                 }
             };
             match file_handle.file.write(line.as_bytes()) {
                 Ok(_) => Ok(Value::Empty),
-                Err(e) => external_error!("File.write_line: Error while writing to file: {}", e),
+                Err(e) => runtime_error!("File.write_line: Error while writing to file: {}", e),
             }
         })
     });
@@ -68,12 +68,12 @@ pub fn make_file_map() -> ValueMap {
                     match file_handle.file.read_to_string(&mut buffer) {
                         Ok(_) => Ok(Str(buffer.into())),
                         Err(e) => {
-                            external_error!("File.read_to_string: Error while reading data: {}", e,)
+                            runtime_error!("File.read_to_string: Error while reading data: {}", e,)
                         }
                     }
                 }
                 Err(e) => {
-                    external_error!("File.read_to_string: Error while seeking in file: {}", e)
+                    runtime_error!("File.read_to_string: Error while seeking in file: {}", e)
                 }
             },
         )
@@ -84,18 +84,18 @@ pub fn make_file_map() -> ValueMap {
             match vm.get_args(args) {
                 [_, Number(n)] => {
                     if *n < 0.0 {
-                        return external_error!("File.seek: Negative seek positions not allowed");
+                        return runtime_error!("File.seek: Negative seek positions not allowed");
                     }
                     match file_handle.file.seek(SeekFrom::Start(n.into())) {
                         Ok(_) => Ok(Value::Empty),
-                        Err(e) => external_error!("File.seek: Error while seeking in file: {}", e),
+                        Err(e) => runtime_error!("File.seek: Error while seeking in file: {}", e),
                     }
                 }
-                [_, unexpected] => external_error!(
+                [_, unexpected] => runtime_error!(
                     "File.seek: Expected Number for seek position, found '{}'",
                     unexpected.type_as_string(),
                 ),
-                _ => external_error!("File.seek: Expected seek position as second argument"),
+                _ => runtime_error!("File.seek: Expected seek position as second argument"),
             }
         })
     });
@@ -110,15 +110,15 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
         [Str(path)] => Ok(Bool(Path::new(path.as_str()).exists())),
-        _ => external_error!("io.exists: Expected path string as argument"),
+        _ => runtime_error!("io.exists: Expected path string as argument"),
     });
 
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
         [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
             Ok(result) => Ok(Str(result.into())),
-            Err(e) => external_error!("io.read_to_string: Unable to read file '{}': {}", path, e),
+            Err(e) => runtime_error!("io.read_to_string: Unable to read file '{}': {}", path, e),
         },
-        _ => external_error!("io.read_to_string: Expected path string as argument"),
+        _ => runtime_error!("io.read_to_string: Expected path string as argument"),
     });
 
     result.add_fn("open", {
@@ -141,15 +141,15 @@ pub fn make_module() -> ValueMap {
                         Ok(Map(file_map))
                     }
                     Err(e) => {
-                        return external_error!("io.open: Error while opening path: {}", e);
+                        return runtime_error!("io.open: Error while opening path: {}", e);
                     }
                 }
             }
-            [unexpected] => external_error!(
+            [unexpected] => runtime_error!(
                 "io.open: Expected a String as argument, found '{}'",
                 unexpected.type_as_string(),
             ),
-            _ => external_error!("io.open: Expected a String as argument"),
+            _ => runtime_error!("io.open: Expected a String as argument"),
         }
     });
 
@@ -173,15 +173,15 @@ pub fn make_module() -> ValueMap {
                         Ok(Map(file_map))
                     }
                     Err(e) => {
-                        return external_error!("io.create: Error while creating file: {}", e);
+                        return runtime_error!("io.create: Error while creating file: {}", e);
                     }
                 }
             }
-            [unexpected] => external_error!(
+            [unexpected] => runtime_error!(
                 "io.create: Expected a String as argument, found '{}'",
                 unexpected.type_as_string(),
             ),
-            _ => external_error!("io.create: Expected a String as argument"),
+            _ => runtime_error!("io.create: Expected a String as argument"),
         }
     });
 
@@ -195,18 +195,18 @@ pub fn make_module() -> ValueMap {
                 let path = Path::new(path.as_str());
                 match fs::remove_file(&path) {
                     Ok(_) => Ok(Value::Empty),
-                    Err(e) => external_error!(
+                    Err(e) => runtime_error!(
                         "io.remove_file: Error while removing file '{}': {}",
                         path.to_string_lossy(),
                         e,
                     ),
                 }
             }
-            [unexpected] => external_error!(
+            [unexpected] => runtime_error!(
                 "io.remove_file: Expected a String as argument, found '{}'",
                 unexpected.type_as_string(),
             ),
-            _ => external_error!("io.remove_file: Expected a String as argument"),
+            _ => runtime_error!("io.remove_file: Expected a String as argument"),
         }
     });
 

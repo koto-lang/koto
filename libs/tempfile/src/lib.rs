@@ -2,7 +2,7 @@
 
 use koto_runtime::{
     core::io::{make_file_map, File},
-    external_error, Value, ValueMap,
+    runtime_error, Value, ValueMap,
 };
 
 pub fn make_module() -> ValueMap {
@@ -14,9 +14,9 @@ pub fn make_module() -> ValueMap {
         |_, _| match tempfile::NamedTempFile::new() {
             Ok(file) => match file.keep() {
                 Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().as_ref().into())),
-                Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
+                Err(e) => runtime_error!("io.temp_file: Error while making temp path: {}", e),
             },
-            Err(e) => external_error!("io.temp_file: Error while making temp path: {}", e),
+            Err(e) => runtime_error!("io.temp_file: Error while making temp path: {}", e),
         }
     });
 
@@ -26,14 +26,14 @@ pub fn make_module() -> ValueMap {
                 Ok(file) => match file.keep() {
                     Ok((temp_file, path)) => (temp_file, path),
                     Err(e) => {
-                        return external_error!(
+                        return runtime_error!(
                             "io.temp_file: Error while creating temp file: {}",
                             e,
                         );
                     }
                 },
                 Err(e) => {
-                    return external_error!("io.temp_file: Error while creating temp file: {}", e);
+                    return runtime_error!("io.temp_file: Error while creating temp file: {}", e);
                 }
             };
 

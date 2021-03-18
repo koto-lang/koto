@@ -1,5 +1,5 @@
 use {
-    crate::{external_error, RuntimeError, UnaryOp, Value, Vm},
+    crate::{runtime_error, RuntimeError, UnaryOp, Value, Vm},
     koto_lexer::{is_id_continue, is_id_start},
 };
 
@@ -160,26 +160,26 @@ pub fn format_string(
             FormatToken::String(s) => result.push_str(s),
             FormatToken::Placeholder => match arg_iter.next() {
                 Some(arg) => result.push_str(&value_to_string(vm, arg)?),
-                None => return external_error!("Not enough arguments for format string"),
+                None => return runtime_error!("Not enough arguments for format string"),
             },
             FormatToken::Positional(n) => match format_args.get(n as usize) {
                 Some(arg) => result.push_str(&value_to_string(vm, arg)?),
-                None => return external_error!("Missing argument for index {}", n),
+                None => return runtime_error!("Missing argument for index {}", n),
             },
             FormatToken::Identifier(id) => match format_args.first() {
                 Some(Value::Map(map)) => match map.contents().data.get_with_string(id) {
                     Some(value) => result.push_str(&value_to_string(vm, value)?),
-                    None => return external_error!("Key '{}' not found in map", id),
+                    None => return runtime_error!("Key '{}' not found in map", id),
                 },
                 Some(other) => {
-                    return external_error!(
+                    return runtime_error!(
                         "Expected map as first argument, found '{}'",
                         other.type_as_string()
                     )
                 }
-                None => return external_error!("Expected map as first argument"),
+                None => return runtime_error!("Expected map as first argument"),
             },
-            FormatToken::Error => return external_error!("Error while parsing format string"),
+            FormatToken::Error => return runtime_error!("Error while parsing format string"),
         }
     }
 
@@ -189,7 +189,7 @@ pub fn format_string(
 fn value_to_string(vm: &mut Vm, value: &Value) -> Result<String, RuntimeError> {
     match vm.run_unary_op(UnaryOp::Display, value.clone())? {
         Value::Str(result) => Ok(result.to_string()),
-        other => external_error!(
+        other => runtime_error!(
             "Expected string from value display, found '{}'",
             other.type_as_string()
         ),

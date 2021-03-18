@@ -1,4 +1,4 @@
-use crate::{external_error, Value, ValueList, ValueMap};
+use crate::{runtime_error, Value, ValueList, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -24,7 +24,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("type", |vm, args| match vm.get_args(args) {
         [value] => Ok(Str(value.type_as_string().into())),
-        _ => external_error!("koto.type: Expected single argument"),
+        _ => runtime_error!("koto.type: Expected single argument"),
     });
 
     result

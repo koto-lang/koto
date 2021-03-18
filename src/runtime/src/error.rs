@@ -17,16 +17,17 @@ pub struct ErrorFrame {
 
 #[derive(Clone, Debug)]
 pub enum RuntimeErrorType {
-    /// An error that occurred in the VM
-    VmError { message: String },
-    /// An error thrown in a Koto script
+    /// A runtime error message
+    StringError(String),
+    /// An error thrown by a Koto script
+    ///
+    /// The value will either be a String or a Map.
+    /// If the thrown value is a Map, then its @display function will be evaluated by the included
+    /// VM when displaying the error.
     KotoError {
         thrown_value: Value,
-        // If the thrown value is a map, then its @display function will be evaluated in the VM.
         vm: Option<Arc<Mutex<Vm>>>,
     },
-    /// An error that occurred in an external function
-    ExternalError { message: String },
 }
 
 #[derive(Debug)]
@@ -43,7 +44,11 @@ impl RuntimeError {
         }
     }
 
-    pub fn make_koto_error(thrown_value: Value, vm: Vm) -> Self {
+    pub fn from_string(s: String) -> Self {
+        Self::new(RuntimeErrorType::StringError(s))
+    }
+
+    pub fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
         Self::new(RuntimeErrorType::KotoError {
             thrown_value,
             vm: Some(Arc::new(Mutex::new(vm))),
@@ -51,15 +56,10 @@ impl RuntimeError {
     }
 
     pub fn with_prefix(mut self, prefix: &str) -> Self {
-        use RuntimeErrorType::*;
+        use RuntimeErrorType::StringError;
 
         self.error = match self.error {
-            VmError { message } => VmError {
-                message: format!("{}: {}", prefix, message),
-            },
-            ExternalError { message } => ExternalError {
-                message: format!("{}: {}", prefix, message),
-            },
+            StringError(message) => StringError(format!("{}: {}", prefix, message)),
             other => other,
         };
 
@@ -76,8 +76,7 @@ impl fmt::Display for RuntimeError {
         use {RuntimeErrorType::*, Value::*};
 
         let message = match &self.error {
-            VmError { message } => message.clone(),
-            ExternalError { message } => message.clone(),
+            StringError(s) => s.clone(),
             KotoError { thrown_value, vm } => match (&thrown_value, vm) {
                 (Str(message), _) => message.to_string(),
                 (Map(_), Some(vm)) => match vm
@@ -132,45 +131,22 @@ impl error::Error for RuntimeError {}
 pub type RuntimeResult = Result<Value, RuntimeError>;
 
 #[macro_export]
-macro_rules! make_vm_error {
+macro_rules! make_runtime_error {
     ($message:expr) => {{
-        let error = $crate::RuntimeErrorType::VmError { message: $message };
         #[cfg(panic_on_runtime_error)]
         {
-            panic!();
+            panic!($message);
         }
-        $crate::RuntimeError::new(error)
+        $crate::RuntimeError::from_string($message)
     }};
 }
 
 #[macro_export]
-macro_rules! vm_error {
+macro_rules! runtime_error {
     ($error:expr) => {
-        Err($crate::make_vm_error!(String::from($error)))
+        Err($crate::make_runtime_error!(String::from($error)))
     };
     ($error:expr, $($y:expr),+ $(,)?) => {
-        Err($crate::make_vm_error!(format!($error, $($y),+)))
-    };
-}
-
-#[macro_export]
-macro_rules! make_external_error {
-    ($message:expr) => {{
-        let error = $crate::RuntimeErrorType::ExternalError { message: $message };
-        #[cfg(panic_on_runtime_error)]
-        {
-            panic!();
-        }
-        $crate::RuntimeError::new(error)
-    }};
-}
-
-#[macro_export]
-macro_rules! external_error {
-    ($error:expr) => {
-        Err($crate::make_external_error!(String::from($error)))
-    };
-    ($error:expr, $($y:expr),+ $(,)?) => {
-        Err($crate::make_external_error!(format!($error, $($y),+)))
+        Err($crate::make_runtime_error!(format!($error, $($y),+)))
     };
 }

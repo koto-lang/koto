@@ -1,4 +1,4 @@
-use crate::{external_error, BinaryOp, Value, ValueMap, ValueNumber};
+use crate::{runtime_error, BinaryOp, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -10,11 +10,11 @@ pub fn make_module() -> ValueMap {
             match value {
                 Bool(b) => {
                     if !b {
-                        return external_error!("Assertion failed");
+                        return runtime_error!("Assertion failed");
                     }
                 }
                 unexpected => {
-                    return external_error!(
+                    return runtime_error!(
                         "assert expects booleans as arguments, found '{}'",
                         unexpected.type_as_string(),
                     )
@@ -34,16 +34,16 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
-                    external_error!("Assertion failed, '{}' is not equal to '{}'", a, b)
+                    runtime_error!("Assertion failed, '{}' is not equal to '{}'", a, b)
                 }
-                Ok(unexpected) => external_error!(
+                Ok(unexpected) => runtime_error!(
                     "assert_eq: expected Bool from comparison, found '{}'",
                     unexpected.type_as_string()
                 ),
                 Err(e) => Err(e.with_prefix("assert_eq")),
             }
         }
-        _ => external_error!("assert_eq expects two arguments"),
+        _ => runtime_error!("assert_eq expects two arguments"),
     });
 
     result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
@@ -56,16 +56,16 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
-                    external_error!("Assertion failed, '{}' should not be equal to '{}'", a, b)
+                    runtime_error!("Assertion failed, '{}' should not be equal to '{}'", a, b)
                 }
-                Ok(unexpected) => external_error!(
+                Ok(unexpected) => runtime_error!(
                     "assert_ne: expected Bool from comparison, found '{}'",
                     unexpected.type_as_string()
                 ),
                 Err(e) => Err(e.with_prefix("assert_ne")),
             }
         }
-        _ => external_error!("assert_ne expects two arguments"),
+        _ => runtime_error!("assert_ne expects two arguments"),
     });
 
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
@@ -73,7 +73,7 @@ pub fn make_module() -> ValueMap {
             if number_near(*a, *b, *allowed_diff) {
                 Ok(Empty)
             } else {
-                external_error!(
+                runtime_error!(
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
@@ -86,7 +86,7 @@ pub fn make_module() -> ValueMap {
             if f64_near(a.0, b.0, allowed_diff) && f64_near(a.1, b.1, allowed_diff) {
                 Ok(Empty)
             } else {
-                external_error!(
+                runtime_error!(
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
@@ -103,7 +103,7 @@ pub fn make_module() -> ValueMap {
             {
                 Ok(Empty)
             } else {
-                external_error!(
+                runtime_error!(
                     "Assertion failed, '{}' and '{}' are not within {} of each other",
                     a,
                     b,
@@ -111,13 +111,13 @@ pub fn make_module() -> ValueMap {
                 )
             }
         }
-        [a, b, c] => external_error!(
+        [a, b, c] => runtime_error!(
             "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
             a.type_as_string(),
             b.type_as_string(),
             c.type_as_string(),
         ),
-        _ => external_error!("assert_eq expects three arguments"),
+        _ => runtime_error!("assert_eq expects three arguments"),
     });
 
     result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
@@ -125,7 +125,7 @@ pub fn make_module() -> ValueMap {
             let tests = tests.clone();
             vm.run_tests(tests)
         }
-        _ => external_error!("run_tests expects a map as argument"),
+        _ => runtime_error!("run_tests expects a map as argument"),
     });
 
     result

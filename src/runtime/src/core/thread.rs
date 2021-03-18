@@ -1,5 +1,5 @@
 use {
-    crate::{external_error, ExternalValue, RuntimeError, Value, ValueMap},
+    crate::{runtime_error, ExternalValue, RuntimeError, Value, ValueMap},
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
 
@@ -25,29 +25,29 @@ pub fn make_module() -> ValueMap {
 
             Ok(Thread::make_thread_map(join_handle))
         }
-        [unexpected] => external_error!(
+        [unexpected] => runtime_error!(
             "thread.create: Expected callable value as argument, found '{}'",
             unexpected.type_as_string(),
         ),
-        _ => external_error!("thread.create: Expected callable value as argument"),
+        _ => runtime_error!("thread.create: Expected callable value as argument"),
     });
 
     #[cfg(target_arch = "wasm32")]
     result.add_fn("create", |_, _| {
-        external_error!("thread.create: Not supported on this platform")
+        runtime_error!("thread.create: Not supported on this platform")
     });
 
     result.add_fn("sleep", |vm, args| match vm.get_args(args) {
         [Number(seconds)] => {
             if *seconds < 0.0 {
-                return external_error!("thread.sleep: negative durations aren't supported");
+                return runtime_error!("thread.sleep: negative durations aren't supported");
             }
 
             thread::sleep(Duration::from_millis((f64::from(seconds) * 1000.0) as u64));
 
             Ok(Empty)
         }
-        _ => external_error!("thread.sleep: Expected number as argument"),
+        _ => runtime_error!("thread.sleep: Expected number as argument"),
     });
 
     result
@@ -70,7 +70,7 @@ impl Thread {
                 match result {
                     Ok(Ok(result)) => Ok(result),
                     Ok(Err(koto_error)) => Err(koto_error),
-                    Err(_) => external_error!("thread.join: thread panicked"),
+                    Err(_) => runtime_error!("thread.join: thread panicked"),
                 }
             })
         });

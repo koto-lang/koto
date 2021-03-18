@@ -1,7 +1,7 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        external_error, get_external_instance, is_external_instance, visit_external_value,
+        get_external_instance, is_external_instance, runtime_error, visit_external_value,
         ExternalValue, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::fmt,
@@ -19,11 +19,11 @@ pub fn make_module() -> ValueMap {
                 poetry.add_links(text);
                 Ok(Map(KotoPoetry::make_value_map(poetry)))
             }
-            [unexpected] => external_error!(
+            [unexpected] => runtime_error!(
                 "poetry.new: Expected a String as argument, found '{}'",
                 unexpected.type_as_string(),
             ),
-            _ => external_error!("poetry.new: Expected a String as argument"),
+            _ => runtime_error!("poetry.new: Expected a String as argument"),
         }
     });
 
@@ -47,7 +47,7 @@ impl KotoPoetry {
                         poetry.0.add_links(text);
                         Ok(Empty)
                     }
-                    _ => external_error!("poetry.add_links: Expected a String as argument"),
+                    _ => runtime_error!("poetry.add_links: Expected a String as argument"),
                 }
             })
         });
@@ -73,10 +73,10 @@ impl KotoPoetry {
 
                     Ok(Iterator(ValueIterator::make_external(iter)))
                 } else {
-                    external_error!("poetry.iter: Missing Poetry instance")
+                    runtime_error!("poetry.iter: Missing Poetry instance")
                 }
             }
-            _ => external_error!("poetry.iter: Expected Poetry instance as argument"),
+            _ => runtime_error!("poetry.iter: Expected Poetry instance as argument"),
         });
 
         result.add_instance_fn("next_word", |vm, args| {

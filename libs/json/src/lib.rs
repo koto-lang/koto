@@ -1,7 +1,7 @@
 //! A Koto language module for working with JSON data
 
 use {
-    koto_runtime::{external_error, Value, ValueList, ValueMap, ValueVec},
+    koto_runtime::{runtime_error, Value, ValueList, ValueMap, ValueVec},
     koto_serialize::SerializableValue,
     serde_json::Value as JsonValue,
 };
@@ -49,22 +49,22 @@ pub fn make_module() -> ValueMap {
         [Str(s)] => match serde_json::from_str(&s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
-                Err(e) => external_error!("json.from_string: Error while parsing input: {}", e),
+                Err(e) => runtime_error!("json.from_string: Error while parsing input: {}", e),
             },
-            Err(e) => external_error!(
+            Err(e) => runtime_error!(
                 "json.from_string: Error while parsing input: {}",
                 e.to_string()
             ),
         },
-        _ => external_error!("json.from_string expects a string as argument"),
+        _ => runtime_error!("json.from_string expects a string as argument"),
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [value] => match serde_json::to_string_pretty(&SerializableValue(value)) {
             Ok(result) => Ok(Str(result.into())),
-            Err(e) => external_error!("json.to_string: {}", e),
+            Err(e) => runtime_error!("json.to_string: {}", e),
         },
-        _ => external_error!("json.to_string expects a single argument"),
+        _ => runtime_error!("json.to_string expects a single argument"),
     });
 
     result

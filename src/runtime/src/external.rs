@@ -1,5 +1,5 @@
 use {
-    crate::{external_error, RuntimeResult, Value, ValueKey, ValueMap, Vm},
+    crate::{runtime_error, RuntimeResult, Value, ValueKey, ValueMap, Vm},
     downcast_rs::impl_downcast,
     std::{
         fmt,
@@ -88,13 +88,13 @@ where
             let mut value = maybe_external.as_ref().write();
             match value.downcast_mut::<T>() {
                 Some(external) => f(external),
-                None => external_error!(
+                None => runtime_error!(
                     "Invalid type for external value, found '{}'",
                     value.value_type(),
                 ),
             }
         }
-        _ => external_error!("External value not found"),
+        _ => runtime_error!("External value not found"),
     }
 }
 
@@ -124,7 +124,7 @@ macro_rules! get_external_instance {
             [Value::Map(instance), ..] => {
                 $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
             }
-            _ => $crate::external_error!(
+            _ => $crate::runtime_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
                 $fn_name,

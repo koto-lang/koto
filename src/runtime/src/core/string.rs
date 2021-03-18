@@ -2,7 +2,7 @@ mod format;
 
 use {
     crate::{
-        external_error,
+        runtime_error,
         value_iterator::{ValueIterator, ValueIteratorOutput},
         Value, ValueMap,
     },
@@ -16,22 +16,22 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Iterator(ValueIterator::with_string(s.clone()))),
-        _ => external_error!("string.chars: Expected a string as argument"),
+        _ => runtime_error!("string.chars: Expected a string as argument"),
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_str()))),
-        _ => external_error!("string.contains: Expected two strings as arguments"),
+        _ => runtime_error!("string.contains: Expected two strings as arguments"),
     });
 
     result.add_fn("escape", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
-        _ => external_error!("string.escape: Expected string as argument"),
+        _ => runtime_error!("string.escape: Expected string as argument"),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Bool(s.is_empty())),
-        _ => external_error!("string.is_empty: Expected string as argument"),
+        _ => runtime_error!("string.is_empty: Expected string as argument"),
     });
 
     result.add_fn("ends_with", |vm, args| match vm.get_args(args) {
@@ -39,7 +39,7 @@ pub fn make_module() -> ValueMap {
             let result = s.as_str().ends_with(pattern.as_str());
             Ok(Bool(result))
         }
-        _ => external_error!("string.ends_with: Expected two strings as arguments"),
+        _ => runtime_error!("string.ends_with: Expected two strings as arguments"),
     });
 
     result.add_fn("format", |vm, args| match vm.get_args(args) {
@@ -53,7 +53,7 @@ pub fn make_module() -> ValueMap {
                 Err(error) => Err(error.with_prefix("string.format")),
             }
         }
-        _ => external_error!("string.format: Expected a string as first argument"),
+        _ => runtime_error!("string.format: Expected a string as first argument"),
     });
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
@@ -85,7 +85,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(iterator))
         }
-        _ => external_error!("string.lines: Expected string as argument"),
+        _ => runtime_error!("string.lines: Expected string as argument"),
     });
 
     result.add_fn("print", |vm, args| {
@@ -100,14 +100,14 @@ pub fn make_module() -> ValueMap {
                     Err(error) => return Err(error.with_prefix("string.print")),
                 }
             }
-            _ => return external_error!("string.print: Expected a string as first argument"),
+            _ => return runtime_error!("string.print: Expected a string as first argument"),
         }
         Ok(Empty)
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Number(s.graphemes(true).count().into())),
-        _ => external_error!("string.size: Expected string as argument"),
+        _ => runtime_error!("string.size: Expected string as argument"),
     });
 
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
@@ -127,7 +127,7 @@ pub fn make_module() -> ValueMap {
             };
             Ok(result)
         }
-        _ => external_error!("string.slice: Expected a string and slice index as arguments"),
+        _ => runtime_error!("string.slice: Expected a string and slice index as arguments"),
     });
 
     result.add_fn("split", |vm, args| match vm.get_args(args) {
@@ -154,7 +154,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Iterator(iterator))
         }
-        _ => external_error!("string.split: Expected two strings as arguments"),
+        _ => runtime_error!("string.split: Expected two strings as arguments"),
     });
 
     result.add_fn("starts_with", |vm, args| match vm.get_args(args) {
@@ -162,7 +162,7 @@ pub fn make_module() -> ValueMap {
             let result = s.as_str().starts_with(pattern.as_str());
             Ok(Bool(result))
         }
-        _ => external_error!("string.starts_with: Expected two strings as arguments"),
+        _ => runtime_error!("string.starts_with: Expected two strings as arguments"),
     });
 
     result.add_fn("to_lowercase", |vm, args| match vm.get_args(args) {
@@ -170,7 +170,7 @@ pub fn make_module() -> ValueMap {
             let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
             Ok(Str(result.into()))
         }
-        _ => external_error!("string.to_lowercase: Expected string as argument"),
+        _ => runtime_error!("string.to_lowercase: Expected string as argument"),
     });
 
     result.add_fn("to_number", |vm, args| match vm.get_args(args) {
@@ -179,11 +179,11 @@ pub fn make_module() -> ValueMap {
             Err(_) => match s.parse::<f64>() {
                 Ok(n) => Ok(Number(n.into())),
                 Err(_) => {
-                    external_error!("string.to_number: Failed to convert '{}'", s)
+                    runtime_error!("string.to_number: Failed to convert '{}'", s)
                 }
             },
         },
-        _ => external_error!("string.to_number: Expected string as argument"),
+        _ => runtime_error!("string.to_number: Expected string as argument"),
     });
 
     result.add_fn("to_uppercase", |vm, args| match vm.get_args(args) {
@@ -191,7 +191,7 @@ pub fn make_module() -> ValueMap {
             let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
             Ok(Str(result.into()))
         }
-        _ => external_error!("string.to_uppercase: Expected string as argument"),
+        _ => runtime_error!("string.to_uppercase: Expected string as argument"),
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {
@@ -206,7 +206,7 @@ pub fn make_module() -> ValueMap {
 
             Ok(Str(result))
         }
-        _ => external_error!("string.trim: Expected string as argument"),
+        _ => runtime_error!("string.trim: Expected string as argument"),
     });
 
     result

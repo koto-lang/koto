@@ -1,4 +1,4 @@
-use crate::{external_error, Value, ValueMap, ValueNumber};
+use crate::{runtime_error, Value, ValueMap, ValueNumber};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -12,12 +12,12 @@ pub fn make_module() -> ValueMap {
         ($name:expr, $fn:ident) => {
             result.add_fn($name, |vm, args| match vm.get_args(args) {
                 [Number(n)] => Ok(Number(n.$fn())),
-                [other] => external_error!(
+                [other] => runtime_error!(
                     "number.{}: Expected Number as argument, found '{}'",
                     $name,
                     other.type_as_string()
                 ),
-                _ => external_error!("number.{} expects a Number as argument", $name),
+                _ => runtime_error!("number.{} expects a Number as argument", $name),
             });
         };
     }
@@ -29,12 +29,12 @@ pub fn make_module() -> ValueMap {
         ($name:expr, $fn:ident) => {
             result.add_fn($name, |vm, args| match vm.get_args(args) {
                 [Number(n)] => Ok(Number(f64::from(n).$fn().into())),
-                [other] => external_error!(
+                [other] => runtime_error!(
                     "number.{} expects a Number as argument, found {}",
                     $name,
                     other.type_as_string(),
                 ),
-                _ => external_error!("number.{} expects a Number as argument", $name),
+                _ => runtime_error!("number.{} expects a Number as argument", $name),
             })
         };
     }
@@ -45,7 +45,7 @@ pub fn make_module() -> ValueMap {
                 use ValueNumber::I64;
                 match vm.get_args(args) {
                     [Number(I64(a)), Number(I64(b))] => Ok(Number((a $op b).into())),
-                    _ => external_error!(
+                    _ => runtime_error!(
                         "number.{} expects two Integers as arguments",
                         stringify!($name)
                     ),
@@ -60,7 +60,7 @@ pub fn make_module() -> ValueMap {
                 use ValueNumber::I64;
                 match vm.get_args(args) {
                     [Number(I64(a)), Number(I64(b))] if *b >= 0 => Ok(Number((a $op b).into())),
-                    _ => external_error!(
+                    _ => runtime_error!(
                         "number.{} expects two Integers as arguments,
                          with a non-negative second argument",
                         stringify!($name)
@@ -79,7 +79,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("clamp", |vm, args| match vm.get_args(args) {
         [Number(x), Number(a), Number(b)] => Ok(Number(*a.max(b.min(x)))),
-        _ => external_error!("number.clamp: Expected three numbers as arguments"),
+        _ => runtime_error!("number.clamp: Expected three numbers as arguments"),
     });
 
     number_f64_fn!(cos);
@@ -96,7 +96,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("is_nan", |vm, args| match vm.get_args(args) {
         [Number(n)] => Ok(Bool(n.is_nan())),
-        _ => external_error!("number.is_nan: Expected Number as argument"),
+        _ => runtime_error!("number.is_nan: Expected Number as argument"),
     });
 
     number_f64_fn!(ln);
@@ -105,12 +105,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(*a.max(b))),
-        _ => external_error!("number.max: Expected two numbers as arguments"),
+        _ => runtime_error!("number.max: Expected two numbers as arguments"),
     });
 
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(*a.min(b))),
-        _ => external_error!("number.min: Expected two numbers as arguments"),
+        _ => runtime_error!("number.min: Expected two numbers as arguments"),
     });
 
     result.add_value("nan", Number(std::f64::NAN.into()));
@@ -118,7 +118,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("flip_bits", |vm, args| match vm.get_args(args) {
         [Number(ValueNumber::I64(n))] => Ok(Number((!n).into())),
-        _ => external_error!("number.flip_bits: Expected integer as argument"),
+        _ => runtime_error!("number.flip_bits: Expected integer as argument"),
     });
     bitwise_fn!(or, |);
 
@@ -126,7 +126,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("pow", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(a.pow(*b))),
-        _ => external_error!("number.pow: Expected two numbers as arguments"),
+        _ => runtime_error!("number.pow: Expected two numbers as arguments"),
     });
 
     number_f64_fn!("radians", to_radians);
@@ -143,12 +143,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_float", |vm, args| match vm.get_args(args) {
         [Number(n)] => Ok(Number(f64::from(n).into())),
-        _ => external_error!("number.to_float: Expected Number as argument"),
+        _ => runtime_error!("number.to_float: Expected Number as argument"),
     });
 
     result.add_fn("to_int", |vm, args| match vm.get_args(args) {
         [Number(n)] => Ok(Number(i64::from(n).into())),
-        _ => external_error!("number.to_int: Expected Number as argument"),
+        _ => runtime_error!("number.to_int: Expected Number as argument"),
     });
 
     result.add_value("tau", Number(std::f64::consts::TAU.into()));
