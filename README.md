@@ -138,6 +138,6 @@ Hello, World!
 
 ## Editor Support
 
-### Vim / Neovim
-
-[koto.vim](https://github.com/koto-lang/koto.vim)
+* [Visual Studio Code](https://github.com/koto-lang/koto-vscode)
+* [Vim / Neovim](https://github.com/koto-lang/koto.vim)
+* [Sublime Text](https://github.com/koto-lang/koto-sublime)
