@@ -1,6 +1,6 @@
 [package]
 name = "koto_lexer"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"

@@ -1,6 +1,6 @@
 [package]
 name = "koto_cli"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -18,11 +18,11 @@ default = []
 jemalloc = ["jemallocator"]
 
 [dependencies]
-koto = { path = "../koto", version = "^0.6.0"}
-koto_json = { path = "../../libs/json", version = "^0.6.0"}
-koto_random = { path = "../../libs/random", version = "^0.6.0"}
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.6.0"}
-koto_toml = { path = "../../libs/toml", version = "^0.6.0"}
+koto = { path = "../koto", version = "^0.7.0"}
+koto_json = { path = "../../libs/json", version = "^0.7.0"}
+koto_random = { path = "../../libs/random", version = "^0.7.0"}
+koto_tempfile = { path = "../../libs/tempfile", version = "^0.7.0"}
+koto_toml = { path = "../../libs/toml", version = "^0.7.0"}
 
 termion = "1.5.5"
 

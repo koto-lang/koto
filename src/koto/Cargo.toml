@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,9 +14,9 @@ default = []
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.6.0"}
-koto_parser = { path = "../parser", version = "^0.6.0"}
-koto_runtime = { path = "../runtime", version = "^0.6.0"}
+koto_bytecode = { path = "../bytecode", version = "^0.7.0"}
+koto_parser = { path = "../parser", version = "^0.7.0"}
+koto_runtime = { path = "../runtime", version = "^0.7.0"}
 
 [target.'cfg(not(wasm32))'.dependencies]
 parking_lot = "0.11.1"

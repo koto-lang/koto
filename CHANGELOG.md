@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.7.0] 2021.03.27
+
 ### Added
 
 - Direct access to the module's export map is now allowed via `koto.exports()`.
