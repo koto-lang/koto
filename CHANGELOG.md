@@ -39,8 +39,8 @@
       @display: |self| "Che errore! - {}".format self.data
     ```
 
-
 ### Changed
+
 - Captured values in functions are now immutable.
   - e.g.
     ```
@@ -65,15 +65,16 @@
 - Keywords can now be used as identifiers in lookups, e.g. `foo.and()` was
   previously disallowed.
 
-
 ## [0.6.0] 2021.01.21
 
 ### Added
+
 - Core Ops
   - `range.expanded`
   - `range.union`
 
 ### Changed
+
 - Function calls without parentheses now require commas to separate arguments.
   - e.g. `f a b c` now needs to be written as `f a, b, c`.
   - Care needs to be taken when adapting programs to this change.
@@ -96,21 +97,21 @@
   e.g. `1+1==2` would previously trigger a parsing error.
 
 ### Fixed
+
 - Error messages produced in the functor passed to `iterator.fold` were reported
   as coming from `iterator.each`.
 - Error messages associated with accessed IDs now have the correct spans.
   - e.g.
     ```
     x = (1..10).fold 42
-
     ```
-    Previously the error (wrong arguments for `.fold`) would be connected with
-    the range rather than the function call.
-
+    - Previously the error (wrong arguments for `.fold`) would be connected with
+      the range rather than the function call.
 
 ## [0.5.0] 2020.12.17
 
 ### Added
+
 - Core Ops
   - `iterator.chain`
   - `iterator.product`
@@ -147,7 +148,7 @@
         n == 1 then "one"
         else "???"
       ```
-    - *Note* (20.12.2020): After v0.5.0 this form of expression was renamed to
+    - _Note_ (20.12.2020): After v0.5.0 this form of expression was renamed to
       `switch`.
   - The results of list/map accesses or function calls can be used as match
     patterns.
@@ -176,6 +177,7 @@
     ```
 
 ### Changed
+
 - `thread.join` now returns the result of the thread's function.
 - Numbers now can either be integers or floats.
   - The integer representation is `i64`.
@@ -194,8 +196,8 @@
   sorting behaviour.
 - The ordering of entries is now preserved when calling `map.remove`.
 
-
 ### Fixed
+
 - `else` and `else if` blocks with unexpected indentation will now trigger a
   parser error.
 - Multi-assignment of values where the values are used in the expressions now
@@ -212,11 +214,10 @@
   rather than `1.e` followed by `xp()`.
 - `string.split` now works correctly when used with multi-character patterns.
 
-
-
 ## [0.4.0] 2020.12.10
 
 ### Added
+
 - Core Ops
   - `iterator.min_max`
   - `list.copy`
@@ -237,18 +238,20 @@
     ```
 
 ### Fixed
+
 - iterator.consume and iterator.count now propagate errors correctly.
 - Wildcard function args that weren't in last position would cause arguments to
   be assigned to the wrong IDs.
 
 ### Removed
+
 - The copy expression has been removed in favour of copy / deep_copy operations
   on container types.
-
 
 ## [0.3.0] - 2020.12.06
 
 ### Added
+
 - Core Ops
   - `iterator.all`
   - `iterator.any`
@@ -260,6 +263,7 @@
 - Strings can now be used with the ordered comparison operators.
 
 ### Changed
+
 - Map blocks can now be used in return and yield expressions.
 - `iterator.each` and `iterator.keep` now collect iterator pairs into tuples.
 - Space-separated function calls are allowed in function args when the arg is on
@@ -268,30 +272,34 @@
   - e.g. `(1 + 1)..(2 + 2)` can now be written as `1 + 1..2 + 2`.
 
 ### Removed
+
 - Vim support has been moved to [its own repo][vim].
 
 ### Fixed
+
 - `iterator.fold`, `list.retain`, and `list.transform` could cause runtime
   errors or stack overflows when being called after other functions.
   - [Bug report](https://github.com/koto-lang/koto/issues/6)
 
 [vim]: https://github.com/koto-lang/koto.vim
 
-
 ## [0.2.0] - 2020.12.02
 
 ### Added
+
 - `iterator.count`
 - `string.chars`
 - `tuple.contains`
 
 ### Changed
+
 - `koto.script_dir` is now canonicalized and includes a trailing slash.
 - `koto.script_path` is now canonicalized.
 
 ### Fixed
+
 - Multiline strings broke following spans.
 
-
 ## [0.1.0] - 2020.12.01
+
 - Initial release
