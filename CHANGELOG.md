@@ -64,6 +64,7 @@
 - Runtime errors now provide a full backtrace.
 - Keywords can now be used as identifiers in lookups, e.g. `foo.and()` was
   previously disallowed.
+- Maps are now printed in the REPL with keys only.
 
 ## [0.6.0] 2021.01.21
 

@@ -209,26 +209,32 @@ impl fmt::Display for Value {
         use Value::*;
         match self {
             Empty => f.write_str("()"),
-            Bool(b) => f.write_str(&b.to_string()),
-            Number(n) => f.write_str(&n.to_string()),
-            Num2(n) => f.write_str(&n.to_string()),
-            Num4(n) => f.write_str(&n.to_string()),
+            Bool(b) => write!(f, "{}", b),
+            Number(n) => write!(f, "{}", n),
+            Num2(n) => write!(f, "{}", n),
+            Num4(n) => write!(f, "{}", n),
             Str(s) => {
                 if f.alternate() {
-                    write!(f, "\"{}\"", s)
+                    write!(f, "{:#}", s)
                 } else {
-                    f.write_str(s)
+                    write!(f, "{}", s)
                 }
             }
-            List(l) => f.write_str(&l.to_string()),
-            Tuple(t) => f.write_str(&t.to_string()),
-            Map(m) => f.write_str(&m.to_string()),
+            List(l) => write!(f, "{}", l),
+            Tuple(t) => write!(f, "{}", t),
+            Map(m) => {
+                if f.alternate() {
+                    write!(f, "{:#}", m)
+                } else {
+                    write!(f, "{}", m)
+                }
+            }
             Range(IntRange { start, end }) => write!(f, "{}..{}", start, end),
             Function(_) => write!(f, "||"),
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(ref value) => f.write_str(&value.read().to_string()),
+            ExternalValue(ref value) => write!(f, "{}", value.read()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
