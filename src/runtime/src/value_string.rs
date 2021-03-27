@@ -91,6 +91,10 @@ impl fmt::Debug for ValueString {
 
 impl fmt::Display for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self)
+        if f.alternate() {
+            write!(f, "\"{}\"", self.as_str())
+        } else {
+            write!(f, "{}", self.as_str())
+        }
     }
 }

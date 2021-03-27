@@ -258,7 +258,7 @@ impl Repl {
                         );
                     }
                     match self.koto.run() {
-                        Ok(result) => writeln!(stdout, "{}", result).unwrap(),
+                        Ok(result) => writeln!(stdout, "{:#}", result).unwrap(),
                         Err(error) => self.print_error(stdout, tty, &error),
                     }
                     self.continued_lines.clear();
