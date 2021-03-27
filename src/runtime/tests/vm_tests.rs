@@ -69,16 +69,13 @@ mod vm {
                     }
                     Err(e) => {
                         print_chunk(script, vm.chunk());
-                        panic!(format!(
-                            "Error while comparing output value: {}",
-                            e.to_string()
-                        ));
+                        panic!("Error while comparing output value: {}", e.to_string());
                     }
                 }
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
-                panic!(format!("Error while running script: {}", e.to_string()));
+                panic!("Error while running script: {}", e.to_string());
             }
         }
     }

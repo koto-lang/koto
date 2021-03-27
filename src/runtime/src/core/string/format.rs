@@ -311,7 +311,7 @@ mod tests {
             let mut vm = Vm::default();
             match format_string(&mut vm, format, args) {
                 Ok(result) => assert_eq!(result, expected),
-                Err(error) => panic!(error),
+                Err(error) => panic!("{}", error),
             }
         }
 

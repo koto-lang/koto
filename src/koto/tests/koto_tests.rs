@@ -35,7 +35,7 @@ fn load_and_run_script(script_path: &str) {
     path.push("../../koto/tests");
     path.push(script_path);
     if !path.exists() {
-        panic!(format!("Path doesn't exist: {:?}", path));
+        panic!("Path doesn't exist: {:?}", path);
     }
     let script =
         read_to_string(&path).unwrap_or_else(|_| panic!("Unable to load path '{:?}'", &path));

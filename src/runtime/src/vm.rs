@@ -2282,7 +2282,7 @@ impl Vm {
                 )?;
                 self.set_register(result_register, op);
             }};
-        };
+        }
 
         match map_value {
             Map(map) => match map.contents().data.get_with_string(&key_string) {

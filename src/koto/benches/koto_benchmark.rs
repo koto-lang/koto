@@ -41,7 +41,7 @@ impl BenchmarkRunner {
 
     fn run(&mut self) {
         if let Err(error) = self.runtime.run() {
-            panic!(error);
+            panic!("{}", error);
         }
     }
 }

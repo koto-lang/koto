@@ -53,7 +53,7 @@ mod vm {
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
-                panic!(format!("Error while running script: {}", e.to_string()));
+                panic!("Error while running script: {}", e.to_string());
             }
         }
     }

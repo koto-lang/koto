@@ -17,7 +17,7 @@ macro_rules! internal_error {
         let error = make_internal_error!($error, $parser);
 
         #[cfg(feature = "panic_on_parser_error")]
-        panic!(error);
+        panic!("{}", error);
 
         #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
@@ -29,7 +29,7 @@ macro_rules! parser_error {
         let error = ParserError::new($error_type::$error.into(), $parser.lexer.span());
 
         #[cfg(feature = "panic_on_parser_error")]
-        panic!(error);
+        panic!("{}", error);
 
         #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
