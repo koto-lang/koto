@@ -24,22 +24,17 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("string.contains: Expected two strings as arguments"),
     });
 
-    result.add_fn("escape", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
-        _ => runtime_error!("string.escape: Expected string as argument"),
-    });
-
-    result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Str(s)] => Ok(Bool(s.is_empty())),
-        _ => runtime_error!("string.is_empty: Expected string as argument"),
-    });
-
     result.add_fn("ends_with", |vm, args| match vm.get_args(args) {
         [Str(s), Str(pattern)] => {
             let result = s.as_str().ends_with(pattern.as_str());
             Ok(Bool(result))
         }
         _ => runtime_error!("string.ends_with: Expected two strings as arguments"),
+    });
+
+    result.add_fn("escape", |vm, args| match vm.get_args(args) {
+        [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
+        _ => runtime_error!("string.escape: Expected string as argument"),
     });
 
     result.add_fn("format", |vm, args| match vm.get_args(args) {
@@ -54,6 +49,11 @@ pub fn make_module() -> ValueMap {
             }
         }
         _ => runtime_error!("string.format: Expected a string as first argument"),
+    });
+
+    result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
+        [Str(s)] => Ok(Bool(s.is_empty())),
+        _ => runtime_error!("string.is_empty: Expected string as argument"),
     });
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
