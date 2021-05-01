@@ -26,9 +26,10 @@ fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
     let mut output_lines = stdout.lines().skip_while(|line| line != &"» ");
 
     for (_, expected) in inputs_and_expected_outputs.iter() {
-        output_lines.next(); // prompt (empty line in test)
+        output_lines.next(); // Skip empty line
         if let Some(expected) = expected {
             assert_eq!(output_lines.next().expect("Missing output"), *expected);
+            output_lines.next(); // Skip empty line
         }
     }
 }

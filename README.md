@@ -82,6 +82,9 @@ that are a good starting point for getting to know the language.
 - [Koto benchmark scripts](./koto/benches/)
 - [Example Rust application with Koto bindings](./examples/poetry/)
 
+Reference documentation for Koto's core library can be found
+[here](./docs/reference/core_lib/).
+
 ### Installation
 
 The most recent release of the Koto CLI can be installed with
@@ -105,6 +108,8 @@ Welcome to Koto v0.1.0
 Hello, World!
 ()
 ```
+
+A help system is included in the REPL.  Run `help` for instructions.
 
 ## Language Goals
 

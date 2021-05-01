@@ -24,7 +24,13 @@ koto_random = { path = "../../libs/random", version = "^0.7.0"}
 koto_tempfile = { path = "../../libs/tempfile", version = "^0.7.0"}
 koto_toml = { path = "../../libs/toml", version = "^0.7.0"}
 
+indexmap = "1.4.0"
 termion = "1.5.5"
+
+[dependencies.pulldown-cmark]
+# Markdown parsing
+version = "0.8.0"
+default-features = false
 
 [dependencies.pico-args]
 version = "0.3.4"

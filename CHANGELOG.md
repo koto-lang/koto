@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- The REPL now contains a help system that provides reference documentation for
+  the core library.
+
 ## [0.7.0] 2021.03.27
 
 ### Added
