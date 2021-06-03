@@ -7,6 +7,7 @@ use {
     },
 };
 
+//TODO: Use a once_cell::sync::Lazy to amortize the cost
 pub fn make_file_map() -> ValueMap {
     use Value::{Number, Str};
 
@@ -104,7 +105,7 @@ pub fn make_file_map() -> ValueMap {
 }
 
 pub fn make_module() -> ValueMap {
-    use Value::{Bool, Map, Str};
+    use Value::{Bool, Str};
 
     let mut result = ValueMap::new();
 
@@ -129,16 +130,14 @@ pub fn make_module() -> ValueMap {
                     Ok(file) => {
                         let file_map = make_file_map();
 
-                        file_map.contents_mut().data.insert(
-                            Value::ExternalDataId.into(),
-                            Value::make_external_value(File {
+                        Ok(Value::make_external_value(
+                            File {
                                 file,
                                 path: path.to_path_buf(),
                                 temporary: false,
-                            }),
-                        );
-
-                        Ok(Map(file_map))
+                            },
+                            file_map
+                        ))
                     }
                     Err(e) => {
                         return runtime_error!("io.open: Error while opening path: {}", e);
@@ -159,18 +158,16 @@ pub fn make_module() -> ValueMap {
                 let path = Path::new(path.as_str());
                 match fs::File::create(&path) {
                     Ok(file) => {
-                        let mut file_map = make_file_map();
+                        let file_map = make_file_map();
 
-                        file_map.insert(
-                            Value::ExternalDataId.into(),
-                            Value::make_external_value(File {
+                        Ok(Value::make_external_value(
+                            File {
                                 file,
                                 path: path.to_path_buf(),
                                 temporary: false,
-                            }),
-                        );
-
-                        Ok(Map(file_map))
+                            },
+                            file_map
+                        ))
                     }
                     Err(e) => {
                         return runtime_error!("io.create: Error while creating file: {}", e);

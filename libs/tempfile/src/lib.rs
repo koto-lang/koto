@@ -36,19 +36,17 @@ pub fn make_module() -> ValueMap {
                     return runtime_error!("io.temp_file: Error while creating temp file: {}", e);
                 }
             };
+            
+            //TODO: use once_cell::sync::Lazy to amortize cost
+            let file_map = make_file_map();
 
-            let mut file_map = make_file_map();
-
-            file_map.insert(
-                Value::ExternalDataId.into(),
-                Value::make_external_value(File {
+            Ok(Value::make_external_value(File {
                     file: temp_file,
                     path,
                     temporary: true,
-                }),
-            );
-
-            Ok(Map(file_map))
+                },
+                file_map,
+            ))
         }
     });
 

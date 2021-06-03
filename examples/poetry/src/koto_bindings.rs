@@ -1,14 +1,14 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        get_external_instance, is_external_instance, runtime_error, visit_external_value,
-        ExternalValue, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        get_external_instance, is_external_instance, runtime_error,
+        visit_external_value, ExternalValue, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::fmt,
 };
 
 pub fn make_module() -> ValueMap {
-    use Value::{Map, Str};
+    use Value::Str;
 
     let mut result = ValueMap::new();
 
@@ -17,7 +17,8 @@ pub fn make_module() -> ValueMap {
             [Str(text)] => {
                 let mut poetry = Poetry::default();
                 poetry.add_links(text);
-                Ok(Map(KotoPoetry::make_value_map(poetry)))
+                //TODO: once_cell::sync::Lazy
+                Ok(Value::make_external_value(KotoPoetry(poetry), KotoPoetry::make_value_map()))
             }
             [unexpected] => runtime_error!(
                 "poetry.new: Expected a String as argument, found '{}'",
@@ -26,7 +27,7 @@ pub fn make_module() -> ValueMap {
             _ => runtime_error!("poetry.new: Expected a String as argument"),
         }
     });
-
+    
     result
 }
 
@@ -34,7 +35,7 @@ pub fn make_module() -> ValueMap {
 pub struct KotoPoetry(Poetry);
 
 impl KotoPoetry {
-    fn make_value_map(poetry: Poetry) -> ValueMap {
+    fn make_value_map() -> ValueMap {
         use Value::*;
 
         let mut result = ValueMap::default();
@@ -90,10 +91,10 @@ impl KotoPoetry {
             })
         });
 
-        result.insert(
+        /*result.insert(
             Value::ExternalDataId.into(),
             Value::make_external_value(Self(poetry)),
-        );
+        );*/
         result
     }
 }

@@ -13,17 +13,21 @@ pub fn make_module() -> ValueMap {
     use Value::*;
 
     // The random module contains a default generator
-    let mut result = ChaChaRng::make_value_map(ChaCha20Rng::from_entropy());
-
+    let mut result = ChaChaRng::make_value_map();
     // random.generator is available to create custom generators
-    result.add_fn("generator", |vm, args| match vm.get_args(args) {
-        [] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::from_entropy()))),
-        [Number(n)] => Ok(Map(ChaChaRng::make_value_map(ChaCha20Rng::seed_from_u64(
-            n.to_bits(),
-        )))),
-        _ => runtime_error!("random.generator - expected no arguments, or seed number"),
+    result.add_fn("generator", {
+        let vtable = result.clone();
+        move |vm, args| {
+            match vm.get_args(args) {
+                [] => Ok(Value::make_external_value(ChaChaRng(ChaCha20Rng::from_entropy()), vtable.clone())),
+                [Number(n)] => Ok(Value::make_external_value(
+                        ChaChaRng(ChaCha20Rng::seed_from_u64(n.to_bits())),
+                        vtable.clone()
+                    )),
+                _ => runtime_error!("random.generator - expected no arguments, or seed number"),
+            }
+        }
     });
-
     result
 }
 
@@ -31,47 +35,47 @@ pub fn make_module() -> ValueMap {
 struct ChaChaRng(ChaCha20Rng);
 
 impl ChaChaRng {
-    fn make_value_map(rng: ChaCha20Rng) -> ValueMap {
+    fn make_value_map() -> ValueMap {
         use Value::*;
 
-        let mut result = ValueMap::new();
+        let mut vtable = ValueMap::new();
 
-        result.add_instance_fn("bool", |vm, args| {
+        vtable.add_instance_fn("bool", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "bool", Self, rng, {
                 Ok(Bool(rng.0.gen::<bool>()))
             })
         });
 
-        result.add_instance_fn("number", |vm, args| {
+        vtable.add_instance_fn("number", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "number", Self, rng, {
                 Ok(Number(rng.0.gen::<f64>().into()))
             })
         });
 
-        result.add_instance_fn("number2", |vm, args| {
+        vtable.add_instance_fn("number2", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "number2", Self, rng, {
-                let result = num2::Num2(rng.0.gen::<f64>(), rng.0.gen::<f64>());
-                Ok(Num2(result))
+                let vtable = num2::Num2(rng.0.gen::<f64>(), rng.0.gen::<f64>());
+                Ok(Num2(vtable))
             })
         });
 
-        result.add_instance_fn("number4", |vm, args| {
+        vtable.add_instance_fn("number4", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "number4", Self, rng, {
-                let result = num4::Num4(
+                let vtable = num4::Num4(
                     rng.0.gen::<f32>(),
                     rng.0.gen::<f32>(),
                     rng.0.gen::<f32>(),
                     rng.0.gen::<f32>(),
                 );
-                Ok(Num4(result))
+                Ok(Num4(vtable))
             })
         });
 
-        result.add_instance_fn("pick", |vm, args| {
+        vtable.add_instance_fn("pick", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "number", Self, rng, {
                 match &args[1..] {
@@ -94,7 +98,7 @@ impl ChaChaRng {
             })
         });
 
-        result.add_instance_fn("seed", |vm, args| {
+        vtable.add_instance_fn("seed", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "random", "seed", Self, rng, {
                 match &args[1..] {
@@ -107,11 +111,7 @@ impl ChaChaRng {
             })
         });
 
-        result.insert(
-            Value::ExternalDataId.into(),
-            Value::make_external_value(Self(rng)),
-        );
-        result
+        vtable
     }
 }
 

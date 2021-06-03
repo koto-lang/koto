@@ -84,7 +84,7 @@ where
         .data
         .get(&ValueKey::from(Value::ExternalDataId))
     {
-        Some(Value::ExternalValue(maybe_external)) => {
+        Some(Value::ExternalValue(maybe_external, _)) => {
             let mut value = maybe_external.as_ref().write();
             match value.downcast_mut::<T>() {
                 Some(external) => f(external),
@@ -107,7 +107,7 @@ where
         .data
         .get(&ValueKey::from(Value::ExternalDataId))
     {
-        Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
+        Some(Value::ExternalValue(maybe_external, _)) => maybe_external.as_ref().read().is::<T>(),
         _ => false,
     }
 }

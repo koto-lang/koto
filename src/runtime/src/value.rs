@@ -58,10 +58,10 @@ pub enum Value {
     /// A function that's defined outside of the Koto runtime
     ExternalFunction(ExternalFunction),
 
-    /// A value type that's defined outside of the Koto runtime
+    /// A value type that's defined outside of the Koto runtime, and a map of names to functions
     ///
     /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
-    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+    ExternalValue(Arc<RwLock<dyn ExternalValue>>, ValueMap),
 
     /// The value type used as a key when storing an ExternalValues in a Map
     ExternalDataId,
@@ -142,8 +142,8 @@ impl Value {
         )
     }
 
-    pub fn make_external_value(value: impl ExternalValue) -> Value {
-        Value::ExternalValue(Arc::new(RwLock::new(value)))
+    pub fn make_external_value(value: impl ExternalValue, vtable: ValueMap) -> Value {
+        Value::ExternalValue(Arc::new(RwLock::new(value)), vtable)
     }
 
     /// Returns the 'size' of the value
@@ -190,7 +190,7 @@ impl Value {
             Function { .. } => "Function".to_string(),
             Generator { .. } => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
-            ExternalValue(value) => value.read().value_type(),
+            ExternalValue(value, _) => value.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
             ExternalDataId => "ExternalDataId".to_string(),
@@ -234,7 +234,7 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(ref value) => write!(f, "{}", value.read()),
+            ExternalValue(ref value, _) => write!(f, "{}", value.read()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
