@@ -61,9 +61,10 @@ struct Thread {
 impl Thread {
     #[cfg(not(target_arch = "wasm32"))]
     fn make_thread_map(join_handle: JoinHandle<Result<Value, RuntimeError>>) -> Value {
-        let mut result = ValueMap::new();
+        //TODO: use once_cell::sync::Lazy to make this a one-time cost
+        let mut vtable = ValueMap::new();
 
-        result.add_instance_fn("join", |vm, args| {
+        vtable.add_instance_fn("join", |vm, args| {
             let args = vm.get_args(args);
             get_external_instance!(args, "Thread", "join", Thread, thread, {
                 let result = thread.join_handle.take().unwrap().join();
@@ -75,14 +76,7 @@ impl Thread {
             })
         });
 
-        result.insert(
-            Value::ExternalDataId.into(),
-            Value::make_external_value(Self {
-                join_handle: Some(join_handle),
-            }),
-        );
-
-        Value::Map(result)
+        Value::make_external_value(Self { join_handle: Some(join_handle) }, vtable)
     }
 }
 

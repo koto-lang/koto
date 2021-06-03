@@ -44,7 +44,8 @@ impl<'a> Serialize for SerializableValue<'a> {
                 seq.end()
             }
             Value::Str(string) => s.serialize_str(string),
-            Value::ExternalValue(value) => s.serialize_str(&value.read().to_string()),
+            // TODO: Do we also need to serialize the vtable?
+            Value::ExternalValue(value, _) => s.serialize_str(&value.read().to_string()),
             // TODO, is it ok to do nothing for non-fundamental types like Range and Num4?
             _ => s.serialize_unit(),
         }
