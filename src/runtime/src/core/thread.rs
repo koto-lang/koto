@@ -39,15 +39,19 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("sleep", |vm, args| match vm.get_args(args) {
         [Number(seconds)] => {
-            if *seconds < 0.0 {
-                return runtime_error!("thread.sleep: negative durations aren't supported");
+            let seconds: f64 = seconds.into();
+
+            if seconds < 0.0 {
+                return runtime_error!("thread.sleep: the duration must be positive");
+            } else if !seconds.is_finite() {
+                return runtime_error!("thread.sleep: the duration must be finite");
             }
 
-            thread::sleep(Duration::from_millis((f64::from(seconds) * 1000.0) as u64));
+            thread::sleep(Duration::from_secs_f64(seconds));
 
             Ok(Empty)
         }
-        _ => runtime_error!("thread.sleep: Expected number as argument"),
+        _ => runtime_error!("thread.sleep: Expected a Number as argument"),
     });
 
     result
