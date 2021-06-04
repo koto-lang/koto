@@ -1,4 +1,4 @@
-from test import assert, assert_eq, assert_ne, assert_near
+from test import assert, assert_eq, assert_ne, assert_near, run_tests
 
 # A script can export a map named 'tests' to have the tests automatically run when
 # the script is loaded.
@@ -25,3 +25,27 @@ export tests =
     # assert_near checks that its arguments are equal, within a specied margin
     allowed_error = 0.1
     assert_near 1.3, 1.301, allowed_error
+
+  test_run_tests: ||
+    tests_were_run = {}
+    my_tests =
+      pre_test: |self| tests_were_run.pre_test = true
+      post_test: |self| tests_were_run.post_test = true
+      test_foo: || tests_were_run.test_foo = true
+      test_bar: || tests_were_run.test_bar = true
+      # Functions without a test_ prefix shouldn't be run
+      not_run: || test_were_run.not_run = true
+      # Tests should be run in order
+      test_failure: || assert false
+
+    try
+      run_tests my_tests
+    catch _
+      tests_were_run.test_failure = true
+
+    assert tests_were_run.pre_test
+    assert tests_were_run.post_test
+    assert tests_were_run.test_foo
+    assert tests_were_run.test_bar
+    assert tests_were_run.test_failure
+    assert not tests_were_run.contains_key "not_run"

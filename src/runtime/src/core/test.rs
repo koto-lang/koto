@@ -123,6 +123,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
         [Map(tests)] => {
             let tests = tests.clone();
+            let mut vm = vm.spawn_shared_vm();
             vm.run_tests(tests)
         }
         _ => runtime_error!("run_tests expects a map as argument"),
