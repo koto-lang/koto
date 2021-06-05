@@ -1,5 +1,4 @@
 from test import assert, assert_eq
-import koto
 
 locals = {}
 

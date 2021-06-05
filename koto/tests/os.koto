@@ -1,4 +1,4 @@
-import os, test.assert
+import test.assert
 
 export tests =
   test_cpu_count: ||

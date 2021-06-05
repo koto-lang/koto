@@ -570,7 +570,7 @@ impl Compiler {
                             };
 
                             let function_register = self.push_register()?;
-                            self.compile_load_export(function_register, *id);
+                            self.compile_load_non_local(function_register, *id);
 
                             self.compile_call(
                                 call_result_register,
@@ -1194,7 +1194,7 @@ impl Compiler {
         } else {
             match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.compile_load_export(result.register, id);
+                    self.compile_load_non_local(result.register, id);
                     Some(result)
                 }
                 None => None,
@@ -1213,13 +1213,13 @@ impl Compiler {
         }
     }
 
-    fn compile_load_export(&mut self, result_register: u8, id: ConstantIndex) {
+    fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
         use Op::*;
 
         if id <= u8::MAX as u32 {
-            self.push_op(LoadExport, &[result_register, id as u8]);
+            self.push_op(LoadNonLocal, &[result_register, id as u8]);
         } else {
-            self.push_op(LoadExportLong, &[result_register]);
+            self.push_op(LoadNonLocalLong, &[result_register]);
             self.push_bytes(&id.to_le_bytes());
         }
     }
@@ -1904,7 +1904,7 @@ impl Compiler {
                                 Some(register) => CompileResult::with_assigned(register),
                                 None => {
                                     let register = self.push_register()?;
-                                    self.compile_load_export(register, *id);
+                                    self.compile_load_non_local(register, *id);
                                     CompileResult::with_temporary(register)
                                 }
                             }
@@ -2037,7 +2037,7 @@ impl Compiler {
                     self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
-                    self.compile_load_export(capture_register, *capture);
+                    self.compile_load_non_local(capture_register, *capture);
                     self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
                     self.pop_register()?;
                 }

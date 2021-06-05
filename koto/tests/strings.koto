@@ -1,4 +1,4 @@
-import koto.type, string
+import koto.type
 from test import assert, assert_eq, assert_ne
 
 export tests =

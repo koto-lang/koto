@@ -565,8 +565,8 @@ impl Vm {
                 self.set_register(register, Str(string));
                 Ok(())
             }
-            Instruction::LoadExport { register, constant } => {
-                self.run_load_export(register, constant)
+            Instruction::LoadNonLocal { register, constant } => {
+                self.run_load_non_local(register, constant)
             }
             Instruction::SetExport { export, source } => {
                 self.run_set_export(export, source);
@@ -843,26 +843,34 @@ impl Vm {
         self.set_register(target, value);
     }
 
-    fn run_load_export(
+    fn run_load_non_local(
         &mut self,
         register: u8,
         constant_index: ConstantIndex,
     ) -> InstructionResult {
-        let export_name = self.get_constant_str(constant_index);
-        let export = self
+        let name = self.get_constant_str(constant_index);
+
+        let non_local = self
             .context()
             .exports
             .contents()
             .data
-            .get_with_string(export_name)
-            .cloned();
+            .get_with_string(name)
+            .cloned()
+            .or_else(|| {
+                self.context_shared
+                    .prelude
+                    .contents()
+                    .data
+                    .get_with_string(name)
+                    .cloned()
+            });
 
-        match export {
-            Some(value) => {
-                self.set_register(register, value);
-                Ok(())
-            }
-            None => runtime_error!("'{}' not found", export_name),
+        if let Some(non_local) = non_local {
+            self.set_register(register, non_local);
+            Ok(())
+        } else {
+            runtime_error!("'{}' not found", name)
         }
     }
 

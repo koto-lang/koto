@@ -1,4 +1,4 @@
-import koto.type, number
+import koto.type
 from number import e, infinity, negative_infinity, pi, tau,
 from test import assert, assert_eq, assert_near
 

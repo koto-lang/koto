@@ -1,6 +1,3 @@
-from test import assert_eq
-import koto
-
 digits = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
   "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
   "eighteen", "nineteen"]
@@ -46,6 +43,8 @@ export main = ||
 
 export tests =
   test_number_to_english: ||
+    import test.assert_eq
+
     assert_eq (number_to_english 0), "zero"
     assert_eq (number_to_english -42), "minus forty-two"
     assert_eq (number_to_english 217), "two hundred and seventeen"

@@ -1,4 +1,3 @@
-import map
 from test import assert, assert_eq
 
 make_foo = |x|
@@ -100,7 +99,7 @@ export tests =
     m.sort |key, value| value
     assert_eq m.keys().to_tuple(), ("foo", "bar")
 
-    m = 
+    m =
       foo: make_foo(27)
       bar: make_foo(42)
       baz: make_foo(-1)
