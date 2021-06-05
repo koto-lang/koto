@@ -3004,14 +3004,12 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         if self.settings.repl_mode && self.frame_stack.len() == 1 {
-            for maybe_arg in args.iter() {
-                if let Some(arg) = maybe_arg {
-                    let arg_register = match self.frame().get_local_assigned_register(*arg) {
-                        Some(register) => register,
-                        None => return compiler_error!(self, "Missing arg register"),
-                    };
-                    self.compile_set_export(*arg, arg_register);
-                }
+            for arg in args.iter().flatten() {
+                let arg_register = match self.frame().get_local_assigned_register(*arg) {
+                    Some(register) => register,
+                    None => return compiler_error!(self, "Missing arg register"),
+                };
+                self.compile_set_export(*arg, arg_register);
             }
         }
 

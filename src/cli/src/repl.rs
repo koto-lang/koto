@@ -366,7 +366,7 @@ impl Repl {
             tty.activate_raw_mode().unwrap();
             write!(tty, "{}", style::Reset).unwrap();
         } else {
-            write!(stdout, "{:#}\n", error).unwrap();
+            writeln!(stdout, "{:#}", error).unwrap();
         }
     }
 }
