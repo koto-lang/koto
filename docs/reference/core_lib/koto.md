@@ -13,7 +13,7 @@ A collection of utilities for working with the Koto runtime.
 
 ## args
 
-`List`
+`Tuple`
 
 Provides access to the arguments that were passed into the script when running
 the `koto` CLI application.

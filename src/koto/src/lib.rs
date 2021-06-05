@@ -31,8 +31,7 @@ pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runti
 use {
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueList, ValueMap, ValueVec, Vm,
-        VmSettings,
+        DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueMap, Vm, VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
@@ -184,12 +183,12 @@ impl Koto {
     }
 
     pub fn set_args(&mut self, args: &[String]) {
-        use Value::{Map, Str};
+        use Value::{Map, Str, Tuple};
 
         let koto_args = args
             .iter()
             .map(|arg| Str(arg.as_str().into()))
-            .collect::<ValueVec>();
+            .collect::<Vec<_>>();
 
         match self
             .runtime
@@ -199,10 +198,11 @@ impl Koto {
             .get_with_string_mut("koto")
             .unwrap()
         {
-            Map(map) => map
-                .contents_mut()
-                .data
-                .add_list("args", ValueList::with_data(koto_args)),
+            Map(map) => {
+                map.contents_mut()
+                    .data
+                    .add_value("args", Tuple(koto_args.into()));
+            }
             _ => unreachable!(),
         }
     }

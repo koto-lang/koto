@@ -15,6 +15,7 @@
     modules can be accessed in scripts without them being imported first.
     - e.g. `number.pi` is now a valid script, whereas previously
       `import number` would be required for `number` to be available.
+- `koto.args` is now a Tuple instead of a List.
 
 ## [0.7.0] 2021.03.27
 

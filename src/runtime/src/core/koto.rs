@@ -1,11 +1,11 @@
-use crate::{runtime_error, Value, ValueList, ValueMap};
+use crate::{runtime_error, Value, ValueMap, ValueTuple};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
 
-    result.add_value("args", List(ValueList::default()));
+    result.add_value("args", Tuple(ValueTuple::default()));
 
     result.add_fn("current_dir", |_, _| {
         let result = match std::env::current_dir() {

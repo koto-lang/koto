@@ -13,6 +13,12 @@ impl ValueTuple {
     }
 }
 
+impl Default for ValueTuple {
+    fn default() -> Self {
+        Vec::default().into()
+    }
+}
+
 impl fmt::Display for ValueTuple {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
