@@ -353,19 +353,19 @@ impl fmt::Display for ValueMap {
         write!(f, "{{")?;
         let mut first = true;
         if f.alternate() {
-            for key in self.contents().data.keys() {
-                if !first {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{}", key.value())?;
-                first = false;
-            }
-        } else {
             for (key, value) in self.contents().data.iter() {
                 if !first {
                     write!(f, ", ")?;
                 }
                 write!(f, "{}: {:#}", key.value(), value)?;
+                first = false;
+            }
+        } else {
+            for key in self.contents().data.keys() {
+                if !first {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", key.value())?;
                 first = false;
             }
         }

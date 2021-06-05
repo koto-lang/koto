@@ -1,3 +1,4 @@
+mod help;
 mod repl;
 
 use {

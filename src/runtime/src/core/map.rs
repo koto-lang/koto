@@ -98,7 +98,7 @@ pub fn make_module() -> ValueMap {
             "map.is_empty: Expected map as argument, found '{}'",
             other.type_as_string(),
         ),
-        _ => runtime_error!("map.contains_key: Expected map and key as arguments"),
+        _ => runtime_error!("map.is_empty: Expected map and key as arguments"),
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
@@ -144,6 +144,15 @@ pub fn make_module() -> ValueMap {
             other_b.type_as_string()
         ),
         _ => runtime_error!("map.remove: Expected map and key as arguments"),
+    });
+
+    result.add_fn("size", |vm, args| match vm.get_args(args) {
+        [Map(m)] => Ok(Number(m.len().into())),
+        [other, ..] => runtime_error!(
+            "map.size: Expected map as argument, found '{}'",
+            other.type_as_string(),
+        ),
+        _ => runtime_error!("map.size: Expected map and key as arguments"),
     });
 
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
@@ -212,15 +221,6 @@ pub fn make_module() -> ValueMap {
             }
         }
         _ => runtime_error!("map.sort: Expected map as argument"),
-    });
-
-    result.add_fn("size", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Number(m.len().into())),
-        [other, ..] => runtime_error!(
-            "map.size: Expected map as argument, found '{}'",
-            other.type_as_string(),
-        ),
-        _ => runtime_error!("map.contains_key: Expected map and key as arguments"),
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {

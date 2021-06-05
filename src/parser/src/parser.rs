@@ -469,29 +469,24 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(for_loop) =
+        let result = if let Some(result) =
             self.parse_for_loop(&mut ExpressionContext::line_start())?
         {
-            Some(for_loop)
-        } else if let Some(loop_block) = self.parse_loop_block()? {
-            Some(loop_block)
-        } else if let Some(while_loop) = self.parse_while_loop()? {
-            Some(while_loop)
-        } else if let Some(until_loop) = self.parse_until_loop()? {
-            Some(until_loop)
-        } else if let Some(export_id) = self.parse_export_id(&mut ExpressionContext::line_start())?
-        {
-            Some(export_id)
-        } else if let Some(throw_expression) = self.parse_throw_expression()? {
-            Some(throw_expression)
-        } else if let Some(debug_expression) = self.parse_debug_expression()? {
-            Some(debug_expression)
-        } else if let Some(result) =
-            self.parse_expressions(&mut ExpressionContext::line_start(), false)?
-        {
+            Some(result)
+        } else if let Some(result) = self.parse_loop_block()? {
+            Some(result)
+        } else if let Some(result) = self.parse_while_loop()? {
+            Some(result)
+        } else if let Some(result) = self.parse_until_loop()? {
+            Some(result)
+        } else if let Some(result) = self.parse_export_id(&mut ExpressionContext::line_start())? {
+            Some(result)
+        } else if let Some(result) = self.parse_throw_expression()? {
+            Some(result)
+        } else if let Some(result) = self.parse_debug_expression()? {
             Some(result)
         } else {
-            None
+            self.parse_expressions(&mut ExpressionContext::line_start(), false)?
         };
 
         self.frame_mut()?.finish_expression();
@@ -1525,12 +1520,10 @@ impl<'source> Parser<'source> {
 
         if let Some((_, peek_count)) = self.peek_next_token(&context) {
             if self.lexer.peek_indent(peek_count) > start_indent {
-                let result = if let Some(map_block) = self.parse_map_block(&mut context)? {
-                    Some(map_block)
-                } else if let Some(block) = self.parse_indented_block(&mut context)? {
-                    Some(block)
+                let result = if let Some(result) = self.parse_map_block(&mut context)? {
+                    Some(result)
                 } else {
-                    None
+                    self.parse_indented_block(&mut context)?
                 };
 
                 return Ok(result);

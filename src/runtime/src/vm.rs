@@ -273,7 +273,7 @@ impl Vm {
     ) -> RuntimeResult {
         if !self.call_stack.is_empty() {
             return runtime_error!(
-                "run_function: the call stack must be empty,
+                "run_function: the call stack must be empty, \
                  are you calling run_function on an active VM?"
             );
         }

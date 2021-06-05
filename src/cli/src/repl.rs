@@ -1,4 +1,5 @@
 use {
+    crate::help::Help,
     koto::{bytecode::Chunk, Koto, KotoSettings},
     std::{
         fmt,
@@ -27,6 +28,7 @@ pub struct ReplSettings {
 pub struct Repl {
     koto: Koto,
     settings: ReplSettings,
+    help: Option<Help>,
     input: String,
     continued_lines: Vec<String>,
     input_history: Vec<String>,
@@ -258,8 +260,14 @@ impl Repl {
                         );
                     }
                     match self.koto.run() {
-                        Ok(result) => writeln!(stdout, "{:#}", result).unwrap(),
-                        Err(error) => self.print_error(stdout, tty, &error),
+                        Ok(result) => writeln!(stdout, "{}\n", result).unwrap(),
+                        Err(error) => {
+                            if let Some(help) = self.run_help(&input) {
+                                writeln!(stdout, "{}\n", help).unwrap()
+                            } else {
+                                self.print_error(stdout, tty, &error)
+                            }
+                        }
                     }
                     self.continued_lines.clear();
                 }
@@ -267,6 +275,8 @@ impl Repl {
                     if e.is_indentation_error() && self.continued_lines.is_empty() {
                         self.continued_lines.push(self.input.clone());
                         indent_next_line = true;
+                    } else if let Some(help) = self.run_help(&input) {
+                        writeln!(stdout, "{}\n", help).unwrap()
                     } else {
                         self.print_error(stdout, tty, &e.to_string());
                         self.continued_lines.clear();
@@ -318,6 +328,25 @@ impl Repl {
         self.input = " ".repeat(indent);
     }
 
+    fn run_help(&mut self, input: &str) -> Option<String> {
+        let input = input.trim();
+        if input == "help" {
+            Some(self.get_help(None))
+        } else if input.starts_with("help") {
+            input
+                .splitn(2, char::is_whitespace)
+                .nth(1)
+                .map(|search_string| format!("\n{}", self.get_help(Some(search_string))))
+        } else {
+            None
+        }
+    }
+
+    fn get_help(&mut self, search: Option<&str>) -> String {
+        let help = self.help.get_or_insert_with(Help::new);
+        help.get_help(search)
+    }
+
     fn print_error<T, E>(&self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>, error: &E)
     where
         T: Write,
@@ -333,11 +362,11 @@ impl Repl {
             )
             .unwrap();
             tty.suspend_raw_mode().unwrap();
-            println!("{:#}", error);
+            println!("{:#}\n", error);
             tty.activate_raw_mode().unwrap();
             write!(tty, "{}", style::Reset).unwrap();
         } else {
-            write!(stdout, "{:#}", error).unwrap();
+            writeln!(stdout, "{:#}", error).unwrap();
         }
     }
 }

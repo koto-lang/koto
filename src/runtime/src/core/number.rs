@@ -70,9 +70,9 @@ pub fn make_module() -> ValueMap {
         };
     }
 
-    bitwise_fn!(and, &);
     number_fn!(abs);
     number_f64_fn!(acos);
+    bitwise_fn!(and, &);
     number_f64_fn!(asin);
     number_f64_fn!(atan);
     number_fn!(ceil);
@@ -90,6 +90,12 @@ pub fn make_module() -> ValueMap {
 
     number_f64_fn!(exp);
     number_f64_fn!(exp2);
+
+    result.add_fn("flip_bits", |vm, args| match vm.get_args(args) {
+        [Number(ValueNumber::I64(n))] => Ok(Number((!n).into())),
+        _ => runtime_error!("number.flip_bits: Expected integer as argument"),
+    });
+
     number_fn!(floor);
 
     result.add_value("infinity", Number(std::f64::INFINITY.into()));
@@ -116,10 +122,6 @@ pub fn make_module() -> ValueMap {
     result.add_value("nan", Number(std::f64::NAN.into()));
     result.add_value("negative_infinity", Number(std::f64::NEG_INFINITY.into()));
 
-    result.add_fn("flip_bits", |vm, args| match vm.get_args(args) {
-        [Number(ValueNumber::I64(n))] => Ok(Number((!n).into())),
-        _ => runtime_error!("number.flip_bits: Expected integer as argument"),
-    });
     bitwise_fn!(or, |);
 
     result.add_value("pi", Number(std::f64::consts::PI.into()));
@@ -141,6 +143,8 @@ pub fn make_module() -> ValueMap {
     number_f64_fn!(tan);
     number_f64_fn!(tanh);
 
+    result.add_value("tau", Number(std::f64::consts::TAU.into()));
+
     result.add_fn("to_float", |vm, args| match vm.get_args(args) {
         [Number(n)] => Ok(Number(f64::from(n).into())),
         _ => runtime_error!("number.to_float: Expected Number as argument"),
@@ -150,8 +154,6 @@ pub fn make_module() -> ValueMap {
         [Number(n)] => Ok(Number(i64::from(n).into())),
         _ => runtime_error!("number.to_int: Expected Number as argument"),
     });
-
-    result.add_value("tau", Number(std::f64::consts::TAU.into()));
 
     bitwise_fn!(xor, ^);
 
