@@ -7,9 +7,9 @@
   },
   "dependencies": {
     "brace": "^0.11.1"
-  }
+  },
   "devDependencies": {
     "parcel-bundler": "1.12.3",
     "parcel-plugin-wasm.rs": "^1.2.16"
-  },
+  }
 }
