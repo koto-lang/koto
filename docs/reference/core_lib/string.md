@@ -5,13 +5,18 @@ Koto's strings are immutable sequences of characters with UTF-8 encoding.
 Functions that produce sub-strings (e.g. `string.trim`) share the string
 data between the original string and the sub-string.
 
+Strings support indexing operations, with string indices referring to
+grapheme clusters.
+
 ## Example
 
 ```koto
 a = "Hello"
 b = "World!"
-"{}, {}!".print a, b
+x = "{}, {}!".print a, b
 # Hello, World!
+"👋🥳😆"[1]
+# 🥳
 ```
 
 # Reference

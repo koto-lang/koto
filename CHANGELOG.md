@@ -6,6 +6,13 @@
 
 - The REPL now contains a help system that provides reference documentation for
   the core library.
+- New features for Strings.
+  - Strings now support indexing operations.
+    - e.g.
+      ```koto
+      assert_eq "héllö"[1..3], "él"
+      assert_eq "👋🥳😆"[1], "🥳"
+      ```
 
 ### Changed
 

@@ -1944,6 +1944,16 @@ x[3]";
             test_script(r#""héllö42" >= "héllö11""#, Bool(true));
             test_script(r#""hello1" >= "hello42""#, Bool(false));
         }
+
+        #[test]
+        fn indexing() {
+            test_script(r#""héllö"[1]"#, string("é"));
+            test_script(r#""héllö"[1..3]"#, string("él"));
+            test_script(r#""héllö"[2..]"#, string("llö"));
+            test_script(r#""héllö"[..]"#, string("héllö"));
+            test_script(r#""héllö"[..=2]"#, string("hél"));
+            test_script(r#""héllö"[3..5]"#, string("lö"));
+        }
     }
 
     mod error_recovery {

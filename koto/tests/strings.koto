@@ -14,6 +14,16 @@ export tests =
     x += "_" + "^"
     assert_eq x, "^_^"
 
+  test_indexing: ||
+    assert_eq "Héllö"[4], "ö"
+    x = "Tschüss"
+    assert_eq x[0..3], "Tsc"
+    assert_eq x[2..=4], "chü"
+    assert_eq x[4..7], "üss"
+    assert_eq x[..=3], "Tsch"
+    assert_eq x[5..], "ss"
+    assert_eq "👋🥳😆"[1], "🥳"
+
   test_chars: ||
     hello = "Héllö"
     assert_eq
