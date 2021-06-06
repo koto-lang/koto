@@ -1,4 +1,3 @@
-import koto, io, json
 from test import assert, assert_eq
 
 export tests =

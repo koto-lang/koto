@@ -8,7 +8,7 @@ https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/nbody-lua-4.
 
 # TODO Using num4 for pos/vel reduces precision compared to the original
 
-import koto, number.pi, test.assert_near
+import number.pi, test.assert_near
 
 solar_mass = 4 * pi * pi
 days_per_year = 365.24

@@ -1,4 +1,3 @@
-import iterator
 from test import assert, assert_eq
 
 make_foo = |x|

@@ -17,8 +17,8 @@ pub enum Op {
     LoadIntLong,      // register, constant[4]
     LoadString,       // register, constant
     LoadStringLong,   // register, constant[4]
-    LoadExport,       // register, constant
-    LoadExportLong,   // register, constant[4]
+    LoadNonLocal,     // register, constant
+    LoadNonLocalLong, // register, constant[4]
     SetExport,        // export, source
     SetExportLong,    // export[4], source
     Import,           // register, constant

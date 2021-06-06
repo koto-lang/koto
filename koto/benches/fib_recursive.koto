@@ -1,4 +1,4 @@
-import koto, test.assert_eq
+import test.assert_eq
 
 fib = |n|
   switch

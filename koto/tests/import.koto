@@ -1,4 +1,4 @@
-import koto.type, test.assert_eq
+import test.assert_eq
 
 export tests =
   test_import_module: ||
@@ -6,7 +6,7 @@ export tests =
     # The test_module module is defined in the test_module directory,
     # with test_module/main.koto as its entry point.
     import test_module
-    assert_eq (type test_module), "Map"
+    assert_eq (koto.type test_module), "Map"
     assert_eq test_module.foo, 42
     assert_eq (test_module.square 9), 81
 
@@ -30,7 +30,6 @@ export tests =
     assert_eq y, -1
 
   test_access_export: ||
-    import koto
     x = "value_x"
     koto.exports().insert x, 99
     assert_eq value_x, 99

@@ -1,11 +1,11 @@
-use crate::{runtime_error, Value, ValueList, ValueMap};
+use crate::{runtime_error, Value, ValueMap, ValueTuple};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
 
-    result.add_value("args", List(ValueList::default()));
+    result.add_value("args", Tuple(ValueTuple::default()));
 
     result.add_fn("current_dir", |_, _| {
         let result = match std::env::current_dir() {
@@ -19,8 +19,8 @@ pub fn make_module() -> ValueMap {
         Ok(Value::Map(vm.context_mut().exports.clone()))
     });
 
-    result.add_value("script_dir", Str("".into()));
-    result.add_value("script_path", Str("".into()));
+    result.add_value("script_dir", Empty);
+    result.add_value("script_path", Empty);
 
     result.add_fn("type", |vm, args| match vm.get_args(args) {
         [value] => Ok(Str(value.type_as_string().into())),

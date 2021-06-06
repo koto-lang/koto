@@ -1,4 +1,3 @@
-import io, tempfile
 from test import assert, assert_eq
 
 

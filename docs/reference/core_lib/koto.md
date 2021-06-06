@@ -13,7 +13,7 @@ A collection of utilities for working with the Koto runtime.
 
 ## args
 
-`List`
+`Tuple`
 
 Provides access to the arguments that were passed into the script when running
 the `koto` CLI application.
@@ -51,15 +51,17 @@ it can be useful to export items programatically.
 
 ## script_dir
 
-`String`
+`String or Empty`
 
-Provides the directory that the current script is contained in as a String.
+If a script is being executed then `script_dir` provides the directory that the
+current script is contained in as a String, otherwise `script_dir` is Empty.
 
 ## script_path
 
-`String`
+`String or Empty`
 
-Provides the path of the current script as a String.
+If a script is being executed then `script_path` provides the path of the
+current script as a String, otherwise `script_path` is Empty.
 
 ## type
 

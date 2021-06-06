@@ -89,7 +89,7 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    LoadExport {
+    LoadNonLocal {
         register: u8,
         constant: ConstantIndex,
     },
@@ -375,7 +375,7 @@ impl fmt::Display for Instruction {
             LoadFloat { .. } => write!(f, "LoadFloat"),
             LoadInt { .. } => write!(f, "LoadInt"),
             LoadString { .. } => write!(f, "LoadString"),
-            LoadExport { .. } => write!(f, "LoadExport"),
+            LoadNonLocal { .. } => write!(f, "LoadNonLocal"),
             SetExport { .. } => write!(f, "SetExport"),
             Import { .. } => write!(f, "Import"),
             MakeTuple { .. } => write!(f, "MakeTuple"),
@@ -463,9 +463,9 @@ impl fmt::Debug for Instruction {
                 "LoadString\tresult: {}\tconstant: {}",
                 register, constant
             ),
-            LoadExport { register, constant } => write!(
+            LoadNonLocal { register, constant } => write!(
                 f,
-                "LoadExport\tresult: {}\tconstant: {}",
+                "LoadNonLocal\tresult: {}\tconstant: {}",
                 register, constant
             ),
             SetExport { export, source } => {
@@ -940,11 +940,11 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
-            Op::LoadExport => Some(LoadExport {
+            Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_byte!(),
                 constant: get_byte!() as ConstantIndex,
             }),
-            Op::LoadExportLong => Some(LoadExport {
+            Op::LoadNonLocalLong => Some(LoadNonLocal {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
