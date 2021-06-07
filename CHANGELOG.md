@@ -13,6 +13,14 @@
       assert_eq "héllö"[1..3], "él"
       assert_eq "👋🥳😆"[1], "🥳"
       ```
+  - Modifiers can be used in formatting strings.
+    - Borrowing from Rust's syntax, minimum and maximum widths can be specified
+      for formatted values.
+      - e.g.
+      ```koto
+      assert_eq ("{:6.2}".format 1 / 3), "  0.33"
+      assert_eq ("{:-^8}".format "ab"), "---ab---"
+      ```
 
 ### Changed
 

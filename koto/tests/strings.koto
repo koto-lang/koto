@@ -125,22 +125,3 @@ zzz
     assert_eq "foo    ".trim(), "foo"
     assert_eq "     bar".trim(), "bar"
     assert_eq "     ".trim(), ""
-
-  test_format: ||
-    hello = "Hello"
-    world = "World"
-
-    # A string literal is expected as first argument
-    assert_eq "Hello, World!", (string.format "Hello, World!")
-
-    # {} is a placeholder for an argument to be included in the string
-    assert_eq "Hello, World!", ("{}, {}!".format hello, world)
-
-    # Curly braces can be included in the output by escaping them with another curly brace
-    assert_eq "{Hello}, World!", ("{{{}}}, {}!".format hello, world)
-
-    # Positional placeholders can be used to reference arguments by index
-    assert_eq "Hello World, Hello World!", ("{0} {1}, {0} {1}!".format hello, world)
-
-    # Identifier placeholders are looked up in a map argument
-    assert_eq "O_o", ("{first}_{second}".format {first: "O", second: "o"})
