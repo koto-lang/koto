@@ -27,7 +27,7 @@
 - Koto can now be compiled to wasm.
 - Operator overloading for maps is now supported.
   - e.g.
-    ```
+    ```koto
     foo = |x|
       x: x
       @+: |self, other| foo self.x + other.x
@@ -35,7 +35,7 @@
     ```
 - Binary, octal, and hex notation for number literals is now supported.
   - e.g.
-    ```
+    ```koto
     assert_eq 0b1000, 8
     assert_eq 0o1000, 512
     assert_eq 0x1000, 4096
@@ -61,7 +61,7 @@
 
 - Captured values in functions are now immutable.
   - e.g.
-    ```
+    ```koto
     x = 100
     f = |n|
       x = x + n # Assigning to x here now only affects the local copy of x
@@ -71,7 +71,7 @@
   - Captured values can now be thought of as 'hidden arguments' for a function
     rather than 'hidden mutable state', which simplifies things quite a bit.
   - If mutable state is required then you can use a list or map, e.g.
-    ```
+    ```koto
     state = {x: 100}
     f = |n|
       state.x = state.x + n # The function has a local copy of the state,
@@ -104,7 +104,7 @@
 - Error messages in core ops that call functors have been made a bit clearer.
 - Core ops that accept function arguments can now take external functions.
   - e.g.
-    ```
+    ```koto
     x = [[1, 2, 3], [1], [1, 2]]
     x.sort list.size
     assert_eq x [[1], [1, 2], [1, 2, 3]]
@@ -160,7 +160,7 @@
   - The value to match against is now optional, and when it's ommitted then
     so are match patterns.
     - e.g.
-      ```
+      ```koto
       n = 0
       match
         n == 0 then "zero"
@@ -172,7 +172,7 @@
   - The results of list/map accesses or function calls can be used as match
     patterns.
     - e.g.
-      ```
+      ```koto
       match x
         f y then "x == f y"
         m.foo then "x == m.foo"
@@ -181,7 +181,7 @@
   - match arms that have indented bodies can now optionally use `then`,
     which can look clearer when the match pattern is short.
     - e.g.
-      ```
+      ```koto
       match x
         0 then # <-- `then` was previously disallowed here
           "zero"
@@ -190,7 +190,7 @@
       ```
 - Tuples may now be added to lists with the `+` and `+=` operators.
   - e.g.
-    ```
+    ```koto
     x = [1, 2] + (3, 4)
     assert_eq x [1, 2, 3, 4]
     ```
@@ -222,7 +222,7 @@
 - Multi-assignment of values where the values are used in the expressions now
   works as expected.
   - e.g.
-    ```
+    ```koto
     a, b = 1, 2
     a, b = b, a
     # Previously this would result in b being re-assigned to itself
@@ -250,7 +250,7 @@
   - e.g. `f = |a, (b, [c, d])| a + b + c + d`
 - Num2 and num4 values can now used in unpacking expressions
   - e.g.
-    ```
+    ```koto
     x = num2 1 2
     a, b = x
     assert_eq b 2
