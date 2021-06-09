@@ -111,6 +111,12 @@ impl ChaChaRng {
             })
         });
 
+        let vclone = vtable.clone();
+        vtable.insert(
+            Value::ExternalDataId.into(), 
+            Value::make_external_value(Self(ChaCha20Rng::from_entropy()), vclone)
+        );
+
         vtable
     }
 }

@@ -2299,9 +2299,17 @@ impl Vm {
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
+            ExternalValue(_, ref vtable) => {
+                if let Some(method @ ExternalFunction { .. }) = vtable.contents().data.get_with_string(&key_string) {
+                    self.set_register(result_register, method.clone())
+                } else {
+                    return Err(RuntimeError::new(RuntimeErrorType::StringError(
+                        format!("missing method: {}", &key_string))))
+                }
+            },
             unexpected => {
                 return self.unexpected_type_error("MapAccess: Expected Map", &unexpected)
-            }
+            },
         }
 
         Ok(())

@@ -123,7 +123,17 @@ macro_rules! get_external_instance {
         match &$args {
             [Value::Map(instance), ..] => {
                 $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
-            }
+            },
+            [Value::ExternalValue(value, _), ..] => {
+                if let Some(external) = value.as_ref().write().downcast_mut::<$external_type>() {
+                    (|$match_name: &mut $external_type| $body)(external)
+                } else {
+                    runtime_error!(
+                        "Invalid type for external value, found '{}'",
+                        value.as_ref().read().value_type(),
+                    )
+                }
+            },
             _ => $crate::runtime_error!(
                 "{0}.{1}: Expected {0} instance as first argument",
                 $external_name,
