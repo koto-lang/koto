@@ -755,7 +755,7 @@ impl<'source> Parser<'source> {
                 self.consume_next_token_on_same_line();
                 Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
             }
-            Some(Token::String) => {
+            Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
                 self.consume_next_token_on_same_line();
                 let s = self.parse_string(self.lexer.slice())?;
                 Some(self.constants.add_string(&s) as ConstantIndex)
@@ -766,7 +766,9 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
-        let result = match self.peek_next_token_on_same_line() {
+        let next_token = self.peek_next_token_on_same_line();
+
+        let result = match next_token {
             Some(Token::Id) => {
                 self.consume_next_token_on_same_line();
                 let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
@@ -802,14 +804,20 @@ impl<'source> Parser<'source> {
 
                 Some(MapKey::Meta(meta_key))
             }
-            Some(Token::String) => {
+            Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
                 self.consume_next_token_on_same_line();
                 let s = self.parse_string(self.lexer.slice())?;
                 let id = self.constants.add_string(&s) as ConstantIndex;
-                Some(MapKey::Id(id))
+                let quote = if matches!(next_token, Some(Token::StringDoubleQuoted)) {
+                    QuotationMark::Double
+                } else {
+                    QuotationMark::Single
+                };
+                Some(MapKey::Str(id, quote))
             }
             _ => None,
         };
+
         Ok(result)
     }
 
@@ -1029,7 +1037,12 @@ impl<'source> Parser<'source> {
                 Token::Dot => {
                     self.consume_token();
 
-                    if !matches!(self.peek_token(), Some(Token::Id) | Some(Token::String)) {
+                    if !matches!(
+                        self.peek_token(),
+                        Some(Token::Id)
+                            | Some(Token::StringDoubleQuoted)
+                            | Some(Token::StringSingleQuoted)
+                    ) {
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) = self.parse_id_or_string()? {
                         node_start_span = self.lexer.span();
@@ -1275,11 +1288,16 @@ impl<'source> Parser<'source> {
                 }
                 Token::ParenOpen => self.parse_nested_expressions(context)?,
                 Token::Number => self.parse_number(false, context)?,
-                Token::String => {
+                Token::StringDoubleQuoted | Token::StringSingleQuoted => {
                     self.consume_next_token(context);
                     let s = self.parse_string(self.lexer.slice())?;
                     let constant_index = self.constants.add_string(&s) as u32;
-                    let string_node = self.push_node(Str(constant_index))?;
+                    let quote = if token == Token::StringDoubleQuoted {
+                        QuotationMark::Double
+                    } else {
+                        QuotationMark::Single
+                    };
+                    let string_node = self.push_node(Str(constant_index, quote))?;
                     if self.next_token_is_lookup_start(context) {
                         Some(self.parse_lookup(string_node, context)?)
                     } else {
@@ -2133,7 +2151,7 @@ impl<'source> Parser<'source> {
 
         let result = match self.peek_next_token(&pattern_context) {
             Some((token, _)) => match token {
-                True | False | Number | String | Subtract => {
+                True | False | Number | StringDoubleQuoted | StringSingleQuoted | Subtract => {
                     return self.parse_term(&mut pattern_context)
                 }
                 Id => match self.parse_id(&mut pattern_context) {

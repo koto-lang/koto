@@ -9,6 +9,10 @@ export tests =
     assert "Hello" < "Hiyaa" and "World" <= "World!"
     assert "Hiyaa" > "Hello" and "World!" >= "World"
 
+  test_single_quotes: ||
+    # Strings can use either double or single quotes.
+    assert_eq "Hello", 'Hello'
+
   test_addition: ||
     x = "^"
     x += "_" + "^"

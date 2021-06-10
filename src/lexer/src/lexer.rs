@@ -14,7 +14,8 @@ pub enum Token {
     CommentSingle,
     CommentMulti,
     Number,
-    String,
+    StringDoubleQuoted,
+    StringSingleQuoted,
     Id,
 
     // Symbols
@@ -244,10 +245,9 @@ impl<'a> TokenLexer<'a> {
     fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        // The '"' character has already been matched
-        chars.next();
+        let start_quote = chars.next().unwrap(); // A ' or " character has already been matched
 
-        let mut string_bytes = 1; // 1 for '"'
+        let mut string_bytes = 1; // 1 for the start quote
         let mut position = self.position;
 
         while let Some(c) = chars.next() {
@@ -256,7 +256,7 @@ impl<'a> TokenLexer<'a> {
 
             match c {
                 '\\' => {
-                    if chars.peek() == Some(&'"') {
+                    if chars.peek() == Some(&start_quote) {
                         chars.next();
                         string_bytes += 1;
                         position.column += 1;
@@ -266,11 +266,15 @@ impl<'a> TokenLexer<'a> {
                     position.line += 1;
                     position.column = 1;
                 }
-                '"' => {
+                _ if c == start_quote => {
                     // +1 to get the column 1 past the end of the string
                     position.column += 1;
                     self.advance_to_position(string_bytes, position);
-                    return String;
+                    return if start_quote == '\"' {
+                        StringDoubleQuoted
+                    } else {
+                        StringSingleQuoted
+                    };
                 }
                 _ => {}
             }
@@ -491,7 +495,7 @@ impl<'a> Iterator for TokenLexer<'a> {
                     }
                     Some('\n') => Some(self.consume_newline(chars)),
                     Some('#') => Some(self.consume_comment(chars)),
-                    Some('"') => Some(self.consume_string(chars)),
+                    Some('"') | Some('\'') => Some(self.consume_string(chars)),
                     Some('0'..='9') => Some(self.consume_number(chars)),
                     Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
                     Some(_) => {
@@ -852,16 +856,28 @@ false #
         let input = r#"
 "hello, world!"
 "escaped \"\n string"
-true"#;
+"double-\"quoted\" 'string'"
+'single-\'quoted\' "string"'"#;
+
         check_lexer_output(
             input,
             &[
                 (NewLine, None, 2),
-                (String, Some(r#""hello, world!""#), 2),
+                (StringDoubleQuoted, Some(r#""hello, world!""#), 2),
                 (NewLine, None, 3),
-                (String, Some(r#""escaped \"\n string""#), 3),
+                (StringDoubleQuoted, Some(r#""escaped \"\n string""#), 3),
                 (NewLine, None, 4),
-                (True, None, 4),
+                (
+                    StringDoubleQuoted,
+                    Some(r#""double-\"quoted\" 'string'""#),
+                    4,
+                ),
+                (NewLine, None, 5),
+                (
+                    StringSingleQuoted,
+                    Some(r#"'single-\'quoted\' "string"'"#),
+                    5,
+                ),
             ],
         );
     }

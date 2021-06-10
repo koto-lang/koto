@@ -16,7 +16,7 @@ pub enum Node {
     Number1,
     Int(ConstantIndex),
     Float(ConstantIndex),
-    Str(ConstantIndex),
+    Str(ConstantIndex, QuotationMark),
     Num2(Vec<AstIndex>),
     Num4(Vec<AstIndex>),
     List(Vec<AstIndex>),
@@ -117,7 +117,7 @@ impl fmt::Display for Node {
             Int(_) => write!(f, "Int"),
             Number0 => write!(f, "Number0"),
             Number1 => write!(f, "Number1"),
-            Str(_) => write!(f, "Str"),
+            Str(_, _) => write!(f, "Str"),
             Num2(_) => write!(f, "Num2"),
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
@@ -295,5 +295,12 @@ impl TryFrom<u8> for MetaId {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MapKey {
     Id(ConstantIndex),
+    Str(ConstantIndex, QuotationMark),
     Meta(MetaId),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum QuotationMark {
+    Double,
+    Single,
 }

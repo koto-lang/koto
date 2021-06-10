@@ -448,7 +448,7 @@ impl Compiler {
                 }
                 result
             }
-            Node::Str(constant) => {
+            Node::Str(constant, _) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
                     self.load_constant(result.register, *constant, LoadString, LoadStringLong);
@@ -1899,7 +1899,7 @@ impl Compiler {
                             self.compile_node(ResultRegister::Any, value_node, ast)?
                                 .unwrap()
                         }
-                        (MapKey::Id(id), None) => {
+                        (MapKey::Id(id), None) | (MapKey::Str(id, _), None) => {
                             match self.frame().get_local_assigned_register(*id) {
                                 Some(register) => CompileResult::with_assigned(register),
                                 None => {
@@ -2205,7 +2205,7 @@ impl Compiler {
 
     fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: MapKey) {
         match key {
-            MapKey::Id(id) => {
+            MapKey::Id(id) | MapKey::Str(id, _) => {
                 if id <= u8::MAX as u32 {
                     self.push_op_without_span(
                         Op::MapInsert,
@@ -2662,7 +2662,7 @@ impl Compiler {
                 | Node::Number1
                 | Node::Float(_)
                 | Node::Int(_)
-                | Node::Str(_)
+                | Node::Str(_, _)
                 | Node::Lookup(_) => {
                     let pattern = self.push_register()?;
                     self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;

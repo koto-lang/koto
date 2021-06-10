@@ -2,6 +2,11 @@
 
 Koto's strings are immutable sequences of characters with UTF-8 encoding.
 
+String literals can be created with either double or single quotation marks.
+Both styles are offered as a convenience to reduce the need for escaping,
+e.g. `'a "b" c'` is equivalent to `"a \"b\" c"`,
+and `"a 'b' c"` is equivalent to `'a \'b\' c'`
+
 Functions that produce sub-strings (e.g. `string.trim`) share the string
 data between the original string and the sub-string.
 
@@ -12,8 +17,8 @@ grapheme clusters.
 
 ```koto
 a = "Hello"
-b = "World!"
-x = "{}, {}!".print a, b
+b = 'World!'
+x = "{}, {}!".format a, b
 # Hello, World!
 "👋🥳😆"[1]
 # 🥳
