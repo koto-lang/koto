@@ -2,16 +2,26 @@
 
 Koto's strings are immutable sequences of characters with UTF-8 encoding.
 
+String literals can be created with either double or single quotation marks.
+Both styles are offered as a convenience to reduce the need for escaping,
+e.g. `'a "b" c'` is equivalent to `"a \"b\" c"`,
+and `"a 'b' c"` is equivalent to `'a \'b\' c'`
+
 Functions that produce sub-strings (e.g. `string.trim`) share the string
 data between the original string and the sub-string.
+
+Strings support indexing operations, with string indices referring to
+grapheme clusters.
 
 ## Example
 
 ```koto
 a = "Hello"
-b = "World!"
-"{}, {}!".print a, b
+b = 'World!'
+x = "{}, {}!".format a, b
 # Hello, World!
+"👋🥳😆"[1]
+# 🥳
 ```
 
 # Reference
@@ -114,14 +124,58 @@ Returns a formatted string, with the arguments being assigned to
 
 ### Formatting Syntax
 
+The syntax for format strings in Koto is similar to
+[Rust's formatting syntax](https://doc.rust-lang.org/std/fmt/).
+
+#### Placeholders
+
 - `{}`
-  - Takes the next value.
+  - Takes the next value from the list of arguments, starting with the first.
   - Subsequent `{}` placeholders will take following values.
 - `{0}, {1}, {2}, ...`
   - Takes the value at the specified index.
 - `{x}, {name}, {id}`
-  - Takes values by name from a map.
-    - The map is expected to be the first argument after the format string.
+  - Takes values by name from a Map.
+    - The Map is expected to be the first argument after the format string.
+
+`{` characters can be included in the output string by escaping them with
+another `{`, e.g. `"{{}}".format()` will output `"{}"`.
+
+#### Formatting modifiers
+
+Modifiers can be provided after a `:` separator in the format string.
+
+##### Minimum width, fill, and alignment
+
+A minimum width can be specified, ensuring that the formatted value takes up at
+least that many characters, e.g. `"x{:4}x".format "ab"` will output `xab  x`.
+
+The minimum width can be prefixed with an alignment modifier:
+
+- `<` - left-aligned
+- `^` - centered
+- `>` - right-aligned
+
+e.g. `"x{:>4}x".format "ab"` will output `x  abx`.
+
+Values are left-aligned by default, except for numbers which are right-aligned
+by default, e.g. `"x{:4}x".format 1.2` will output `x 1.2x`.
+
+The alignment modifier can be prefixed with a character which will be used to
+fill any empty space in the formatted string (the default character being ` `).
+e.g. `"{:x^8}".format 1234` will output `xx1234xx`.
+
+##### Maximum width / Precision
+
+A maximum width can be specified following a `.` character,
+e.g. `"{:.2}".format abcd"` will output `ab`.
+
+For numbers this will define the number of decimal places that should be
+displayed.
+
+Combining a maximum width with a minimum width is allowed, with the minimum
+coming before the maximum in the format string,
+e.g. `"x{:4.2}x".format "abcd"` will output `xab  x`.
 
 ### Example
 
@@ -134,6 +188,15 @@ Returns a formatted string, with the arguments being assigned to
 
 "{foo} {bar}".format {foo: 42, bar: true}
 # "42 true"
+
+"{:.2}".format 1/3
+# 0.33
+
+"{:-^8.2}".format 2/3
+# --0.67--
+
+"foo = {foo:8.3}".format {foo: 42}
+# foo =   42.000
 ```
 
 ## is_empty

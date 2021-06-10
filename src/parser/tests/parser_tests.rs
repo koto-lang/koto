@@ -39,14 +39,15 @@ mod parser {
 
         #[test]
         fn literals() {
-            let source = "
+            let source = r#"
 true
 false
 1
 1.0
-\"hello\"
+"hello"
+'world'
 a
-()";
+()"#;
             check_ast(
                 source,
                 &[
@@ -54,17 +55,19 @@ a
                     BoolFalse,
                     Number1,
                     Float(0),
-                    Str(1),
-                    Id(2),
+                    Str(1, QuotationMark::Double),
+                    Str(2, QuotationMark::Single),
+                    Id(3),
                     Empty,
                     MainBlock {
-                        body: vec![0, 1, 2, 3, 4, 5, 6],
+                        body: vec![0, 1, 2, 3, 4, 5, 6, 7],
                         local_count: 0,
                     },
                 ],
                 Some(&[
                     Constant::F64(1.0),
                     Constant::Str("hello"),
+                    Constant::Str("world"),
                     Constant::Str("a"),
                 ]),
             )
@@ -120,8 +123,8 @@ a
             check_ast(
                 source,
                 &[
-                    Str(0),
-                    Str(1),
+                    Str(0, QuotationMark::Double),
+                    Str(1, QuotationMark::Double),
                     MainBlock {
                         body: vec![0, 1],
                         local_count: 0,
@@ -180,7 +183,7 @@ a
                 &[
                     Number0,
                     Id(0),
-                    Str(1),
+                    Str(1, QuotationMark::Double),
                     Id(0),
                     Int(2),
                     List(vec![0, 1, 2, 3, 4]),
@@ -262,10 +265,10 @@ x = [
                 &[
                     Map(vec![]),
                     Int(1),
-                    Str(4),
+                    Str(4, QuotationMark::Double),
                     Int(5),
                     Map(vec![
-                        (MapKey::Id(0), Some(1)),
+                        (MapKey::Str(0, QuotationMark::Double), Some(1)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(2)),
                         (MapKey::Meta(MetaId::Add), Some(3)),
@@ -290,7 +293,7 @@ x = [
         fn map_inline_multiline() {
             let source = r#"
 {
-  "foo": 42,
+  'foo': 42,
   bar,
   baz:
     "hello",
@@ -299,9 +302,9 @@ x = [
                 source,
                 &[
                     Int(1),
-                    Str(4),
+                    Str(4, QuotationMark::Double),
                     Map(vec![
-                        (MapKey::Id(0), Some(0)),
+                        (MapKey::Str(0, QuotationMark::Single), Some(0)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(1)),
                     ]),
@@ -341,7 +344,7 @@ x"#;
                     Map(vec![
                         (MapKey::Id(1), Some(1)),
                         (MapKey::Id(3), None),
-                        (MapKey::Id(4), Some(3)),
+                        (MapKey::Str(4, QuotationMark::Double), Some(3)),
                         (MapKey::Meta(MetaId::Subtract), Some(4)),
                     ]), // 5
                     Assign {
@@ -1133,11 +1136,11 @@ x %= 4";
 
         #[test]
         fn string_and_id() {
-            let source = "\"hello\" + x";
+            let source = "'hello' + x";
             check_ast(
                 source,
                 &[
-                    Str(0),
+                    Str(0, QuotationMark::Single),
                     Id(1),
                     BinaryOp {
                         op: AstOp::Add,
@@ -3059,13 +3062,11 @@ x.bar()."baz" = 1
 
         #[test]
         fn lookup_on_string() {
-            let source = r#"
-"{}".format x
-"#;
+            let source = "'{}'.format x";
             check_ast(
                 source,
                 &[
-                    Str(0),
+                    Str(0, QuotationMark::Single),
                     Id(2),
                     Lookup((LookupNode::Call(vec![1]), None)),
                     Lookup((LookupNode::Id(1), Some(2))),
@@ -3234,7 +3235,7 @@ assert_eq x, "hello"
                     }, // 5
                     Id(2),
                     Id(0),
-                    Str(3),
+                    Str(3, QuotationMark::Double),
                     Call {
                         function: 6,
                         args: vec![7, 8],
@@ -3520,11 +3521,11 @@ finally
 
         #[test]
         fn throw_string() {
-            let source = r#"throw "error!""#;
+            let source = "throw 'error!'";
             check_ast(
                 source,
                 &[
-                    Str(0),
+                    Str(0, QuotationMark::Single),
                     Throw(0),
                     MainBlock {
                         body: vec![1],
@@ -3546,7 +3547,7 @@ throw
                 source,
                 &[
                     Id(1),
-                    Str(3),
+                    Str(3, QuotationMark::Double),
                     Map(vec![(MapKey::Id(0), Some(0)), (MapKey::Id(2), Some(1))]),
                     Throw(2),
                     MainBlock {
@@ -3626,17 +3627,17 @@ x = match y
         fn match_string_literals() {
             let source = r#"
 match x
-  "foo" then 99
+  'foo' then 99
   "bar" or "baz" then break
 "#;
             check_ast(
                 source,
                 &[
                     Id(0),
-                    Str(1),
+                    Str(1, QuotationMark::Single),
                     Int(2),
-                    Str(3),
-                    Str(4),
+                    Str(3, QuotationMark::Double),
+                    Str(4, QuotationMark::Double),
                     Break, // 5
                     Match {
                         expression: 0,

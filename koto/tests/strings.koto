@@ -9,10 +9,24 @@ export tests =
     assert "Hello" < "Hiyaa" and "World" <= "World!"
     assert "Hiyaa" > "Hello" and "World!" >= "World"
 
+  test_single_quotes: ||
+    # Strings can use either double or single quotes.
+    assert_eq "Hello", 'Hello'
+
   test_addition: ||
     x = "^"
     x += "_" + "^"
     assert_eq x, "^_^"
+
+  test_indexing: ||
+    assert_eq "Héllö"[4], "ö"
+    x = "Tschüss"
+    assert_eq x[0..3], "Tsc"
+    assert_eq x[2..=4], "chü"
+    assert_eq x[4..7], "üss"
+    assert_eq x[..=3], "Tsch"
+    assert_eq x[5..], "ss"
+    assert_eq "👋🥳😆"[1], "🥳"
 
   test_chars: ||
     hello = "Héllö"
@@ -115,22 +129,3 @@ zzz
     assert_eq "foo    ".trim(), "foo"
     assert_eq "     bar".trim(), "bar"
     assert_eq "     ".trim(), ""
-
-  test_format: ||
-    hello = "Hello"
-    world = "World"
-
-    # A string literal is expected as first argument
-    assert_eq "Hello, World!", (string.format "Hello, World!")
-
-    # {} is a placeholder for an argument to be included in the string
-    assert_eq "Hello, World!", ("{}, {}!".format hello, world)
-
-    # Curly braces can be included in the output by escaping them with another curly brace
-    assert_eq "{Hello}, World!", ("{{{}}}, {}!".format hello, world)
-
-    # Positional placeholders can be used to reference arguments by index
-    assert_eq "Hello World, Hello World!", ("{0} {1}, {0} {1}!".format hello, world)
-
-    # Identifier placeholders are looked up in a map argument
-    assert_eq "O_o", ("{first}_{second}".format {first: "O", second: "o"})

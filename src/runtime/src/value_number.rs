@@ -37,6 +37,14 @@ impl ValueNumber {
         matches!(self, Self::F64(_))
     }
 
+    pub fn is_i64_in_f64_range(&self) -> bool {
+        if let Self::I64(n) = *self {
+            (n as f64 as i64) == n
+        } else {
+            false
+        }
+    }
+
     pub fn is_nan(self) -> bool {
         match self {
             Self::F64(n) => n.is_nan(),

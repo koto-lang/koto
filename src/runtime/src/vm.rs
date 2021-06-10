@@ -21,6 +21,7 @@ use {
             Arc,
         },
     },
+    unicode_segmentation::UnicodeSegmentation,
 };
 
 #[derive(Clone, Debug)]
@@ -2083,44 +2084,53 @@ impl Vm {
         Ok(())
     }
 
-    fn validate_index(&self, n: ValueNumber, size: usize) -> Result<usize, RuntimeError> {
+    fn validate_index(&self, n: ValueNumber, size: Option<usize>) -> Result<usize, RuntimeError> {
         let index = usize::from(n);
 
         if n < 0.0 {
-            runtime_error!("Negative indices aren't allowed ('{}')", n)
-        } else if index >= size {
-            runtime_error!("Index out of bounds - index: {}, size: {}", n, size)
-        } else {
-            Ok(index)
+            return runtime_error!("Negative indices aren't allowed ('{}')", n);
+        } else if let Some(size) = size {
+            if index >= size {
+                return runtime_error!("Index out of bounds - index: {}, size: {}", n, size);
+            }
         }
+
+        Ok(index)
     }
 
-    fn validate_int_range(&self, start: isize, end: isize, size: usize) -> InstructionResult {
+    fn validate_int_range(
+        &self,
+        start: isize,
+        end: isize,
+        size: Option<usize>,
+    ) -> Result<(usize, usize), RuntimeError> {
         let ustart = start as usize;
         let uend = end as usize;
 
         if start < 0 || end < 0 {
-            runtime_error!(
+            return runtime_error!(
                 "Indexing with negative indices isn't supported, start: {}, end: {}",
                 start,
                 end
-            )
+            );
         } else if start > end {
-            runtime_error!(
+            return runtime_error!(
                 "Indexing with a descending range isn't supported, start: {}, end: {}",
                 start,
                 end
-            )
-        } else if ustart > size || uend > size {
-            runtime_error!(
-                "Index out of bounds, size of {} - start: {}, end: {}",
-                size,
-                start,
-                end
-            )
-        } else {
-            Ok(())
+            );
+        } else if let Some(size) = size {
+            if ustart > size || uend > size {
+                return runtime_error!(
+                    "Index out of bounds, start: {}, end: {}, size: {}",
+                    start,
+                    end,
+                    size
+                );
+            }
         }
+
+        Ok((ustart, uend))
     }
 
     fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
@@ -2132,10 +2142,10 @@ impl Vm {
             )
         } else if start > size || end > size {
             runtime_error!(
-                "Index out of bounds, size of {} - start: {}, end: {}",
-                size,
+                "Index out of bounds, start: {}, end: {}, size: {}",
                 start,
-                end
+                end,
+                size
             )
         } else {
             Ok(())
@@ -2155,17 +2165,14 @@ impl Vm {
 
         match (value, index) {
             (List(l), Number(n)) => {
-                let index = self.validate_index(n, l.len())?;
+                let index = self.validate_index(n, Some(l.len()))?;
                 self.set_register(result_register, l.data()[index].clone());
             }
-
             (List(l), Range(IntRange { start, end })) => {
-                self.validate_int_range(start, end, l.len())?;
+                let (start, end) = self.validate_int_range(start, end, Some(l.len()))?;
                 self.set_register(
                     result_register,
-                    List(ValueList::from_slice(
-                        &l.data()[(start as usize)..(end as usize)],
-                    )),
+                    List(ValueList::from_slice(&l.data()[start..end])),
                 )
             }
             (List(l), IndexRange(value::IndexRange { start, end })) => {
@@ -2177,21 +2184,117 @@ impl Vm {
                 )
             }
             (Tuple(t), Number(n)) => {
-                let index = self.validate_index(n, t.data().len())?;
+                let index = self.validate_index(n, Some(t.data().len()))?;
                 self.set_register(result_register, t.data()[index].clone());
             }
-
             (Tuple(t), Range(IntRange { start, end })) => {
-                self.validate_int_range(start, end, t.data().len())?;
-                self.set_register(
-                    result_register,
-                    Tuple(t.data()[(start as usize)..(end as usize)].into()),
-                )
+                let (start, end) = self.validate_int_range(start, end, Some(t.data().len()))?;
+                self.set_register(result_register, Tuple(t.data()[start..end].into()))
             }
             (Tuple(t), IndexRange(value::IndexRange { start, end })) => {
-                let end = end.unwrap_or(t.data().len());
+                let end = end.unwrap_or_else(|| t.data().len());
                 self.validate_index_range(start, end, t.data().len())?;
                 self.set_register(result_register, Tuple(t.data()[start..end].into()))
+            }
+            (Str(s), Number(n)) => {
+                let index = self.validate_index(n, None)?;
+
+                if let Some(result) = s.graphemes(true).nth(index) {
+                    self.set_register(result_register, Str(result.into()));
+                } else {
+                    return runtime_error!(
+                        "Index out of bounds - index: {}, size: {}",
+                        index,
+                        s.graphemes(true).count()
+                    );
+                }
+            }
+            (Str(s), Range(IntRange { start, end })) => {
+                let (start, end) = self.validate_int_range(start, end, None)?;
+
+                let result = if start == end {
+                    ""
+                } else {
+                    let mut result_start = None;
+                    let mut result_end = None;
+                    let mut grapheme_count = 0;
+                    for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
+                        grapheme_count += 1;
+                        if i == start {
+                            result_start = Some(grapheme_start);
+                        } else if i == end - 1 {
+                            // By checking against end - 1, we can allow for indexing 'one past the
+                            // end' to get the last character.
+                            result_end = Some(grapheme_start + grapheme.len());
+                            break;
+                        }
+                    }
+                    match (result_start, result_end) {
+                        (Some(result_start), Some(result_end)) => &s[result_start..result_end],
+                        _ => {
+                            return runtime_error!(
+                                "Index out of bounds for string - start: {}, end {}, size: {}",
+                                start,
+                                end,
+                                grapheme_count
+                            );
+                        }
+                    }
+                };
+
+                self.set_register(result_register, Str(result.into()))
+            }
+            (Str(s), IndexRange(value::IndexRange { start, end })) => {
+                let end_unwrapped = end.unwrap_or_else(|| s.len());
+                if start > end_unwrapped {
+                    return runtime_error!(
+                        "Indexing with a descending range isn't supported, start: {}{}",
+                        start,
+                        if end.is_some() {
+                            format!(", {}", end_unwrapped)
+                        } else {
+                            "".to_string()
+                        },
+                    );
+                }
+
+                let result = if start == end_unwrapped {
+                    ""
+                } else {
+                    let mut result_start = None;
+                    let mut result_end = None;
+                    let mut grapheme_count = 0;
+                    for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
+                        grapheme_count += 1;
+                        if i == start {
+                            result_start = Some(grapheme_start);
+                            if end.is_none() {
+                                break;
+                            }
+                        } else if i == end_unwrapped - 1 {
+                            result_end = Some(grapheme_start + grapheme.len());
+                            break;
+                        }
+                    }
+                    match (result_start, result_end) {
+                        (Some(result_start), Some(result_end)) => &s[result_start..result_end],
+                        (Some(result_start), None) if end.is_none() => &s[result_start..],
+                        _ => {
+                            return runtime_error!(
+                                "Index out of bounds for string - start: {}{}, size: {}",
+                                start,
+                                if end.is_some() {
+                                    format!(", {}", end_unwrapped)
+                                } else {
+                                    "".to_string()
+                                },
+                                grapheme_count
+                            );
+                        }
+                    }
+                };
+
+                self.set_register(result_register, Str(result.into()))
             }
             (Num2(n), Number(i)) => {
                 let i = usize::from(i);
