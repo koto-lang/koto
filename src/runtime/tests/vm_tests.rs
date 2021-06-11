@@ -8,30 +8,7 @@ mod vm {
         std::sync::Arc,
     };
 
-    fn test_script(script: &str, expected_output: Value) {
-        let mut vm = Vm::default();
-        let mut prelude = vm.prelude();
-
-        prelude.add_value("test_value", Number(42.0.into()));
-        prelude.add_fn("assert", |vm, args| {
-            for value in vm.get_args(args).iter() {
-                match value {
-                    Bool(b) => {
-                        if !b {
-                            return runtime_error!("Assertion failed");
-                        }
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            "assert expects booleans as arguments, found '{}'",
-                            unexpected.type_as_string(),
-                        )
-                    }
-                }
-            }
-            Ok(Empty)
-        });
-
+    fn run_script(mut vm: Vm, script: &str, expected_output: Value) {
         let print_chunk = |script: &str, chunk: Arc<Chunk>| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
@@ -78,6 +55,33 @@ mod vm {
                 panic!("Error while running script: {}", e.to_string());
             }
         }
+    }
+    
+    fn test_script(script: &str, expected_output: Value) {
+        let vm = Vm::default();
+        let mut prelude = vm.prelude();
+
+        prelude.add_value("test_value", Number(42.0.into()));
+        prelude.add_fn("assert", |vm, args| {
+            for value in vm.get_args(args).iter() {
+                match value {
+                    Bool(b) => {
+                        if !b {
+                            return runtime_error!("Assertion failed");
+                        }
+                    }
+                    unexpected => {
+                        return runtime_error!(
+                            "assert expects booleans as arguments, found '{}'",
+                            unexpected.type_as_string(),
+                        )
+                    }
+                }
+            }
+            Ok(Empty)
+        });
+
+        run_script(vm, script, expected_output)
     }
 
     fn number_list<T>(values: &[T]) -> Value
@@ -2244,6 +2248,45 @@ foos = (0, 1)
 foos[0] == foos[1]
 ";
             test_script(script, Bool(true));
+        }
+    }
+    
+    mod external {
+        use crate::vm::{run_script, runtime_error, ValueMap, Value, Vm};
+        use koto_runtime::{ExternalValue, get_external_instance};
+        
+        #[derive(Debug)]
+        pub struct Foo;
+        
+        impl std::fmt::Display for Foo {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+        
+        impl ExternalValue for Foo {
+            fn value_type(&self) -> String { String::from("Foo") }
+        }
+        
+        #[test]
+        fn test_call_vtable() {
+            let vm = Vm::default();
+            let mut prelude = vm.prelude();
+            let mut vtable = ValueMap::new();
+
+            vtable.add_instance_fn("is_foo", |vm, args| {
+                let args = vm.get_args(args);
+                get_external_instance!(args, "Foo", "is_foo", Foo, _foo, {
+                    Ok(Value::Bool(true))
+                })
+            });
+
+            prelude.add_value("test_value", Value::make_external_value(Foo, vtable.clone()));
+            
+            let script = "import test_value\ntest_value.is_foo()";
+            let expected_output = Value::Bool(true);
+            
+            run_script(vm, script, expected_output);
         }
     }
 }
