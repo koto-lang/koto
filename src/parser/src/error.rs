@@ -82,6 +82,7 @@ pub enum SyntaxError {
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
     ExpectedThenExpression,
+    ExpectedTestName,
     ExpectedUntilCondition,
     ExpectedWhileCondition,
     IfBlockNotAllowedInThisContext,
@@ -265,6 +266,7 @@ impl fmt::Display for SyntaxError {
             ExpectedSwitchArmExpressionAfterThen => {
                 f.write_str("Expected expression after then in switch arm")
             }
+            ExpectedTestName => f.write_str("Expected a test name"),
             ExpectedThenExpression => f.write_str("Expected 'then' expression."),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedWhileCondition => f.write_str("Expected condition in while loop"),

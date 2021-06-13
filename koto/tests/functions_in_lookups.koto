@@ -10,7 +10,7 @@ test_map = ||
 maps = [test_map(), test_map()]
 
 export tests =
-  test_call_setter_in_child_map_in_list: ||
+  @test call_setter_in_child_map_in_list: ||
     # set the first map's child foo
     assert_eq maps[0].get_child_map().foo, 42
     maps[0].get_child_map().set_foo -1
@@ -19,10 +19,10 @@ export tests =
     # the second map's child foo hasn't been modified
     assert_eq maps[1].get_child_map().foo, 42
 
-  test_negation_of_lookup: ||
+  @test negation_of_lookup: ||
     assert_eq -maps[1].get_child_map().foo, -42
 
-  test_chained_function_call: ||
+  @test chained_function_call: ||
     f = ||
       # Calling f() returns the following function
       |x| x * x

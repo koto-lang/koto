@@ -7,23 +7,23 @@ make_foo = |x|
   @==: |self, other| self.x == other.x
 
 export tests =
-  test_clear: ||
+  @test clear: ||
     x = [1, 2, 3, 4, 5]
     x.clear()
     assert_eq x, []
 
-  test_contains: ||
+  @test contains: ||
     assert [0..10].contains 5
     assert not [0..10].contains 15
 
-  test_contains_with_overloaded_equality_op: ||
+  @test contains_with_overloaded_equality_op: ||
     bar = |x|
       x: x
       @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
 
     assert not [(bar 1)].contains (bar 1)
 
-  test_copy: ||
+  @test copy: ||
     x = [1, 2, 3]
     x2 = x
     x3 = x.copy()
@@ -31,13 +31,13 @@ export tests =
     assert_eq x2[0], 99
     assert_eq x3[0], 1
 
-  test_deep_copy: ||
+  @test deep_copy: ||
     x = [1, [2, 3]]
     x2 = x.deep_copy()
     x[1][0] = 99
     assert_eq x2[1][0], 2
 
-  test_push_pop: ||
+  @test push_pop: ||
     z = [1]
     z.push 2
     assert_eq z, [1, 2]
@@ -46,13 +46,13 @@ export tests =
     assert_eq z, [1, 2, 3]
     assert_eq z.pop(), 3
     assert_eq z, [1, 2]
-    z.pop()
+   z.pop()
     z.pop()
     assert_eq z, []
     list.pop z
     assert_eq z, []
 
-  test_first_last: ||
+  @test first_last: ||
     z = []
     assert_eq z.first(), ()
     assert_eq z.last(), ()
@@ -65,11 +65,11 @@ export tests =
     assert_eq z.first(), 1
     assert_eq z.last(), 3
 
-  test_is_empty: ||
+  @test is_empty: ||
     assert [].is_empty()
     assert not [1, 2, 3].is_empty()
 
-  test_remove_insert: ||
+  @test remove_insert: ||
     z = [1, 2, 3]
     assert_eq (z.remove 1), 2
     assert_eq z, [1, 3]
@@ -78,16 +78,16 @@ export tests =
     z.insert 3, -1
     assert_eq z, [1, 42, 3, -1]
 
-  test_get: ||
+  @test get: ||
     assert_eq ([0..10].get 5), 5
     assert_eq ([0..10].get 15), ()
 
-  test_fill: ||
+  @test fill: ||
     a = [1, 2, 3]
     a.fill 42
     assert_eq a, [42, 42, 42]
 
-  test_resize: ||
+  @test resize: ||
     z = [42]
     z.resize 4, 99
     assert_eq z, [42, 99, 99, 99]
@@ -95,17 +95,17 @@ export tests =
     z.resize 2, -1
     assert_eq z, [42, 99]
 
-  test_retain_value: ||
+  @test retain_value: ||
     z = ["hello", 42, (num4 0), "hello"]
     z.retain "hello"
     assert_eq z, ["hello", "hello"]
 
-  test_retain_predicate: ||
+  @test retain_predicate: ||
     z = [0..10]
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 
-  test_retain_with_overloaded_equality_op: ||
+  @test retain_with_overloaded_equality_op: ||
     bar = |x|
       x: x
       @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
@@ -114,16 +114,16 @@ export tests =
     z.retain bar(1) # The inverted == operator causes the 'bar 1's to be dropped
     assert_eq z.size(), 2
 
-  test_reverse: ||
+  @test reverse: ||
     a = [1, 2, 3]
     a.reverse()
     assert_eq a, [3, 2, 1]
 
-  test_size: ||
+  @test size: ||
     assert_eq [].size(), 0
     assert_eq [1, 2, 3].size(), 3
 
-  test_sort: ||
+  @test sort: ||
     z = [3, 2, 1]
     z.sort()
     assert_eq z, [1, 2, 3]
@@ -151,7 +151,7 @@ export tests =
     for n in 0..z.size()
       assert_eq z[n].x, a[a.size() - 1 - n].x
 
-  test_sort_copy: ||
+  @test sort_copy: ||
     assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]
 
     # values with overloaded operators
@@ -162,7 +162,7 @@ export tests =
     assert_ne r, z
     assert_eq r, a
 
-  test_swap: ||
+  @test swap: ||
     a = [1, 2, 3]
     b = [7, 8, 9]
 
@@ -171,15 +171,15 @@ export tests =
     assert_eq a, [7, 8, 9]
     assert_eq b, [1, 2, 3]
 
-  test_to_tuple: ||
+  @test to_tuple: ||
     assert_eq [1, 2, 3].to_tuple(), (1, 2, 3)
 
-  test_transform: ||
+  @test transform: ||
     z = ["1", "2", "3"]
     z.transform |x| x.to_number()
     assert_eq z, [1, 2, 3]
 
-  test_with_size: ||
+  @test with_size: ||
     assert_eq
       (list.with_size 3, "x"),
       ["x", "x", "x"]

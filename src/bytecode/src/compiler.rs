@@ -1909,7 +1909,7 @@ impl Compiler {
                                 }
                             }
                         }
-                        (MapKey::Meta(key), None) => {
+                        (MapKey::Meta(key, _), None) => {
                             return compiler_error!(
                                 self,
                                 "Value missing for meta map key: @{:?}",
@@ -2216,11 +2216,24 @@ impl Compiler {
                     self.push_bytes(&id.to_le_bytes());
                 }
             }
-            MapKey::Meta(key) => {
-                self.push_op_without_span(
-                    Op::MetaInsert,
-                    &[map_register, value_register, key as u8],
-                );
+            MapKey::Meta(key, name) => {
+                let key = key as u8;
+                if let Some(name) = name {
+                    if name <= u8::MAX as u32 {
+                        self.push_op_without_span(
+                            Op::MetaInsertNamed,
+                            &[map_register, value_register, key, name as u8],
+                        );
+                    } else {
+                        self.push_op_without_span(
+                            Op::MetaInsertNamedLong,
+                            &[map_register, value_register, key],
+                        );
+                        self.push_bytes(&name.to_le_bytes());
+                    }
+                } else {
+                    self.push_op_without_span(Op::MetaInsert, &[map_register, value_register, key]);
+                }
             }
         }
     }

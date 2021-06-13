@@ -339,6 +339,12 @@ pub enum Instruction {
         value: u8,
         id: MetaId,
     },
+    MetaInsertNamed {
+        register: u8,
+        value: u8,
+        id: MetaId,
+        name: ConstantIndex,
+    },
     Access {
         register: u8,
         map: u8,
@@ -429,6 +435,7 @@ impl fmt::Display for Instruction {
             Index { .. } => write!(f, "Index"),
             MapInsert { .. } => write!(f, "MapInsert"),
             MetaInsert { .. } => write!(f, "MetaInsert"),
+            MetaInsertNamed { .. } => write!(f, "MetaInsertNamed"),
             Access { .. } => write!(f, "Access"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
@@ -785,6 +792,16 @@ impl fmt::Debug for Instruction {
                 f,
                 "MetaInsert\tmap: {}\t\tvalue: {}\tid: {:?}",
                 register, value, id
+            ),
+            MetaInsertNamed {
+                register,
+                value,
+                id,
+                name,
+            } => write!(
+                f,
+                "MetaInsertNamed\tmap: {}\t\tvalue: {}\tid: {:?}\tname: {}",
+                register, value, id, name
             ),
             Access { register, map, key } => write!(
                 f,
@@ -1232,6 +1249,48 @@ impl Iterator for InstructionReader {
                         register,
                         value,
                         id,
+                    })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaInsertNamed => {
+                let register = get_byte!();
+                let value = get_byte!();
+                let meta_id = get_byte!();
+                let name = get_byte!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaInsertNamed {
+                        register,
+                        value,
+                        id,
+                        name,
+                    })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaInsertNamedLong => {
+                let register = get_byte!();
+                let value = get_byte!();
+                let meta_id = get_byte!();
+                let name = get_u32!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaInsertNamed {
+                        register,
+                        value,
+                        id,
+                        name,
                     })
                 } else {
                     Some(Error {

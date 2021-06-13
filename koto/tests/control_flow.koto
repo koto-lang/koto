@@ -1,29 +1,29 @@
 from test import assert, assert_eq
 
 export tests =
-  test_inline_if: ||
+  @test inline_if: ||
     x = if true then 10 else 20
     assert_eq x, 10
 
-  test_inline_if_function_call: ||
+  @test inline_if_function_call: ||
     is_zero = |x| x == 0
     x = 0
     x = if is_zero 0 then 42
     assert_eq x, 42
     assert if is_zero 0 then true else false
 
-  test_inline_if_multi_assignment: ||
+  @test inline_if_multi_assignment: ||
     a, b = if true then 10, 20 else 30, 40
     assert_eq b, 20
 
-  test_if_block: ||
+  @test if_block: ||
     x = true
     a = 0
     if x
       a = 42
     assert_eq a, 42
 
-  test_if_else_if: ||
+  @test if_else_if: ||
     x = true
     if x == false
       # This comment shouldn't break parsing
@@ -37,7 +37,7 @@ export tests =
           # or this one
         assert true
 
-  test_switch: ||
+  @test switch_expression: ||
     fib = |n|
       switch
         n <= 0 then 0
@@ -46,7 +46,7 @@ export tests =
 
     assert_eq 13, fib 7
 
-  test_match: ||
+  @test match_expression: ||
     inspect = |n|
       match n
         x if x < 0 then # 'then' is optional in a match arm when the body is indented
@@ -59,7 +59,7 @@ export tests =
           ">= 10"
     assert_eq (inspect 7), "odd"
 
-  test_match_against_lookups: ||
+  @test match_against_lookups: ||
     m = {foo: 42, bar: 99}
     z = match 99
       # Lookups (map/list accesses, function calls) match if their results are equal
@@ -68,7 +68,7 @@ export tests =
       other then "{}".format other
     assert_eq z, "bar"
 
-  test_match_multiple_values: ||
+  @test match_multiple_values: ||
     fizz_buzz = |n|
       match n % 3, n % 5
         0, 0 then "Fizz Buzz"
@@ -81,7 +81,7 @@ export tests =
       .to_tuple()
     assert_eq x, ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
 
-  test_match_lists_and_tuples: ||
+  @test match_lists_and_tuples: ||
     z = [1, 2, (3, 4), (5, [6, 7, 8])]
 
     a = match z

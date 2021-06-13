@@ -1,7 +1,7 @@
 import koto.type, test.assert_eq
 
 export tests =
-  test_type_returns_type_name: ||
+  @test type_returns_type_name: ||
     assert_eq (type true), "Bool"
     assert_eq (type |x| x * x), "Function"
     assert_eq (type [1, 2, 3]), "List"

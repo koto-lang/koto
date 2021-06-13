@@ -3,49 +3,49 @@ from test import assert, assert_eq, assert_ne, assert_near, run_tests
 # A script can export a map named 'tests' to have the tests automatically run when
 # the script is loaded.
 export tests =
-  # 'pre_test' will be run before each test
-  pre_test: |self|
+  # '@pre_test' will be run before each test
+  @pre_test: |self|
     self.test_data = 1, 2, 3
 
-  # 'post_test' will be run after each test
-  post_test: |self|
+  # '@post_test' will be run after each test
+  @post_test: |self|
     self.test_data = ()
 
-  # Functions with a name starting with 'test_' will be automatically run as tests
-  test_size: |self|
+  # Functions with that are tagged with @test will be automatically run as tests
+  @test size: |self|
     # assert_eq checks that its two arguments are equal
     assert_eq self.test_data.size(), 3
     # assert_ne checks that its two arguments are not equal
     assert_ne self.test_data.size(), 1
 
   # Test functions don't have to be instance functions
-  test_extra: ||
+  @test extra: ||
     # assert checks that its argument is true
     assert 1 > 0
     # assert_near checks that its arguments are equal, within a specied margin
     allowed_error = 0.1
     assert_near 1.3, 1.301, allowed_error
 
-  test_run_tests: ||
+  @test run_tests: ||
     tests_were_run = {}
     my_tests =
-      pre_test: |self| tests_were_run.pre_test = true
-      post_test: |self| tests_were_run.post_test = true
-      test_foo: || tests_were_run.test_foo = true
-      test_bar: || tests_were_run.test_bar = true
-      # Functions without a test_ prefix shouldn't be run
+      @pre_test: |self| tests_were_run.pre_test = true
+      @post_test: |self| tests_were_run.post_test = true
+      @test foo: || tests_were_run.foo = true
+      @test bar: || tests_were_run.bar = true
+      # Functions that aren't tagged with @test shouldn't be run
       not_run: || test_were_run.not_run = true
       # Tests should be run in order
-      test_failure: || assert false
+      @test failure: || assert false
 
     try
       run_tests my_tests
     catch _
-      tests_were_run.test_failure = true
+      tests_were_run.failure = true
 
     assert tests_were_run.pre_test
     assert tests_were_run.post_test
-    assert tests_were_run.test_foo
-    assert tests_were_run.test_bar
-    assert tests_were_run.test_failure
+    assert tests_were_run.foo
+    assert tests_were_run.bar
+    assert tests_were_run.failure
     assert not tests_were_run.contains_key "not_run"

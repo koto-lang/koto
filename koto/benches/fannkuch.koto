@@ -73,7 +73,7 @@ export main = ||
     "Pfannkuchen({}) = {}".print n flips
 
 export tests =
-  test_5: ||
+  @test fannkuch_5: ||
     sum, flips = fannkuch 5
     assert_eq sum, 11
     assert_eq flips, 7

@@ -7,14 +7,14 @@ make_foo = |x|
   @==: |self, other| self.x == other.x
 
 export tests =
-  test_next: ||
+  @test next: ||
     i = (1..=3).iter()
     assert_eq i.next(), 1
     assert_eq i.next(), 2
     assert_eq i.next(), 3
     assert_eq i.next(), ()
 
-  test_to_list: ||
+  @test to_list: ||
     assert_eq (1..=3).to_list(), [1, 2, 3]
     assert_eq [2,, 4, 6].to_list(), [2, 4, 6]
     assert_eq
@@ -26,7 +26,7 @@ export tests =
         yield x * 2
     assert_eq (doubler 1..=5).to_list(), [2, 4, 6, 8, 10]
 
-  test_to_map: ||
+  @test to_map: ||
     # An iterator that returns a single value produces a Map,
     # with the input values as keys, and with Empty as their values.
     assert_eq
@@ -40,40 +40,40 @@ export tests =
         .to_map(),
       {"1": 1, "2": 2, "3": 3}
 
-  test_to_tuple: ||
+  @test to_tuple: ||
     assert_eq (1..=3).iter().to_tuple(), (1, 2, 3)
     assert_eq [2, 4, 6].iter().to_tuple(), (2, 4, 6)
     assert_eq
       {foo: 42, bar: 99}.iter().to_tuple(),
       (("foo", 42), ("bar", 99))
 
-  test_all: ||
+  @test all: ||
     assert (1..10).all(|n| n < 10)
     assert not (1..10).all(|n| n < 5)
     assert "xyz".all |c| "zyx".contains c
 
-  test_any: ||
+  @test any: ||
     assert (1..10).any(|n| n == 5)
     assert not (1..10).any(|n| n == 15)
     assert "xyz".any(|c| c == "z")
 
-  test_chain: ||
+  @test chain: ||
     assert_eq
       (1..10).chain(10..15).chain(15..20).to_tuple(),
       (1..20).to_tuple()
 
-  test_consume: ||
+  @test consume: ||
     x = []
     (1..=5).each(|n| x.push n).consume()
     assert_eq x, [1, 2, 3, 4, 5]
 
-  test_count: ||
+  @test count: ||
     result = (0..10)
       .keep |n| n % 2 == 0
       .count()
     assert_eq result, 5
 
-  test_each: ||
+  @test each: ||
     assert_eq
       ("1", "2").each(|x| x.to_number()).to_tuple(),
       (1, 2)
@@ -84,40 +84,40 @@ export tests =
         .to_tuple(),
       (("foo", 42), ("bar", 99))
 
-  test_enumerate: ||
+  @test enumerate: ||
     assert_eq
       (10..=12).enumerate().to_tuple(),
       ((0, 10), (1, 11), (2, 12))
 
-  test_keep: ||
+  @test keep: ||
     assert_eq
       (0..10)
         .keep |x| x % 2 == 1
         .to_tuple(),
       (1, 3, 5, 7, 9)
 
-  test_fold: ||
+  @test fold: ||
     assert_eq
       (1..=5).fold(0, |sum, x| sum + x),
       15
 
-  test_max: ||
+  @test max: ||
     assert_eq (2, -1, 9).max(), 9
     assert_eq (make_foo(2), make_foo(-1), make_foo(9)).max().x, 9
     assert_eq ("hello", "goodbye").max(), "hello"
 
-  test_min: ||
+  @test min: ||
     assert_eq (2, -1, 9).min(), -1
     assert_eq (make_foo(2), make_foo(-1), make_foo(9)).min().x, -1
     assert_eq ("hello", "goodbye").min(), "goodbye"
 
-  test_min_max: ||
+  @test min_max: ||
     assert_eq (2, -1, 9).min_max(), (-1, 9)
     assert_eq ("hello", "to the", "world").min_max(), ("hello", "world")
     min_max = (make_foo(2), make_foo(-1), make_foo(9)).min_max()
     assert_eq (min_max[0].x, min_max[1].x), (-1, 9)
 
-  test_position: ||
+  @test position: ||
     assert_eq
       (100..1000).position(|x| x >= 110),
       10
@@ -125,36 +125,36 @@ export tests =
       "hey now".position(|c| c == " "),
       3
 
-  test_product: ||
+  @test product: ||
     assert_eq (1..=5).product(), 120
     # An initial value can be provided to override the default initial value of 0
     assert_eq (2, 3, 4).product(num2 1, 2), (num2 24, 48)
 
-  test_product_with_overloaded_multiply_operator: ||
+  @test product_with_overloaded_multiply_operator: ||
     foo = |x|
       x: x
       @*: |self, other| foo self.x * other.x
     foos = (foo 2), (foo 3), (foo 4)
     assert_eq foos.product(foo 1), (foo 24)
 
-  test_skip: ||
+  @test skip: ||
     assert_eq
       (0..10).skip(5).to_tuple(),
       (5, 6, 7, 8, 9)
 
-  test_sum: ||
+  @test sum: ||
     assert_eq (1..=5).sum(), 15
     # An initial value can be provided to override the default initial value of 0
     assert_eq ([1], [2], [3]).sum([]), [1, 2, 3]
 
-  test_sum_with_overloaded_add_operator: ||
+  @test sum_with_overloaded_add_operator: ||
     foo = |x|
       x: x
       @+: |self, other| foo self.x + other.x
     foos = (foo 10), (foo 20), (foo 30)
     assert_eq foos.sum(foo 0), (foo 60)
 
-  test_take: ||
+  @test take: ||
     assert_eq
       (1..100).take(5).to_tuple(),
       (1, 2, 3, 4, 5)
@@ -166,7 +166,7 @@ export tests =
       ones().take(3).to_tuple(),
       (1, 1, 1)
 
-  test_zip: ||
+  @test zip: ||
     assert_eq
       (1..=3)
         .zip 11..100
@@ -179,7 +179,7 @@ export tests =
         .to_tuple(),
       ((("foo", 42), 100), (("bar", 99), 101))
 
-  test_custom_iterator_adaptor: ||
+  @test custom_iterator_adaptor: ||
     # Inserting a function into the iterator map makes it available as an iterator adaptor
     iterator.every_other = |iter|
       n = 0

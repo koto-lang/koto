@@ -15,7 +15,7 @@ make_bidirectional_enum = |entries...|
       enum
 
 export tests =
-  test_make_enum: ||
+  @test make_enum: ||
     enum = make_enum "foo", "bar", "baz"
     assert_eq enum.foo, 0
     assert_eq enum.bar, 1
@@ -24,7 +24,7 @@ export tests =
     assert_eq enum.get_index(1)[0], "bar"
     assert_eq enum.get_index(2)[0], "baz"
 
-  test_make_bidirectional_enum: ||
+  @test make_bidirectional_enum: ||
     enum = make_bidirectional_enum "foo", "bar", "baz"
     assert_eq enum.foo, 0
     assert_eq enum.bar, 1
@@ -33,7 +33,7 @@ export tests =
     assert_eq enum.get(1), "bar"
     assert_eq enum.get(2), "baz"
 
-  test_match_against_enum_values: ||
+  @test match_against_enum_values: ||
     enum = make_enum "a", "b", "c"
     x = enum.b
     y = match x

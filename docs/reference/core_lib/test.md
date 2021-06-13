@@ -5,10 +5,10 @@ A collection of utilities for writing tests.
 ## Writing tests
 
 To add tests to a Koto script, `export` a Map named `tests`, and then any
-functions in the Map with names starting with `test_` will be run as tests.
+functions in the Map tagged with `@test` will be run as tests.
 
-If a function named `pre_test` is in the `tests` Map, then it will be run before
-each test. Similarly, if a function named `post_test` is present then it will be
+If a function named `@pre_test` is in the `tests` Map, then it will be run before
+each test. Similarly, if a function named `@post_test` is present then it will be
 run after each test.
 
 These functions are useful if some setup work is needed before each test, and
@@ -22,16 +22,16 @@ first argument, then the `tests` Map itself will be passed in as `self`.
 ```koto
 # Tests are exported from a module as a map named `tests`
 export tests =
-  # 'pre_test' will be run before each test
-  pre_test: |self|
+  # '@pre_test' will be run before each test
+  @pre_test: |self|
     self.test_data = 1, 2, 3
 
-  # 'post_test' will be run after each test
-  post_test: |self|
+  # '@post_test' will be run after each test
+  @post_test: |self|
     self.test_data = ()
 
-  # Functions with a name starting with 'test_' are automatically run as tests
-  test_basic_assertions: ||
+  # Functions that are tagged with @test are automatically run as tests
+  @test basic_assertions: ||
     # assert checks that its argument is true
     assert 1 > 0
     # assert_near checks that its arguments are equal, within a specied margin
@@ -39,7 +39,7 @@ export tests =
     assert_near 1.3, 1.301, allowed_error
 
   # Instance test functions receive the tests map as `self`
-  test_data_size: |self|
+  @test data_size: |self|
     # assert_eq checks that its two arguments are equal
     assert_eq self.test_data.size(), 3
     # assert_ne checks that its two arguments are not equal
@@ -159,11 +159,11 @@ Runs the tests contained in the map.
 
 ```koto
 my_tests =
-  pre_test: |self| self.test_data = 1, 2, 3
-  post_test: |self| self.test_data = ()
+  @pre_test: |self| self.test_data = 1, 2, 3
+  @post_test: |self| self.test_data = ()
 
-  test_data_size: |self| assert_eq self.test_data.size(), 3
-  test_failure: |self| assert not self.test_data.is_empty()
+  @test data_size: |self| assert_eq self.test_data.size(), 3
+  @test failure: |self| assert not self.test_data.is_empty()
 
 try
   run_tests my_tests

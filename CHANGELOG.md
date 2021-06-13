@@ -32,6 +32,12 @@
     modules can be accessed in scripts without them being imported first.
     - e.g. `number.pi` is now a valid script, whereas previously
       `import number` would be required for `number` to be available.
+- Tests are now defined using the meta map.
+  - e.g. instead of `test_check_it_works: ...`,
+    you now write `@test check_it_works: ...`.
+  - Similarly, `pre_test:` and `post_test` are now defined as
+    `@pre_test` and `@post_test`.
+
 - `koto.args` is now a Tuple instead of a List.
 - `koto.script_dir` and `koto.script_path` are now empty by default.
 

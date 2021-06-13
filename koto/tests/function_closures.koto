@@ -1,7 +1,7 @@
 import test.assert_eq
 
 export tests =
-  test_value_capture_on_function_creation: ||
+  @test value_capture_on_function_creation: ||
     multipliers = (1..=4)
       .each |i| return |n| n * i
       .to_tuple()
@@ -12,7 +12,7 @@ export tests =
         .to_tuple(),
       (2, 4, 6, 8)
 
-  test_outer_value_captured_in_nested_function: ||
+  @test outer_value_captured_in_nested_function: ||
     capture_test = |a, b, c|
       inner = ||
         inner2 = |x|

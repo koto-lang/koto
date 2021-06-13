@@ -42,7 +42,7 @@ export main = ||
     "{}".print result
 
 export tests =
-  test_number_to_english: ||
+  @test number_to_english: ||
     import test.assert_eq
 
     assert_eq (number_to_english 0), "zero"

@@ -2,23 +2,23 @@ import koto.type
 from test import assert, assert_eq, assert_ne
 
 export tests =
-  test_comparisons: ||
+  @test comparisons: ||
     assert_eq "Hello", "Hello"
     assert_ne "Hello", "Héllö"
     assert_eq ("Hello" + ", " + "World!"), "Hello, World!"
     assert "Hello" < "Hiyaa" and "World" <= "World!"
     assert "Hiyaa" > "Hello" and "World!" >= "World"
 
-  test_single_quotes: ||
+  @test single_quotes: ||
     # Strings can use either double or single quotes.
     assert_eq "Hello", 'Hello'
 
-  test_addition: ||
+  @test addition: ||
     x = "^"
     x += "_" + "^"
     assert_eq x, "^_^"
 
-  test_indexing: ||
+  @test indexing: ||
     assert_eq "Héllö"[4], "ö"
     x = "Tschüss"
     assert_eq x[0..3], "Tsc"
@@ -28,7 +28,7 @@ export tests =
     assert_eq x[5..], "ss"
     assert_eq "👋🥳😆"[1], "🥳"
 
-  test_chars: ||
+  @test chars: ||
     hello = "Héllö"
     assert_eq
       hello.chars().to_tuple(),
@@ -41,25 +41,25 @@ export tests =
     assert_eq hello_chars, hello.to_list()
     assert_eq hello_chars.size(), 5
 
-  test_contains: ||
+  @test contains: ||
     assert "O_o".contains("_")
     assert not "O_o".contains("@")
 
-  test_ends_with: ||
+  @test ends_with: ||
     assert "a,b,c".ends_with("")
     assert "a,b,c".ends_with(",c")
     assert not "a,b,c".ends_with(",b")
 
-  test_escape: ||
+  @test escape: ||
     x = "
 "
     assert_eq x.escape(), "\\n"
 
-  test_is_empty: ||
+  @test is_empty: ||
     assert "".is_empty()
     assert not "abc".is_empty()
 
-  test_lines: ||
+  @test lines: ||
     x = "aaa
 bbb
 ccc"
@@ -76,13 +76,13 @@ zzz
     x3 = "foo\nbar\nbaz"
     assert_eq x3.lines().to_tuple(), ("foo", "bar", "baz")
 
-  test_escaped_newlines: ||
+  @test escaped_newlines: ||
     x = "foo \
          bar \
          baz"
     assert_eq x, "foo bar baz"
 
-  test_size: ||
+  @test size: ||
     # size returns the number of unicode graphemes in the string,
     # rather than the number of bytes
     assert_eq "".size(), 0
@@ -90,28 +90,28 @@ zzz
     assert_eq "abcdef".size(), 6
     assert_eq "äbcdéf".size(), 6
 
-  test_slice: ||
+  @test slice: ||
     assert_eq ("abcdef".slice 2, 5), "cde"
     x = "abcdef".slice 2 # end index is optional
     assert_eq x, "cdef"
     assert_eq (x.slice 1, 3), "de"
     assert_eq (x.slice 10, 13), ()
 
-  test_split: ||
+  @test split: ||
     assert_eq "a,b,c".split(",").to_tuple(), ("a", "b", "c")
     assert_eq "O_O".split("O").to_tuple(), ("", "_", "")
     assert_eq "a - b - c".split(" - ").to_tuple(), ("a", "b", "c")
 
-  test_starts_with: ||
+  @test starts_with: ||
     assert "a,b,c".starts_with("")
     assert "a,b,c".starts_with("a,")
     assert not "a,b,c".starts_with(",b")
 
-  test_to_lowercase: ||
+  @test to_lowercase: ||
     assert_eq (string.to_lowercase "ABC 123"), "abc 123"
     assert_eq (string.to_lowercase "HÉLLÖ"), "héllö"
 
-  test_to_number: ||
+  @test to_number: ||
     x = string.to_number "42"
     assert_eq x, 42
     assert_eq type(x), "Int"
@@ -120,11 +120,11 @@ zzz
     assert_eq x, -1.5
     assert_eq type(x), "Float"
 
-  test_to_uppercase: ||
+  @test to_uppercase: ||
     assert_eq (string.to_uppercase "xyz 890"), "XYZ 890"
     assert_eq (string.to_uppercase "Görlitzer Straße"), "GÖRLITZER STRASSE"
 
-  test_trim: ||
+  @test trim: ||
     assert_eq (string.trim "   x    "), "x"
     assert_eq "foo    ".trim(), "foo"
     assert_eq "     bar".trim(), "bar"

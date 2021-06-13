@@ -777,6 +777,8 @@ impl<'source> Parser<'source> {
             Some(Token::At) => {
                 self.consume_next_token_on_same_line();
 
+                let mut meta_name = None;
+
                 let meta_key = match self.consume_token() {
                     Some(Token::Add) => MetaId::Add,
                     Some(Token::Subtract) => MetaId::Subtract,
@@ -792,6 +794,17 @@ impl<'source> Parser<'source> {
                     Some(Token::Id) => match self.lexer.slice() {
                         "display" => MetaId::Display,
                         "negate" => MetaId::Negate,
+                        "pre_test" => MetaId::PreTest,
+                        "post_test" => MetaId::PostTest,
+                        "test" => match self.consume_next_token_on_same_line() {
+                            Some(Token::Id) => {
+                                let test_name =
+                                    self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                                meta_name = Some(test_name);
+                                MetaId::Test
+                            }
+                            _ => return syntax_error!(ExpectedTestName, self),
+                        },
                         "type" => MetaId::Type,
                         _ => return syntax_error!(UnexpectedMetaKey, self),
                     },
@@ -802,7 +815,7 @@ impl<'source> Parser<'source> {
                     _ => return syntax_error!(UnexpectedMetaKey, self),
                 };
 
-                Some(MapKey::Meta(meta_key))
+                Some(MapKey::Meta(meta_key, meta_name))
             }
             Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
                 self.consume_next_token_on_same_line();
@@ -1559,11 +1572,10 @@ impl<'source> Parser<'source> {
             // The first entry in a map block should have a defined value,
             // i.e. either `id: value`, or `@meta: value`.
             let peeked_1 = self.peek_token_n(peek_count + 1);
-            let peeked_2 = self.peek_token_n(peek_count + 2);
 
-            match (peeked_0, peeked_1, peeked_2) {
-                (Token::Id, Some(Token::Colon), _) => {}
-                (Token::At, Some(_), Some(Token::Colon)) => {}
+            match (peeked_0, peeked_1) {
+                (Token::Id, Some(Token::Colon)) => {}
+                (Token::At, Some(_)) => {}
                 _ => return Ok(None),
             }
         } else {

@@ -1,29 +1,29 @@
 from test import assert, assert_eq, assert_ne, assert_near
 
 export tests =
-  pre_test: ||
+  @pre_test: ||
     # random.seed seeds the default generator
     random.seed 0
 
-  test_bool: ||
+  @test bool: ||
     assert random.bool()
     assert not random.bool()
 
-  test_number: ||
+  @test number: ||
     assert_near random.number(), 0.024, 0.001
     assert_near random.number(), 0.982, 0.001
 
-  test_num2_num4: ||
+  @test num2_num4: ||
     assert_near random.number2(), (num2 0.024, 0.982), 0.001
     assert_near random.number4(), (num4 0.006, 0.861, 0.823, 0.186), 0.001
 
-  test_pick: ||
+  @test pick: ||
     x = ["foo", "bar", "baz"]
     assert (x.contains (random.pick x))
     x = 0..10
     assert (x.contains (random.pick x))
 
-  test_generator: ||
+  @test generator: ||
     get_rng_output = |rng|
       (0..10)
         .each |_| rng.pick 0..5

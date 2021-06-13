@@ -1,7 +1,7 @@
 from test import assert, assert_eq
 
 export tests =
-  test_serialize_and_deserialize_json: ||
+  @test serialize_and_deserialize_json: ||
     file_data = try
       io.read_to_string koto.script_dir + "/data/test.json"
     catch error

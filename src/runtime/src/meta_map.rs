@@ -1,3 +1,5 @@
+use crate::ValueString;
+
 use {
     crate::Value,
     indexmap::IndexMap,
@@ -75,6 +77,9 @@ impl fmt::Display for UnaryOp {
 pub enum MetaKey {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
+    Test(ValueString),
+    PreTest,
+    PostTest,
     Type,
 }
 
@@ -90,29 +95,35 @@ impl From<UnaryOp> for MetaKey {
     }
 }
 
-impl From<MetaId> for MetaKey {
-    fn from(id: MetaId) -> Self {
-        use {BinaryOp::*, UnaryOp::*};
+pub fn meta_id_to_key(id: MetaId, name: Option<&str>) -> Result<MetaKey, String> {
+    use {BinaryOp::*, UnaryOp::*};
 
-        match id {
-            MetaId::Add => MetaKey::BinaryOp(Add),
-            MetaId::Subtract => MetaKey::BinaryOp(Subtract),
-            MetaId::Multiply => MetaKey::BinaryOp(Multiply),
-            MetaId::Divide => MetaKey::BinaryOp(Divide),
-            MetaId::Modulo => MetaKey::BinaryOp(Modulo),
-            MetaId::Less => MetaKey::BinaryOp(Less),
-            MetaId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
-            MetaId::Greater => MetaKey::BinaryOp(Greater),
-            MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
-            MetaId::Equal => MetaKey::BinaryOp(Equal),
-            MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
-            MetaId::Index => MetaKey::BinaryOp(Index),
-            MetaId::Negate => MetaKey::UnaryOp(Negate),
-            MetaId::Display => MetaKey::UnaryOp(Display),
-            MetaId::Type => MetaKey::Type,
-            _ => unreachable!("Invalid MetaId"),
-        }
-    }
+    let result = match id {
+        MetaId::Add => MetaKey::BinaryOp(Add),
+        MetaId::Subtract => MetaKey::BinaryOp(Subtract),
+        MetaId::Multiply => MetaKey::BinaryOp(Multiply),
+        MetaId::Divide => MetaKey::BinaryOp(Divide),
+        MetaId::Modulo => MetaKey::BinaryOp(Modulo),
+        MetaId::Less => MetaKey::BinaryOp(Less),
+        MetaId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
+        MetaId::Greater => MetaKey::BinaryOp(Greater),
+        MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
+        MetaId::Equal => MetaKey::BinaryOp(Equal),
+        MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
+        MetaId::Index => MetaKey::BinaryOp(Index),
+        MetaId::Negate => MetaKey::UnaryOp(Negate),
+        MetaId::Display => MetaKey::UnaryOp(Display),
+        MetaId::Test => MetaKey::Test(
+            name.ok_or_else(|| "Missing name for test".to_string())?
+                .into(),
+        ),
+        MetaId::PreTest => MetaKey::PreTest,
+        MetaId::PostTest => MetaKey::PostTest,
+        MetaId::Type => MetaKey::Type,
+        MetaId::Invalid => return Err("Invalid MetaId".to_string()),
+    };
+
+    Ok(result)
 }
 
 pub type MetaMap = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;

@@ -275,6 +275,10 @@ pub enum MetaId {
     Negate,
     Type,
 
+    Test, // Comes with an associated name
+    PreTest,
+    PostTest,
+
     // Must be last, see TryFrom<u8> for MetaId
     Invalid,
 }
@@ -296,7 +300,7 @@ impl TryFrom<u8> for MetaId {
 pub enum MapKey {
     Id(ConstantIndex),
     Str(ConstantIndex, QuotationMark),
-    Meta(MetaId),
+    Meta(MetaId, Option<ConstantIndex>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

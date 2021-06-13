@@ -3,6 +3,7 @@ use {
         core::CoreLib,
         external::{self, Args, ExternalFunction},
         frame::Frame,
+        meta_map::meta_id_to_key,
         num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
@@ -386,28 +387,42 @@ impl Vm {
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
-        use Value::*;
+        use Value::{Empty, Function, Map};
 
-        // It's important here to make sure we don't hang on to any references to the internal
-        // test map data while calling the test functions, otherwise we'll end up in deadlocks.
+        // It's important throughout this function to make sure we don't hang on to any references
+        // to the internal test map data while calling the test functions, otherwise we'll end up in
+        // deadlocks when the map needs to be modified (e.g. in pre or post test functions).
+
         let self_arg = Map(tests.clone());
 
-        let pre_test = tests.contents().data.get_with_string("pre_test").cloned();
-        let post_test = tests.contents().data.get_with_string("post_test").cloned();
+        let (pre_test, post_test, meta_entry_count) = {
+            let meta = &tests.contents().meta;
+            (
+                meta.get(&MetaKey::PreTest).cloned(),
+                meta.get(&MetaKey::PostTest).cloned(),
+                meta.len(),
+            )
+        };
         let pass_self_to_pre_test = match &pre_test {
-            Some(Function(f)) => f.arg_count == 1,
+            Some(Function(f)) => f.instance_function,
             _ => false,
         };
         let pass_self_to_post_test = match &post_test {
-            Some(Function(f)) => f.arg_count == 1,
+            Some(Function(f)) => f.instance_function,
             _ => false,
         };
 
-        for (key, value) in tests.cloned_iter() {
-            match (key.value(), value) {
-                (Str(id), test) if id.starts_with("test_") && test.is_callable() => {
+        for i in 0..meta_entry_count {
+            let meta_entry = tests
+                .contents()
+                .meta
+                .get_index(i)
+                .map(|(key, value)| (key.clone(), value.clone()));
+
+            match meta_entry {
+                Some((MetaKey::Test(test_name), test)) if test.is_callable() => {
                     let make_test_error = |error: RuntimeError, message: &str| {
-                        Err(error.with_prefix(&format!("{} '{}'", message, &id[5..])))
+                        Err(error.with_prefix(&format!("{} '{}'", message, test_name)))
                     };
 
                     if let Some(pre_test) = &pre_test {
@@ -809,6 +824,12 @@ impl Vm {
                 value,
                 id,
             } => self.run_meta_insert(register, value, id),
+            Instruction::MetaInsertNamed {
+                register,
+                value,
+                id,
+                name,
+            } => self.run_meta_insert_named(register, value, id, name),
             Instruction::Access { register, map, key } => self.run_access(register, map, key),
             Instruction::TryStart {
                 arg_register,
@@ -2359,10 +2380,39 @@ impl Vm {
         meta_id: MetaId,
     ) -> InstructionResult {
         let value = self.clone_register(value);
+        let meta_key = match meta_id_to_key(meta_id, None) {
+            Ok(meta_key) => meta_key,
+            Err(error) => return runtime_error!("MetaInsert: {}", error),
+        };
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut().meta.insert(meta_id.into(), value);
+                map.contents_mut().meta.insert(meta_key, value);
+                Ok(())
+            }
+            unexpected => runtime_error!(
+                "MetaInsert: Expected Map, found '{}'",
+                unexpected.type_as_string()
+            ),
+        }
+    }
+
+    fn run_meta_insert_named(
+        &mut self,
+        map_register: u8,
+        value: u8,
+        meta_id: MetaId,
+        name: ConstantIndex,
+    ) -> InstructionResult {
+        let value = self.clone_register(value);
+        let meta_key = match meta_id_to_key(meta_id, Some(self.get_constant_str(name))) {
+            Ok(meta_key) => meta_key,
+            Err(error) => return runtime_error!("MetaInsert: {}", error),
+        };
+
+        match self.get_register_mut(map_register) {
+            Value::Map(map) => {
+                map.contents_mut().meta.insert(meta_key, value);
                 Ok(())
             }
             unexpected => runtime_error!(
