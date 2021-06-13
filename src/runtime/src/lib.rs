@@ -32,7 +32,7 @@ pub use {
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_key::{ValueKey, ValueRef},
     value_list::{ValueList, ValueVec},
-    value_map::{ValueHashMap, ValueMap},
+    value_map::{DataMap, ValueMap},
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,

@@ -2,7 +2,7 @@ mod vm {
     use {
         koto_bytecode::Chunk,
         koto_runtime::{
-            num2, num4, runtime_error, BinaryOp, IntRange, Loader, Value, Value::*, ValueHashMap,
+            num2, num4, runtime_error, BinaryOp, DataMap, IntRange, Loader, Value, Value::*,
             ValueList, ValueMap, Vm,
         },
         std::sync::Arc,
@@ -1387,7 +1387,7 @@ sum
 
         #[test]
         fn from_literals() {
-            let mut result_data = ValueHashMap::new();
+            let mut result_data = DataMap::new();
             result_data.add_value("foo", Number(42.0.into()));
             result_data.add_value("bar", Str("baz".into()));
 

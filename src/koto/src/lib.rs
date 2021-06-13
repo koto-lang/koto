@@ -193,15 +193,12 @@ impl Koto {
         match self
             .runtime
             .prelude()
-            .contents_mut()
-            .data
+            .data_mut()
             .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => {
-                map.contents_mut()
-                    .data
-                    .add_value("args", Tuple(koto_args.into()));
+                map.data_mut().add_value("args", Tuple(koto_args.into()));
             }
             _ => unreachable!(),
         }
@@ -234,13 +231,12 @@ impl Koto {
         match self
             .runtime
             .prelude()
-            .contents_mut()
-            .data
+            .data_mut()
             .get_with_string_mut("koto")
             .unwrap()
         {
             Map(map) => {
-                let map = &mut map.contents_mut().data;
+                let map = &mut map.data_mut();
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
             }

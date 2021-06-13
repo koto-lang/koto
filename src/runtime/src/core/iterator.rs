@@ -3,7 +3,7 @@ use crate::{
     value_iterator::{
         make_iterator, ValueIterator, ValueIteratorOutput as Output, ValueIteratorResult,
     },
-    BinaryOp, RuntimeResult, Value, ValueHashMap, ValueList, ValueMap, ValueVec, Vm,
+    BinaryOp, DataMap, RuntimeResult, Value, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -475,7 +475,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("to_map", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let mut iterator = make_iterator(iterable).unwrap();
-            let mut result = ValueHashMap::new();
+            let mut result = DataMap::new();
 
             loop {
                 match iterator.next() {

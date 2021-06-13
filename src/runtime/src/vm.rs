@@ -220,12 +220,7 @@ impl Vm {
     }
 
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
-        self.context()
-            .exports
-            .contents()
-            .data
-            .get_with_string(id)
-            .cloned()
+        self.context().exports.data().get_with_string(id).cloned()
     }
 
     pub fn get_exported_function(&self, id: &str) -> Option<Value> {
@@ -396,7 +391,7 @@ impl Vm {
         let self_arg = Map(tests.clone());
 
         let (pre_test, post_test, meta_entry_count) = {
-            let meta = &tests.contents().meta;
+            let meta = &tests.meta();
             (
                 meta.get(&MetaKey::PreTest).cloned(),
                 meta.get(&MetaKey::PostTest).cloned(),
@@ -414,8 +409,7 @@ impl Vm {
 
         for i in 0..meta_entry_count {
             let meta_entry = tests
-                .contents()
-                .meta
+                .meta()
                 .get_index(i)
                 .map(|(key, value)| (key.clone(), value.clone()));
 
@@ -741,7 +735,7 @@ impl Vm {
                         thrown_value,
                         vm: None,
                     })),
-                    Map(m) if m.contents().meta.contains_key(&display_op) => Err(
+                    Map(m) if m.meta().contains_key(&display_op) => Err(
                         RuntimeError::from_koto_value(thrown_value, self.spawn_shared_vm()),
                     ),
                     other => {
@@ -875,15 +869,13 @@ impl Vm {
         let non_local = self
             .context()
             .exports
-            .contents()
-            .data
+            .data()
             .get_with_string(name)
             .cloned()
             .or_else(|| {
                 self.context_shared
                     .prelude
-                    .contents()
-                    .data
+                    .data()
                     .get_with_string(name)
                     .cloned()
             });
@@ -901,8 +893,7 @@ impl Vm {
         let value = self.clone_register(source_register);
         self.context_mut()
             .exports
-            .contents_mut()
-            .data
+            .data_mut()
             .insert(export_name.into(), value);
     }
 
@@ -1237,7 +1228,7 @@ impl Vm {
             Number(n) => Number(-n),
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
-            Map(map) if map.contents().meta.contains_key(&MetaKey::UnaryOp(Negate)) => {
+            Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Negate)) => {
                 let map = map.clone();
                 return self.call_overloaded_unary_op(result, value, map, Negate);
             }
@@ -1254,7 +1245,7 @@ impl Vm {
         use {UnaryOp::Display, Value::*};
 
         let result_value = match &self.get_register(value) {
-            Map(map) if map.contents().meta.contains_key(&MetaKey::UnaryOp(Display)) => {
+            Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Display)) => {
                 let map = map.clone();
                 return self.call_overloaded_unary_op(result, value, map, Display);
             }
@@ -1292,15 +1283,17 @@ impl Vm {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Add)) => {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Add)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Add);
             }
             (Map(a), Map(b)) => {
-                let mut result = a.contents().clone();
-                result.extend(&b.contents());
-                Map(ValueMap::with_contents(result))
+                let mut data = a.data().clone();
+                let mut meta = a.meta().clone();
+                data.extend(&b.data());
+                meta.extend(b.meta().clone().into_iter());
+                Map(ValueMap::with_contents(data, meta))
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
         };
@@ -1322,12 +1315,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a - b),
             (Num4(a), Num4(b)) => Num4(a - b),
             (Num4(a), Number(b)) => Num4(a - b),
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(Subtract)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Subtract)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Subtract);
@@ -1353,12 +1341,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a * b),
             (Num4(a), Num4(b)) => Num4(a * b),
             (Num4(a), Number(b)) => Num4(a * b),
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(Multiply)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Multiply)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Multiply);
@@ -1383,7 +1366,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a / b),
             (Num4(a), Num4(b)) => Num4(a / b),
             (Num4(a), Number(b)) => Num4(a / b),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Divide)) => {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Divide)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Divide);
@@ -1408,7 +1391,7 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a % b),
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Modulo)) => {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Modulo)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Modulo);
@@ -1428,7 +1411,7 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Less)) => {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Less)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Less);
@@ -1448,12 +1431,7 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(LessOrEqual)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(LessOrEqual)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, LessOrEqual);
@@ -1473,12 +1451,7 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(Greater)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Greater)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Greater);
@@ -1498,12 +1471,7 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(GreaterOrEqual)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(GreaterOrEqual)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, GreaterOrEqual);
@@ -1544,7 +1512,7 @@ impl Vm {
                 let data_b = b.data();
                 self.child_vm().compare_value_ranges(&data_a, &data_b)?
             }
-            (Map(map), value) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Equal)) => {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Equal)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
@@ -1608,12 +1576,7 @@ impl Vm {
                 let data_b = b.data();
                 !self.child_vm().compare_value_ranges(&data_a, &data_b)?
             }
-            (Map(map), value)
-                if map
-                    .contents()
-                    .meta
-                    .contains_key(&MetaKey::BinaryOp(NotEqual)) =>
-            {
+            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(NotEqual)) => {
                 let map = map.clone();
                 let value = value.clone();
                 return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
@@ -1683,12 +1646,7 @@ impl Vm {
             return Ok(false);
         }
 
-        for ((key_a, value_a), (key_b, value_b)) in map_a
-            .contents()
-            .data
-            .iter()
-            .zip(map_b.contents().data.iter())
-        {
+        for ((key_a, value_a), (key_b, value_b)) in map_a.data().iter().zip(map_b.data().iter()) {
             if key_a != key_b {
                 return Ok(false);
             }
@@ -1714,7 +1672,7 @@ impl Vm {
         map: ValueMap,
         op: UnaryOp,
     ) -> InstructionResult {
-        let op = match map.contents().meta.get(&MetaKey::UnaryOp(op)) {
+        let op = match map.meta().get(&MetaKey::UnaryOp(op)) {
             Some(op) => op.clone(),
             None => return runtime_error!("Missing overloaded {:?} key", op),
         };
@@ -1742,7 +1700,7 @@ impl Vm {
         rhs: Value,
         op: BinaryOp,
     ) -> InstructionResult {
-        let op = match map.contents().meta.get(&MetaKey::BinaryOp(op)) {
+        let op = match map.meta().get(&MetaKey::BinaryOp(op)) {
             Some(op) => op.clone(),
             None => return runtime_error!("Missing overloaded {:?} operation", op),
         };
@@ -1816,8 +1774,7 @@ impl Vm {
         let maybe_export = self
             .context()
             .exports
-            .contents()
-            .data
+            .data()
             .get_with_string(&import_name)
             .cloned();
         if let Some(value) = maybe_export {
@@ -1826,8 +1783,7 @@ impl Vm {
             let maybe_in_prelude = self
                 .context_shared
                 .prelude
-                .contents()
-                .data
+                .data()
                 .get_with_string(&import_name)
                 .cloned();
             if let Some(value) = maybe_in_prelude {
@@ -2331,7 +2287,7 @@ impl Vm {
                     other => return runtime_error!("Index out of bounds for Num4, {}", other),
                 }
             }
-            (Map(map), index) if map.contents().meta.contains_key(&MetaKey::BinaryOp(Index)) => {
+            (Map(map), index) if map.meta().contains_key(&MetaKey::BinaryOp(Index)) => {
                 return self.call_overloaded_binary_op(
                     result_register,
                     value_register,
@@ -2363,7 +2319,7 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut().data.insert(key_string.into(), value);
+                map.data_mut().insert(key_string.into(), value);
                 Ok(())
             }
             unexpected => runtime_error!(
@@ -2387,7 +2343,7 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut().meta.insert(meta_key, value);
+                map.meta_mut().insert(meta_key, value);
                 Ok(())
             }
             unexpected => runtime_error!(
@@ -2412,7 +2368,7 @@ impl Vm {
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.contents_mut().meta.insert(meta_key, value);
+                map.meta_mut().insert(meta_key, value);
                 Ok(())
             }
             unexpected => runtime_error!(
@@ -2446,7 +2402,7 @@ impl Vm {
         }
 
         match map_value {
-            Map(map) => match map.contents().data.get_with_string(&key_string) {
+            Map(map) => match map.data().get_with_string(&key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
@@ -2477,13 +2433,12 @@ impl Vm {
     ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_op = match module.contents().data.get_with_string(key).cloned() {
+        let maybe_op = match module.data().get_with_string(key).cloned() {
             None if iterator_fallback => self
                 .context_shared
                 .core_lib
                 .iterator
-                .contents()
-                .data
+                .data()
                 .get_with_string(&key)
                 .cloned(),
             maybe_op => maybe_op,

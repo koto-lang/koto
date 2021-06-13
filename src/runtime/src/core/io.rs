@@ -153,7 +153,7 @@ pub fn make_module() -> ValueMap {
                     Ok(file) => {
                         let file_map = make_file_map();
 
-                        file_map.contents_mut().data.insert(
+                        file_map.data_mut().insert(
                             Value::ExternalDataId.into(),
                             Value::make_external_value(File {
                                 file,

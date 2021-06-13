@@ -319,7 +319,7 @@ pub fn format_string(
                 None => return runtime_error!("Missing argument for index {}", n),
             },
             FormatToken::Identifier(id, format_spec) => match format_args.first() {
-                Some(Value::Map(map)) => match map.contents().data.get_with_string(id) {
+                Some(Value::Map(map)) => match map.data().get_with_string(id) {
                     Some(value) => result.push_str(&value_to_string(vm, value, format_spec)?),
                     None => return runtime_error!("Key '{}' not found in map", id),
                 },
@@ -420,7 +420,7 @@ fn value_to_string(
 mod tests {
     use {
         super::*,
-        crate::{ValueHashMap, ValueMap},
+        crate::{DataMap, ValueMap},
     };
 
     fn spec_with_precision(precision: u32) -> FormatSpec {
@@ -586,7 +586,7 @@ mod tests {
 
         #[test]
         fn identifier_placeholders() {
-            let mut map_data = ValueHashMap::new();
+            let mut map_data = DataMap::new();
             map_data.insert("x".into(), Value::Number(42.into()));
             map_data.insert("y".into(), Value::Number(i64::from(-1).into()));
             let map = Value::Map(ValueMap::with_data(map_data));
