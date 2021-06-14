@@ -1,6 +1,6 @@
 from test import assert, assert_eq, assert_ne
 
-export tests =
+export @tests =
   @test list_indexing: ||
     z = [10, 10 + 10, 30]
     assert_eq z[0], 10

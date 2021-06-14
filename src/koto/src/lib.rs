@@ -31,7 +31,7 @@ pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runti
 use {
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        DefaultLogger, KotoLogger, Loader, RuntimeError, Value, ValueMap, Vm, VmSettings,
+        DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
@@ -161,13 +161,22 @@ impl Koto {
             Ok(result)
         } else {
             if self.settings.run_tests {
-                let _test_result = match self.runtime.get_exported_value("tests") {
+                let maybe_tests = self
+                    .runtime
+                    .context()
+                    .exports
+                    .meta()
+                    .get(&MetaKey::Tests)
+                    .cloned();
+                match maybe_tests {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
                     }
-                    Some(other) => return Err(KotoError::InvalidTestsType(other.type_as_string())),
+                    Some(other) => {
+                        return Err(KotoError::InvalidTestsType(other.type_as_string()));
+                    }
                     None => {}
-                };
+                }
             }
 
             if let Some(main) = self.runtime.get_exported_function("main") {

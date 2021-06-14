@@ -127,7 +127,7 @@ export main = ||
     "{}".print initial_energy # TODO format to 9dp
     "{}".print end_energy # TODO format to 9dp
 
-export tests =
+export @tests =
   @test nbody_100: ||
     initial_energy, end_energy = run_nbody 100
     assert_near initial_energy, -0.16907514, 1.0e-8

@@ -19,8 +19,6 @@ pub enum Op {
     LoadStringLong,      // register, constant[4]
     LoadNonLocal,        // register, constant
     LoadNonLocalLong,    // register, constant[4]
-    SetExport,           // export, source
-    SetExportLong,       // export[4], source
     Import,              // register, constant
     ImportLong,          // register, constant[4]
     MakeTuple,           // register, start register, count
@@ -74,9 +72,14 @@ pub enum Op {
     Index,               // result, list register, index register
     MapInsert,           // map register, value register, key constant
     MapInsertLong,       // map register, value register, key constant[4]
-    MetaInsert,          // map register, value register, key constant
-    MetaInsertNamed,     // map register, value register, key constant, name constant
-    MetaInsertNamedLong, // map register, value register, key constant, name constant[4]
+    MetaInsert,          // map register, value register, key id
+    MetaInsertNamed,     // map register, value register, key id, name constant
+    MetaInsertNamedLong, // map register, value register, key id, name constant[4]
+    MetaExport,          // key id, value register
+    MetaExportNamed,     // key id, value register, name constant
+    MetaExportNamedLong, // key id, value register, name constant[4]
+    ValueExport,         // name, value
+    ValueExportLong,     // name[4], value
     Access,              // register, value register, key
     AccessLong,          // register, value register, key[4]
     IsList,              // register, value
@@ -87,9 +90,6 @@ pub enum Op {
     Debug,               // register, constant[4]
     CheckType,           // register, type (see TypeId)
     CheckSize,           // register, size
-    Unused83,
-    Unused84,
-    Unused85,
     Unused86,
     Unused87,
     Unused88,

@@ -1,7 +1,6 @@
 from test import assert, assert_eq
 
-
-export tests =
+export @tests =
   @test temp_dir: ||
     path = tempfile.temp_path()
     file = io.create path

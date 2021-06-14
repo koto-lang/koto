@@ -1,6 +1,6 @@
 from test import assert, assert_eq, assert_ne, assert_near
 
-export tests =
+export @tests =
   @pre_test: ||
     # random.seed seeds the default generator
     random.seed 0

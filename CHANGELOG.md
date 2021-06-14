@@ -37,6 +37,17 @@
     you now write `@test check_it_works: ...`.
   - Similarly, `pre_test:` and `post_test` are now defined as
     `@pre_test` and `@post_test`.
+  - To define a tests map, export the map as `@tests` rather than `tests`.
+  - e.g.
+    ```koto
+    export @tests =
+        @pre_test: |self|
+            self.test_data = 1, 2, 3
+        @post_test: |self|
+            self.test_data = ()
+        @test data_size: |self|
+            assert_eq self.test_data.size(), 3
+    ```
 
 - `koto.args` is now a Tuple instead of a List.
 - `koto.script_dir` and `koto.script_path` are now empty by default.

@@ -38,7 +38,7 @@ locals.foo_meta =
   @type: "Foo"
 
 
-export tests =
+export @tests =
   @test add: ||
     assert_eq (foo(10) + foo(20)), foo 30
 

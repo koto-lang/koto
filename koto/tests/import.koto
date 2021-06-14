@@ -1,6 +1,6 @@
 import test.assert_eq
 
-export tests =
+export @tests =
   @test import_module: ||
     # Importing a module brings the module's exports map into scope by assignment.
     # The test_module module is defined in the test_module directory,

@@ -4,7 +4,7 @@ from test import assert, assert_eq, assert_near
 
 epsilon = 1.0e-15
 
-export tests =
+export @tests =
   @test abs: ||
     assert_eq -1.abs(), 1
     assert_eq 3.abs(), 3

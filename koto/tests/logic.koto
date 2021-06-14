@@ -1,6 +1,6 @@
 from test import assert, assert_eq
 
-export tests =
+export @tests =
   @test and_not_or: ||
     assert true and true
     assert not true and false

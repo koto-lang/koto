@@ -1,6 +1,6 @@
 import test.assert
 
-export tests =
+export @tests =
   @test cpu_count: ||
     assert os.cpu_count() > 0
 

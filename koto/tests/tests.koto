@@ -2,7 +2,7 @@ from test import assert, assert_eq, assert_ne, assert_near, run_tests
 
 # A script can export a map named 'tests' to have the tests automatically run when
 # the script is loaded.
-export tests =
+export @tests =
   # '@pre_test' will be run before each test
   @pre_test: |self|
     self.test_data = 1, 2, 3

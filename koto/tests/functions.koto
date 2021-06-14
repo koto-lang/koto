@@ -1,6 +1,6 @@
 from test import assert, assert_eq
 
-export tests =
+export @tests =
   @test square: ||
     square = |x| x * x
     assert_eq (square 7), 49

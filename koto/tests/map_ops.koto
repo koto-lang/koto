@@ -6,7 +6,7 @@ make_foo = |x|
   @>: |self, other| self.x > other.x
   @==: |self, other| self.x == other.x
 
-export tests =
+export @tests =
   @test clear: ||
     m = {foo: 42, bar: 99}
     m.clear()

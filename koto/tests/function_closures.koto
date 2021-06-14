@@ -1,6 +1,6 @@
 import test.assert_eq
 
-export tests =
+export @tests =
   @test value_capture_on_function_creation: ||
     multipliers = (1..=4)
       .each |i| return |n| n * i

@@ -3,7 +3,7 @@ use crate::ValueString;
 use {
     crate::Value,
     indexmap::IndexMap,
-    koto_parser::MetaId,
+    koto_parser::MetaKeyId,
     rustc_hash::FxHasher,
     std::{
         fmt,
@@ -78,6 +78,7 @@ pub enum MetaKey {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     Test(ValueString),
+    Tests,
     PreTest,
     PostTest,
     Type,
@@ -95,32 +96,33 @@ impl From<UnaryOp> for MetaKey {
     }
 }
 
-pub fn meta_id_to_key(id: MetaId, name: Option<&str>) -> Result<MetaKey, String> {
+pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, String> {
     use {BinaryOp::*, UnaryOp::*};
 
     let result = match id {
-        MetaId::Add => MetaKey::BinaryOp(Add),
-        MetaId::Subtract => MetaKey::BinaryOp(Subtract),
-        MetaId::Multiply => MetaKey::BinaryOp(Multiply),
-        MetaId::Divide => MetaKey::BinaryOp(Divide),
-        MetaId::Modulo => MetaKey::BinaryOp(Modulo),
-        MetaId::Less => MetaKey::BinaryOp(Less),
-        MetaId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
-        MetaId::Greater => MetaKey::BinaryOp(Greater),
-        MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
-        MetaId::Equal => MetaKey::BinaryOp(Equal),
-        MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
-        MetaId::Index => MetaKey::BinaryOp(Index),
-        MetaId::Negate => MetaKey::UnaryOp(Negate),
-        MetaId::Display => MetaKey::UnaryOp(Display),
-        MetaId::Test => MetaKey::Test(
+        MetaKeyId::Add => MetaKey::BinaryOp(Add),
+        MetaKeyId::Subtract => MetaKey::BinaryOp(Subtract),
+        MetaKeyId::Multiply => MetaKey::BinaryOp(Multiply),
+        MetaKeyId::Divide => MetaKey::BinaryOp(Divide),
+        MetaKeyId::Modulo => MetaKey::BinaryOp(Modulo),
+        MetaKeyId::Less => MetaKey::BinaryOp(Less),
+        MetaKeyId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
+        MetaKeyId::Greater => MetaKey::BinaryOp(Greater),
+        MetaKeyId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
+        MetaKeyId::Equal => MetaKey::BinaryOp(Equal),
+        MetaKeyId::NotEqual => MetaKey::BinaryOp(NotEqual),
+        MetaKeyId::Index => MetaKey::BinaryOp(Index),
+        MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
+        MetaKeyId::Display => MetaKey::UnaryOp(Display),
+        MetaKeyId::Tests => MetaKey::Tests,
+        MetaKeyId::Test => MetaKey::Test(
             name.ok_or_else(|| "Missing name for test".to_string())?
                 .into(),
         ),
-        MetaId::PreTest => MetaKey::PreTest,
-        MetaId::PostTest => MetaKey::PostTest,
-        MetaId::Type => MetaKey::Type,
-        MetaId::Invalid => return Err("Invalid MetaId".to_string()),
+        MetaKeyId::PreTest => MetaKey::PreTest,
+        MetaKeyId::PostTest => MetaKey::PostTest,
+        MetaKeyId::Type => MetaKey::Type,
+        MetaKeyId::Invalid => return Err("Invalid MetaKeyId".to_string()),
     };
 
     Ok(result)

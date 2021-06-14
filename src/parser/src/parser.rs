@@ -469,25 +469,24 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(result) =
-            self.parse_for_loop(&mut ExpressionContext::line_start())?
-        {
-            Some(result)
-        } else if let Some(result) = self.parse_loop_block()? {
-            Some(result)
-        } else if let Some(result) = self.parse_while_loop()? {
-            Some(result)
-        } else if let Some(result) = self.parse_until_loop()? {
-            Some(result)
-        } else if let Some(result) = self.parse_export_id(&mut ExpressionContext::line_start())? {
-            Some(result)
-        } else if let Some(result) = self.parse_throw_expression()? {
-            Some(result)
-        } else if let Some(result) = self.parse_debug_expression()? {
-            Some(result)
-        } else {
-            self.parse_expressions(&mut ExpressionContext::line_start(), false)?
-        };
+        let result =
+            if let Some(result) = self.parse_for_loop(&mut ExpressionContext::line_start())? {
+                Some(result)
+            } else if let Some(result) = self.parse_loop_block()? {
+                Some(result)
+            } else if let Some(result) = self.parse_while_loop()? {
+                Some(result)
+            } else if let Some(result) = self.parse_until_loop()? {
+                Some(result)
+            } else if let Some(result) = self.parse_export(&mut ExpressionContext::line_start())? {
+                Some(result)
+            } else if let Some(result) = self.parse_throw_expression()? {
+                Some(result)
+            } else if let Some(result) = self.parse_debug_expression()? {
+                Some(result)
+            } else {
+                self.parse_expressions(&mut ExpressionContext::line_start(), false)?
+            };
 
         self.frame_mut()?.finish_expression();
 
@@ -765,6 +764,57 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
+    fn parse_meta_key(
+        &mut self,
+    ) -> Result<Option<(MetaKeyId, Option<ConstantIndex>)>, ParserError> {
+        if self.peek_next_token_on_same_line() != Some(Token::At) {
+            return Ok(None);
+        }
+
+        self.consume_next_token_on_same_line();
+
+        let mut meta_name = None;
+
+        let meta_key_id = match self.consume_token() {
+            Some(Token::Add) => MetaKeyId::Add,
+            Some(Token::Subtract) => MetaKeyId::Subtract,
+            Some(Token::Multiply) => MetaKeyId::Multiply,
+            Some(Token::Divide) => MetaKeyId::Divide,
+            Some(Token::Modulo) => MetaKeyId::Modulo,
+            Some(Token::Less) => MetaKeyId::Less,
+            Some(Token::LessOrEqual) => MetaKeyId::LessOrEqual,
+            Some(Token::Greater) => MetaKeyId::Greater,
+            Some(Token::GreaterOrEqual) => MetaKeyId::GreaterOrEqual,
+            Some(Token::Equal) => MetaKeyId::Equal,
+            Some(Token::NotEqual) => MetaKeyId::NotEqual,
+            Some(Token::Id) => match self.lexer.slice() {
+                "display" => MetaKeyId::Display,
+                "negate" => MetaKeyId::Negate,
+                "tests" => MetaKeyId::Tests,
+                "pre_test" => MetaKeyId::PreTest,
+                "post_test" => MetaKeyId::PostTest,
+                "test" => match self.consume_next_token_on_same_line() {
+                    Some(Token::Id) => {
+                        let test_name =
+                            self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                        meta_name = Some(test_name);
+                        MetaKeyId::Test
+                    }
+                    _ => return syntax_error!(ExpectedTestName, self),
+                },
+                "type" => MetaKeyId::Type,
+                _ => return syntax_error!(UnexpectedMetaKey, self),
+            },
+            Some(Token::ListStart) => match self.consume_token() {
+                Some(Token::ListEnd) => MetaKeyId::Index,
+                _ => return syntax_error!(UnexpectedMetaKey, self),
+            },
+            _ => return syntax_error!(UnexpectedMetaKey, self),
+        };
+
+        Ok(Some((meta_key_id, meta_name)))
+    }
+
     fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
         let next_token = self.peek_next_token_on_same_line();
 
@@ -775,47 +825,8 @@ impl<'source> Parser<'source> {
                 Some(MapKey::Id(id))
             }
             Some(Token::At) => {
-                self.consume_next_token_on_same_line();
-
-                let mut meta_name = None;
-
-                let meta_key = match self.consume_token() {
-                    Some(Token::Add) => MetaId::Add,
-                    Some(Token::Subtract) => MetaId::Subtract,
-                    Some(Token::Multiply) => MetaId::Multiply,
-                    Some(Token::Divide) => MetaId::Divide,
-                    Some(Token::Modulo) => MetaId::Modulo,
-                    Some(Token::Less) => MetaId::Less,
-                    Some(Token::LessOrEqual) => MetaId::LessOrEqual,
-                    Some(Token::Greater) => MetaId::Greater,
-                    Some(Token::GreaterOrEqual) => MetaId::GreaterOrEqual,
-                    Some(Token::Equal) => MetaId::Equal,
-                    Some(Token::NotEqual) => MetaId::NotEqual,
-                    Some(Token::Id) => match self.lexer.slice() {
-                        "display" => MetaId::Display,
-                        "negate" => MetaId::Negate,
-                        "pre_test" => MetaId::PreTest,
-                        "post_test" => MetaId::PostTest,
-                        "test" => match self.consume_next_token_on_same_line() {
-                            Some(Token::Id) => {
-                                let test_name =
-                                    self.constants.add_string(self.lexer.slice()) as ConstantIndex;
-                                meta_name = Some(test_name);
-                                MetaId::Test
-                            }
-                            _ => return syntax_error!(ExpectedTestName, self),
-                        },
-                        "type" => MetaId::Type,
-                        _ => return syntax_error!(UnexpectedMetaKey, self),
-                    },
-                    Some(Token::ListStart) => match self.consume_token() {
-                        Some(Token::ListEnd) => MetaId::Index,
-                        _ => return syntax_error!(UnexpectedMetaKey, self),
-                    },
-                    _ => return syntax_error!(UnexpectedMetaKey, self),
-                };
-
-                Some(MapKey::Meta(meta_key, meta_name))
+                let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
+                Some(MapKey::Meta(meta_key_id, meta_name))
             }
             Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
                 self.consume_next_token_on_same_line();
@@ -1177,45 +1188,47 @@ impl<'source> Parser<'source> {
         Ok(Some(self.push_node(node)?))
     }
 
-    fn parse_export_id(
+    fn parse_export(
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() == Some(Token::Export) {
-            self.consume_next_token_on_same_line();
+        if self.peek_next_token_on_same_line() != Some(Token::Export) {
+            return Ok(None);
+        }
 
-            if let Some(constant_index) = self.parse_id(context) {
-                let export_id = self.push_node(Node::Id(constant_index))?;
+        self.consume_next_token_on_same_line();
 
-                match self.peek_next_token_on_same_line() {
-                    Some(Token::Assign) => {
-                        self.consume_next_token_on_same_line();
-
-                        if let Some(rhs) =
-                            self.parse_expressions(&mut ExpressionContext::permissive(), false)?
-                        {
-                            let node = Node::Assign {
-                                target: AssignTarget {
-                                    target_index: export_id,
-                                    scope: Scope::Export,
-                                },
-                                op: AssignOp::Equal,
-                                expression: rhs,
-                            };
-
-                            Ok(Some(self.push_node(node)?))
-                        } else {
-                            return indentation_error!(ExpectedRhsExpression, self);
-                        }
-                    }
-                    Some(Token::NewLine) | Some(Token::NewLineIndented) => Ok(Some(export_id)),
-                    _ => syntax_error!(UnexpectedTokenAfterExportId, self),
-                }
-            } else {
-                syntax_error!(ExpectedExportExpression, self)
-            }
+        let export_id = if let Some(constant_index) = self.parse_id(context) {
+            self.push_node(Node::Id(constant_index))?
+        } else if let Some((meta_key_id, name)) = self.parse_meta_key()? {
+            self.push_node(Node::Meta(meta_key_id, name))?
         } else {
-            Ok(None)
+            return syntax_error!(ExpectedExportExpression, self);
+        };
+
+        match self.peek_next_token_on_same_line() {
+            Some(Token::Assign) => {
+                self.consume_next_token_on_same_line();
+
+                if let Some(rhs) =
+                    self.parse_expressions(&mut ExpressionContext::permissive(), false)?
+                {
+                    let node = Node::Assign {
+                        target: AssignTarget {
+                            target_index: export_id,
+                            scope: Scope::Export,
+                        },
+                        op: AssignOp::Equal,
+                        expression: rhs,
+                    };
+
+                    Ok(Some(self.push_node(node)?))
+                } else {
+                    indentation_error!(ExpectedRhsExpression, self)
+                }
+            }
+            Some(Token::NewLine) | Some(Token::NewLineIndented) => Ok(Some(export_id)),
+            _ => syntax_error!(UnexpectedTokenAfterExportId, self),
         }
     }
 

@@ -11,7 +11,7 @@ use {
         RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
-    koto_parser::{ConstantIndex, MetaId},
+    koto_parser::{ConstantIndex, MetaKeyId},
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         collections::HashMap,
@@ -206,11 +206,12 @@ impl Vm {
         self.context_shared.prelude.clone()
     }
 
-    fn context(&self) -> RwLockReadGuard<ModuleContext> {
+    /// Access to the module's context
+    pub fn context(&self) -> RwLockReadGuard<ModuleContext> {
         self.context.read()
     }
 
-    /// Access module context.
+    /// Mutable access to the module's context
     pub fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
         self.context.write()
     }
@@ -578,8 +579,8 @@ impl Vm {
             Instruction::LoadNonLocal { register, constant } => {
                 self.run_load_non_local(register, constant)
             }
-            Instruction::SetExport { export, source } => {
-                self.run_set_export(export, source);
+            Instruction::ValueExport { name, value } => {
+                self.run_value_export(name, value);
                 Ok(())
             }
             Instruction::Import { register, constant } => self.run_import(register, constant),
@@ -824,6 +825,10 @@ impl Vm {
                 id,
                 name,
             } => self.run_meta_insert_named(register, value, id, name),
+            Instruction::MetaExport { value, id } => self.run_meta_export(value, id),
+            Instruction::MetaExportNamed { value, id, name } => {
+                self.run_meta_export_named(value, id, name)
+            }
             Instruction::Access { register, map, key } => self.run_access(register, map, key),
             Instruction::TryStart {
                 arg_register,
@@ -888,9 +893,9 @@ impl Vm {
         }
     }
 
-    fn run_set_export(&mut self, constant_index: ConstantIndex, source_register: u8) {
-        let export_name = Value::Str(self.value_string_from_constant(constant_index));
-        let value = self.clone_register(source_register);
+    fn run_value_export(&mut self, name: ConstantIndex, value_register: u8) {
+        let export_name = Value::Str(self.value_string_from_constant(name));
+        let value = self.clone_register(value_register);
         self.context_mut()
             .exports
             .data_mut()
@@ -2333,7 +2338,7 @@ impl Vm {
         &mut self,
         map_register: u8,
         value: u8,
-        meta_id: MetaId,
+        meta_id: MetaKeyId,
     ) -> InstructionResult {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
@@ -2357,7 +2362,7 @@ impl Vm {
         &mut self,
         map_register: u8,
         value: u8,
-        meta_id: MetaId,
+        meta_id: MetaKeyId,
         name: ConstantIndex,
     ) -> InstructionResult {
         let value = self.clone_register(value);
@@ -2376,6 +2381,39 @@ impl Vm {
                 unexpected.type_as_string()
             ),
         }
+    }
+
+    fn run_meta_export(&mut self, value: u8, meta_id: MetaKeyId) -> InstructionResult {
+        let value = self.clone_register(value);
+        let meta_key = match meta_id_to_key(meta_id, None) {
+            Ok(meta_key) => meta_key,
+            Err(error) => return runtime_error!("MetaExport: {}", error),
+        };
+
+        self.context_mut()
+            .exports
+            .meta_mut()
+            .insert(meta_key, value);
+        Ok(())
+    }
+
+    fn run_meta_export_named(
+        &mut self,
+        value: u8,
+        meta_id: MetaKeyId,
+        name: ConstantIndex,
+    ) -> InstructionResult {
+        let value = self.clone_register(value);
+        let meta_key = match meta_id_to_key(meta_id, Some(self.get_constant_str(name))) {
+            Ok(meta_key) => meta_key,
+            Err(error) => return runtime_error!("MetaExportNamed: {}", error),
+        };
+
+        self.context_mut()
+            .exports
+            .meta_mut()
+            .insert(meta_key, value);
+        Ok(())
     }
 
     fn run_access(

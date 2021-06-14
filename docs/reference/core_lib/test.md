@@ -4,24 +4,24 @@ A collection of utilities for writing tests.
 
 ## Writing tests
 
-To add tests to a Koto script, `export` a Map named `tests`, and then any
+To add tests to a Koto script, `export` a Map named `@tests`, and then any
 functions in the Map tagged with `@test` will be run as tests.
 
-If a function named `@pre_test` is in the `tests` Map, then it will be run before
-each test. Similarly, if a function named `@post_test` is present then it will be
-run after each test.
+If a function named `@pre_test` is in the `@tests` Map, then it will be run
+before each test. Similarly, if a function named `@post_test` is present then it
+will be run after each test.
 
 These functions are useful if some setup work is needed before each test, and
 then maybe there's some cleanup work to do after the test has finished.
 
 To access the result of the setup work, if the test function takes `self` as its
-first argument, then the `tests` Map itself will be passed in as `self`.
+first argument, then the `@tests` Map itself will be passed in as `self`.
 
 ### Example
 
 ```koto
-# Tests are exported from a module as a map named `tests`
-export tests =
+# Tests are exported from a module as a map named `@tests`
+export @tests =
   # '@pre_test' will be run before each test
   @pre_test: |self|
     self.test_data = 1, 2, 3

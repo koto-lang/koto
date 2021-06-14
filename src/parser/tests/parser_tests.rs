@@ -271,7 +271,7 @@ x = [
                         (MapKey::Str(0, QuotationMark::Double), Some(1)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(2)),
-                        (MapKey::Meta(MetaId::Add, None), Some(3)),
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(3)),
                     ]),
                     MainBlock {
                         body: vec![0, 4],
@@ -345,7 +345,7 @@ x"#;
                         (MapKey::Id(1), Some(1)),
                         (MapKey::Id(3), None),
                         (MapKey::Str(4, QuotationMark::Double), Some(3)),
-                        (MapKey::Meta(MetaId::Subtract, None), Some(4)),
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),
                     ]), // 5
                     Assign {
                         target: AssignTarget {
@@ -378,9 +378,6 @@ x"#;
 x =
   @+: 0
   @-: 1
-  @pre_test: 0
-  @post_test: 1
-  @test foo: 0
 "#;
             check_ast(
                 source,
@@ -388,30 +385,61 @@ x =
                     Id(0), // x
                     Number0,
                     Number1,
-                    Number0,
-                    Number1,
-                    Number0,
                     Map(vec![
-                        (MapKey::Meta(MetaId::Add, None), Some(1)),
-                        (MapKey::Meta(MetaId::Subtract, None), Some(2)),
-                        (MapKey::Meta(MetaId::PreTest, None), Some(3)),
-                        (MapKey::Meta(MetaId::PostTest, None), Some(4)),
-                        (MapKey::Meta(MetaId::Test, Some(1)), Some(5)),
-                    ]), // 5
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(1)),
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(2)),
+                    ]),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 6,
+                        expression: 3,
                     },
                     MainBlock {
-                        body: vec![7],
+                        body: vec![4],
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("foo")]),
+                Some(&[Constant::Str("x")]),
+            )
+        }
+
+        #[test]
+        fn map_block_tests() {
+            let source = r#"
+export @tests =
+  @pre_test: 0
+  @post_test: 1
+  @test foo: 0
+"#;
+            check_ast(
+                source,
+                &[
+                    Meta(MetaKeyId::Tests, None),
+                    Number0,
+                    Number1,
+                    Number0,
+                    Map(vec![
+                        (MapKey::Meta(MetaKeyId::PreTest, None), Some(1)),
+                        (MapKey::Meta(MetaKeyId::PostTest, None), Some(2)),
+                        (MapKey::Meta(MetaKeyId::Test, Some(0)), Some(3)),
+                    ]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Export,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo")]),
             )
         }
 
