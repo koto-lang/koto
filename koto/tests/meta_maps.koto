@@ -37,6 +37,9 @@ locals.foo_meta =
   # Type
   @type: "Foo"
 
+  # Named meta entries are accessible on the value but don't appear as map entries
+  @meta hello: "Hello"
+  @meta say_hello: |self, name| "{}, {}!".format(self.hello, name)
 
 export @tests =
   @test add: ||
@@ -99,3 +102,10 @@ export @tests =
 
   @test type: ||
     assert_eq (koto.type (foo 0)), "Foo"
+
+  @test named_meta_entries: ||
+    f = foo 99
+    assert_eq f.keys().to_list(), ["x"]
+
+    assert_eq f.hello, "Hello"
+    assert_eq f.say_hello("you"), "Hello, you!"

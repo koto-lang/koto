@@ -23,6 +23,17 @@
       assert_eq ('{:6.2}'.format 1 / 3), '  0.33'
       assert_eq ('{:-^8}'.format "ab"), '---ab---'
       ```
+- Meta maps can now have user-defined entries defined, using the `@meta` tag.
+  - e.g.
+    ```koto
+    make_foo = |x, y|
+      x: x
+      y: y
+      @meta get_x_plus_y: |self| self.x + self.y
+    foo = make_foo 1, 2
+    assert_eq foo.get_x_plus_y(), 3
+    assert_eq foo.keys().to_tuple(), ("x", "y")
+    ```
 
 ### Changed
 

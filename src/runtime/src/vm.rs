@@ -2444,7 +2444,16 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => core_op!(map, true),
+                // TODO get with &str
+                None => match map
+                    .meta()
+                    .get(&MetaKey::Named(self.value_string_from_constant(key)))
+                {
+                    Some(value) => {
+                        self.set_register(result_register, value.clone());
+                    }
+                    None => core_op!(map, true),
+                },
             },
             List(_) => core_op!(list, true),
             Num2(_) => core_op!(num2, false),

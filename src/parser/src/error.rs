@@ -78,6 +78,7 @@ pub enum SyntaxError {
     ExpectedMatchExpression,
     ExpectedMatchPattern,
     ExpectedMetaKey,
+    ExpectedMetaId,
     ExpectedNegatableExpression,
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
@@ -261,6 +262,7 @@ impl fmt::Display for SyntaxError {
             ExpectedMatchExpression => f.write_str("Expected expression after match"),
             ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
             ExpectedMetaKey => f.write_str("Expected meta key after @"),
+            ExpectedMetaId => f.write_str("Expected id after @meta"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
             ExpectedSwitchArmExpression => f.write_str("Expected expression in switch arm"),
             ExpectedSwitchArmExpressionAfterThen => {

@@ -378,6 +378,7 @@ x"#;
 x =
   @+: 0
   @-: 1
+  @meta foo: 0
 "#;
             check_ast(
                 source,
@@ -385,9 +386,11 @@ x =
                     Id(0), // x
                     Number0,
                     Number1,
+                    Number0,
                     Map(vec![
                         (MapKey::Meta(MetaKeyId::Add, None), Some(1)),
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(2)),
+                        (MapKey::Meta(MetaKeyId::Named, Some(1)), Some(3)),
                     ]),
                     Assign {
                         target: AssignTarget {
@@ -395,14 +398,14 @@ x =
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 3,
-                    },
+                        expression: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![4],
+                        body: vec![5],
                         local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x")]),
+                Some(&[Constant::Str("x"), Constant::Str("foo")]),
             )
         }
 

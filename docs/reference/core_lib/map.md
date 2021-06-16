@@ -152,6 +152,29 @@ Additionally, the following meta functions can customize object behaviour:
   - Provides a String that's used when checking the map's type:
     - `@type: "X"`
 
+#### Meta entries
+
+`@meta` can be used as a prefix on a map entry to add it to the meta map.
+The entry will be accessible on value lookups but won't show up in the regular
+map data:
+
+```koto
+make_x = |n|
+  data: n
+  # Overloading the addition operator
+  @meta get_data: |self| self.data
+
+x = make_x 42
+x.keys().to_list()
+# ["data"]
+x.get_data()
+# 42
+```
+
+#### Tests
+
+Tests are also stored in the meta map, see [test.md](test.md) for info.
+
 # Reference
 
 - [clear](#clear)

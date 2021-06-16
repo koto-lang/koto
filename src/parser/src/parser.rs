@@ -802,6 +802,14 @@ impl<'source> Parser<'source> {
                     }
                     _ => return syntax_error!(ExpectedTestName, self),
                 },
+                "meta" => match self.consume_next_token_on_same_line() {
+                    Some(Token::Id) => {
+                        let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                        meta_name = Some(id);
+                        MetaKeyId::Named
+                    }
+                    _ => return syntax_error!(ExpectedMetaId, self),
+                },
                 "type" => MetaKeyId::Type,
                 _ => return syntax_error!(UnexpectedMetaKey, self),
             },

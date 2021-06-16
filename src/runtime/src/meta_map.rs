@@ -77,6 +77,7 @@ impl fmt::Display for UnaryOp {
 pub enum MetaKey {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
+    Named(ValueString),
     Test(ValueString),
     Tests,
     PreTest,
@@ -114,6 +115,10 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, Stri
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
+        MetaKeyId::Named => MetaKey::Named(
+            name.ok_or_else(|| "Missing name for named meta entry".to_string())?
+                .into(),
+        ),
         MetaKeyId::Tests => MetaKey::Tests,
         MetaKeyId::Test => MetaKey::Test(
             name.ok_or_else(|| "Missing name for test".to_string())?

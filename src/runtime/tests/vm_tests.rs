@@ -2256,4 +2256,34 @@ foos[0] == foos[1]
             test_script(script, Bool(true));
         }
     }
+
+    mod named_meta_entries {
+        use super::*;
+
+        #[test]
+        fn basic_access() {
+            let script = "
+locals = {}
+foo = |x| {x} + locals.foo_meta
+locals.foo_meta =
+  @meta get_x: |self| self.x
+a = foo 10
+a.x + a.get_x()
+";
+            test_script(script, Number(20.0.into()));
+        }
+
+        #[test]
+        fn lookup_order() {
+            let script = "
+locals = {}
+foo = |x| {x, y: 100} + locals.foo_meta
+locals.foo_meta =
+  @meta y: 0
+a = foo 10
+a.x + a.y # The meta map's y entry is hidden by the data entry
+";
+            test_script(script, Number(110.0.into()));
+        }
+    }
 }

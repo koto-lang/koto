@@ -282,6 +282,8 @@ pub enum MetaKeyId {
     PreTest,
     PostTest,
 
+    Named,
+
     // Must be last, see TryFrom<u8> for MetaKeyId
     Invalid,
 }
