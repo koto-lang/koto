@@ -1297,7 +1297,7 @@ impl Vm {
                 let mut data = a.data().clone();
                 let mut meta = a.meta().clone();
                 data.extend(&b.data());
-                meta.extend(b.meta().clone().into_iter());
+                meta.extend(&b.meta());
                 Map(ValueMap::with_contents(data, meta))
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),

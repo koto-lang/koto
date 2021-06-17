@@ -8,8 +8,60 @@ use {
     std::{
         fmt,
         hash::{BuildHasherDefault, Hash},
+        ops::{Deref, DerefMut},
     },
 };
+
+type MetaMapType = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
+
+#[derive(Clone, Debug, Default)]
+pub struct MetaMap(MetaMapType);
+
+impl MetaMap {
+    /// Extends the MetaMap with clones of another MetaMap's entries
+    #[inline]
+    pub fn extend(&mut self, other: &MetaMap) {
+        self.0.extend(other.0.clone().into_iter());
+    }
+}
+
+impl Deref for MetaMap {
+    type Target = MetaMapType;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MetaMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum MetaKey {
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+    Named(ValueString),
+    Test(ValueString),
+    Tests,
+    PreTest,
+    PostTest,
+    Type,
+}
+
+impl From<BinaryOp> for MetaKey {
+    fn from(op: BinaryOp) -> Self {
+        Self::BinaryOp(op)
+    }
+}
+
+impl From<UnaryOp> for MetaKey {
+    fn from(op: UnaryOp) -> Self {
+        Self::UnaryOp(op)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
@@ -73,30 +125,6 @@ impl fmt::Display for UnaryOp {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum MetaKey {
-    BinaryOp(BinaryOp),
-    UnaryOp(UnaryOp),
-    Named(ValueString),
-    Test(ValueString),
-    Tests,
-    PreTest,
-    PostTest,
-    Type,
-}
-
-impl From<BinaryOp> for MetaKey {
-    fn from(op: BinaryOp) -> Self {
-        Self::BinaryOp(op)
-    }
-}
-
-impl From<UnaryOp> for MetaKey {
-    fn from(op: UnaryOp) -> Self {
-        Self::UnaryOp(op)
-    }
-}
-
 pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, String> {
     use {BinaryOp::*, UnaryOp::*};
 
@@ -132,5 +160,3 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, Stri
 
     Ok(result)
 }
-
-pub type MetaMap = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
