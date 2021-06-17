@@ -1,7 +1,7 @@
 from test import assert, assert_eq
 
-export tests =
-  test_for_block: ||
+export @tests =
+  @test for_block: ||
     count = 0
     for x in 0..10
       for y in -5..5
@@ -13,7 +13,7 @@ export tests =
 
     assert_eq count, 3
 
-  test_for_break_continue: ||
+  @test for_break_continue: ||
     count = 0
     for i in 0..100
       if i % 2 == 0
@@ -24,13 +24,13 @@ export tests =
         count += 1
     assert_eq count, 2 # 2 odd numbers less than 5
 
-  test_while_block: ||
+  @test while_block: ||
     count = 0
     while count < 5
       count += 1
       assert not count > 5
 
-  test_while_break_continue: ||
+  @test while_break_continue: ||
     count = 0
     while true
       count += 1
@@ -41,14 +41,14 @@ export tests =
       assert false
     assert_eq count, 10
 
-  test_until_block: ||
+  @test until_block: ||
     count = 5
     until count == 0
       count -= 1
       assert count < 5
     assert_eq count, 0
 
-  test_loop_break: ||
+  @test loop_break: ||
     count = 0
     loop
       count += 1

@@ -1,10 +1,10 @@
-# This file is imported by main.koto
+# This file is imported by ./main.koto
 
-# std modules should be available to import
 import number.pi, test.assert_eq
 assert_eq pi, pi
 
 export qux = ()
-# main functions should be run when loading a module
+
 export main = ||
+  # Redefine qux to check that main is called
   export qux = "O_o"

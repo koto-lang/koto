@@ -1,33 +1,33 @@
 from test import assert_eq, assert_ne
 
-export tests =
-  test_basic_assignment: ||
+export @tests =
+  @test basic_assignment: ||
     a = 1
     b = -a
     assert_eq a, -b
 
-  test_multi_assignment: ||
+  @test multi_assignment: ||
     a, b, c, d, e = 1, 2, 3, 4, 5, 6, 7, 8,
     assert_eq c, 3
     assert_eq e, 5
 
-  test_chained_assignment: ||
+  @test chained_assignment: ||
     a = b = "foo"
     assert_eq a, "foo"
     assert_eq b, "foo"
 
-  test_unicode_identifiers: ||
+  @test unicode_identifiers: ||
     やあ = héllø = 99
     assert_eq héllø, 99
     assert_eq やあ, 99
 
-  test_assignment_returns_value: ||
+  @test assignment_returns_value: ||
     assert_eq (a = 42), 42
     assert_eq (x = 99), 99
     assert_eq a, 42
     assert_eq x, 99
 
-  test_export_assignment: ||
+  @test export_assignment: ||
     f = ||
       export x = 42
     f()
@@ -44,7 +44,7 @@ export tests =
     f3()
     assert_eq x, 84 # exported x remains the same
 
-  test_multiline_assignment: ||
+  @test multiline_assignment: ||
     f = |n| n
     a, b, c =
       1,
@@ -54,7 +54,7 @@ export tests =
     assert_eq b, 2
     assert_eq c, 3
 
-  test_assign_empty: ||
+  @test assign_empty: ||
     a = ()
     assert_eq a, ()
     assert_ne 1, ()

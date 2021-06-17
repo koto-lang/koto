@@ -1,15 +1,15 @@
 import error_handling_module
 from test import assert, assert_eq
 
-export tests =
-  test_try: ||
+export @tests =
+  @test try_expression: ||
     x = try
       42
     catch _
       throw "error!" # This expression shouldn't be reached
     assert_eq x, 42
 
-  test_catch: ||
+  @test catch_expression: ||
     x = try
       # Error: List passed to function expecting a map
       [0, 1, 2].keys()
@@ -18,7 +18,7 @@ export tests =
       -1 # catch catches general runtime errors, not only thrown errors
     assert_eq x, -1
 
-  test_finally_following_try: ||
+  @test finally_following_try: ||
     x = 0
     try
       x = 1
@@ -28,7 +28,7 @@ export tests =
       x = 42 # finally is executed following both try and catch blocks
     assert_eq x, 42
 
-  test_finally_following_catch: ||
+  @test finally_following_catch: ||
     error_caught = false
     x = 0
     try
@@ -41,7 +41,7 @@ export tests =
     assert error_caught
     assert_eq x, 42
 
-  test_error_in_other_module: ||
+  @test error_in_other_module: ||
     x = 0
     try
       error_handling_module.error_function()

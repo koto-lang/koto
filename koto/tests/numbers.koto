@@ -1,7 +1,7 @@
 import test.assert_eq
 
-export tests =
-  test_arithmetic: ||
+export @tests =
+  @test arithmetic: ||
     assert_eq 1 + 1, 2
     assert_eq 2 - 2, 0
     assert_eq 1+2*3+4, 11 # whitespace around operators is conventional but optional
@@ -11,7 +11,7 @@ export tests =
     assert_eq (3 - 2) / (4 - 2), 0.5
     assert_eq 2 + 5 % 3, 4
 
-  test_long_expression: ||
+  @test long_expression: ||
     # Long expressions can be broken before and after operators
     a = 1 +
         2 * 3
@@ -20,7 +20,7 @@ export tests =
         + 9 / 3
     assert_eq a, 20
 
-  test_assignment_operators: ||
+  @test assignment_operators: ||
     x = 0
     x += 2
     assert_eq x, 2
@@ -33,19 +33,19 @@ export tests =
     x %= 2
     assert_eq x, 1
 
-  test_binary_notation: ||
+  @test binary_notation: ||
     assert_eq 0b0, 0
     assert_eq 0b10, 2
     assert_eq -0b1000, -8
     assert_eq 0b101010, 42
 
-  test_octal_notation: ||
+  @test octal_notation: ||
     assert_eq 0o0, 0
     assert_eq 0o10, 8
     assert_eq -0o1000, -512
     assert_eq 0o707606, 233350
 
-  test_hex_notation: ||
+  @test hex_notation: ||
     assert_eq 0x0, 0
     assert_eq 0xf, 15
     assert_eq -0x1000, -4096

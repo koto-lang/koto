@@ -2,39 +2,38 @@ use {
     crate::{
         external::{Args, ExternalFunction},
         value_key::ValueKeyRef,
-        RuntimeResult, Value, ValueKey, ValueList, Vm,
+        MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
     },
     indexmap::IndexMap,
-    koto_parser::MetaId,
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
         fmt,
-        hash::{BuildHasherDefault, Hash},
+        hash::BuildHasherDefault,
         iter::{FromIterator, IntoIterator},
         ops::{Deref, DerefMut},
         sync::Arc,
     },
 };
 
-type ValueHashMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
+type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 
 /// The underlying ValueKey -> Value 'data' hash map used in Koto
 ///
 /// See also: [ValueMap]
 #[repr(C)]
 #[derive(Clone, Debug, Default)]
-pub struct ValueHashMap(ValueHashMapType);
+pub struct DataMap(DataMapType);
 
-impl ValueHashMap {
+impl DataMap {
     #[inline]
     pub fn new() -> Self {
-        Self(ValueHashMapType::default())
+        Self(DataMapType::default())
     }
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(ValueHashMapType::with_capacity_and_hasher(
+        Self(DataMapType::with_capacity_and_hasher(
             capacity,
             Default::default(),
         ))
@@ -82,7 +81,7 @@ impl ValueHashMap {
     }
 
     #[inline]
-    pub fn extend(&mut self, other: &ValueHashMap) {
+    pub fn extend(&mut self, other: &DataMap) {
         self.0.extend(other.0.clone().into_iter());
     }
 
@@ -97,213 +96,91 @@ impl ValueHashMap {
     }
 }
 
-impl Deref for ValueHashMap {
-    type Target = ValueHashMapType;
+impl Deref for DataMap {
+    type Target = DataMapType;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for ValueHashMap {
+impl DerefMut for DataMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl FromIterator<(ValueKey, Value)> for ValueHashMap {
+impl FromIterator<(ValueKey, Value)> for DataMap {
     #[inline]
-    fn from_iter<T: IntoIterator<Item = (ValueKey, Value)>>(iter: T) -> ValueHashMap {
-        Self(ValueHashMapType::from_iter(iter))
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BinaryOp {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Less,
-    LessOrEqual,
-    Greater,
-    GreaterOrEqual,
-    Equal,
-    NotEqual,
-    Index,
-}
-
-impl fmt::Display for BinaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use BinaryOp::*;
-
-        write!(
-            f,
-            "{}",
-            match self {
-                Add => "+",
-                Subtract => "-",
-                Multiply => "*",
-                Divide => "/",
-                Modulo => "%",
-                Less => "<",
-                LessOrEqual => "<=",
-                Greater => ">",
-                GreaterOrEqual => ">=",
-                Equal => "==",
-                NotEqual => "!=",
-                Index => "[]",
-            }
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum UnaryOp {
-    Negate,
-    Display,
-}
-
-impl fmt::Display for UnaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use UnaryOp::*;
-
-        write!(
-            f,
-            "{}",
-            match self {
-                Negate => "negate",
-                Display => "display",
-            }
-        )
-    }
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum MetaKey {
-    BinaryOp(BinaryOp),
-    UnaryOp(UnaryOp),
-    Type,
-}
-
-impl From<BinaryOp> for MetaKey {
-    fn from(op: BinaryOp) -> Self {
-        Self::BinaryOp(op)
-    }
-}
-
-impl From<UnaryOp> for MetaKey {
-    fn from(op: UnaryOp) -> Self {
-        Self::UnaryOp(op)
-    }
-}
-
-impl From<MetaId> for MetaKey {
-    fn from(id: MetaId) -> Self {
-        use {BinaryOp::*, UnaryOp::*};
-
-        match id {
-            MetaId::Add => MetaKey::BinaryOp(Add),
-            MetaId::Subtract => MetaKey::BinaryOp(Subtract),
-            MetaId::Multiply => MetaKey::BinaryOp(Multiply),
-            MetaId::Divide => MetaKey::BinaryOp(Divide),
-            MetaId::Modulo => MetaKey::BinaryOp(Modulo),
-            MetaId::Less => MetaKey::BinaryOp(Less),
-            MetaId::LessOrEqual => MetaKey::BinaryOp(LessOrEqual),
-            MetaId::Greater => MetaKey::BinaryOp(Greater),
-            MetaId::GreaterOrEqual => MetaKey::BinaryOp(GreaterOrEqual),
-            MetaId::Equal => MetaKey::BinaryOp(Equal),
-            MetaId::NotEqual => MetaKey::BinaryOp(NotEqual),
-            MetaId::Index => MetaKey::BinaryOp(Index),
-            MetaId::Negate => MetaKey::UnaryOp(Negate),
-            MetaId::Display => MetaKey::UnaryOp(Display),
-            MetaId::Type => MetaKey::Type,
-            _ => unreachable!("Invalid MetaId"),
-        }
-    }
-}
-
-type MetaMap = IndexMap<MetaKey, Value, BuildHasherDefault<FxHasher>>;
-
-/// The contents of a ValueMap, combining a data map with a meta map
-#[derive(Clone, Debug, Default)]
-pub struct ValueMapContents {
-    pub data: ValueHashMap,
-    pub meta: MetaMap,
-}
-
-impl ValueMapContents {
-    #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            data: ValueHashMap::with_capacity(capacity),
-            meta: MetaMap::default(),
-        }
-    }
-
-    #[inline]
-    pub fn with_data(data: ValueHashMap) -> Self {
-        Self {
-            data,
-            meta: MetaMap::default(),
-        }
-    }
-
-    pub fn extend(&mut self, other: &ValueMapContents) {
-        self.data.extend(&other.data);
-        self.meta.extend(other.meta.clone().into_iter());
+    fn from_iter<T: IntoIterator<Item = (ValueKey, Value)>>(iter: T) -> DataMap {
+        Self(DataMapType::from_iter(iter))
     }
 }
 
 /// The Map value type used in Koto
 #[derive(Clone, Debug, Default)]
-pub struct ValueMap(Arc<RwLock<ValueMapContents>>);
+pub struct ValueMap {
+    data: Arc<RwLock<DataMap>>,
+    meta: Arc<RwLock<MetaMap>>,
+}
 
 impl ValueMap {
     #[inline]
     pub fn new() -> Self {
-        Self::with_contents(ValueMapContents::default())
+        Self::default()
     }
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self::with_contents(ValueMapContents::with_capacity(capacity))
+        Self::with_contents(DataMap::with_capacity(capacity), MetaMap::default())
     }
 
     #[inline]
-    pub fn with_data(data: ValueHashMap) -> Self {
-        Self::with_contents(ValueMapContents::with_data(data))
+    pub fn with_data(data: DataMap) -> Self {
+        Self::with_contents(data, MetaMap::default())
     }
 
     #[inline]
-    pub fn with_contents(contents: ValueMapContents) -> Self {
-        Self(Arc::new(RwLock::new(contents)))
+    pub fn with_contents(data: DataMap, meta: MetaMap) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta: Arc::new(RwLock::new(meta)),
+        }
     }
 
     #[inline]
-    pub fn contents(&self) -> RwLockReadGuard<ValueMapContents> {
-        self.0.read()
+    pub fn data(&self) -> RwLockReadGuard<DataMap> {
+        self.data.read()
     }
 
     #[inline]
-    pub fn contents_mut(&self) -> RwLockWriteGuard<ValueMapContents> {
-        self.0.write()
+    pub fn data_mut(&self) -> RwLockWriteGuard<DataMap> {
+        self.data.write()
+    }
+
+    #[inline]
+    pub fn meta(&self) -> RwLockReadGuard<MetaMap> {
+        self.meta.read()
+    }
+
+    #[inline]
+    pub fn meta_mut(&self) -> RwLockWriteGuard<MetaMap> {
+        self.meta.write()
     }
 
     #[inline]
     pub fn insert(&mut self, key: ValueKey, value: Value) {
-        self.contents_mut().data.insert(key, value);
+        self.data_mut().insert(key, value);
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.contents().data.len()
+        self.data().len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.contents().data.is_empty()
+        self.data().is_empty()
     }
 
     #[inline]
@@ -338,14 +215,6 @@ impl ValueMap {
     pub fn add_value(&mut self, id: &str, value: Value) {
         self.insert(id.into(), value);
     }
-
-    // An iterator that clones the map's keys and values
-    //
-    // Useful for avoiding holding on to the underlying RwLock while iterating
-    #[inline]
-    pub fn cloned_iter(&self) -> ValueMapIter {
-        ValueMapIter::new(&self.0)
-    }
 }
 
 impl fmt::Display for ValueMap {
@@ -353,7 +222,7 @@ impl fmt::Display for ValueMap {
         write!(f, "{{")?;
         let mut first = true;
         if f.alternate() {
-            for (key, value) in self.contents().data.iter() {
+            for (key, value) in self.data().iter() {
                 if !first {
                     write!(f, ", ")?;
                 }
@@ -361,7 +230,7 @@ impl fmt::Display for ValueMap {
                 first = false;
             }
         } else {
-            for key in self.contents().data.keys() {
+            for key in self.data().keys() {
                 if !first {
                     write!(f, ", ")?;
                 }
@@ -370,32 +239,5 @@ impl fmt::Display for ValueMap {
             }
         }
         write!(f, "}}")
-    }
-}
-
-pub struct ValueMapIter<'map> {
-    map: &'map RwLock<ValueMapContents>,
-    index: usize,
-}
-
-impl<'map> ValueMapIter<'map> {
-    #[inline]
-    fn new(map: &'map RwLock<ValueMapContents>) -> Self {
-        Self { map, index: 0 }
-    }
-}
-
-impl<'map> Iterator for ValueMapIter<'map> {
-    type Item = (ValueKey, Value);
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.map.read().data.get_index(self.index) {
-            Some((key, value)) => {
-                self.index += 1;
-                Some((key.clone(), value.clone()))
-            }
-            None => None,
-        }
     }
 }

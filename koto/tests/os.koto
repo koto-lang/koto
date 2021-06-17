@@ -1,8 +1,8 @@
 import test.assert
 
-export tests =
-  test_cpu_count: ||
+export @tests =
+  @test cpu_count: ||
     assert os.cpu_count() > 0
 
-  test_physical_cpu_count: ||
+  @test physical_cpu_count: ||
     assert os.physical_cpu_count() > 0

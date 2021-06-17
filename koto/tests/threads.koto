@@ -1,7 +1,7 @@
 import test.assert_eq
 
-export tests =
-  test_spawn_4_threads_and_join: ||
+export @tests =
+  @test spawn_4_threads_and_join: ||
     data = list.with_size 8, 0
 
     worker_count = 4

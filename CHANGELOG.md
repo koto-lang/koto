@@ -23,6 +23,17 @@
       assert_eq ('{:6.2}'.format 1 / 3), '  0.33'
       assert_eq ('{:-^8}'.format "ab"), '---ab---'
       ```
+- Meta maps can now have user-defined entries defined, using the `@meta` tag.
+  - e.g.
+    ```koto
+    make_foo = |x, y|
+      x: x
+      y: y
+      @meta get_x_plus_y: |self| self.x + self.y
+    foo = make_foo 1, 2
+    assert_eq foo.get_x_plus_y(), 3
+    assert_eq foo.keys().to_tuple(), ("x", "y")
+    ```
 
 ### Changed
 
@@ -32,6 +43,23 @@
     modules can be accessed in scripts without them being imported first.
     - e.g. `number.pi` is now a valid script, whereas previously
       `import number` would be required for `number` to be available.
+- Tests are now defined using the meta map.
+  - e.g. instead of `test_check_it_works: ...`,
+    you now write `@test check_it_works: ...`.
+  - Similarly, `pre_test:` and `post_test` are now defined as
+    `@pre_test` and `@post_test`.
+  - To define a tests map, export the map as `@tests` rather than `tests`.
+  - e.g.
+    ```koto
+    export @tests =
+        @pre_test: |self|
+            self.test_data = 1, 2, 3
+        @post_test: |self|
+            self.test_data = ()
+        @test data_size: |self|
+            assert_eq self.test_data.size(), 3
+    ```
+
 - `koto.args` is now a Tuple instead of a List.
 - `koto.script_dir` and `koto.script_path` are now empty by default.
 

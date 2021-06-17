@@ -1,21 +1,21 @@
 from test import assert, assert_eq
 
-export tests =
-  test_and_not_or: ||
+export @tests =
+  @test and_not_or: ||
     assert true and true
     assert not true and false
     assert not false and true
     assert true or false
     assert false or true
 
-  test_short_circuiting: ||
+  @test short_circuiting: ||
     a = false and assert false
     assert not a
 
     a = true or assert false
     assert a
 
-  test_comparison_operators: ||
+  @test comparison_operators: ||
     assert 1 < 2
     assert 0 > -1
     assert (1 + 1) <= 2
@@ -23,20 +23,20 @@ export tests =
     assert (2 * 2) >= 4
     assert not (2 * 2) > 4
 
-  test_chained_comparisons: ||
+  @test chained_comparisons: ||
     a = 5
     assert 1 < a < 10
     assert not 1 < a > 10
 
-  test_chained_equality: ||
+  @test chained_equality: ||
     a = 1
     assert 1 == a == 1
 
-  test_chained_comparison_short_circuiting: ||
+  @test chained_comparison_short_circuiting: ||
     a = 1
     assert not 1 > a < assert false
 
-  test_single_evaluation_of_chained_token: ||
+  @test single_evaluation_of_chained_token: ||
     make_counter = ||
       count = 0
       loop
@@ -45,6 +45,6 @@ export tests =
     assert 0 < f.next() < 2
     assert_eq f.next(), 2
 
-  test_fiddly_chained_comparison: ||
+  @test fiddly_chained_comparison: ||
     f = |x, y, z| if x < y < z > y > x then 0 else 1
     assert (f 1, 2, 3) < (f 3, 2, 1) <= (f 5, 4, 3) < 2 > (f 1, 2, 3)

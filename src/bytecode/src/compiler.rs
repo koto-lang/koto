@@ -2,7 +2,8 @@ use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, LookupNode, MapKey, MatchArm, Node, Scope, Span, SwitchArm,
+        ConstantIndex, Function, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope, Span,
+        SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -746,6 +747,11 @@ impl Compiler {
 
                 result
             }
+            Node::Meta(_, _) => {
+                // Meta nodes are currently only compiled in the context of an export assignment,
+                // see compile_assign().
+                unreachable!();
+            }
         };
 
         self.span_stack.pop();
@@ -1064,7 +1070,7 @@ impl Compiler {
                         }
                     }
                     Scope::Export => {
-                        self.compile_set_export(*id_index, value_register.register);
+                        self.compile_value_export(*id_index, value_register.register);
                     }
                 }
             }
@@ -1076,6 +1082,9 @@ impl Compiler {
                     Some(value_register.register),
                     ast,
                 )?;
+            }
+            Node::Meta(meta_id, name) => {
+                self.compile_meta_export(*meta_id, *name, value_register.register);
             }
             Node::Wildcard => {}
             unexpected => {
@@ -1204,12 +1213,33 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_set_export(&mut self, id: ConstantIndex, register: u8) {
+    fn compile_value_export(&mut self, id: ConstantIndex, register: u8) {
         if id <= u8::MAX as u32 {
-            self.push_op(Op::SetExport, &[id as u8, register]);
+            self.push_op(Op::ValueExport, &[id as u8, register]);
         } else {
-            self.push_op(Op::SetExportLong, &id.to_le_bytes());
+            self.push_op(Op::ValueExportLong, &id.to_le_bytes());
             self.push_bytes(&[register]);
+        }
+    }
+
+    fn compile_meta_export(
+        &mut self,
+        meta_id: MetaKeyId,
+        name: Option<ConstantIndex>,
+        value_register: u8,
+    ) {
+        if let Some(name) = name {
+            if name <= u8::MAX as u32 {
+                self.push_op(
+                    Op::MetaExportNamed,
+                    &[meta_id as u8, value_register, name as u8],
+                );
+            } else {
+                self.push_op(Op::MetaExportNamedLong, &[meta_id as u8, value_register]);
+                self.push_bytes(&name.to_le_bytes());
+            }
+        } else {
+            self.push_op(Op::MetaExport, &[meta_id as u8, value_register]);
         }
     }
 
@@ -1253,7 +1283,7 @@ impl Compiler {
                 self.commit_local_register(import_register)?;
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_set_export(*import_id, import_register);
+                    self.compile_value_export(*import_id, import_register);
                 }
             }
         } else {
@@ -1279,7 +1309,7 @@ impl Compiler {
                 imported.push(import_register);
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_set_export(*import_id, import_register);
+                    self.compile_value_export(*import_id, import_register);
                 }
             }
 
@@ -1909,7 +1939,7 @@ impl Compiler {
                                 }
                             }
                         }
-                        (MapKey::Meta(key), None) => {
+                        (MapKey::Meta(key, _), None) => {
                             return compiler_error!(
                                 self,
                                 "Value missing for meta map key: @{:?}",
@@ -2216,11 +2246,24 @@ impl Compiler {
                     self.push_bytes(&id.to_le_bytes());
                 }
             }
-            MapKey::Meta(key) => {
-                self.push_op_without_span(
-                    Op::MetaInsert,
-                    &[map_register, value_register, key as u8],
-                );
+            MapKey::Meta(key, name) => {
+                let key = key as u8;
+                if let Some(name) = name {
+                    if name <= u8::MAX as u32 {
+                        self.push_op_without_span(
+                            Op::MetaInsertNamed,
+                            &[map_register, value_register, key, name as u8],
+                        );
+                    } else {
+                        self.push_op_without_span(
+                            Op::MetaInsertNamedLong,
+                            &[map_register, value_register, key],
+                        );
+                        self.push_bytes(&name.to_le_bytes());
+                    }
+                } else {
+                    self.push_op_without_span(Op::MetaInsert, &[map_register, value_register, key]);
+                }
             }
         }
     }
@@ -3009,7 +3052,7 @@ impl Compiler {
                     Some(register) => register,
                     None => return compiler_error!(self, "Missing arg register"),
                 };
-                self.compile_set_export(*arg, arg_register);
+                self.compile_value_export(*arg, arg_register);
             }
         }
 

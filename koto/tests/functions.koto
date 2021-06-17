@@ -1,12 +1,12 @@
 from test import assert, assert_eq
 
-export tests =
-  test_square: ||
+export @tests =
+  @test square: ||
     square = |x| x * x
     assert_eq (square 7), 49
     assert_eq (square -10), 100
 
-  test_sum: ||
+  @test sum: ||
     sum = |x, y| x + y
     # Call with parentheses
     result = sum(10, 11)
@@ -15,26 +15,26 @@ export tests =
     result = sum 12, 18
     assert_eq result, 30
 
-  test_sum_variadic: ||
+  @test sum_variadic: ||
     sum = |x, y, z...|
       x + y + z.fold(0, |a, b| a + b)
     assert_eq (sum 1, 2), 3
     assert_eq (sum 3, 4, 5), 12
     assert_eq (sum 6, 7, 8, 9), 30
 
-  test_wildcard_arg: ||
+  @test wildcard_arg: ||
     foo = |a, _, c| a + c
     assert_eq (foo 1, 2, 3), 4
 
-  test_list_unpacking: ||
+  @test list_unpacking: ||
     foo = |a, [b, [c, d]], e| a * b * c * d * e
     assert_eq (foo 1, [2, [3, 4]], 5), 120
 
-  test_tuple_unpacking: ||
+  @test tuple_unpacking: ||
     foo = |a, (b, (c, d)), e| a + b + c + d + e
     assert_eq (foo 1, (2, (3, 4)), 5), 15
 
-  test_nested_function: ||
+  @test nested_function: ||
     add = |x, y|
       x2 = x
       do_add = |x, y|
@@ -46,22 +46,22 @@ export tests =
       result # implicit return
     assert_eq (add 1, 2), 3
 
-  test_captured_function: ||
+  @test captured_function: ||
     add = |x, y| x + y
     add2 = |x, y| add x, y
     assert_eq (add2 90, 9), 99
 
-  test_nested_calls: ||
+  @test nested_calls: ||
     add = |x, y| x + y
     assert_eq (add (add 1, 1), (add -1, -1)), 0
 
-  test_function_returning_multiple_values: ||
+  @test function_returning_multiple_values: ||
     f = |x| x - 1, x + 1
     a, b = f 0
     assert_eq a, -1
     assert_eq b, 1
 
-  test_early_return: ||
+  @test early_return: ||
     match_digit = |n|
       match_digit_nested = |n|
         for i in 0..10
@@ -78,14 +78,14 @@ export tests =
         .to_tuple(),
       (0, 1, 2)
 
-  test_return_multiple_values: ||
+  @test return_multiple_values: ||
     f = ||
       return -1, 1
     a, b = f()
     assert_eq a, -1
     assert_eq b, 1
 
-  test_return_no_value: ||
+  @test return_no_value: ||
     f = ||
       if true
         return

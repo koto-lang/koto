@@ -9,6 +9,7 @@ pub type ConstantIndex = u32;
 pub enum Node {
     Empty,
     Id(ConstantIndex),
+    Meta(MetaKeyId, Option<ConstantIndex>),
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
     BoolTrue,
     BoolFalse,
@@ -110,6 +111,7 @@ impl fmt::Display for Node {
         match self {
             Empty => write!(f, "Empty"),
             Id(_) => write!(f, "Id"),
+            Meta(_, _) => write!(f, "Meta"),
             Lookup(_) => write!(f, "Lookup"),
             BoolTrue => write!(f, "BoolTrue"),
             BoolFalse => write!(f, "BoolFalse"),
@@ -257,7 +259,7 @@ pub struct SwitchArm {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
-pub enum MetaId {
+pub enum MetaKeyId {
     Add,
     Subtract,
     Multiply,
@@ -275,11 +277,18 @@ pub enum MetaId {
     Negate,
     Type,
 
-    // Must be last, see TryFrom<u8> for MetaId
+    Tests,
+    Test, // Comes with an associated name
+    PreTest,
+    PostTest,
+
+    Named,
+
+    // Must be last, see TryFrom<u8> for MetaKeyId
     Invalid,
 }
 
-impl TryFrom<u8> for MetaId {
+impl TryFrom<u8> for MetaKeyId {
     type Error = u8;
 
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
@@ -296,7 +305,7 @@ impl TryFrom<u8> for MetaId {
 pub enum MapKey {
     Id(ConstantIndex),
     Str(ConstantIndex, QuotationMark),
-    Meta(MetaId),
+    Meta(MetaKeyId, Option<ConstantIndex>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

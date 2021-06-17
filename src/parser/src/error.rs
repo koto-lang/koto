@@ -78,10 +78,12 @@ pub enum SyntaxError {
     ExpectedMatchExpression,
     ExpectedMatchPattern,
     ExpectedMetaKey,
+    ExpectedMetaId,
     ExpectedNegatableExpression,
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
     ExpectedThenExpression,
+    ExpectedTestName,
     ExpectedUntilCondition,
     ExpectedWhileCondition,
     IfBlockNotAllowedInThisContext,
@@ -260,11 +262,13 @@ impl fmt::Display for SyntaxError {
             ExpectedMatchExpression => f.write_str("Expected expression after match"),
             ExpectedMatchPattern => f.write_str("Expected pattern for match arm"),
             ExpectedMetaKey => f.write_str("Expected meta key after @"),
+            ExpectedMetaId => f.write_str("Expected id after @meta"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
             ExpectedSwitchArmExpression => f.write_str("Expected expression in switch arm"),
             ExpectedSwitchArmExpressionAfterThen => {
                 f.write_str("Expected expression after then in switch arm")
             }
+            ExpectedTestName => f.write_str("Expected a test name"),
             ExpectedThenExpression => f.write_str("Expected 'then' expression."),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedWhileCondition => f.write_str("Expected condition in while loop"),

@@ -1,7 +1,7 @@
 import test.assert_eq
 
-export tests =
-  test_lists_in_maps: ||
+export @tests =
+  @test lists_in_maps: ||
     x =
       foo: [10, 11, 12]
       bar:
@@ -17,7 +17,7 @@ export tests =
     # Nested mutation doesn't affect parent nodes
     assert_eq x.foo[2], 42
 
-  test_maps_in_lists: ||
+  @test maps_in_lists: ||
     make_foo = |x|
       foo: x
       set_foo: |self, x| self.foo = x

@@ -6,20 +6,20 @@ make_foo = |x|
   @>: |self, other| self.x > other.x
   @==: |self, other| self.x == other.x
 
-export tests =
-  test_for_loop: ||
+export @tests =
+  @test for_loop: ||
     a = 1, 2, 3
     z = []
     for x in a
       z.push x
     assert_eq z, [1, 2, 3]
 
-  test_contains: ||
+  @test contains: ||
     x = 1, 2, 3
     assert (x.contains 2)
     assert not (x.contains 99)
 
-  test_contains_with_overloaded_equality_op: ||
+  @test contains_with_overloaded_equality_op: ||
     bar = |x|
       x: x
       @==: |self, other| self.x != other.x # This inverts the usual behaviour of ==
@@ -27,7 +27,7 @@ export tests =
     x = (bar 1), (bar 1)
     assert not x.contains (bar 1)
 
-  test_deep_copy: ||
+  @test deep_copy: ||
     a = [1, 2, 3]
     # x contains 3 shared copies of a
     x = (a, a, a)
@@ -41,17 +41,17 @@ export tests =
     x2[1][0] = 42
     assert_eq x2[0][0], 1
 
-  test_first: ||
+  @test first: ||
     assert_eq (1, 2, 3).first(), 1
     assert_eq [].to_tuple().first(), ()
 
-  test_get: ||
+  @test get: ||
     x = 1, 2, 3
     assert_eq (x.get 0), 1
     assert_eq (x.get 2), 3
     assert_eq (x.get 4), ()
 
-  test_indexing: ||
+  @test indexing: ||
     x = 1, 2, 3
     assert_eq x[0], 1
     assert_eq x[2], 3
@@ -60,23 +60,23 @@ export tests =
     assert_eq x[1..], (2, 3)
     assert_eq x[..=1], (1, 2)
 
-  test_iter: ||
+  @test iter: ||
     assert_eq
       (1, 2, 3)
         .each |n| "{}".format n
         .to_tuple(),
       ("1", "2", "3")
 
-  test_last: ||
+  @test last: ||
     assert_eq (1, 2, 3).last(), 3
     assert_eq [].to_tuple().last(), ()
 
-  test_size: ||
+  @test size: ||
     assert_eq (1, 2).size(), 2
     assert_eq (1, 2, 3).size(), 3
     assert_eq ((1, 2), (3, 4)).size(), 2
 
-  test_sort_copy: ||
+  @test sort_copy: ||
     assert_eq (3, 1, 2).sort_copy(), (1, 2, 3)
     assert_eq ("tuple", "sort", "copy").sort_copy(), ("copy", "sort", "tuple")
 
@@ -88,6 +88,6 @@ export tests =
     assert_eq r, a
 
 
-  test_to_list: ||
+  @test to_list: ||
     assert_eq (1, 2).to_list(), [1, 2]
     assert_eq ((1, 2), (3, 4)).to_list(), [(1, 2), (3, 4)]

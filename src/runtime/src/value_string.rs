@@ -51,6 +51,7 @@ impl PartialEq for ValueString {
         self.as_str() == other.as_str()
     }
 }
+impl Eq for ValueString {}
 
 impl Hash for ValueString {
     fn hash<H: Hasher>(&self, state: &mut H) {

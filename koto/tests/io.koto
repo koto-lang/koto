@@ -1,8 +1,8 @@
 from test import assert, assert_eq, assert_ne
 
 
-export tests =
-  test_reading_a_file: ||
+export @tests =
+  @test reading_a_file: ||
     path = koto.script_dir + "/data/test.txt"
     assert io.exists path
 
@@ -12,5 +12,5 @@ export tests =
     file = io.open path
     assert_eq contents, file.read_to_string()
 
-  test_current_dir: ||
+  @test current_dir: ||
     assert_ne koto.current_dir(), ""

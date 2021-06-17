@@ -1,6 +1,6 @@
 use {
     crate::{Chunk, Op},
-    koto_parser::{ConstantIndex, MetaId},
+    koto_parser::{ConstantIndex, MetaKeyId},
     std::{convert::TryInto, fmt, sync::Arc},
 };
 
@@ -93,9 +93,9 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    SetExport {
-        export: ConstantIndex,
-        source: u8,
+    ValueExport {
+        name: ConstantIndex,
+        value: u8,
     },
     Import {
         register: u8,
@@ -337,7 +337,22 @@ pub enum Instruction {
     MetaInsert {
         register: u8,
         value: u8,
-        id: MetaId,
+        id: MetaKeyId,
+    },
+    MetaInsertNamed {
+        register: u8,
+        value: u8,
+        id: MetaKeyId,
+        name: ConstantIndex,
+    },
+    MetaExport {
+        value: u8,
+        id: MetaKeyId,
+    },
+    MetaExportNamed {
+        value: u8,
+        id: MetaKeyId,
+        name: ConstantIndex,
     },
     Access {
         register: u8,
@@ -376,7 +391,7 @@ impl fmt::Display for Instruction {
             LoadInt { .. } => write!(f, "LoadInt"),
             LoadString { .. } => write!(f, "LoadString"),
             LoadNonLocal { .. } => write!(f, "LoadNonLocal"),
-            SetExport { .. } => write!(f, "SetExport"),
+            ValueExport { .. } => write!(f, "ValueExport"),
             Import { .. } => write!(f, "Import"),
             MakeTuple { .. } => write!(f, "MakeTuple"),
             MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
@@ -429,6 +444,9 @@ impl fmt::Display for Instruction {
             Index { .. } => write!(f, "Index"),
             MapInsert { .. } => write!(f, "MapInsert"),
             MetaInsert { .. } => write!(f, "MetaInsert"),
+            MetaInsertNamed { .. } => write!(f, "MetaInsertNamed"),
+            MetaExport { .. } => write!(f, "MetaExport"),
+            MetaExportNamed { .. } => write!(f, "MetaExportNamed"),
             Access { .. } => write!(f, "Access"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
@@ -468,8 +486,8 @@ impl fmt::Debug for Instruction {
                 "LoadNonLocal\tresult: {}\tconstant: {}",
                 register, constant
             ),
-            SetExport { export, source } => {
-                write!(f, "SetExport\texport: {}\tsource: {}", export, source)
+            ValueExport { name, value } => {
+                write!(f, "ValueExport\tname: {}\tvalue: {}", name, value)
             }
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
@@ -786,6 +804,22 @@ impl fmt::Debug for Instruction {
                 "MetaInsert\tmap: {}\t\tvalue: {}\tid: {:?}",
                 register, value, id
             ),
+            MetaInsertNamed {
+                register,
+                value,
+                id,
+                name,
+            } => write!(
+                f,
+                "MetaInsertNamed\tmap: {}\t\tvalue: {}\tid: {:?}\tname: {}",
+                register, value, id, name
+            ),
+            MetaExport { value, id } => write!(f, "MetaExport\tvalue: {}\tid: {:?}", value, id),
+            MetaExportNamed { value, id, name } => write!(
+                f,
+                "MetaExportNamed\tvalue: {}\tid: {:?}\tname: {}",
+                value, id, name
+            ),
             Access { register, map, key } => write!(
                 f,
                 "Access\t\tresult: {}\tmap: {}\t\tkey: {}",
@@ -948,13 +982,13 @@ impl Iterator for InstructionReader {
                 register: get_byte!(),
                 constant: get_u32!() as ConstantIndex,
             }),
-            Op::SetExport => Some(SetExport {
-                export: get_byte!() as ConstantIndex,
-                source: get_byte!(),
+            Op::ValueExport => Some(ValueExport {
+                name: get_byte!() as ConstantIndex,
+                value: get_byte!(),
             }),
-            Op::SetExportLong => Some(SetExport {
-                export: get_u32!() as ConstantIndex,
-                source: get_byte!(),
+            Op::ValueExportLong => Some(ValueExport {
+                name: get_u32!() as ConstantIndex,
+                value: get_byte!(),
             }),
             Op::Import => Some(Import {
                 register: get_byte!(),
@@ -1233,6 +1267,92 @@ impl Iterator for InstructionReader {
                         value,
                         id,
                     })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaInsertNamed => {
+                let register = get_byte!();
+                let value = get_byte!();
+                let meta_id = get_byte!();
+                let name = get_byte!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaInsertNamed {
+                        register,
+                        value,
+                        id,
+                        name,
+                    })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaInsertNamedLong => {
+                let register = get_byte!();
+                let value = get_byte!();
+                let meta_id = get_byte!();
+                let name = get_u32!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaInsertNamed {
+                        register,
+                        value,
+                        id,
+                        name,
+                    })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaExport => {
+                let meta_id = get_byte!();
+                let value = get_byte!();
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaExport { id, value })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaExportNamed => {
+                let meta_id = get_byte!();
+                let value = get_byte!();
+                let name = get_byte!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaExportNamed { id, value, name })
+                } else {
+                    Some(Error {
+                        message: format!(
+                            "Unexpected meta id {} found at instruction {}",
+                            meta_id, op_ip
+                        ),
+                    })
+                }
+            }
+            Op::MetaExportNamedLong => {
+                let meta_id = get_byte!();
+                let value = get_byte!();
+                let name = get_u32!() as ConstantIndex;
+                if let Ok(id) = meta_id.try_into() {
+                    Some(MetaExportNamed { id, value, name })
                 } else {
                     Some(Error {
                         message: format!(

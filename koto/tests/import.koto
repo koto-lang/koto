@@ -1,7 +1,7 @@
 import test.assert_eq
 
-export tests =
-  test_import_module: ||
+export @tests =
+  @test import_module: ||
     # Importing a module brings the module's exports map into scope by assignment.
     # The test_module module is defined in the test_module directory,
     # with test_module/main.koto as its entry point.
@@ -10,26 +10,26 @@ export tests =
     assert_eq test_module.foo, 42
     assert_eq (test_module.square 9), 81
 
-  test_assign_import_item: ||
+  @test assign_import_item: ||
     x = import test_module.bar
     assert_eq bar, -1
     assert_eq x, bar
 
-  test_import_nested_item: ||
+  @test import_nested_item: ||
     import test_module.baz.qux
     assert_eq qux, "O_o"
 
-  test_import_multiple_items: ||
+  @test import_multiple_items: ||
     a, b = import test_module.foo, test_module.bar
     assert_eq a, 42
     assert_eq b, -1
 
-  test_import_multiple_items_with_from: ||
+  @test import_multiple_items_with_from: ||
     x, y = from test_module import foo, bar
     assert_eq x, 42
     assert_eq y, -1
 
-  test_access_export: ||
+  @test access_export: ||
     x = "value_x"
     koto.exports().insert x, 99
     assert_eq value_x, 99

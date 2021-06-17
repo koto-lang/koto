@@ -41,8 +41,8 @@ export main = ||
   if not (koto.args.get 1) == "quiet"
     "{}".print result
 
-export tests =
-  test_number_to_english: ||
+export @tests =
+  @test number_to_english: ||
     import test.assert_eq
 
     assert_eq (number_to_english 0), "zero"

@@ -1,8 +1,7 @@
 from test import assert, assert_eq
 
-
-export tests =
-  test_temp_dir: ||
+export @tests =
+  @test temp_dir: ||
     path = tempfile.temp_path()
     file = io.create path
     contents = "<(^_^)<"
@@ -11,7 +10,7 @@ export tests =
     io.remove_file path
     assert not io.exists path
 
-  test_temp_file: ||
+  @test temp_file: ||
     temp = tempfile.temp_file()
     temp_path = temp.path()
     temp.write_line "hello"

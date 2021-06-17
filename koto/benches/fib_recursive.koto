@@ -13,7 +13,7 @@ export main = ||
 
   fib n
 
-export tests =
-  test_fib: ||
+export @tests =
+  @test fib: ||
     assert_eq (fib 4), 3
     assert_eq (fib 5), 5

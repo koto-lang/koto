@@ -2,7 +2,7 @@ mod vm {
     use {
         koto_bytecode::Chunk,
         koto_runtime::{
-            num2, num4, runtime_error, BinaryOp, IntRange, Loader, Value, Value::*, ValueHashMap,
+            num2, num4, runtime_error, BinaryOp, DataMap, IntRange, Loader, Value, Value::*,
             ValueList, ValueMap, Vm,
         },
         std::sync::Arc,
@@ -1387,7 +1387,7 @@ sum
 
         #[test]
         fn from_literals() {
-            let mut result_data = ValueHashMap::new();
+            let mut result_data = DataMap::new();
             result_data.add_value("foo", Number(42.0.into()));
             result_data.add_value("bar", Str("baz".into()));
 
@@ -2254,6 +2254,36 @@ foos = (0, 1)
 foos[0] == foos[1]
 ";
             test_script(script, Bool(true));
+        }
+    }
+
+    mod named_meta_entries {
+        use super::*;
+
+        #[test]
+        fn basic_access() {
+            let script = "
+locals = {}
+foo = |x| {x} + locals.foo_meta
+locals.foo_meta =
+  @meta get_x: |self| self.x
+a = foo 10
+a.x + a.get_x()
+";
+            test_script(script, Number(20.0.into()));
+        }
+
+        #[test]
+        fn lookup_order() {
+            let script = "
+locals = {}
+foo = |x| {x, y: 100} + locals.foo_meta
+locals.foo_meta =
+  @meta y: 0
+a = foo 10
+a.x + a.y # The meta map's y entry is hidden by the data entry
+";
+            test_script(script, Number(110.0.into()));
         }
     }
 }

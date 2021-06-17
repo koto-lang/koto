@@ -1,9 +1,7 @@
 use {
     crate::{
-        num2, num4,
-        value_map::{ValueMap, ValueMapContents},
-        ExternalFunction, ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber,
-        ValueRef, ValueString, ValueTuple, ValueVec,
+        num2, num4, value_map::ValueMap, ExternalFunction, ExternalValue, IntRange, MetaKey,
+        ValueIterator, ValueList, ValueNumber, ValueRef, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
@@ -110,13 +108,12 @@ impl Value {
             }
             Map(m) => {
                 let data = m
-                    .contents()
-                    .data
+                    .data()
                     .iter()
                     .map(|(k, v)| (k.clone(), v.deep_copy()))
                     .collect();
-                let meta = m.contents().meta.clone();
-                Map(ValueMap::with_contents(ValueMapContents { data, meta }))
+                let meta = m.meta().clone();
+                Map(ValueMap::with_contents(data, meta))
             }
             _ => self.clone(),
         }
@@ -180,7 +177,7 @@ impl Value {
             List(_) => "List".to_string(),
             Range { .. } => "Range".to_string(),
             IndexRange { .. } => "IndexRange".to_string(),
-            Map(m) => match m.contents().meta.get(&MetaKey::Type) {
+            Map(m) => match m.meta().get(&MetaKey::Type) {
                 Some(Str(s)) => s.as_str().to_string(),
                 Some(_) => "Error: expected string for overloaded type".to_string(),
                 None => "Map".to_string(),
