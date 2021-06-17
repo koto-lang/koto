@@ -1297,7 +1297,7 @@ impl Vm {
                 let mut data = a.data().clone();
                 let mut meta = a.meta().clone();
                 data.extend(&b.data());
-                meta.extend(b.meta().clone().into_iter());
+                meta.extend(&b.meta());
                 Map(ValueMap::with_contents(data, meta))
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
@@ -2444,11 +2444,7 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                // TODO get with &str
-                None => match map
-                    .meta()
-                    .get(&MetaKey::Named(self.value_string_from_constant(key)))
-                {
+                None => match map.meta().get_with_string(&key_string) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }

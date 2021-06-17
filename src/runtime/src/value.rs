@@ -1,7 +1,8 @@
 use {
     crate::{
-        num2, num4, value_map::ValueMap, ExternalFunction, ExternalValue, IntRange, MetaKey,
-        ValueIterator, ValueList, ValueNumber, ValueRef, ValueString, ValueTuple, ValueVec,
+        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
+        IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
+        ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
@@ -80,7 +81,7 @@ pub enum Value {
 
 impl Value {
     #[inline]
-    pub fn as_ref(&self) -> ValueRef {
+    pub(crate) fn as_ref(&self) -> ValueRef {
         match &self {
             Value::Empty => ValueRef::Empty,
             Value::Bool(b) => ValueRef::Bool(b),
