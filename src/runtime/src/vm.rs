@@ -2444,11 +2444,7 @@ impl Vm {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                // TODO get with &str
-                None => match map
-                    .meta()
-                    .get(&MetaKey::Named(self.value_string_from_constant(key)))
-                {
+                None => match map.meta().get_with_string(&key_string) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }

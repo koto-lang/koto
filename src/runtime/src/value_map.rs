@@ -84,11 +84,13 @@ impl DataMap {
         self.0.extend(other.0.clone().into_iter());
     }
 
+    /// Allows access to map entries without having to create a ValueString
     #[inline]
     pub fn get_with_string(&self, key: &str) -> Option<&Value> {
         self.0.get(&key as &dyn ValueKeyRef)
     }
 
+    /// Allows access to map entries without having to create a ValueString
     #[inline]
     pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.0.get_mut(&key as &dyn ValueKeyRef)

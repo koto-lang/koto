@@ -6,7 +6,9 @@ use {
     koto_parser::MetaKeyId,
     rustc_hash::FxHasher,
     std::{
+        borrow::Borrow,
         fmt,
+        hash::Hasher,
         hash::{BuildHasherDefault, Hash},
         ops::{Deref, DerefMut},
     },
@@ -22,6 +24,18 @@ impl MetaMap {
     #[inline]
     pub fn extend(&mut self, other: &MetaMap) {
         self.0.extend(other.0.clone().into_iter());
+    }
+
+    /// Allows access to named entries without having to create a ValueString
+    #[inline]
+    pub fn get_with_string(&self, key: &str) -> Option<&Value> {
+        self.0.get(&key as &dyn AsMetaKeyRef)
+    }
+
+    /// Allows access to named entries without having to create a ValueString
+    #[inline]
+    pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
+        self.0.get_mut(&key as &dyn AsMetaKeyRef)
     }
 }
 
@@ -49,6 +63,21 @@ pub enum MetaKey {
     PreTest,
     PostTest,
     Type,
+}
+
+impl MetaKey {
+    fn as_ref(&self) -> MetaKeyRef {
+        match &self {
+            MetaKey::BinaryOp(op) => MetaKeyRef::BinaryOp(*op),
+            MetaKey::UnaryOp(op) => MetaKeyRef::UnaryOp(*op),
+            MetaKey::Named(name) => MetaKeyRef::Named(&name),
+            MetaKey::Test(name) => MetaKeyRef::Test(&name),
+            MetaKey::Tests => MetaKeyRef::Tests,
+            MetaKey::PreTest => MetaKeyRef::PreTest,
+            MetaKey::PostTest => MetaKeyRef::PostTest,
+            MetaKey::Type => MetaKeyRef::Type,
+        }
+    }
 }
 
 impl From<BinaryOp> for MetaKey {
@@ -159,4 +188,62 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, Stri
     };
 
     Ok(result)
+}
+
+// Currently only used to support MetaMap::get_with_string()
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum MetaKeyRef<'a> {
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+    Named(&'a str),
+    Test(&'a str),
+    Tests,
+    PreTest,
+    PostTest,
+    Type,
+}
+
+// A trait that allows for allocation-free map accesses with &str
+trait AsMetaKeyRef {
+    fn as_meta_key_ref(&self) -> MetaKeyRef;
+}
+
+impl<'a> Hash for dyn AsMetaKeyRef + 'a {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_meta_key_ref().hash(state);
+    }
+}
+
+impl<'a> PartialEq for dyn AsMetaKeyRef + 'a {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_meta_key_ref() == other.as_meta_key_ref()
+    }
+}
+
+impl<'a> Eq for dyn AsMetaKeyRef + 'a {}
+
+impl AsMetaKeyRef for MetaKey {
+    fn as_meta_key_ref(&self) -> MetaKeyRef {
+        self.as_ref()
+    }
+}
+
+// The key part of this whole mechanism; wrap a &str as MetaKeyRef::Named,
+// allowing a map search to be performed directly against &str
+impl<'a> AsMetaKeyRef for &'a str {
+    fn as_meta_key_ref(&self) -> MetaKeyRef {
+        MetaKeyRef::Named(self)
+    }
+}
+
+impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for MetaKey {
+    fn borrow(&self) -> &(dyn AsMetaKeyRef + 'a) {
+        self
+    }
+}
+
+impl<'a> Borrow<dyn AsMetaKeyRef + 'a> for &'a str {
+    fn borrow(&self) -> &(dyn AsMetaKeyRef + 'a) {
+        self
+    }
 }

@@ -30,7 +30,7 @@ pub use {
     num4::Num4,
     value::{RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
-    value_key::{ValueKey, ValueRef},
+    value_key::ValueKey,
     value_list::{ValueList, ValueVec},
     value_map::{DataMap, ValueMap},
     value_number::ValueNumber,

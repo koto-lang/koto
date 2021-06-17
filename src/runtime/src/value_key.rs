@@ -114,8 +114,9 @@ impl Ord for ValueKey {
 
 impl Eq for ValueKey {}
 
+// Currently only used to support DataMap::get_with_string()
 #[derive(Clone, Debug)]
-pub enum ValueRef<'a> {
+pub(crate) enum ValueRef<'a> {
     Empty,
     Bool(&'a bool),
     Number(&'a ValueNumber),
@@ -214,6 +215,8 @@ impl ValueKeyRef for ValueKey {
     }
 }
 
+// The key part of this whole mechanism; wrap a &str as ValueRef::Str,
+// allowing a map search to be performed directly against &str
 impl<'a> ValueKeyRef for &'a str {
     fn to_value_ref(&self) -> ValueRef {
         ValueRef::Str(self)
