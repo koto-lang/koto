@@ -102,16 +102,11 @@ impl<'a> FormatLexer<'a> {
                 self.position += 1;
                 let mut n = n.to_digit(10).unwrap();
 
-                while let Some(c) = chars.peek().cloned() {
-                    match c {
-                        n2 @ '0'..='9' => {
-                            chars.next();
-                            self.position += 1;
-                            n *= 10;
-                            n += n2.to_digit(10).unwrap();
-                        }
-                        _ => break,
-                    }
+                while let Some(n_next @ '0'..='9') = chars.peek().cloned() {
+                    chars.next();
+                    self.position += 1;
+                    n *= 10;
+                    n += n_next.to_digit(10).unwrap();
                 }
 
                 if n <= u32::MAX as u32 {
@@ -121,7 +116,7 @@ impl<'a> FormatLexer<'a> {
                 }
             }
             Some(other) => Err(format!("Expected digit, found '{}'", other)),
-            None => Err(format!("Expected digit")),
+            None => Err("Expected digit".into()),
         }
     }
 }
@@ -243,7 +238,7 @@ impl<'a> Iterator for FormatLexer<'a> {
                             Some(other) => {
                                 Some(Error(format!("Unexpected character - '{}'", other)))
                             }
-                            None => Some(Error(format!("Unexpected end, missing '}}'"))),
+                            None => Some(Error("Unexpected end, missing '}}'".into())),
                         }
                     }
                     Some(_) => {
