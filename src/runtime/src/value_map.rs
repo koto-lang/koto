@@ -21,7 +21,6 @@ type DataMapType = IndexMap<ValueKey, Value, BuildHasherDefault<FxHasher>>;
 /// The underlying ValueKey -> Value 'data' hash map used in Koto
 ///
 /// See also: [ValueMap]
-#[repr(C)]
 #[derive(Clone, Debug, Default)]
 pub struct DataMap(DataMapType);
 
