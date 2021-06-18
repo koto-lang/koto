@@ -328,7 +328,6 @@ x = [
             let source = r#"
 x =
   foo: 42
-  bar
   "baz":
     foo: 0
   @-: -1
@@ -340,11 +339,10 @@ x"#;
                     Int(2), // 42
                     Number0,
                     Map(vec![(MapKey::Id(1), Some(2))]), // baz, nested map
-                    Int(5),
+                    Int(4),
                     Map(vec![
                         (MapKey::Id(1), Some(1)),
-                        (MapKey::Id(3), None),
-                        (MapKey::Str(4, QuotationMark::Double), Some(3)),
+                        (MapKey::Str(3, QuotationMark::Double), Some(3)),
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),
                     ]), // 5
                     Assign {
@@ -365,7 +363,6 @@ x"#;
                     Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::I64(42),
-                    Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::I64(-1),
                 ]),

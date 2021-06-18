@@ -70,6 +70,8 @@
       .to_tuple()
     # (0, 2, 4, 6, 8)
     ```
+- Omitting the value after a key in a map declaration is now only allowed when
+  using inline syntax.
 
 ## [0.7.0] 2021.03.27
 

@@ -1634,7 +1634,7 @@ impl<'source> Parser<'source> {
                     }
                 }
             } else {
-                entries.push((key, None));
+                return syntax_error!(ExpectedMapColon, self);
             }
 
             // self.consume_until_next_token(context);
@@ -1649,10 +1649,8 @@ impl<'source> Parser<'source> {
             return Ok(None);
         }
 
-        Ok(Some(self.push_node_with_start_span(
-            Node::Map(entries),
-            start_span,
-        )?))
+        let result = self.push_node_with_start_span(Node::Map(entries), start_span)?;
+        Ok(Some(result))
     }
 
     fn parse_map_inline(
