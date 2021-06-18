@@ -35,7 +35,7 @@ export @tests =
 
     # An iterator that provides a pair of values produces key/value entries for each pair
     assert_eq
-      (1..=3)
+      1..=3
         .each |n| "{}".format(n), n
         .to_map(),
       {"1": 1, "2": 2, "3": 3}
@@ -68,7 +68,7 @@ export @tests =
     assert_eq x, [1, 2, 3, 4, 5]
 
   @test count: ||
-    result = (0..10)
+    result = 0..10
       .keep |n| n % 2 == 0
       .count()
     assert_eq result, 5
@@ -91,7 +91,7 @@ export @tests =
 
   @test keep: ||
     assert_eq
-      (0..10)
+      0..10
         .keep |x| x % 2 == 1
         .to_tuple(),
       (1, 3, 5, 7, 9)
@@ -168,7 +168,7 @@ export @tests =
 
   @test zip: ||
     assert_eq
-      (1..=3)
+      1..=3
         .zip 11..100
         .to_tuple(),
       ((1, 11), (2, 12), (3, 13))

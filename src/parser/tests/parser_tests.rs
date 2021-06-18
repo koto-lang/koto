@@ -3166,6 +3166,59 @@ x.bar()."baz" = 1
         }
 
         #[test]
+        fn lookup_on_range_same_line() {
+            let source = "(0..1).size()";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(3))),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("size")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_range_next_line() {
+            let source = "
+0..1
+  .size()
+";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(3))),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("size")]),
+            )
+        }
+
+        #[test]
         fn nested_lookup_call() {
             let source = "((x).contains y)";
             check_ast(

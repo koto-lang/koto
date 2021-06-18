@@ -1180,9 +1180,9 @@ impl<'source> Parser<'source> {
 
         self.consume_next_token_on_same_line();
 
-        let rhs = self.parse_expression(context)?;
+        let rhs = self.parse_expression(&mut ExpressionContext::inline())?;
 
-        let node = match (lhs, rhs) {
+        let range_node = match (lhs, rhs) {
             (Some(start), Some(end)) => Range {
                 start,
                 end,
@@ -1193,7 +1193,15 @@ impl<'source> Parser<'source> {
             (None, None) => RangeFull,
         };
 
-        Ok(Some(self.push_node(node)?))
+        let range_node = self.push_node(range_node)?;
+
+        let result = if self.next_token_is_lookup_start(context) {
+            self.parse_lookup(range_node, context)?
+        } else {
+            range_node
+        };
+
+        Ok(Some(result))
     }
 
     fn parse_export(
