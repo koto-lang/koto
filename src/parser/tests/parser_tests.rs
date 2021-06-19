@@ -328,7 +328,6 @@ x = [
             let source = r#"
 x =
   foo: 42
-  bar
   "baz":
     foo: 0
   @-: -1
@@ -340,11 +339,10 @@ x"#;
                     Int(2), // 42
                     Number0,
                     Map(vec![(MapKey::Id(1), Some(2))]), // baz, nested map
-                    Int(5),
+                    Int(4),
                     Map(vec![
                         (MapKey::Id(1), Some(1)),
-                        (MapKey::Id(3), None),
-                        (MapKey::Str(4, QuotationMark::Double), Some(3)),
+                        (MapKey::Str(3, QuotationMark::Double), Some(3)),
                         (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),
                     ]), // 5
                     Assign {
@@ -365,7 +363,6 @@ x"#;
                     Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::I64(42),
-                    Constant::Str("bar"),
                     Constant::Str("baz"),
                     Constant::I64(-1),
                 ]),
@@ -3162,6 +3159,59 @@ x.bar()."baz" = 1
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("values")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_range_same_line() {
+            let source = "(0..1).size()";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(3))),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("size")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_range_next_line() {
+            let source = "
+0..1
+  .size()
+";
+            check_ast(
+                source,
+                &[
+                    Number0,
+                    Number1,
+                    Range {
+                        start: 0,
+                        end: 1,
+                        inclusive: false,
+                    },
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(3))),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("size")]),
             )
         }
 

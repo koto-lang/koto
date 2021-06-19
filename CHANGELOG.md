@@ -59,9 +59,19 @@
         @test data_size: |self|
             assert_eq self.test_data.size(), 3
     ```
-
 - `koto.args` is now a Tuple instead of a List.
 - `koto.script_dir` and `koto.script_path` are now empty by default.
+- Ranges that have operations starting on an intended following line can now be
+  written without parentheses.
+  - e.g.
+    ```koto
+    0..10 # Previously this would have to be written as (1..10)
+      .keep |x| x % 2 == 0
+      .to_tuple()
+    # (0, 2, 4, 6, 8)
+    ```
+- Omitting the value after a key in a map declaration is now only allowed when
+  using inline syntax.
 
 ## [0.7.0] 2021.03.27
 

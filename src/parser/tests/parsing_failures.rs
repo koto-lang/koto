@@ -202,6 +202,21 @@ x. foo
             }
         }
 
+        mod maps {
+            use super::*;
+
+            #[test]
+            fn block_key_without_value() {
+                let source = "
+x =
+  foo: 42
+  bar
+  baz: -1
+";
+                check_parsing_fails(source);
+            }
+        }
+
         mod match_expressions {
             use super::*;
 
