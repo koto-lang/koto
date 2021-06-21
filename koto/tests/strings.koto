@@ -34,6 +34,9 @@ export @tests =
     # Unicode characters
     assert_eq '\u{1f98b}', '🦋'
 
+  @test bytes: ||
+    assert_eq "Hëy".bytes().to_tuple(), (72, 195, 171, 121)
+
   @test chars: ||
     hello = "Héllö"
     assert_eq

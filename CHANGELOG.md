@@ -33,6 +33,8 @@
     assert_eq '\x4f\x5f\x6f', 'O_o'
     assert_eq '\u{1f98b}', '🦋'
     ```
+  - `string.bytes` has been added to provide access to a string's underlying
+    byte sequence.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto

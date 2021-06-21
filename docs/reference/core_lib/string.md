@@ -44,6 +44,7 @@ x = "{}, {}!".format a, b
 
 # Reference
 
+- [bytes](#bytes)
 - [chars](#chars)
 - [contains](#contains)
 - [ends_with](#ends_with)
@@ -60,6 +61,20 @@ x = "{}, {}!".format a, b
 - [to_number](#to_number)
 - [to_uppercase](#to_uppercase)
 - [trim](#trim)
+
+## bytes
+
+`|String| -> Iterator`
+
+Returns an iterator that yields a series of Numbers representing the bytes
+contained in the string data.
+
+### Example
+
+```koto
+"Hëy".bytes().to_tuple()
+# (72, 195, 171, 121)
+```
 
 ## chars
 
