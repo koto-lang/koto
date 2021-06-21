@@ -13,6 +13,24 @@ data between the original string and the sub-string.
 Strings support indexing operations, with string indices referring to
 grapheme clusters.
 
+## Escape codes
+
+Strings can contain the following escape codes to define special characters,
+all of which start with a `\`. To avoid having an escape sequence acting as an
+escape code, then it can be escaped with an additional `\`.
+
+- `\n`: Newline
+- `\r`: Carriage Return
+- `\t`: Tab
+- `\u{NNNNNN}`: Unicode character
+  - Up to 6 hexidecimal digits can be included within the `{}` braces.
+    The maximum value is `\u{10ffff}`.
+- `\xNN`: ASCII character
+  - Exactly 2 hexidecimal digits follow the `\x`.
+- `\'`: Single quote
+- `\"`: Double quote
+- `\\`: Backslash
+
 ## Example
 
 ```koto
@@ -20,12 +38,13 @@ a = "Hello"
 b = 'World!'
 x = "{}, {}!".format a, b
 # Hello, World!
-"👋🥳😆"[1]
+'👋🥳😆'[1]
 # 🥳
 ```
 
 # Reference
 
+- [bytes](#bytes)
 - [chars](#chars)
 - [contains](#contains)
 - [ends_with](#ends_with)
@@ -42,6 +61,20 @@ x = "{}, {}!".format a, b
 - [to_number](#to_number)
 - [to_uppercase](#to_uppercase)
 - [trim](#trim)
+
+## bytes
+
+`|String| -> Iterator`
+
+Returns an iterator that yields a series of Numbers representing the bytes
+contained in the string data.
+
+### Example
+
+```koto
+"Hëy".bytes().to_tuple()
+# (72, 195, 171, 121)
+```
 
 ## chars
 

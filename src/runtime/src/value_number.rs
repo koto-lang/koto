@@ -245,6 +245,8 @@ macro_rules! number_traits_int {
 number_traits_float!(f32);
 number_traits_float!(f64);
 
+number_traits_int!(i8);
+number_traits_int!(u8);
 number_traits_int!(i32);
 number_traits_int!(u32);
 number_traits_int!(i64);

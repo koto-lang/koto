@@ -14,6 +14,26 @@ pub fn make_module() -> ValueMap {
 
     let mut result = ValueMap::new();
 
+    result.add_fn("bytes", |vm, args| match vm.get_args(args) {
+        [Str(s)] => {
+            let result = ValueIterator::make_external({
+                let s = s.clone();
+                let mut index = 0;
+
+                move || match s.as_bytes().get(index) {
+                    Some(byte) => {
+                        index += 1;
+                        Some(Ok(ValueIteratorOutput::Value(Number(byte.into()))))
+                    }
+                    None => None,
+                }
+            });
+
+            Ok(Iterator(result))
+        }
+        _ => runtime_error!("string.lines: Expected string as argument"),
+    });
+
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Iterator(ValueIterator::with_string(s.clone()))),
         _ => runtime_error!("string.chars: Expected a string as argument"),

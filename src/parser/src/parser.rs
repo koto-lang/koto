@@ -2533,12 +2533,6 @@ impl<'source> Parser<'source> {
         while let Some(c) = chars.next() {
             match c {
                 '\\' => match chars.next() {
-                    Some('\\') => result.push('\\'),
-                    Some('\'') => result.push('\''),
-                    Some('"') => result.push('"'),
-                    Some('n') => result.push('\n'),
-                    Some('r') => result.push('\r'),
-                    Some('t') => result.push('\t'),
                     Some('\n') | Some('\r') => {
                         while let Some(c) = chars.peek() {
                             if c.is_whitespace() {
@@ -2548,6 +2542,65 @@ impl<'source> Parser<'source> {
                             }
                         }
                     }
+                    Some('\\') => result.push('\\'),
+                    Some('\'') => result.push('\''),
+                    Some('"') => result.push('"'),
+                    Some('n') => result.push('\n'),
+                    Some('r') => result.push('\r'),
+                    Some('t') => result.push('\t'),
+                    Some('x') => match chars.next() {
+                        Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
+                            Some(c2) if c2.is_ascii_hexdigit() => {
+                                // is_ascii_hexdigit already checked
+                                let d1 = c1.to_digit(16).unwrap();
+                                let d2 = c2.to_digit(16).unwrap();
+                                let d = d1 * 16 + d2;
+                                if d <= 0x7f {
+                                    result.push(char::from_u32(d).unwrap());
+                                } else {
+                                    return syntax_error!(AsciiEscapeCodeOutOfRange, self);
+                                }
+                            }
+                            Some(_) => {
+                                return syntax_error!(UnexpectedCharInNumericEscapeCode, self)
+                            }
+                            None => return syntax_error!(UnterminatedNumericEscapeCode, self),
+                        },
+                        Some(_) => return syntax_error!(UnexpectedCharInNumericEscapeCode, self),
+                        None => return syntax_error!(UnterminatedNumericEscapeCode, self),
+                    },
+                    Some('u') => match chars.next() {
+                        Some('{') => {
+                            let mut code = 0;
+
+                            while let Some(c) = chars.peek().cloned() {
+                                if c.is_ascii_hexdigit() {
+                                    chars.next();
+                                    code *= 16;
+                                    code += c.to_digit(16).unwrap();
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            match chars.next() {
+                                Some('}') => match char::from_u32(code) {
+                                    Some(result_char) => {
+                                        result.push(result_char);
+                                    }
+                                    None => {
+                                        return syntax_error!(UnicodeEscapeCodeOutOfRange, self);
+                                    }
+                                },
+                                Some(_) => {
+                                    return syntax_error!(UnexpectedCharInNumericEscapeCode, self);
+                                }
+                                None => return syntax_error!(UnterminatedNumericEscapeCode, self),
+                            }
+                        }
+                        Some(_) => return syntax_error!(UnexpectedCharInNumericEscapeCode, self),
+                        None => return syntax_error!(UnterminatedNumericEscapeCode, self),
+                    },
                     _ => return syntax_error!(UnexpectedEscapeInString, self),
                 },
                 _ => result.push(c),
