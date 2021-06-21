@@ -138,6 +138,26 @@ a
         }
 
         #[test]
+        fn strings_with_escape_codes() {
+            let source = r#"
+"\t\n\x4d\x2E"
+'\u{1F917}\u{1f30d}'
+"#;
+            check_ast(
+                source,
+                &[
+                    Str(0, QuotationMark::Double),
+                    Str(1, QuotationMark::Single),
+                    MainBlock {
+                        body: vec![0, 1],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("\t\nM."), Constant::Str("🤗🌍")]),
+            )
+        }
+
+        #[test]
         fn negatives() {
             let source = "\
 -12.0

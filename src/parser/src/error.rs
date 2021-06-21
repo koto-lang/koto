@@ -45,6 +45,7 @@ pub enum ExpectedIndentation {
 
 #[derive(Clone, Debug)]
 pub enum SyntaxError {
+    AsciiEscapeCodeOutOfRange,
     ExpectedArgsEnd,
     ExpectedAssignmentTarget,
     ExpectedCatchArgument,
@@ -96,6 +97,7 @@ pub enum SyntaxError {
     SwitchElseNotInLastArm,
     TooManyNum2Terms,
     TooManyNum4Terms,
+    UnexpectedCharInNumericEscapeCode,
     UnexpectedElseIndentation,
     UnexpectedElseIfIndentation,
     UnexpectedEscapeInString,
@@ -106,6 +108,8 @@ pub enum SyntaxError {
     UnexpectedToken,
     UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
+    UnicodeEscapeCodeOutOfRange,
+    UnterminatedNumericEscapeCode,
 }
 
 #[derive(Clone, Debug)]
@@ -226,6 +230,9 @@ impl fmt::Display for SyntaxError {
         use SyntaxError::*;
 
         match self {
+            AsciiEscapeCodeOutOfRange => {
+                f.write_str("Ascii value out of range, the maximum is \\x7f")
+            }
             ExpectedArgsEnd => f.write_str("Expected end of arguments ')'"),
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
@@ -293,6 +300,9 @@ impl fmt::Display for SyntaxError {
             SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
             TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
             TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
+            UnexpectedCharInNumericEscapeCode => {
+                f.write_str("Unexpected character in numeric escape code")
+            }
             UnexpectedElseIndentation => f.write_str("Unexpected indentation for else block"),
             UnexpectedElseIfIndentation => f.write_str("Unexpected indentation for else if block"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
@@ -305,6 +315,10 @@ impl fmt::Display for SyntaxError {
             UnexpectedTokenInImportExpression => {
                 f.write_str("Unexpected token in import expression")
             }
+            UnicodeEscapeCodeOutOfRange => {
+                f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
+            }
+            UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
         }
     }
 }

@@ -28,6 +28,12 @@ export @tests =
     assert_eq x[5..], "ss"
     assert_eq "👋🥳😆"[1], "🥳"
 
+  @test escape_codes: ||
+    # Ascii characters
+    assert_eq '\x4f\x5f\x6f', 'O_o'
+    # Unicode characters
+    assert_eq '\u{1f98b}', '🦋'
+
   @test chars: ||
     hello = "Héllö"
     assert_eq
@@ -54,6 +60,7 @@ export @tests =
     x = "
 "
     assert_eq x.escape(), "\\n"
+    assert_eq "👋".escape(), "\\u{1f44b}"
 
   @test is_empty: ||
     assert "".is_empty()
