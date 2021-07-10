@@ -9,29 +9,10 @@ mod vm {
     };
 
     fn test_script(script: &str, expected_output: Value) {
-        let mut vm = Vm::default();
-        let mut prelude = vm.prelude();
+        test_script_with_vm(Vm::default(), script, expected_output);
+    }
 
-        prelude.add_value("test_value", Number(42.0.into()));
-        prelude.add_fn("assert", |vm, args| {
-            for value in vm.get_args(args).iter() {
-                match value {
-                    Bool(b) => {
-                        if !b {
-                            return runtime_error!("Assertion failed");
-                        }
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            "assert expects booleans as arguments, found '{}'",
-                            unexpected.type_as_string(),
-                        )
-                    }
-                }
-            }
-            Ok(Empty)
-        });
-
+    fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
         let print_chunk = |script: &str, chunk: Arc<Chunk>| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
@@ -827,28 +808,49 @@ switch
     mod prelude {
         use super::*;
 
+        fn test_script_with_prelude(script: &str, expected_output: Value) {
+            let vm = Vm::default();
+            let mut prelude = vm.prelude();
+
+            prelude.add_value("test_value", Number(42.0.into()));
+            prelude.add_fn("assert", |vm, args| {
+                for value in vm.get_args(args).iter() {
+                    match value {
+                        Bool(b) => {
+                            if !b {
+                                return runtime_error!("Assertion failed");
+                            }
+                        }
+                        unexpected => {
+                            return runtime_error!(
+                                "assert expects booleans as arguments, found '{}'",
+                                unexpected.type_as_string(),
+                            )
+                        }
+                    }
+                }
+                Ok(Empty)
+            });
+
+            test_script_with_vm(vm, script, expected_output);
+        }
+
         #[test]
         fn load_value() {
-            let script = "
-import test_value
-test_value";
-            test_script(script, Number(42.0.into()));
+            let script = "test_value";
+            test_script_with_prelude(script, Number(42.0.into()));
         }
 
         #[test]
         fn function() {
-            let script = "
-import assert
-assert 1 + 1 == 2";
-            test_script(script, Empty);
+            let script = "assert 1 + 1 == 2";
+            test_script_with_prelude(script, Empty);
         }
 
         #[test]
         fn function_two_args() {
-            let script = "
-import assert
-assert 1 + 1 == 2, 2 < 3";
-            test_script(script, Empty);
+            let script = "assert 1 + 1 == 2, 2 < 3";
+            test_script_with_prelude(script, Empty);
         }
     }
 
