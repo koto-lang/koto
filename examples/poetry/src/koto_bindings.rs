@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        get_external_instance, is_external_instance, runtime_error, visit_external_value,
-        ExternalValue, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        get_external_instance, is_external_instance, runtime_error, visit_external_data,
+        ExternalData, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::fmt,
 };
@@ -57,19 +57,17 @@ impl KotoPoetry {
                 if is_external_instance::<KotoPoetry>(poetry_map) {
                     let poetry_map = poetry_map.clone();
 
-                    let iter = move || match visit_external_value(
-                        &poetry_map,
-                        |poetry: &mut KotoPoetry| {
+                    let iter =
+                        move || match visit_external_data(&poetry_map, |poetry: &mut KotoPoetry| {
                             let result = poetry
                                 .0
                                 .next_word()
                                 .map_or(Empty, |word| Str(word.as_ref().into()));
                             Ok(result)
-                        },
-                    ) {
-                        Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
-                        Err(error) => Some(Err(error)),
-                    };
+                        }) {
+                            Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
+                            Err(error) => Some(Err(error)),
+                        };
 
                     Ok(Iterator(ValueIterator::make_external(iter)))
                 } else {
@@ -98,7 +96,7 @@ impl KotoPoetry {
     }
 }
 
-impl ExternalValue for KotoPoetry {
+impl ExternalData for KotoPoetry {
     fn value_type(&self) -> String {
         "Poetry".to_string()
     }

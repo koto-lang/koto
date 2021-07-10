@@ -10,11 +10,11 @@ use {
 
 pub use downcast_rs::Downcast;
 
-pub trait ExternalValue: fmt::Debug + fmt::Display + Send + Sync + Downcast {
+pub trait ExternalData: fmt::Debug + fmt::Display + Send + Sync + Downcast {
     fn value_type(&self) -> String;
 }
 
-impl_downcast!(ExternalValue);
+impl_downcast!(ExternalData);
 
 pub struct Args {
     pub register: u8,
@@ -72,15 +72,15 @@ impl Hash for ExternalFunction {
     }
 }
 
-pub fn visit_external_value<T>(
+pub fn visit_external_data<T>(
     map: &ValueMap,
     mut f: impl FnMut(&mut T) -> RuntimeResult,
 ) -> RuntimeResult
 where
-    T: ExternalValue,
+    T: ExternalData,
 {
     match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalValue(maybe_external)) => {
+        Some(Value::ExternalData(maybe_external)) => {
             let mut value = maybe_external.as_ref().write();
             match value.downcast_mut::<T>() {
                 Some(external) => f(external),
@@ -96,10 +96,10 @@ where
 
 pub fn is_external_instance<T>(map: &ValueMap) -> bool
 where
-    T: ExternalValue,
+    T: ExternalData,
 {
     match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
+        Some(Value::ExternalData(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
         _ => false,
     }
 }
@@ -114,7 +114,7 @@ macro_rules! get_external_instance {
      $body: block) => {{
         match &$args {
             [Value::Map(instance), ..] => {
-                $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
+                $crate::visit_external_data(instance, |$match_name: &mut $external_type| $body)
             }
             _ => $crate::runtime_error!(
                 "{0}.{1}: Expected {0} instance as first argument",

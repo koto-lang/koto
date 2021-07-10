@@ -1,5 +1,5 @@
 use {
-    crate::{get_external_instance, runtime_error, ExternalValue, RuntimeResult, Value, ValueMap},
+    crate::{get_external_instance, runtime_error, ExternalData, RuntimeResult, Value, ValueMap},
     std::{
         fmt, fs,
         io::{Read, Seek, SeekFrom, Write},
@@ -228,7 +228,7 @@ impl Drop for File {
     }
 }
 
-impl ExternalValue for File {
+impl ExternalData for File {
     fn value_type(&self) -> String {
         "File".to_string()
     }

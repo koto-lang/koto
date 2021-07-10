@@ -2,7 +2,7 @@
 
 use {
     koto_runtime::{
-        get_external_instance, num2, num4, runtime_error, ExternalValue, Value, ValueMap,
+        get_external_instance, num2, num4, runtime_error, ExternalData, Value, ValueMap,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -115,7 +115,7 @@ impl ChaChaRng {
     }
 }
 
-impl ExternalValue for ChaChaRng {
+impl ExternalData for ChaChaRng {
     fn value_type(&self) -> String {
         "Rng".to_string()
     }

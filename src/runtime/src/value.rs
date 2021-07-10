@@ -1,6 +1,6 @@
 use {
     crate::{
-        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
+        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
         IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
         ValueVec,
     },
@@ -60,9 +60,9 @@ pub enum Value {
     /// A value type that's defined outside of the Koto runtime
     ///
     /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
-    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+    ExternalData(Arc<RwLock<dyn ExternalData>>),
 
-    /// The value type used as a key when storing an ExternalValues in a Map
+    /// The value type used as a key when storing ExternalData in a Map
     ExternalDataId,
 
     /// The range type used as a temporary value in index expressions.
@@ -140,8 +140,8 @@ impl Value {
         )
     }
 
-    pub fn make_external_value(value: impl ExternalValue) -> Value {
-        Value::ExternalValue(Arc::new(RwLock::new(value)))
+    pub fn make_external_value(value: impl ExternalData) -> Value {
+        Value::ExternalData(Arc::new(RwLock::new(value)))
     }
 
     /// Returns the 'size' of the value
@@ -188,7 +188,7 @@ impl Value {
             Function { .. } => "Function".to_string(),
             Generator { .. } => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
-            ExternalValue(value) => value.read().value_type(),
+            ExternalData(value) => value.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
             ExternalDataId => "ExternalDataId".to_string(),
@@ -232,7 +232,7 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(ref value) => write!(f, "{}", value.read()),
+            ExternalData(ref value) => write!(f, "{}", value.read()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)

@@ -1,5 +1,5 @@
 use {
-    crate::{runtime_error, ExternalValue, RuntimeError, Value, ValueMap},
+    crate::{runtime_error, ExternalData, RuntimeError, Value, ValueMap},
     std::{fmt, thread, thread::JoinHandle, time::Duration},
 };
 
@@ -90,7 +90,7 @@ impl Thread {
     }
 }
 
-impl ExternalValue for Thread {
+impl ExternalData for Thread {
     fn value_type(&self) -> String {
         "Thread".to_string()
     }
