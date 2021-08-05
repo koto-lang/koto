@@ -12,7 +12,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
 
     let mut prelude = koto.prelude();
     prelude.add_map("json", koto_json::make_module());
-    prelude.add_map("random", koto_random::make_module());
+    prelude.add_value("random", koto_random::make_module());
     prelude.add_map("tempfile", koto_tempfile::make_module());
     prelude.add_map("toml", koto_toml::make_module());
 

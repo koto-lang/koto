@@ -1,8 +1,8 @@
 use {
     crate::{
         num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
-        IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
-        ValueVec,
+        ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString,
+        ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
     parking_lot::RwLock,
@@ -58,8 +58,9 @@ pub enum Value {
     ExternalFunction(ExternalFunction),
 
     /// A value type that's defined outside of the Koto runtime
-    ///
-    /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
+    ExternalValue(ExternalValue),
+
+    /// A 'data-only' counterpart to ExternalValue
     ExternalData(Arc<RwLock<dyn ExternalData>>),
 
     /// The value type used as a key when storing ExternalData in a Map
@@ -188,7 +189,12 @@ impl Value {
             Function { .. } => "Function".to_string(),
             Generator { .. } => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
-            ExternalData(value) => value.read().value_type(),
+            ExternalValue(value) => match value.meta().get(&MetaKey::Type) {
+                Some(Str(s)) => s.as_str().to_string(),
+                Some(_) => "Error: expected string for overloaded type".to_string(),
+                None => "ExternalValue".to_string(),
+            },
+            ExternalData(data) => data.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
             ExternalDataId => "ExternalDataId".to_string(),
@@ -232,6 +238,7 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
+            ExternalValue(ref value) => write!(f, "{}", value.data()),
             ExternalData(ref value) => write!(f, "{}", value.read()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
@@ -245,6 +252,24 @@ impl fmt::Display for Value {
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::Str(value.into())
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::Str(value.into())
+    }
+}
+
+impl From<ExternalValue> for Value {
+    fn from(value: ExternalValue) -> Self {
+        Self::ExternalValue(value)
     }
 }
 

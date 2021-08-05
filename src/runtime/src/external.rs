@@ -1,6 +1,7 @@
 use {
     crate::{runtime_error, RuntimeResult, Value, ValueKey, ValueMap, Vm},
     downcast_rs::impl_downcast,
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         fmt,
         hash::{Hash, Hasher},
@@ -10,15 +11,57 @@ use {
 
 pub use downcast_rs::Downcast;
 
+use crate::MetaMap;
+
+/// A trait for external data
 pub trait ExternalData: fmt::Debug + fmt::Display + Send + Sync + Downcast {
-    fn value_type(&self) -> String;
+    fn value_type(&self) -> String {
+        "External Data".to_string()
+    }
 }
 
 impl_downcast!(ExternalData);
 
-pub struct Args {
-    pub register: u8,
-    pub count: u8,
+/// A value with data and behaviour defined externally to the Koto runtime
+#[derive(Clone, Debug)]
+pub struct ExternalValue {
+    pub data: Arc<RwLock<dyn ExternalData>>,
+    pub meta: Arc<RwLock<MetaMap>>,
+}
+
+impl ExternalValue {
+    pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta: Arc::new(RwLock::new(meta)),
+        }
+    }
+
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: Arc<RwLock<MetaMap>>) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta,
+        }
+    }
+
+    pub fn with_new_data(&self, data: impl ExternalData) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta: self.meta.clone(),
+        }
+    }
+
+    pub fn data(&self) -> RwLockReadGuard<dyn ExternalData> {
+        self.data.read()
+    }
+
+    pub fn data_mut(&self) -> RwLockWriteGuard<dyn ExternalData> {
+        self.data.write()
+    }
+
+    pub fn meta(&self) -> RwLockReadGuard<MetaMap> {
+        self.meta.read()
+    }
 }
 
 // Once Trait aliases are stabilized this can be simplified a bit,
@@ -70,6 +113,12 @@ impl Hash for ExternalFunction {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_usize(Arc::as_ptr(&self.function) as *const () as usize);
     }
+}
+
+/// The start register and argument count for arguments when an ExternalFunction is called
+pub struct Args {
+    pub register: u8,
+    pub count: u8,
 }
 
 pub fn visit_external_data<T>(
