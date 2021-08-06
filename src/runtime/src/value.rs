@@ -63,9 +63,6 @@ pub enum Value {
     /// A 'data-only' counterpart to ExternalValue
     ExternalData(Arc<RwLock<dyn ExternalData>>),
 
-    /// The value type used as a key when storing ExternalData in a Map
-    ExternalDataId,
-
     /// The range type used as a temporary value in index expressions.
     ///
     /// Note: this is intended for internal use only.
@@ -91,7 +88,6 @@ impl Value {
             Value::Num4(n) => ValueRef::Num4(n),
             Value::Str(s) => ValueRef::Str(&s),
             Value::Range(r) => ValueRef::Range(r),
-            Value::ExternalDataId => ValueRef::ExternalDataId,
             _ => unreachable!(), // Only immutable values can be used in ValueKey
         }
     }
@@ -129,7 +125,7 @@ impl Value {
         use Value::*;
         matches!(
             self,
-            Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+            Empty | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
         )
     }
 
@@ -139,10 +135,6 @@ impl Value {
             self,
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
         )
-    }
-
-    pub fn make_external_value(value: impl ExternalData) -> Value {
-        Value::ExternalData(Arc::new(RwLock::new(value)))
     }
 
     /// Returns the 'size' of the value
@@ -197,7 +189,6 @@ impl Value {
             ExternalData(data) => data.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
-            ExternalDataId => "ExternalDataId".to_string(),
         }
     }
 }
@@ -244,7 +235,6 @@ impl fmt::Display for Value {
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
-            ExternalDataId => write!(f, "External Data"),
         }
     }
 }

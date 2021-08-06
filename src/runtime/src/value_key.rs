@@ -32,7 +32,6 @@ impl PartialEq for ValueKey {
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
             (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
             _ => false,
         }
     }
@@ -124,7 +123,6 @@ pub(crate) enum ValueRef<'a> {
     Num4(&'a num4::Num4),
     Str(&'a str),
     Range(&'a IntRange),
-    ExternalDataId,
 }
 
 impl<'a> From<&'a Value> for ValueRef<'a> {
@@ -137,7 +135,6 @@ impl<'a> From<&'a Value> for ValueRef<'a> {
             Value::Num4(n) => ValueRef::Num4(n),
             Value::Str(s) => ValueRef::Str(&s),
             Value::Range(r) => ValueRef::Range(r),
-            Value::ExternalDataId => ValueRef::ExternalDataId,
             _ => unreachable!(), // Only immutable values can be used in ValueKey
         }
     }
@@ -155,7 +152,6 @@ impl<'a> PartialEq for ValueRef<'a> {
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
             (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
             _ => false,
         }
     }
@@ -170,7 +166,7 @@ impl<'a> Hash for ValueRef<'a> {
         std::mem::discriminant(self).hash(state);
 
         match self {
-            Empty | ExternalDataId => {}
+            Empty => {}
             Bool(b) => b.hash(state),
             Number(n) => n.hash(state),
             Num2(n) => n.hash(state),

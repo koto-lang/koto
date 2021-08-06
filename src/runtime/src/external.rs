@@ -1,5 +1,5 @@
 use {
-    crate::{runtime_error, RuntimeResult, Value, ValueKey, ValueMap, Vm},
+    crate::{RuntimeResult, Vm},
     downcast_rs::impl_downcast,
     parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
@@ -119,57 +119,4 @@ impl Hash for ExternalFunction {
 pub struct Args {
     pub register: u8,
     pub count: u8,
-}
-
-pub fn visit_external_data<T>(
-    map: &ValueMap,
-    mut f: impl FnMut(&mut T) -> RuntimeResult,
-) -> RuntimeResult
-where
-    T: ExternalData,
-{
-    match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalData(maybe_external)) => {
-            let mut value = maybe_external.as_ref().write();
-            match value.downcast_mut::<T>() {
-                Some(external) => f(external),
-                None => runtime_error!(
-                    "Invalid type for external value, found '{}'",
-                    value.value_type(),
-                ),
-            }
-        }
-        _ => runtime_error!("External value not found"),
-    }
-}
-
-pub fn is_external_instance<T>(map: &ValueMap) -> bool
-where
-    T: ExternalData,
-{
-    match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalData(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
-        _ => false,
-    }
-}
-
-#[macro_export]
-macro_rules! get_external_instance {
-    ($args: ident,
-     $external_name: expr,
-     $fn_name: expr,
-     $external_type: ident,
-     $match_name: ident,
-     $body: block) => {{
-        match &$args {
-            [Value::Map(instance), ..] => {
-                $crate::visit_external_data(instance, |$match_name: &mut $external_type| $body)
-            }
-            _ => $crate::runtime_error!(
-                "{0}.{1}: Expected {0} instance as first argument",
-                $external_name,
-                $fn_name,
-            ),
-        }
-    }};
 }

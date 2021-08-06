@@ -1577,7 +1577,6 @@ impl Vm {
             (Range(a), Range(b)) => a == b,
             (IndexRange(a), IndexRange(b)) => a == b,
             (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1645,7 +1644,6 @@ impl Vm {
             (Range(a), Range(b)) => a != b,
             (IndexRange(a), IndexRange(b)) => a != b,
             (Empty, Empty) => false,
-            (ExternalDataId, ExternalDataId) => false,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();

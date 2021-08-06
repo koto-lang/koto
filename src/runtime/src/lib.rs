@@ -21,9 +21,7 @@ mod vm;
 
 pub use {
     error::*,
-    external::{
-        is_external_instance, visit_external_data, ExternalData, ExternalFunction, ExternalValue,
-    },
+    external::{ExternalData, ExternalFunction, ExternalValue},
     koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
     logger::{DefaultLogger, KotoLogger},
