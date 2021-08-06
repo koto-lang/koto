@@ -2,10 +2,10 @@ use {
     crate::{
         external::{Args, ExternalFunction},
         value_key::ValueKeyRef,
-        MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
+        MetaMap, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, Value, ValueKey,
+        ValueList, Vm,
     },
     indexmap::IndexMap,
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     rustc_hash::FxHasher,
     std::{
         fmt,

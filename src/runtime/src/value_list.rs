@@ -1,6 +1,5 @@
 use {
-    crate::Value,
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    crate::{RwLock, RwLockReadGuard, RwLockWriteGuard, Value},
     std::{fmt, sync::Arc},
 };
 

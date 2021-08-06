@@ -1,7 +1,6 @@
 use {
-    crate::{RuntimeResult, Vm},
+    crate::{RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, Vm},
     downcast_rs::impl_downcast,
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         fmt,
         hash::{Hash, Hasher},

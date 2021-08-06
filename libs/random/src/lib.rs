@@ -2,10 +2,9 @@
 
 use {
     koto_runtime::{
-        num2, num4, runtime_error, ExternalData, ExternalValue, MetaKey, MetaMap, Value,
+        num2, num4, runtime_error, ExternalData, ExternalValue, MetaKey, MetaMap, RwLock, Value,
     },
     lazy_static::lazy_static,
-    parking_lot::RwLock,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::{fmt, sync::Arc},

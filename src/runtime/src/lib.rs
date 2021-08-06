@@ -28,6 +28,7 @@ pub use {
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     num2::Num2,
     num4::Num4,
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     value::{RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,

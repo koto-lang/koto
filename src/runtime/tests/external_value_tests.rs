@@ -4,10 +4,10 @@ mod external_values {
     use {
         crate::runtime_test_utils::{number, string, test_script_with_vm},
         koto_runtime::{
-            runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, UnaryOp, Value, Vm,
+            runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, RwLock, UnaryOp, Value,
+            Vm,
         },
         lazy_static::lazy_static,
-        parking_lot::RwLock,
         std::{fmt, sync::Arc},
     };
 

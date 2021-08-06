@@ -479,7 +479,6 @@ dependencies = [
  "indexmap",
  "koto",
  "lazy_static",
- "parking_lot",
  "pico-args",
  "rand",
 ]
@@ -490,7 +489,6 @@ version = "0.7.0"
 dependencies = [
  "koto_runtime",
  "lazy_static",
- "parking_lot",
  "rand",
  "rand_chacha",
 ]

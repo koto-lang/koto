@@ -1,7 +1,6 @@
 use {
-    crate::{runtime_error, ExternalData, MetaMap, RuntimeError, Value, ValueMap},
+    crate::{runtime_error, ExternalData, MetaMap, RuntimeError, RwLock, Value, ValueMap},
     lazy_static::lazy_static,
-    parking_lot::RwLock,
     std::{fmt, sync::Arc, thread, thread::JoinHandle, time::Duration},
 };
 

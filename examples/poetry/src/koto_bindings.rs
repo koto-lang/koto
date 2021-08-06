@@ -1,11 +1,10 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        runtime_error, ExternalData, ExternalValue, MetaMap, Value, ValueIterator,
+        runtime_error, ExternalData, ExternalValue, MetaMap, RwLock, Value, ValueIterator,
         ValueIteratorOutput, ValueMap,
     },
     lazy_static::lazy_static,
-    parking_lot::RwLock,
     std::{fmt, sync::Arc},
 };
 

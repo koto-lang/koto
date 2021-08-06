@@ -8,11 +8,11 @@ use {
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, RuntimeErrorType,
-        RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, UnaryOp, Value, ValueList,
+        ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         collections::HashMap,
         fmt,

@@ -1,11 +1,10 @@
 use {
     crate::{
         num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
-        ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString,
-        ValueTuple, ValueVec,
+        ExternalValue, IntRange, MetaKey, RwLock, ValueIterator, ValueList, ValueNumber,
+        ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
-    parking_lot::RwLock,
     std::{fmt, sync::Arc},
 };
 
