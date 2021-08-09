@@ -7,9 +7,9 @@ use {
 /// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]
 pub enum LoaderErrorType {
-    ParserError(ParserError),
-    CompilerError(CompilerError),
-    IoError(String),
+    Parser(ParserError),
+    Compiler(CompilerError),
+    Io(String),
 }
 
 #[derive(Clone, Debug)]
@@ -26,7 +26,7 @@ impl LoaderError {
         source_path: Option<PathBuf>,
     ) -> Self {
         Self {
-            error: LoaderErrorType::ParserError(error),
+            error: LoaderErrorType::Parser(error),
             source: source.into(),
             source_path,
         }
@@ -38,7 +38,7 @@ impl LoaderError {
         source_path: Option<PathBuf>,
     ) -> Self {
         Self {
-            error: LoaderErrorType::CompilerError(error),
+            error: LoaderErrorType::Compiler(error),
             source: source.into(),
             source_path,
         }
@@ -46,7 +46,7 @@ impl LoaderError {
 
     pub fn io_error(error: String) -> Self {
         Self {
-            error: LoaderErrorType::IoError(error),
+            error: LoaderErrorType::Io(error),
             source: "".into(),
             source_path: None,
         }
@@ -54,7 +54,7 @@ impl LoaderError {
 
     pub fn is_indentation_error(&self) -> bool {
         match &self.error {
-            LoaderErrorType::ParserError(e) => e.is_indentation_error(),
+            LoaderErrorType::Parser(e) => e.is_indentation_error(),
             _ => false,
         }
     }
@@ -66,15 +66,13 @@ impl fmt::Display for LoaderError {
 
         if f.alternate() {
             match &self.error {
-                ParserError(koto_parser::ParserError { error, .. }) => {
-                    f.write_str(&error.to_string())
-                }
-                CompilerError(crate::CompilerError { message, .. }) => f.write_str(message),
-                IoError(e) => f.write_str(&e),
+                Parser(koto_parser::ParserError { error, .. }) => f.write_str(&error.to_string()),
+                Compiler(crate::CompilerError { message, .. }) => f.write_str(message),
+                Io(e) => f.write_str(e),
             }
         } else {
             match &self.error {
-                ParserError(koto_parser::ParserError { error, span }) => {
+                Parser(koto_parser::ParserError { error, span }) => {
                     f.write_str(&format_error_with_excerpt(
                         Some(&error.to_string()),
                         &self.source_path,
@@ -83,16 +81,16 @@ impl fmt::Display for LoaderError {
                         span.end,
                     ))
                 }
-                CompilerError(crate::CompilerError { message, span }) => {
+                Compiler(crate::CompilerError { message, span }) => {
                     f.write_str(&format_error_with_excerpt(
-                        Some(&message),
+                        Some(message),
                         &self.source_path,
                         &self.source,
                         span.start,
                         span.end,
                     ))
                 }
-                IoError(e) => f.write_str(&e),
+                Io(e) => f.write_str(e),
             }
         }
     }
@@ -113,7 +111,7 @@ impl Loader {
         script_path: Option<PathBuf>,
         compiler_settings: CompilerSettings,
     ) -> Result<Arc<Chunk>, LoaderError> {
-        match Parser::parse(&script) {
+        match Parser::parse(script) {
             Ok((ast, constants)) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),

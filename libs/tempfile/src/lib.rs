@@ -1,9 +1,6 @@
 //! A Koto language module for working with temporary files
 
-use koto_runtime::{
-    core::io::{make_file_map, File},
-    runtime_error, Value, ValueMap,
-};
+use koto_runtime::{core::io::File, runtime_error, Value, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -37,18 +34,7 @@ pub fn make_module() -> ValueMap {
                 }
             };
 
-            let mut file_map = make_file_map();
-
-            file_map.insert(
-                Value::ExternalDataId.into(),
-                Value::make_external_value(File {
-                    file: temp_file,
-                    path,
-                    temporary: true,
-                }),
-            );
-
-            Ok(Map(file_map))
+            Ok(File::make_external_value(temp_file, &path, true))
         }
     });
 

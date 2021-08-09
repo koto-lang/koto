@@ -1,11 +1,10 @@
 use {
     crate::{
-        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalFunction, ExternalValue,
-        IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
-        ValueVec,
+        num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
+        ExternalValue, IntRange, MetaKey, RwLock, ValueIterator, ValueList, ValueNumber,
+        ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
-    parking_lot::RwLock,
     std::{fmt, sync::Arc},
 };
 
@@ -58,12 +57,10 @@ pub enum Value {
     ExternalFunction(ExternalFunction),
 
     /// A value type that's defined outside of the Koto runtime
-    ///
-    /// This is used to store arbitrary data in Koto values, e.g. see core::thread::Thread
-    ExternalValue(Arc<RwLock<dyn ExternalValue>>),
+    ExternalValue(ExternalValue),
 
-    /// The value type used as a key when storing an ExternalValues in a Map
-    ExternalDataId,
+    /// A 'data-only' counterpart to ExternalValue
+    ExternalData(Arc<RwLock<dyn ExternalData>>),
 
     /// The range type used as a temporary value in index expressions.
     ///
@@ -88,9 +85,8 @@ impl Value {
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
             Value::Num4(n) => ValueRef::Num4(n),
-            Value::Str(s) => ValueRef::Str(&s),
+            Value::Str(s) => ValueRef::Str(s),
             Value::Range(r) => ValueRef::Range(r),
-            Value::ExternalDataId => ValueRef::ExternalDataId,
             _ => unreachable!(), // Only immutable values can be used in ValueKey
         }
     }
@@ -128,7 +124,7 @@ impl Value {
         use Value::*;
         matches!(
             self,
-            Empty | ExternalDataId | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+            Empty | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
         )
     }
 
@@ -138,10 +134,6 @@ impl Value {
             self,
             Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
         )
-    }
-
-    pub fn make_external_value(value: impl ExternalValue) -> Value {
-        Value::ExternalValue(Arc::new(RwLock::new(value)))
     }
 
     /// Returns the 'size' of the value
@@ -188,10 +180,14 @@ impl Value {
             Function { .. } => "Function".to_string(),
             Generator { .. } => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
-            ExternalValue(value) => value.read().value_type(),
+            ExternalValue(value) => match value.meta().get(&MetaKey::Type) {
+                Some(Str(s)) => s.as_str().to_string(),
+                Some(_) => "Error: expected string for overloaded type".to_string(),
+                None => "ExternalValue".to_string(),
+            },
+            ExternalData(data) => data.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
-            ExternalDataId => "ExternalDataId".to_string(),
         }
     }
 }
@@ -232,12 +228,12 @@ impl fmt::Display for Value {
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
-            ExternalValue(ref value) => write!(f, "{}", value.read()),
+            ExternalValue(ref value) => write!(f, "{}", value.data()),
+            ExternalData(ref value) => write!(f, "{}", value.read()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
-            ExternalDataId => write!(f, "External Data"),
         }
     }
 }
@@ -245,6 +241,24 @@ impl fmt::Display for Value {
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::Str(value.into())
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::Str(value.into())
+    }
+}
+
+impl From<ExternalValue> for Value {
+    fn from(value: ExternalValue) -> Self {
+        Self::ExternalValue(value)
     }
 }
 

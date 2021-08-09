@@ -10,7 +10,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
     });
     koto.set_script_path(path);
 
-    match koto.compile(&script) {
+    match koto.compile(script) {
         Ok(_) => match koto.run() {
             Ok(_) => {
                 if should_fail_at_runtime {

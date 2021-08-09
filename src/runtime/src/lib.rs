@@ -21,13 +21,14 @@ mod vm;
 
 pub use {
     error::*,
-    external::{is_external_instance, visit_external_value, ExternalFunction, ExternalValue},
+    external::{ExternalData, ExternalFunction, ExternalValue},
     koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
     logger::{DefaultLogger, KotoLogger},
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     num2::Num2,
     num4::Num4,
+    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     value::{RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,

@@ -27,7 +27,7 @@ impl BenchmarkRunner {
             Ok(_) => {
                 runtime.settings.run_tests = true;
 
-                if let Err(error) = runtime.run_with_args(&args) {
+                if let Err(error) = runtime.run_with_args(args) {
                     panic!("{}", error);
                 }
 

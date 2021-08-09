@@ -27,20 +27,20 @@ pub enum InternalError {
 /// where an indented continuation can be started in response to an indentation error.
 #[derive(Clone, Debug)]
 pub enum ExpectedIndentation {
-    ExpectedCatchBody,
-    ExpectedElseBlock,
-    ExpectedElseIfBlock,
-    ExpectedFinallyBody,
-    ExpectedForBody,
-    ExpectedFunctionBody,
-    ExpectedLoopBody,
-    ExpectedMatchArm,
-    ExpectedRhsExpression,
-    ExpectedSwitchArm,
-    ExpectedThenKeywordOrBlock,
-    ExpectedTryBody,
-    ExpectedUntilBody,
-    ExpectedWhileBody,
+    CatchBody,
+    ElseBlock,
+    ElseIfBlock,
+    FinallyBody,
+    ForBody,
+    FunctionBody,
+    LoopBody,
+    MatchArm,
+    RhsExpression,
+    SwitchArm,
+    ThenKeywordOrBlock,
+    TryBody,
+    UntilBody,
+    WhileBody,
 }
 
 #[derive(Clone, Debug)]
@@ -205,22 +205,22 @@ impl fmt::Display for ExpectedIndentation {
         use ExpectedIndentation::*;
 
         match self {
-            ExpectedCatchBody => f.write_str("Expected indented block for catch expression"),
-            ExpectedElseBlock => f.write_str("Expected indented block for 'else'."),
-            ExpectedElseIfBlock => f.write_str("Expected indented block for 'else if'."),
-            ExpectedForBody => f.write_str("Expected indented block in for loop"),
-            ExpectedFinallyBody => f.write_str("Expected indented block for finally expression"),
-            ExpectedFunctionBody => f.write_str("Expected function body"),
-            ExpectedLoopBody => f.write_str("Expected indented block in loop"),
-            ExpectedMatchArm => f.write_str("Expected indented arm for match expression"),
-            ExpectedSwitchArm => f.write_str("Expected indented arm for switch expression"),
-            ExpectedRhsExpression => f.write_str("Expected expression"),
-            ExpectedThenKeywordOrBlock => f.write_str(
+            CatchBody => f.write_str("Expected indented block for catch expression"),
+            ElseBlock => f.write_str("Expected indented block for 'else'."),
+            ElseIfBlock => f.write_str("Expected indented block for 'else if'."),
+            ForBody => f.write_str("Expected indented block in for loop"),
+            FinallyBody => f.write_str("Expected indented block for finally expression"),
+            FunctionBody => f.write_str("Expected function body"),
+            LoopBody => f.write_str("Expected indented block in loop"),
+            MatchArm => f.write_str("Expected indented arm for match expression"),
+            SwitchArm => f.write_str("Expected indented arm for switch expression"),
+            RhsExpression => f.write_str("Expected expression"),
+            ThenKeywordOrBlock => f.write_str(
                 "Error parsing if expression, expected 'then' keyword or indented block.",
             ),
-            ExpectedTryBody => f.write_str("Expected indented block for try expression"),
-            ExpectedUntilBody => f.write_str("Expected indented block in until loop"),
-            ExpectedWhileBody => f.write_str("Expected indented block in while loop"),
+            TryBody => f.write_str("Expected indented block for try expression"),
+            UntilBody => f.write_str("Expected indented block in until loop"),
+            WhileBody => f.write_str("Expected indented block in while loop"),
         }
     }
 }

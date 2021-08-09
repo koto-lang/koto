@@ -8,11 +8,11 @@ use {
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, RuntimeErrorType,
-        RuntimeResult, UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, UnaryOp, Value, ValueList,
+        ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     std::{
         collections::HashMap,
         fmt,
@@ -24,6 +24,27 @@ use {
     },
     unicode_segmentation::UnicodeSegmentation,
 };
+
+macro_rules! call_binary_op_or_else {
+    ($vm:expr,
+     $result_register:expr,
+     $lhs_register:expr,
+     $rhs_value: expr,
+     $overloaded_value:expr,
+     $op:tt,
+     $else:tt) => {{
+        let maybe_op = $overloaded_value
+            .meta()
+            .get(&MetaKey::BinaryOp($op))
+            .cloned();
+        if let Some(op) = maybe_op {
+            let rhs_value = $rhs_value.clone();
+            return $vm.call_overloaded_binary_op($result_register, $lhs_register, rhs_value, op);
+        } else {
+            $else
+        }
+    }};
+}
 
 #[derive(Clone, Debug)]
 pub enum ControlFlow {
@@ -1234,8 +1255,12 @@ impl Vm {
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
             Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Negate)) => {
-                let map = map.clone();
-                return self.call_overloaded_unary_op(result, value, map, Negate);
+                let op = map.meta().get(&MetaKey::UnaryOp(Negate)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Negate)) => {
+                let op = v.meta().get(&MetaKey::UnaryOp(Negate)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
             }
             unexpected => {
                 return self.unexpected_type_error("Negate: expected negatable value", unexpected);
@@ -1251,8 +1276,12 @@ impl Vm {
 
         let result_value = match &self.get_register(value) {
             Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Display)) => {
-                let map = map.clone();
-                return self.call_overloaded_unary_op(result, value, map, Display);
+                let op = map.meta().get(&MetaKey::UnaryOp(Display)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Display)) => {
+                let op = v.meta().get(&MetaKey::UnaryOp(Display)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
             }
             other => Str(other.to_string().into()),
         };
@@ -1288,17 +1317,23 @@ impl Vm {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Add)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Add);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Add, {
+                    if let Map(rhs_map) = rhs_value {
+                        let mut data = map.data().clone();
+                        let mut meta = map.meta().clone();
+                        data.extend(&rhs_map.data());
+                        meta.extend(&rhs_map.meta());
+                        Map(ValueMap::with_contents(data, meta))
+                    } else {
+                        return self.binary_op_error(lhs_value, rhs_value, "+");
+                    }
+                })
             }
-            (Map(a), Map(b)) => {
-                let mut data = a.data().clone();
-                let mut meta = a.meta().clone();
-                data.extend(&b.data());
-                meta.extend(&b.meta());
-                Map(ValueMap::with_contents(data, meta))
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Add, {
+                    return self.binary_op_error(lhs_value, rhs_value, "+");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "+"),
         };
@@ -1320,10 +1355,15 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a - b),
             (Num4(a), Num4(b)) => Num4(a - b),
             (Num4(a), Number(b)) => Num4(a - b),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Subtract)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Subtract);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Subtract, {
+                    return self.binary_op_error(lhs_value, rhs_value, "-");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Subtract, {
+                    return self.binary_op_error(lhs_value, rhs_value, "-");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "-"),
         };
@@ -1346,10 +1386,15 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a * b),
             (Num4(a), Num4(b)) => Num4(a * b),
             (Num4(a), Number(b)) => Num4(a * b),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Multiply)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Multiply);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Multiply, {
+                    return self.binary_op_error(lhs_value, rhs_value, "*");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Multiply, {
+                    return self.binary_op_error(lhs_value, rhs_value, "*");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "*"),
         };
@@ -1371,10 +1416,15 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a / b),
             (Num4(a), Num4(b)) => Num4(a / b),
             (Num4(a), Number(b)) => Num4(a / b),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Divide)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Divide);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Divide, {
+                    return self.binary_op_error(lhs_value, rhs_value, "/");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Divide, {
+                    return self.binary_op_error(lhs_value, rhs_value, "/");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "/"),
         };
@@ -1396,10 +1446,15 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a % b),
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Modulo)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Modulo);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Modulo, {
+                    return self.binary_op_error(lhs_value, rhs_value, "%");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Modulo, {
+                    return self.binary_op_error(lhs_value, rhs_value, "%");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "%"),
         };
@@ -1416,10 +1471,15 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a < b),
             (Str(a), Str(b)) => Bool(a.as_str() < b.as_str()),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Less)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Less);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Less, {
+                    return self.binary_op_error(lhs_value, rhs_value, "<");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Less, {
+                    return self.binary_op_error(lhs_value, rhs_value, "<");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<"),
         };
@@ -1436,10 +1496,15 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a <= b),
             (Str(a), Str(b)) => Bool(a.as_str() <= b.as_str()),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(LessOrEqual)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, LessOrEqual);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, LessOrEqual, {
+                    return self.binary_op_error(lhs_value, rhs_value, "<=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, LessOrEqual, {
+                    return self.binary_op_error(lhs_value, rhs_value, "<=");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, "<="),
         };
@@ -1456,10 +1521,15 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a > b),
             (Str(a), Str(b)) => Bool(a.as_str() > b.as_str()),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Greater)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Greater);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Greater, {
+                    return self.binary_op_error(lhs_value, rhs_value, ">");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Greater, {
+                    return self.binary_op_error(lhs_value, rhs_value, ">");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">"),
         };
@@ -1476,10 +1546,15 @@ impl Vm {
         let result_value = match (lhs_value, rhs_value) {
             (Number(a), Number(b)) => Bool(a >= b),
             (Str(a), Str(b)) => Bool(a.as_str() >= b.as_str()),
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(GreaterOrEqual)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, GreaterOrEqual);
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, GreaterOrEqual, {
+                    return self.binary_op_error(lhs_value, rhs_value, ">=");
+                })
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, GreaterOrEqual, {
+                    return self.binary_op_error(lhs_value, rhs_value, ">=");
+                })
             }
             _ => return self.binary_op_error(lhs_value, rhs_value, ">="),
         };
@@ -1502,7 +1577,6 @@ impl Vm {
             (Range(a), Range(b)) => a == b,
             (IndexRange(a), IndexRange(b)) => a == b,
             (Empty, Empty) => true,
-            (ExternalDataId, ExternalDataId) => true,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1515,17 +1589,18 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                self.child_vm().compare_value_ranges(data_a, data_b)?
             }
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(Equal)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, Equal);
-            }
-            (Map(a), Map(b)) => {
-                let a = a.clone();
-                let b = b.clone();
-                self.child_vm().compare_value_maps(a, b)?
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Equal, {
+                    if let Map(rhs_map) = rhs_value {
+                        let a = map.clone();
+                        let b = rhs_map.clone();
+                        self.child_vm().compare_value_maps(a, b)?
+                    } else {
+                        false
+                    }
+                })
             }
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
@@ -1543,6 +1618,9 @@ impl Vm {
                 } else {
                     false
                 }
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Equal, false)
             }
             _ => false,
         };
@@ -1566,7 +1644,6 @@ impl Vm {
             (Range(a), Range(b)) => a != b,
             (IndexRange(a), IndexRange(b)) => a != b,
             (Empty, Empty) => false,
-            (ExternalDataId, ExternalDataId) => false,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1579,17 +1656,18 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                !self.child_vm().compare_value_ranges(data_a, data_b)?
             }
-            (Map(map), value) if map.meta().contains_key(&MetaKey::BinaryOp(NotEqual)) => {
-                let map = map.clone();
-                let value = value.clone();
-                return self.call_overloaded_binary_op(result, lhs, map, value, NotEqual);
-            }
-            (Map(a), Map(b)) => {
-                let a = a.clone();
-                let b = b.clone();
-                !self.child_vm().compare_value_maps(a, b)?
+            (Map(map), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, NotEqual, {
+                    if let Map(rhs_map) = rhs_value {
+                        let a = map.clone();
+                        let b = rhs_map.clone();
+                        !self.child_vm().compare_value_maps(a, b)?
+                    } else {
+                        true
+                    }
+                })
             }
             (Function(a), Function(b)) => {
                 if a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count {
@@ -1607,6 +1685,9 @@ impl Vm {
                 } else {
                     true
                 }
+            }
+            (ExternalValue(ev), _) => {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, NotEqual, true)
             }
             _ => true,
         };
@@ -1673,15 +1754,9 @@ impl Vm {
     fn call_overloaded_unary_op(
         &mut self,
         result_register: u8,
-        map_register: u8,
-        map: ValueMap,
-        op: UnaryOp,
+        value_register: u8,
+        op: Value,
     ) -> InstructionResult {
-        let op = match map.meta().get(&MetaKey::UnaryOp(op)) {
-            Some(op) => op.clone(),
-            None => return runtime_error!("Missing overloaded {:?} key", op),
-        };
-
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
@@ -1691,25 +1766,17 @@ impl Vm {
             op,
             frame_base,
             0, // 0 args
-            Some(map_register),
-        )?;
-
-        Ok(())
+            Some(value_register),
+        )
     }
 
     fn call_overloaded_binary_op(
         &mut self,
         result_register: u8,
-        map_register: u8,
-        map: ValueMap,
+        lhs_register: u8,
         rhs: Value,
-        op: BinaryOp,
+        op: Value,
     ) -> InstructionResult {
-        let op = match map.meta().get(&MetaKey::BinaryOp(op)) {
-            Some(op) => op.clone(),
-            None => return runtime_error!("Missing overloaded {:?} operation", op),
-        };
-
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
@@ -1720,10 +1787,8 @@ impl Vm {
             op,
             frame_base,
             1, // 1 arg, the rhs value
-            Some(map_register),
-        )?;
-
-        Ok(())
+            Some(lhs_register),
+        )
     }
 
     fn run_jump_if(
@@ -2145,7 +2210,7 @@ impl Vm {
         let value = self.clone_register(value_register);
         let index = self.clone_register(index_register);
 
-        match (value, index) {
+        match (&value, index) {
             (List(l), Number(n)) => {
                 let index = self.validate_index(n, Some(l.len()))?;
                 self.set_register(result_register, l.data()[index].clone());
@@ -2292,14 +2357,15 @@ impl Vm {
                     other => return runtime_error!("Index out of bounds for Num4, {}", other),
                 }
             }
-            (Map(map), index) if map.meta().contains_key(&MetaKey::BinaryOp(Index)) => {
-                return self.call_overloaded_binary_op(
-                    result_register,
-                    value_register,
-                    map,
-                    index,
-                    Index,
-                );
+            (Map(m), index) => {
+                call_binary_op_or_else!(self, result_register, value_register, index, m, Index, {
+                    return runtime_error!("Unable to index {}", value.type_as_string());
+                });
+            }
+            (ExternalValue(ev), index) => {
+                call_binary_op_or_else!(self, result_register, value_register, index, ev, Index, {
+                    return runtime_error!("Unable to index {}", value.type_as_string());
+                });
             }
             (unexpected_value, unexpected_index) => {
                 return runtime_error!(
@@ -2419,12 +2485,12 @@ impl Vm {
     fn run_access(
         &mut self,
         result_register: u8,
-        map_register: u8,
+        value_register: u8,
         key: ConstantIndex,
     ) -> InstructionResult {
         use Value::*;
 
-        let map_value = self.clone_register(map_register);
+        let accessed_value = self.clone_register(value_register);
         let key_string = self.get_constant_str(key);
 
         macro_rules! core_op {
@@ -2439,12 +2505,12 @@ impl Vm {
             }};
         }
 
-        match map_value {
-            Map(map) => match map.data().get_with_string(&key_string) {
+        match accessed_value {
+            Map(map) => match map.data().get_with_string(key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => match map.meta().get_with_string(&key_string) {
+                None => match map.meta().get_with_string(key_string) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }
@@ -2459,8 +2525,19 @@ impl Vm {
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
+            ExternalValue(ev) => match ev.meta().get_with_string(key_string) {
+                Some(value) => {
+                    self.set_register(result_register, value.clone());
+                }
+                None => {
+                    return runtime_error!("RunAccess: Missing access operator for external value");
+                }
+            },
             unexpected => {
-                return self.unexpected_type_error("MapAccess: Expected Map", &unexpected)
+                return self.unexpected_type_error(
+                    "RunAccess: Unable to perform '.' access on '{}'",
+                    &unexpected,
+                )
             }
         }
 
@@ -2482,7 +2559,7 @@ impl Vm {
                 .core_lib
                 .iterator
                 .data()
-                .get_with_string(&key)
+                .get_with_string(key)
                 .cloned(),
             maybe_op => maybe_op,
         };
@@ -2829,12 +2906,12 @@ impl Vm {
         match type_id {
             TypeId::List => {
                 if !matches!(value, Value::List(_)) {
-                    return self.unexpected_type_error("Expected List", &value);
+                    return self.unexpected_type_error("Expected List", value);
                 }
             }
             TypeId::Tuple => {
                 if !matches!(value, Value::Tuple(_)) {
-                    return self.unexpected_type_error("Expected Tuple", &value);
+                    return self.unexpected_type_error("Expected Tuple", value);
                 }
             }
         }

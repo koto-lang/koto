@@ -1,10 +1,8 @@
 use {
-    crate::{runtime_error, ExternalValue, RuntimeError, Value, ValueMap},
-    std::{fmt, thread, thread::JoinHandle, time::Duration},
+    crate::{runtime_error, ExternalData, MetaMap, RuntimeError, RwLock, Value, ValueMap},
+    lazy_static::lazy_static,
+    std::{fmt, sync::Arc, thread, thread::JoinHandle, time::Duration},
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-use crate::get_external_instance;
 
 pub fn make_module() -> ValueMap {
     use Value::{Empty, Number};
@@ -23,7 +21,7 @@ pub fn make_module() -> ValueMap {
                 }
             });
 
-            Ok(Thread::make_thread_map(join_handle))
+            Ok(Thread::make_external_value(join_handle))
         }
         [unexpected] => runtime_error!(
             "thread.create: Expected callable value as argument, found '{}'",
@@ -57,6 +55,23 @@ pub fn make_module() -> ValueMap {
     result
 }
 
+lazy_static! {
+    static ref THREAD_META: Arc<RwLock<MetaMap>> = {
+        let mut meta = MetaMap::with_type_name("Thread");
+
+        meta.add_named_instance_fn_mut("join", |thread: &mut Thread, _, _| {
+            let result = thread.join_handle.take().unwrap().join();
+            match result {
+                Ok(Ok(result)) => Ok(result),
+                Ok(Err(koto_error)) => Err(koto_error),
+                Err(_) => runtime_error!("thread.join: thread panicked"),
+            }
+        });
+
+        Arc::new(RwLock::new(meta))
+    };
+}
+
 #[derive(Debug)]
 struct Thread {
     join_handle: Option<JoinHandle<Result<Value, RuntimeError>>>,
@@ -64,33 +79,19 @@ struct Thread {
 
 impl Thread {
     #[cfg(not(target_arch = "wasm32"))]
-    fn make_thread_map(join_handle: JoinHandle<Result<Value, RuntimeError>>) -> Value {
-        let mut result = ValueMap::new();
-
-        result.add_instance_fn("join", |vm, args| {
-            let args = vm.get_args(args);
-            get_external_instance!(args, "Thread", "join", Thread, thread, {
-                let result = thread.join_handle.take().unwrap().join();
-                match result {
-                    Ok(Ok(result)) => Ok(result),
-                    Ok(Err(koto_error)) => Err(koto_error),
-                    Err(_) => runtime_error!("thread.join: thread panicked"),
-                }
-            })
-        });
-
-        result.insert(
-            Value::ExternalDataId.into(),
-            Value::make_external_value(Self {
+    fn make_external_value(join_handle: JoinHandle<Result<Value, RuntimeError>>) -> Value {
+        let result = crate::ExternalValue::with_shared_meta_map(
+            Thread {
                 join_handle: Some(join_handle),
-            }),
+            },
+            THREAD_META.clone(),
         );
 
-        Value::Map(result)
+        Value::ExternalValue(result)
     }
 }
 
-impl ExternalValue for Thread {
+impl ExternalData for Thread {
     fn value_type(&self) -> String {
         "Thread".to_string()
     }

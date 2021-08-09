@@ -71,6 +71,11 @@
         @test data_size: |self|
             assert_eq self.test_data.size(), 3
     ```
+- External value types are now simpler to implement, with a dedicated
+  `ExternalValue` value type that consists a blob of `ExternalData` plus a
+  `MetaMap` where implementation functions can be defined.
+  - An external value's meta map can be shared between external value instances,
+    with `lazy_static` used for lazy initialization.
 - `koto.args` is now a Tuple instead of a List.
 - `koto.script_dir` and `koto.script_path` are now empty by default.
 - Ranges that have operations starting on an intended following line can now be
@@ -84,6 +89,11 @@
     ```
 - Omitting the value after a key in a map declaration is now only allowed when
   using inline syntax.
+
+### Removed
+
+- `ExternalDataId` has been removed as a `Value` type, see the note on
+  `ExternalValue` above.
 
 ## [0.7.0] 2021.03.27
 

@@ -1,5 +1,5 @@
 use {
-    crate::{runtime_error, RuntimeResult, Value, ValueKey, ValueMap, Vm},
+    crate::{RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, Vm},
     downcast_rs::impl_downcast,
     std::{
         fmt,
@@ -10,15 +10,57 @@ use {
 
 pub use downcast_rs::Downcast;
 
-pub trait ExternalValue: fmt::Debug + fmt::Display + Send + Sync + Downcast {
-    fn value_type(&self) -> String;
+use crate::MetaMap;
+
+/// A trait for external data
+pub trait ExternalData: fmt::Debug + fmt::Display + Send + Sync + Downcast {
+    fn value_type(&self) -> String {
+        "External Data".to_string()
+    }
 }
 
-impl_downcast!(ExternalValue);
+impl_downcast!(ExternalData);
 
-pub struct Args {
-    pub register: u8,
-    pub count: u8,
+/// A value with data and behaviour defined externally to the Koto runtime
+#[derive(Clone, Debug)]
+pub struct ExternalValue {
+    pub data: Arc<RwLock<dyn ExternalData>>,
+    pub meta: Arc<RwLock<MetaMap>>,
+}
+
+impl ExternalValue {
+    pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta: Arc::new(RwLock::new(meta)),
+        }
+    }
+
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: Arc<RwLock<MetaMap>>) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta,
+        }
+    }
+
+    pub fn with_new_data(&self, data: impl ExternalData) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(data)),
+            meta: self.meta.clone(),
+        }
+    }
+
+    pub fn data(&self) -> RwLockReadGuard<dyn ExternalData> {
+        self.data.read()
+    }
+
+    pub fn data_mut(&self) -> RwLockWriteGuard<dyn ExternalData> {
+        self.data.write()
+    }
+
+    pub fn meta(&self) -> RwLockReadGuard<MetaMap> {
+        self.meta.read()
+    }
 }
 
 // Once Trait aliases are stabilized this can be simplified a bit,
@@ -72,55 +114,8 @@ impl Hash for ExternalFunction {
     }
 }
 
-pub fn visit_external_value<T>(
-    map: &ValueMap,
-    mut f: impl FnMut(&mut T) -> RuntimeResult,
-) -> RuntimeResult
-where
-    T: ExternalValue,
-{
-    match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalValue(maybe_external)) => {
-            let mut value = maybe_external.as_ref().write();
-            match value.downcast_mut::<T>() {
-                Some(external) => f(external),
-                None => runtime_error!(
-                    "Invalid type for external value, found '{}'",
-                    value.value_type(),
-                ),
-            }
-        }
-        _ => runtime_error!("External value not found"),
-    }
-}
-
-pub fn is_external_instance<T>(map: &ValueMap) -> bool
-where
-    T: ExternalValue,
-{
-    match map.data().get(&ValueKey::from(Value::ExternalDataId)) {
-        Some(Value::ExternalValue(maybe_external)) => maybe_external.as_ref().read().is::<T>(),
-        _ => false,
-    }
-}
-
-#[macro_export]
-macro_rules! get_external_instance {
-    ($args: ident,
-     $external_name: expr,
-     $fn_name: expr,
-     $external_type: ident,
-     $match_name: ident,
-     $body: block) => {{
-        match &$args {
-            [Value::Map(instance), ..] => {
-                $crate::visit_external_value(instance, |$match_name: &mut $external_type| $body)
-            }
-            _ => $crate::runtime_error!(
-                "{0}.{1}: Expected {0} instance as first argument",
-                $external_name,
-                $fn_name,
-            ),
-        }
-    }};
+/// The start register and argument count for arguments when an ExternalFunction is called
+pub struct Args {
+    pub register: u8,
+    pub count: u8,
 }

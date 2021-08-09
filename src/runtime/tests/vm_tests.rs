@@ -1,128 +1,15 @@
+mod runtime_test_utils;
+
 mod vm {
     use {
-        koto_bytecode::Chunk,
-        koto_runtime::{
-            num2, num4, runtime_error, BinaryOp, DataMap, IntRange, Loader, Value, Value::*,
-            ValueList, ValueMap, Vm,
+        crate::runtime_test_utils::{
+            num2, num4, number_list, number_tuple, string, test_script, test_script_with_vm,
+            value_tuple,
         },
-        std::sync::Arc,
+        koto_runtime::{
+            runtime_error, DataMap, IntRange, Value, Value::*, ValueList, ValueMap, Vm,
+        },
     };
-
-    fn test_script(script: &str, expected_output: Value) {
-        let mut vm = Vm::default();
-        let mut prelude = vm.prelude();
-
-        prelude.add_value("test_value", Number(42.0.into()));
-        prelude.add_fn("assert", |vm, args| {
-            for value in vm.get_args(args).iter() {
-                match value {
-                    Bool(b) => {
-                        if !b {
-                            return runtime_error!("Assertion failed");
-                        }
-                    }
-                    unexpected => {
-                        return runtime_error!(
-                            "assert expects booleans as arguments, found '{}'",
-                            unexpected.type_as_string(),
-                        )
-                    }
-                }
-            }
-            Ok(Empty)
-        });
-
-        let print_chunk = |script: &str, chunk: Arc<Chunk>| {
-            println!("{}\n", script);
-            let script_lines = script.lines().collect::<Vec<_>>();
-
-            println!("Constants\n---------\n{}\n", chunk.constants.to_string());
-            println!(
-                "Instructions\n------------\n{}",
-                Chunk::instructions_as_string(chunk, &script_lines)
-            );
-        };
-
-        let mut loader = Loader::default();
-        let chunk = match loader.compile_script(script, &None) {
-            Ok(chunk) => chunk,
-            Err(error) => {
-                print_chunk(script, vm.chunk());
-                panic!("Error while compiling script: {}", error);
-            }
-        };
-
-        match vm.run(chunk) {
-            Ok(result) => {
-                match vm.run_binary_op(BinaryOp::Equal, result.clone(), expected_output.clone()) {
-                    Ok(Value::Bool(true)) => {}
-                    Ok(Value::Bool(false)) => {
-                        print_chunk(script, vm.chunk());
-                        panic!(
-                            "Unexpected result - expected: {}, result: {}",
-                            expected_output, result
-                        );
-                    }
-                    Ok(other) => {
-                        print_chunk(script, vm.chunk());
-                        panic!("Expected bool from equality comparison, found '{}'", other);
-                    }
-                    Err(e) => {
-                        print_chunk(script, vm.chunk());
-                        panic!("Error while comparing output value: {}", e.to_string());
-                    }
-                }
-            }
-            Err(e) => {
-                print_chunk(script, vm.chunk());
-                panic!("Error while running script: {}", e.to_string());
-            }
-        }
-    }
-
-    fn number_list<T>(values: &[T]) -> Value
-    where
-        T: Copy,
-        f64: From<T>,
-    {
-        let values = values
-            .iter()
-            .map(|n| Number(f64::from(*n).into()))
-            .collect::<Vec<_>>();
-        value_list(&values)
-    }
-
-    fn number_tuple<T>(values: &[T]) -> Value
-    where
-        T: Copy,
-        f64: From<T>,
-    {
-        let values = values
-            .iter()
-            .map(|n| Number(f64::from(*n).into()))
-            .collect::<Vec<_>>();
-        value_tuple(&values)
-    }
-
-    fn value_list(values: &[Value]) -> Value {
-        List(ValueList::from_slice(&values))
-    }
-
-    fn value_tuple(values: &[Value]) -> Value {
-        Tuple(values.into())
-    }
-
-    fn num2(a: f64, b: f64) -> Value {
-        Num2(num2::Num2(a, b))
-    }
-
-    fn num4(a: f32, b: f32, c: f32, d: f32) -> Value {
-        Num4(num4::Num4(a, b, c, d))
-    }
-
-    fn string(s: &str) -> Value {
-        Str(s.into())
-    }
 
     mod literals {
         use super::*;
@@ -827,28 +714,49 @@ switch
     mod prelude {
         use super::*;
 
+        fn test_script_with_prelude(script: &str, expected_output: Value) {
+            let vm = Vm::default();
+            let mut prelude = vm.prelude();
+
+            prelude.add_value("test_value", Number(42.0.into()));
+            prelude.add_fn("assert", |vm, args| {
+                for value in vm.get_args(args).iter() {
+                    match value {
+                        Bool(b) => {
+                            if !b {
+                                return runtime_error!("Assertion failed");
+                            }
+                        }
+                        unexpected => {
+                            return runtime_error!(
+                                "assert expects booleans as arguments, found '{}'",
+                                unexpected.type_as_string(),
+                            )
+                        }
+                    }
+                }
+                Ok(Empty)
+            });
+
+            test_script_with_vm(vm, script, expected_output);
+        }
+
         #[test]
         fn load_value() {
-            let script = "
-import test_value
-test_value";
-            test_script(script, Number(42.0.into()));
+            let script = "test_value";
+            test_script_with_prelude(script, Number(42.0.into()));
         }
 
         #[test]
         fn function() {
-            let script = "
-import assert
-assert 1 + 1 == 2";
-            test_script(script, Empty);
+            let script = "assert 1 + 1 == 2";
+            test_script_with_prelude(script, Empty);
         }
 
         #[test]
         fn function_two_args() {
-            let script = "
-import assert
-assert 1 + 1 == 2, 2 < 3";
-            test_script(script, Empty);
+            let script = "assert 1 + 1 == 2, 2 < 3";
+            test_script_with_prelude(script, Empty);
         }
     }
 
