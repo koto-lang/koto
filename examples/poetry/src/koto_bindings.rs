@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
         |vm, args| match vm.get_args(args) {
             [Value::Str(text)] => {
                 let mut poetry = Poetry::default();
-                poetry.add_links(text);
+                poetry.add_source_material(text);
                 Ok(KotoPoetry::make_external_value(poetry))
             }
             [unexpected] => runtime_error!(
@@ -36,12 +36,12 @@ lazy_static! {
         let mut bindings = MetaMap::with_type_name("Poetry");
 
         bindings.add_named_instance_fn_mut(
-            "add_links", |poetry: &mut KotoPoetry, _, args| match args {
+            "add_source_material", |poetry: &mut KotoPoetry, _, args| match args {
             [Str(text)] => {
-                poetry.0.add_links(text);
+                poetry.0.add_source_material(text);
                 Ok(Empty)
             }
-            _ => runtime_error!("poetry.add_links: Expected a String as argument"),
+            _ => runtime_error!("poetry.add_source_material: Expected a String as argument"),
         });
 
         bindings.add_named_instance_fn(

@@ -4,6 +4,9 @@ use {
     wasm_bindgen::prelude::*,
 };
 
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 // A logger that captures output from Koto in a Vec of Strings
 struct CaptureLogger {
     output: Arc<Mutex<Vec<String>>>,

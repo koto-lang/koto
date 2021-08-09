@@ -31,7 +31,7 @@ jobs:
         run: cargo test --all-targets --verbose
 
       - name: Run poetry example
-        run: cargo run --example poetry -- -s examples/poetry/scripts/poetry.koto
+        run: cargo run --example poetry -- -s examples/poetry/scripts/readme.koto
 
   fmt_and_clippy:
     runs-on: ubuntu-latest

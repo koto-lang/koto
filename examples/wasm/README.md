@@ -5,20 +5,9 @@ the output from running a script.
 
 ## Usage
 
-[Parcel.js](https://parceljs.org) is used as bundler and takes care of building
-the Rust wasm library. To build and open the example site, `cd` to this folder
-and run either of the following:
-
-### npm
+To build and open the example site, `cd` to this folder and run:
 
 ```
 npm install
 npm run start
-```
-
-### yarn
-
-```
-yarn install
-yarn start
 ```

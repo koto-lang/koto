@@ -1,8 +1,10 @@
-import io, koto, poetry, string.print
+import string.print
 
 export main = ||
   input_file = koto.script_dir + "/../../../README.md"
-  generator = poetry.new(io.read_to_string input_file).iter()
+  generator = poetry
+    .new io.read_to_string input_file
+    .iter()
 
   separator = "==================================================="
   print separator
