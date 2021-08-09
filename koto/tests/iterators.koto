@@ -101,6 +101,10 @@ export @tests =
       (1..=5).fold(0, |sum, x| sum + x),
       15
 
+  @test last: ||
+    assert_eq (101..101).take(5).last(), ()
+    assert_eq (101..1000).take(5).last(), 105
+
   @test max: ||
     assert_eq (2, -1, 9).max(), 9
     assert_eq (make_foo(2), make_foo(-1), make_foo(9)).max().x, 9

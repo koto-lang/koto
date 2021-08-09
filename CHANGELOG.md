@@ -36,6 +36,8 @@
   - `string.bytes` has been added to provide access to a string's underlying
     byte sequence.
   - `string.split` can now take a function as its matching argument.
+- New features for Iterators.
+  - `iterator.last` returns the last value returned by the iterator.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto

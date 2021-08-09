@@ -230,6 +230,24 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("iterator.keep: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("last", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let mut result = Empty;
+
+            let mut iter = make_iterator(iterable).unwrap().map(collect_pair);
+            for output in &mut iter {
+                match output {
+                    Ok(Output::Value(value)) => result = value,
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result)
+        }
+        _ => runtime_error!("iterator.keep: Expected iterable and function as arguments"),
+    });
+
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();

@@ -55,6 +55,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [enumerate](#enumerate)
 - [fold](#fold)
 - [keep](#keep)
+- [last](#last)
 - [max](#max)
 - [min](#min)
 - [min_max](#min_max)
@@ -233,6 +234,22 @@ discarded.
 ```koto
 (0..10).keep(|x| x % 2 == 0).to_tuple()
 # (0, 2, 4, 6, 8)
+```
+
+## last
+
+`|Iterable| -> Value`
+
+Consumes the iterator, returning the last yielded value.
+
+### Example
+
+```koto
+(1..100).take(5).last()
+# 5
+
+(0..0).last()
+# ()
 ```
 
 ## max
