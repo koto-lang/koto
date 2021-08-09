@@ -1856,9 +1856,11 @@ x[3]";
         #[test]
         fn indexing() {
             test_script(r#""héllö"[1]"#, string("é"));
+            test_script(r#""héllö"[1..2]"#, string("é"));
             test_script(r#""héllö"[1..3]"#, string("él"));
             test_script(r#""héllö"[2..]"#, string("llö"));
             test_script(r#""héllö"[..]"#, string("héllö"));
+            test_script(r#""héllö"[..1]"#, string("h"));
             test_script(r#""héllö"[..=2]"#, string("hél"));
             test_script(r#""héllö"[3..5]"#, string("lö"));
         }

@@ -2267,9 +2267,12 @@ impl Vm {
                     let mut grapheme_count = 0;
                     for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
                         grapheme_count += 1;
+
                         if i == start {
                             result_start = Some(grapheme_start);
-                        } else if i == end - 1 {
+                        }
+
+                        if i == end - 1 {
                             // By checking against end - 1, we can allow for indexing 'one past the
                             // end' to get the last character.
                             result_end = Some(grapheme_start + grapheme.len());
@@ -2311,18 +2314,23 @@ impl Vm {
                     let mut result_start = None;
                     let mut result_end = None;
                     let mut grapheme_count = 0;
+
                     for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
                         grapheme_count += 1;
+
                         if i == start {
                             result_start = Some(grapheme_start);
                             if end.is_none() {
                                 break;
                             }
-                        } else if i == end_unwrapped - 1 {
+                        }
+
+                        if i == end_unwrapped - 1 {
                             result_end = Some(grapheme_start + grapheme.len());
                             break;
                         }
                     }
+
                     match (result_start, result_end) {
                         (Some(result_start), Some(result_end)) => &s[result_start..result_end],
                         (Some(result_start), None) if end.is_none() => &s[result_start..],
