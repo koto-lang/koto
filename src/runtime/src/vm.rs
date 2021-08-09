@@ -1589,7 +1589,7 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                self.child_vm().compare_value_ranges(data_a, data_b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Equal, {
@@ -1656,7 +1656,7 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                !self.child_vm().compare_value_ranges(data_a, data_b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, NotEqual, {
@@ -2506,11 +2506,11 @@ impl Vm {
         }
 
         match accessed_value {
-            Map(map) => match map.data().get_with_string(&key_string) {
+            Map(map) => match map.data().get_with_string(key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => match map.meta().get_with_string(&key_string) {
+                None => match map.meta().get_with_string(key_string) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }
@@ -2559,7 +2559,7 @@ impl Vm {
                 .core_lib
                 .iterator
                 .data()
-                .get_with_string(&key)
+                .get_with_string(key)
                 .cloned(),
             maybe_op => maybe_op,
         };
@@ -2906,12 +2906,12 @@ impl Vm {
         match type_id {
             TypeId::List => {
                 if !matches!(value, Value::List(_)) {
-                    return self.unexpected_type_error("Expected List", &value);
+                    return self.unexpected_type_error("Expected List", value);
                 }
             }
             TypeId::Tuple => {
                 if !matches!(value, Value::Tuple(_)) {
-                    return self.unexpected_type_error("Expected Tuple", &value);
+                    return self.unexpected_type_error("Expected Tuple", value);
                 }
             }
         }

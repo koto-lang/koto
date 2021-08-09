@@ -373,8 +373,8 @@ impl MetaKey {
         match &self {
             MetaKey::BinaryOp(op) => MetaKeyRef::BinaryOp(*op),
             MetaKey::UnaryOp(op) => MetaKeyRef::UnaryOp(*op),
-            MetaKey::Named(name) => MetaKeyRef::Named(&name),
-            MetaKey::Test(name) => MetaKeyRef::Test(&name),
+            MetaKey::Named(name) => MetaKeyRef::Named(name),
+            MetaKey::Test(name) => MetaKeyRef::Test(name),
             MetaKey::Tests => MetaKeyRef::Tests,
             MetaKey::PreTest => MetaKeyRef::PreTest,
             MetaKey::PostTest => MetaKeyRef::PostTest,

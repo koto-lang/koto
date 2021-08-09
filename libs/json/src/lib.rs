@@ -46,7 +46,7 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("from_string", |vm, args| match vm.get_args(args) {
-        [Str(s)] => match serde_json::from_str(&s) {
+        [Str(s)] => match serde_json::from_str(s) {
             Ok(value) => match json_value_to_koto_value(&value) {
                 Ok(result) => Ok(result),
                 Err(e) => runtime_error!("json.from_string: Error while parsing input: {}", e),

@@ -65,7 +65,7 @@ for i in 0..5
   "foo {}".print i
 "#;
         check_logged_output(
-            &script,
+            script,
             &[
                 "foo 0".to_string(),
                 "foo 1".to_string(),
@@ -80,6 +80,6 @@ for i in 0..5
     fn debug() {
         let script = "debug 2 + 2";
 
-        check_logged_output(&script, &["[1] 2 + 2: 4".to_string()]);
+        check_logged_output(script, &["[1] 2 + 2: 4".to_string()]);
     }
 }

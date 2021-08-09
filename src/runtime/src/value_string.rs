@@ -42,7 +42,7 @@ impl ValueString {
     #[inline]
     pub fn as_str(&self) -> &str {
         // Safety: bounds have already been checked in new_with_bounds / with_bounds
-        unsafe { &self.string.get_unchecked(self.bounds.clone()) }
+        unsafe { self.string.get_unchecked(self.bounds.clone()) }
     }
 }
 

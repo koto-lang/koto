@@ -85,7 +85,7 @@ impl Value {
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
             Value::Num4(n) => ValueRef::Num4(n),
-            Value::Str(s) => ValueRef::Str(&s),
+            Value::Str(s) => ValueRef::Str(s),
             Value::Range(r) => ValueRef::Range(r),
             _ => unreachable!(), // Only immutable values can be used in ValueKey
         }

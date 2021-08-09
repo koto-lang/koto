@@ -456,10 +456,10 @@ impl Compiler {
                 }
                 result
             }
-            Node::Num2(elements) => self.compile_make_num2(result_register, &elements, ast)?,
-            Node::Num4(elements) => self.compile_make_num4(result_register, &elements, ast)?,
-            Node::List(elements) => self.compile_make_list(result_register, &elements, ast)?,
-            Node::Map(entries) => self.compile_make_map(result_register, &entries, ast)?,
+            Node::Num2(elements) => self.compile_make_num2(result_register, elements, ast)?,
+            Node::Num4(elements) => self.compile_make_num4(result_register, elements, ast)?,
+            Node::List(elements) => self.compile_make_list(result_register, elements, ast)?,
+            Node::Map(entries) => self.compile_make_map(result_register, entries, ast)?,
             Node::Range {
                 start,
                 end,
@@ -587,7 +587,7 @@ impl Compiler {
                     }
                     Node::Lookup(function_lookup) => self.compile_lookup(
                         result_register,
-                        &function_lookup,
+                        function_lookup,
                         Some(&LookupNode::Call(args.clone())),
                         None,
                         ast,
@@ -1077,7 +1077,7 @@ impl Compiler {
             Node::Lookup(lookup) => {
                 self.compile_lookup(
                     ResultRegister::None,
-                    &lookup,
+                    lookup,
                     None,
                     Some(value_register.register),
                     ast,
@@ -1149,7 +1149,7 @@ impl Compiler {
                         self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
                         self.compile_lookup(
                             ResultRegister::None,
-                            &lookup,
+                            lookup,
                             None,
                             Some(register),
                             ast,
@@ -1465,7 +1465,7 @@ impl Compiler {
                 self.compile_op(result_register, op, lhs_node, rhs_node, ast)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
-                self.compile_comparison_op(result_register, op, &lhs_node, &rhs_node, ast)
+                self.compile_comparison_op(result_register, op, lhs_node, rhs_node, ast)
             }
             And | Or => self.compile_logic_op(result_register, op, lhs, rhs, ast),
         }
@@ -2032,7 +2032,7 @@ impl Compiler {
                 Node::Block(expressions) => {
                     self.compile_frame(
                         local_count,
-                        &expressions,
+                        expressions,
                         &function.args,
                         &captures,
                         ast,
@@ -2933,7 +2933,7 @@ impl Compiler {
                 ..params
             },
             true, // match_is_container
-            &nested_patterns,
+            nested_patterns,
             ast,
         )?;
 

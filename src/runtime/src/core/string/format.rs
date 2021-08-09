@@ -302,7 +302,7 @@ pub fn format_string(
     let mut arg_iter = format_args.iter();
     let mut result = String::with_capacity(format_string.len());
 
-    for token in FormatLexer::new(&format_string) {
+    for token in FormatLexer::new(format_string) {
         match token {
             FormatToken::String(s) => result.push_str(s),
             FormatToken::Placeholder(format_spec) => match arg_iter.next() {
@@ -572,11 +572,7 @@ mod tests {
             check_format_output("{:.2}", &[one.clone()], "1.00");
             check_format_output("{:.2}", &[one_third.clone()], "0.33");
             check_format_output("{:.3}", &[Value::Str("abcdef".into())], "abc");
-            check_format_output(
-                "{0:.1}, {1:.3}",
-                &[one.clone(), one_third.clone()],
-                "1.0, 0.333",
-            );
+            check_format_output("{0:.1}, {1:.3}", &[one, one_third], "1.0, 0.333");
         }
 
         #[test]

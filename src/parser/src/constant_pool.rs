@@ -71,7 +71,7 @@ impl ConstantPool {
     #[inline]
     pub fn get_str(&self, index: ConstantIndex) -> &str {
         // Safety: The bounds have already been checked while the pool is being prepared
-        unsafe { &self.strings.get_unchecked(self.get_str_bounds(index)) }
+        unsafe { self.strings.get_unchecked(self.get_str_bounds(index)) }
     }
 
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
