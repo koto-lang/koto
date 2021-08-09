@@ -478,6 +478,7 @@ dependencies = [
  "hotwatch",
  "indexmap",
  "koto",
+ "koto_random",
  "lazy_static",
  "pico-args",
  "rand",

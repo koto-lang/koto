@@ -4,14 +4,16 @@ use {
     std::sync::Arc,
 };
 
+/// A basic Markov chain,
 #[derive(Debug, Default)]
 pub struct Poetry {
+    //
     links: IndexMap<Arc<str>, Vec<Arc<str>>>,
     previous: Option<Arc<str>>,
 }
 
 impl Poetry {
-    pub fn add_links(&mut self, source: &str) {
+    pub fn add_source_material(&mut self, source: &str) {
         let mut words =
             source.split(|c: char| c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']'));
 
