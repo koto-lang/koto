@@ -518,6 +518,25 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("iterator.to_map: Expected iterator as argument"),
     });
 
+    result.add_fn("to_string", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterator = make_iterator(iterable).unwrap();
+            let mut result = String::new();
+
+            for output in iterator.map(collect_pair) {
+                match output {
+                    Ok(Output::Value(Str(s))) => result.push_str(&s),
+                    Ok(Output::Value(value)) => result.push_str(&value.to_string()),
+                    Err(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(Str(result.into()))
+        }
+        _ => return runtime_error!("iterator.to_string: Expected iterable as argument"),
+    });
+
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let mut iterator = make_iterator(iterable).unwrap();

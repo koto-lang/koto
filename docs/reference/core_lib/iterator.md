@@ -67,6 +67,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [take](#take)
 - [to_list](#to_list)
 - [to_map](#to_map)
+- [to_string](#to_string)
 - [to_tuple](#to_tuple)
 - [zip](#zip)
 
@@ -446,6 +447,7 @@ Consumes all values coming from the iterator and places them in a list.
 ### See also
 
 - [`iterator.to_map`](#to_map)
+- [`iterator.to_string`](#to_string)
 - [`iterator.to_tuple`](#to_tuple)
 
 ## to_map
@@ -475,6 +477,30 @@ key, with `()` as the entry's value.
 ### See also
 
 - [`iterator.to_list`](#to_list)
+- [`iterator.to_string`](#to_string)
+- [`iterator.to_tuple`](#to_tuple)
+
+## to_string
+
+`|Iterable| -> String`
+
+Consumes all values coming from the iterator and produces a string containing
+the formatted values.
+
+### Example
+
+```koto
+("x", "y", "z").to_string()
+# "xyz"
+
+(1, 2, 3).intersperse("-").to_string()
+# "1-2-3"
+```
+
+### See also
+
+- [`iterator.to_list`](#to_list)
+- [`iterator.to_map`](#to_map)
 - [`iterator.to_tuple`](#to_tuple)
 
 ## to_tuple
@@ -494,6 +520,7 @@ Consumes all values coming from the iterator and places them in a tuple.
 
 - [`iterator.to_list`](#to_list)
 - [`iterator.to_map`](#to_map)
+- [`iterator.to_string`](#to_string)
 
 ## zip
 

@@ -40,6 +40,10 @@ export @tests =
         .to_map(),
       {"1": 1, "2": 2, "3": 3}
 
+  @test to_string: ||
+    assert_eq ("a", "b", "c").to_string(), "abc"
+    assert_eq ("a:", 1, " b:", 2).to_string(), "a:1 b:2"
+
   @test to_tuple: ||
     assert_eq (1..=3).iter().to_tuple(), (1, 2, 3)
     assert_eq [2, 4, 6].iter().to_tuple(), (2, 4, 6)
