@@ -134,16 +134,16 @@ pub fn make_module() -> ValueMap {
         [Str(input), Number(from)] => {
             let bounds = usize::from(*from)..input.len();
             let result = match input.with_bounds(bounds) {
-                Ok(result) => Str(result),
-                Err(_) => Empty,
+                Some(result) => Str(result),
+                None => Empty,
             };
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
             let bounds = usize::from(*from)..usize::from(*to);
             let result = match input.with_bounds(bounds) {
-                Ok(result) => Str(result),
-                Err(_) => Empty,
+                Some(result) => Str(result),
+                None => Empty,
             };
             Ok(result)
         }

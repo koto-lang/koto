@@ -1,8 +1,12 @@
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-    ops::{Deref, Range},
-    sync::Arc,
+use {
+    lazy_static::lazy_static,
+    std::{
+        fmt,
+        hash::{Hash, Hasher},
+        ops::{Deref, Range},
+        sync::Arc,
+    },
+    unicode_segmentation::UnicodeSegmentation,
 };
 
 #[derive(Clone)]
@@ -17,26 +21,73 @@ impl ValueString {
         Self { string, bounds }
     }
 
-    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Result<Self, String> {
+    pub fn empty() -> Self {
+        Self::new(EMPTY_STRING.clone())
+    }
+
+    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Option<Self> {
         if string.get(bounds.clone()).is_some() {
-            Ok(Self { string, bounds })
+            Some(Self { string, bounds })
         } else {
-            Err("new_with_bounds: Invalid bounds".to_string())
+            None
         }
     }
 
-    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Result<Self, String> {
+    pub fn with_bounds(&self, mut new_bounds: Range<usize>) -> Option<Self> {
         new_bounds.end += self.bounds.start;
         new_bounds.start += self.bounds.start;
 
         if new_bounds.end <= self.bounds.end && self.string.get(new_bounds.clone()).is_some() {
-            Ok(Self {
+            Some(Self {
                 string: self.string.clone(),
                 bounds: new_bounds,
             })
         } else {
-            Err("with_bounds: Invalid bounds".to_string())
+            None
         }
+    }
+
+    pub fn with_grapheme_indices(&self, start: usize, end: Option<usize>) -> Option<Self> {
+        let end_unwrapped = end.unwrap_or_else(|| self.len());
+        debug_assert!(start <= end_unwrapped);
+
+        let mut result_start = None;
+        let mut result_end = None;
+
+        for (i, (grapheme_start, grapheme)) in self.grapheme_indices(true).enumerate() {
+            if i == start {
+                if start == end_unwrapped {
+                    // The start index has been validated, so return the empty string
+                    return Some(Self::empty());
+                }
+
+                result_start = Some(grapheme_start);
+
+                if end.is_none() {
+                    break;
+                }
+            }
+
+            if i == end_unwrapped - 1 {
+                // By checking against end - 1 (rather than waiting until the next iteration),
+                // we can allow for indexing 'one past the end' to get the last character.
+                // e.g. assert_eq 'xyz'[1..3], 'yz'
+                result_end = Some(grapheme_start + grapheme.len());
+                break;
+            }
+        }
+
+        let result_bounds = match (result_start, result_end) {
+            (Some(result_start), Some(result_end)) => result_start..result_end,
+            (Some(result_start), None) if end.is_none() => result_start..self.len(),
+            _ => return None,
+        };
+
+        self.with_bounds(result_bounds)
+    }
+
+    pub fn grapheme_count(&self) -> usize {
+        self.graphemes(true).count()
     }
 
     #[inline]
@@ -98,4 +149,8 @@ impl fmt::Display for ValueString {
             write!(f, "{}", self.as_str())
         }
     }
+}
+
+lazy_static! {
+    static ref EMPTY_STRING: Arc<str> = Arc::from("");
 }
