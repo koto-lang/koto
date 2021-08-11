@@ -24,9 +24,9 @@
       assert_eq ('{:-^8}'.format "ab"), '---ab---'
       ```
   - `\x` and `\u` escape codes are now supported.
-    - Borrowing Rust's syntax again, `\x` is followed by 2 hexidecimal digits
+    - Borrowing Rust's syntax again, `\x` is followed by 2 hexadecimal digits
       representing an ASCII character in the range `\x00` to `\x7f`.
-    - `\u` is followed by up to 6 hexidecimal digits surrounded by `{}` braces,
+    - `\u` is followed by up to 6 hexadecimal digits surrounded by `{}` braces,
       representing a unicode character.
     - e.g.
     ```koto
