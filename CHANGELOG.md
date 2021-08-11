@@ -19,22 +19,37 @@
     - Borrowing from Rust's syntax, minimum and maximum widths can be specified
       for formatted values.
       - e.g.
-      ```koto
-      assert_eq ('{:6.2}'.format 1 / 3), '  0.33'
-      assert_eq ('{:-^8}'.format "ab"), '---ab---'
-      ```
+        ```koto
+        assert_eq ('{:6.2}'.format 1 / 3), '  0.33'
+        assert_eq ('{:-^8}'.format "ab"), '---ab---'
+        ```
   - `\x` and `\u` escape codes are now supported.
-    - Borrowing Rust's syntax again, `\x` is followed by 2 hexidecimal digits
+    - Borrowing Rust's syntax again, `\x` is followed by 2 hexadecimal digits
       representing an ASCII character in the range `\x00` to `\x7f`.
-    - `\u` is followed by up to 6 hexidecimal digits surrounded by `{}` braces,
+    - `\u` is followed by up to 6 hexadecimal digits surrounded by `{}` braces,
       representing a unicode character.
     - e.g.
-    ```koto
-    assert_eq '\x4f\x5f\x6f', 'O_o'
-    assert_eq '\u{1f98b}', '🦋'
-    ```
+      ```koto
+      assert_eq '\x4f\x5f\x6f', 'O_o'
+      assert_eq '\u{1f98b}', '🦋'
+      ```
   - `string.bytes` has been added to provide access to a string's underlying
     byte sequence.
+  - `string.split` can now take a function as its matching argument.
+- New features for Iterators.
+  - `iterator.intersperse` intersperses adjacent values in the iterator's output
+    with copies of a provided value.
+    - e.g.
+      ```koto
+      assert_eq ("a", "b", "c").intersperse("-").to_string(), "a-b-c"
+      ```
+  - `iterator.last` returns the last value returned by the iterator.
+  - `iterator.to_string` produces a string from the iterator's output.
+    - e.g.
+      ```koto
+      assert_eq (1..=5).to_string(), "12345"
+      assert_eq ("x", "y". "z").to_string(), "xyz"
+      ```
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto

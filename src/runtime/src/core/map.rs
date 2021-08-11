@@ -109,9 +109,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
-                Ok(Output::ValuePair(key, _)) => Ok(Output::Value(key)),
-                Ok(_) => unreachable!(),
-                Err(e) => Err(e),
+                Output::ValuePair(key, _) => Output::Value(key),
+                error @ Output::Error(_) => error,
+                _ => unreachable!(),
             });
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))
@@ -231,9 +231,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
-                Ok(Output::ValuePair(_, value)) => Ok(Output::Value(value)),
-                Ok(_) => unreachable!(),
-                Err(e) => Err(e),
+                Output::ValuePair(_, value) => Output::Value(value),
+                error @ Output::Error(_) => error,
+                _ => unreachable!(),
             });
 
             Ok(Iterator(ValueIterator::make_external(move || iter.next())))

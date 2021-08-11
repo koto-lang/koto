@@ -1854,13 +1854,38 @@ x[3]";
         }
 
         #[test]
-        fn indexing() {
-            test_script(r#""héllö"[1]"#, string("é"));
-            test_script(r#""héllö"[1..3]"#, string("él"));
-            test_script(r#""héllö"[2..]"#, string("llö"));
-            test_script(r#""héllö"[..]"#, string("héllö"));
-            test_script(r#""héllö"[..=2]"#, string("hél"));
-            test_script(r#""héllö"[3..5]"#, string("lö"));
+        fn index_single_index() {
+            test_script("'héllö'[1]", string("é"));
+        }
+
+        #[test]
+        fn index_start_and_end() {
+            test_script("'héllö'[1..2]", string("é"));
+            test_script("'héllö'[1..3]", string("él"));
+            test_script("'héllö'[3..5]", string("lö"));
+        }
+
+        #[test]
+        fn index_from_start() {
+            test_script("'héllö'[2..]", string("llö"));
+            test_script("'héllö'[3..]", string("lö"));
+        }
+
+        #[test]
+        fn index_to_end() {
+            test_script("'héllö'[..1]", string("h"));
+            test_script("'héllö'[..=2]", string("hél"));
+        }
+
+        #[test]
+        fn index_whole_string() {
+            test_script("'héllö'[..]", string("héllö"));
+        }
+
+        #[test]
+        fn index_sub_string() {
+            test_script("'héllö'[3..][..]", string("lö"));
+            test_script("'héllö'[3..][1]", string("ö"));
         }
     }
 

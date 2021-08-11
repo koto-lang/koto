@@ -44,10 +44,6 @@ impl RuntimeError {
         }
     }
 
-    pub fn from_string(s: String) -> Self {
-        Self::new(RuntimeErrorType::StringError(s))
-    }
-
     pub fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
         Self::new(RuntimeErrorType::KotoError {
             thrown_value,
@@ -68,6 +64,18 @@ impl RuntimeError {
 
     pub fn extend_trace(&mut self, chunk: Arc<Chunk>, instruction: usize) {
         self.trace.push(ErrorFrame { chunk, instruction });
+    }
+}
+
+impl From<String> for RuntimeError {
+    fn from(error: String) -> Self {
+        Self::new(RuntimeErrorType::StringError(error))
+    }
+}
+
+impl From<&str> for RuntimeError {
+    fn from(error: &str) -> Self {
+        Self::new(RuntimeErrorType::StringError(error.into()))
     }
 }
 
@@ -137,14 +145,14 @@ macro_rules! make_runtime_error {
         {
             panic!($message);
         }
-        $crate::RuntimeError::from_string($message)
+        $crate::RuntimeError::from($message)
     }};
 }
 
 #[macro_export]
 macro_rules! runtime_error {
     ($error:expr) => {
-        Err($crate::make_runtime_error!(String::from($error)))
+        Err($crate::make_runtime_error!($error))
     };
     ($error:expr, $($y:expr),+ $(,)?) => {
         Err($crate::make_runtime_error!(format!($error, $($y),+)))

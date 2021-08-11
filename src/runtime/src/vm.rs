@@ -22,7 +22,6 @@ use {
             Arc,
         },
     },
-    unicode_segmentation::UnicodeSegmentation,
 };
 
 macro_rules! call_binary_op_or_else {
@@ -1058,11 +1057,10 @@ impl Vm {
         };
 
         match (result, result_register) {
-            (Some(Ok(_)), None) => {}
-            (Some(Ok(ValueIteratorOutput::Value(value))), Some(register)) => {
+            (Some(ValueIteratorOutput::Value(value)), Some(register)) => {
                 self.set_register(register, value)
             }
-            (Some(Ok(ValueIteratorOutput::ValuePair(first, second))), Some(register)) => {
+            (Some(ValueIteratorOutput::ValuePair(first, second)), Some(register)) => {
                 if output_is_temporary {
                     self.set_register(
                         register,
@@ -1077,7 +1075,12 @@ impl Vm {
                     self.set_register(register, Tuple(vec![first, second].into()));
                 }
             }
-            (Some(Err(error)), _) => return runtime_error!(error.to_string()),
+            (Some(ValueIteratorOutput::Error(error)), _) => {
+                return runtime_error!(error.to_string())
+            }
+            (Some(_), None) => {
+                // No result register, so the output can be discarded
+            }
             (None, _) => self.jump_ip(jump_offset),
         };
 
@@ -2024,7 +2027,7 @@ impl Vm {
                     list.data_mut()
                         .extend(ValueIterator::new(Iterable::Range(range)).map(
                             |iterator_output| match iterator_output {
-                                Ok(ValueIteratorOutput::Value(value)) => value,
+                                ValueIteratorOutput::Value(value) => value,
                                 _ => unreachable!(),
                             },
                         ));
@@ -2246,102 +2249,49 @@ impl Vm {
             (Str(s), Number(n)) => {
                 let index = self.validate_index(n, None)?;
 
-                if let Some(result) = s.graphemes(true).nth(index) {
-                    self.set_register(result_register, Str(result.into()));
+                if let Some(result) = s.with_grapheme_indices(index, Some(index + 1)) {
+                    self.set_register(result_register, Str(result));
                 } else {
                     return runtime_error!(
                         "Index out of bounds - index: {}, size: {}",
                         index,
-                        s.graphemes(true).count()
+                        s.grapheme_count()
                     );
                 }
             }
             (Str(s), Range(IntRange { start, end })) => {
                 let (start, end) = self.validate_int_range(start, end, None)?;
 
-                let result = if start == end {
-                    ""
+                if let Some(result) = s.with_grapheme_indices(start, Some(end)) {
+                    self.set_register(result_register, Str(result));
                 } else {
-                    let mut result_start = None;
-                    let mut result_end = None;
-                    let mut grapheme_count = 0;
-                    for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
-                        grapheme_count += 1;
-                        if i == start {
-                            result_start = Some(grapheme_start);
-                        } else if i == end - 1 {
-                            // By checking against end - 1, we can allow for indexing 'one past the
-                            // end' to get the last character.
-                            result_end = Some(grapheme_start + grapheme.len());
-                            break;
-                        }
-                    }
-                    match (result_start, result_end) {
-                        (Some(result_start), Some(result_end)) => &s[result_start..result_end],
-                        _ => {
-                            return runtime_error!(
-                                "Index out of bounds for string - start: {}, end {}, size: {}",
-                                start,
-                                end,
-                                grapheme_count
-                            );
-                        }
-                    }
-                };
-
-                self.set_register(result_register, Str(result.into()))
+                    return runtime_error!(
+                        "Index out of bounds for string - start: {}, end {}, size: {}",
+                        start,
+                        end,
+                        s.grapheme_count()
+                    );
+                }
             }
             (Str(s), IndexRange(value::IndexRange { start, end })) => {
-                let end_unwrapped = end.unwrap_or_else(|| s.len());
-                if start > end_unwrapped {
+                if let Some(end_unwrapped) = end {
+                    self.validate_int_range(start as isize, end_unwrapped as isize, None)?;
+                }
+
+                if let Some(result) = s.with_grapheme_indices(start, end) {
+                    self.set_register(result_register, Str(result));
+                } else {
                     return runtime_error!(
-                        "Indexing with a descending range isn't supported, start: {}{}",
+                        "Index out of bounds for string - start: {}{}, size: {}",
                         start,
-                        if end.is_some() {
+                        if let Some(end_unwrapped) = end {
                             format!(", {}", end_unwrapped)
                         } else {
                             "".to_string()
                         },
+                        s.grapheme_count()
                     );
                 }
-
-                let result = if start == end_unwrapped {
-                    ""
-                } else {
-                    let mut result_start = None;
-                    let mut result_end = None;
-                    let mut grapheme_count = 0;
-                    for (i, (grapheme_start, grapheme)) in s.grapheme_indices(true).enumerate() {
-                        grapheme_count += 1;
-                        if i == start {
-                            result_start = Some(grapheme_start);
-                            if end.is_none() {
-                                break;
-                            }
-                        } else if i == end_unwrapped - 1 {
-                            result_end = Some(grapheme_start + grapheme.len());
-                            break;
-                        }
-                    }
-                    match (result_start, result_end) {
-                        (Some(result_start), Some(result_end)) => &s[result_start..result_end],
-                        (Some(result_start), None) if end.is_none() => &s[result_start..],
-                        _ => {
-                            return runtime_error!(
-                                "Index out of bounds for string - start: {}{}, size: {}",
-                                start,
-                                if end.is_some() {
-                                    format!(", {}", end_unwrapped)
-                                } else {
-                                    "".to_string()
-                                },
-                                grapheme_count
-                            );
-                        }
-                    }
-                };
-
-                self.set_register(result_register, Str(result.into()))
             }
             (Num2(n), Number(i)) => {
                 let i = usize::from(i);

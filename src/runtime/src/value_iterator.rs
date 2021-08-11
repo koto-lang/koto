@@ -1,5 +1,7 @@
 use {
-    crate::{runtime_error, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
+    crate::{
+        make_runtime_error, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
+    },
     std::{
         fmt,
         sync::{Arc, Mutex},
@@ -22,9 +24,8 @@ impl IntRange {
 pub enum ValueIteratorOutput {
     Value(Value),
     ValuePair(Value, Value),
+    Error(RuntimeError),
 }
-
-pub type ValueIteratorResult = Result<ValueIteratorOutput, RuntimeError>;
 
 #[derive(Debug)]
 pub enum Iterable {
@@ -38,11 +39,11 @@ pub enum Iterable {
 }
 
 pub struct ExternalIterator(
-    Box<dyn FnMut() -> Option<ValueIteratorResult> + Send + Sync + 'static>,
+    Box<dyn FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static>,
 );
 
 impl Iterator for ExternalIterator {
-    type Item = ValueIteratorResult;
+    type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
         (self.0)()
@@ -68,7 +69,7 @@ impl ValueIteratorInternals {
 }
 
 impl Iterator for ValueIteratorInternals {
-    type Item = ValueIteratorResult;
+    type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.iterable {
@@ -79,7 +80,7 @@ impl Iterator for ValueIteratorInternals {
                     let result = range.start + self.index as isize;
                     if result < range.end {
                         self.index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
+                        Some(ValueIteratorOutput::Value(Number(result.into())))
                     } else {
                         None
                     }
@@ -87,7 +88,7 @@ impl Iterator for ValueIteratorInternals {
                     let result = range.start - self.index as isize;
                     if result > range.end {
                         self.index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(result.into()))))
+                        Some(ValueIteratorOutput::Value(Number(result.into())))
                     } else {
                         None
                     }
@@ -97,7 +98,7 @@ impl Iterator for ValueIteratorInternals {
                 let result = list
                     .data()
                     .get(self.index)
-                    .map(|value| Ok(ValueIteratorOutput::Value(value.clone())));
+                    .map(|value| ValueIteratorOutput::Value(value.clone()));
                 self.index += 1;
                 result
             }
@@ -105,16 +106,13 @@ impl Iterator for ValueIteratorInternals {
                 let result = tuple
                     .data()
                     .get(self.index)
-                    .map(|value| Ok(ValueIteratorOutput::Value(value.clone())));
+                    .map(|value| ValueIteratorOutput::Value(value.clone()));
                 self.index += 1;
                 result
             }
             Iterable::Map(map) => {
                 let result = map.data().get_index(self.index).map(|(key, value)| {
-                    Ok(ValueIteratorOutput::ValuePair(
-                        key.value().clone(),
-                        value.clone(),
-                    ))
+                    ValueIteratorOutput::ValuePair(key.value().clone(), value.clone())
                 });
                 self.index += 1;
                 result
@@ -130,7 +128,7 @@ impl Iterator for ValueIteratorInternals {
                             .with_bounds(self.index..self.index + grapheme_end)
                             .unwrap(); // Some returned from next_boundary implies valid bounds
                         self.index += grapheme_end;
-                        Some(Ok(ValueIteratorOutput::Value(Value::Str(result))))
+                        Some(ValueIteratorOutput::Value(Value::Str(result)))
                     }
                     None => None,
                 }
@@ -140,8 +138,8 @@ impl Iterator for ValueIteratorInternals {
                 Ok(Value::TemporaryTuple(_)) => {
                     unreachable!("Yield shouldn't produce temporary tuples")
                 }
-                Ok(result) => Some(Ok(ValueIteratorOutput::Value(result))),
-                Err(error) => Some(Err(error)),
+                Ok(result) => Some(ValueIteratorOutput::Value(result)),
+                Err(error) => Some(ValueIteratorOutput::Error(error)),
             },
             Iterable::External(external_iterator) => external_iterator.next(),
         }
@@ -181,7 +179,7 @@ impl ValueIterator {
     }
 
     pub fn make_external(
-        external: impl FnMut() -> Option<ValueIteratorResult> + Send + Sync + 'static,
+        external: impl FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static,
     ) -> Self {
         Self::new(Iterable::External(ExternalIterator(Box::new(external))))
     }
@@ -189,22 +187,26 @@ impl ValueIterator {
     // For internal functions that want to perform repeated iterations with a single lock
     pub fn lock_internals(
         &mut self,
-        mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorResult>,
-    ) -> Option<ValueIteratorResult> {
+        mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorOutput>,
+    ) -> Option<ValueIteratorOutput> {
         match self.0.lock() {
             Ok(mut internals) => f(&mut internals),
-            Err(_) => Some(runtime_error!("Failed to access iterator internals")),
+            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
+                "Failed to access iterator internals"
+            ))),
         }
     }
 }
 
 impl Iterator for ValueIterator {
-    type Item = ValueIteratorResult;
+    type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.0.lock() {
             Ok(mut internals) => internals.next(),
-            Err(_) => Some(runtime_error!("Failed to access iterator internals")),
+            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
+                "Failed to access iterator internals"
+            ))),
         }
     }
 }

@@ -2,7 +2,7 @@ mod format;
 
 use {
     crate::{
-        runtime_error,
+        make_runtime_error, runtime_error,
         value_iterator::{ValueIterator, ValueIteratorOutput},
         Value, ValueMap,
     },
@@ -23,7 +23,7 @@ pub fn make_module() -> ValueMap {
                 move || match s.as_bytes().get(index) {
                     Some(byte) => {
                         index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(byte.into()))))
+                        Some(ValueIteratorOutput::Value(Number(byte.into())))
                     }
                     None => None,
                 }
@@ -97,7 +97,7 @@ pub fn make_module() -> ValueMap {
 
                     let result = Str(input.with_bounds(start..end).unwrap());
                     start = end + 1;
-                    Some(Ok(ValueIteratorOutput::Value(result)))
+                    Some(ValueIteratorOutput::Value(result))
                 } else {
                     None
                 }
@@ -134,47 +134,99 @@ pub fn make_module() -> ValueMap {
         [Str(input), Number(from)] => {
             let bounds = usize::from(*from)..input.len();
             let result = match input.with_bounds(bounds) {
-                Ok(result) => Str(result),
-                Err(_) => Empty,
+                Some(result) => Str(result),
+                None => Empty,
             };
             Ok(result)
         }
         [Str(input), Number(from), Number(to)] => {
             let bounds = usize::from(*from)..usize::from(*to);
             let result = match input.with_bounds(bounds) {
-                Ok(result) => Str(result),
-                Err(_) => Empty,
+                Some(result) => Str(result),
+                None => Empty,
             };
             Ok(result)
         }
         _ => runtime_error!("string.slice: Expected a string and slice index as arguments"),
     });
 
-    result.add_fn("split", |vm, args| match vm.get_args(args) {
-        [Str(input), Str(pattern)] => {
-            let input = input.clone();
-            let pattern = pattern.clone();
+    result.add_fn("split", |vm, args| {
+        use ValueIteratorOutput as Output;
 
-            let mut start = 0;
-            let pattern_len = pattern.len();
-            let iterator = ValueIterator::make_external(move || {
-                if start <= input.len() {
-                    let end = match input[start..].find(pattern.as_str()) {
-                        Some(end) => start + end,
-                        None => input.len(),
-                    };
+        let iterator = match vm.get_args(args) {
+            [Str(input), Str(pattern)] => {
+                let input = input.clone();
+                let pattern = pattern.clone();
+                let mut start = 0;
+                let pattern_len = pattern.len();
+                ValueIterator::make_external(move || {
+                    if start <= input.len() {
+                        let end = match input[start..].find(pattern.as_str()) {
+                            Some(end) => start + end,
+                            None => input.len(),
+                        };
 
-                    let result = Str(input.with_bounds(start..end).unwrap());
-                    start = end + pattern_len;
-                    Some(Ok(ValueIteratorOutput::Value(result)))
-                } else {
-                    None
-                }
-            });
+                        let output = Str(input.with_bounds(start..end).unwrap());
+                        start = end + pattern_len;
+                        Some(Output::Value(output))
+                    } else {
+                        None
+                    }
+                })
+            }
+            [Str(input), pattern] if pattern.is_callable() => {
+                let input = input.clone();
+                let pattern = pattern.clone();
+                let mut vm = vm.spawn_shared_vm();
+                let mut start = 0;
+                ValueIterator::make_external(move || {
+                    if start < input.len() {
+                        let mut end = None;
+                        let mut grapheme_len = 0;
 
-            Ok(Iterator(iterator))
-        }
-        _ => runtime_error!("string.split: Expected two strings as arguments"),
+                        for (grapheme_index, grapheme) in input[start..].grapheme_indices(true) {
+                            grapheme_len = grapheme.len();
+                            let grapheme_start = start + grapheme_index;
+                            let grapheme_end = grapheme_start + grapheme_len;
+                            let x = input.with_bounds(grapheme_start..grapheme_end).unwrap();
+                            match vm.run_function(pattern.clone(), &[Str(x)]) {
+                                Ok(Bool(split_match)) => {
+                                    if split_match {
+                                        end = Some(grapheme_start);
+                                        break;
+                                    }
+                                }
+                                Ok(unexpected) => {
+                                    return Some(Output::Error(make_runtime_error!(format!(
+                                        "string.split: Expected a bool from match function, \
+                                            got '{}'",
+                                        unexpected.to_string()
+                                    ))));
+                                }
+                                Err(error) => {
+                                    return Some(Output::Error(error.with_prefix("string.split")))
+                                }
+                            }
+                        }
+
+                        let end = end.unwrap_or_else(|| input.len());
+                        let output = Str(input.with_bounds(start..end).unwrap());
+                        start = end + grapheme_len;
+
+                        Some(Output::Value(output))
+                    } else {
+                        None
+                    }
+                })
+            }
+            _ => {
+                return runtime_error!(
+                    "string.split: Expected a string and match pattern as arguments"
+                )
+            }
+        };
+
+        Ok(Iterator(iterator))
     });
 
     result.add_fn("starts_with", |vm, args| match vm.get_args(args) {

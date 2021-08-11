@@ -54,7 +54,9 @@ for x in (2, 3, 4).each |n| n * 2
 - [each](#each)
 - [enumerate](#enumerate)
 - [fold](#fold)
+- [intersperse](#intersperse)
 - [keep](#keep)
+- [last](#last)
 - [max](#max)
 - [min](#min)
 - [min_max](#min_max)
@@ -66,6 +68,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [take](#take)
 - [to_list](#to_list)
 - [to_map](#to_map)
+- [to_string](#to_string)
 - [to_tuple](#to_tuple)
 - [zip](#zip)
 
@@ -218,6 +221,31 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 - [`iterator.product`](#product)
 - [`iterator.sum`](#sum)
 
+## intersperse
+
+`|Iterable, Value| -> Iterator`
+
+Returns an iterator that yields a copy of the provided value between each
+adjacent pair of output values.
+
+`|Iterable, || -> Value| -> Iterator`
+
+Returns an iterator that yields the result of calling the provided function
+between each adjacent pair of output values.
+
+### Example
+
+```koto
+("a", "b", "c").intersperse("-").to_string()
+# "a-b-c"
+
+separators = (1, 2, 3).iter()
+("a", "b", "c")
+  .intersperse || separators.next()
+  .to_tuple(),
+# ("a", 1, "b", 2, "c")
+```
+
 ## keep
 
 `|Iterable, |Value| -> Bool| -> Iterator`
@@ -233,6 +261,22 @@ discarded.
 ```koto
 (0..10).keep(|x| x % 2 == 0).to_tuple()
 # (0, 2, 4, 6, 8)
+```
+
+## last
+
+`|Iterable| -> Value`
+
+Consumes the iterator, returning the last yielded value.
+
+### Example
+
+```koto
+(1..100).take(5).last()
+# 5
+
+(0..0).last()
+# ()
 ```
 
 ## max
@@ -429,6 +473,7 @@ Consumes all values coming from the iterator and places them in a list.
 ### See also
 
 - [`iterator.to_map`](#to_map)
+- [`iterator.to_string`](#to_string)
 - [`iterator.to_tuple`](#to_tuple)
 
 ## to_map
@@ -458,6 +503,30 @@ key, with `()` as the entry's value.
 ### See also
 
 - [`iterator.to_list`](#to_list)
+- [`iterator.to_string`](#to_string)
+- [`iterator.to_tuple`](#to_tuple)
+
+## to_string
+
+`|Iterable| -> String`
+
+Consumes all values coming from the iterator and produces a string containing
+the formatted values.
+
+### Example
+
+```koto
+("x", "y", "z").to_string()
+# "xyz"
+
+(1, 2, 3).intersperse("-").to_string()
+# "1-2-3"
+```
+
+### See also
+
+- [`iterator.to_list`](#to_list)
+- [`iterator.to_map`](#to_map)
 - [`iterator.to_tuple`](#to_tuple)
 
 ## to_tuple
@@ -477,6 +546,7 @@ Consumes all values coming from the iterator and places them in a tuple.
 
 - [`iterator.to_list`](#to_list)
 - [`iterator.to_map`](#to_map)
+- [`iterator.to_string`](#to_string)
 
 ## zip
 
