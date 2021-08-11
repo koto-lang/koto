@@ -34,7 +34,7 @@ pub fn make_module() -> ValueMap {
                 }
             };
 
-            Ok(File::make_external_value(temp_file, &path, true))
+            Ok(File::with_file(temp_file, &path, true))
         }
     });
 

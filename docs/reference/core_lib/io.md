@@ -9,6 +9,9 @@ A collection of utilities for working with the local filesystem.
 - [open](#open)
 - [read_to_string](#read_to_string)
 - [remove_file](#remove_file)
+- [stderr](#stderr)
+- [stdin](#stdin)
+- [stdout](#stdout)
 - [temp_dir](#temp_dir)
 - [File](#file)
 - [File.path](#filepath)
@@ -19,9 +22,9 @@ A collection of utilities for working with the local filesystem.
 
 ## create
 
-`|String| -> Map`
+`|String| -> File`
 
-Returns an empty `File` map at the provided path.
+Returns an empty `File` at the provided path.
 If the file already exists it will be truncated.
 
 ### Errors
@@ -57,9 +60,9 @@ io.exists path
 
 ## open
 
-`|String| -> Map`
+`|String| -> File`
 
-Opens the file at the given path, and returns a corresponding `File` map.
+Opens the file at the given path, and returns a corresponding `File`.
 
 ### Errors
 
@@ -117,6 +120,58 @@ io.remove_file path
 io.exists path
 # false
 ```
+
+## stderr
+
+`|| -> File`
+
+Returns the standard error output of the current process as a file.
+
+### Example
+
+```koto
+io.stderr().write_line "An error occurred!"
+```
+
+### See Also
+
+- [`io.stdin`](#stdin)
+- [`io.stdout`](#stdout)
+
+## stdin
+
+`|| -> File`
+
+Returns the standard input of the current process as a file.
+
+### Example
+
+```koto
+io.stdin().read_to_string()
+# "..."
+```
+
+### See Also
+
+- [`io.stderr`](#stderr)
+- [`io.stdout`](#stdout)
+
+## stdout
+
+`|| -> File`
+
+Returns the standard output of the current process as a file.
+
+### Example
+
+```koto
+io.stdout().write_line "Hello, World!"
+```
+
+### See Also
+
+- [`io.stderr`](#stderr)
+- [`io.stdin`](#stdin)
 
 ## temp_dir
 

@@ -50,6 +50,8 @@
       assert_eq (1..=5).to_string(), "12345"
       assert_eq ("x", "y". "z").to_string(), "xyz"
       ```
+- I/O improvements.
+  - Added `io.stdin`, `io.stdout`, and `io.stderr`.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto
