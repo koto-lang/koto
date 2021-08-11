@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        runtime_error, ExternalData, ExternalValue, MetaMap, RwLock, Value, ValueIterator,
-        ValueIteratorOutput, ValueMap,
+        make_runtime_error, runtime_error, ExternalData, ExternalValue, MetaMap, RwLock, Value,
+        ValueIterator, ValueIteratorOutput, ValueMap,
     },
     lazy_static::lazy_static,
     std::{fmt, sync::Arc},
@@ -56,9 +56,11 @@ lazy_static! {
                                 Some(word) => Str(word.as_ref().into()),
                                 None => Empty,
                             };
-                            Some(Ok(ValueIteratorOutput::Value(result)))
+                            Some(ValueIteratorOutput::Value(result))
                         }
-                        None => Some(runtime_error!("poetry.iter - Unexpected internal data type")),
+                        None => Some(ValueIteratorOutput::Error(
+                            make_runtime_error!("poetry.iter: Unexpected internal data type")
+                        )),
                     }
                 };
 

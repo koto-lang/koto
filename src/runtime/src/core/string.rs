@@ -2,7 +2,7 @@ mod format;
 
 use {
     crate::{
-        runtime_error,
+        make_runtime_error, runtime_error,
         value_iterator::{ValueIterator, ValueIteratorOutput},
         Value, ValueMap,
     },
@@ -23,7 +23,7 @@ pub fn make_module() -> ValueMap {
                 move || match s.as_bytes().get(index) {
                     Some(byte) => {
                         index += 1;
-                        Some(Ok(ValueIteratorOutput::Value(Number(byte.into()))))
+                        Some(ValueIteratorOutput::Value(Number(byte.into())))
                     }
                     None => None,
                 }
@@ -97,7 +97,7 @@ pub fn make_module() -> ValueMap {
 
                     let result = Str(input.with_bounds(start..end).unwrap());
                     start = end + 1;
-                    Some(Ok(ValueIteratorOutput::Value(result)))
+                    Some(ValueIteratorOutput::Value(result))
                 } else {
                     None
                 }
@@ -151,6 +151,8 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("split", |vm, args| {
+        use ValueIteratorOutput as Output;
+
         let iterator = match vm.get_args(args) {
             [Str(input), Str(pattern)] => {
                 let input = input.clone();
@@ -166,7 +168,7 @@ pub fn make_module() -> ValueMap {
 
                         let output = Str(input.with_bounds(start..end).unwrap());
                         start = end + pattern_len;
-                        Some(Ok(ValueIteratorOutput::Value(output)))
+                        Some(Output::Value(output))
                     } else {
                         None
                     }
@@ -195,13 +197,15 @@ pub fn make_module() -> ValueMap {
                                     }
                                 }
                                 Ok(unexpected) => {
-                                    return Some(runtime_error!(
+                                    return Some(Output::Error(make_runtime_error!(format!(
                                         "string.split: Expected a bool from match function, \
-                                         got '{}'",
+                                            got '{}'",
                                         unexpected.to_string()
-                                    ));
+                                    ))));
                                 }
-                                Err(error) => return Some(Err(error.with_prefix("string.split"))),
+                                Err(error) => {
+                                    return Some(Output::Error(error.with_prefix("string.split")))
+                                }
                             }
                         }
 
@@ -209,7 +213,7 @@ pub fn make_module() -> ValueMap {
                         let output = Str(input.with_bounds(start..end).unwrap());
                         start = end + grapheme_len;
 
-                        Some(Ok(ValueIteratorOutput::Value(output)))
+                        Some(Output::Value(output))
                     } else {
                         None
                     }

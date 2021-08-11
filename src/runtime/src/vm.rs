@@ -1057,11 +1057,10 @@ impl Vm {
         };
 
         match (result, result_register) {
-            (Some(Ok(_)), None) => {}
-            (Some(Ok(ValueIteratorOutput::Value(value))), Some(register)) => {
+            (Some(ValueIteratorOutput::Value(value)), Some(register)) => {
                 self.set_register(register, value)
             }
-            (Some(Ok(ValueIteratorOutput::ValuePair(first, second))), Some(register)) => {
+            (Some(ValueIteratorOutput::ValuePair(first, second)), Some(register)) => {
                 if output_is_temporary {
                     self.set_register(
                         register,
@@ -1076,7 +1075,12 @@ impl Vm {
                     self.set_register(register, Tuple(vec![first, second].into()));
                 }
             }
-            (Some(Err(error)), _) => return runtime_error!(error.to_string()),
+            (Some(ValueIteratorOutput::Error(error)), _) => {
+                return runtime_error!(error.to_string())
+            }
+            (Some(_), None) => {
+                // No result register, so the output can be discarded
+            }
             (None, _) => self.jump_ip(jump_offset),
         };
 
@@ -2023,7 +2027,7 @@ impl Vm {
                     list.data_mut()
                         .extend(ValueIterator::new(Iterable::Range(range)).map(
                             |iterator_output| match iterator_output {
-                                Ok(ValueIteratorOutput::Value(value)) => value,
+                                ValueIteratorOutput::Value(value) => value,
                                 _ => unreachable!(),
                             },
                         ));
