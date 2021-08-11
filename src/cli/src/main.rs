@@ -4,7 +4,10 @@ mod repl;
 use {
     koto::{bytecode::Chunk, Koto, KotoSettings},
     repl::{Repl, ReplSettings},
-    std::fs,
+    std::{
+        fs,
+        io::{self, Read},
+    },
 };
 
 #[cfg(all(jemalloc, not(target_env = "msvc")))]
@@ -108,8 +111,24 @@ fn main() {
         ..Default::default()
     };
 
-    if let Some(script_path) = args.script {
+    let mut stdin = io::stdin();
+
+    let script = if let Some(script_path) = &args.script {
+        Some(fs::read_to_string(script_path).expect("Unable to load script"))
+    } else if termion::is_tty(&stdin) || std::env::var_os("KOTO_FORCE_REPL_MODE").is_some() {
+        // Forcing REPL mode is useful for testing the behaviour of the REPL
+        None
+    } else {
+        let mut script = String::new();
+        stdin
+            .read_to_string(&mut script)
+            .expect("Failed to read script from standard input");
+        Some(script)
+    };
+
+    if let Some(script) = script {
         let mut koto = Koto::with_settings(koto_settings);
+        koto.set_script_path(args.script.map(|path| path.into()));
 
         let mut prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());
@@ -117,8 +136,6 @@ fn main() {
         prelude.add_map("tempfile", koto_tempfile::make_module());
         prelude.add_map("toml", koto_toml::make_module());
 
-        let script = fs::read_to_string(&script_path).expect("Unable to load script");
-        koto.set_script_path(Some(script_path.into()));
         match koto.compile(&script) {
             Ok(chunk) => {
                 if args.show_bytecode {

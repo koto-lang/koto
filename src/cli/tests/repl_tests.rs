@@ -7,6 +7,7 @@ use std::{
 
 fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
     let mut process = Command::new(env!("CARGO_BIN_EXE_koto"))
+        .env("KOTO_FORCE_REPL_MODE", "")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
