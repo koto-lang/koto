@@ -87,7 +87,7 @@ impl Help {
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
-                            [] => format!("  No matches for '{}' not found.", search),
+                            [] => format!("  No matches for '{}' found.", search),
                             [(only_match, _)] => self.get_help(Some(only_match)),
                             _ => {
                                 let mut help = String::new();
