@@ -112,6 +112,11 @@ zzz
     assert_eq "O_O".split("O").to_tuple(), ("", "_", "")
     assert_eq "a - b - c".split(" - ").to_tuple(), ("a", "b", "c")
 
+    # split can also take a function that returns true when a character matches
+    assert_eq
+      "a-b_c-d".split(|c| c == "-" or c == "_").to_tuple(),
+      ("a", "b", "c", "d")
+
   @test starts_with: ||
     assert "a,b,c".starts_with("")
     assert "a,b,c".starts_with("a,")

@@ -338,6 +338,13 @@ Invalid start indices return Empty.
 Returns an iterator that yields strings resulting from splitting the first
 string wherever the second string is encountered.
 
+`|String, |String| -> Bool| -> Iterator`
+
+Returns an iterator that yields strings resulting from splitting the input
+string based on the result of calling a function. The function will be called
+for each grapheme in the input string, and splits will occur when the function
+returns true.
+
 ### Example
 
 ```koto
@@ -346,6 +353,9 @@ string wherever the second string is encountered.
 
 "O_O".split("O").to_tuple()
 # ("", "_", "")
+
+"x!y?z".split(|c| c == "!" or c == "?").to_tuple()
+# ("x", "y", "z")
 ```
 
 ## starts_with

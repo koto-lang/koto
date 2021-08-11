@@ -35,6 +35,7 @@
     ```
   - `string.bytes` has been added to provide access to a string's underlying
     byte sequence.
+  - `string.split` can now take a function as its matching argument.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto
