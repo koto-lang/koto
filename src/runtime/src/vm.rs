@@ -2455,7 +2455,7 @@ impl Vm {
             }};
         }
 
-        match accessed_value {
+        match &accessed_value {
             Map(map) => match map.data().get_with_string(key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
@@ -2480,7 +2480,11 @@ impl Vm {
                     self.set_register(result_register, value.clone());
                 }
                 None => {
-                    return runtime_error!("RunAccess: Missing access operator for external value");
+                    return runtime_error!(
+                        "'{}' not found in '{}'",
+                        key_string,
+                        accessed_value.type_as_string()
+                    );
                 }
             },
             unexpected => {
