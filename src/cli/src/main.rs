@@ -88,22 +88,29 @@ fn parse_arguments() -> Result<KotoArgs, String> {
 }
 
 fn main() {
+    std::process::exit(match run() {
+        Ok(_) => 0,
+        Err(_) => 1,
+    })
+}
+
+fn run() -> Result<(), ()> {
     let args = match parse_arguments() {
         Ok(args) => args,
         Err(error) => {
             println!("{}\n\n{}", help_string(), error);
-            return;
+            return Err(());
         }
     };
 
     if args.help {
         println!("{}", help_string());
-        return;
+        return Ok(());
     }
 
     if args.version {
         println!("{}", version_string());
-        return;
+        return Ok(());
     }
 
     let koto_settings = KotoSettings {
@@ -152,10 +159,16 @@ fn main() {
                 }
                 match koto.run_with_args(&args.script_args) {
                     Ok(_) => {}
-                    Err(e) => eprintln!("Error: {}", e),
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        return Err(());
+                    }
                 }
             }
-            Err(e) => eprintln!("Error: {}", e),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                return Err(());
+            }
         }
     } else {
         let mut repl = Repl::with_settings(
@@ -167,4 +180,6 @@ fn main() {
         );
         repl.run();
     }
+
+    Ok(())
 }
