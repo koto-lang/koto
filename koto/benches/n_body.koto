@@ -124,8 +124,8 @@ export main = ||
   quiet = (koto.args.get 1) == "quiet"
 
   if not quiet
-    "{}".print initial_energy # TODO format to 9dp
-    "{}".print end_energy # TODO format to 9dp
+    "{:.9}".print initial_energy
+    "{:.9}".print end_energy
 
 export @tests =
   @test nbody_100: ||
