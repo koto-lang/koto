@@ -37,6 +37,12 @@
     byte sequence.
   - `string.split` can now take a function as its matching argument.
 - New features for Iterators.
+  - `iterator.intersperse` intersperses adjacent values in the iterator's output
+    with copies of a provided value.
+    - e.g.
+      ```koto
+      assert_eq ("a", "b", "c").intersperse("-").to_string(), "a-b-c"
+      ```
   - `iterator.last` returns the last value returned by the iterator.
   - `iterator.to_string` produces a string from the iterator's output.
     - e.g.

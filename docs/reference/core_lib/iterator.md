@@ -54,6 +54,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [each](#each)
 - [enumerate](#enumerate)
 - [fold](#fold)
+- [intersperse](#intersperse)
 - [keep](#keep)
 - [last](#last)
 - [max](#max)
@@ -219,6 +220,31 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 
 - [`iterator.product`](#product)
 - [`iterator.sum`](#sum)
+
+## intersperse
+
+`|Iterable, Value| -> Iterator`
+
+Returns an iterator that yields a copy of the provided value between each
+adjacent pair of output values.
+
+`|Iterable, || -> Value| -> Iterator`
+
+Returns an iterator that yields the result of calling the provided function
+between each adjacent pair of output values.
+
+### Example
+
+```koto
+("a", "b", "c").intersperse("-").to_string()
+# "a-b-c"
+
+separators = (1, 2, 3).iter()
+("a", "b", "c")
+  .intersperse || separators.next()
+  .to_tuple(),
+# ("a", 1, "b", 2, "c")
+```
 
 ## keep
 
