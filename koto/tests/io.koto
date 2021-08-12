@@ -1,16 +1,30 @@
 from test import assert, assert_eq, assert_ne
 
+test_path = koto.script_dir + "/data/test.txt"
+
+test_contents = "\
+aaa
+bbb
+ccc
+"
 
 export @tests =
-  @test reading_a_file: ||
-    path = koto.script_dir + "/data/test.txt"
-    assert io.exists path
-
-    contents = io.read_to_string path
-    assert_eq contents.lines().to_tuple(), ("aaa", "bbb", "ccc")
-
-    file = io.open path
-    assert_eq contents, file.read_to_string()
-
   @test current_dir: ||
     assert_ne koto.current_dir(), ""
+
+  @test exists: ||
+    assert io.exists test_path
+
+  @test io_read_to_string: ||
+    assert_eq (io.read_to_string test_path), test_contents
+
+  @test file_path: ||
+    file = io.open test_path
+    assert_eq file.path(), test_path
+
+  @test file_read_to_string: ||
+    file = io.open test_path
+    assert_eq file.read_to_string(), test_contents
+
+  @test temp_dir: ||
+    assert_ne io.temp_dir(), ""
