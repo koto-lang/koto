@@ -15,6 +15,7 @@ A collection of utilities for working with the local filesystem.
 - [stdout](#stdout)
 - [temp_dir](#temp_dir)
 - [File](#file)
+- [File.flush](#fileflush)
 - [File.path](#filepath)
 - [File.read_to_string](#fileread_to_string)
 - [File.seek](#fileseek)
@@ -195,6 +196,17 @@ This defers to Rust's `std::env::temp_dir`, for details see
 ## File
 
 A map that wraps a file handle, returned from functions in `io`.
+
+## File.flush
+
+`|File| -> ()`
+
+Ensures that any buffered changes to the file have been written.
+
+### See Also
+
+- [`file.write`](#filewrite)
+- [`file.write_line`](#filewrite_line)
 
 ## File.path
 

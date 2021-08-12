@@ -1,5 +1,8 @@
+mod buffered_file;
+
 use {
     crate::{runtime_error, ExternalData, ExternalValue, MetaMap, RuntimeError, Value, ValueMap},
+    buffered_file::BufferedFile,
     lazy_static::lazy_static,
     parking_lot::RwLock,
     std::{
@@ -108,9 +111,14 @@ pub fn make_module() -> ValueMap {
 
 lazy_static! {
     static ref FILE_META: Arc<RwLock<MetaMap>> = {
-        use Value::{Number, Str};
+        use Value::{Empty, Number, Str};
 
         let mut meta = MetaMap::with_type_name("File");
+
+        meta.add_named_instance_fn_mut("flush", |file: &mut File, _, _| match file.flush() {
+            Ok(_) => Ok(Empty),
+            Err(e) => Err(e.with_prefix("File.flush")),
+        });
 
         meta.add_named_instance_fn("path", |file: &File, _, _| Ok(Str(file.path().into())));
 
@@ -175,11 +183,7 @@ pub enum File {
 impl File {
     pub fn with_file(file: fs::File, path: &Path, temporary: bool) -> Value {
         let result = ExternalValue::with_shared_meta_map(
-            File::System(SystemFile {
-                file,
-                path: path.to_path_buf(),
-                temporary,
-            }),
+            File::System(SystemFile::new(file, path.to_path_buf(), temporary)),
             FILE_META.clone(),
         );
         Value::ExternalValue(result)
@@ -201,6 +205,13 @@ impl File {
         let stdout = File::Stdout(io::stdout());
         let result = ExternalValue::with_shared_meta_map(stdout, FILE_META.clone());
         Value::ExternalValue(result)
+    }
+
+    pub fn flush(&mut self) -> Result<(), RuntimeError> {
+        match self {
+            File::System(file) => file.file.flush().map_err(|e| e.to_string().into()),
+            _ => runtime_error!("seek unsupported for this file type"),
+        }
     }
 
     pub fn path(&self) -> String {
@@ -257,13 +268,21 @@ impl fmt::Display for File {
 
 #[derive(Debug)]
 pub struct SystemFile {
-    pub file: fs::File,
+    pub file: BufferedFile,
     pub path: PathBuf,
     /// When set to true, the file will be removed when Dropped
     pub temporary: bool,
 }
 
 impl SystemFile {
+    pub fn new(file: fs::File, path: PathBuf, temporary: bool) -> Self {
+        Self {
+            file: BufferedFile::new(file),
+            path,
+            temporary,
+        }
+    }
+
     pub fn read_to_string(&mut self) -> Result<String, RuntimeError> {
         match self.file.seek(SeekFrom::Start(0)) {
             Ok(_) => {

@@ -10,6 +10,9 @@ fmt:
 koto_tests:
   cargo watch -x "test --test koto_tests"
 
+lib_tests:
+  cargo watch -x "test --test lib_tests"
+
 parser_tests:
   cargo watch -x "test --package koto_lexer --package koto_parser"
 
