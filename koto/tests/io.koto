@@ -12,8 +12,16 @@ export @tests =
   @test current_dir: ||
     assert_ne io.current_dir(), ""
 
+  @test temp_dir: ||
+    assert_ne io.temp_dir(), ""
+
   @test exists: ||
     assert io.exists test_path
+
+  @test create: ||
+    path = io.temp_dir() + "/io-created-file.txt"
+    io.create path
+    assert io.exists path
 
   @test io_read_to_string: ||
     assert_eq (io.read_to_string test_path), test_contents
@@ -40,5 +48,11 @@ export @tests =
     file.seek 0
     assert_eq file.read_line(), "aaa"
 
-  @test temp_dir: ||
-    assert_ne io.temp_dir(), ""
+  @test file_write: ||
+    path = io.temp_dir() + "/io-write-file.txt"
+    file = io.create path
+    file_contents = "dooby-doo"
+    file.write file_contents
+
+    file = io.open path
+    assert_eq file.read_to_string(), file_contents
