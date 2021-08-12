@@ -26,6 +26,7 @@ USAGE:
     koto [FLAGS] [script] [<args>...]
 
 FLAGS:
+    -e, --eval               Evaluate the script directly (rather than reading it from disk)
     -i, --show_instructions  Show compiled instructions annotated with source lines
     -b, --show_bytecode      Show the script's compiled bytecode
     -t, --tests              Run the script's tests before running the script
@@ -33,17 +34,18 @@ FLAGS:
     -v, --version            Prints version information
 
 ARGS:
-    <script>     The koto script to run
+    <script>     The koto script to run, as a file path, or as a string when --eval is set
     <args>...    Arguments to pass into the script
 ",
         version = version_string()
     )
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct KotoArgs {
     help: bool,
     version: bool,
+    eval_script: bool,
     run_tests: bool,
     show_bytecode: bool,
     show_instructions: bool,
@@ -54,11 +56,12 @@ struct KotoArgs {
 fn parse_arguments() -> Result<KotoArgs, String> {
     let mut args = pico_args::Arguments::from_env();
 
+    let eval_script = args.contains(["-e", "--eval"]);
+    let show_instructions = args.contains(["-i", "--show_instructions"]);
+    let show_bytecode = args.contains(["-b", "--show_bytecode"]);
+    let run_tests = args.contains(["-t", "--tests"]);
     let help = args.contains(["-h", "--help"]);
     let version = args.contains(["-v", "--version"]);
-    let run_tests = args.contains(["-t", "--tests"]);
-    let show_bytecode = args.contains(["-b", "--show_bytecode"]);
-    let show_instructions = args.contains(["-i", "--show_instructions"]);
 
     let script = args
         .subcommand()
@@ -79,6 +82,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
     Ok(KotoArgs {
         help,
         version,
+        eval_script,
         run_tests,
         show_bytecode,
         show_instructions,
@@ -120,22 +124,29 @@ fn run() -> Result<(), ()> {
 
     let mut stdin = io::stdin();
 
-    let script = if let Some(script_path) = &args.script {
-        Some(fs::read_to_string(script_path).expect("Unable to load script"))
+    let (script, script_path) = if let Some(script) = args.script {
+        if args.eval_script {
+            (Some(script), None)
+        } else {
+            (
+                Some(fs::read_to_string(&script).expect("Unable to load script")),
+                Some(script),
+            )
+        }
     } else if termion::is_tty(&stdin) || std::env::var_os("KOTO_FORCE_REPL_MODE").is_some() {
         // Forcing REPL mode is useful for testing the behaviour of the REPL
-        None
+        (None, None)
     } else {
         let mut script = String::new();
         stdin
             .read_to_string(&mut script)
             .expect("Failed to read script from standard input");
-        Some(script)
+        (Some(script), None)
     };
 
     if let Some(script) = script {
         let mut koto = Koto::with_settings(koto_settings);
-        koto.set_script_path(args.script.map(|path| path.into()));
+        koto.set_script_path(script_path.map(|path| path.into()));
 
         let mut prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());

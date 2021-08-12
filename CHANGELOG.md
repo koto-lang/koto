@@ -4,8 +4,11 @@
 
 ### Added
 
-- The REPL now contains a help system that provides reference documentation for
-  the core library.
+- CLI improvements
+  - The REPL now contains a help system that provides reference documentation for
+    the core library.
+  - An `--eval` option has been added to allow for direct evaluation of an
+    expression.
 - New features for Strings.
   - Strings now support indexing operations.
     - e.g.
