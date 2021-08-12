@@ -22,9 +22,23 @@ export @tests =
     file = io.open test_path
     assert_eq file.path(), test_path
 
+  @test file_read_line: ||
+    file = io.open test_path
+    assert_eq file.read_line(), "aaa"
+    assert_eq file.read_line(), "bbb"
+    assert_eq file.read_line(), "ccc"
+    assert_eq file.read_line(), ()
+
   @test file_read_to_string: ||
     file = io.open test_path
     assert_eq file.read_to_string(), test_contents
+
+  @test file_seek: ||
+    file = io.open test_path
+    assert_eq file.read_line(), "aaa"
+
+    file.seek 0
+    assert_eq file.read_line(), "aaa"
 
   @test temp_dir: ||
     assert_ne io.temp_dir(), ""

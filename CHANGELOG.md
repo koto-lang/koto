@@ -52,7 +52,9 @@
       ```
 - I/O improvements.
   - Added `io.stdin`, `io.stdout`, and `io.stderr`.
-  - Added `File.flush`.
+  - New features for `File`:
+    - `File.flush`
+    - `File.read_line`
   - Reading and writing to files is now buffered.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.

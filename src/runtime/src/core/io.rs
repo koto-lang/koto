@@ -7,7 +7,7 @@ use {
     parking_lot::RwLock,
     std::{
         fmt, fs,
-        io::{self, Read, Seek, SeekFrom, Write},
+        io::{self, BufRead, Read, Seek, SeekFrom, Write},
         path::{Path, PathBuf},
         sync::Arc,
     },
@@ -122,6 +122,14 @@ lazy_static! {
 
         meta.add_named_instance_fn("path", |file: &File, _, _| Ok(Str(file.path().into())));
 
+        meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
+            match file.read_line() {
+                Ok(Some(result)) => Ok(result[..result.len() - 1].into()),
+                Ok(None) => Ok(Empty),
+                Err(e) => Err(e.with_prefix("File.read_line")),
+            }
+        });
+
         meta.add_named_instance_fn_mut("read_to_string", |file: &mut File, _, _| {
             match file.read_to_string() {
                 Ok(result) => Ok(result.into()),
@@ -223,6 +231,21 @@ impl File {
         }
     }
 
+    pub fn read_line(&mut self) -> Result<Option<String>, RuntimeError> {
+        match self {
+            File::System(file) => file.read_line(),
+            File::Stdin(stdin) => {
+                let mut result = String::new();
+                match stdin.read_line(&mut result) {
+                    Ok(0) => Ok(None),
+                    Ok(_) => Ok(Some(result)),
+                    Err(e) => Err(e.to_string().into()),
+                }
+            }
+            _ => runtime_error!("seek unsupported for this file type"),
+        }
+    }
+
     pub fn read_to_string(&mut self) -> Result<String, RuntimeError> {
         match self {
             File::System(file) => file.read_to_string(),
@@ -280,6 +303,15 @@ impl SystemFile {
             file: BufferedFile::new(file),
             path,
             temporary,
+        }
+    }
+
+    pub fn read_line(&mut self) -> Result<Option<String>, RuntimeError> {
+        let mut buffer = String::new();
+        match self.file.read_line(&mut buffer) {
+            Ok(0) => Ok(None),
+            Ok(_) => Ok(Some(buffer)),
+            Err(e) => runtime_error!("Error while reading data: {}", e),
         }
     }
 

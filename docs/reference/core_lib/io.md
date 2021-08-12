@@ -17,6 +17,7 @@ A collection of utilities for working with the local filesystem.
 - [File](#file)
 - [File.flush](#fileflush)
 - [File.path](#filepath)
+- [File.read_line](#fileread_line)
 - [File.read_to_string](#fileread_to_string)
 - [File.seek](#fileseek)
 - [File.write](#filewrite)
@@ -213,6 +214,18 @@ Ensures that any buffered changes to the file have been written.
 `|File| -> String`
 
 Returns the file's path.
+
+## File.read_line
+
+`|File| -> String or Empty`
+
+Reads a line of output from the file as a string, not including the newline.
+
+When the end of the file is reached, Empty will be returned.
+
+### Errors
+
+An error is thrown if the line doesn't contain valid UTF-8 data.
 
 ## File.read_to_string
 
