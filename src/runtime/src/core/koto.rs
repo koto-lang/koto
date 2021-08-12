@@ -7,14 +7,6 @@ pub fn make_module() -> ValueMap {
 
     result.add_value("args", Tuple(ValueTuple::default()));
 
-    result.add_fn("current_dir", |_, _| {
-        let result = match std::env::current_dir() {
-            Ok(path) => Str(path.to_string_lossy().to_string().into()),
-            Err(_) => Empty,
-        };
-        Ok(result)
-    });
-
     result.add_fn("exports", |vm, _| {
         Ok(Value::Map(vm.context_mut().exports.clone()))
     });

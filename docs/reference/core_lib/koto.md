@@ -5,7 +5,6 @@ A collection of utilities for working with the Koto runtime.
 # Reference
 
 - [args](#args)
-- [current_dir](#current_dir)
 - [exports](#exports)
 - [script_dir](#script_dir)
 - [script_path](#script_path)
@@ -31,13 +30,6 @@ koto.args.first()
 koto.args.last()
 # hello
 ```
-
-## current_dir
-
-`|| -> String`
-
-Returns the current working directory as a String, or Empty if the current
-directory can't be retrieved.
 
 ## exports
 

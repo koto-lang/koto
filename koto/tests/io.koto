@@ -10,7 +10,7 @@ ccc
 
 export @tests =
   @test current_dir: ||
-    assert_ne koto.current_dir(), ""
+    assert_ne io.current_dir(), ""
 
   @test exists: ||
     assert io.exists test_path

@@ -93,8 +93,10 @@
   `MetaMap` where implementation functions can be defined.
   - An external value's meta map can be shared between external value instances,
     with `lazy_static` used for lazy initialization.
-- `koto.args` is now a Tuple instead of a List.
-- `koto.script_dir` and `koto.script_path` are now empty by default.
+- Changes to the `koto` module:
+  - `koto.args` is now a Tuple instead of a List.
+  - `koto.current_dir` has been moved to `io.current_dir`.
+  - `koto.script_dir` and `koto.script_path` are now empty by default.
 - Ranges that have operations starting on an intended following line can now be
   written without parentheses.
   - e.g.

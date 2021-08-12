@@ -5,6 +5,7 @@ A collection of utilities for working with the local filesystem.
 # Reference
 
 - [create](#create)
+- [current_dir](#current_dir)
 - [exists](#exists)
 - [open](#open)
 - [read_to_string](#read_to_string)
@@ -39,6 +40,13 @@ f.write_line "Hello"
 f.read_to_string()
 # Hello
 ```
+
+## current_dir
+
+`|| -> String`
+
+Returns the current working directory as a String, or Empty if the current
+directory can't be retrieved.
 
 ## exists
 

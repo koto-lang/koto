@@ -11,7 +11,7 @@ use {
 };
 
 pub fn make_module() -> ValueMap {
-    use Value::{Bool, Str};
+    use Value::{Bool, Empty, Str};
 
     let mut result = ValueMap::new();
 
@@ -32,6 +32,14 @@ pub fn make_module() -> ValueMap {
             ),
             _ => runtime_error!("io.create: Expected a String as argument"),
         }
+    });
+
+    result.add_fn("current_dir", |_, _| {
+        let result = match std::env::current_dir() {
+            Ok(path) => Str(path.to_string_lossy().to_string().into()),
+            Err(_) => Empty,
+        };
+        Ok(result)
     });
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
