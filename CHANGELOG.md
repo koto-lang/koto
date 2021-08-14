@@ -120,6 +120,8 @@
     but now that core modules in the prelude `io.print "hello"` can be expressed
     without imports.
   - `io.print` will now accept any value without a formatting string.
+- The custom logging interface has been replaced by the `KotoStdout` and
+  `KotoStderr` traits.
 
 
 ### Removed

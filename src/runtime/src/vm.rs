@@ -7,9 +7,9 @@ use {
         num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, RuntimeErrorType,
-        RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, UnaryOp, Value, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueVec,
+        BinaryOp, DefaultStderr, DefaultStdout, KotoStderr, KotoStdout, Loader, MetaKey,
+        RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -59,17 +59,21 @@ pub type InstructionResult = Result<(), RuntimeError>;
 struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
-    logger: Arc<dyn KotoLogger>,
+    stdout: Arc<dyn KotoStdout>,
+    stderr: Arc<dyn KotoStderr>,
 }
 
 impl Default for SharedContext {
     fn default() -> Self {
-        Self::with_logger(Arc::new(DefaultLogger {}))
+        Self::with_outputs(
+            Arc::new(DefaultStdout::default()),
+            Arc::new(DefaultStderr::default()),
+        )
     }
 }
 
 impl SharedContext {
-    fn with_logger(logger: Arc<dyn KotoLogger>) -> Self {
+    fn with_outputs(stdout: Arc<dyn KotoStdout>, stderr: Arc<dyn KotoStderr>) -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -89,7 +93,8 @@ impl SharedContext {
         Self {
             prelude,
             core_lib,
-            logger,
+            stdout,
+            stderr,
         }
     }
 }
@@ -134,13 +139,15 @@ impl Drop for ModuleContext {
 }
 
 pub struct VmSettings {
-    pub logger: Arc<dyn KotoLogger>,
+    pub stdout: Arc<dyn KotoStdout>,
+    pub stderr: Arc<dyn KotoStderr>,
 }
 
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
-            logger: Arc::new(DefaultLogger {}),
+            stdout: Arc::new(DefaultStdout::default()),
+            stderr: Arc::new(DefaultStderr::default()),
         }
     }
 }
@@ -165,7 +172,10 @@ impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             context: Arc::new(RwLock::new(ModuleContext::default())),
-            context_shared: Arc::new(SharedContext::with_logger(settings.logger)),
+            context_shared: Arc::new(SharedContext::with_outputs(
+                settings.stdout,
+                settings.stderr,
+            )),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -236,8 +246,12 @@ impl Vm {
         self.context.write()
     }
 
-    pub fn logger(&self) -> &Arc<dyn KotoLogger> {
-        &self.context_shared.logger
+    pub fn stdout(&self) -> &Arc<dyn KotoStdout> {
+        &self.context_shared.stdout
+    }
+
+    pub fn stderr(&self) -> &Arc<dyn KotoStderr> {
+        &self.context_shared.stderr
     }
 
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
@@ -2490,7 +2504,7 @@ impl Vm {
             unexpected => {
                 return self.unexpected_type_error(
                     "RunAccess: Unable to perform '.' access on '{}'",
-                    &unexpected,
+                    unexpected,
                 )
             }
         }
@@ -2847,12 +2861,10 @@ impl Vm {
 
         let expression_string = self.get_constant_str(expression_constant);
 
-        self.logger().writeln(&format!(
+        self.stdout().write_line(&format!(
             "{}{}: {}",
             prefix, expression_string, value_string
-        ));
-
-        Ok(())
+        ))
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {

@@ -31,7 +31,8 @@ pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runti
 use {
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings,
+        DefaultStderr, DefaultStdout, KotoStderr, KotoStdout, Loader, MetaKey, RuntimeError, Value,
+        ValueMap, Vm, VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
@@ -78,7 +79,8 @@ pub type KotoResult = Result<Value, KotoError>;
 pub struct KotoSettings {
     pub run_tests: bool,
     pub repl_mode: bool,
-    pub logger: Arc<dyn KotoLogger>,
+    pub stdout: Arc<dyn KotoStdout>,
+    pub stderr: Arc<dyn KotoStderr>,
 }
 
 impl Default for KotoSettings {
@@ -86,7 +88,8 @@ impl Default for KotoSettings {
         Self {
             run_tests: true,
             repl_mode: false,
-            logger: Arc::new(DefaultLogger {}),
+            stdout: Arc::new(DefaultStdout::default()),
+            stderr: Arc::new(DefaultStderr::default()),
         }
     }
 }
@@ -117,7 +120,8 @@ impl Koto {
         Self {
             settings: settings.clone(),
             runtime: Vm::with_settings(VmSettings {
-                logger: settings.logger,
+                stdout: settings.stdout,
+                stderr: settings.stderr,
             }),
             loader: Loader::default(),
             chunk: None,

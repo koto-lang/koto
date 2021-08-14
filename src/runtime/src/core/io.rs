@@ -2,7 +2,10 @@ mod buffered_file;
 
 use {
     super::string::format,
-    crate::{runtime_error, ExternalData, ExternalValue, MetaMap, RuntimeError, Value, ValueMap},
+    crate::{
+        runtime_error, ExternalData, ExternalValue, KotoStderr, KotoStdout, MetaMap, RuntimeError,
+        Value, ValueMap, Vm,
+    },
     buffered_file::BufferedFile,
     lazy_static::lazy_static,
     parking_lot::RwLock,
@@ -71,21 +74,25 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("print", |vm, args| {
-        match vm.get_args(args) {
-            [Str(s)] => vm.logger().writeln(s.as_str()),
-            [value] => vm.logger().writeln(&value.to_string()),
+        let result = match vm.get_args(args) {
+            [Str(s)] => vm.stdout().write_line(s.as_str()),
+            [value] => vm.stdout().write_line(&value.to_string()),
             [Str(format), format_args @ ..] => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
                 let vm = vm.child_vm();
                 match format::format_string(vm, &format, &format_args) {
-                    Ok(result) => vm.logger().writeln(&result),
-                    Err(error) => return Err(error.with_prefix("string.print")),
+                    Ok(result) => vm.stdout().write_line(&result),
+                    Err(error) => Err(error),
                 }
             }
             _ => return runtime_error!("io.print: Expected a string as format argument"),
+        };
+
+        match result {
+            Ok(_) => Ok(Empty),
+            Err(e) => Err(e.with_prefix("string.print")),
         }
-        Ok(Empty)
     });
 
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
@@ -117,9 +124,9 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("stderr", |_, _| Ok(File::stderr()));
+    result.add_fn("stderr", |vm, _| Ok(File::stderr(vm)));
     result.add_fn("stdin", |_, _| Ok(File::stdin()));
-    result.add_fn("stdout", |_, _| Ok(File::stdout()));
+    result.add_fn("stdout", |vm, _| Ok(File::stdout(vm)));
 
     result.add_fn("temp_dir", {
         |_, _| Ok(Str(std::env::temp_dir().to_string_lossy().as_ref().into()))
@@ -199,12 +206,11 @@ lazy_static! {
     };
 }
 
-#[derive(Debug)]
 pub enum File {
     System(SystemFile),
-    Stderr(io::Stderr),
+    Stderr(Arc<dyn KotoStderr>),
     Stdin(io::Stdin),
-    Stdout(io::Stdout),
+    Stdout(Arc<dyn KotoStdout>),
 }
 
 impl File {
@@ -216,8 +222,8 @@ impl File {
         Value::ExternalValue(result)
     }
 
-    pub fn stderr() -> Value {
-        let stderr = File::Stderr(io::stderr());
+    pub fn stderr(vm: &Vm) -> Value {
+        let stderr = File::Stderr(vm.stderr().clone());
         let result = ExternalValue::with_shared_meta_map(stderr, FILE_META.clone());
         Value::ExternalValue(result)
     }
@@ -228,8 +234,8 @@ impl File {
         Value::ExternalValue(result)
     }
 
-    pub fn stdout() -> Value {
-        let stdout = File::Stdout(io::stdout());
+    pub fn stdout(vm: &Vm) -> Value {
+        let stdout = File::Stdout(vm.stdout().clone());
         let result = ExternalValue::with_shared_meta_map(stdout, FILE_META.clone());
         Value::ExternalValue(result)
     }
@@ -289,8 +295,8 @@ impl File {
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
         match self {
             File::System(file) => file.file.write_all(bytes).map_err(|e| e.to_string().into()),
-            File::Stderr(stderr) => stderr.write_all(bytes).map_err(|e| e.to_string().into()),
-            File::Stdout(stdout) => stdout.write_all(bytes).map_err(|e| e.to_string().into()),
+            File::Stderr(stderr) => stderr.write(bytes),
+            File::Stdout(stdout) => stdout.write(bytes),
             _ => runtime_error!("seek unsupported for this file type"),
         }
     }
@@ -305,6 +311,12 @@ impl ExternalData for File {
 impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "File({})", self.path())
+    }
+}
+
+impl fmt::Debug for File {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_string())
     }
 }
 
