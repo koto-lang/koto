@@ -1,6 +1,7 @@
 mod buffered_file;
 
 use {
+    super::string::format,
     crate::{runtime_error, ExternalData, ExternalValue, MetaMap, RuntimeError, Value, ValueMap},
     buffered_file::BufferedFile,
     lazy_static::lazy_static,
@@ -67,6 +68,24 @@ pub fn make_module() -> ValueMap {
             ),
             _ => runtime_error!("io.open: Expected a String as argument"),
         }
+    });
+
+    result.add_fn("print", |vm, args| {
+        match vm.get_args(args) {
+            [Str(s)] => vm.logger().writeln(s.as_str()),
+            [value] => vm.logger().writeln(&value.to_string()),
+            [Str(format), format_args @ ..] => {
+                let format = format.clone();
+                let format_args = format_args.to_vec();
+                let vm = vm.child_vm();
+                match format::format_string(vm, &format, &format_args) {
+                    Ok(result) => vm.logger().writeln(&result),
+                    Err(error) => return Err(error.with_prefix("string.print")),
+                }
+            }
+            _ => return runtime_error!("io.print: Expected a string as format argument"),
+        }
+        Ok(Empty)
     });
 
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {

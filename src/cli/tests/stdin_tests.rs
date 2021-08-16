@@ -33,13 +33,13 @@ mod stdin_tests {
 
     #[test]
     fn printed_result() {
-        run_koto_stdin_test("'{}'.print 1 + 1", "2\n");
+        run_koto_stdin_test("io.print 1 + 1", "2\n");
     }
 
     #[test]
     fn multiline_output() {
         let script = "
-import string.print
+import io.print
 print 'Hello'
 print 'World!'
 ";

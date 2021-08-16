@@ -8,6 +8,7 @@ A collection of utilities for working with the local filesystem.
 - [current_dir](#current_dir)
 - [exists](#exists)
 - [open](#open)
+- [print](#print)
 - [read_to_string](#read_to_string)
 - [remove_file](#remove_file)
 - [stderr](#stderr)
@@ -85,6 +86,18 @@ f = io.open "path/to/existing.file"
 f.exists()
 # true
 ```
+
+## print
+
+`|Value| -> ()`
+`|String, Value...| -> ()`
+
+Prints a formatted string to the active logger,
+by default this is the standard output.
+
+### Note
+
+See `string.format` for the formatting syntax.
 
 ## read_to_string
 

@@ -35,14 +35,16 @@ mod eval_tests {
 
     #[test]
     fn printed_result() {
-        run_koto_eval_test("'{}'.print 1 + 1", "", "2\n");
+        run_koto_eval_test("io.print 1 + 1", "", "2\n");
     }
 
     #[test]
     fn stdin_read_line() {
         let script = "
-import string.print
+import io.print
 stdin = io.stdin()
+print stdin.read_line()
+print 'xyz'
 print stdin.read_line()
 ";
         let stdin = "\
@@ -52,6 +54,8 @@ print stdin.read_line()
 ";
         let expected_output = "\
 123
+xyz
+456
 ";
 
         run_koto_eval_test(script, stdin, expected_output);

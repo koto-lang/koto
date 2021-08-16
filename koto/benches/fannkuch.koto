@@ -6,6 +6,7 @@ Based on the Ruby implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-yarv-1.html
 -#
 
+import io.print
 from test import assert, assert_eq
 
 fannkuch = |n|
@@ -69,8 +70,8 @@ export main = ||
   sum, flips = fannkuch n
 
   if (koto.args.get 1) != "quiet"
-    "{}".print sum
-    "Pfannkuchen({}) = {}".print n, flips
+    print sum
+    print "Pfannkuchen({}) = {}", n, flips
 
 export @tests =
   @test fannkuch_5: ||

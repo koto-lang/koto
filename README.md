@@ -45,7 +45,7 @@ assert_eq (1 + 2.5), 3.5
 
 # Strings
 hello = "{}, {}!".format "Hello", "World"
-hello.print()
+io.print hello
 
 # Functions
 square = |n| n * n
@@ -104,7 +104,7 @@ Launching the `koto` CLI without providing a script enters the REPL.
 Welcome to Koto v0.1.0
 » 1 + 1
 2
-» "{}, {}!".print "Hello", "World"
+» io.print "{}, {}!", "Hello", "World"
 Hello, World!
 ()
 ```

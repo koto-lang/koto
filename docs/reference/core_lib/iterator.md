@@ -38,7 +38,7 @@ output values for each iteration of the loop.
 
 ```koto
 for x in (2, 3, 4).each |n| n * 2
-  "-> {}".print x
+  io.print "-> {}", x
 # -> 4
 # -> 6
 # -> 8

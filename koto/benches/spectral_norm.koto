@@ -55,7 +55,7 @@ export main = ||
   result = spectral_norm n
 
   if (koto.args.get 1) != "quiet"
-    "{}".print result
+    io.print result
 
 
 export @tests =

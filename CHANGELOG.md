@@ -115,6 +115,12 @@
     ```
 - Omitting the value after a key in a map declaration is now only allowed when
   using inline syntax.
+- `string.print` has been moved to `io.print`.
+  - `print` was previously in `string` to allow for import-free printing,
+    but now that core modules in the prelude `io.print "hello"` can be expressed
+    without imports.
+  - `io.print` will now accept any value without a formatting string.
+
 
 ### Removed
 

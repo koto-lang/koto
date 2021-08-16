@@ -61,8 +61,9 @@ mod vm {
     #[test]
     fn print_loop() {
         let script = r#"
+import io.print
 for i in 0..5
-  "foo {}".print i
+  print "foo {}", i
 "#;
         check_logged_output(
             script,
