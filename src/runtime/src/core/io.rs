@@ -1,17 +1,18 @@
 mod buffered_file;
 
+pub use buffered_file::BufferedFile;
+
 use {
     super::string::format,
     crate::{
-        runtime_error, ExternalData, ExternalValue, KotoStderr, KotoStdout, MetaMap, RuntimeError,
-        Value, ValueMap, Vm,
+        runtime_error, ExternalData, ExternalValue, KotoFile, KotoRead, KotoWrite, MetaMap, Mutex,
+        RuntimeError, RwLock, Value, ValueMap, Vm,
     },
-    buffered_file::BufferedFile,
     lazy_static::lazy_static,
-    parking_lot::RwLock,
     std::{
         fmt, fs,
         io::{self, BufRead, Read, Seek, SeekFrom, Write},
+        ops::Deref,
         path::{Path, PathBuf},
         sync::Arc,
     },
@@ -25,9 +26,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("create", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
-                let path = Path::new(path.as_str());
+                let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
-                    Ok(file) => Ok(File::with_file(file, path, false)),
+                    Ok(file) => Ok(File::system_file(file, path)),
                     Err(e) => {
                         return runtime_error!("io.create: Error while creating file: {}", e);
                     }
@@ -57,9 +58,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => {
-                let path = Path::new(path.as_str());
+                let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::open(&path) {
-                    Ok(file) => Ok(File::with_file(file, path, false)),
+                    Ok(file) => Ok(File::system_file(file, path)),
                     Err(e) => {
                         return runtime_error!("io.open: Error while opening path: {}", e);
                     }
@@ -125,7 +126,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("stderr", |vm, _| Ok(File::stderr(vm)));
-    result.add_fn("stdin", |_, _| Ok(File::stdin()));
+    result.add_fn("stdin", |vm, _| Ok(File::stdin(vm)));
     result.add_fn("stdout", |vm, _| Ok(File::stdout(vm)));
 
     result.add_fn("temp_dir", {
@@ -136,7 +137,7 @@ pub fn make_module() -> ValueMap {
 }
 
 lazy_static! {
-    static ref FILE_META: Arc<RwLock<MetaMap>> = {
+    pub static ref FILE_META: Arc<RwLock<MetaMap>> = {
         use Value::{Empty, Number, Str};
 
         let mut meta = MetaMap::with_type_name("File");
@@ -146,7 +147,10 @@ lazy_static! {
             Err(e) => Err(e.with_prefix("File.flush")),
         });
 
-        meta.add_named_instance_fn("path", |file: &File, _, _| Ok(Str(file.path().into())));
+        meta.add_named_instance_fn("path", |file: &File, _, _| match file.path() {
+            Ok(path) => Ok(Str(path.into())),
+            Err(e) => Err(e.with_prefix("File.path")),
+        });
 
         meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
             match file.read_line() {
@@ -206,99 +210,46 @@ lazy_static! {
     };
 }
 
-pub enum File {
-    System(SystemFile),
-    Stderr(Arc<dyn KotoStderr>),
-    Stdin(io::Stdin),
-    Stdout(Arc<dyn KotoStdout>),
+/// The File type used in the io module
+pub struct File(Arc<dyn KotoFile>);
+
+impl Deref for File {
+    type Target = Arc<dyn KotoFile>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl File {
-    pub fn with_file(file: fs::File, path: &Path, temporary: bool) -> Value {
+    /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
+    pub fn system_file<T>(file: T, path: PathBuf) -> Value
+    where
+        T: Read + Write + Seek + Send + Sync + 'static,
+    {
         let result = ExternalValue::with_shared_meta_map(
-            File::System(SystemFile::new(file, path.to_path_buf(), temporary)),
+            File(Arc::new(BufferedSystemFile::new(file, path))),
             FILE_META.clone(),
         );
         Value::ExternalValue(result)
     }
 
-    pub fn stderr(vm: &Vm) -> Value {
-        let stderr = File::Stderr(vm.stderr().clone());
-        let result = ExternalValue::with_shared_meta_map(stderr, FILE_META.clone());
+    fn stderr(vm: &Vm) -> Value {
+        let result =
+            ExternalValue::with_shared_meta_map(File(vm.stderr().clone()), FILE_META.clone());
         Value::ExternalValue(result)
     }
 
-    pub fn stdin() -> Value {
-        let stdin = File::Stdin(io::stdin());
-        let result = ExternalValue::with_shared_meta_map(stdin, FILE_META.clone());
+    fn stdin(vm: &Vm) -> Value {
+        let result =
+            ExternalValue::with_shared_meta_map(File(vm.stdin().clone()), FILE_META.clone());
         Value::ExternalValue(result)
     }
 
-    pub fn stdout(vm: &Vm) -> Value {
-        let stdout = File::Stdout(vm.stdout().clone());
-        let result = ExternalValue::with_shared_meta_map(stdout, FILE_META.clone());
+    fn stdout(vm: &Vm) -> Value {
+        let result =
+            ExternalValue::with_shared_meta_map(File(vm.stdout().clone()), FILE_META.clone());
         Value::ExternalValue(result)
-    }
-
-    pub fn flush(&mut self) -> Result<(), RuntimeError> {
-        match self {
-            File::System(file) => file.file.flush().map_err(|e| e.to_string().into()),
-            _ => runtime_error!("seek unsupported for this file type"),
-        }
-    }
-
-    pub fn path(&self) -> String {
-        match self {
-            File::System(file) => file.path.to_string_lossy().as_ref().into(),
-            File::Stderr(_) => "_stderr_".into(),
-            File::Stdin(_) => "_stdin_".into(),
-            File::Stdout(_) => "_stdout_".into(),
-        }
-    }
-
-    pub fn read_line(&mut self) -> Result<Option<String>, RuntimeError> {
-        match self {
-            File::System(file) => file.read_line(),
-            File::Stdin(stdin) => {
-                let mut result = String::new();
-                match stdin.read_line(&mut result) {
-                    Ok(0) => Ok(None),
-                    Ok(_) => Ok(Some(result)),
-                    Err(e) => Err(e.to_string().into()),
-                }
-            }
-            _ => runtime_error!("seek unsupported for this file type"),
-        }
-    }
-
-    pub fn read_to_string(&mut self) -> Result<String, RuntimeError> {
-        match self {
-            File::System(file) => file.read_to_string(),
-            File::Stdin(stdin) => {
-                let mut result = String::new();
-                match stdin.read_to_string(&mut result) {
-                    Ok(_) => Ok(result),
-                    Err(e) => Err(e.to_string().into()),
-                }
-            }
-            _ => runtime_error!("seek unsupported for this file type"),
-        }
-    }
-
-    pub fn seek(&mut self, position: u64) -> Result<(), RuntimeError> {
-        match self {
-            File::System(file) => file.seek(position),
-            _ => runtime_error!("seek unsupported for this file type"),
-        }
-    }
-
-    pub fn write(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
-        match self {
-            File::System(file) => file.file.write_all(bytes).map_err(|e| e.to_string().into()),
-            File::Stderr(stderr) => stderr.write(bytes),
-            File::Stdout(stdout) => stdout.write(bytes),
-            _ => runtime_error!("seek unsupported for this file type"),
-        }
     }
 }
 
@@ -310,7 +261,7 @@ impl ExternalData for File {
 
 impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "File({})", self.path())
+        write!(f, "{}", self.deref())
     }
 }
 
@@ -320,57 +271,109 @@ impl fmt::Debug for File {
     }
 }
 
-#[derive(Debug)]
-pub struct SystemFile {
-    pub file: BufferedFile,
-    pub path: PathBuf,
-    /// When set to true, the file will be removed when Dropped
-    pub temporary: bool,
+struct BufferedSystemFile<T>
+where
+    T: Write,
+{
+    file: Mutex<BufferedFile<T>>,
+    path: PathBuf,
 }
 
-impl SystemFile {
-    pub fn new(file: fs::File, path: PathBuf, temporary: bool) -> Self {
+impl<T> BufferedSystemFile<T>
+where
+    T: Read + Write + Seek + Send + Sync,
+{
+    pub fn new(file: T, path: PathBuf) -> Self {
         Self {
-            file: BufferedFile::new(file),
+            file: Mutex::new(BufferedFile::new(file)),
             path,
-            temporary,
-        }
-    }
-
-    pub fn read_line(&mut self) -> Result<Option<String>, RuntimeError> {
-        let mut buffer = String::new();
-        match self.file.read_line(&mut buffer) {
-            Ok(0) => Ok(None),
-            Ok(_) => Ok(Some(buffer)),
-            Err(e) => runtime_error!("Error while reading data: {}", e),
-        }
-    }
-
-    pub fn read_to_string(&mut self) -> Result<String, RuntimeError> {
-        match self.file.seek(SeekFrom::Start(0)) {
-            Ok(_) => {
-                let mut buffer = String::new();
-                match self.file.read_to_string(&mut buffer) {
-                    Ok(_) => Ok(buffer),
-                    Err(e) => runtime_error!("Error while reading data: {}", e),
-                }
-            }
-            Err(e) => runtime_error!("Error while seeking in file: {}", e),
-        }
-    }
-
-    pub fn seek(&mut self, position: u64) -> Result<(), RuntimeError> {
-        match self.file.seek(SeekFrom::Start(position)) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.to_string().into()),
         }
     }
 }
 
-impl Drop for SystemFile {
-    fn drop(&mut self) {
-        if self.temporary {
-            let _ = fs::remove_file(&self.path).is_ok();
+impl<T> KotoFile for BufferedSystemFile<T>
+where
+    T: Read + Write + Seek + Send + Sync,
+{
+    fn path(&self) -> Result<String, RuntimeError> {
+        Ok(self.path.to_string_lossy().into())
+    }
+
+    fn seek(&self, position: u64) -> Result<(), RuntimeError> {
+        self.file
+            .lock()
+            .seek(SeekFrom::Start(position))
+            .map_err(map_io_err)?;
+        Ok(())
+    }
+}
+
+impl<T> KotoRead for BufferedSystemFile<T>
+where
+    T: Read + Write,
+{
+    fn read_line(&self) -> Result<Option<String>, RuntimeError> {
+        let mut buffer = String::new();
+        match self
+            .file
+            .lock()
+            .read_line(&mut buffer)
+            .map_err(map_io_err)?
+        {
+            0 => Ok(None),
+            _ => Ok(Some(buffer)),
         }
     }
+
+    fn read_to_string(&self) -> Result<String, RuntimeError> {
+        let mut buffer = String::new();
+        self.file
+            .lock()
+            .read_to_string(&mut buffer)
+            .map_err(map_io_err)?;
+        Ok(buffer)
+    }
+}
+
+impl<T> KotoWrite for BufferedSystemFile<T>
+where
+    T: Read + Write,
+{
+    fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
+        self.file.lock().write(bytes).map_err(map_io_err)?;
+        Ok(())
+    }
+
+    fn write_line(&self, text: &str) -> Result<(), RuntimeError> {
+        let mut locked = self.file.lock();
+        locked.write(text.as_bytes()).map_err(map_io_err)?;
+        locked.write("\n".as_bytes()).map_err(map_io_err)?;
+        Ok(())
+    }
+
+    fn flush(&self) -> Result<(), RuntimeError> {
+        self.file.lock().flush().map_err(map_io_err)
+    }
+}
+
+impl<T> fmt::Display for BufferedSystemFile<T>
+where
+    T: Write,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "File({})", self.path.to_string_lossy())
+    }
+}
+
+impl<T> fmt::Debug for BufferedSystemFile<T>
+where
+    T: Write,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_string())
+    }
+}
+
+pub fn map_io_err(e: io::Error) -> RuntimeError {
+    e.to_string().into()
 }

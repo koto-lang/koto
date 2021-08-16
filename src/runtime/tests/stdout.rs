@@ -1,15 +1,19 @@
 use {
     koto_bytecode::Chunk,
-    koto_runtime::{KotoStderr, KotoStdout, Loader, RuntimeError, Vm, VmSettings},
+    koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, RuntimeError, Vm, VmSettings},
     parking_lot::Mutex,
-    std::sync::Arc,
+    std::{fmt, sync::Arc},
 };
 
+#[derive(Debug)]
 struct TestStdout {
     output: Arc<Mutex<String>>,
 }
 
-impl KotoStdout for TestStdout {
+impl KotoFile for TestStdout {}
+impl KotoRead for TestStdout {}
+
+impl KotoWrite for TestStdout {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         self.output
             .lock()
@@ -28,7 +32,11 @@ impl KotoStdout for TestStdout {
     }
 }
 
-impl KotoStderr for TestStdout {}
+impl fmt::Display for TestStdout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("_teststdout_")
+    }
+}
 
 mod vm {
     use super::*;
@@ -43,6 +51,7 @@ mod vm {
             stderr: Arc::new(TestStdout {
                 output: output.clone(),
             }),
+            ..Default::default()
         });
 
         let print_chunk = |script: &str, chunk: Arc<Chunk>| {

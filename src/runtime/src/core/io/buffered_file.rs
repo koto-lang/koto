@@ -1,41 +1,50 @@
-use std::{
-    fs::File,
-    io::{self, prelude::*, BufReader, BufWriter, Result, Seek, SeekFrom},
-};
+use std::io::{self, prelude::*, BufReader, BufWriter, Result, Seek, SeekFrom};
 
 /// A combination of BufReader and BufWriter
 #[derive(Debug)]
-pub struct BufferedFile(Reader);
-type Reader = BufReader<BufWriterWrapper>;
-type Writer = BufWriter<File>;
+pub struct BufferedFile<T: Write>(Reader<T>);
+type Reader<T> = BufReader<BufWriterWrapper<T>>;
+type Writer<T> = BufWriter<T>;
 
-impl BufferedFile {
-    pub fn new(file: File) -> Self {
+impl<T> BufferedFile<T>
+where
+    T: Read + Write,
+{
+    pub fn new(file: T) -> Self {
         Self(BufReader::new(BufWriterWrapper::new(file)))
     }
 
-    fn reader(&mut self) -> &mut Reader {
+    fn reader(&mut self) -> &mut Reader<T> {
         &mut self.0
     }
 
-    fn writer(&mut self) -> &mut Writer {
+    fn writer(&mut self) -> &mut Writer<T> {
         self.reader().get_mut().writer()
     }
 }
 
-impl Seek for BufferedFile {
+impl<T> Seek for BufferedFile<T>
+where
+    T: Read + Write + Seek,
+{
     fn seek(&mut self, position: SeekFrom) -> Result<u64> {
         self.reader().seek(position)
     }
 }
 
-impl Read for BufferedFile {
+impl<T> Read for BufferedFile<T>
+where
+    T: Read + Write,
+{
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.reader().read(buf)
     }
 }
 
-impl BufRead for BufferedFile {
+impl<T> BufRead for BufferedFile<T>
+where
+    T: Read + Write,
+{
     fn fill_buf(&mut self) -> Result<&[u8]> {
         self.reader().fill_buf()
     }
@@ -53,7 +62,10 @@ impl BufRead for BufferedFile {
     }
 }
 
-impl Write for BufferedFile {
+impl<T> Write for BufferedFile<T>
+where
+    T: Read + Write,
+{
     fn write(&mut self, buffer: &[u8]) -> Result<usize> {
         self.writer().write(buffer)
     }
@@ -63,26 +75,40 @@ impl Write for BufferedFile {
     }
 }
 
-#[derive(Debug)]
-struct BufWriterWrapper(Writer);
+// impl<T> Send for BufferedFile<T> where T: Send {}
+// impl<T> Sync for BufferedFile<T> where T: Sync {}
 
-impl BufWriterWrapper {
-    fn new(file: File) -> Self {
+#[derive(Debug)]
+struct BufWriterWrapper<T>(Writer<T>)
+where
+    T: Write;
+
+impl<T> BufWriterWrapper<T>
+where
+    T: Write,
+{
+    fn new(file: T) -> Self {
         Self(BufWriter::new(file))
     }
 
-    fn writer(&mut self) -> &mut Writer {
+    fn writer(&mut self) -> &mut Writer<T> {
         &mut self.0
     }
 }
 
-impl Seek for BufWriterWrapper {
+impl<T> Seek for BufWriterWrapper<T>
+where
+    T: Seek + Write,
+{
     fn seek(&mut self, position: SeekFrom) -> Result<u64> {
         self.writer().get_mut().seek(position)
     }
 }
 
-impl Read for BufWriterWrapper {
+impl<T> Read for BufWriterWrapper<T>
+where
+    T: Read + Write,
+{
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         self.writer().get_mut().read(buffer)
     }

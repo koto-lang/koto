@@ -1,31 +1,18 @@
 from test import assert, assert_eq
 
 export @tests =
-  @test temp_path: ||
-    path = tempfile.temp_path()
-    file = io.create path
-
-    contents = "<(^_^)<"
-    file.write contents
-
-    # Writes are buffered, so ensure that changes have been written to disk
-    file.flush()
-
-    assert_eq io.read_to_string(path), contents
-
-    io.remove_file path
-    assert not io.exists path
-
   @test temp_file: ||
     temp = tempfile.temp_file()
-    temp_path = temp.path()
     temp.write_line "hello"
     temp.write_line 42
 
     # Writes are buffered, so ensure that changes have been written to disk
     temp.flush()
 
-    assert (io.exists temp_path)
+    temp_path = temp.path()
+    assert io.exists temp_path
+
+    temp.seek 0
     assert_eq (io.read_to_string temp_path), temp.read_to_string()
 
     # Temp files are deleted when they're no longer used

@@ -2,9 +2,10 @@
 
 mod error;
 mod external;
+mod file;
 mod frame;
 mod meta_map;
-mod stdout;
+mod stdio;
 mod value_iterator;
 mod value_key;
 mod value_list;
@@ -23,13 +24,14 @@ pub mod value;
 pub use {
     error::*,
     external::{ExternalData, ExternalFunction, ExternalValue},
+    file::{KotoFile, KotoRead, KotoWrite},
     koto_bytecode::{CompilerError, Loader, LoaderError},
     koto_parser::ParserError,
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     num2::Num2,
     num4::Num4,
-    parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard},
-    stdout::{DefaultStderr, DefaultStdout, KotoStderr, KotoStdout},
+    parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{RuntimeFunction, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,

@@ -7,7 +7,7 @@ use {
         num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultStderr, DefaultStdout, KotoStderr, KotoStdout, Loader, MetaKey,
+        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
         UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
@@ -59,21 +59,28 @@ pub type InstructionResult = Result<(), RuntimeError>;
 struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
-    stdout: Arc<dyn KotoStdout>,
-    stderr: Arc<dyn KotoStderr>,
+    stdin: Arc<dyn KotoFile>,
+    stdout: Arc<dyn KotoFile>,
+    stderr: Arc<dyn KotoFile>,
 }
 
 impl Default for SharedContext {
     fn default() -> Self {
+        let default_settings = VmSettings::default();
         Self::with_outputs(
-            Arc::new(DefaultStdout::default()),
-            Arc::new(DefaultStderr::default()),
+            default_settings.stdin,
+            default_settings.stdout,
+            default_settings.stderr,
         )
     }
 }
 
 impl SharedContext {
-    fn with_outputs(stdout: Arc<dyn KotoStdout>, stderr: Arc<dyn KotoStderr>) -> Self {
+    fn with_outputs(
+        stdin: Arc<dyn KotoFile>,
+        stdout: Arc<dyn KotoFile>,
+        stderr: Arc<dyn KotoFile>,
+    ) -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -93,6 +100,7 @@ impl SharedContext {
         Self {
             prelude,
             core_lib,
+            stdin,
             stdout,
             stderr,
         }
@@ -139,13 +147,15 @@ impl Drop for ModuleContext {
 }
 
 pub struct VmSettings {
-    pub stdout: Arc<dyn KotoStdout>,
-    pub stderr: Arc<dyn KotoStderr>,
+    pub stdin: Arc<dyn KotoFile>,
+    pub stdout: Arc<dyn KotoFile>,
+    pub stderr: Arc<dyn KotoFile>,
 }
 
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
+            stdin: Arc::new(DefaultStdin::default()),
             stdout: Arc::new(DefaultStdout::default()),
             stderr: Arc::new(DefaultStderr::default()),
         }
@@ -173,6 +183,7 @@ impl Vm {
         Self {
             context: Arc::new(RwLock::new(ModuleContext::default())),
             context_shared: Arc::new(SharedContext::with_outputs(
+                settings.stdin,
                 settings.stdout,
                 settings.stderr,
             )),
@@ -246,11 +257,18 @@ impl Vm {
         self.context.write()
     }
 
-    pub fn stdout(&self) -> &Arc<dyn KotoStdout> {
+    /// The stdin wrapper used by the VM
+    pub fn stdin(&self) -> &Arc<dyn KotoFile> {
+        &self.context_shared.stdin
+    }
+
+    /// The stdout wrapper used by the VM
+    pub fn stdout(&self) -> &Arc<dyn KotoFile> {
         &self.context_shared.stdout
     }
 
-    pub fn stderr(&self) -> &Arc<dyn KotoStderr> {
+    /// The stderr wrapper used by the VM
+    pub fn stderr(&self) -> &Arc<dyn KotoFile> {
         &self.context_shared.stderr
     }
 

@@ -1,9 +1,12 @@
 use {
     koto::{
-        runtime::{KotoStderr, KotoStdout, RuntimeError},
+        runtime::{KotoFile, KotoRead, KotoWrite, RuntimeError},
         Koto, KotoSettings,
     },
-    std::sync::{Arc, Mutex},
+    std::{
+        fmt,
+        sync::{Arc, Mutex},
+    },
     wasm_bindgen::prelude::*,
 };
 
@@ -11,11 +14,15 @@ use {
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 // Captures output from Koto in a String
+#[derive(Debug)]
 struct OutputCapture {
     output: Arc<Mutex<String>>,
 }
 
-impl KotoStdout for OutputCapture {
+impl KotoFile for OutputCapture {}
+impl KotoRead for OutputCapture {}
+
+impl KotoWrite for OutputCapture {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         let bytes_str = match std::str::from_utf8(bytes) {
             Ok(s) => s,
@@ -37,7 +44,11 @@ impl KotoStdout for OutputCapture {
     }
 }
 
-impl KotoStderr for OutputCapture {}
+impl fmt::Display for OutputCapture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("_stdout_")
+    }
+}
 
 // Runs an input program and returns the output as a String
 #[wasm_bindgen]
