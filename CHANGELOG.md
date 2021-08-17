@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.8.0] 2021.08.17
+
 ### Added
 
 - CLI improvements

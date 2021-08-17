@@ -1,6 +1,6 @@
 [package]
 name = "koto_random"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,7 +10,7 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-koto_runtime = { path = "../../src/runtime", version = "^0.7.0"}
+koto_runtime = { path = "../../src/runtime", version = "^0.8.0"}
 lazy_static = "1.4.0"
 
 rand = "0.7.3"
