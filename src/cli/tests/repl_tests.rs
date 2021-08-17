@@ -2,11 +2,11 @@ use std::{
     env,
     io::Write,
     process::{Command, Stdio},
-    str,
 };
 
 fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
     let mut process = Command::new(env!("CARGO_BIN_EXE_koto"))
+        .env("KOTO_FORCE_REPL_MODE", "")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -22,6 +22,8 @@ fn run_koto_repl_test(inputs_and_expected_outputs: &[(&str, Option<&str>)]) {
     }
 
     let output = process.wait_with_output().expect("Failed to get output");
+    assert!(output.status.success());
+
     let stdout = String::from_utf8(output.stdout).expect("Failed to get output");
     let mut output_lines = stdout.lines().skip_while(|line| line != &"» ");
 

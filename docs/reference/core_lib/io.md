@@ -5,13 +5,20 @@ A collection of utilities for working with the local filesystem.
 # Reference
 
 - [create](#create)
+- [current_dir](#current_dir)
 - [exists](#exists)
 - [open](#open)
+- [print](#print)
 - [read_to_string](#read_to_string)
 - [remove_file](#remove_file)
+- [stderr](#stderr)
+- [stdin](#stdin)
+- [stdout](#stdout)
 - [temp_dir](#temp_dir)
 - [File](#file)
+- [File.flush](#fileflush)
 - [File.path](#filepath)
+- [File.read_line](#fileread_line)
 - [File.read_to_string](#fileread_to_string)
 - [File.seek](#fileseek)
 - [File.write](#filewrite)
@@ -19,9 +26,9 @@ A collection of utilities for working with the local filesystem.
 
 ## create
 
-`|String| -> Map`
+`|String| -> File`
 
-Returns an empty `File` map at the provided path.
+Returns an empty `File` at the provided path.
 If the file already exists it will be truncated.
 
 ### Errors
@@ -36,6 +43,13 @@ f.write_line "Hello"
 f.read_to_string()
 # Hello
 ```
+
+## current_dir
+
+`|| -> String`
+
+Returns the current working directory as a String, or Empty if the current
+directory can't be retrieved.
 
 ## exists
 
@@ -57,9 +71,9 @@ io.exists path
 
 ## open
 
-`|String| -> Map`
+`|String| -> File`
 
-Opens the file at the given path, and returns a corresponding `File` map.
+Opens the file at the given path, and returns a corresponding `File`.
 
 ### Errors
 
@@ -72,6 +86,18 @@ f = io.open "path/to/existing.file"
 f.exists()
 # true
 ```
+
+## print
+
+`|Value| -> ()`
+`|String, Value...| -> ()`
+
+Prints a formatted string to the active logger,
+by default this is the standard output.
+
+### Note
+
+See `string.format` for the formatting syntax.
 
 ## read_to_string
 
@@ -118,6 +144,58 @@ io.exists path
 # false
 ```
 
+## stderr
+
+`|| -> File`
+
+Returns the standard error output of the current process as a file.
+
+### Example
+
+```koto
+io.stderr().write_line "An error occurred!"
+```
+
+### See Also
+
+- [`io.stdin`](#stdin)
+- [`io.stdout`](#stdout)
+
+## stdin
+
+`|| -> File`
+
+Returns the standard input of the current process as a file.
+
+### Example
+
+```koto
+io.stdin().read_to_string()
+# "..."
+```
+
+### See Also
+
+- [`io.stderr`](#stderr)
+- [`io.stdout`](#stdout)
+
+## stdout
+
+`|| -> File`
+
+Returns the standard output of the current process as a file.
+
+### Example
+
+```koto
+io.stdout().write_line "Hello, World!"
+```
+
+### See Also
+
+- [`io.stderr`](#stderr)
+- [`io.stdin`](#stdin)
+
 ## temp_dir
 
 `|| -> String`
@@ -133,11 +211,34 @@ This defers to Rust's `std::env::temp_dir`, for details see
 
 A map that wraps a file handle, returned from functions in `io`.
 
+## File.flush
+
+`|File| -> ()`
+
+Ensures that any buffered changes to the file have been written.
+
+### See Also
+
+- [`file.write`](#filewrite)
+- [`file.write_line`](#filewrite_line)
+
 ## File.path
 
 `|File| -> String`
 
 Returns the file's path.
+
+## File.read_line
+
+`|File| -> String or Empty`
+
+Reads a line of output from the file as a string, not including the newline.
+
+When the end of the file is reached, Empty will be returned.
+
+### Errors
+
+An error is thrown if the line doesn't contain valid UTF-8 data.
 
 ## File.read_to_string
 

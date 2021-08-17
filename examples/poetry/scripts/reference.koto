@@ -1,4 +1,4 @@
-import string.print
+import io.print
 
 export main = ||
   input_file = koto.script_dir + "/../../../docs/reference/core_lib/string.md"

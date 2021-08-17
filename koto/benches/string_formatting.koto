@@ -39,7 +39,7 @@ export main = ||
     .to_tuple()
 
   if not (koto.args.get 1) == "quiet"
-    "{}".print result
+    io.print result
 
 export @tests =
   @test number_to_english: ||

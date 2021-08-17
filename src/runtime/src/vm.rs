@@ -7,9 +7,9 @@ use {
         num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
-        BinaryOp, DefaultLogger, KotoLogger, Loader, MetaKey, RuntimeError, RuntimeErrorType,
-        RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, UnaryOp, Value, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueVec,
+        BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
+        RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -59,17 +59,28 @@ pub type InstructionResult = Result<(), RuntimeError>;
 struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
-    logger: Arc<dyn KotoLogger>,
+    stdin: Arc<dyn KotoFile>,
+    stdout: Arc<dyn KotoFile>,
+    stderr: Arc<dyn KotoFile>,
 }
 
 impl Default for SharedContext {
     fn default() -> Self {
-        Self::with_logger(Arc::new(DefaultLogger {}))
+        let default_settings = VmSettings::default();
+        Self::with_outputs(
+            default_settings.stdin,
+            default_settings.stdout,
+            default_settings.stderr,
+        )
     }
 }
 
 impl SharedContext {
-    fn with_logger(logger: Arc<dyn KotoLogger>) -> Self {
+    fn with_outputs(
+        stdin: Arc<dyn KotoFile>,
+        stdout: Arc<dyn KotoFile>,
+        stderr: Arc<dyn KotoFile>,
+    ) -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -89,7 +100,9 @@ impl SharedContext {
         Self {
             prelude,
             core_lib,
-            logger,
+            stdin,
+            stdout,
+            stderr,
         }
     }
 }
@@ -134,13 +147,17 @@ impl Drop for ModuleContext {
 }
 
 pub struct VmSettings {
-    pub logger: Arc<dyn KotoLogger>,
+    pub stdin: Arc<dyn KotoFile>,
+    pub stdout: Arc<dyn KotoFile>,
+    pub stderr: Arc<dyn KotoFile>,
 }
 
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
-            logger: Arc::new(DefaultLogger {}),
+            stdin: Arc::new(DefaultStdin::default()),
+            stdout: Arc::new(DefaultStdout::default()),
+            stderr: Arc::new(DefaultStderr::default()),
         }
     }
 }
@@ -165,7 +182,11 @@ impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             context: Arc::new(RwLock::new(ModuleContext::default())),
-            context_shared: Arc::new(SharedContext::with_logger(settings.logger)),
+            context_shared: Arc::new(SharedContext::with_outputs(
+                settings.stdin,
+                settings.stdout,
+                settings.stderr,
+            )),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -236,8 +257,19 @@ impl Vm {
         self.context.write()
     }
 
-    pub fn logger(&self) -> &Arc<dyn KotoLogger> {
-        &self.context_shared.logger
+    /// The stdin wrapper used by the VM
+    pub fn stdin(&self) -> &Arc<dyn KotoFile> {
+        &self.context_shared.stdin
+    }
+
+    /// The stdout wrapper used by the VM
+    pub fn stdout(&self) -> &Arc<dyn KotoFile> {
+        &self.context_shared.stdout
+    }
+
+    /// The stderr wrapper used by the VM
+    pub fn stderr(&self) -> &Arc<dyn KotoFile> {
+        &self.context_shared.stderr
     }
 
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
@@ -2455,7 +2487,7 @@ impl Vm {
             }};
         }
 
-        match accessed_value {
+        match &accessed_value {
             Map(map) => match map.data().get_with_string(key_string) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
@@ -2480,13 +2512,17 @@ impl Vm {
                     self.set_register(result_register, value.clone());
                 }
                 None => {
-                    return runtime_error!("RunAccess: Missing access operator for external value");
+                    return runtime_error!(
+                        "'{}' not found in '{}'",
+                        key_string,
+                        accessed_value.type_as_string()
+                    );
                 }
             },
             unexpected => {
                 return self.unexpected_type_error(
                     "RunAccess: Unable to perform '.' access on '{}'",
-                    &unexpected,
+                    unexpected,
                 )
             }
         }
@@ -2843,12 +2879,10 @@ impl Vm {
 
         let expression_string = self.get_constant_str(expression_constant);
 
-        self.logger().writeln(&format!(
+        self.stdout().write_line(&format!(
             "{}{}: {}",
             prefix, expression_string, value_string
-        ));
-
-        Ok(())
+        ))
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {

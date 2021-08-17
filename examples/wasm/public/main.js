@@ -8,6 +8,8 @@ var editorDiv = document.getElementById("editor");
 editorDiv.innerHTML = `\
 # Fizz buzz in Koto
 
+import io.print
+
 fizz_buzz = |n|
   match n % 3, n % 5
     0, 0 then "Fizz Buzz"
@@ -16,7 +18,7 @@ fizz_buzz = |n|
     else n
 
 for n in 1..20
-  "{}".print fizz_buzz n
+  print fizz_buzz n
 `;
 
 var editor = ace.edit("editor");

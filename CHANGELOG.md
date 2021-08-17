@@ -4,8 +4,11 @@
 
 ### Added
 
-- The REPL now contains a help system that provides reference documentation for
-  the core library.
+- CLI improvements
+  - The REPL now contains a help system that provides reference documentation for
+    the core library.
+  - An `--eval` option has been added to allow for direct evaluation of an
+    expression.
 - New features for Strings.
   - Strings now support indexing operations.
     - e.g.
@@ -50,6 +53,12 @@
       assert_eq (1..=5).to_string(), "12345"
       assert_eq ("x", "y". "z").to_string(), "xyz"
       ```
+- I/O improvements.
+  - Added `io.stdin`, `io.stdout`, and `io.stderr`.
+  - New features for `File`:
+    - `File.flush`
+    - `File.read_line`
+  - Reading and writing to files is now buffered.
 - Meta maps can now have user-defined entries defined, using the `@meta` tag.
   - e.g.
     ```koto
@@ -91,8 +100,10 @@
   `MetaMap` where implementation functions can be defined.
   - An external value's meta map can be shared between external value instances,
     with `lazy_static` used for lazy initialization.
-- `koto.args` is now a Tuple instead of a List.
-- `koto.script_dir` and `koto.script_path` are now empty by default.
+- Changes to the `koto` module:
+  - `koto.args` is now a Tuple instead of a List.
+  - `koto.current_dir` has been moved to `io.current_dir`.
+  - `koto.script_dir` and `koto.script_path` are now empty by default.
 - Ranges that have operations starting on an intended following line can now be
   written without parentheses.
   - e.g.
@@ -104,6 +115,13 @@
     ```
 - Omitting the value after a key in a map declaration is now only allowed when
   using inline syntax.
+- `string.print` has been moved to `io.print`.
+  - `print` was previously in `string` to allow for import-free printing,
+    but now that core modules in the prelude `io.print "hello"` can be expressed
+    without imports.
+  - `io.print` will now accept any value without a formatting string.
+- The custom logging interface has been replaced by the `KotoFile` trait,
+  with stdin, stdout, and stderr available to be overridden.
 
 ### Removed
 

@@ -1,4 +1,4 @@
-mod format;
+pub mod format;
 
 use {
     crate::{
@@ -106,23 +106,6 @@ pub fn make_module() -> ValueMap {
             Ok(Iterator(iterator))
         }
         _ => runtime_error!("string.lines: Expected string as argument"),
-    });
-
-    result.add_fn("print", |vm, args| {
-        match vm.get_args(args) {
-            [Str(s)] => vm.logger().writeln(s.as_str()),
-            [Str(format), format_args @ ..] => {
-                let format = format.clone();
-                let format_args = format_args.to_vec();
-                let vm = vm.child_vm();
-                match format::format_string(vm, &format, &format_args) {
-                    Ok(result) => vm.logger().writeln(&result),
-                    Err(error) => return Err(error.with_prefix("string.print")),
-                }
-            }
-            _ => return runtime_error!("string.print: Expected a string as first argument"),
-        }
-        Ok(Empty)
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {

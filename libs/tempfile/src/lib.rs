@@ -1,40 +1,23 @@
 //! A Koto language module for working with temporary files
 
-use koto_runtime::{core::io::File, runtime_error, Value, ValueMap};
+use {
+    koto_runtime::{
+        core::io::{map_io_err, File},
+        ValueMap,
+    },
+    tempfile::NamedTempFile,
+};
 
 pub fn make_module() -> ValueMap {
-    use Value::*;
-
     let mut result = ValueMap::new();
 
-    result.add_fn("temp_path", {
-        |_, _| match tempfile::NamedTempFile::new() {
-            Ok(file) => match file.keep() {
-                Ok((_temp_file, path)) => Ok(Str(path.to_string_lossy().as_ref().into())),
-                Err(e) => runtime_error!("io.temp_file: Error while making temp path: {}", e),
-            },
-            Err(e) => runtime_error!("io.temp_file: Error while making temp path: {}", e),
-        }
-    });
-
     result.add_fn("temp_file", {
-        move |_, _| {
-            let (temp_file, path) = match tempfile::NamedTempFile::new() {
-                Ok(file) => match file.keep() {
-                    Ok((temp_file, path)) => (temp_file, path),
-                    Err(e) => {
-                        return runtime_error!(
-                            "io.temp_file: Error while creating temp file: {}",
-                            e,
-                        );
-                    }
-                },
-                Err(e) => {
-                    return runtime_error!("io.temp_file: Error while creating temp file: {}", e);
-                }
-            };
-
-            Ok(File::make_external_value(temp_file, &path, true))
+        |_, _| match NamedTempFile::new().map_err(map_io_err) {
+            Ok(file) => {
+                let path = file.path().to_path_buf();
+                Ok(File::system_file(file, path))
+            }
+            Err(e) => Err(e.with_prefix("tempfile.temp_file")),
         }
     });
 

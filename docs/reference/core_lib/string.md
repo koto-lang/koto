@@ -52,7 +52,6 @@ x = "{}, {}!".format a, b
 - [format](#format)
 - [is_empty](#is_empty)
 - [lines](#lines)
-- [print](#print)
 - [size](#size)
 - [slice](#slice)
 - [split](#split)
@@ -267,17 +266,6 @@ Lines end with either `\r\n` or `\n`.
 "\n\n\n".lines().to_tuple()
 # ("", "", "")
 ```
-
-## print
-
-`|String, Value...| -> ()`
-
-Prints a formatted string to the active logger,
-by default this is the standard output.
-
-### Note
-
-See `string.format` for the formatting syntax.
 
 ## size
 

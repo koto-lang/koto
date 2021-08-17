@@ -1,4 +1,4 @@
-import string.print
+import io.print
 
 export main = ||
   input_file = koto.script_dir + "/../../../README.md"
@@ -17,8 +17,9 @@ export main = ||
     for count in word_counts
       line = generator
         .take count
-        .fold "", |line, word| line += word + " "
-      print line.trim()
+        .intersperse " "
+        .to_string()
+      print line
     print ""
 
   print separator
