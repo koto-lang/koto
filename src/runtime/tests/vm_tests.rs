@@ -1878,6 +1878,14 @@ x[3]";
         }
 
         #[test]
+        fn index_from_one_past_the_end() {
+            test_script("'x'[0..1]", string("x"));
+            test_script("'x'[1..]", string(""));
+            test_script("'x'[1..1]", string(""));
+            test_script("'héllö'[5..]", string(""));
+        }
+
+        #[test]
         fn index_whole_string() {
             test_script("'héllö'[..]", string("héllö"));
         }

@@ -51,17 +51,19 @@ impl ValueString {
         let end_unwrapped = end.unwrap_or_else(|| self.len());
         debug_assert!(start <= end_unwrapped);
 
-        let mut result_start = None;
+        let mut result_start = if start == 0 { Some(0) } else { None };
         let mut result_end = None;
 
         for (i, (grapheme_start, grapheme)) in self.grapheme_indices(true).enumerate() {
-            if i == start {
-                if start == end_unwrapped {
-                    // The start index has been validated, so return the empty string
-                    return Some(Self::empty());
-                }
-
-                result_start = Some(grapheme_start);
+            if result_start.is_none() && i == start - 1 {
+                // By checking against start - 1 (rather than waiting until the next iteration),
+                // we can allow for indexing from 'one past the end' to get to an empty string,
+                // which can be useful when consuming characters from a string.
+                // e.g.
+                //   x = get_string()
+                //   do_something_with_first_char x[0]
+                //   do_something_with_remaining_string x[1..]
+                result_start = Some(grapheme_start + grapheme.len());
 
                 if end.is_none() {
                     break;
@@ -69,8 +71,13 @@ impl ValueString {
             }
 
             if i == end_unwrapped - 1 {
-                // By checking against end - 1 (rather than waiting until the next iteration),
-                // we can allow for indexing 'one past the end' to get the last character.
+                if start == end_unwrapped {
+                    // The start index has been validated, so just return the empty string
+                    return Some(Self::empty());
+                }
+
+                // Checking against end - 1 in the same way as for result_start,
+                // allowing for indexing one-past-the-end.
                 // e.g. assert_eq 'xyz'[1..3], 'yz'
                 result_end = Some(grapheme_start + grapheme.len());
                 break;

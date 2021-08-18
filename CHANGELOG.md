@@ -8,6 +8,11 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+- Indexing a string with a range starting from 'one past the end' is now
+  supported.
+
 ## [0.8.1] 2021.08.18
 
 ### Fixed
