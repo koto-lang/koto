@@ -2480,7 +2480,6 @@ impl Vm {
                 let op = self.get_core_op(
                     key_string,
                     &self.context_shared.core_lib.$module,
-                    stringify!($module),
                     $iterator_fallback,
                 )?;
                 self.set_register(result_register, op);
@@ -2530,13 +2529,7 @@ impl Vm {
         Ok(())
     }
 
-    fn get_core_op(
-        &self,
-        key: &str,
-        module: &ValueMap,
-        module_name: &str,
-        iterator_fallback: bool,
-    ) -> RuntimeResult {
+    fn get_core_op(&self, key: &str, module: &ValueMap, iterator_fallback: bool) -> RuntimeResult {
         use Value::*;
 
         let maybe_op = match module.data().get_with_string(key).cloned() {
@@ -2585,7 +2578,7 @@ impl Vm {
                 }
                 other => other,
             },
-            None => return runtime_error!("'{}' not found in module '{}'", key, module_name),
+            None => return runtime_error!("'{}' not found", key),
         };
 
         Ok(result)
