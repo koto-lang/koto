@@ -8,6 +8,8 @@ The Koto project adheres to
 
 ## Unreleased
 
+## [0.8.1] 2021.08.18
+
 ### Fixed
 
 - Fixed a regression introduced in `v0.7.0` that prevented Maps from using a
