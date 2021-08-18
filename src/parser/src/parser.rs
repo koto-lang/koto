@@ -1604,6 +1604,7 @@ impl<'source> Parser<'source> {
 
             match (peeked_0, peeked_1) {
                 (Token::Id, Some(Token::Colon)) => {}
+                (Token::StringDoubleQuoted | Token::StringSingleQuoted, Some(Token::Colon)) => {}
                 (Token::At, Some(_)) => {}
                 _ => return Ok(None),
             }
