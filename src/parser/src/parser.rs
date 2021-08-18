@@ -480,10 +480,6 @@ impl<'source> Parser<'source> {
                 Some(result)
             } else if let Some(result) = self.parse_export(&mut ExpressionContext::line_start())? {
                 Some(result)
-            } else if let Some(result) = self.parse_throw_expression()? {
-                Some(result)
-            } else if let Some(result) = self.parse_debug_expression()? {
-                Some(result)
             } else {
                 self.parse_expressions(&mut ExpressionContext::line_start(), false)?
             };
@@ -1452,9 +1448,10 @@ impl<'source> Parser<'source> {
                     };
                     Some(result)
                 }
+                Token::Throw => self.parse_throw_expression()?,
+                Token::Debug => self.parse_debug_expression()?,
                 Token::From | Token::Import => self.parse_import_expression(context)?,
                 Token::Try => self.parse_try_expression(context)?,
-                // Token::NewLineIndented => self.parse_map_block(current_indent, None)?,
                 Token::Error => return syntax_error!(LexerError, self),
                 _ => None,
             };
@@ -2007,7 +2004,6 @@ impl<'source> Parser<'source> {
         }
 
         // Check for errors now that the match expression is complete
-
         for (arm_index, arm) in arms.iter().enumerate() {
             let last_arm = arm_index == arms.len() - 1;
 
@@ -2024,6 +2020,7 @@ impl<'source> Parser<'source> {
             start_span,
         )?))
     }
+
     fn parse_match_expression(
         &mut self,
         context: &mut ExpressionContext,
