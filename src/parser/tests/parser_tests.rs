@@ -358,12 +358,12 @@ x"#;
                     Id(0),  // x
                     Int(2), // 42
                     Number0,
-                    Map(vec![(MapKey::Id(1), Some(2))]), // baz, nested map
+                    Map(vec![(MapKey::Id(1), Some(2))]), // foo, 0
                     Int(4),
                     Map(vec![
-                        (MapKey::Id(1), Some(1)),
-                        (MapKey::Str(3, QuotationMark::Double), Some(3)),
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),
+                        (MapKey::Id(1), Some(1)),                           // foo: 42
+                        (MapKey::Str(3, QuotationMark::Double), Some(3)),   // "baz": nested map
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)), // @-: -1
                     ]), // 5
                     Assign {
                         target: AssignTarget {
@@ -386,6 +386,35 @@ x"#;
                     Constant::Str("baz"),
                     Constant::I64(-1),
                 ]),
+            )
+        }
+
+        #[test]
+        fn map_block_first_entry_with_string_key() {
+            let source = r#"
+x =
+  "foo": 42
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(0),                                                       // x
+                    Int(2),                                                      // 42
+                    Map(vec![(MapKey::Str(1, QuotationMark::Double), Some(1))]), // "foo", 42
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 2,
+                    },
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
             )
         }
 
