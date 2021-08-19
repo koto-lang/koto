@@ -8,6 +8,20 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+- Indexing a string with a range starting from 'one past the end' is now
+  supported.
+- Throw and debug expressions can now be used more freely, in particular as
+  expressions in match and switch arms.
+  - e.g.
+    ```koto
+    match foo()
+      0 then true
+      1 then false
+      x then debug x # debug would previously require an indented block
+    ```
+
 ## [0.8.1] 2021.08.18
 
 ### Fixed

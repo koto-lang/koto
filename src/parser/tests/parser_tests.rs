@@ -4163,6 +4163,45 @@ match x
         }
 
         #[test]
+        fn match_arm_is_throw_expression() {
+            let source = "
+match x
+  0 then 1
+  else throw 'nope'
+";
+            check_ast(
+                source,
+                &[
+                    Id(0),
+                    Number0,
+                    Number1,
+                    Str(1, QuotationMark::Single),
+                    Throw(3),
+                    Match {
+                        expression: 0,
+                        arms: vec![
+                            MatchArm {
+                                patterns: vec![1],
+                                condition: None,
+                                expression: 2,
+                            },
+                            MatchArm {
+                                patterns: vec![],
+                                condition: None,
+                                expression: 4,
+                            },
+                        ],
+                    }, // 5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x"), Constant::Str("nope")]),
+            )
+        }
+
+        #[test]
         fn switch_expression() {
             let source = "
 switch
@@ -4210,6 +4249,42 @@ switch
                     },
                 ],
                 Some(&[Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
+
+        #[test]
+        fn switch_arm_is_debug_expression() {
+            let source = "
+switch
+  true then 1
+  else debug x
+";
+            check_ast(
+                source,
+                &[
+                    BoolTrue,
+                    Number1,
+                    Id(0),
+                    Debug {
+                        expression_string: 0,
+                        expression: 2,
+                    },
+                    Switch(vec![
+                        SwitchArm {
+                            condition: Some(0),
+                            expression: 1,
+                        },
+                        SwitchArm {
+                            condition: None,
+                            expression: 3,
+                        },
+                    ]),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("x")]),
             )
         }
     }

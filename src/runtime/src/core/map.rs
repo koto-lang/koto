@@ -42,7 +42,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("get", |vm, args| match vm.get_args(args) {
-        [Map(m), key] => match m.data().get(&ValueKey::from(key.clone())) {
+        [Map(m), key] if key.is_immutable() => match m.data().get(&ValueKey::from(key.clone())) {
             Some(value) => Ok(value.clone()),
             None => Ok(Empty),
         },
