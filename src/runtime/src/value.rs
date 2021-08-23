@@ -132,7 +132,7 @@ impl Value {
         use Value::*;
         matches!(
             self,
-            Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+            Num2(_) | Num4(_) | Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
         )
     }
 

@@ -10,6 +10,25 @@ The Koto project adheres to
 
 ### Added
 
+- Num2 / Num4 improvements.
+  - Elements can now be assigned via indexing.
+    - e.g.
+      ```koto
+      x = num4 1, 2, 3, 4
+      x[2..] = 99
+      assert_eq x, (num4 1, 2, 99, 99)
+      ```
+  - Num2 and Num4 are now iterable.
+    - e.g.
+      ```koto
+      x = num4 5, 6, 7, 8
+      assert_eq x.keep(|n| n > 6).count(), 2
+      ```
+  - Added core operations:
+    - `num2.iter` / `num4.iter`
+    - `num2.max` / `num4.max`
+    - `num2.min` / `num4.min`
+    - `num2.product` / `num4.product`
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as

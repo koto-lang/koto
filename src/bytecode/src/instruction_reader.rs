@@ -319,15 +319,15 @@ pub enum Instruction {
         values_start: u8,
         count: u8,
     },
-    ListUpdate {
-        list: u8,
-        index: u8,
-        value: u8,
-    },
     Index {
         register: u8,
         value: u8,
         index: u8,
+    },
+    SetIndex {
+        register: u8,
+        index: u8,
+        value: u8,
     },
     MapInsert {
         register: u8,
@@ -440,8 +440,8 @@ impl fmt::Display for Instruction {
             IsList { .. } => write!(f, "IsList"),
             ListPushValue { .. } => write!(f, "ListPushValue"),
             ListPushValues { .. } => write!(f, "ListPushValues"),
-            ListUpdate { .. } => write!(f, "ListUpdate"),
             Index { .. } => write!(f, "Index"),
+            SetIndex { .. } => write!(f, "SetIndex"),
             MapInsert { .. } => write!(f, "MapInsert"),
             MetaInsert { .. } => write!(f, "MetaInsert"),
             MetaInsertNamed { .. } => write!(f, "MetaInsertNamed"),
@@ -772,11 +772,6 @@ impl fmt::Debug for Instruction {
                 "ListPushValues\tlist: {}\t\tstart: {}\tcount: {}",
                 list, values_start, count
             ),
-            ListUpdate { list, index, value } => write!(
-                f,
-                "ListUpdate\tlist: {}\t\tindex: {}\tvalue: {}",
-                list, index, value
-            ),
             Index {
                 register,
                 value,
@@ -785,6 +780,15 @@ impl fmt::Debug for Instruction {
                 f,
                 "Index\t\tresult: {}\tvalue: {}\tindex: {}",
                 register, value, index
+            ),
+            SetIndex {
+                register,
+                index,
+                value,
+            } => write!(
+                f,
+                "SetIndex\tregister: {}\t\tindex: {}\tvalue: {}",
+                register, index, value
             ),
             MapInsert {
                 register,
@@ -1237,15 +1241,15 @@ impl Iterator for InstructionReader {
                 values_start: get_byte!(),
                 count: get_byte!(),
             }),
-            Op::ListUpdate => Some(ListUpdate {
-                list: get_byte!(),
-                index: get_byte!(),
-                value: get_byte!(),
-            }),
             Op::Index => Some(Index {
                 register: get_byte!(),
                 value: get_byte!(),
                 index: get_byte!(),
+            }),
+            Op::SetIndex => Some(SetIndex {
+                register: get_byte!(),
+                index: get_byte!(),
+                value: get_byte!(),
             }),
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),

@@ -24,6 +24,18 @@ export @tests =
     x += num4 10
     assert_eq x, (num4 10, 12, 14, 11)
 
+  @test max: ||
+    assert_eq (num2 1, -1).max(), 1
+    assert_eq (num4 3, 4, 5, -123).max(), 5
+
+  @test min: ||
+    assert_eq (num2 1, -1).min(), -1
+    assert_eq (num4 3, 4, 5, -123).min(), -123
+
+  @test product: ||
+    assert_eq (num2 3, 4).product(), 12
+    assert_eq (num4 3, 4, 5, 6).product(), 360
+
   @test sum: ||
     assert_eq (num2 1, 2).sum(), 3
     assert_eq (num4 1, 2, 3, 4).sum(), 10
@@ -37,6 +49,24 @@ export @tests =
     x = num4 2, 3, 4, 5
     assert_eq x[0], 2
     assert_eq x[3], 5
+
+  @test element_mutation_num2: ||
+    x = num2 1, 2
+
+    x[0] = 99
+    assert_eq x, (num2 99, 2)
+
+    x[..] = -1
+    assert_eq x, (num2 -1, -1)
+
+  @test element_mutation_num4: ||
+    x = num4 1, 2, 3, 4
+    x[0] = -1
+    x[3] = 123
+    assert_eq x, (num4 -1, 2, 3, 123)
+
+    x[2..] = 99
+    assert_eq x, (num4 -1, 2, 99, 99)
 
   @test element_unpacking_num2: ||
     x = num2 1, 2
@@ -53,3 +83,22 @@ export @tests =
     assert_eq c, 7
     assert_eq d, 8
     assert_eq e, ()
+
+  @test iterator_ops_num2: ||
+    x = num2 1, 2
+    assert_eq x.to_list(), [1, 2]
+
+    i = x.iter()
+    assert_eq i.next(), 1
+    assert_eq i.next(), 2
+    assert_eq i.next(), ()
+
+  @test iterator_ops_num4: ||
+    x = num4 5, 6, 7, 8
+    assert_eq x.to_tuple(), (5, 6, 7, 8)
+
+    i = x.iter()
+    i.skip(2)
+    assert_eq i.next(), 7
+    assert_eq i.next(), 8
+    assert_eq i.next(), ()

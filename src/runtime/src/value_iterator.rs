@@ -1,6 +1,7 @@
 use {
     crate::{
-        make_runtime_error, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
+        make_runtime_error, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString,
+        ValueTuple, Vm,
     },
     std::{
         fmt,
@@ -29,6 +30,8 @@ pub enum ValueIteratorOutput {
 
 #[derive(Debug)]
 pub enum Iterable {
+    Num2(Num2),
+    Num4(Num4),
     Range(IntRange),
     List(ValueList),
     Tuple(ValueTuple),
@@ -72,10 +75,28 @@ impl Iterator for ValueIteratorInternals {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match &mut self.iterable {
-            Iterable::Range(range @ IntRange { .. }) => {
-                use Value::Number;
+        use Value::Number;
 
+        match &mut self.iterable {
+            Iterable::Num2(n) => {
+                if self.index < 2 {
+                    let result = ValueIteratorOutput::Value(Number(n[self.index].into()));
+                    self.index += 1;
+                    Some(result)
+                } else {
+                    None
+                }
+            }
+            Iterable::Num4(n) => {
+                if self.index < 4 {
+                    let result = ValueIteratorOutput::Value(Number(n[self.index].into()));
+                    self.index += 1;
+                    Some(result)
+                } else {
+                    None
+                }
+            }
+            Iterable::Range(range @ IntRange { .. }) => {
                 if range.is_ascending() {
                     let result = range.start + self.index as isize;
                     if result < range.end {
@@ -158,6 +179,14 @@ impl ValueIterator {
         Self::new(Iterable::Range(range))
     }
 
+    pub fn with_num2(n: Num2) -> Self {
+        Self::new(Iterable::Num2(n))
+    }
+
+    pub fn with_num4(n: Num4) -> Self {
+        Self::new(Iterable::Num4(n))
+    }
+
     pub fn with_list(list: ValueList) -> Self {
         Self::new(Iterable::List(list))
     }
@@ -215,6 +244,8 @@ pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {
     use Value::*;
     let result = match value {
         Range(r) => ValueIterator::with_range(*r),
+        Num2(n) => ValueIterator::with_num2(*n),
+        Num4(n) => ValueIterator::with_num4(*n),
         List(l) => ValueIterator::with_list(l.clone()),
         Tuple(t) => ValueIterator::with_tuple(t.clone()),
         Map(m) => ValueIterator::with_map(m.clone()),

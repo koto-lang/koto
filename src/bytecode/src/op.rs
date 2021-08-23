@@ -68,8 +68,8 @@ pub enum Op {
     SliceTo,             // result, value register, signed index
     ListPushValue,       // list, value
     ListPushValues,      // list, start register, count
-    ListUpdate,          // list, index, value
-    Index,               // result, list register, index register
+    Index,               // result, indexable, index
+    SetIndex,            // indexable, index, value
     MapInsert,           // map register, value register, key constant
     MapInsertLong,       // map register, value register, key constant[4]
     MetaInsert,          // map register, value register, key id

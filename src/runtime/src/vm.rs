@@ -853,14 +853,16 @@ impl Vm {
                 }
                 Ok(())
             }
-            Instruction::ListUpdate { list, index, value } => {
-                self.run_list_update(list, index, value)
-            }
             Instruction::Index {
                 register,
                 value,
                 index,
             } => self.run_index(register, value, index),
+            Instruction::SetIndex {
+                register,
+                index,
+                value,
+            } => self.run_set_index(register, index, value),
             Instruction::MapInsert {
                 register,
                 value,
@@ -2073,18 +2075,19 @@ impl Vm {
         Ok(())
     }
 
-    fn run_list_update(
+    fn run_set_index(
         &mut self,
-        list_register: u8,
+        indexable_register: u8,
         index_register: u8,
         value_register: u8,
     ) -> InstructionResult {
         use Value::*;
 
+        let indexable = self.clone_register(indexable_register);
         let index_value = self.clone_register(index_register);
         let value = self.clone_register(value_register);
 
-        match self.get_register_mut(list_register) {
+        match indexable {
             List(list) => {
                 let list_len = list.len();
                 match index_value {
@@ -2097,69 +2100,113 @@ impl Vm {
                         }
                     }
                     Range(IntRange { start, end }) => {
-                        let ustart = start as usize;
-                        let uend = end as usize;
+                        let (ustart, uend) = self.validate_int_range(start, end, Some(list_len))?;
 
-                        if start < 0 || end < 0 {
-                            return runtime_error!(
-                                "Indexing with negative indices isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if start > end {
-                            return runtime_error!(
-                                "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if ustart > list_len || uend > list_len {
-                            return runtime_error!(
-                                "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                list_len,
-                                start,
-                                end
-                            );
-                        } else {
-                            let mut list_data = list.data_mut();
-                            for i in ustart..uend {
-                                list_data[i] = value.clone();
-                            }
+                        let mut list_data = list.data_mut();
+                        for i in ustart..uend {
+                            list_data[i] = value.clone();
                         }
                     }
                     IndexRange(value::IndexRange { start, end }) => {
                         let end = end.unwrap_or(list_len);
-                        if start > end {
-                            return runtime_error!(
-                                "Indexing with a descending range isn't supported, \
-                                                start: {}, end: {}",
-                                start,
-                                end
-                            );
-                        } else if start > list_len || end > list_len {
-                            return runtime_error!(
-                                "Index out of bounds, \
-                                                List has a length of {} - start: {}, end: {}",
-                                list_len,
-                                start,
-                                end
-                            );
-                        } else {
-                            let mut list_data = list.data_mut();
-                            for i in start..end {
-                                list_data[i] = value.clone();
-                            }
+                        self.validate_index_range(start, end, list_len)?;
+
+                        let mut list_data = list.data_mut();
+                        for i in start..end {
+                            list_data[i] = value.clone();
                         }
                     }
                     unexpected => {
-                        return self.unexpected_type_error("Expected List", &unexpected);
+                        return self.unexpected_type_error("Expected index", &unexpected);
                     }
                 }
             }
+            Num2(mut num2) => {
+                let value = match value {
+                    Number(n) => f64::from(n),
+                    unexpected => {
+                        return self.unexpected_type_error(
+                            "Expected Number while assigning to Num2",
+                            &unexpected,
+                        );
+                    }
+                };
+
+                match index_value {
+                    Number(index) => {
+                        let u_index = usize::from(index);
+                        if index >= 0.0 && u_index < 2 {
+                            num2[u_index] = value;
+                        } else {
+                            return runtime_error!("Index '{}' not in List", index);
+                        }
+                    }
+                    Range(IntRange { start, end }) => {
+                        let (ustart, uend) = self.validate_int_range(start, end, Some(2))?;
+
+                        for i in ustart..uend {
+                            num2[i] = value;
+                        }
+                    }
+                    IndexRange(value::IndexRange { start, end }) => {
+                        let end = end.unwrap_or(2);
+                        self.validate_index_range(start, end, 2)?;
+
+                        for i in start..end {
+                            num2[i] = value;
+                        }
+                    }
+                    unexpected => {
+                        return self.unexpected_type_error("Expected index", &unexpected);
+                    }
+                }
+
+                self.set_register(indexable_register, Num2(num2));
+            }
+            Num4(mut num4) => {
+                let value = match value {
+                    Number(n) => f32::from(n),
+                    unexpected => {
+                        return self.unexpected_type_error(
+                            "Expected Number while assigning to Num4",
+                            &unexpected,
+                        );
+                    }
+                };
+
+                match index_value {
+                    Number(index) => {
+                        let u_index = usize::from(index);
+                        if index >= 0.0 && u_index < 4 {
+                            num4[u_index] = value;
+                        } else {
+                            return runtime_error!("Index '{}' not in List", index);
+                        }
+                    }
+                    Range(IntRange { start, end }) => {
+                        let (ustart, uend) = self.validate_int_range(start, end, Some(4))?;
+
+                        for i in ustart..uend {
+                            num4[i] = value;
+                        }
+                    }
+                    IndexRange(value::IndexRange { start, end }) => {
+                        let end = end.unwrap_or(4);
+                        self.validate_index_range(start, end, 4)?;
+
+                        for i in start..end {
+                            num4[i] = value;
+                        }
+                    }
+                    unexpected => {
+                        return self.unexpected_type_error("Expected index", &unexpected);
+                    }
+                }
+
+                self.set_register(indexable_register, Num4(num4));
+            }
             unexpected => {
-                return runtime_error!("Expected List, found '{}'", unexpected);
+                return self.unexpected_type_error("Expected indexable value", &unexpected);
             }
         };
 
@@ -2499,8 +2546,8 @@ impl Vm {
                 },
             },
             List(_) => core_op!(list, true),
-            Num2(_) => core_op!(num2, false),
-            Num4(_) => core_op!(num4, false),
+            Num2(_) => core_op!(num2, true),
+            Num4(_) => core_op!(num4, true),
             Number(_) => core_op!(number, false),
             Range(_) => core_op!(range, true),
             Str(_) => core_op!(string, true),
