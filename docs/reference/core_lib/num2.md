@@ -29,6 +29,9 @@ x
 # Reference
 
 - [iter](#iter)
+- [max](#max)
+- [min](#min)
+- [product](#product)
 - [sum](#sum)
 
 ## iter
@@ -48,6 +51,48 @@ x = (num2 3, 4).iter()
 x.skip(1)
 x.next()
 # 4
+```
+
+## max
+
+`|Num2| -> Float`
+
+Returns the value of the largest element in the Num2.
+
+### Example
+
+```koto
+x = num2(10, 20)
+x.max()
+# 20
+```
+
+## min
+
+`|Num2| -> Float`
+
+Returns the value of the smallest element in the Num2.
+
+### Example
+
+```koto
+x = num2(10, 20)
+x.min()
+# 10
+```
+
+## product
+
+`|Num2| -> Float`
+
+Returns the result of multiplying the Num2's elements together.
+
+### Example
+
+```koto
+x = num2(10, 20)
+x.product()
+# 300
 ```
 
 ## sum

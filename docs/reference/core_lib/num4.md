@@ -50,6 +50,48 @@ x.next()
 # 5
 ```
 
+## max
+
+`|Num4| -> Float`
+
+Returns the value of the largest element in the Num4.
+
+### Example
+
+```koto
+x = num4(10, 20, -50, -10)
+x.max()
+# 20
+```
+
+## min
+
+`|Num4| -> Float`
+
+Returns the value of the smallest element in the Num4.
+
+### Example
+
+```koto
+x = num4(10, 20, -50, -10)
+x.min()
+# -50
+```
+
+## product
+
+`|Num4| -> Float`
+
+Returns the result of multiplying the Num4's elements together.
+
+### Example
+
+```koto
+x = num4(10, 20, -50, -10)
+x.product()
+# 100000
+```
+
 ## sum
 
 `|Num4| -> Float`

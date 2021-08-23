@@ -24,6 +24,11 @@ The Koto project adheres to
       x = num4 5, 6, 7, 8
       assert_eq x.keep(|n| n > 6).count(), 2
       ```
+  - Added core operations:
+    - `num2.iter` / `num4.iter`
+    - `num2.max` / `num4.max`
+    - `num2.min` / `num4.min`
+    - `num2.product` / `num4.product`
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as
