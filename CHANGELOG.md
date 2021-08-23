@@ -18,6 +18,12 @@ The Koto project adheres to
       x[2..] = 99
       assert_eq x, (num4 1, 2, 99, 99)
       ```
+  - Num2 and Num4 are now iterable.
+    - e.g.
+      ```koto
+      x = num4 5, 6, 7, 8
+      assert_eq x.keep(|n| n > 6).count(), 2
+      ```
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as

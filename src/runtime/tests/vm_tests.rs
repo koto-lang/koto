@@ -1762,8 +1762,16 @@ x[0] + x[1]";
             let script = "
 x = num2 4, 5
 x[..] = 2
-x[0] + x[1]";
-            test_script(script, Number(4.0.into()));
+x";
+            test_script(script, num2(2.0, 2.0));
+        }
+
+        #[test]
+        fn iterator_ops() {
+            let script = "
+x = num2 1, -1
+x.keep(|n| n < 0).count()";
+            test_script(script, Number(1.0.into()));
         }
     }
 
@@ -1861,8 +1869,8 @@ x[2]";
             let script = "
 x = num4 4, 5, 6, 7
 x[1..=2] = 1
-x[1] + x[2]";
-            test_script(script, Number(2.0.into()));
+x";
+            test_script(script, num4(4.0, 1.0, 1.0, 7.0));
         }
 
         #[test]
@@ -1872,6 +1880,14 @@ x = num4 4, 5, 6, 7
 x[..] = 2
 x.sum()";
             test_script(script, Number(8.0.into()));
+        }
+
+        #[test]
+        fn iterator_ops() {
+            let script = "
+x = num4 1, -1, 2, -2
+x.keep(|n| n > 0).count()";
+            test_script(script, Number(2.0.into()));
         }
     }
 

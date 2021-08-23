@@ -28,6 +28,28 @@ x
 
 # Reference
 
+- [iter](#iter)
+- [sum](#sum)
+
+## iter
+
+`|Num4| -> Iterator`
+
+Returns an iterator that iterates over the list's values.
+
+Num4 values are iterable, so it's not necessary to call `.iter()` to get access
+to iterator operations, but it can be useful sometimes to make a standalone
+iterator for manual iteration.
+
+### Example
+
+```koto
+x = (num4 3, 4, 5, 6).iter()
+x.skip(2)
+x.next()
+# 5
+```
+
 ## sum
 
 `|Num4| -> Float`

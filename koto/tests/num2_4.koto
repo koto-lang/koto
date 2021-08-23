@@ -71,3 +71,22 @@ export @tests =
     assert_eq c, 7
     assert_eq d, 8
     assert_eq e, ()
+
+  @test iterator_ops_num2: ||
+    x = num2 1, 2
+    assert_eq x.to_list(), [1, 2]
+
+    i = x.iter()
+    assert_eq i.next(), 1
+    assert_eq i.next(), 2
+    assert_eq i.next(), ()
+
+  @test iterator_ops_num4: ||
+    x = num4 5, 6, 7, 8
+    assert_eq x.to_tuple(), (5, 6, 7, 8)
+
+    i = x.iter()
+    i.skip(2)
+    assert_eq i.next(), 7
+    assert_eq i.next(), 8
+    assert_eq i.next(), ()

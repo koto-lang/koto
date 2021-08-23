@@ -46,7 +46,7 @@ export @tests =
     assert_eq z, [1, 2, 3]
     assert_eq z.pop(), 3
     assert_eq z, [1, 2]
-   z.pop()
+    z.pop()
     z.pop()
     assert_eq z, []
     list.pop z
