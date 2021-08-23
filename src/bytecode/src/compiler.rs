@@ -2147,7 +2147,7 @@ impl Compiler {
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.push_op(ListUpdate, &[list_register, index.register, set_value]);
+                            self.push_op(SetIndex, &[list_register, index.register, set_value]);
                         } else if let Some(result) = result {
                             self.push_op(Index, &[result.register, list_register, index.register]);
                         }

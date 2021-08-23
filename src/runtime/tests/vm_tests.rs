@@ -1738,6 +1738,33 @@ x = num2 4, 5
 x[1]";
             test_script(script, Number(5.0.into()));
         }
+
+        #[test]
+        fn index_element_mutation() {
+            let script = "
+x = num2 4, 5
+x[1] = 99
+x[1]";
+            test_script(script, Number(99.0.into()));
+        }
+
+        #[test]
+        fn index_range_mutation() {
+            let script = "
+x = num2 4, 5
+x[0..2] = 1
+x[0] + x[1]";
+            test_script(script, Number(2.0.into()));
+        }
+
+        #[test]
+        fn index_full_range_mutation() {
+            let script = "
+x = num2 4, 5
+x[..] = 2
+x[0] + x[1]";
+            test_script(script, Number(4.0.into()));
+        }
     }
 
     mod num4_test {
@@ -1818,6 +1845,33 @@ x = num4 1, -2, 3, -4
 x = num4 9, 8, 7, 6
 x[3]";
             test_script(script, Number(6.0.into()));
+        }
+
+        #[test]
+        fn index_element_mutation() {
+            let script = "
+x = num4 4, 5, 6, 7
+x[2] = 99
+x[2]";
+            test_script(script, Number(99.0.into()));
+        }
+
+        #[test]
+        fn index_range_mutation() {
+            let script = "
+x = num4 4, 5, 6, 7
+x[1..=2] = 1
+x[1] + x[2]";
+            test_script(script, Number(2.0.into()));
+        }
+
+        #[test]
+        fn index_full_range_mutation() {
+            let script = "
+x = num4 4, 5, 6, 7
+x[..] = 2
+x.sum()";
+            test_script(script, Number(8.0.into()));
         }
     }
 

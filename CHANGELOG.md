@@ -10,6 +10,14 @@ The Koto project adheres to
 
 ### Added
 
+- Num2 / Num4 improvements.
+  - Elements can now be assigned via indexing.
+    - e.g.
+      ```koto
+      x = num4 1, 2, 3, 4
+      x[2..] = 99
+      assert_eq x, (num4 1, 2, 99, 99)
+      ```
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as
