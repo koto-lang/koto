@@ -2,7 +2,7 @@
 
 A Num4 in Koto is a packed group of 32bit floating-point numbers,
 which can be useful when working with operations that require 3D coordinates,
-RGBA colour values.
+or RGBA colour values.
 
 Element-wise arithmetic operations between Num4s are available,
 while operations with Numbers apply the number to each element.
@@ -29,6 +29,11 @@ x
 # Reference
 
 - [iter](#iter)
+- [length](#length)
+- [max](#max)
+- [min](#min)
+- [normalize](#normalize)
+- [product](#product)
 - [sum](#sum)
 
 ## iter
@@ -48,6 +53,20 @@ x = (num4 3, 4, 5, 6).iter()
 x.skip(2)
 x.next()
 # 5
+```
+
+## length
+
+`|Num4| -> Float`
+
+Returns the length of the vector represented by the Num4's elements.
+
+### Example
+
+```koto
+x = num4(2, -2, 2, -2)
+x.length()
+# 4
 ```
 
 ## max
@@ -76,6 +95,21 @@ Returns the value of the smallest element in the Num4.
 x = num4(10, 20, -50, -10)
 x.min()
 # -50
+```
+
+## normalize
+
+`|Num4| -> Num4`
+
+Returns a Num4 with the same direction as the input,
+with its length normalized to 1.
+
+### Example
+
+```koto
+x = num4(2, -2, 2, -2)
+x.normalize()
+# num4(0.5, -0.5, 0.5, 0.5)
 ```
 
 ## product

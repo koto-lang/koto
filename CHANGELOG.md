@@ -26,8 +26,10 @@ The Koto project adheres to
       ```
   - Added core operations:
     - `num2.iter` / `num4.iter`
+    - `num2.length` / `num4.length`
     - `num2.max` / `num4.max`
     - `num2.min` / `num4.min`
+    - `num2.normalize` / `num4.normalize`
     - `num2.product` / `num4.product`
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
