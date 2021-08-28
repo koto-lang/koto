@@ -265,6 +265,7 @@ impl<'source> Parser<'source> {
             .peek_next_token(&ExpressionContext::permissive())
             .is_some()
         {
+            self.consume_next_token(&mut ExpressionContext::permissive());
             return syntax_error!(UnexpectedToken, self);
         }
 
