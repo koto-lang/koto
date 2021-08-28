@@ -265,6 +265,7 @@ impl<'source> Parser<'source> {
             .peek_next_token(&ExpressionContext::permissive())
             .is_some()
         {
+            self.consume_next_token(&mut ExpressionContext::permissive());
             return syntax_error!(UnexpectedToken, self);
         }
 
@@ -898,10 +899,11 @@ impl<'source> Parser<'source> {
 
             let id_index = self.push_node(Node::Id(constant_index))?;
 
+            let mut context = context.start_new_expression();
             let result = match self.peek_token() {
                 Some(Token::Whitespace) if context.allow_space_separated_call => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_call_args(context)?;
+                    let args = self.parse_call_args(&mut context)?;
 
                     if args.is_empty() {
                         id_index
@@ -915,12 +917,12 @@ impl<'source> Parser<'source> {
                         )?
                     }
                 }
-                Some(_) if self.next_token_is_lookup_start(context) => {
-                    self.parse_lookup(id_index, context)?
+                Some(_) if self.next_token_is_lookup_start(&context) => {
+                    self.parse_lookup(id_index, &mut context)?
                 }
                 Some(_) if context.allow_space_separated_call && context.allow_linebreaks => {
                     let start_span = self.lexer.span();
-                    let args = self.parse_call_args(context)?;
+                    let args = self.parse_call_args(&mut context)?;
 
                     if args.is_empty() {
                         id_index
@@ -1190,13 +1192,7 @@ impl<'source> Parser<'source> {
         };
 
         let range_node = self.push_node(range_node)?;
-
-        let result = if self.next_token_is_lookup_start(context) {
-            self.parse_lookup(range_node, context)?
-        } else {
-            range_node
-        };
-
+        let result = self.check_for_lookup_after_node(range_node, context)?;
         Ok(Some(result))
     }
 
@@ -1336,11 +1332,7 @@ impl<'source> Parser<'source> {
                         QuotationMark::Single
                     };
                     let string_node = self.push_node(Str(constant_index, quote))?;
-                    if self.next_token_is_lookup_start(context) {
-                        Some(self.parse_lookup(string_node, context)?)
-                    } else {
-                        Some(string_node)
-                    }
+                    Some(self.check_for_lookup_after_node(string_node, context)?)
                 }
                 Token::Id => self.parse_id_expression(context)?,
                 Token::Wildcard => {
@@ -1365,7 +1357,8 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum2Terms, self);
                     }
 
-                    Some(self.push_node_with_start_span(Num2(args), start_span)?)
+                    let node = self.push_node_with_start_span(Num2(args), start_span)?;
+                    Some(self.check_for_lookup_after_node(node, context)?)
                 }
                 Token::Num4 => {
                     self.consume_next_token(context);
@@ -1383,7 +1376,8 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum4Terms, self);
                     }
 
-                    Some(self.push_node_with_start_span(Num4(args), start_span)?)
+                    let node = self.push_node_with_start_span(Num4(args), start_span)?;
+                    Some(self.check_for_lookup_after_node(node, context)?)
                 }
                 Token::If => self.parse_if_expression(context)?,
                 Token::Match => self.parse_match_expression(context)?,
@@ -1462,6 +1456,22 @@ impl<'source> Parser<'source> {
         }
     }
 
+    // Checks to see if a lookup starts after the parsed node,
+    // and either returns the node if there's no lookup,
+    // or uses the node as the start of the lookup.
+    fn check_for_lookup_after_node(
+        &mut self,
+        node: AstIndex,
+        context: &ExpressionContext,
+    ) -> Result<AstIndex, ParserError> {
+        let mut lookup_context = context.start_new_expression();
+        if self.next_token_is_lookup_start(&lookup_context) {
+            self.parse_lookup(node, &mut lookup_context)
+        } else {
+            Ok(node)
+        }
+    }
+
     fn parse_number(
         &mut self,
         negate: bool,
@@ -1506,11 +1516,9 @@ impl<'source> Parser<'source> {
             }
         };
 
-        Ok(if self.next_token_is_lookup_start(context) {
-            Some(self.parse_lookup(number_node, context)?)
-        } else {
-            Some(number_node)
-        })
+        Ok(Some(
+            self.check_for_lookup_after_node(number_node, context)?,
+        ))
     }
 
     fn parse_list(
@@ -1560,13 +1568,7 @@ impl<'source> Parser<'source> {
         self.consume_next_token(&mut list_context);
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
-
-        let result = if self.next_token_is_lookup_start(&mut list_context) {
-            self.parse_lookup(list_node, &mut list_context)?
-        } else {
-            list_node
-        };
-
+        let result = self.check_for_lookup_after_node(list_node, &list_context)?;
         Ok(Some(result))
     }
 
@@ -1707,13 +1709,7 @@ impl<'source> Parser<'source> {
         self.consume_next_token(&mut map_end_context);
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
-
-        let result = if self.next_token_is_lookup_start(context) {
-            self.parse_lookup(map_node, context)?
-        } else {
-            map_node
-        };
-
+        let result = self.check_for_lookup_after_node(map_node, context)?;
         Ok(Some(result))
     }
 
@@ -2203,7 +2199,7 @@ impl<'source> Parser<'source> {
                             }
                         } else {
                             let id_node = self.push_node(Node::Id(id))?;
-                            if self.next_token_is_lookup_start(&mut pattern_context) {
+                            if self.next_token_is_lookup_start(&pattern_context) {
                                 self.frame_mut()?.add_id_access(id);
                                 self.parse_lookup(id_node, &mut pattern_context)?
                             } else {
@@ -2503,7 +2499,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        let result = match expressions.as_slice() {
+        let expressions_node = match expressions.as_slice() {
             [] => self.push_node(Node::Empty)?,
             [single_expression] if !encountered_comma => *single_expression,
             _ => self.push_node(Node::Tuple(expressions))?,
@@ -2511,11 +2507,7 @@ impl<'source> Parser<'source> {
 
         if let Some(ParenClose) = self.peek_token() {
             self.consume_token();
-            let result = if self.next_token_is_lookup_start(context) {
-                self.parse_lookup(result, context)?
-            } else {
-                result
-            };
+            let result = self.check_for_lookup_after_node(expressions_node, context)?;
             Ok(Some(result))
         } else {
             syntax_error!(ExpectedCloseParen, self)
@@ -2642,7 +2634,7 @@ impl<'source> Parser<'source> {
         })
     }
 
-    fn next_token_is_lookup_start(&mut self, context: &mut ExpressionContext) -> bool {
+    fn next_token_is_lookup_start(&mut self, context: &ExpressionContext) -> bool {
         use Token::*;
 
         if matches!(

@@ -26,9 +26,18 @@ The Koto project adheres to
       ```
   - Added core operations:
     - `num2.iter` / `num4.iter`
+    - `num2.length` / `num4.length`
     - `num2.max` / `num4.max`
     - `num2.min` / `num4.min`
+    - `num2.normalize` / `num4.normalize`
     - `num2.product` / `num4.product`
+  - Following a parenthesized num2/num4 expression with a lookup is now
+    supported.
+    - e.g.
+      ```koto
+      num2(1, 2).sum()
+      #         ^-- Previously this would result in an 'unexpected token' error.
+      ```
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as
@@ -40,6 +49,11 @@ The Koto project adheres to
       1 then false
       x then debug x # debug would previously require an indented block
     ```
+
+### Changed
+
+- Compilation errors from the top-level Koto struct are now returned as a
+  variant of `KotoError`.
 
 ## [0.8.1] 2021.08.18
 

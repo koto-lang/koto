@@ -29,8 +29,10 @@ x
 # Reference
 
 - [iter](#iter)
+- [length](#length)
 - [max](#max)
 - [min](#min)
+- [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
 
@@ -51,6 +53,20 @@ x = (num2 3, 4).iter()
 x.skip(1)
 x.next()
 # 4
+```
+
+## length
+
+`|Num2| -> Float`
+
+Returns the length of the vector represented by the Num2's elements.
+
+### Example
+
+```koto
+x = num2(3, 4)
+x.length()
+# 5
 ```
 
 ## max
@@ -79,6 +95,21 @@ Returns the value of the smallest element in the Num2.
 x = num2(10, 20)
 x.min()
 # 10
+```
+
+## normalize
+
+`|Num2| -> Num2`
+
+Returns a Num2 with the same direction as the input,
+with its length normalized to 1.
+
+### Example
+
+```koto
+x = num2(3, 4)
+x.normalize()
+# num2(0.6, 0.8)
 ```
 
 ## product

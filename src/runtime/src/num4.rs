@@ -14,6 +14,18 @@ impl Num4 {
     pub fn abs(&self) -> Self {
         Self(self.0.abs(), self.1.abs(), self.2.abs(), self.3.abs())
     }
+
+    pub fn length(&self) -> f64 {
+        let x = self.0 as f64;
+        let y = self.1 as f64;
+        let z = self.2 as f64;
+        let w = self.3 as f64;
+        (x * x + y * y + z * z + w * w).sqrt()
+    }
+
+    pub fn normalize(&self) -> Self {
+        *self / self.length()
+    }
 }
 
 impl PartialEq for Num4 {
