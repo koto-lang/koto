@@ -3,9 +3,7 @@ from test import assert, assert_eq
 locals = {}
 
 foo = |x|
-  result =
-    x: x
-  result + locals.foo_meta
+  {x} + locals.foo_meta
 
 # Declaring the overloaded operators once and then copying them into the foo instance
 # is more efficient than declaring them each time foo is called.
