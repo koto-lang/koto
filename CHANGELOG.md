@@ -31,6 +31,13 @@ The Koto project adheres to
     - `num2.min` / `num4.min`
     - `num2.normalize` / `num4.normalize`
     - `num2.product` / `num4.product`
+  - Following a parenthesized num2/num4 expression with a lookup is now
+    supported.
+    - e.g.
+      ```koto
+      num2(1, 2).sum()
+      #         ^-- Previously this would result in an 'unexpected token' error.
+      ```
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as

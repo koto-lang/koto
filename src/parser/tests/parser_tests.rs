@@ -3103,6 +3103,7 @@ x.bar()."baz" = 1
                 Some(&[Constant::Str("f"), Constant::Str("x")]),
             )
         }
+
         #[test]
         fn call_on_call_result() {
             let source = "(f x)(y)";
@@ -3208,6 +3209,46 @@ x.bar()."baz" = 1
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("values")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_num2_with_parens() {
+            let source = "num2(1).sum()";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Num2(vec![0]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(2))),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("sum")]),
+            )
+        }
+
+        #[test]
+        fn lookup_on_num4_with_parens() {
+            let source = "num4(1).sum()";
+            check_ast(
+                source,
+                &[
+                    Number1,
+                    Num4(vec![0]),
+                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((LookupNode::Id(0), Some(2))),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("sum")]),
             )
         }
 

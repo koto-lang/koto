@@ -1365,7 +1365,15 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum2Terms, self);
                     }
 
-                    Some(self.push_node_with_start_span(Num2(args), start_span)?)
+                    let num2_node = self.push_node_with_start_span(Num2(args), start_span)?;
+
+                    let result = if self.next_token_is_lookup_start(context) {
+                        self.parse_lookup(num2_node, context)?
+                    } else {
+                        num2_node
+                    };
+
+                    Some(result)
                 }
                 Token::Num4 => {
                     self.consume_next_token(context);
@@ -1383,7 +1391,15 @@ impl<'source> Parser<'source> {
                         return syntax_error!(TooManyNum4Terms, self);
                     }
 
-                    Some(self.push_node_with_start_span(Num4(args), start_span)?)
+                    let num4_node = self.push_node_with_start_span(Num4(args), start_span)?;
+
+                    let result = if self.next_token_is_lookup_start(context) {
+                        self.parse_lookup(num4_node, context)?
+                    } else {
+                        num4_node
+                    };
+
+                    Some(result)
                 }
                 Token::If => self.parse_if_expression(context)?,
                 Token::Match => self.parse_match_expression(context)?,

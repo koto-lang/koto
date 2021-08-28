@@ -1680,7 +1680,7 @@ gen().to_tuple()
         }
     }
 
-    mod num2_test {
+    mod num2 {
         use super::*;
 
         #[test]
@@ -1769,13 +1769,13 @@ x";
         #[test]
         fn iterator_ops() {
             let script = "
-x = num2 1, -1
-x.keep(|n| n < 0).count()";
+num2(1, -1).keep(|n| n < 0).count()
+";
             test_script(script, Number(1.0.into()));
         }
     }
 
-    mod num4_test {
+    mod num4 {
         use super::*;
 
         #[test]
@@ -1885,8 +1885,8 @@ x.sum()";
         #[test]
         fn iterator_ops() {
             let script = "
-x = num4 1, -1, 2, -2
-x.keep(|n| n > 0).count()";
+num4(1, -1, 2, -2).keep(|n| n > 0).count()
+";
             test_script(script, Number(2.0.into()));
         }
     }
