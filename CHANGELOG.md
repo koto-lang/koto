@@ -50,6 +50,11 @@ The Koto project adheres to
       x then debug x # debug would previously require an indented block
     ```
 
+### Changed
+
+- Compilation errors from the top-level Koto struct are now returned as a
+  variant of `KotoError`.
+
 ## [0.8.1] 2021.08.18
 
 ### Fixed

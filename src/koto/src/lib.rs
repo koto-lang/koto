@@ -36,10 +36,20 @@ use {
 
 #[derive(Debug)]
 pub enum KotoError {
+    CompileError(LoaderError),
     RuntimeError(RuntimeError),
     NothingToRun,
     InvalidTestsType(String),
     FunctionNotFound(String),
+}
+
+impl KotoError {
+    pub fn is_indentation_error(&self) -> bool {
+        match &self {
+            Self::CompileError(e) => e.is_indentation_error(),
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for KotoError {
@@ -47,6 +57,7 @@ impl fmt::Display for KotoError {
         use KotoError::*;
 
         match &self {
+            CompileError(e) => e.fmt(f),
             RuntimeError(e) => e.fmt(f),
             NothingToRun => {
                 f.write_str("Missing compiled chunk, call compile() before calling run()")
@@ -130,7 +141,7 @@ impl Koto {
         }
     }
 
-    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
+    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, KotoError> {
         let compile_result = if self.settings.repl_mode {
             self.loader.compile_repl(script)
         } else {
@@ -142,7 +153,7 @@ impl Koto {
                 self.chunk = Some(chunk.clone());
                 Ok(chunk)
             }
-            Err(error) => Err(error),
+            Err(error) => Err(KotoError::CompileError(error)),
         }
     }
 
