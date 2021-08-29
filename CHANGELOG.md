@@ -38,6 +38,7 @@ The Koto project adheres to
       num2(1, 2).sum()
       #         ^-- Previously this would result in an 'unexpected token' error.
       ```
+- Added an optional libray for working with YAML data.
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
 - Throw and debug expressions can now be used more freely, in particular as

@@ -1,0 +1,12 @@
+number: 99.0
+bool: true
+string: O_o
+
+nested:
+  number_float: -1.2
+  number_int: 123
+  string: hello
+
+entries:
+  - foo: bar
+  - foo: baz

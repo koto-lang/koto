@@ -15,6 +15,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
     prelude.add_value("random", koto_random::make_module());
     prelude.add_map("tempfile", koto_tempfile::make_module());
     prelude.add_map("toml", koto_toml::make_module());
+    prelude.add_map("yaml", koto_yaml::make_module());
 
     match koto.compile(script) {
         Ok(_) => match koto.run() {
@@ -65,4 +66,5 @@ mod lib_tests {
     lib_test!(random);
     lib_test!(tempfile);
     lib_test!(toml);
+    lib_test!(yaml);
 }
