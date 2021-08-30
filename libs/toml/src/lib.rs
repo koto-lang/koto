@@ -6,7 +6,7 @@ use {
     toml::Value as Toml,
 };
 
-fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
+pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
     let result = match value {
         Toml::Boolean(b) => Value::Bool(*b),
         Toml::Integer(i) => Value::Number(i.into()),

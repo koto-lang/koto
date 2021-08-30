@@ -6,7 +6,7 @@ use {
     serde_yaml::Value as YamlValue,
 };
 
-fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, String> {
+pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, String> {
     let result = match value {
         YamlValue::Null => Value::Empty,
         YamlValue::Bool(b) => Value::Bool(*b),
