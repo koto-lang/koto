@@ -23,6 +23,7 @@ koto_json = { path = "../../libs/json", version = "^0.8.0"}
 koto_random = { path = "../../libs/random", version = "^0.8.0"}
 koto_tempfile = { path = "../../libs/tempfile", version = "^0.8.0"}
 koto_toml = { path = "../../libs/toml", version = "^0.8.0"}
+koto_yaml = { path = "../../libs/yaml", version = "^0.8.0"}
 
 indexmap = "1.4.0"
 termion = "1.5.5"
