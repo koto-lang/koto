@@ -41,6 +41,7 @@ The Koto project adheres to
 - Added an optional library for working with YAML data.
 - Indexing a string with a range starting from 'one past the end' is now
   supported.
+  - e.g. `"x"[1..]` is allowed, and produces an empty string.
 - Throw and debug expressions can now be used more freely, in particular as
   expressions in match and switch arms.
   - e.g.
@@ -49,6 +50,14 @@ The Koto project adheres to
       0 then true
       1 then false
       x then debug x # debug would previously require an indented block here.
+    ```
+- Indented function calls are now allowed on lookups.
+  - e.g. The following expression was previously disallowed:
+    ```koto
+    test.assert_eq
+      1 + 1,
+    # ^~~~ An 'unexpected token' error would previously be generated here
+      2
     ```
 
 ### Changed

@@ -185,18 +185,17 @@ f = ||
             use super::*;
 
             #[test]
-            fn detached_index() {
+            fn detached_dot_access() {
                 let source = "
-x.foo
-  [0]
+x. foo
 ";
                 check_parsing_fails(source);
             }
 
             #[test]
-            fn detached_dot_access() {
+            fn detached_dot_access_2() {
                 let source = "
-x. foo
+x .foo
 ";
                 check_parsing_fails(source);
             }
