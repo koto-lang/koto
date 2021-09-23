@@ -1111,6 +1111,16 @@ impl<'source> Parser<'source> {
                         ..node_context
                     };
                 }
+                _ if node_context.allow_space_separated_call && node_context.allow_linebreaks => {
+                    node_context.allow_space_separated_call = false;
+
+                    let args = self.parse_call_args(context)?;
+                    if args.is_empty() {
+                        break;
+                    } else {
+                        lookup.push((LookupNode::Call(args), node_start_span));
+                    }
+                }
                 _ => break,
             }
         }
