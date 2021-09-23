@@ -850,6 +850,13 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
+    // Attempts to parse whitespace-separated call args
+    //
+    // The context is used to determine what kind of argument separation is allowed.
+    //
+    // The resulting Vec will be empty if no arguments were encountered.
+    //
+    // See also parse_parenthesized_args.
     fn parse_call_args(
         &mut self,
         context: &mut ExpressionContext,
@@ -868,7 +875,9 @@ impl<'source> Parser<'source> {
             last_arg_line = peeked_line;
             if new_line {
                 self.consume_until_next_token(context);
-            } else if self.peek_token() == Some(Token::Whitespace) {
+            } else if context.allow_space_separated_call
+                && self.peek_token() == Some(Token::Whitespace)
+            {
                 self.consume_until_next_token_on_same_line();
             } else {
                 break;
@@ -900,43 +909,23 @@ impl<'source> Parser<'source> {
             let id_index = self.push_node(Node::Id(constant_index))?;
 
             let mut context = context.start_new_expression();
-            let result = match self.peek_token() {
-                Some(Token::Whitespace) if context.allow_space_separated_call => {
-                    let start_span = self.lexer.span();
-                    let args = self.parse_call_args(&mut context)?;
+            let result = if self.next_token_is_lookup_start(&context) {
+                self.parse_lookup(id_index, &mut context)?
+            } else {
+                let start_span = self.lexer.span();
+                let args = self.parse_call_args(&mut context)?;
 
-                    if args.is_empty() {
-                        id_index
-                    } else {
-                        self.push_node_with_start_span(
-                            Node::Call {
-                                function: id_index,
-                                args,
-                            },
-                            start_span,
-                        )?
-                    }
+                if args.is_empty() {
+                    id_index
+                } else {
+                    self.push_node_with_start_span(
+                        Node::Call {
+                            function: id_index,
+                            args,
+                        },
+                        start_span,
+                    )?
                 }
-                Some(_) if self.next_token_is_lookup_start(&context) => {
-                    self.parse_lookup(id_index, &mut context)?
-                }
-                Some(_) if context.allow_space_separated_call && context.allow_linebreaks => {
-                    let start_span = self.lexer.span();
-                    let args = self.parse_call_args(&mut context)?;
-
-                    if args.is_empty() {
-                        id_index
-                    } else {
-                        self.push_node_with_start_span(
-                            Node::Call {
-                                function: id_index,
-                                args,
-                            },
-                            start_span,
-                        )?
-                    }
-                }
-                _ => id_index,
             };
 
             Ok(Some(result))
@@ -1084,21 +1073,15 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedMapKey, self);
                     }
                 }
-                Token::Whitespace if node_context.allow_space_separated_call => {
-                    node_context.allow_space_separated_call = false;
-
-                    let args = self.parse_call_args(context)?;
-                    if args.is_empty() {
-                        break;
-                    } else {
-                        lookup.push((LookupNode::Call(args), node_start_span));
-                    }
-                }
+                // Indented Dot on the next line?
                 _ if matches!(self.peek_next_token(&node_context), Some((Token::Dot, _))) => {
+                    // Consume up to the Dot, which will be picked up on the next iteration
                     self.consume_until_next_token(&mut node_context);
-                    let new_indent = self.lexer.current_indent();
 
+                    // Check that the next dot is on an indented line
                     if lookup_indent.is_none() {
+                        let new_indent = self.lexer.current_indent();
+
                         if new_indent > start_indent {
                             lookup_indent = Some(new_indent);
                         } else {
@@ -1107,21 +1090,33 @@ impl<'source> Parser<'source> {
                     }
 
                     node_context = ExpressionContext {
+                        // Starting a new line, so space separated calls are allowed
                         allow_space_separated_call: true,
                         ..node_context
                     };
                 }
-                _ if node_context.allow_space_separated_call && node_context.allow_linebreaks => {
+                _ => {
+                    // Attempt to parse trailing call arguments,
+                    // e.g.
+                    //   x.foo 42, 99
+                    //         ~~~~~~
+                    //
+                    //   x.foo
+                    //     42, 99
+                    //     ~~~~~~
+                    let args = self.parse_call_args(&mut node_context)?;
+
+                    // Now that space separated args have been parsed,
+                    // don't allow any more while we're on the same line.
                     node_context.allow_space_separated_call = false;
 
-                    let args = self.parse_call_args(context)?;
                     if args.is_empty() {
+                        // No arguments found, so we're at the end of the lookup
                         break;
                     } else {
                         lookup.push((LookupNode::Call(args), node_start_span));
                     }
                 }
-                _ => break,
             }
         }
 

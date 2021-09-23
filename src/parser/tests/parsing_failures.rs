@@ -191,6 +191,14 @@ x. foo
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn detached_dot_access_2() {
+                let source = "
+x .foo
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod maps {
