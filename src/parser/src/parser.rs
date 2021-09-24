@@ -1331,12 +1331,16 @@ impl<'source> Parser<'source> {
                     self.consume_next_token(context);
                     let s = self.parse_string(self.lexer.slice())?;
                     let constant_index = self.constants.add_string(&s) as u32;
-                    let quote = if token == Token::StringDoubleQuoted {
+                    let quotation_mark = if token == Token::StringDoubleQuoted {
                         QuotationMark::Double
                     } else {
                         QuotationMark::Single
                     };
-                    let string_node = self.push_node(Str(constant_index, quote))?;
+                    let nodes = vec![StringNode::Literal(constant_index)];
+                    let string_node = self.push_node(Str(AstString {
+                        quotation_mark,
+                        nodes,
+                    }))?;
                     Some(self.check_for_lookup_after_node(string_node, context)?)
                 }
                 Token::Id => self.parse_id_expression(context)?,

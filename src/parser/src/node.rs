@@ -17,7 +17,7 @@ pub enum Node {
     Number1,
     Int(ConstantIndex),
     Float(ConstantIndex),
-    Str(ConstantIndex, QuotationMark),
+    Str(AstString),
     Num2(Vec<AstIndex>),
     Num4(Vec<AstIndex>),
     List(Vec<AstIndex>),
@@ -119,7 +119,7 @@ impl fmt::Display for Node {
             Int(_) => write!(f, "Int"),
             Number0 => write!(f, "Number0"),
             Number1 => write!(f, "Number1"),
-            Str(_, _) => write!(f, "Str"),
+            Str(_) => write!(f, "Str"),
             Num2(_) => write!(f, "Num2"),
             Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
@@ -172,6 +172,22 @@ pub struct Function {
     pub is_instance_function: bool,
     pub is_variadic: bool,
     pub is_generator: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AstString {
+    pub quotation_mark: QuotationMark,
+    pub nodes: Vec<StringNode>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StringNode {
+    // A string literal
+    Literal(ConstantIndex),
+    // An id that should be evaluated and inserted into the string
+    Id(ConstantIndex),
+    // An expression that should be evaluated and inserted into the string
+    Expr(AstIndex),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -301,7 +317,7 @@ impl TryFrom<u8> for MetaKeyId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MapKey {
     Id(ConstantIndex),
     Str(ConstantIndex, QuotationMark),

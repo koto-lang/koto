@@ -3,7 +3,7 @@ use {
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
         ConstantIndex, Function, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope, Span,
-        SwitchArm,
+        StringNode, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -317,11 +317,11 @@ impl Frame {
 
 #[derive(Clone, Copy, Debug)]
 enum ResultRegister {
-    // No result needed
+    // The result will be ignored, expressions without side-effects can be dropped.
     None,
-    // The result can be any temporary register, or an assigned register
+    // The result can be any temporary register, or an assigned register.
     Any,
-    // The result must be placed in the specified register
+    // The result must be placed in the specified register.
     Fixed(u8),
 }
 
@@ -449,13 +449,7 @@ impl Compiler {
                 }
                 result
             }
-            Node::Str(constant, _) => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadString, LoadStringLong);
-                }
-                result
-            }
+            Node::Str(string) => self.compile_string(result_register, &string.nodes, ast)?,
             Node::Num2(elements) => self.compile_make_num2(result_register, elements, ast)?,
             Node::Num4(elements) => self.compile_make_num4(result_register, elements, ast)?,
             Node::List(elements) => self.compile_make_list(result_register, elements, ast)?,
@@ -1682,6 +1676,29 @@ impl Compiler {
         Ok(result)
     }
 
+    fn compile_string(
+        &mut self,
+        result_register: ResultRegister,
+        nodes: &[StringNode],
+        _ast: &Ast,
+    ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+        if let Some(result) = result {
+            match nodes {
+                [StringNode::Literal(string_literal)] => {
+                    self.load_constant(
+                        result.register,
+                        *string_literal,
+                        Op::LoadString,
+                        Op::LoadStringLong,
+                    );
+                }
+                _ => todo!(),
+            }
+        }
+        Ok(result)
+    }
+
     fn compile_make_num2(
         &mut self,
         result_register: ResultRegister,
@@ -1948,7 +1965,7 @@ impl Compiler {
                         }
                     };
 
-                    self.compile_map_insert(result.register, value.register, *key);
+                    self.compile_map_insert(result.register, value.register, key);
 
                     if value.is_temporary {
                         self.pop_register()?;
@@ -2129,7 +2146,7 @@ impl Compiler {
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, MapKey::Id(id));
+                            self.compile_map_insert(map_register, set_value, &MapKey::Id(id));
                         } else if let Some(result) = result {
                             self.compile_access(result.register, map_register, id);
                         }
@@ -2233,13 +2250,13 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: MapKey) {
+    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: &MapKey) {
         match key {
             MapKey::Id(id) | MapKey::Str(id, _) => {
-                if id <= u8::MAX as u32 {
+                if *id <= u8::MAX as u32 {
                     self.push_op_without_span(
                         Op::MapInsert,
-                        &[map_register, value_register, id as u8],
+                        &[map_register, value_register, *id as u8],
                     );
                 } else {
                     self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
@@ -2247,12 +2264,12 @@ impl Compiler {
                 }
             }
             MapKey::Meta(key, name) => {
-                let key = key as u8;
+                let key = *key as u8;
                 if let Some(name) = name {
-                    if name <= u8::MAX as u32 {
+                    if *name <= u8::MAX as u32 {
                         self.push_op_without_span(
                             Op::MetaInsertNamed,
-                            &[map_register, value_register, key, name as u8],
+                            &[map_register, value_register, key, *name as u8],
                         );
                     } else {
                         self.push_op_without_span(
@@ -2705,7 +2722,7 @@ impl Compiler {
                 | Node::Number1
                 | Node::Float(_)
                 | Node::Int(_)
-                | Node::Str(_, _)
+                | Node::Str(_)
                 | Node::Lookup(_) => {
                     let pattern = self.push_register()?;
                     self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;
