@@ -751,9 +751,9 @@ impl<'source> Parser<'source> {
                 self.consume_next_token_on_same_line();
                 Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
             }
-            Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
-                self.consume_next_token_on_same_line();
-                let s = self.parse_string(self.lexer.slice())?;
+            Some(Token::SingleQuote | Token::DoubleQuote) => {
+                // TODO This function should probably be removed, strings should be treated separately
+                let (s, _) = self.parse_string(&mut ExpressionContext::restricted())?;
                 Some(self.constants.add_string(&s) as ConstantIndex)
             }
             _ => None,
@@ -833,15 +833,9 @@ impl<'source> Parser<'source> {
                 let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
                 Some(MapKey::Meta(meta_key_id, meta_name))
             }
-            Some(Token::StringDoubleQuoted) | Some(Token::StringSingleQuoted) => {
-                self.consume_next_token_on_same_line();
-                let s = self.parse_string(self.lexer.slice())?;
+            Some(Token::SingleQuote | Token::DoubleQuote) => {
+                let (s, quote) = self.parse_string(&mut ExpressionContext::restricted())?;
                 let id = self.constants.add_string(&s) as ConstantIndex;
-                let quote = if matches!(next_token, Some(Token::StringDoubleQuoted)) {
-                    QuotationMark::Double
-                } else {
-                    QuotationMark::Single
-                };
                 Some(MapKey::Str(id, quote))
             }
             _ => None,
@@ -1058,9 +1052,7 @@ impl<'source> Parser<'source> {
 
                     if !matches!(
                         self.peek_token(),
-                        Some(Token::Id)
-                            | Some(Token::StringDoubleQuoted)
-                            | Some(Token::StringSingleQuoted)
+                        Some(Token::Id | Token::SingleQuote | Token::DoubleQuote)
                     ) {
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) = self.parse_id_or_string()? {
@@ -1327,15 +1319,9 @@ impl<'source> Parser<'source> {
                 }
                 Token::ParenOpen => self.parse_nested_expressions(context)?,
                 Token::Number => self.parse_number(false, context)?,
-                Token::StringDoubleQuoted | Token::StringSingleQuoted => {
-                    self.consume_next_token(context);
-                    let s = self.parse_string(self.lexer.slice())?;
+                Token::DoubleQuote | Token::SingleQuote => {
+                    let (s, quotation_mark) = self.parse_string(context)?;
                     let constant_index = self.constants.add_string(&s) as u32;
-                    let quotation_mark = if token == Token::StringDoubleQuoted {
-                        QuotationMark::Double
-                    } else {
-                        QuotationMark::Single
-                    };
                     let nodes = vec![StringNode::Literal(constant_index)];
                     let string_node = self.push_node(Str(AstString {
                         quotation_mark,
@@ -1605,15 +1591,23 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
+        use Token::*;
+
+        // TODO Replace this section somehow...
+        // Maybe, after parsing an id or string term, check for following colon, then treat the
+        // term as a map block?
         if let Some((peeked_0, peek_count)) = self.peek_next_token(context) {
             // The first entry in a map block should have a defined value,
             // i.e. either `id: value`, or `@meta: value`.
             let peeked_1 = self.peek_token_n(peek_count + 1);
+            let peeked_2 = self.peek_token_n(peek_count + 2);
+            let peeked_3 = self.peek_token_n(peek_count + 3);
 
-            match (peeked_0, peeked_1) {
-                (Token::Id, Some(Token::Colon)) => {}
-                (Token::StringDoubleQuoted | Token::StringSingleQuoted, Some(Token::Colon)) => {}
-                (Token::At, Some(_)) => {}
+            match (peeked_0, peeked_1, peeked_2, peeked_3) {
+                (Id, Some(Colon), Some(_), Some(_)) => {}
+                (SingleQuote, Some(StringLiteral), Some(SingleQuote), Some(Colon)) => {}
+                (DoubleQuote, Some(StringLiteral), Some(DoubleQuote), Some(Colon)) => {}
+                (At, Some(_), Some(_), Some(_)) => {}
                 _ => return Ok(None),
             }
         } else {
@@ -1626,7 +1620,7 @@ impl<'source> Parser<'source> {
         let mut entries = Vec::new();
 
         while let Some(key) = self.parse_map_key()? {
-            if self.peek_next_token_on_same_line() == Some(Token::Colon) {
+            if self.peek_next_token_on_same_line() == Some(Colon) {
                 self.consume_next_token_on_same_line();
 
                 if let Some(value) =
@@ -2193,7 +2187,7 @@ impl<'source> Parser<'source> {
 
         let result = match self.peek_next_token(&pattern_context) {
             Some((token, _)) => match token {
-                True | False | Number | StringDoubleQuoted | StringSingleQuoted | Subtract => {
+                True | False | Number | SingleQuote | DoubleQuote | Subtract => {
                     return self.parse_term(&mut pattern_context)
                 }
                 Id => match self.parse_id(&mut pattern_context) {
@@ -2523,11 +2517,33 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_string(&self, s: &str) -> Result<String, ParserError> {
-        let without_quotes = &s[1..s.len() - 1];
+    fn parse_string(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<(String, QuotationMark), ParserError> {
+        use Token::*;
 
-        let mut result = String::with_capacity(without_quotes.len());
-        let mut chars = without_quotes.chars().peekable();
+        let quote = match self.consume_next_token(context) {
+            quote @ Some(SingleQuote | DoubleQuote) => quote,
+            _ => return internal_error!(UnexpectedToken, self), // TODO better error
+        };
+
+        let quotation_mark = if let Some(SingleQuote) = quote {
+            QuotationMark::Single
+        } else {
+            QuotationMark::Double
+        };
+
+        match self.consume_token() {
+            Some(StringLiteral) => {}
+            other if other == quote => return Ok((String::new(), quotation_mark)),
+            _ => return internal_error!(UnexpectedToken, self), // TODO better error
+        };
+
+        let string_literal = self.lexer.slice();
+
+        let mut result = String::with_capacity(string_literal.len());
+        let mut chars = string_literal.chars().peekable();
 
         while let Some(c) = chars.next() {
             match c {
@@ -2606,7 +2622,11 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Ok(result)
+        if self.consume_token() != quote {
+            return syntax_error!(UnexpectedToken, self); // TODO better error
+        }
+
+        Ok((result, quotation_mark))
     }
 
     fn push_ast_op(

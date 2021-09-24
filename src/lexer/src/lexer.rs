@@ -14,9 +14,11 @@ pub enum Token {
     CommentSingle,
     CommentMulti,
     Number,
-    StringDoubleQuoted,
-    StringSingleQuoted,
     Id,
+
+    SingleQuote,
+    DoubleQuote,
+    StringLiteral,
 
     // Symbols
     At,
@@ -110,6 +112,7 @@ struct TokenLexer<'a> {
     previous_token: Option<Token>,
     position: Position,
     span: Span,
+    string_quote: Option<char>,
 }
 
 impl<'a> TokenLexer<'a> {
@@ -122,6 +125,7 @@ impl<'a> TokenLexer<'a> {
             previous_token: None,
             position: Position::default(),
             span: Span::default(),
+            string_quote: None,
         }
     }
 
@@ -245,38 +249,42 @@ impl<'a> TokenLexer<'a> {
     fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        let start_quote = chars.next().unwrap(); // A ' or " character has already been matched
+        let string_quote = match self.string_quote {
+            Some(quote) => quote,
+            None => return Error,
+        };
 
-        let mut string_bytes = 1; // 1 for the start quote
+        let mut string_bytes = 0;
         let mut position = self.position;
 
-        while let Some(c) = chars.next() {
-            string_bytes += c.len_utf8();
-            position.column += c.width().unwrap_or(0) as u32;
-
+        while let Some(c) = chars.peek().cloned() {
             match c {
+                _ if c == string_quote => {
+                    self.advance_to_position(string_bytes, position);
+                    return StringLiteral;
+                }
                 '\\' => {
-                    if chars.peek() == Some(&start_quote) {
+                    chars.next();
+                    string_bytes += 1;
+                    position.column += 1;
+
+                    if chars.peek() == Some(&string_quote) {
                         chars.next();
                         string_bytes += 1;
                         position.column += 1;
                     }
                 }
                 '\n' => {
+                    chars.next();
+                    string_bytes += 1;
                     position.line += 1;
                     position.column = 1;
                 }
-                _ if c == start_quote => {
-                    // +1 to get the column 1 past the end of the string
-                    position.column += 1;
-                    self.advance_to_position(string_bytes, position);
-                    return if start_quote == '\"' {
-                        StringDoubleQuoted
-                    } else {
-                        StringSingleQuoted
-                    };
+                _ => {
+                    chars.next();
+                    string_bytes += c.len_utf8();
+                    position.column += c.width().unwrap_or(0) as u32;
                 }
-                _ => {}
             }
         }
 
@@ -487,25 +495,51 @@ impl<'a> Iterator for TokenLexer<'a> {
             Some(remaining) => {
                 let mut chars = remaining.chars().peekable();
 
-                match chars.peek() {
-                    Some(c) if is_whitespace(*c) => {
-                        let count = consume_and_count(&mut chars, is_whitespace);
-                        self.advance_line(count);
-                        Some(Whitespace)
-                    }
-                    Some('\n') => Some(self.consume_newline(chars)),
-                    Some('#') => Some(self.consume_comment(chars)),
-                    Some('"') | Some('\'') => Some(self.consume_string(chars)),
-                    Some('0'..='9') => Some(self.consume_number(chars)),
-                    Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
-                    Some(_) => {
-                        if let Some(id) = self.consume_symbol(remaining) {
-                            Some(id)
-                        } else {
-                            Some(Error)
+                if let Some(string_quote) = self.string_quote {
+                    match chars.peek() {
+                        Some('"') if string_quote == '"' => {
+                            self.advance_line(1);
+                            self.string_quote = None;
+                            Some(DoubleQuote)
                         }
+                        Some('\'') if string_quote == '\'' => {
+                            self.advance_line(1);
+                            self.string_quote = None;
+                            Some(SingleQuote)
+                        }
+                        Some(_) => Some(self.consume_string(chars)),
+                        None => None,
                     }
-                    None => None,
+                } else {
+                    match chars.peek() {
+                        Some(c) if is_whitespace(*c) => {
+                            let count = consume_and_count(&mut chars, is_whitespace);
+                            self.advance_line(count);
+                            Some(Whitespace)
+                        }
+                        Some('\n') => Some(self.consume_newline(chars)),
+                        Some('#') => Some(self.consume_comment(chars)),
+                        Some('"') => {
+                            self.advance_line(1);
+                            self.string_quote = Some('"');
+                            Some(DoubleQuote)
+                        }
+                        Some('\'') => {
+                            self.advance_line(1);
+                            self.string_quote = Some('\'');
+                            Some(SingleQuote)
+                        }
+                        Some('0'..='9') => Some(self.consume_number(chars)),
+                        Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
+                        Some(_) => {
+                            if let Some(id) = self.consume_symbol(remaining) {
+                                Some(id)
+                            } else {
+                                Some(Error)
+                            }
+                        }
+                        None => None,
+                    }
                 }
             }
             None => None,
@@ -855,32 +889,56 @@ false #
     fn strings() {
         let input = r#"
 "hello, world!"
-"escaped \"\n string"
+"escaped \"\n\$ string"
 "double-\"quoted\" 'string'"
-'single-\'quoted\' "string"'"#;
+'single-\'quoted\' "string"'
+""
+"#;
 
         check_lexer_output(
             input,
             &[
                 (NewLine, None, 2),
-                (StringDoubleQuoted, Some(r#""hello, world!""#), 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("hello, world!"), 2),
+                (DoubleQuote, None, 2),
                 (NewLine, None, 3),
-                (StringDoubleQuoted, Some(r#""escaped \"\n string""#), 3),
+                (DoubleQuote, None, 3),
+                (StringLiteral, Some(r#"escaped \"\n\$ string"#), 3),
+                (DoubleQuote, None, 3),
                 (NewLine, None, 4),
-                (
-                    StringDoubleQuoted,
-                    Some(r#""double-\"quoted\" 'string'""#),
-                    4,
-                ),
+                (DoubleQuote, None, 4),
+                (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
+                (DoubleQuote, None, 4),
                 (NewLine, None, 5),
-                (
-                    StringSingleQuoted,
-                    Some(r#"'single-\'quoted\' "string"'"#),
-                    5,
-                ),
+                (SingleQuote, None, 5),
+                (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
+                (SingleQuote, None, 5),
+                (NewLine, None, 6),
+                (DoubleQuote, None, 6),
+                (DoubleQuote, None, 6),
+                (NewLine, None, 7),
             ],
         );
     }
+
+    // #[test]
+    // fn interpolated_strings() {
+    //     let input = r#"
+    // "hello $name, how are you?"
+    // "#;
+    //     check_lexer_output(
+    //         input,
+    //         &[
+    //             (NewLine, None, 2),
+    //             (StringDoubleQuoted, Some(r#""hello "#), 2),
+    //             (StringTemplateId, None, 2),
+    //             (Id, Some("name"), 2),
+    //             (StringDoubleQuoted, Some(r#", how are you?""#), 2),
+    //             (NewLine, None, 3),
+    //         ],
+    //     );
+    // }
 
     #[test]
     fn numbers() {
