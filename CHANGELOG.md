@@ -10,6 +10,7 @@ The Koto project adheres to
 
 ### Added
 
+- The Koto struct now has a `Koto::exports()` getter that allows access to a script's exported values.
 - Num2 / Num4 improvements.
   - Elements can now be assigned via indexing.
     - e.g.
