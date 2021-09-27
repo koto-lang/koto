@@ -317,7 +317,7 @@ impl TryFrom<u8> for MetaKeyId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MapKey {
     Id(ConstantIndex),
     Str(ConstantIndex, QuotationMark),

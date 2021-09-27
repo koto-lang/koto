@@ -130,6 +130,23 @@ struct ExpressionContext {
     //   ...
     // Here, `f y` can't be broken over lines as the while expression expects an indented block.
     allow_linebreaks: bool,
+    // When true, a map block is allowed in the current context.
+    // e.g.
+    //
+    // x = foo: 42
+    //        ^~~ A map block requires an indented block, so here the flag should be false
+    //
+    // return
+    //   foo: 42
+    //      ^~~ A colon following the foo identifier signifies the start of a map block.
+    //          Consuming tokens through the indentation sets the flag to true,
+    //          see consume_until_next_token()
+    //
+    // x = ||
+    //   foo: 42
+    //      ^~~ The first line in an indented block will have the flag set to true to allow the
+    //          block to be parsed as a map, see parse_indented_block().
+    allow_map_block: bool,
     // When None, then indentation is expected for an expression to be continued on following lines.
     // When Some, then indentation should match the expected indentation.
     expected_indentation: Option<usize>,
@@ -140,6 +157,7 @@ impl ExpressionContext {
         Self {
             allow_space_separated_call: true,
             allow_linebreaks: true,
+            allow_map_block: false,
             expected_indentation: None,
         }
     }
@@ -148,6 +166,7 @@ impl ExpressionContext {
         Self {
             allow_space_separated_call: false,
             allow_linebreaks: false,
+            allow_map_block: false,
             expected_indentation: None,
         }
     }
@@ -156,6 +175,7 @@ impl ExpressionContext {
         Self {
             allow_space_separated_call: true,
             allow_linebreaks: false,
+            allow_map_block: false,
             expected_indentation: None,
         }
     }
@@ -163,8 +183,9 @@ impl ExpressionContext {
     fn start_new_expression(&self) -> Self {
         Self {
             allow_space_separated_call: true,
+            allow_linebreaks: self.allow_linebreaks,
             expected_indentation: None,
-            ..*self
+            allow_map_block: false,
         }
     }
 }
@@ -224,7 +245,7 @@ impl<'source> Parser<'source> {
         while self.peek_next_token(&context).is_some() {
             self.consume_until_next_token(&mut context);
 
-            if let Some(expression) = self.parse_line()? {
+            if let Some(expression) = self.parse_line(&mut ExpressionContext::permissive())? {
                 body.push(expression);
 
                 match self.peek_next_token_on_same_line() {
@@ -404,7 +425,7 @@ impl<'source> Parser<'source> {
         function_frame.ids_assigned_in_scope.extend(arg_ids.iter());
         self.frame_stack.push(function_frame);
 
-        let body = if let Some(block) = self.parse_indented_map_or_block()? {
+        let body = if let Some(block) = self.parse_indented_block()? {
             // If the body is a Map block, then finish_expressions is needed here to finalise the
             // captures for the Map values. Normally parse_line takes care of calling
             // finish_expressions, but this is a situation where it can be bypassed.
@@ -412,7 +433,7 @@ impl<'source> Parser<'source> {
             block
         } else {
             self.consume_until_next_token_on_same_line();
-            if let Some(body) = self.parse_line()? {
+            if let Some(body) = self.parse_line(&mut ExpressionContext::permissive())? {
                 body
             } else {
                 return indentation_error!(FunctionBody, self);
@@ -450,21 +471,23 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
-    fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let result =
-            if let Some(result) = self.parse_for_loop(&mut ExpressionContext::permissive())? {
-                Some(result)
-            } else if let Some(result) = self.parse_loop_block()? {
-                Some(result)
-            } else if let Some(result) = self.parse_while_loop()? {
-                Some(result)
-            } else if let Some(result) = self.parse_until_loop()? {
-                Some(result)
-            } else if let Some(result) = self.parse_export(&mut ExpressionContext::permissive())? {
-                Some(result)
-            } else {
-                self.parse_expressions(&mut ExpressionContext::permissive(), false)?
-            };
+    fn parse_line(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let result = if let Some(result) = self.parse_for_loop(context)? {
+            Some(result)
+        } else if let Some(result) = self.parse_loop_block()? {
+            Some(result)
+        } else if let Some(result) = self.parse_while_loop()? {
+            Some(result)
+        } else if let Some(result) = self.parse_until_loop()? {
+            Some(result)
+        } else if let Some(result) = self.parse_export(context)? {
+            Some(result)
+        } else {
+            self.parse_expressions(context, false)?
+        };
 
         self.frame_mut()?.finish_expression();
 
@@ -476,10 +499,6 @@ impl<'source> Parser<'source> {
         context: &mut ExpressionContext,
         temp_result: bool,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if let Some(map_block) = self.parse_map_block(context)? {
-            return Ok(Some(map_block));
-        }
-
         let mut expression_context = ExpressionContext {
             allow_space_separated_call: true,
             ..*context
@@ -617,11 +636,7 @@ impl<'source> Parser<'source> {
                             }
                             self.consume_until_next_token(context);
 
-                            let rhs = if let Some(map_block) =
-                                self.parse_map_block(&mut ExpressionContext::permissive())?
-                            {
-                                map_block
-                            } else if let Some(rhs_expression) =
+                            let rhs = if let Some(rhs_expression) =
                                 self.parse_expression_start(None, right_priority, context)?
                             {
                                 rhs_expression
@@ -879,31 +894,34 @@ impl<'source> Parser<'source> {
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
         if let Some(constant_index) = self.parse_id(context) {
-            self.frame_mut()?.add_id_access(constant_index);
-
-            let id_index = self.push_node(Node::Id(constant_index))?;
-
-            let mut context = context.start_new_expression();
-            let result = if self.next_token_is_lookup_start(&context) {
-                self.parse_lookup(id_index, &mut context)?
+            if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
+                self.parse_map_block(MapKey::Id(constant_index))
             } else {
-                let start_span = self.lexer.span();
-                let args = self.parse_call_args(&mut context)?;
+                self.frame_mut()?.add_id_access(constant_index);
+                let id_index = self.push_node(Node::Id(constant_index))?;
 
-                if args.is_empty() {
-                    id_index
+                let mut context = context.start_new_expression();
+                let result = if self.next_token_is_lookup_start(&context) {
+                    self.parse_lookup(id_index, &mut context)?
                 } else {
-                    self.push_node_with_start_span(
-                        Node::Call {
-                            function: id_index,
-                            args,
-                        },
-                        start_span,
-                    )?
-                }
-            };
+                    let start_span = self.lexer.span();
+                    let args = self.parse_call_args(&mut context)?;
 
-            Ok(Some(result))
+                    if args.is_empty() {
+                        id_index
+                    } else {
+                        self.push_node_with_start_span(
+                            Node::Call {
+                                function: id_index,
+                                args,
+                            },
+                            start_span,
+                        )?
+                    }
+                };
+
+                Ok(Some(result))
+            }
         } else {
             Ok(None)
         }
@@ -1227,16 +1245,13 @@ impl<'source> Parser<'source> {
 
         let start_span = self.lexer.span();
 
-        let expression =
-            if let Some(map_block) = self.parse_map_block(&mut ExpressionContext::permissive())? {
-                map_block
-            } else if let Some(expression) =
-                self.parse_expression(&mut ExpressionContext::permissive())?
-            {
-                expression
-            } else {
-                return syntax_error!(ExpectedExpression, self);
-            };
+        let expression = if let Some(expression) =
+            self.parse_expression(&mut ExpressionContext::permissive())?
+        {
+            expression
+        } else {
+            return syntax_error!(ExpectedExpression, self);
+        };
 
         let result = self.push_node_with_start_span(Node::Throw(expression), start_span)?;
         Ok(Some(result))
@@ -1288,6 +1303,7 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
+        let start_indent = self.lexer.current_indent();
         if let Some((token, peek_count)) = self.peek_next_token(context) {
             let result = match token {
                 Token::True => {
@@ -1303,14 +1319,27 @@ impl<'source> Parser<'source> {
                 Token::DoubleQuote | Token::SingleQuote => {
                     let (s, quotation_mark) = self.parse_string(context)?;
                     let constant_index = self.constants.add_string(&s) as u32;
-                    let nodes = vec![StringNode::Literal(constant_index)];
-                    let string_node = self.push_node(Str(AstString {
-                        quotation_mark,
-                        nodes,
-                    }))?;
-                    Some(self.check_for_lookup_after_node(string_node, context)?)
+
+                    if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
+                        self.parse_map_block(MapKey::Str(constant_index, quotation_mark))?
+                    } else {
+                        let nodes = vec![StringNode::Literal(constant_index)];
+                        let string_node = self.push_node(Str(AstString {
+                            quotation_mark,
+                            nodes,
+                        }))?;
+                        Some(self.check_for_lookup_after_node(string_node, context)?)
+                    }
                 }
                 Token::Id => self.parse_id_expression(context)?,
+                Token::At
+                    if context.allow_map_block
+                        || self.lexer.peek_indent(peek_count) > start_indent =>
+                {
+                    self.consume_until_next_token(context);
+                    let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
+                    self.parse_map_block(MapKey::Meta(meta_key_id, meta_name))?
+                }
                 Token::Wildcard => {
                     self.consume_next_token(context);
                     Some(self.push_node(Node::Wildcard)?)
@@ -1548,59 +1577,25 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
-    fn parse_indented_map_or_block(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        let mut context = ExpressionContext::permissive();
-
-        let start_indent = self.lexer.current_indent();
-
-        if let Some((_, peek_count)) = self.peek_next_token(&context) {
-            if self.lexer.peek_indent(peek_count) > start_indent {
-                let result = if let Some(result) = self.parse_map_block(&mut context)? {
-                    Some(result)
-                } else {
-                    self.parse_indented_block(&mut context)?
-                };
-
-                return Ok(result);
-            }
-        }
-
-        Ok(None)
-    }
-
-    fn parse_map_block(
-        &mut self,
-        context: &mut ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
+    fn parse_map_block(&mut self, first_key: MapKey) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        // TODO Replace this section somehow...
-        // Maybe, after parsing an id or string term, check for following colon, then treat the
-        // term as a map block?
-        if let Some((peeked_0, peek_count)) = self.peek_next_token(context) {
-            // The first entry in a map block should have a defined value,
-            // i.e. either `id: value`, or `@meta: value`.
-            let peeked_1 = self.peek_token_n(peek_count + 1);
-            let peeked_2 = self.peek_token_n(peek_count + 2);
-            let peeked_3 = self.peek_token_n(peek_count + 3);
-
-            match (peeked_0, peeked_1, peeked_2, peeked_3) {
-                (Id, Some(Colon), Some(_), Some(_)) => {}
-                (SingleQuote, Some(StringLiteral), Some(SingleQuote), Some(Colon)) => {}
-                (DoubleQuote, Some(StringLiteral), Some(DoubleQuote), Some(Colon)) => {}
-                (At, Some(_), Some(_), Some(_)) => {}
-                _ => return Ok(None),
-            }
-        } else {
-            return Ok(None);
-        }
-
-        self.consume_until_next_token(context);
         let start_span = self.lexer.span();
+
+        let mut block_context = ExpressionContext::permissive();
+        block_context.expected_indentation = Some(self.lexer.current_indent());
 
         let mut entries = Vec::new();
 
-        while let Some(key) = self.parse_map_key()? {
+        loop {
+            let key = if entries.is_empty() {
+                first_key
+            } else if let Some(key) = self.parse_map_key()? {
+                key
+            } else {
+                return syntax_error!(ExpectedMapKey, self);
+            };
+
             if self.peek_next_token_on_same_line() == Some(Colon) {
                 self.consume_next_token_on_same_line();
 
@@ -1611,7 +1606,7 @@ impl<'source> Parser<'source> {
                 } else {
                     // If a value wasn't found on the same line as the key,
                     // look for an indented value
-                    if let Some(value) = self.parse_indented_map_or_block()? {
+                    if let Some(value) = self.parse_indented_block()? {
                         entries.push((key, Some(value)));
                     } else {
                         return syntax_error!(ExpectedMapValue, self);
@@ -1621,12 +1616,11 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedMapColon, self);
             }
 
-            // self.consume_until_next_token(context);
-            if self.peek_next_token(context).is_none() {
+            if self.peek_next_token(&block_context).is_none() {
                 break;
             }
 
-            self.consume_until_next_token(context);
+            self.consume_until_next_token(&mut block_context);
         }
 
         if entries.is_empty() {
@@ -1739,7 +1733,7 @@ impl<'source> Parser<'source> {
             None => return syntax_error!(ExpectedForRanges, self),
         };
 
-        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+        match self.parse_indented_block()? {
             Some(body) => {
                 let result = self.push_node_with_start_span(
                     Node::For(AstFor { args, range, body }),
@@ -1759,7 +1753,7 @@ impl<'source> Parser<'source> {
 
         self.consume_next_token_on_same_line();
 
-        if let Some(body) = self.parse_indented_block(&mut ExpressionContext::permissive())? {
+        if let Some(body) = self.parse_indented_block()? {
             let result = self.push_node(Node::Loop { body })?;
             Ok(Some(result))
         } else {
@@ -1781,7 +1775,7 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedWhileCondition, self);
             };
 
-        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+        match self.parse_indented_block()? {
             Some(body) => {
                 let result = self.push_node(Node::While { condition, body })?;
                 Ok(Some(result))
@@ -1804,7 +1798,7 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedUntilCondition, self);
             };
 
-        match self.parse_indented_block(&mut ExpressionContext::permissive())? {
+        match self.parse_indented_block()? {
             Some(body) => {
                 let result = self.push_node(Node::Until { condition, body })?;
                 Ok(Some(result))
@@ -1856,7 +1850,7 @@ impl<'source> Parser<'source> {
                 return syntax_error!(IfBlockNotAllowedInThisContext, self);
             }
 
-            if let Some(then_node) = self.parse_indented_map_or_block()? {
+            if let Some(then_node) = self.parse_indented_block()? {
                 let mut else_if_blocks = Vec::new();
 
                 while let Some((Token::ElseIf, _)) = self.peek_next_token(context) {
@@ -1869,7 +1863,7 @@ impl<'source> Parser<'source> {
                     if let Some(else_if_condition) =
                         self.parse_expression(&mut ExpressionContext::inline())?
                     {
-                        if let Some(else_if_block) = self.parse_indented_map_or_block()? {
+                        if let Some(else_if_block) = self.parse_indented_block()? {
                             else_if_blocks.push((else_if_condition, else_if_block));
                         } else {
                             return indentation_error!(ElseIfBlock, self);
@@ -1886,7 +1880,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(UnexpectedElseIndentation, self);
                     }
 
-                    if let Some(else_block) = self.parse_indented_map_or_block()? {
+                    if let Some(else_block) = self.parse_indented_block()? {
                         Some(else_block)
                     } else {
                         return indentation_error!(ElseBlock, self);
@@ -1943,7 +1937,7 @@ impl<'source> Parser<'source> {
                         self.parse_expressions(&mut ExpressionContext::inline(), true)?
                     {
                         expression
-                    } else if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                    } else if let Some(indented_expression) = self.parse_indented_block()? {
                         indented_expression
                     } else {
                         return syntax_error!(ExpectedSwitchArmExpression, self);
@@ -1954,7 +1948,7 @@ impl<'source> Parser<'source> {
                     match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
                         Some(expression) => expression,
                         None => {
-                            if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                            if let Some(indented_expression) = self.parse_indented_block()? {
                                 indented_expression
                             } else {
                                 return syntax_error!(ExpectedSwitchArmExpressionAfterThen, self);
@@ -1963,7 +1957,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 _ => {
-                    if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                    if let Some(indented_expression) = self.parse_indented_block()? {
                         indented_expression
                     } else {
                         return syntax_error!(ExpectedSwitchArmExpression, self);
@@ -2086,7 +2080,7 @@ impl<'source> Parser<'source> {
                         self.parse_expressions(&mut ExpressionContext::inline(), true)?
                     {
                         expression
-                    } else if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                    } else if let Some(indented_expression) = self.parse_indented_block()? {
                         indented_expression
                     } else {
                         return syntax_error!(ExpectedMatchArmExpression, self);
@@ -2101,7 +2095,7 @@ impl<'source> Parser<'source> {
                     match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
                         Some(expression) => expression,
                         None => {
-                            if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                            if let Some(indented_expression) = self.parse_indented_block()? {
                                 indented_expression
                             } else {
                                 return syntax_error!(ExpectedMatchArmExpressionAfterThen, self);
@@ -2115,7 +2109,7 @@ impl<'source> Parser<'source> {
                         return syntax_error!(ExpectedMatchPattern, self);
                     }
 
-                    if let Some(indented_expression) = self.parse_indented_map_or_block()? {
+                    if let Some(indented_expression) = self.parse_indented_block()? {
                         indented_expression
                     } else {
                         return syntax_error!(ExpectedMatchArmExpression, self);
@@ -2316,9 +2310,7 @@ impl<'source> Parser<'source> {
 
         let start_span = self.lexer.span();
 
-        let try_block = if let Some(try_block) =
-            self.parse_indented_block(&mut ExpressionContext::permissive())?
-        {
+        let try_block = if let Some(try_block) = self.parse_indented_block()? {
             try_block
         } else {
             return indentation_error!(TryBody, self);
@@ -2344,9 +2336,7 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedCatchArgument, self);
         };
 
-        let catch_block = if let Some(catch_block) =
-            self.parse_indented_block(&mut ExpressionContext::permissive())?
-        {
+        let catch_block = if let Some(catch_block) = self.parse_indented_block()? {
             catch_block
         } else {
             return indentation_error!(CatchBody, self);
@@ -2354,9 +2344,7 @@ impl<'source> Parser<'source> {
 
         let finally_block = if matches!(self.peek_next_token(context), Some((Token::Finally, _))) {
             self.consume_next_token(context);
-            if let Some(finally_block) =
-                self.parse_indented_block(&mut ExpressionContext::permissive())?
-            {
+            if let Some(finally_block) = self.parse_indented_block()? {
                 Some(finally_block)
             } else {
                 return indentation_error!(FinallyBody, self);
@@ -2409,48 +2397,55 @@ impl<'source> Parser<'source> {
         Ok(items)
     }
 
-    fn parse_indented_block(
-        &mut self,
-        context: &mut ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
-        context.expected_indentation = None;
+    fn parse_indented_block(&mut self) -> Result<Option<AstIndex>, ParserError> {
+        let mut block_context = ExpressionContext::permissive();
 
-        if self.peek_next_token(context).is_none() {
-            return Ok(None);
+        let start_indent = self.lexer.current_indent();
+        match self.peek_next_token(&block_context) {
+            Some((_, peek_count)) if self.lexer.peek_indent(peek_count) > start_indent => {}
+            _ => return Ok(None),
         }
 
-        self.consume_until_next_token(context);
-
-        let mut body = Vec::new();
-
+        self.consume_until_next_token(&mut block_context);
         let start_span = self.lexer.span();
 
-        while let Some(expression) = self.parse_line()? {
-            body.push(expression);
+        let mut block = Vec::new();
+        loop {
+            let mut line_context = ExpressionContext::permissive();
 
-            match self.peek_next_token_on_same_line() {
-                None => break,
-                Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
-                _ => {
-                    self.consume_next_token_on_same_line();
-                    return syntax_error!(UnexpectedToken, self);
-                }
+            if block.is_empty() {
+                line_context.allow_map_block = true;
             }
 
-            // Peek ahead to see if the indented block continues after this line
-            if self.peek_next_token(context).is_none() {
+            if let Some(expression) = self.parse_line(&mut line_context)? {
+                block.push(expression);
+
+                match self.peek_next_token_on_same_line() {
+                    None => break,
+                    Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
+                    _ => {
+                        self.consume_next_token_on_same_line();
+                        return syntax_error!(UnexpectedToken, self);
+                    }
+                }
+
+                // Peek ahead to see if the indented block continues after this line
+                if self.peek_next_token(&block_context).is_none() {
+                    break;
+                }
+
+                self.consume_until_next_token(&mut block_context);
+            } else {
                 break;
             }
-
-            self.consume_until_next_token(context);
         }
 
-        // If the body is a single expression then it doesn't need to be wrapped in a block
-        if body.len() == 1 {
-            Ok(Some(*body.first().unwrap()))
+        // If the block is a single expression then it doesn't need to be wrapped in a Block node
+        if block.len() == 1 {
+            Ok(Some(*block.first().unwrap()))
         } else {
             Ok(Some(self.push_node_with_start_span(
-                Node::Block(body),
+                Node::Block(block),
                 start_span,
             )?))
         }
@@ -2765,6 +2760,7 @@ impl<'source> Parser<'source> {
                         && context.expected_indentation.is_none()
                     {
                         context.expected_indentation = Some(self.lexer.current_indent());
+                        context.allow_map_block = true;
                     }
 
                     return Some(token);
