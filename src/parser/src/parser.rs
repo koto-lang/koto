@@ -130,32 +130,16 @@ struct ExpressionContext {
     //   ...
     // Here, `f y` can't be broken over lines as the while expression expects an indented block.
     allow_linebreaks: bool,
-    // x =
-    //   foo, bar
-    //
-    // `x` is at the start of a line, so it doesn't make sense to allow indentation.
-    // `foo, bar` is to the right of an assignment so indentation is allowed.
-    allow_initial_indentation: bool,
-    // When None, then some indentation on following lines is expected.
+    // When None, then indentation is expected for an expression to be continued on following lines.
     // When Some, then indentation should match the expected indentation.
     expected_indentation: Option<usize>,
 }
 
 impl ExpressionContext {
-    fn line_start() -> Self {
-        Self {
-            allow_space_separated_call: true,
-            allow_linebreaks: true,
-            allow_initial_indentation: false,
-            expected_indentation: None,
-        }
-    }
-
     fn permissive() -> Self {
         Self {
             allow_space_separated_call: true,
             allow_linebreaks: true,
-            allow_initial_indentation: true,
             expected_indentation: None,
         }
     }
@@ -164,7 +148,6 @@ impl ExpressionContext {
         Self {
             allow_space_separated_call: false,
             allow_linebreaks: false,
-            allow_initial_indentation: false,
             expected_indentation: None,
         }
     }
@@ -173,7 +156,6 @@ impl ExpressionContext {
         Self {
             allow_space_separated_call: true,
             allow_linebreaks: false,
-            allow_initial_indentation: false,
             expected_indentation: None,
         }
     }
@@ -181,7 +163,6 @@ impl ExpressionContext {
     fn start_new_expression(&self) -> Self {
         Self {
             allow_space_separated_call: true,
-            allow_initial_indentation: true,
             expected_indentation: None,
             ..*self
         }
@@ -236,7 +217,7 @@ impl<'source> Parser<'source> {
 
         let start_span = self.lexer.span();
 
-        let mut context = ExpressionContext::line_start();
+        let mut context = ExpressionContext::permissive();
         context.expected_indentation = Some(0);
 
         let mut body = Vec::new();
@@ -471,7 +452,7 @@ impl<'source> Parser<'source> {
 
     fn parse_line(&mut self) -> Result<Option<AstIndex>, ParserError> {
         let result =
-            if let Some(result) = self.parse_for_loop(&mut ExpressionContext::line_start())? {
+            if let Some(result) = self.parse_for_loop(&mut ExpressionContext::permissive())? {
                 Some(result)
             } else if let Some(result) = self.parse_loop_block()? {
                 Some(result)
@@ -479,10 +460,10 @@ impl<'source> Parser<'source> {
                 Some(result)
             } else if let Some(result) = self.parse_until_loop()? {
                 Some(result)
-            } else if let Some(result) = self.parse_export(&mut ExpressionContext::line_start())? {
+            } else if let Some(result) = self.parse_export(&mut ExpressionContext::permissive())? {
                 Some(result)
             } else {
-                self.parse_expressions(&mut ExpressionContext::line_start(), false)?
+                self.parse_expressions(&mut ExpressionContext::permissive(), false)?
             };
 
         self.frame_mut()?.finish_expression();
