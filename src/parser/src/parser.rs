@@ -617,8 +617,8 @@ impl<'source> Parser<'source> {
             _ => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        if let Some((next, _)) = self.peek_next_token(context) {
-            match next {
+        if let Some(next) = self.peek_next_token(context) {
+            match next.token {
                 Assign => return self.parse_assign_expression(lhs, AssignOp::Equal),
                 AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add),
                 AssignSubtract => return self.parse_assign_expression(lhs, AssignOp::Subtract),
@@ -626,7 +626,7 @@ impl<'source> Parser<'source> {
                 AssignDivide => return self.parse_assign_expression(lhs, AssignOp::Divide),
                 AssignModulo => return self.parse_assign_expression(lhs, AssignOp::Modulo),
                 _ => {
-                    if let Some((left_priority, right_priority)) = operator_precedence(next) {
+                    if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
                         if left_priority >= min_precedence {
                             let op = self.consume_next_token(context).unwrap();
 
@@ -714,7 +714,9 @@ impl<'source> Parser<'source> {
 
     fn parse_id(&mut self, context: &mut ExpressionContext) -> Option<ConstantIndex> {
         match self.peek_next_token(context) {
-            Some((Token::Id, _)) => {
+            Some(PeekInfo {
+                token: Token::Id, ..
+            }) => {
                 self.consume_next_token(context);
                 Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
             }
@@ -727,13 +729,18 @@ impl<'source> Parser<'source> {
         context: &mut ExpressionContext,
     ) -> Option<ConstantIndexOrWildcard> {
         match self.peek_next_token(context) {
-            Some((Token::Id, _)) => {
+            Some(PeekInfo {
+                token: Token::Id, ..
+            }) => {
                 self.consume_next_token(context);
                 Some(ConstantIndexOrWildcard::Index(
                     self.constants.add_string(self.lexer.slice()) as ConstantIndex,
                 ))
             }
-            Some((Token::Wildcard, _)) => {
+            Some(PeekInfo {
+                token: Token::Wildcard,
+                ..
+            }) => {
                 self.consume_next_token_on_same_line();
                 Some(ConstantIndexOrWildcard::Wildcard)
             }
@@ -859,10 +866,9 @@ impl<'source> Parser<'source> {
             ..*context
         };
 
-        while let Some((_, peek_count)) = self.peek_next_token(context) {
-            let peeked_line = self.lexer.peek_line_number(peek_count);
-            let new_line = peeked_line > last_arg_line;
-            last_arg_line = peeked_line;
+        while let Some(peeked) = self.peek_next_token(context) {
+            let new_line = peeked.line > last_arg_line;
+            last_arg_line = peeked.line;
             if new_line {
                 self.consume_until_next_token(context);
             } else if context.allow_space_separated_call
@@ -1065,7 +1071,14 @@ impl<'source> Parser<'source> {
                     }
                 }
                 // Indented Dot on the next line?
-                _ if matches!(self.peek_next_token(&node_context), Some((Token::Dot, _))) => {
+                _ if matches!(
+                    self.peek_next_token(&node_context),
+                    Some(PeekInfo {
+                        token: Token::Dot,
+                        ..
+                    })
+                ) =>
+                {
                     // Consume up to the Dot, which will be picked up on the next iteration
                     self.consume_until_next_token(&mut node_context);
 
@@ -1150,7 +1163,10 @@ impl<'source> Parser<'source> {
         args_end_context.expected_indentation = Some(start_indent);
         if !matches!(
             self.peek_next_token(&args_end_context),
-            Some((Token::ParenClose, _))
+            Some(PeekInfo {
+                token: Token::ParenClose,
+                ..
+            })
         ) {
             return syntax_error!(ExpectedArgsEnd, self);
         }
@@ -1304,8 +1320,8 @@ impl<'source> Parser<'source> {
         use Node::*;
 
         let start_indent = self.lexer.current_indent();
-        if let Some((token, peek_count)) = self.peek_next_token(context) {
-            let result = match token {
+        if let Some(peeked) = self.peek_next_token(context) {
+            let result = match peeked.token {
                 Token::True => {
                     self.consume_next_token(context);
                     Some(self.push_node(BoolTrue)?)
@@ -1332,10 +1348,7 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Id => self.parse_id_expression(context)?,
-                Token::At
-                    if context.allow_map_block
-                        || self.lexer.peek_indent(peek_count) > start_indent =>
-                {
+                Token::At if context.allow_map_block || peeked.indent > start_indent => {
                     self.consume_until_next_token(context);
                     let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
                     self.parse_map_block(MapKey::Meta(meta_key_id, meta_name))?
@@ -1388,7 +1401,7 @@ impl<'source> Parser<'source> {
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Switch => self.parse_switch_expression(context)?,
                 Token::Function => self.parse_function(context)?,
-                Token::Subtract => match self.peek_token_n(peek_count + 1) {
+                Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
                     Some(token) if token.is_whitespace() || token.is_newline() => None,
                     Some(Token::Number) => {
                         self.consume_next_token(context);
@@ -1548,7 +1561,10 @@ impl<'source> Parser<'source> {
         let mut entry_context = ExpressionContext::permissive();
         while !matches!(
             self.peek_next_token(&entry_context),
-            Some((Token::ListEnd, _)) | None
+            Some(PeekInfo {
+                token: Token::ListEnd,
+                ..
+            }) | None
         ) {
             self.consume_until_next_token(&mut entry_context);
 
@@ -1566,7 +1582,10 @@ impl<'source> Parser<'source> {
         // Consume the list end
         if !matches!(
             self.peek_next_token(&list_context),
-            Some((Token::ListEnd, _))
+            Some(PeekInfo {
+                token: Token::ListEnd,
+                ..
+            })
         ) {
             return syntax_error!(ExpectedListEnd, self);
         }
@@ -1680,7 +1699,10 @@ impl<'source> Parser<'source> {
         map_end_context.expected_indentation = Some(start_indent);
         if !matches!(
             self.peek_next_token(&map_end_context),
-            Some((Token::MapEnd, _))
+            Some(PeekInfo {
+                token: Token::MapEnd,
+                ..
+            })
         ) {
             return syntax_error!(ExpectedMapEnd, self);
         }
@@ -1853,7 +1875,11 @@ impl<'source> Parser<'source> {
             if let Some(then_node) = self.parse_indented_block()? {
                 let mut else_if_blocks = Vec::new();
 
-                while let Some((Token::ElseIf, _)) = self.peek_next_token(context) {
+                while let Some(peeked) = self.peek_next_token(context) {
+                    if peeked.token != Token::ElseIf {
+                        break;
+                    }
+
                     self.consume_next_token(context);
 
                     if self.lexer.current_indent() != expected_indentation {
@@ -1873,20 +1899,21 @@ impl<'source> Parser<'source> {
                     }
                 }
 
-                let else_node = if let Some((Token::Else, _)) = self.peek_next_token(context) {
-                    self.consume_next_token(context);
+                let else_node = match self.peek_next_token(context) {
+                    Some(peeked) if peeked.token == Token::Else => {
+                        self.consume_next_token(context);
 
-                    if self.lexer.current_indent() != expected_indentation {
-                        return syntax_error!(UnexpectedElseIndentation, self);
-                    }
+                        if self.lexer.current_indent() != expected_indentation {
+                            return syntax_error!(UnexpectedElseIndentation, self);
+                        }
 
-                    if let Some(else_block) = self.parse_indented_block()? {
-                        Some(else_block)
-                    } else {
-                        return indentation_error!(ElseBlock, self);
+                        if let Some(else_block) = self.parse_indented_block()? {
+                            Some(else_block)
+                        } else {
+                            return indentation_error!(ElseBlock, self);
+                        }
                     }
-                } else {
-                    None
+                    _ => None,
                 };
 
                 self.push_node(Node::If(AstIf {
@@ -2161,7 +2188,7 @@ impl<'source> Parser<'source> {
         let mut pattern_context = ExpressionContext::restricted();
 
         let result = match self.peek_next_token(&pattern_context) {
-            Some((token, _)) => match token {
+            Some(peeked) => match peeked.token {
                 True | False | Number | SingleQuote | DoubleQuote | Subtract => {
                     return self.parse_term(&mut pattern_context)
                 }
@@ -2316,9 +2343,11 @@ impl<'source> Parser<'source> {
             return indentation_error!(TryBody, self);
         };
 
-        if !matches!(self.peek_next_token(context), Some((Token::Catch, _))) {
-            return syntax_error!(ExpectedCatch, self);
+        match self.peek_next_token(context) {
+            Some(peeked) if peeked.token == Token::Catch => {}
+            _ => return syntax_error!(ExpectedCatch, self),
         }
+
         self.consume_next_token(context);
 
         let catch_arg = if let Some(catch_arg) =
@@ -2342,15 +2371,16 @@ impl<'source> Parser<'source> {
             return indentation_error!(CatchBody, self);
         };
 
-        let finally_block = if matches!(self.peek_next_token(context), Some((Token::Finally, _))) {
-            self.consume_next_token(context);
-            if let Some(finally_block) = self.parse_indented_block()? {
-                Some(finally_block)
-            } else {
-                return indentation_error!(FinallyBody, self);
+        let finally_block = match self.peek_next_token(context) {
+            Some(peeked) if peeked.token == Token::Finally => {
+                self.consume_next_token(context);
+                if let Some(finally_block) = self.parse_indented_block()? {
+                    Some(finally_block)
+                } else {
+                    return indentation_error!(FinallyBody, self);
+                }
             }
-        } else {
-            None
+            _ => None,
         };
 
         let result = self.push_node_with_start_span(
@@ -2402,7 +2432,7 @@ impl<'source> Parser<'source> {
 
         let start_indent = self.lexer.current_indent();
         match self.peek_next_token(&block_context) {
-            Some((_, peek_count)) if self.lexer.peek_indent(peek_count) > start_indent => {}
+            Some(peeked) if peeked.indent > start_indent => {}
             _ => return Ok(None),
         }
 
@@ -2650,11 +2680,9 @@ impl<'source> Parser<'source> {
         } else if context.allow_linebreaks {
             let start_line = self.lexer.line_number();
             let start_indent = self.lexer.current_indent();
-            if let Some((next_token, peek_count)) = self.peek_next_token(context) {
-                let next_line = self.lexer.peek_line_number(peek_count);
-                let next_indent = self.lexer.peek_indent(peek_count);
-                if next_line > start_line && next_indent > start_indent {
-                    return matches!(next_token, Dot);
+            if let Some(peeked) = self.peek_next_token(context) {
+                if peeked.line > start_line && peeked.indent > start_indent {
+                    return peeked.token == Dot;
                 }
             }
         }
@@ -2703,7 +2731,7 @@ impl<'source> Parser<'source> {
     //
     // If expected indentation is specified in the expression context, then the next token
     // needs to have matching indentation, otherwise None is returned.
-    fn peek_next_token(&mut self, context: &ExpressionContext) -> Option<(Token, usize)> {
+    fn peek_next_token(&mut self, context: &ExpressionContext) -> Option<PeekInfo> {
         use Token::*;
 
         let mut peek_count = 0;
@@ -2714,23 +2742,34 @@ impl<'source> Parser<'source> {
             match peeked {
                 Whitespace | NewLine | NewLineIndented | CommentMulti | CommentSingle => {}
                 token => {
-                    if self.lexer.peek_line_number(peek_count) == start_line {
-                        return Some((token, peek_count));
-                    } else if context.allow_linebreaks {
-                        let peeked_indent = self.lexer.peek_indent(peek_count);
-                        if let Some(expected_indent) = context.expected_indentation {
-                            if peeked_indent == expected_indent {
-                                return Some((token, peek_count));
-                            } else {
-                                return None;
+                    return match self.lexer.peek_line_number(peek_count) {
+                        peeked_line if peeked_line == start_line => Some(PeekInfo {
+                            token,
+                            line: start_line,
+                            indent: start_indent,
+                            peek_count,
+                        }),
+                        peeked_line if context.allow_linebreaks => {
+                            let peeked_indent = self.lexer.peek_indent(peek_count);
+                            match context.expected_indentation {
+                                Some(expected_indent) if peeked_indent == expected_indent => {
+                                    Some(PeekInfo {
+                                        token,
+                                        line: peeked_line,
+                                        indent: peeked_indent,
+                                        peek_count,
+                                    })
+                                }
+                                None if peeked_indent > start_indent => Some(PeekInfo {
+                                    token,
+                                    line: peeked_line,
+                                    indent: peeked_indent,
+                                    peek_count,
+                                }),
+                                _ => None,
                             }
-                        } else if peeked_indent > start_indent {
-                            return Some((token, peek_count));
-                        } else {
-                            return None;
                         }
-                    } else {
-                        return None;
+                        _ => None,
                     }
                 }
             }
@@ -2748,6 +2787,7 @@ impl<'source> Parser<'source> {
     //
     // It's expected that a peek has been performed to check that the current expression context
     // allows for the token to be consumed, see peek_next_token().
+    //
     fn consume_next_token(&mut self, context: &mut ExpressionContext) -> Option<Token> {
         let start_line = self.lexer.line_number();
 
@@ -2858,4 +2898,11 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         _ => return None,
     };
     Some(priority)
+}
+
+struct PeekInfo {
+    token: Token,
+    line: u32,
+    indent: usize,
+    peek_count: usize,
 }
