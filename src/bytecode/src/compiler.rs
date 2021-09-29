@@ -1680,22 +1680,84 @@ impl Compiler {
         &mut self,
         result_register: ResultRegister,
         nodes: &[StringNode],
-        _ast: &Ast,
+        ast: &Ast,
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
-        if let Some(result) = result {
-            match nodes {
-                [StringNode::Literal(string_literal)] => {
+
+        match nodes {
+            [] => return compiler_error!(self, "compile_string: Missing string nodes"),
+            [StringNode::Literal(constant_index)] => {
+                if let Some(result) = result {
                     self.load_constant(
                         result.register,
-                        *string_literal,
+                        *constant_index,
                         Op::LoadString,
                         Op::LoadStringLong,
                     );
                 }
-                _ => todo!(),
+            }
+            _ => {
+                if let Some(result) = result {
+                    self.push_op(Op::StringStart, &[result.register]);
+                }
+
+                for node in nodes.iter() {
+                    match node {
+                        StringNode::Literal(constant_index) => {
+                            if let Some(result) = result {
+                                let node_register = self.push_register()?;
+
+                                self.load_constant(
+                                    node_register,
+                                    *constant_index,
+                                    Op::LoadString,
+                                    Op::LoadStringLong,
+                                );
+                                self.push_op_without_span(
+                                    Op::StringPush,
+                                    &[result.register, node_register],
+                                );
+
+                                self.pop_register()?;
+                            }
+                        }
+                        StringNode::Expr(expression_node) => {
+                            if let Some(result) = result {
+                                let expression_result = self
+                                    .compile_node(
+                                        ResultRegister::Any,
+                                        ast.node(*expression_node),
+                                        ast,
+                                    )?
+                                    .unwrap();
+
+                                self.push_op_without_span(
+                                    Op::StringPush,
+                                    &[result.register, expression_result.register],
+                                );
+
+                                if expression_result.is_temporary {
+                                    self.pop_register()?;
+                                }
+                            } else {
+                                // Compile the expression even though we don't need the result,
+                                // so that side-effects can take place.
+                                self.compile_node(
+                                    ResultRegister::None,
+                                    ast.node(*expression_node),
+                                    ast,
+                                )?;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(result) = result {
+                    self.push_op(Op::StringFinish, &[result.register]);
+                }
             }
         }
+
         Ok(result)
     }
 

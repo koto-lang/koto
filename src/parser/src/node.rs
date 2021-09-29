@@ -184,8 +184,6 @@ pub struct AstString {
 pub enum StringNode {
     // A string literal
     Literal(ConstantIndex),
-    // An id that should be evaluated and inserted into the string
-    Id(ConstantIndex),
     // An expression that should be evaluated and inserted into the string
     Expr(AstIndex),
 }

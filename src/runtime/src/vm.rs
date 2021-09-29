@@ -901,6 +901,12 @@ impl Vm {
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
+            Instruction::StringStart { register } => {
+                self.set_register(register, Value::StringBuilder(String::new()));
+                Ok(())
+            }
+            Instruction::StringPush { register, value } => self.run_string_push(register, value),
+            Instruction::StringFinish { register } => self.run_string_finish(register),
         }?;
 
         Ok(control_flow)
@@ -2925,7 +2931,7 @@ impl Vm {
         ))
     }
 
-    fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {
+    fn run_check_type(&self, register: u8, type_id: TypeId) -> InstructionResult {
         let value = self.get_register(register);
         match type_id {
             TypeId::List => {
@@ -2942,7 +2948,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_check_size(&self, register: u8, expected_size: usize) -> Result<(), RuntimeError> {
+    fn run_check_size(&self, register: u8, expected_size: usize) -> InstructionResult {
         let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
@@ -2953,6 +2959,45 @@ impl Vm {
                 value_size,
                 expected_size
             )
+        }
+    }
+
+    fn run_string_push(&mut self, register: u8, value: u8) -> InstructionResult {
+        let temporary_register = self.temporary_register();
+
+        // Replace the value with its display representation
+        self.run_display(temporary_register, value)?;
+
+        // Add the resulting string to the string builder
+        match self.remove_register(temporary_register) {
+            Value::Str(string) => {
+                match self.get_register_mut(register) {
+                    Value::StringBuilder(builder) => {
+                        builder.push_str(&string);
+                        Ok(())
+                    }
+                    other => {
+                        // unexpected_type_error is unavailable here due to get_register_mut
+                        runtime_error!(
+                            "StringPush: Expected StringBuilder, found '{}'",
+                            other.type_as_string()
+                        )
+                    }
+                }
+            }
+            other => self.unexpected_type_error("StringPush: Expected String", &other),
+        }
+    }
+
+    fn run_string_finish(&mut self, register: u8) -> InstructionResult {
+        // Move the string builder out of its register
+        match self.remove_register(register) {
+            Value::StringBuilder(result) => {
+                // Make a ValueString out of the string builder's contents
+                self.set_register(register, Value::Str(ValueString::from(result)));
+                Ok(())
+            }
+            other => self.unexpected_type_error("StringFinish: Expected StringBuilder", &other),
         }
     }
 
@@ -3031,6 +3076,10 @@ impl Vm {
         self.register_base() + register as usize
     }
 
+    fn temporary_register(&self) -> u8 {
+        (self.value_stack.len() - self.register_base()) as u8
+    }
+
     fn set_register(&mut self, register: u8, value: Value) {
         let index = self.register_index(register);
 
@@ -3043,6 +3092,13 @@ impl Vm {
 
     fn clone_register(&self, register: u8) -> Value {
         self.get_register(register).clone()
+    }
+
+    // Moves a value out of the stack, replacing it with Empty
+    fn remove_register(&mut self, register: u8) -> Value {
+        let index = self.register_index(register);
+        self.value_stack.push(Value::Empty);
+        self.value_stack.swap_remove(index)
     }
 
     fn get_register(&self, register: u8) -> &Value {

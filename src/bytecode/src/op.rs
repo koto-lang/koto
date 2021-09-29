@@ -90,9 +90,9 @@ pub enum Op {
     Debug,               // register, constant[4]
     CheckType,           // register, type (see TypeId)
     CheckSize,           // register, size
-    Unused86,
-    Unused87,
-    Unused88,
+    StringStart,         // register
+    StringPush,          // register, value register
+    StringFinish,        // register
     Unused89,
     Unused90,
     Unused91,

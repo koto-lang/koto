@@ -1965,6 +1965,25 @@ num4(1, -1, 2, -2).keep(|n| n > 0).count()
             test_script("'héllö'[3..][..]", string("lö"));
             test_script("'héllö'[3..][1]", string("ö"));
         }
+
+        #[test]
+        fn interpolated_id() {
+            let script = "
+x = 1
+'$x + $x'
+";
+            test_script(script, string("1 + 1"));
+        }
+
+        #[test]
+        fn interpolated_id_from_capture() {
+            let script = "
+x = 1
+f = || '$x.$x'
+f()
+";
+            test_script(script, string("1.1"));
+        }
     }
 
     mod error_recovery {

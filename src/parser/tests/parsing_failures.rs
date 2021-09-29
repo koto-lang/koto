@@ -288,5 +288,33 @@ match
                 check_parsing_fails(source);
             }
         }
+
+        mod strings {
+            use super::*;
+
+            #[test]
+            fn unterminated_string() {
+                let source = "
+'hello
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn incorrect_terminating_quote() {
+                let source = r#"
+'hello"
+"#;
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn missing_template_identifier() {
+                let source = "
+hello, $
+";
+                check_parsing_fails(source);
+            }
+        }
     }
 }

@@ -24,6 +24,7 @@ pub enum Token {
     At,
     Colon,
     Comma,
+    Dollar,
     Dot,
     Ellipsis,
     ParenOpen,
@@ -112,7 +113,17 @@ struct TokenLexer<'a> {
     previous_token: Option<Token>,
     position: Position,
     span: Span,
-    string_quote: Option<char>,
+    string_mode_stack: Vec<StringMode>,
+}
+
+#[derive(Clone)]
+enum StringMode {
+    // Inside a string literal, expected end quote
+    Literal(char),
+    // Just after a $ symbol, either an id or a '{' will follow
+    TemplateStart,
+    // Inside a string template, e.g. '${...}
+    // TemplateExpression,
 }
 
 impl<'a> TokenLexer<'a> {
@@ -125,7 +136,7 @@ impl<'a> TokenLexer<'a> {
             previous_token: None,
             position: Position::default(),
             span: Span::default(),
-            string_quote: None,
+            string_mode_stack: vec![],
         }
     }
 
@@ -246,12 +257,12 @@ impl<'a> TokenLexer<'a> {
         }
     }
 
-    fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Token {
+    fn consume_string_literal(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        let string_quote = match self.string_quote {
-            Some(quote) => quote,
-            None => return Error,
+        let string_quote = match self.string_mode_stack.last() {
+            Some(StringMode::Literal(quote)) => *quote,
+            _ => return Error,
         };
 
         let mut string_bytes = 0;
@@ -263,12 +274,22 @@ impl<'a> TokenLexer<'a> {
                     self.advance_to_position(string_bytes, position);
                     return StringLiteral;
                 }
+                '$' => {
+                    self.advance_to_position(string_bytes, position);
+                    return StringLiteral;
+                }
                 '\\' => {
                     chars.next();
                     string_bytes += 1;
                     position.column += 1;
 
-                    if chars.peek() == Some(&string_quote) {
+                    let skip_next_char = match chars.peek() {
+                        Some('$') => true,
+                        Some(c) if *c == string_quote => true,
+                        _ => false,
+                    };
+
+                    if skip_next_char {
                         chars.next();
                         string_bytes += 1;
                         position.column += 1;
@@ -483,70 +504,89 @@ impl<'a> TokenLexer<'a> {
 
         None
     }
-}
 
-impl<'a> Iterator for TokenLexer<'a> {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Token> {
+    fn get_next_token(&mut self) -> Option<Token> {
         use Token::*;
 
         let result = match self.source.get(self.current_byte..) {
-            Some(remaining) => {
+            Some(remaining) if !remaining.is_empty() => {
                 let mut chars = remaining.chars().peekable();
+                let next_char = *chars.peek().unwrap(); // At least one char is remaining
 
-                if let Some(string_quote) = self.string_quote {
-                    match chars.peek() {
-                        Some('"') if string_quote == '"' => {
+                let string_mode = self.string_mode_stack.last();
+
+                match string_mode {
+                    Some(StringMode::Literal(quote)) => match next_char {
+                        '"' if *quote == '"' => {
                             self.advance_line(1);
-                            self.string_quote = None;
+                            self.string_mode_stack.pop();
                             Some(DoubleQuote)
                         }
-                        Some('\'') if string_quote == '\'' => {
+                        '\'' if *quote == '\'' => {
                             self.advance_line(1);
-                            self.string_quote = None;
+                            self.string_mode_stack.pop();
                             Some(SingleQuote)
                         }
-                        Some(_) => Some(self.consume_string(chars)),
-                        None => None,
-                    }
-                } else {
-                    match chars.peek() {
-                        Some(c) if is_whitespace(*c) => {
+                        '$' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.push(StringMode::TemplateStart);
+                            Some(Dollar)
+                        }
+                        _ => Some(self.consume_string_literal(chars)),
+                    },
+                    Some(StringMode::TemplateStart) => match next_char {
+                        _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
+                            Id => {
+                                self.string_mode_stack.pop();
+                                Some(Id)
+                            }
+                            _ => Some(Error),
+                        },
+                        _ => Some(Error),
+                    },
+                    _ => match next_char {
+                        c if is_whitespace(c) => {
                             let count = consume_and_count(&mut chars, is_whitespace);
                             self.advance_line(count);
                             Some(Whitespace)
                         }
-                        Some('\n') => Some(self.consume_newline(chars)),
-                        Some('#') => Some(self.consume_comment(chars)),
-                        Some('"') => {
+                        '\n' => Some(self.consume_newline(chars)),
+                        '#' => Some(self.consume_comment(chars)),
+                        '"' => {
                             self.advance_line(1);
-                            self.string_quote = Some('"');
+                            self.string_mode_stack.push(StringMode::Literal('"'));
                             Some(DoubleQuote)
                         }
-                        Some('\'') => {
+                        '\'' => {
                             self.advance_line(1);
-                            self.string_quote = Some('\'');
+                            self.string_mode_stack.push(StringMode::Literal('\''));
                             Some(SingleQuote)
                         }
-                        Some('0'..='9') => Some(self.consume_number(chars)),
-                        Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
-                        Some(_) => {
+                        '0'..='9' => Some(self.consume_number(chars)),
+                        c if is_id_start(c) => Some(self.consume_id_or_keyword(chars)),
+                        _ => {
                             if let Some(id) = self.consume_symbol(remaining) {
                                 Some(id)
                             } else {
                                 Some(Error)
                             }
                         }
-                        None => None,
-                    }
+                    },
                 }
             }
-            None => None,
+            _ => None,
         };
 
         self.previous_token = result;
         result
+    }
+}
+
+impl<'a> Iterator for TokenLexer<'a> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        self.get_next_token()
     }
 }
 
@@ -922,23 +962,33 @@ false #
         );
     }
 
-    // #[test]
-    // fn interpolated_strings() {
-    //     let input = r#"
-    // "hello $name, how are you?"
-    // "#;
-    //     check_lexer_output(
-    //         input,
-    //         &[
-    //             (NewLine, None, 2),
-    //             (StringDoubleQuoted, Some(r#""hello "#), 2),
-    //             (StringTemplateId, None, 2),
-    //             (Id, Some("name"), 2),
-    //             (StringDoubleQuoted, Some(r#", how are you?""#), 2),
-    //             (NewLine, None, 3),
-    //         ],
-    //     );
-    // }
+    #[test]
+    fn interpolated_strings() {
+        let input = r#"
+"hello $name, how are you?"
+'$foo$bar'
+"#;
+        check_lexer_output(
+            input,
+            &[
+                (NewLine, None, 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("hello "), 2),
+                (Dollar, None, 2),
+                (Id, Some("name"), 2),
+                (StringLiteral, Some(", how are you?"), 2),
+                (DoubleQuote, None, 2),
+                (NewLine, None, 3),
+                (SingleQuote, None, 3),
+                (Dollar, None, 3),
+                (Id, Some("foo"), 3),
+                (Dollar, None, 3),
+                (Id, Some("bar"), 3),
+                (SingleQuote, None, 3),
+                (NewLine, None, 4),
+            ],
+        );
+    }
 
     #[test]
     fn numbers() {

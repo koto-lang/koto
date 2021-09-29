@@ -756,8 +756,15 @@ impl<'source> Parser<'source> {
             }
             Some(Token::SingleQuote | Token::DoubleQuote) => {
                 // TODO This function should probably be removed, strings should be treated separately
-                let (s, _) = self.parse_string(&mut ExpressionContext::restricted())?;
-                Some(self.constants.add_string(&s) as ConstantIndex)
+                match *self
+                    .parse_string(&mut ExpressionContext::restricted())?
+                    .0
+                    .nodes
+                    .as_slice()
+                {
+                    [StringNode::Literal(constant_index)] => Some(constant_index),
+                    _ => todo!(),
+                }
             }
             _ => None,
         };
@@ -837,9 +844,11 @@ impl<'source> Parser<'source> {
                 Some(MapKey::Meta(meta_key_id, meta_name))
             }
             Some(Token::SingleQuote | Token::DoubleQuote) => {
-                let (s, quote) = self.parse_string(&mut ExpressionContext::restricted())?;
-                let id = self.constants.add_string(&s) as ConstantIndex;
-                Some(MapKey::Str(id, quote))
+                let (string, _span) = self.parse_string(&mut ExpressionContext::restricted())?;
+                match *string.nodes.as_slice() {
+                    [StringNode::Literal(id)] => Some(MapKey::Str(id, string.quotation_mark)),
+                    _ => todo!(),
+                }
             }
             _ => None,
         };
@@ -1333,17 +1342,17 @@ impl<'source> Parser<'source> {
                 Token::ParenOpen => self.parse_nested_expressions(context)?,
                 Token::Number => self.parse_number(false, context)?,
                 Token::DoubleQuote | Token::SingleQuote => {
-                    let (s, quotation_mark) = self.parse_string(context)?;
-                    let constant_index = self.constants.add_string(&s) as u32;
+                    let (string, span) = self.parse_string(context)?;
 
                     if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
-                        self.parse_map_block(MapKey::Str(constant_index, quotation_mark))?
+                        match *string.nodes.as_slice() {
+                            [StringNode::Literal(constant_index)] => self.parse_map_block(
+                                MapKey::Str(constant_index, string.quotation_mark),
+                            )?,
+                            _ => todo!(),
+                        }
                     } else {
-                        let nodes = vec![StringNode::Literal(constant_index)];
-                        let string_node = self.push_node(Str(AstString {
-                            quotation_mark,
-                            nodes,
-                        }))?;
+                        let string_node = self.push_node_with_span(Str(string), span)?;
                         Some(self.check_for_lookup_after_node(string_node, context)?)
                     }
                 }
@@ -2526,113 +2535,182 @@ impl<'source> Parser<'source> {
     fn parse_string(
         &mut self,
         context: &mut ExpressionContext,
-    ) -> Result<(String, QuotationMark), ParserError> {
+    ) -> Result<(AstString, Span), ParserError> {
         use Token::*;
 
-        let quote = match self.consume_next_token(context) {
-            quote @ Some(SingleQuote | DoubleQuote) => quote,
+        let string_quote = match self.consume_next_token(context) {
+            Some(SingleQuote) => SingleQuote,
+            Some(DoubleQuote) => DoubleQuote,
             _ => return internal_error!(UnexpectedToken, self), // TODO better error
         };
 
-        let quotation_mark = if let Some(SingleQuote) = quote {
-            QuotationMark::Single
-        } else {
-            QuotationMark::Double
-        };
+        let start_span = self.current_span();
 
-        match self.consume_token() {
-            Some(StringLiteral) => {}
-            other if other == quote => return Ok((String::new(), quotation_mark)),
-            _ => return internal_error!(UnexpectedToken, self), // TODO better error
-        };
+        let mut nodes = Vec::new();
 
-        let string_literal = self.lexer.slice();
+        while let Some(next_token) = self.consume_token() {
+            match next_token {
+                StringLiteral => {
+                    let string_literal = self.lexer.slice();
 
-        let mut result = String::with_capacity(string_literal.len());
-        let mut chars = string_literal.chars().peekable();
+                    let mut literal = String::with_capacity(string_literal.len());
+                    let mut chars = string_literal.chars().peekable();
 
-        while let Some(c) = chars.next() {
-            match c {
-                '\\' => match chars.next() {
-                    Some('\n') | Some('\r') => {
-                        while let Some(c) = chars.peek() {
-                            if c.is_whitespace() {
-                                chars.next();
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    Some('\\') => result.push('\\'),
-                    Some('\'') => result.push('\''),
-                    Some('"') => result.push('"'),
-                    Some('n') => result.push('\n'),
-                    Some('r') => result.push('\r'),
-                    Some('t') => result.push('\t'),
-                    Some('x') => match chars.next() {
-                        Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
-                            Some(c2) if c2.is_ascii_hexdigit() => {
-                                // is_ascii_hexdigit already checked
-                                let d1 = c1.to_digit(16).unwrap();
-                                let d2 = c2.to_digit(16).unwrap();
-                                let d = d1 * 16 + d2;
-                                if d <= 0x7f {
-                                    result.push(char::from_u32(d).unwrap());
-                                } else {
-                                    return syntax_error!(AsciiEscapeCodeOutOfRange, self);
+                    while let Some(c) = chars.next() {
+                        match c {
+                            '\\' => match chars.next() {
+                                Some('\n') | Some('\r') => {
+                                    while let Some(c) = chars.peek() {
+                                        if c.is_whitespace() {
+                                            chars.next();
+                                        } else {
+                                            break;
+                                        }
+                                    }
                                 }
-                            }
-                            Some(_) => {
-                                return syntax_error!(UnexpectedCharInNumericEscapeCode, self)
-                            }
-                            None => return syntax_error!(UnterminatedNumericEscapeCode, self),
-                        },
-                        Some(_) => return syntax_error!(UnexpectedCharInNumericEscapeCode, self),
-                        None => return syntax_error!(UnterminatedNumericEscapeCode, self),
-                    },
-                    Some('u') => match chars.next() {
-                        Some('{') => {
-                            let mut code = 0;
-
-                            while let Some(c) = chars.peek().cloned() {
-                                if c.is_ascii_hexdigit() {
-                                    chars.next();
-                                    code *= 16;
-                                    code += c.to_digit(16).unwrap();
-                                } else {
-                                    break;
-                                }
-                            }
-
-                            match chars.next() {
-                                Some('}') => match char::from_u32(code) {
-                                    Some(result_char) => {
-                                        result.push(result_char);
+                                Some('\\') => literal.push('\\'),
+                                Some('\'') => literal.push('\''),
+                                Some('"') => literal.push('"'),
+                                Some('n') => literal.push('\n'),
+                                Some('r') => literal.push('\r'),
+                                Some('t') => literal.push('\t'),
+                                Some('x') => match chars.next() {
+                                    Some(c1) if c1.is_ascii_hexdigit() => match chars.next() {
+                                        Some(c2) if c2.is_ascii_hexdigit() => {
+                                            // is_ascii_hexdigit already checked
+                                            let d1 = c1.to_digit(16).unwrap();
+                                            let d2 = c2.to_digit(16).unwrap();
+                                            let d = d1 * 16 + d2;
+                                            if d <= 0x7f {
+                                                literal.push(char::from_u32(d).unwrap());
+                                            } else {
+                                                return syntax_error!(
+                                                    AsciiEscapeCodeOutOfRange,
+                                                    self
+                                                );
+                                            }
+                                        }
+                                        Some(_) => {
+                                            return syntax_error!(
+                                                UnexpectedCharInNumericEscapeCode,
+                                                self
+                                            )
+                                        }
+                                        None => {
+                                            return syntax_error!(
+                                                UnterminatedNumericEscapeCode,
+                                                self
+                                            )
+                                        }
+                                    },
+                                    Some(_) => {
+                                        return syntax_error!(
+                                            UnexpectedCharInNumericEscapeCode,
+                                            self
+                                        )
                                     }
                                     None => {
-                                        return syntax_error!(UnicodeEscapeCodeOutOfRange, self);
+                                        return syntax_error!(UnterminatedNumericEscapeCode, self)
                                     }
                                 },
-                                Some(_) => {
-                                    return syntax_error!(UnexpectedCharInNumericEscapeCode, self);
-                                }
-                                None => return syntax_error!(UnterminatedNumericEscapeCode, self),
-                            }
+                                Some('u') => match chars.next() {
+                                    Some('{') => {
+                                        let mut code = 0;
+
+                                        while let Some(c) = chars.peek().cloned() {
+                                            if c.is_ascii_hexdigit() {
+                                                chars.next();
+                                                code *= 16;
+                                                code += c.to_digit(16).unwrap();
+                                            } else {
+                                                break;
+                                            }
+                                        }
+
+                                        match chars.next() {
+                                            Some('}') => match char::from_u32(code) {
+                                                Some(c) => literal.push(c),
+                                                None => {
+                                                    return syntax_error!(
+                                                        UnicodeEscapeCodeOutOfRange,
+                                                        self
+                                                    );
+                                                }
+                                            },
+                                            Some(_) => {
+                                                return syntax_error!(
+                                                    UnexpectedCharInNumericEscapeCode,
+                                                    self
+                                                );
+                                            }
+                                            None => {
+                                                return syntax_error!(
+                                                    UnterminatedNumericEscapeCode,
+                                                    self
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Some(_) => {
+                                        return syntax_error!(
+                                            UnexpectedCharInNumericEscapeCode,
+                                            self
+                                        )
+                                    }
+                                    None => {
+                                        return syntax_error!(UnterminatedNumericEscapeCode, self)
+                                    }
+                                },
+                                _ => return syntax_error!(UnexpectedEscapeInString, self),
+                            },
+                            _ => literal.push(c),
                         }
-                        Some(_) => return syntax_error!(UnexpectedCharInNumericEscapeCode, self),
-                        None => return syntax_error!(UnterminatedNumericEscapeCode, self),
-                    },
-                    _ => return syntax_error!(UnexpectedEscapeInString, self),
-                },
-                _ => result.push(c),
+                    }
+
+                    nodes.push(StringNode::Literal(self.constants.add_string(&literal)));
+                }
+                Dollar => {
+                    match self.peek_token() {
+                        Some(Id) => {
+                            self.consume_token();
+                            let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                            self.frame_mut()?.add_id_access(id);
+                            let id_node = self.push_node(Node::Id(id))?;
+                            nodes.push(StringNode::Expr(id_node));
+                        }
+                        Some(_) => {
+                            return syntax_error!(UnexpectedToken, self); // TODO better error
+                        }
+                        None => break,
+                    }
+                }
+                c if c == string_quote => {
+                    let quotation_mark = if string_quote == SingleQuote {
+                        QuotationMark::Single
+                    } else {
+                        QuotationMark::Double
+                    };
+
+                    if nodes.is_empty() {
+                        nodes.push(StringNode::Literal(self.constants.add_string("")));
+                    }
+
+                    return Ok((
+                        AstString {
+                            quotation_mark,
+                            nodes,
+                        },
+                        self.span_with_start(start_span),
+                    ));
+                }
+                _ => {
+                    return syntax_error!(UnexpectedToken, self); // TODO better error
+                }
             }
         }
 
-        if self.consume_token() != quote {
-            return syntax_error!(UnexpectedToken, self); // TODO better error
-        }
-
-        Ok((result, quotation_mark))
+        // Unterminated string
+        return syntax_error!(UnexpectedToken, self); // TODO better error
     }
 
     fn push_ast_op(

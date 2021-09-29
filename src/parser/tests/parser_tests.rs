@@ -165,6 +165,57 @@ a
         }
 
         #[test]
+        fn strings_with_interpolated_ids() {
+            let source = r#"
+'Hello, $name!'
+"$foo"
+'$x $y'
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(1),
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Single,
+                        nodes: vec![
+                            StringNode::Literal(0),
+                            StringNode::Expr(0),
+                            StringNode::Literal(2),
+                        ],
+                    }),
+                    Id(3),
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Double,
+                        nodes: vec![StringNode::Expr(2)],
+                    }),
+                    Id(4),
+                    Id(6), // 5
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Single,
+                        nodes: vec![
+                            StringNode::Expr(4),
+                            StringNode::Literal(5),
+                            StringNode::Expr(5),
+                        ],
+                    }),
+                    MainBlock {
+                        body: vec![1, 3, 6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("Hello, "),
+                    Constant::Str("name"),
+                    Constant::Str("!"),
+                    Constant::Str("foo"),
+                    Constant::Str("x"),
+                    Constant::Str(" "),
+                    Constant::Str("y"),
+                ]),
+            )
+        }
+
+        #[test]
         fn negatives() {
             let source = "\
 -12.0

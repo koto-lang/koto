@@ -74,6 +74,11 @@ pub enum Value {
     ///
     /// Note: this is intended for internal use only.
     TemporaryTuple(RegisterSlice),
+
+    /// The string builder used during string interpolation
+    ///
+    /// Note: this is intended for internal use only.
+    StringBuilder(String),
 }
 
 impl Value {
@@ -188,6 +193,7 @@ impl Value {
             ExternalData(data) => data.read().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
+            StringBuilder(_) => "StringBuilder".to_string(),
         }
     }
 }
@@ -234,6 +240,7 @@ impl fmt::Display for Value {
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
             }
+            StringBuilder(s) => write!(f, "StringBuilder({})", s),
         }
     }
 }
