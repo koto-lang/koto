@@ -27,13 +27,13 @@ pub enum Token {
     Dollar,
     Dot,
     Ellipsis,
-    ParenOpen,
-    ParenClose,
     Function,
-    ListStart,
-    ListEnd,
-    MapStart,
-    MapEnd,
+    RoundOpen,
+    RoundClose,
+    SquareOpen,
+    SquareClose,
+    CurlyOpen,
+    CurlyClose,
     Wildcard,
     Range,
     RangeInclusive,
@@ -493,13 +493,13 @@ impl<'a> TokenLexer<'a> {
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
         check_symbol!(".", Dot);
-        check_symbol!("(", ParenOpen);
-        check_symbol!(")", ParenClose);
+        check_symbol!("(", RoundOpen);
+        check_symbol!(")", RoundClose);
         check_symbol!("|", Function);
-        check_symbol!("[", ListStart);
-        check_symbol!("]", ListEnd);
-        check_symbol!("{", MapStart);
-        check_symbol!("}", MapEnd);
+        check_symbol!("[", SquareOpen);
+        check_symbol!("]", SquareClose);
+        check_symbol!("{", CurlyOpen);
+        check_symbol!("}", CurlyClose);
         check_symbol!("_", Wildcard);
 
         None
@@ -919,8 +919,8 @@ false #
                 (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 5),
                 (True, None, 5),
                 (NewLine, None, 6),
-                (ParenOpen, None, 6),
-                (ParenClose, None, 6),
+                (RoundOpen, None, 6),
+                (RoundClose, None, 6),
             ],
         );
     }
@@ -1041,15 +1041,15 @@ false #
                 (Number, Some("1.0"), 1),
                 (Dot, None, 1),
                 (Id, Some("sin"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
                 (NewLine, None, 2),
                 (Subtract, None, 2),
                 (Number, Some("1e-3"), 2),
                 (Dot, None, 2),
                 (Id, Some("abs"), 2),
-                (ParenOpen, None, 2),
-                (ParenClose, None, 2),
+                (RoundOpen, None, 2),
+                (RoundClose, None, 2),
                 (NewLine, None, 3),
                 (Number, Some("1"), 3),
                 (Dot, None, 3),
@@ -1059,8 +1059,8 @@ false #
                 (Number, Some("9"), 4),
                 (Dot, None, 4),
                 (Id, Some("exp"), 4),
-                (ParenOpen, None, 4),
-                (ParenClose, None, 4),
+                (RoundOpen, None, 4),
+                (RoundClose, None, 4),
             ],
         );
     }
@@ -1098,14 +1098,14 @@ x = [i for i in 0..5]";
             input,
             &[
                 (Id, Some("a"), 1),
-                (ListStart, None, 1),
+                (SquareOpen, None, 1),
                 (RangeInclusive, None, 1),
                 (Number, Some("9"), 1),
-                (ListEnd, None, 1),
+                (SquareClose, None, 1),
                 (NewLine, None, 2),
                 (Id, Some("x"), 2),
                 (Assign, None, 2),
-                (ListStart, None, 2),
+                (SquareOpen, None, 2),
                 (Id, Some("i"), 2),
                 (For, None, 2),
                 (Id, Some("i"), 2),
@@ -1113,7 +1113,7 @@ x = [i for i in 0..5]";
                 (Number, Some("0"), 2),
                 (Range, None, 2),
                 (Number, Some("5"), 2),
-                (ListEnd, None, 2),
+                (SquareClose, None, 2),
             ],
         );
     }
@@ -1145,14 +1145,14 @@ f()";
                 (Id, Some("b"), 2, 2),
                 (Dot, None, 2, 2),
                 (Id, Some("size"), 2, 2),
-                (ParenOpen, None, 2, 2),
-                (ParenClose, None, 2, 2),
+                (RoundOpen, None, 2, 2),
+                (RoundClose, None, 2, 2),
                 (NewLineIndented, None, 3, 2),
                 (Id, Some("c"), 3, 2),
                 (NewLine, None, 4, 0),
                 (Id, Some("f"), 4, 0),
-                (ParenOpen, None, 4, 0),
-                (ParenClose, None, 4, 0),
+                (RoundOpen, None, 4, 0),
+                (RoundClose, None, 4, 0),
             ],
         );
     }
@@ -1216,13 +1216,13 @@ else
                 (Id, Some("检验"), 1),
                 (Dot, None, 1),
                 (Id, Some("foo"), 1),
-                (ListStart, None, 1),
+                (SquareOpen, None, 1),
                 (Number, Some("1"), 1),
-                (ListEnd, None, 1),
+                (SquareClose, None, 1),
                 (Dot, None, 1),
                 (Id, Some("bär"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
             ],
         );
     }
@@ -1237,8 +1237,8 @@ else
                 (Id, Some("foo"), 1),
                 (Dot, None, 1),
                 (Id, Some("and"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
             ],
         );
     }

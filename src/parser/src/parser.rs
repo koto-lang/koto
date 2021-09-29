@@ -305,23 +305,23 @@ impl<'source> Parser<'source> {
                     nested_args.push(self.push_node(Node::Wildcard)?)
                 }
                 None => match self.peek_token() {
-                    Some(Token::ListStart) => {
+                    Some(Token::SquareOpen) => {
                         self.consume_token();
 
                         let list_args = self.parse_nested_function_args(arg_ids)?;
                         nested_args.push(self.push_node(Node::List(list_args))?);
 
-                        if self.consume_next_token(&mut args_context) != Some(Token::ListEnd) {
+                        if self.consume_next_token(&mut args_context) != Some(Token::SquareClose) {
                             return syntax_error!(ExpectedListEnd, self);
                         }
                     }
-                    Some(Token::ParenOpen) => {
+                    Some(Token::RoundOpen) => {
                         self.consume_token();
 
                         let tuple_args = self.parse_nested_function_args(arg_ids)?;
                         nested_args.push(self.push_node(Node::Tuple(tuple_args))?);
 
-                        if self.consume_next_token(&mut args_context) != Some(Token::ParenClose) {
+                        if self.consume_next_token(&mut args_context) != Some(Token::RoundClose) {
                             return syntax_error!(ExpectedCloseParen, self);
                         }
                     }
@@ -382,23 +382,23 @@ impl<'source> Parser<'source> {
                     arg_nodes.push(self.push_node(Node::Wildcard)?)
                 }
                 None => match self.peek_token() {
-                    Some(Token::ListStart) => {
+                    Some(Token::SquareOpen) => {
                         self.consume_token();
 
                         let list_args = self.parse_nested_function_args(&mut arg_ids)?;
                         arg_nodes.push(self.push_node(Node::List(list_args))?);
 
-                        if self.consume_next_token(&mut args_context) != Some(Token::ListEnd) {
+                        if self.consume_next_token(&mut args_context) != Some(Token::SquareClose) {
                             return syntax_error!(ExpectedListEnd, self);
                         }
                     }
-                    Some(Token::ParenOpen) => {
+                    Some(Token::RoundOpen) => {
                         self.consume_token();
 
                         let tuple_args = self.parse_nested_function_args(&mut arg_ids)?;
                         arg_nodes.push(self.push_node(Node::Tuple(tuple_args))?);
 
-                        if self.consume_next_token(&mut args_context) != Some(Token::ParenClose) {
+                        if self.consume_next_token(&mut args_context) != Some(Token::RoundClose) {
                             return syntax_error!(ExpectedCloseParen, self);
                         }
                     }
@@ -820,8 +820,8 @@ impl<'source> Parser<'source> {
                 "type" => MetaKeyId::Type,
                 _ => return syntax_error!(UnexpectedMetaKey, self),
             },
-            Some(Token::ListStart) => match self.consume_token() {
-                Some(Token::ListEnd) => MetaKeyId::Index,
+            Some(Token::SquareOpen) => match self.consume_token() {
+                Some(Token::SquareClose) => MetaKeyId::Index,
                 _ => return syntax_error!(UnexpectedMetaKey, self),
             },
             _ => return syntax_error!(UnexpectedMetaKey, self),
@@ -961,7 +961,7 @@ impl<'source> Parser<'source> {
 
         while let Some(token) = self.peek_token() {
             match token {
-                Token::ParenOpen => {
+                Token::RoundOpen => {
                     node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
                     lookup.push((
@@ -969,7 +969,7 @@ impl<'source> Parser<'source> {
                         self.span_with_start(node_start_span),
                     ));
                 }
-                Token::ListStart => {
+                Token::SquareOpen => {
                     self.consume_token();
                     node_start_span = self.current_span();
 
@@ -1051,7 +1051,7 @@ impl<'source> Parser<'source> {
                         }
                     };
 
-                    if let Some(Token::ListEnd) = self.peek_next_token_on_same_line() {
+                    if let Some(Token::SquareClose) = self.peek_next_token_on_same_line() {
                         self.consume_next_token_on_same_line();
                         lookup.push((
                             LookupNode::Index(index_expression),
@@ -1144,7 +1144,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
-        if self.consume_next_token_on_same_line() != Some(Token::ParenOpen) {
+        if self.consume_next_token_on_same_line() != Some(Token::RoundOpen) {
             return internal_error!(ArgumentsParseFailure, self);
         }
 
@@ -1173,7 +1173,7 @@ impl<'source> Parser<'source> {
         if !matches!(
             self.peek_next_token(&args_end_context),
             Some(PeekInfo {
-                token: Token::ParenClose,
+                token: Token::RoundClose,
                 ..
             })
         ) {
@@ -1339,7 +1339,7 @@ impl<'source> Parser<'source> {
                     self.consume_next_token(context);
                     Some(self.push_node(BoolFalse)?)
                 }
-                Token::ParenOpen => self.parse_nested_expressions(context)?,
+                Token::RoundOpen => self.parse_nested_expressions(context)?,
                 Token::Number => self.parse_number(false, context)?,
                 Token::DoubleQuote | Token::SingleQuote => {
                     let (string, span) = self.parse_string(context)?;
@@ -1366,13 +1366,13 @@ impl<'source> Parser<'source> {
                     self.consume_next_token(context);
                     Some(self.push_node(Node::Wildcard)?)
                 }
-                Token::ListStart => self.parse_list(context)?,
-                Token::MapStart => self.parse_map_inline(context)?,
+                Token::SquareOpen => self.parse_list(context)?,
+                Token::CurlyOpen => self.parse_map_inline(context)?,
                 Token::Num2 => {
                     self.consume_next_token(context);
                     let start_span = self.current_span();
 
-                    let args = if self.peek_token() == Some(Token::ParenOpen) {
+                    let args = if self.peek_token() == Some(Token::RoundOpen) {
                         self.parse_parenthesized_args()?
                     } else {
                         self.parse_call_args(&mut ExpressionContext::permissive())?
@@ -1391,7 +1391,7 @@ impl<'source> Parser<'source> {
                     self.consume_next_token(context);
                     let start_span = self.current_span();
 
-                    let args = if self.peek_token() == Some(Token::ParenOpen) {
+                    let args = if self.peek_token() == Some(Token::RoundOpen) {
                         self.parse_parenthesized_args()?
                     } else {
                         self.parse_call_args(&mut ExpressionContext::permissive())?
@@ -1556,7 +1556,7 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
         let start_span = self.current_span();
 
-        if self.consume_next_token(&mut list_context) != Some(Token::ListStart) {
+        if self.consume_next_token(&mut list_context) != Some(Token::SquareOpen) {
             return internal_error!(UnexpectedToken, self);
         }
 
@@ -1571,7 +1571,7 @@ impl<'source> Parser<'source> {
         while !matches!(
             self.peek_next_token(&entry_context),
             Some(PeekInfo {
-                token: Token::ListEnd,
+                token: Token::SquareClose,
                 ..
             }) | None
         ) {
@@ -1592,7 +1592,7 @@ impl<'source> Parser<'source> {
         if !matches!(
             self.peek_next_token(&list_context),
             Some(PeekInfo {
-                token: Token::ListEnd,
+                token: Token::SquareClose,
                 ..
             })
         ) {
@@ -1663,7 +1663,7 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if self.consume_next_token(context) != Some(Token::MapStart) {
+        if self.consume_next_token(context) != Some(Token::CurlyOpen) {
             return internal_error!(UnexpectedToken, self);
         }
 
@@ -1709,7 +1709,7 @@ impl<'source> Parser<'source> {
         if !matches!(
             self.peek_next_token(&map_end_context),
             Some(PeekInfo {
-                token: Token::MapEnd,
+                token: Token::CurlyClose,
                 ..
             })
         ) {
@@ -2229,27 +2229,27 @@ impl<'source> Parser<'source> {
                     self.consume_next_token(&mut pattern_context);
                     Some(self.push_node(Node::Wildcard)?)
                 }
-                ListStart => {
+                SquareOpen => {
                     self.consume_next_token(&mut pattern_context);
 
                     let list_patterns = self.parse_nested_match_patterns()?;
 
-                    if self.consume_next_token_on_same_line() != Some(ListEnd) {
+                    if self.consume_next_token_on_same_line() != Some(SquareClose) {
                         return syntax_error!(ExpectedListEnd, self);
                     }
 
                     Some(self.push_node(Node::List(list_patterns))?)
                 }
-                ParenOpen => {
+                RoundOpen => {
                     self.consume_next_token(&mut pattern_context);
 
-                    if self.peek_token() == Some(ParenClose) {
+                    if self.peek_token() == Some(RoundClose) {
                         self.consume_token();
                         Some(self.push_node(Node::Empty)?)
                     } else {
                         let tuple_patterns = self.parse_nested_match_patterns()?;
 
-                        if self.consume_next_token_on_same_line() != Some(ParenClose) {
+                        if self.consume_next_token_on_same_line() != Some(RoundClose) {
                             return syntax_error!(ExpectedCloseParen, self);
                         }
 
@@ -2496,7 +2496,7 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        if self.consume_next_token(context) != Some(ParenOpen) {
+        if self.consume_next_token(context) != Some(RoundOpen) {
             return internal_error!(UnexpectedToken, self);
         }
 
@@ -2523,7 +2523,7 @@ impl<'source> Parser<'source> {
             _ => self.push_node(Node::Tuple(expressions))?,
         };
 
-        if let Some(ParenClose) = self.peek_token() {
+        if let Some(RoundClose) = self.peek_token() {
             self.consume_token();
             let result = self.check_for_lookup_after_node(expressions_node, context)?;
             Ok(Some(result))
@@ -2752,7 +2752,7 @@ impl<'source> Parser<'source> {
 
         if matches!(
             self.peek_token(),
-            Some(Dot) | Some(ListStart) | Some(ParenOpen)
+            Some(Dot) | Some(SquareOpen) | Some(RoundOpen)
         ) {
             return true;
         } else if context.allow_linebreaks {
