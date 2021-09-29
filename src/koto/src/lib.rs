@@ -207,6 +207,10 @@ impl Koto {
         self.runtime.prelude()
     }
 
+    pub fn exports(&self) -> ValueMap {
+        self.runtime.context().exports.clone()
+    }
+
     pub fn set_args(&mut self, args: &[String]) {
         use Value::{Map, Str, Tuple};
 
