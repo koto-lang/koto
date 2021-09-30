@@ -70,8 +70,7 @@ pub enum Op {
     ListPushValues,      // list, start register, count
     Index,               // result, indexable, index
     SetIndex,            // indexable, index, value
-    MapInsert,           // map register, value register, key constant
-    MapInsertLong,       // map register, value register, key constant[4]
+    MapInsert,           // map, key, value
     MetaInsert,          // map register, value register, key id
     MetaInsertNamed,     // map register, value register, key id, name constant
     MetaInsertNamedLong, // map register, value register, key id, name constant[4]
@@ -93,6 +92,7 @@ pub enum Op {
     StringStart,         // register
     StringPush,          // register, value register
     StringFinish,        // register
+    Unused88,
     Unused89,
     Unused90,
     Unused91,

@@ -2008,7 +2008,7 @@ impl Compiler {
                             self.compile_node(ResultRegister::Any, value_node, ast)?
                                 .unwrap()
                         }
-                        (MapKey::Id(id), None) | (MapKey::Str(id, _), None) => {
+                        (MapKey::Id(id), None) => {
                             match self.frame().get_local_assigned_register(*id) {
                                 Some(register) => CompileResult::with_assigned(register),
                                 None => {
@@ -2018,16 +2018,10 @@ impl Compiler {
                                 }
                             }
                         }
-                        (MapKey::Meta(key, _), None) => {
-                            return compiler_error!(
-                                self,
-                                "Value missing for meta map key: @{:?}",
-                                key
-                            );
-                        }
+                        _ => return compiler_error!(self, "Value missing for map key"),
                     };
 
-                    self.compile_map_insert(result.register, value.register, key);
+                    self.compile_map_insert(result.register, value.register, key, ast)?;
 
                     if value.is_temporary {
                         self.pop_register()?;
@@ -2208,7 +2202,7 @@ impl Compiler {
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, &MapKey::Id(id));
+                            self.compile_map_insert(map_register, set_value, &MapKey::Id(id), ast)?;
                         } else if let Some(result) = result {
                             self.compile_access(result.register, map_register, id);
                         }
@@ -2312,18 +2306,33 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: &MapKey) {
+    fn compile_map_insert(
+        &mut self,
+        map_register: u8,
+        value_register: u8,
+        key: &MapKey,
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        use Op::*;
+
         match key {
-            MapKey::Id(id) | MapKey::Str(id, _) => {
-                if *id <= u8::MAX as u32 {
-                    self.push_op_without_span(
-                        Op::MapInsert,
-                        &[map_register, value_register, *id as u8],
-                    );
-                } else {
-                    self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
-                    self.push_bytes(&id.to_le_bytes());
-                }
+            MapKey::Id(id) => {
+                let key_register = self.push_register()?;
+                self.load_constant(key_register, *id, LoadString, LoadStringLong);
+                self.push_op_without_span(
+                    Op::MapInsert,
+                    &[map_register, key_register, value_register],
+                );
+                self.pop_register()?;
+            }
+            MapKey::Str(string) => {
+                let key_register = self.push_register()?;
+                self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
+                self.push_op_without_span(
+                    Op::MapInsert,
+                    &[map_register, key_register, value_register],
+                );
+                self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
                 let key = *key as u8;
@@ -2345,6 +2354,8 @@ impl Compiler {
                 }
             }
         }
+
+        Ok(())
     }
 
     fn compile_access(&mut self, result_register: u8, value_register: u8, key: ConstantIndex) {

@@ -331,8 +331,8 @@ pub enum Instruction {
     },
     MapInsert {
         register: u8,
+        key: u8,
         value: u8,
-        key: ConstantIndex,
     },
     MetaInsert {
         register: u8,
@@ -1275,13 +1275,8 @@ impl Iterator for InstructionReader {
             }),
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),
+                key: get_byte!(),
                 value: get_byte!(),
-                key: get_byte!() as ConstantIndex,
-            }),
-            Op::MapInsertLong => Some(MapInsert {
-                register: get_byte!(),
-                value: get_byte!(),
-                key: get_u32!() as ConstantIndex,
             }),
             Op::MetaInsert => {
                 let register = get_byte!();

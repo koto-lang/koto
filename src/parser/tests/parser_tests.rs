@@ -41,6 +41,16 @@ mod parser {
         })
     }
 
+    fn string_literal_map_key(
+        literal_index: ConstantIndex,
+        quotation_mark: QuotationMark,
+    ) -> MapKey {
+        MapKey::Str(AstString {
+            quotation_mark,
+            nodes: vec![StringNode::Literal(literal_index)],
+        })
+    }
+
     mod values {
         use super::*;
 
@@ -374,7 +384,7 @@ x = [
                     string_literal(4, QuotationMark::Double),
                     Int(5),
                     Map(vec![
-                        (MapKey::Str(0, QuotationMark::Double), Some(1)),
+                        (string_literal_map_key(0, QuotationMark::Double), Some(1)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(2)),
                         (MapKey::Meta(MetaKeyId::Add, None), Some(3)),
@@ -410,7 +420,7 @@ x = [
                     Int(1),
                     string_literal(4, QuotationMark::Double),
                     Map(vec![
-                        (MapKey::Str(0, QuotationMark::Single), Some(0)),
+                        (string_literal_map_key(0, QuotationMark::Single), Some(0)),
                         (MapKey::Id(2), None),
                         (MapKey::Id(3), Some(1)),
                     ]),
@@ -447,9 +457,9 @@ x"#;
                     Map(vec![(MapKey::Id(1), Some(2))]), // foo, 0
                     Int(4),
                     Map(vec![
-                        (MapKey::Id(1), Some(1)),                           // foo: 42
-                        (MapKey::Str(3, QuotationMark::Double), Some(3)),   // "baz": nested map
-                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)), // @-: -1
+                        (MapKey::Id(1), Some(1)),                                    // foo: 42
+                        (string_literal_map_key(3, QuotationMark::Double), Some(3)), // "baz": nested map
+                        (MapKey::Meta(MetaKeyId::Subtract, None), Some(4)),          // @-: -1
                     ]), // 5
                     Assign {
                         target: AssignTarget {
@@ -484,9 +494,12 @@ x =
             check_ast(
                 source,
                 &[
-                    Id(0),                                                       // x
-                    Int(2),                                                      // 42
-                    Map(vec![(MapKey::Str(1, QuotationMark::Double), Some(1))]), // "foo", 42
+                    Id(0),  // x
+                    Int(2), // 42
+                    Map(vec![(
+                        string_literal_map_key(1, QuotationMark::Double),
+                        Some(1),
+                    )]), // "foo", 42
                     Assign {
                         target: AssignTarget {
                             target_index: 0,

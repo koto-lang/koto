@@ -2020,6 +2020,17 @@ f()
 ";
             test_script(script, string("x * 2 == 20"));
         }
+
+        #[test]
+        fn interpolated_string_as_map_key() {
+            let script = "
+x = 99
+m =
+  'key$x': 'foo'
+m.key99
+";
+            test_script(script, string("foo"));
+        }
     }
 
     mod error_recovery {

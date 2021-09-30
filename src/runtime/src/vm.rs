@@ -865,9 +865,9 @@ impl Vm {
             } => self.run_set_index(register, index, value),
             Instruction::MapInsert {
                 register,
-                value,
                 key,
-            } => self.run_map_insert(register, value, key),
+                value,
+            } => self.run_map_insert(register, key, value),
             Instruction::MetaInsert {
                 register,
                 value,
@@ -2417,15 +2417,15 @@ impl Vm {
     fn run_map_insert(
         &mut self,
         map_register: u8,
-        value: u8,
-        key: ConstantIndex,
+        key_register: u8,
+        value_register: u8,
     ) -> InstructionResult {
-        let key_string = self.value_string_from_constant(key);
-        let value = self.clone_register(value);
+        let key = self.clone_register(key_register);
+        let value = self.clone_register(value_register);
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(key_string.into(), value);
+                map.data_mut().insert(key.into(), value);
                 Ok(())
             }
             unexpected => runtime_error!(

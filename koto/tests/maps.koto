@@ -24,8 +24,8 @@ export @tests =
       assert_ne key, ()
       assert_ne value, ()
 
-  @test map_quoted_keys: ||
-    # Quoted strings can be used for keys that would otherwise be disallowed
+  @test map_string_keys: ||
+    # Strings can be used for keys that would otherwise be disallowed
     x = {"for": -1, 'while': 99, "20": "twenty"}
     assert_eq x."for", -1
     assert_eq x."while", 99
@@ -36,6 +36,11 @@ export @tests =
       '.': "xyz"
     assert_eq y.'*', 123
     assert_eq y.".", "xyz"
+
+    # Keys can also be defined dynamically using string interpolation
+    a = 123
+    z = {'key$a': 42}
+    assert_eq z.key123, 42
 
   @test unicode_keys: ||
     x = {}

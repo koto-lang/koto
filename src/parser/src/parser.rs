@@ -845,10 +845,7 @@ impl<'source> Parser<'source> {
             }
             Some(Token::SingleQuote | Token::DoubleQuote) => {
                 let (string, _span) = self.parse_string(&mut ExpressionContext::restricted())?;
-                match *string.nodes.as_slice() {
-                    [StringNode::Literal(id)] => Some(MapKey::Str(id, string.quotation_mark)),
-                    _ => todo!(),
-                }
+                Some(MapKey::Str(string))
             }
             _ => None,
         };
@@ -1345,12 +1342,7 @@ impl<'source> Parser<'source> {
                     let (string, span) = self.parse_string(context)?;
 
                     if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
-                        match *string.nodes.as_slice() {
-                            [StringNode::Literal(constant_index)] => self.parse_map_block(
-                                MapKey::Str(constant_index, string.quotation_mark),
-                            )?,
-                            _ => todo!(),
-                        }
+                        self.parse_map_block(MapKey::Str(string))?
                     } else {
                         let string_node = self.push_node_with_span(Str(string), span)?;
                         Some(self.check_for_lookup_after_node(string_node, context)?)
@@ -1608,6 +1600,8 @@ impl<'source> Parser<'source> {
     fn parse_map_block(&mut self, first_key: MapKey) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
+        let mut first_key = Some(first_key);
+
         let start_span = self.current_span();
 
         let mut block_context = ExpressionContext::permissive();
@@ -1616,8 +1610,8 @@ impl<'source> Parser<'source> {
         let mut entries = Vec::new();
 
         loop {
-            let key = if entries.is_empty() {
-                first_key
+            let key = if let Some(key) = first_key.take() {
+                key
             } else if let Some(key) = self.parse_map_key()? {
                 key
             } else {
