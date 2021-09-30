@@ -294,24 +294,35 @@ match
 
             #[test]
             fn unterminated_string() {
-                let source = "
-'hello
-";
-                check_parsing_fails(source);
+                check_parsing_fails("'hello");
             }
 
             #[test]
             fn incorrect_terminating_quote() {
-                let source = r#"
-'hello"
-"#;
-                check_parsing_fails(source);
+                check_parsing_fails("'hello\"");
             }
 
             #[test]
             fn missing_template_identifier() {
+                check_parsing_fails("'hello, $");
+            }
+
+            #[test]
+            fn unterminated_template_expression() {
+                check_parsing_fails("'hello, ${name'");
+            }
+
+            #[test]
+            fn incomplete_template_expression() {
+                check_parsing_fails("'${1 + }'");
+            }
+
+            #[test]
+            fn multiline_template_expression() {
                 let source = "
-hello, $
+'foo: ${
+42
+}'
 ";
                 check_parsing_fails(source);
             }

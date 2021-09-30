@@ -122,8 +122,10 @@ enum StringMode {
     Literal(char),
     // Just after a $ symbol, either an id or a '{' will follow
     TemplateStart,
-    // Inside a string template, e.g. '${...}
-    // TemplateExpression,
+    // Inside a string template, e.g. '${...}'
+    TemplateExpression,
+    // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
+    TemplateExpressionInlineMap,
 }
 
 impl<'a> TokenLexer<'a> {
@@ -513,16 +515,16 @@ impl<'a> TokenLexer<'a> {
                 let mut chars = remaining.chars().peekable();
                 let next_char = *chars.peek().unwrap(); // At least one char is remaining
 
-                let string_mode = self.string_mode_stack.last();
+                let string_mode = self.string_mode_stack.last().cloned();
 
                 match string_mode {
                     Some(StringMode::Literal(quote)) => match next_char {
-                        '"' if *quote == '"' => {
+                        '"' if quote == '"' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
                             Some(DoubleQuote)
                         }
-                        '\'' if *quote == '\'' => {
+                        '\'' if quote == '\'' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
                             Some(SingleQuote)
@@ -542,6 +544,12 @@ impl<'a> TokenLexer<'a> {
                             }
                             _ => Some(Error),
                         },
+                        '{' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.pop();
+                            self.string_mode_stack.push(StringMode::TemplateExpression);
+                            Some(CurlyOpen)
+                        }
                         _ => Some(Error),
                     },
                     _ => match next_char {
@@ -565,11 +573,27 @@ impl<'a> TokenLexer<'a> {
                         '0'..='9' => Some(self.consume_number(chars)),
                         c if is_id_start(c) => Some(self.consume_id_or_keyword(chars)),
                         _ => {
-                            if let Some(id) = self.consume_symbol(remaining) {
-                                Some(id)
-                            } else {
-                                Some(Error)
+                            let result = self.consume_symbol(remaining).unwrap_or(Error);
+
+                            use StringMode::*;
+                            match result {
+                                CurlyOpen => {
+                                    if matches!(string_mode, Some(TemplateExpression)) {
+                                        self.string_mode_stack.push(TemplateExpressionInlineMap);
+                                    }
+                                }
+                                CurlyClose => {
+                                    if matches!(
+                                        string_mode,
+                                        Some(TemplateExpression | TemplateExpressionInlineMap)
+                                    ) {
+                                        self.string_mode_stack.pop();
+                                    }
+                                }
+                                _ => {}
                             }
+
+                            Some(result)
                         }
                     },
                 }
@@ -963,7 +987,7 @@ false #
     }
 
     #[test]
-    fn interpolated_strings() {
+    fn interpolated_string_ids() {
         let input = r#"
 "hello $name, how are you?"
 '$foo$bar'
@@ -984,6 +1008,42 @@ false #
                 (Id, Some("foo"), 3),
                 (Dollar, None, 3),
                 (Id, Some("bar"), 3),
+                (SingleQuote, None, 3),
+                (NewLine, None, 4),
+            ],
+        );
+    }
+
+    #[test]
+    fn interpolated_string_expressions() {
+        let input = r#"
+"x + y == ${x + y}"
+'${'{}'.format foo}'
+"#;
+        check_lexer_output(
+            input,
+            &[
+                (NewLine, None, 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("x + y == "), 2),
+                (Dollar, None, 2),
+                (CurlyOpen, None, 2),
+                (Id, Some("x"), 2),
+                (Add, None, 2),
+                (Id, Some("y"), 2),
+                (CurlyClose, None, 2),
+                (DoubleQuote, None, 2),
+                (NewLine, None, 3),
+                (SingleQuote, None, 3),
+                (Dollar, None, 3),
+                (CurlyOpen, None, 3),
+                (SingleQuote, None, 3),
+                (StringLiteral, Some("{}"), 3),
+                (SingleQuote, None, 3),
+                (Dot, None, 3),
+                (Id, Some("format"), 3),
+                (Id, Some("foo"), 3),
+                (CurlyClose, None, 3),
                 (SingleQuote, None, 3),
                 (NewLine, None, 4),
             ],

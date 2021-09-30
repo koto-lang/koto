@@ -16,7 +16,7 @@ export main = ||
       words = [word, word, word]
       match random.pick 0..4
         n if n < 3 then words[n] = words[n].to_uppercase()
-      print "{}, {}. {}!", words[0], words[1], words[2]
+      print "${words[0]}, ${words[1]}. ${words[2]}!"
     print ""
 
   print separator

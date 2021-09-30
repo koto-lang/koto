@@ -216,6 +216,34 @@ a
         }
 
         #[test]
+        fn strings_with_interpolated_expression() {
+            let source = "
+'${123 + 456}!'
+";
+            check_ast(
+                source,
+                &[
+                    Int(0),
+                    Int(1),
+                    BinaryOp {
+                        op: AstOp::Add,
+                        lhs: 0,
+                        rhs: 1,
+                    },
+                    Str(AstString {
+                        quotation_mark: QuotationMark::Single,
+                        nodes: vec![StringNode::Expr(2), StringNode::Literal(2)],
+                    }),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::I64(123), Constant::I64(456), Constant::Str("!")]),
+            )
+        }
+
+        #[test]
         fn negatives() {
             let source = "\
 -12.0

@@ -2678,6 +2678,21 @@ impl<'source> Parser<'source> {
                             let id_node = self.push_node(Node::Id(id))?;
                             nodes.push(StringNode::Expr(id_node));
                         }
+                        Some(CurlyOpen) => {
+                            self.consume_token();
+
+                            if let Some(expression) =
+                                self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                            {
+                                nodes.push(StringNode::Expr(expression));
+                            } else {
+                                return syntax_error!(ExpectedExpression, self);
+                            }
+
+                            if self.consume_token() != Some(CurlyClose) {
+                                return syntax_error!(ExpectedMapEnd, self); // TODO better error
+                            }
+                        }
                         Some(_) => {
                             return syntax_error!(UnexpectedToken, self); // TODO better error
                         }

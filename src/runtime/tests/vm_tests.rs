@@ -1984,6 +1984,42 @@ f()
 ";
             test_script(script, string("1.1"));
         }
+
+        #[test]
+        fn interpolated_expression() {
+            let script = "
+x = 100
+'sqrt(x): ${x.sqrt()}'
+";
+            test_script(script, string("sqrt(x): 10.0"));
+        }
+
+        #[test]
+        fn interpolated_expression_nested() {
+            let script = "
+'foo${': ${42}'}'
+";
+            test_script(script, string("foo: 42"));
+        }
+
+        #[test]
+        fn interpolated_expression_inline_map() {
+            let script = "
+foo = |m| m.size()
+'${foo {bar: 42, baz: 99}}!'
+";
+            test_script(script, string("2!"));
+        }
+
+        #[test]
+        fn interpolated_expression_using_capture() {
+            let script = "
+x = 10
+f = || 'x * 2 == ${x * 2}'
+f()
+";
+            test_script(script, string("x * 2 == 20"));
+        }
     }
 
     mod error_recovery {

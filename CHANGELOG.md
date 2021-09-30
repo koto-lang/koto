@@ -40,9 +40,21 @@ The Koto project adheres to
       #         ^-- Previously this would result in an 'unexpected token' error.
       ```
 - Added an optional library for working with YAML data.
-- Indexing a string with a range starting from 'one past the end' is now
-  supported.
-  - e.g. `"x"[1..]` is allowed, and produces an empty string.
+- String improvements
+  - String interpolation is now supported.
+    - e.g.
+      ```koto
+      x = 42
+
+      "The answer is $x"
+      # The answer is 42
+
+      "$x divided by 3 is ${x / 3}."
+      # 42 divided by 3 is 14.
+      ```
+  - Indexing a string with a range starting from 'one past the end' is now
+    supported.
+    - e.g. `"x"[1..]` is allowed, and produces an empty string.
 - Throw and debug expressions can now be used more freely, in particular as
   expressions in match and switch arms.
   - e.g.
@@ -65,6 +77,8 @@ The Koto project adheres to
 
 - Compilation errors from the top-level Koto struct are now returned as a
   variant of `KotoError`.
+- `$` symbols in string literals now need to be escaped (i.e. `\$`) due to
+  the addition of string interpolation.
 
 ## [0.8.1] 2021.08.18
 
