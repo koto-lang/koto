@@ -3084,7 +3084,13 @@ x.bar()."baz" = 1
                 source,
                 &[
                     Id(0),
-                    Lookup((LookupNode::Id(2), None)),
+                    Lookup((
+                        LookupNode::Str(AstString {
+                            quotation_mark: QuotationMark::Double,
+                            nodes: vec![StringNode::Literal(2)],
+                        }),
+                        None,
+                    )),
                     Lookup((LookupNode::Call(vec![]), Some(1))),
                     Lookup((LookupNode::Id(1), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),

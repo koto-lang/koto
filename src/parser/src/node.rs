@@ -248,6 +248,7 @@ pub enum Scope {
 pub enum LookupNode {
     Root(AstIndex),
     Id(ConstantIndex),
+    Str(AstString),
     Index(AstIndex),
     Call(Vec<AstIndex>),
 }

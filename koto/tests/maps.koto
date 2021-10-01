@@ -41,11 +41,16 @@ export @tests =
     a = 123
     z = {'key$a': 42}
     assert_eq z.key123, 42
+    assert_eq z."key$a", 42
+
+    z.'key$a' = a
+    assert_eq z.'key$a', a
 
   @test unicode_keys: ||
-    x = {}
-    x.ƒöó = 123
+    x = {ƒöó: 123}
+    x.bär = -1
     assert_eq x.ƒöó, 123
+    assert_eq x.bär, -1
 
   @test function_value: ||
     o = {}

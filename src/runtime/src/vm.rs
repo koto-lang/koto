@@ -9,7 +9,7 @@ use {
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
-        UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -883,7 +883,11 @@ impl Vm {
             Instruction::MetaExportNamed { value, id, name } => {
                 self.run_meta_export_named(value, id, name)
             }
-            Instruction::Access { register, map, key } => self.run_access(register, map, key),
+            Instruction::Access {
+                register,
+                value,
+                key,
+            } => self.run_access(register, value, key),
             Instruction::TryStart {
                 arg_register,
                 catch_offset,
@@ -2521,17 +2525,21 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key: ConstantIndex,
+        key_register: u8,
     ) -> InstructionResult {
         use Value::*;
 
         let accessed_value = self.clone_register(value_register);
-        let key_string = self.get_constant_str(key);
+        let key_string = match self.clone_register(key_register) {
+            Str(s) => s,
+            other => return self.unexpected_type_error("Access: expected string", &other),
+        };
+        let key = ValueKey::from(key_string.clone());
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
                 let op = self.get_core_op(
-                    key_string,
+                    &key,
                     &self.context_shared.core_lib.$module,
                     $iterator_fallback,
                 )?;
@@ -2540,11 +2548,11 @@ impl Vm {
         }
 
         match &accessed_value {
-            Map(map) => match map.data().get_with_string(key_string) {
+            Map(map) => match map.data().get(&key) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => match map.meta().get_with_string(key_string) {
+                None => match map.meta().get(&MetaKey::Named(key_string)) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }
@@ -2559,7 +2567,7 @@ impl Vm {
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
-            ExternalValue(ev) => match ev.meta().get_with_string(key_string) {
+            ExternalValue(ev) => match ev.meta().get(&MetaKey::Named(key_string.clone())) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
@@ -2582,16 +2590,21 @@ impl Vm {
         Ok(())
     }
 
-    fn get_core_op(&self, key: &str, module: &ValueMap, iterator_fallback: bool) -> RuntimeResult {
+    fn get_core_op(
+        &self,
+        key: &ValueKey,
+        module: &ValueMap,
+        iterator_fallback: bool,
+    ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_op = match module.data().get_with_string(key).cloned() {
+        let maybe_op = match module.data().get(key).cloned() {
             None if iterator_fallback => self
                 .context_shared
                 .core_lib
                 .iterator
                 .data()
-                .get_with_string(key)
+                .get(key)
                 .cloned(),
             maybe_op => maybe_op,
         };
@@ -2631,7 +2644,10 @@ impl Vm {
                 }
                 other => other,
             },
-            None => return runtime_error!("'{}' not found", key),
+            None => {
+                use std::ops::Deref;
+                return runtime_error!("'{}' not found", key.deref());
+            }
         };
 
         Ok(result)

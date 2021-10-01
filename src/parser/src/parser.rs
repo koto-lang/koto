@@ -748,29 +748,6 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id_or_string(&mut self) -> Result<Option<ConstantIndex>, ParserError> {
-        let result = match self.peek_next_token_on_same_line() {
-            Some(Token::Id) => {
-                self.consume_next_token_on_same_line();
-                Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
-            }
-            Some(Token::SingleQuote | Token::DoubleQuote) => {
-                // TODO This function should probably be removed, strings should be treated separately
-                match *self
-                    .parse_string(&mut ExpressionContext::restricted())?
-                    .0
-                    .nodes
-                    .as_slice()
-                {
-                    [StringNode::Literal(constant_index)] => Some(constant_index),
-                    _ => todo!(),
-                }
-            }
-            _ => None,
-        };
-        Ok(result)
-    }
-
     fn parse_meta_key(
         &mut self,
     ) -> Result<Option<(MetaKeyId, Option<ConstantIndex>)>, ParserError> {
@@ -831,23 +808,16 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
-        let next_token = self.peek_next_token_on_same_line();
-
-        let result = match next_token {
-            Some(Token::Id) => {
-                self.consume_next_token_on_same_line();
-                let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
-                Some(MapKey::Id(id))
-            }
-            Some(Token::At) => {
-                let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
-                Some(MapKey::Meta(meta_key_id, meta_name))
-            }
-            Some(Token::SingleQuote | Token::DoubleQuote) => {
-                let (string, _span) = self.parse_string(&mut ExpressionContext::restricted())?;
-                Some(MapKey::Str(string))
-            }
-            _ => None,
+        let result = if let Some(id) = self.parse_id(&mut ExpressionContext::restricted()) {
+            Some(MapKey::Id(id))
+        } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
+            Some(MapKey::Meta(meta_key_id, meta_name))
+        } else if let Some((string_key, _span)) =
+            self.parse_string(&mut ExpressionContext::restricted())?
+        {
+            Some(MapKey::Str(string_key))
+        } else {
+            None
         };
 
         Ok(result)
@@ -1066,12 +1036,14 @@ impl<'source> Parser<'source> {
                         Some(Token::Id | Token::SingleQuote | Token::DoubleQuote)
                     ) {
                         return syntax_error!(ExpectedMapKey, self);
-                    } else if let Some(id_index) = self.parse_id_or_string()? {
-                        node_start_span = self.current_span();
-                        lookup.push((
-                            LookupNode::Id(id_index),
-                            self.span_with_start(node_start_span),
-                        ));
+                    } else if let Some(id_index) =
+                        self.parse_id(&mut ExpressionContext::restricted())
+                    {
+                        lookup.push((LookupNode::Id(id_index), self.current_span()));
+                    } else if let Some((lookup_string, span)) =
+                        self.parse_string(&mut ExpressionContext::restricted())?
+                    {
+                        lookup.push((LookupNode::Str(lookup_string), span));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
                     }
@@ -1339,7 +1311,7 @@ impl<'source> Parser<'source> {
                 Token::RoundOpen => self.parse_nested_expressions(context)?,
                 Token::Number => self.parse_number(false, context)?,
                 Token::DoubleQuote | Token::SingleQuote => {
-                    let (string, span) = self.parse_string(context)?;
+                    let (string, span) = self.parse_string(context)?.unwrap();
 
                     if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
                         self.parse_map_block(MapKey::Str(string))?
@@ -2529,14 +2501,18 @@ impl<'source> Parser<'source> {
     fn parse_string(
         &mut self,
         context: &mut ExpressionContext,
-    ) -> Result<(AstString, Span), ParserError> {
+    ) -> Result<Option<(AstString, Span)>, ParserError> {
         use Token::*;
 
-        let string_quote = match self.consume_next_token(context) {
-            Some(SingleQuote) => SingleQuote,
-            Some(DoubleQuote) => DoubleQuote,
-            _ => return internal_error!(UnexpectedToken, self), // TODO better error
-        };
+        match self.peek_next_token(context) {
+            Some(PeekInfo {
+                token: SingleQuote | DoubleQuote,
+                ..
+            }) => {}
+            _ => return Ok(None),
+        }
+
+        let string_quote = self.consume_next_token(context).unwrap();
 
         let start_span = self.current_span();
 
@@ -2704,13 +2680,13 @@ impl<'source> Parser<'source> {
                         nodes.push(StringNode::Literal(self.constants.add_string("")));
                     }
 
-                    return Ok((
+                    return Ok(Some((
                         AstString {
                             quotation_mark,
                             nodes,
                         },
                         self.span_with_start(start_span),
-                    ));
+                    )));
                 }
                 _ => {
                     return syntax_error!(UnexpectedToken, self); // TODO better error

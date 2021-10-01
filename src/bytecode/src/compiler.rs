@@ -1296,7 +1296,7 @@ impl Compiler {
                 let import_register = self.assign_local_register(*import_id)?;
 
                 for id in item.iter() {
-                    self.compile_access(import_register, access_register, *id);
+                    self.compile_access(import_register, access_register, *id)?;
                     access_register = import_register;
                 }
 
@@ -1340,7 +1340,7 @@ impl Compiler {
                 self.compile_import_id(result_register, *import_id);
 
                 for nested_item in nested.iter() {
-                    self.compile_access(result_register, result_register, *nested_item);
+                    self.compile_access(result_register, result_register, *nested_item)?;
                 }
             }
         }
@@ -2198,18 +2198,62 @@ impl Compiler {
                     //    - x = Root
                     //    - foo = Id
                     //    - () = Call
-                    let map_register = *node_registers.last().expect("Empty node registers");
+                    let parent_register = *node_registers.last().expect("Empty node registers");
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, &MapKey::Id(id), ast)?;
+                            self.compile_map_insert(
+                                parent_register,
+                                set_value,
+                                &MapKey::Id(id),
+                                ast,
+                            )?;
                         } else if let Some(result) = result {
-                            self.compile_access(result.register, map_register, id);
+                            self.compile_access(result.register, parent_register, id)?;
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.compile_access(node_register, map_register, id);
+                        self.compile_access(node_register, parent_register, id)?;
+                    }
+                }
+                LookupNode::Str(lookup_string) => {
+                    // Access by string
+                    // e.g. x."123"()
+                    //    - x = Root
+                    //    - "123" = Str
+                    //    - () = Call
+                    let parent_register = *node_registers.last().expect("Empty node registers");
+
+                    if is_last_node {
+                        if let Some(set_value) = set_value {
+                            self.compile_map_insert(
+                                parent_register,
+                                set_value,
+                                &MapKey::Str(lookup_string),
+                                ast,
+                            )?;
+                        } else if let Some(result) = result {
+                            let key_register = self.push_register()?;
+                            self.compile_string(
+                                ResultRegister::Fixed(key_register),
+                                &lookup_string.nodes,
+                                ast,
+                            )?;
+                            self.push_op(Access, &[result.register, parent_register, key_register]);
+                            self.pop_register()?;
+                        }
+                    } else {
+                        let node_register = self.push_register()?;
+                        let key_register = self.push_register()?;
+                        node_registers.push(node_register);
+                        self.compile_string(
+                            ResultRegister::Fixed(key_register),
+                            &lookup_string.nodes,
+                            ast,
+                        )?;
+                        self.push_op(Access, &[node_register, parent_register, key_register]);
+                        self.pop_register()?; // key_register
                     }
                 }
                 LookupNode::Index(index_node) => {
@@ -2358,13 +2402,17 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_access(&mut self, result_register: u8, value_register: u8, key: ConstantIndex) {
-        if key <= u8::MAX as u32 {
-            self.push_op(Op::Access, &[result_register, value_register, key as u8]);
-        } else {
-            self.push_op(Op::AccessLong, &[result_register, value_register]);
-            self.push_bytes(&key.to_le_bytes());
-        }
+    fn compile_access(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key: ConstantIndex,
+    ) -> Result<(), CompilerError> {
+        let key_register = self.push_register()?;
+        self.load_constant(key_register, key, Op::LoadString, Op::LoadStringLong);
+        self.push_op(Op::Access, &[result_register, value_register, key_register]);
+        self.pop_register()?;
+        Ok(())
     }
 
     fn compile_call(

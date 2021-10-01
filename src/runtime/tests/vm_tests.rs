@@ -1300,7 +1300,7 @@ sum
             result_data.add_value("bar", Str("baz".into()));
 
             test_script(
-                "{foo: 42, bar: \"baz\"}",
+                "{foo: 42, bar: 'baz'}",
                 Map(ValueMap::with_data(result_data)),
             );
         }
@@ -1338,6 +1338,15 @@ foo, baz = 42, -1
 m = {foo, bar: 99, baz}
 m.baz";
             test_script(script, Number(f64::from(-1).into()));
+        }
+
+        #[test]
+        fn string_keys() {
+            let script = r#"
+foo, bar = 42, -1
+m = {foo, bar, 'baz': 99}
+m.baz"#;
+            test_script(script, Number(99.into()));
         }
 
         #[test]
@@ -1553,35 +1562,35 @@ m.foo
         fn function_body_in_iterator_chain() {
             // The result.insert() call in a function block, followed by a continued iterator chain
             // at a lower indentation level caused a parser error.
-            let script = r#"
+            let script = "
 result = {}
 (1..=5)
   .each |x|
     result.insert(x, x * x)
   .consume()
 result.size()
-"#;
+";
             test_script(script, Number(5.0.into()));
         }
 
         #[test]
         fn inline_function_body_in_call_args() {
-            let script = r#"
+            let script = "
 equal = |x, y| x == y
 equal
   (0..10).position(|n| n == 5),
   5
-"#;
+";
             test_script(script, Bool(true));
         }
 
         #[test]
         fn range_in_call_args() {
-            let script = r#"
+            let script = "
 foo = |range, x| range.size() + x
 min, max = 0, 10
 foo min..max, 20
-"#;
+";
             test_script(script, Number(30.0.into()));
         }
     }
@@ -2031,6 +2040,29 @@ m.key99
 ";
             test_script(script, string("foo"));
         }
+
+        #[test]
+        fn interpolated_string_in_lookup() {
+            let script = "
+x = 99
+m =
+  'key$x': 'foo'
+m.'key$x'
+";
+            test_script(script, string("foo"));
+        }
+
+        #[test]
+        fn interpolated_string_in_lookup_assignment() {
+            let script = "
+x = 99
+m =
+  'key$x': 'foo'
+m.'key$x' = 123
+m.'key$x'
+";
+            test_script(script, Number(123.into()));
+        }
     }
 
     mod error_recovery {
@@ -2046,7 +2078,7 @@ try
 catch _
   x + 1
 ";
-            test_script(script, Number(3.0.into()));
+            test_script(script, Number(3.into()));
         }
 
         #[test]
@@ -2074,7 +2106,7 @@ try
 catch error
   error.data
 "#;
-            test_script(script, Number(2.0.into()));
+            test_script(script, Number(2.into()));
         }
 
         #[test]
@@ -2087,7 +2119,7 @@ catch e
 finally
   99
 ";
-            test_script(script, Number(99.0.into()));
+            test_script(script, Number(99.into()));
         }
 
         #[test]
@@ -2105,7 +2137,7 @@ try
 catch _
   x += 1
 ";
-            test_script(script, Number(4.0.into()));
+            test_script(script, Number(4.into()));
         }
     }
 
@@ -2127,7 +2159,7 @@ locals.foo_meta =
 z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
 z.x
 ";
-            test_script(script, Number(1.0.into()));
+            test_script(script, Number(1.into()));
         }
 
         #[test]

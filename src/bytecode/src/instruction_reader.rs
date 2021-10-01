@@ -356,8 +356,8 @@ pub enum Instruction {
     },
     Access {
         register: u8,
-        map: u8,
-        key: ConstantIndex,
+        value: u8,
+        key: u8,
     },
     TryStart {
         arg_register: u8,
@@ -837,10 +837,14 @@ impl fmt::Debug for Instruction {
                 "MetaExportNamed\tvalue: {}\tid: {:?}\tname: {}",
                 value, id, name
             ),
-            Access { register, map, key } => write!(
+            Access {
+                register,
+                value,
+                key,
+            } => write!(
                 f,
-                "Access\t\tresult: {}\tmap: {}\t\tkey: {}",
-                register, map, key
+                "Access\t\tresult: {}\tvalue: {}\tkey: {}",
+                register, value, key
             ),
             TryStart {
                 arg_register,
@@ -1385,13 +1389,8 @@ impl Iterator for InstructionReader {
             }
             Op::Access => Some(Access {
                 register: get_byte!(),
-                map: get_byte!(),
-                key: get_byte!() as ConstantIndex,
-            }),
-            Op::AccessLong => Some(Access {
-                register: get_byte!(),
-                map: get_byte!(),
-                key: get_u32!() as ConstantIndex,
+                value: get_byte!(),
+                key: get_byte!(),
             }),
             Op::TryStart => Some(TryStart {
                 arg_register: get_byte!(),
