@@ -331,8 +331,8 @@ pub enum Instruction {
     },
     MapInsert {
         register: u8,
+        key: u8,
         value: u8,
-        key: ConstantIndex,
     },
     MetaInsert {
         register: u8,
@@ -356,8 +356,8 @@ pub enum Instruction {
     },
     Access {
         register: u8,
-        map: u8,
-        key: ConstantIndex,
+        value: u8,
+        key: u8,
     },
     TryStart {
         arg_register: u8,
@@ -375,6 +375,16 @@ pub enum Instruction {
     CheckSize {
         register: u8,
         size: usize,
+    },
+    StringStart {
+        register: u8,
+    },
+    StringPush {
+        register: u8,
+        value: u8,
+    },
+    StringFinish {
+        register: u8,
     },
 }
 
@@ -453,6 +463,9 @@ impl fmt::Display for Instruction {
             Debug { .. } => write!(f, "Debug"),
             CheckType { .. } => write!(f, "CheckType"),
             CheckSize { .. } => write!(f, "CheckSize"),
+            StringStart { .. } => write!(f, "StringStart"),
+            StringPush { .. } => write!(f, "StringPush"),
+            StringFinish { .. } => write!(f, "StringFinish"),
         }
     }
 }
@@ -824,10 +837,14 @@ impl fmt::Debug for Instruction {
                 "MetaExportNamed\tvalue: {}\tid: {:?}\tname: {}",
                 value, id, name
             ),
-            Access { register, map, key } => write!(
+            Access {
+                register,
+                value,
+                key,
+            } => write!(
                 f,
-                "Access\t\tresult: {}\tmap: {}\t\tkey: {}",
-                register, map, key
+                "Access\t\tresult: {}\tvalue: {}\tkey: {}",
+                register, value, key
             ),
             TryStart {
                 arg_register,
@@ -846,6 +863,15 @@ impl fmt::Debug for Instruction {
             }
             CheckSize { register, size } => {
                 write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
+            }
+            StringStart { register } => {
+                write!(f, "StringStart\tregister: {}", register)
+            }
+            StringPush { register, value } => {
+                write!(f, "StringPush\tregister: {}\tvalue: {}", register, value)
+            }
+            StringFinish { register } => {
+                write!(f, "StringFinish\tregister: {}", register)
             }
         }
     }
@@ -1253,13 +1279,8 @@ impl Iterator for InstructionReader {
             }),
             Op::MapInsert => Some(MapInsert {
                 register: get_byte!(),
+                key: get_byte!(),
                 value: get_byte!(),
-                key: get_byte!() as ConstantIndex,
-            }),
-            Op::MapInsertLong => Some(MapInsert {
-                register: get_byte!(),
-                value: get_byte!(),
-                key: get_u32!() as ConstantIndex,
             }),
             Op::MetaInsert => {
                 let register = get_byte!();
@@ -1368,13 +1389,8 @@ impl Iterator for InstructionReader {
             }
             Op::Access => Some(Access {
                 register: get_byte!(),
-                map: get_byte!(),
-                key: get_byte!() as ConstantIndex,
-            }),
-            Op::AccessLong => Some(Access {
-                register: get_byte!(),
-                map: get_byte!(),
-                key: get_u32!() as ConstantIndex,
+                value: get_byte!(),
+                key: get_byte!(),
             }),
             Op::TryStart => Some(TryStart {
                 arg_register: get_byte!(),
@@ -1397,6 +1413,16 @@ impl Iterator for InstructionReader {
             Op::CheckSize => Some(CheckSize {
                 register: get_byte!(),
                 size: get_byte!() as usize,
+            }),
+            Op::StringStart => Some(StringStart {
+                register: get_byte!(),
+            }),
+            Op::StringPush => Some(StringPush {
+                register: get_byte!(),
+                value: get_byte!(),
+            }),
+            Op::StringFinish => Some(StringFinish {
+                register: get_byte!(),
             }),
             _ => Some(Error {
                 message: format!("Unexpected opcode {:?} found at instruction {}", op, op_ip),

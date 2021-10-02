@@ -9,7 +9,7 @@ use {
         value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
-        UnaryOp, Value, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -865,9 +865,9 @@ impl Vm {
             } => self.run_set_index(register, index, value),
             Instruction::MapInsert {
                 register,
-                value,
                 key,
-            } => self.run_map_insert(register, value, key),
+                value,
+            } => self.run_map_insert(register, key, value),
             Instruction::MetaInsert {
                 register,
                 value,
@@ -883,7 +883,11 @@ impl Vm {
             Instruction::MetaExportNamed { value, id, name } => {
                 self.run_meta_export_named(value, id, name)
             }
-            Instruction::Access { register, map, key } => self.run_access(register, map, key),
+            Instruction::Access {
+                register,
+                value,
+                key,
+            } => self.run_access(register, value, key),
             Instruction::TryStart {
                 arg_register,
                 catch_offset,
@@ -901,6 +905,12 @@ impl Vm {
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
+            Instruction::StringStart { register } => {
+                self.set_register(register, Value::StringBuilder(String::new()));
+                Ok(())
+            }
+            Instruction::StringPush { register, value } => self.run_string_push(register, value),
+            Instruction::StringFinish { register } => self.run_string_finish(register),
         }?;
 
         Ok(control_flow)
@@ -2411,15 +2421,15 @@ impl Vm {
     fn run_map_insert(
         &mut self,
         map_register: u8,
-        value: u8,
-        key: ConstantIndex,
+        key_register: u8,
+        value_register: u8,
     ) -> InstructionResult {
-        let key_string = self.value_string_from_constant(key);
-        let value = self.clone_register(value);
+        let key = self.clone_register(key_register);
+        let value = self.clone_register(value_register);
 
         match self.get_register_mut(map_register) {
             Value::Map(map) => {
-                map.data_mut().insert(key_string.into(), value);
+                map.data_mut().insert(key.into(), value);
                 Ok(())
             }
             unexpected => runtime_error!(
@@ -2515,17 +2525,21 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key: ConstantIndex,
+        key_register: u8,
     ) -> InstructionResult {
         use Value::*;
 
         let accessed_value = self.clone_register(value_register);
-        let key_string = self.get_constant_str(key);
+        let key_string = match self.clone_register(key_register) {
+            Str(s) => s,
+            other => return self.unexpected_type_error("Access: expected string", &other),
+        };
+        let key = ValueKey::from(key_string.clone());
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
                 let op = self.get_core_op(
-                    key_string,
+                    &key,
                     &self.context_shared.core_lib.$module,
                     $iterator_fallback,
                 )?;
@@ -2534,11 +2548,11 @@ impl Vm {
         }
 
         match &accessed_value {
-            Map(map) => match map.data().get_with_string(key_string) {
+            Map(map) => match map.data().get(&key) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
-                None => match map.meta().get_with_string(key_string) {
+                None => match map.meta().get(&MetaKey::Named(key_string)) {
                     Some(value) => {
                         self.set_register(result_register, value.clone());
                     }
@@ -2553,7 +2567,7 @@ impl Vm {
             Str(_) => core_op!(string, true),
             Tuple(_) => core_op!(tuple, true),
             Iterator(_) => core_op!(iterator, false),
-            ExternalValue(ev) => match ev.meta().get_with_string(key_string) {
+            ExternalValue(ev) => match ev.meta().get(&MetaKey::Named(key_string.clone())) {
                 Some(value) => {
                     self.set_register(result_register, value.clone());
                 }
@@ -2576,16 +2590,21 @@ impl Vm {
         Ok(())
     }
 
-    fn get_core_op(&self, key: &str, module: &ValueMap, iterator_fallback: bool) -> RuntimeResult {
+    fn get_core_op(
+        &self,
+        key: &ValueKey,
+        module: &ValueMap,
+        iterator_fallback: bool,
+    ) -> RuntimeResult {
         use Value::*;
 
-        let maybe_op = match module.data().get_with_string(key).cloned() {
+        let maybe_op = match module.data().get(key).cloned() {
             None if iterator_fallback => self
                 .context_shared
                 .core_lib
                 .iterator
                 .data()
-                .get_with_string(key)
+                .get(key)
                 .cloned(),
             maybe_op => maybe_op,
         };
@@ -2625,7 +2644,10 @@ impl Vm {
                 }
                 other => other,
             },
-            None => return runtime_error!("'{}' not found", key),
+            None => {
+                use std::ops::Deref;
+                return runtime_error!("'{}' not found", key.deref());
+            }
         };
 
         Ok(result)
@@ -2925,7 +2947,7 @@ impl Vm {
         ))
     }
 
-    fn run_check_type(&self, register: u8, type_id: TypeId) -> Result<(), RuntimeError> {
+    fn run_check_type(&self, register: u8, type_id: TypeId) -> InstructionResult {
         let value = self.get_register(register);
         match type_id {
             TypeId::List => {
@@ -2942,7 +2964,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_check_size(&self, register: u8, expected_size: usize) -> Result<(), RuntimeError> {
+    fn run_check_size(&self, register: u8, expected_size: usize) -> InstructionResult {
         let value_size = self.get_register(register).size();
 
         if value_size == expected_size {
@@ -2953,6 +2975,45 @@ impl Vm {
                 value_size,
                 expected_size
             )
+        }
+    }
+
+    fn run_string_push(&mut self, register: u8, value: u8) -> InstructionResult {
+        let temporary_register = self.temporary_register();
+
+        // Replace the value with its display representation
+        self.run_display(temporary_register, value)?;
+
+        // Add the resulting string to the string builder
+        match self.remove_register(temporary_register) {
+            Value::Str(string) => {
+                match self.get_register_mut(register) {
+                    Value::StringBuilder(builder) => {
+                        builder.push_str(&string);
+                        Ok(())
+                    }
+                    other => {
+                        // unexpected_type_error is unavailable here due to get_register_mut
+                        runtime_error!(
+                            "StringPush: Expected StringBuilder, found '{}'",
+                            other.type_as_string()
+                        )
+                    }
+                }
+            }
+            other => self.unexpected_type_error("StringPush: Expected String", &other),
+        }
+    }
+
+    fn run_string_finish(&mut self, register: u8) -> InstructionResult {
+        // Move the string builder out of its register
+        match self.remove_register(register) {
+            Value::StringBuilder(result) => {
+                // Make a ValueString out of the string builder's contents
+                self.set_register(register, Value::Str(ValueString::from(result)));
+                Ok(())
+            }
+            other => self.unexpected_type_error("StringFinish: Expected StringBuilder", &other),
         }
     }
 
@@ -3031,6 +3092,10 @@ impl Vm {
         self.register_base() + register as usize
     }
 
+    fn temporary_register(&self) -> u8 {
+        (self.value_stack.len() - self.register_base()) as u8
+    }
+
     fn set_register(&mut self, register: u8, value: Value) {
         let index = self.register_index(register);
 
@@ -3043,6 +3108,13 @@ impl Vm {
 
     fn clone_register(&self, register: u8) -> Value {
         self.get_register(register).clone()
+    }
+
+    // Moves a value out of the stack, replacing it with Empty
+    fn remove_register(&mut self, register: u8) -> Value {
+        let index = self.register_index(register);
+        self.value_stack.push(Value::Empty);
+        self.value_stack.swap_remove(index)
     }
 
     fn get_register(&self, register: u8) -> &Value {

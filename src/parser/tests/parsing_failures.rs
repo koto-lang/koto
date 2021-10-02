@@ -205,6 +205,35 @@ x .foo
             use super::*;
 
             #[test]
+            fn block_without_indentation() {
+                let source = "
+foo: 42
+bar: 99
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn block_starting_on_same_line_as_assignment() {
+                let source = "
+x = foo: 42
+    bar: 99
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn block_without_indentation_in_function_after_first_line() {
+                let source = "
+f = ||
+  a = 1
+  foo: 42
+  bar: 99
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
             fn block_key_without_value() {
                 let source = "
 x =
@@ -255,6 +284,45 @@ match x
 match
   0 if true then 1
   else 2
+";
+                check_parsing_fails(source);
+            }
+        }
+
+        mod strings {
+            use super::*;
+
+            #[test]
+            fn unterminated_string() {
+                check_parsing_fails("'hello");
+            }
+
+            #[test]
+            fn incorrect_terminating_quote() {
+                check_parsing_fails("'hello\"");
+            }
+
+            #[test]
+            fn missing_template_identifier() {
+                check_parsing_fails("'hello, $");
+            }
+
+            #[test]
+            fn unterminated_template_expression() {
+                check_parsing_fails("'hello, ${name'");
+            }
+
+            #[test]
+            fn incomplete_template_expression() {
+                check_parsing_fails("'${1 + }'");
+            }
+
+            #[test]
+            fn multiline_template_expression() {
+                let source = "
+'foo: ${
+42
+}'
 ";
                 check_parsing_fails(source);
             }

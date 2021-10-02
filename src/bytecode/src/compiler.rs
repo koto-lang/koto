@@ -3,7 +3,7 @@ use {
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
         ConstantIndex, Function, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope, Span,
-        SwitchArm,
+        StringNode, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -317,11 +317,11 @@ impl Frame {
 
 #[derive(Clone, Copy, Debug)]
 enum ResultRegister {
-    // No result needed
+    // The result will be ignored, expressions without side-effects can be dropped.
     None,
-    // The result can be any temporary register, or an assigned register
+    // The result can be any temporary register, or an assigned register.
     Any,
-    // The result must be placed in the specified register
+    // The result must be placed in the specified register.
     Fixed(u8),
 }
 
@@ -449,13 +449,7 @@ impl Compiler {
                 }
                 result
             }
-            Node::Str(constant, _) => {
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadString, LoadStringLong);
-                }
-                result
-            }
+            Node::Str(string) => self.compile_string(result_register, &string.nodes, ast)?,
             Node::Num2(elements) => self.compile_make_num2(result_register, elements, ast)?,
             Node::Num4(elements) => self.compile_make_num4(result_register, elements, ast)?,
             Node::List(elements) => self.compile_make_list(result_register, elements, ast)?,
@@ -1302,7 +1296,7 @@ impl Compiler {
                 let import_register = self.assign_local_register(*import_id)?;
 
                 for id in item.iter() {
-                    self.compile_access(import_register, access_register, *id);
+                    self.compile_access(import_register, access_register, *id)?;
                     access_register = import_register;
                 }
 
@@ -1346,7 +1340,7 @@ impl Compiler {
                 self.compile_import_id(result_register, *import_id);
 
                 for nested_item in nested.iter() {
-                    self.compile_access(result_register, result_register, *nested_item);
+                    self.compile_access(result_register, result_register, *nested_item)?;
                 }
             }
         }
@@ -1682,6 +1676,91 @@ impl Compiler {
         Ok(result)
     }
 
+    fn compile_string(
+        &mut self,
+        result_register: ResultRegister,
+        nodes: &[StringNode],
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+
+        match nodes {
+            [] => return compiler_error!(self, "compile_string: Missing string nodes"),
+            [StringNode::Literal(constant_index)] => {
+                if let Some(result) = result {
+                    self.load_constant(
+                        result.register,
+                        *constant_index,
+                        Op::LoadString,
+                        Op::LoadStringLong,
+                    );
+                }
+            }
+            _ => {
+                if let Some(result) = result {
+                    self.push_op(Op::StringStart, &[result.register]);
+                }
+
+                for node in nodes.iter() {
+                    match node {
+                        StringNode::Literal(constant_index) => {
+                            if let Some(result) = result {
+                                let node_register = self.push_register()?;
+
+                                self.load_constant(
+                                    node_register,
+                                    *constant_index,
+                                    Op::LoadString,
+                                    Op::LoadStringLong,
+                                );
+                                self.push_op_without_span(
+                                    Op::StringPush,
+                                    &[result.register, node_register],
+                                );
+
+                                self.pop_register()?;
+                            }
+                        }
+                        StringNode::Expr(expression_node) => {
+                            if let Some(result) = result {
+                                let expression_result = self
+                                    .compile_node(
+                                        ResultRegister::Any,
+                                        ast.node(*expression_node),
+                                        ast,
+                                    )?
+                                    .unwrap();
+
+                                self.push_op_without_span(
+                                    Op::StringPush,
+                                    &[result.register, expression_result.register],
+                                );
+
+                                if expression_result.is_temporary {
+                                    self.pop_register()?;
+                                }
+                            } else {
+                                // Compile the expression even though we don't need the result,
+                                // so that side-effects can take place.
+                                self.compile_node(
+                                    ResultRegister::None,
+                                    ast.node(*expression_node),
+                                    ast,
+                                )?;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(result) = result {
+                    self.push_op(Op::StringFinish, &[result.register]);
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     fn compile_make_num2(
         &mut self,
         result_register: ResultRegister,
@@ -1929,7 +2008,7 @@ impl Compiler {
                             self.compile_node(ResultRegister::Any, value_node, ast)?
                                 .unwrap()
                         }
-                        (MapKey::Id(id), None) | (MapKey::Str(id, _), None) => {
+                        (MapKey::Id(id), None) => {
                             match self.frame().get_local_assigned_register(*id) {
                                 Some(register) => CompileResult::with_assigned(register),
                                 None => {
@@ -1939,16 +2018,10 @@ impl Compiler {
                                 }
                             }
                         }
-                        (MapKey::Meta(key, _), None) => {
-                            return compiler_error!(
-                                self,
-                                "Value missing for meta map key: @{:?}",
-                                key
-                            );
-                        }
+                        _ => return compiler_error!(self, "Value missing for map key"),
                     };
 
-                    self.compile_map_insert(result.register, value.register, *key);
+                    self.compile_map_insert(result.register, value.register, key, ast)?;
 
                     if value.is_temporary {
                         self.pop_register()?;
@@ -2125,18 +2198,62 @@ impl Compiler {
                     //    - x = Root
                     //    - foo = Id
                     //    - () = Call
-                    let map_register = *node_registers.last().expect("Empty node registers");
+                    let parent_register = *node_registers.last().expect("Empty node registers");
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.compile_map_insert(map_register, set_value, MapKey::Id(id));
+                            self.compile_map_insert(
+                                parent_register,
+                                set_value,
+                                &MapKey::Id(id),
+                                ast,
+                            )?;
                         } else if let Some(result) = result {
-                            self.compile_access(result.register, map_register, id);
+                            self.compile_access(result.register, parent_register, id)?;
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.compile_access(node_register, map_register, id);
+                        self.compile_access(node_register, parent_register, id)?;
+                    }
+                }
+                LookupNode::Str(lookup_string) => {
+                    // Access by string
+                    // e.g. x."123"()
+                    //    - x = Root
+                    //    - "123" = Str
+                    //    - () = Call
+                    let parent_register = *node_registers.last().expect("Empty node registers");
+
+                    if is_last_node {
+                        if let Some(set_value) = set_value {
+                            self.compile_map_insert(
+                                parent_register,
+                                set_value,
+                                &MapKey::Str(lookup_string),
+                                ast,
+                            )?;
+                        } else if let Some(result) = result {
+                            let key_register = self.push_register()?;
+                            self.compile_string(
+                                ResultRegister::Fixed(key_register),
+                                &lookup_string.nodes,
+                                ast,
+                            )?;
+                            self.push_op(Access, &[result.register, parent_register, key_register]);
+                            self.pop_register()?;
+                        }
+                    } else {
+                        let node_register = self.push_register()?;
+                        let key_register = self.push_register()?;
+                        node_registers.push(node_register);
+                        self.compile_string(
+                            ResultRegister::Fixed(key_register),
+                            &lookup_string.nodes,
+                            ast,
+                        )?;
+                        self.push_op(Access, &[node_register, parent_register, key_register]);
+                        self.pop_register()?; // key_register
                     }
                 }
                 LookupNode::Index(index_node) => {
@@ -2233,26 +2350,41 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_map_insert(&mut self, map_register: u8, value_register: u8, key: MapKey) {
+    fn compile_map_insert(
+        &mut self,
+        map_register: u8,
+        value_register: u8,
+        key: &MapKey,
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        use Op::*;
+
         match key {
-            MapKey::Id(id) | MapKey::Str(id, _) => {
-                if id <= u8::MAX as u32 {
-                    self.push_op_without_span(
-                        Op::MapInsert,
-                        &[map_register, value_register, id as u8],
-                    );
-                } else {
-                    self.push_op_without_span(Op::MapInsertLong, &[map_register, value_register]);
-                    self.push_bytes(&id.to_le_bytes());
-                }
+            MapKey::Id(id) => {
+                let key_register = self.push_register()?;
+                self.load_constant(key_register, *id, LoadString, LoadStringLong);
+                self.push_op_without_span(
+                    Op::MapInsert,
+                    &[map_register, key_register, value_register],
+                );
+                self.pop_register()?;
+            }
+            MapKey::Str(string) => {
+                let key_register = self.push_register()?;
+                self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
+                self.push_op_without_span(
+                    Op::MapInsert,
+                    &[map_register, key_register, value_register],
+                );
+                self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
-                let key = key as u8;
+                let key = *key as u8;
                 if let Some(name) = name {
-                    if name <= u8::MAX as u32 {
+                    if *name <= u8::MAX as u32 {
                         self.push_op_without_span(
                             Op::MetaInsertNamed,
-                            &[map_register, value_register, key, name as u8],
+                            &[map_register, value_register, key, *name as u8],
                         );
                     } else {
                         self.push_op_without_span(
@@ -2266,15 +2398,21 @@ impl Compiler {
                 }
             }
         }
+
+        Ok(())
     }
 
-    fn compile_access(&mut self, result_register: u8, value_register: u8, key: ConstantIndex) {
-        if key <= u8::MAX as u32 {
-            self.push_op(Op::Access, &[result_register, value_register, key as u8]);
-        } else {
-            self.push_op(Op::AccessLong, &[result_register, value_register]);
-            self.push_bytes(&key.to_le_bytes());
-        }
+    fn compile_access(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key: ConstantIndex,
+    ) -> Result<(), CompilerError> {
+        let key_register = self.push_register()?;
+        self.load_constant(key_register, key, Op::LoadString, Op::LoadStringLong);
+        self.push_op(Op::Access, &[result_register, value_register, key_register]);
+        self.pop_register()?;
+        Ok(())
     }
 
     fn compile_call(
@@ -2705,7 +2843,7 @@ impl Compiler {
                 | Node::Number1
                 | Node::Float(_)
                 | Node::Int(_)
-                | Node::Str(_, _)
+                | Node::Str(_)
                 | Node::Lookup(_) => {
                     let pattern = self.push_register()?;
                     self.compile_node(ResultRegister::Fixed(pattern), pattern_node, ast)?;

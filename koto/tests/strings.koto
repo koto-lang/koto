@@ -13,6 +13,18 @@ export @tests =
     # Strings can use either double or single quotes.
     assert_eq "Hello", 'Hello'
 
+  @test interpolation: ||
+    # Identifiers prefixed with $ are formatted into the string.
+    hello = "Hello"
+    world = "World"
+    assert_eq "$hello, $world!", "Hello, World!"
+
+    x = 99
+    assert_eq "$x$x-$x$x", "9999-9999"
+
+    # Expressions can be formatted into the string with ${...} syntax.
+    assert_eq "x times 10 is ${x * 10}", "x times 10 is 990"
+
   @test addition: ||
     x = "^"
     x += "_" + "^"

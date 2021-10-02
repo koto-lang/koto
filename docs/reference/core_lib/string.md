@@ -2,16 +2,50 @@
 
 Koto's strings are immutable sequences of characters with UTF-8 encoding.
 
+## Syntax
+
 String literals can be created with either double or single quotation marks.
 Both styles are offered as a convenience to reduce the need for escaping,
 e.g. `'a "b" c'` is equivalent to `"a \"b\" c"`,
 and `"a 'b' c"` is equivalent to `'a \'b\' c'`
 
+## Data sharing
+
 Functions that produce sub-strings (e.g. `string.trim`) share the string
 data between the original string and the sub-string.
 
+## Indexing
+
 Strings support indexing operations, with string indices referring to
 grapheme clusters.
+
+e.g.
+
+```koto
+'👋🥳😆'[1]
+# 🥳
+```
+
+## String Interpolation
+
+String interpolation allows for the results of expressions to be embedded
+into placeholders in a string, using `$` as the placeholder symbol.
+
+Default formatting is used when embedding the value in the string.
+For more advanced string formatting, see [`string.format`](#format).
+
+### Example
+
+```koto
+a = "Hello"
+b = "World"
+'$a, $b!'
+# Hello, World!
+
+x = 64
+"The square root of $x is ${x.sqrt()}."
+# The square root of 64 is 8.0.
+```
 
 ## Escape codes
 
@@ -30,17 +64,7 @@ escape code, then it can be escaped with an additional `\`.
 - `\'`: Single quote
 - `\"`: Double quote
 - `\\`: Backslash
-
-## Example
-
-```koto
-a = "Hello"
-b = 'World!'
-x = "{}, {}!".format a, b
-# Hello, World!
-'👋🥳😆'[1]
-# 🥳
-```
+- `\$`: Dollar
 
 # Reference
 

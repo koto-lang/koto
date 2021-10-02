@@ -24,8 +24,8 @@ export @tests =
       assert_ne key, ()
       assert_ne value, ()
 
-  @test map_quoted_keys: ||
-    # Quoted strings can be used for keys that would otherwise be disallowed
+  @test map_string_keys: ||
+    # Strings can be used for keys that would otherwise be disallowed
     x = {"for": -1, 'while': 99, "20": "twenty"}
     assert_eq x."for", -1
     assert_eq x."while", 99
@@ -37,10 +37,20 @@ export @tests =
     assert_eq y.'*', 123
     assert_eq y.".", "xyz"
 
+    # Keys can also be defined dynamically using string interpolation
+    a = 123
+    z = {'key$a': 42}
+    assert_eq z.key123, 42
+    assert_eq z."key$a", 42
+
+    z.'key$a' = a
+    assert_eq z.'key$a', a
+
   @test unicode_keys: ||
-    x = {}
-    x.ƒöó = 123
+    x = {ƒöó: 123}
+    x.bär = -1
     assert_eq x.ƒöó, 123
+    assert_eq x.bär, -1
 
   @test function_value: ||
     o = {}
@@ -99,7 +109,7 @@ export @tests =
       make_map() +
         foo_2: 57
         get_foo_2: |self| self.foo_2
-        set_foo_2: |self x| self.foo_2 = x
+        set_foo_2: |self, x| self.foo_2 = x
         sum_foo: |self| self.foo + self.foo_2
 
     m2 = make_map_2()
@@ -107,17 +117,6 @@ export @tests =
     assert_eq m2.get_foo_2(), 57 # .get_foo_2 receives m2 as first argument
     m2.set_foo_2 58 # .set_foo_2 receives m2 as first argument, 58 as second argument
     assert_eq m2.sum_foo(), 100
-
-  @test instance_function_outside_of_map: ||
-    m =
-      foo: 42
-      get_foo: |self| self.foo
-    getter = m.get_foo
-    assert_eq (getter m), 42
-
-  @test map_in_list_comprehension: ||
-    a = [{foo, bar} for foo, bar in 1..=3, 4..=6]
-    assert_eq a, [{foo: 1, bar: 4}, {foo: 2, bar: 5}, {foo: 3, bar: 6}]
 
   @test map_blocks_in_if_expression: ||
     make_map = |n|
@@ -146,7 +145,7 @@ export @tests =
           c:
             d:
               foo: -1
-              set_foo: |self x| self.foo = x
+              set_foo: |self, x| self.foo = x
     assert_eq deep.a.b.c.d.foo, -1
     deep.a.b.c.d.set_foo(42)
     assert_eq deep.a.b.c.d.foo, 42

@@ -70,8 +70,7 @@ pub enum Op {
     ListPushValues,      // list, start register, count
     Index,               // result, indexable, index
     SetIndex,            // indexable, index, value
-    MapInsert,           // map register, value register, key constant
-    MapInsertLong,       // map register, value register, key constant[4]
+    MapInsert,           // map, key, value
     MetaInsert,          // map register, value register, key id
     MetaInsertNamed,     // map register, value register, key id, name constant
     MetaInsertNamedLong, // map register, value register, key id, name constant[4]
@@ -80,8 +79,7 @@ pub enum Op {
     MetaExportNamedLong, // key id, value register, name constant[4]
     ValueExport,         // name, value
     ValueExportLong,     // name[4], value
-    Access,              // register, value register, key
-    AccessLong,          // register, value register, key[4]
+    Access,              // result, value, key
     IsList,              // register, value
     IsTuple,             // register, value
     Size,                // register, value
@@ -90,7 +88,9 @@ pub enum Op {
     Debug,               // register, constant[4]
     CheckType,           // register, type (see TypeId)
     CheckSize,           // register, size
-    Unused86,
+    StringStart,         // register
+    StringPush,          // register, value register
+    StringFinish,        // register
     Unused87,
     Unused88,
     Unused89,

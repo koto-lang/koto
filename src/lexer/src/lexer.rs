@@ -14,23 +14,26 @@ pub enum Token {
     CommentSingle,
     CommentMulti,
     Number,
-    StringDoubleQuoted,
-    StringSingleQuoted,
     Id,
+
+    SingleQuote,
+    DoubleQuote,
+    StringLiteral,
 
     // Symbols
     At,
     Colon,
     Comma,
+    Dollar,
     Dot,
     Ellipsis,
-    ParenOpen,
-    ParenClose,
     Function,
-    ListStart,
-    ListEnd,
-    MapStart,
-    MapEnd,
+    RoundOpen,
+    RoundClose,
+    SquareOpen,
+    SquareClose,
+    CurlyOpen,
+    CurlyClose,
     Wildcard,
     Range,
     RangeInclusive,
@@ -110,6 +113,19 @@ struct TokenLexer<'a> {
     previous_token: Option<Token>,
     position: Position,
     span: Span,
+    string_mode_stack: Vec<StringMode>,
+}
+
+#[derive(Clone)]
+enum StringMode {
+    // Inside a string literal, expected end quote
+    Literal(char),
+    // Just after a $ symbol, either an id or a '{' will follow
+    TemplateStart,
+    // Inside a string template, e.g. '${...}'
+    TemplateExpression,
+    // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
+    TemplateExpressionInlineMap,
 }
 
 impl<'a> TokenLexer<'a> {
@@ -122,6 +138,7 @@ impl<'a> TokenLexer<'a> {
             previous_token: None,
             position: Position::default(),
             span: Span::default(),
+            string_mode_stack: vec![],
         }
     }
 
@@ -242,41 +259,55 @@ impl<'a> TokenLexer<'a> {
         }
     }
 
-    fn consume_string(&mut self, mut chars: Peekable<Chars>) -> Token {
+    fn consume_string_literal(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        let start_quote = chars.next().unwrap(); // A ' or " character has already been matched
+        let string_quote = match self.string_mode_stack.last() {
+            Some(StringMode::Literal(quote)) => *quote,
+            _ => return Error,
+        };
 
-        let mut string_bytes = 1; // 1 for the start quote
+        let mut string_bytes = 0;
         let mut position = self.position;
 
-        while let Some(c) = chars.next() {
-            string_bytes += c.len_utf8();
-            position.column += c.width().unwrap_or(0) as u32;
-
+        while let Some(c) = chars.peek().cloned() {
             match c {
+                _ if c == string_quote => {
+                    self.advance_to_position(string_bytes, position);
+                    return StringLiteral;
+                }
+                '$' => {
+                    self.advance_to_position(string_bytes, position);
+                    return StringLiteral;
+                }
                 '\\' => {
-                    if chars.peek() == Some(&start_quote) {
+                    chars.next();
+                    string_bytes += 1;
+                    position.column += 1;
+
+                    let skip_next_char = match chars.peek() {
+                        Some('$') => true,
+                        Some(c) if *c == string_quote => true,
+                        _ => false,
+                    };
+
+                    if skip_next_char {
                         chars.next();
                         string_bytes += 1;
                         position.column += 1;
                     }
                 }
                 '\n' => {
+                    chars.next();
+                    string_bytes += 1;
                     position.line += 1;
                     position.column = 1;
                 }
-                _ if c == start_quote => {
-                    // +1 to get the column 1 past the end of the string
-                    position.column += 1;
-                    self.advance_to_position(string_bytes, position);
-                    return if start_quote == '\"' {
-                        StringDoubleQuoted
-                    } else {
-                        StringSingleQuoted
-                    };
+                _ => {
+                    chars.next();
+                    string_bytes += c.len_utf8();
+                    position.column += c.width().unwrap_or(0) as u32;
                 }
-                _ => {}
             }
         }
 
@@ -464,16 +495,114 @@ impl<'a> TokenLexer<'a> {
         check_symbol!(":", Colon);
         check_symbol!(",", Comma);
         check_symbol!(".", Dot);
-        check_symbol!("(", ParenOpen);
-        check_symbol!(")", ParenClose);
+        check_symbol!("(", RoundOpen);
+        check_symbol!(")", RoundClose);
         check_symbol!("|", Function);
-        check_symbol!("[", ListStart);
-        check_symbol!("]", ListEnd);
-        check_symbol!("{", MapStart);
-        check_symbol!("}", MapEnd);
+        check_symbol!("[", SquareOpen);
+        check_symbol!("]", SquareClose);
+        check_symbol!("{", CurlyOpen);
+        check_symbol!("}", CurlyClose);
         check_symbol!("_", Wildcard);
 
         None
+    }
+
+    fn get_next_token(&mut self) -> Option<Token> {
+        use Token::*;
+
+        let result = match self.source.get(self.current_byte..) {
+            Some(remaining) if !remaining.is_empty() => {
+                let mut chars = remaining.chars().peekable();
+                let next_char = *chars.peek().unwrap(); // At least one char is remaining
+
+                let string_mode = self.string_mode_stack.last().cloned();
+
+                match string_mode {
+                    Some(StringMode::Literal(quote)) => match next_char {
+                        '"' if quote == '"' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.pop();
+                            Some(DoubleQuote)
+                        }
+                        '\'' if quote == '\'' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.pop();
+                            Some(SingleQuote)
+                        }
+                        '$' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.push(StringMode::TemplateStart);
+                            Some(Dollar)
+                        }
+                        _ => Some(self.consume_string_literal(chars)),
+                    },
+                    Some(StringMode::TemplateStart) => match next_char {
+                        _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
+                            Id => {
+                                self.string_mode_stack.pop();
+                                Some(Id)
+                            }
+                            _ => Some(Error),
+                        },
+                        '{' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.pop();
+                            self.string_mode_stack.push(StringMode::TemplateExpression);
+                            Some(CurlyOpen)
+                        }
+                        _ => Some(Error),
+                    },
+                    _ => match next_char {
+                        c if is_whitespace(c) => {
+                            let count = consume_and_count(&mut chars, is_whitespace);
+                            self.advance_line(count);
+                            Some(Whitespace)
+                        }
+                        '\n' => Some(self.consume_newline(chars)),
+                        '#' => Some(self.consume_comment(chars)),
+                        '"' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.push(StringMode::Literal('"'));
+                            Some(DoubleQuote)
+                        }
+                        '\'' => {
+                            self.advance_line(1);
+                            self.string_mode_stack.push(StringMode::Literal('\''));
+                            Some(SingleQuote)
+                        }
+                        '0'..='9' => Some(self.consume_number(chars)),
+                        c if is_id_start(c) => Some(self.consume_id_or_keyword(chars)),
+                        _ => {
+                            let result = self.consume_symbol(remaining).unwrap_or(Error);
+
+                            use StringMode::*;
+                            match result {
+                                CurlyOpen => {
+                                    if matches!(string_mode, Some(TemplateExpression)) {
+                                        self.string_mode_stack.push(TemplateExpressionInlineMap);
+                                    }
+                                }
+                                CurlyClose => {
+                                    if matches!(
+                                        string_mode,
+                                        Some(TemplateExpression | TemplateExpressionInlineMap)
+                                    ) {
+                                        self.string_mode_stack.pop();
+                                    }
+                                }
+                                _ => {}
+                            }
+
+                            Some(result)
+                        }
+                    },
+                }
+            }
+            _ => None,
+        };
+
+        self.previous_token = result;
+        result
     }
 }
 
@@ -481,38 +610,7 @@ impl<'a> Iterator for TokenLexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        use Token::*;
-
-        let result = match self.source.get(self.current_byte..) {
-            Some(remaining) => {
-                let mut chars = remaining.chars().peekable();
-
-                match chars.peek() {
-                    Some(c) if is_whitespace(*c) => {
-                        let count = consume_and_count(&mut chars, is_whitespace);
-                        self.advance_line(count);
-                        Some(Whitespace)
-                    }
-                    Some('\n') => Some(self.consume_newline(chars)),
-                    Some('#') => Some(self.consume_comment(chars)),
-                    Some('"') | Some('\'') => Some(self.consume_string(chars)),
-                    Some('0'..='9') => Some(self.consume_number(chars)),
-                    Some(c) if is_id_start(*c) => Some(self.consume_id_or_keyword(chars)),
-                    Some(_) => {
-                        if let Some(id) = self.consume_symbol(remaining) {
-                            Some(id)
-                        } else {
-                            Some(Error)
-                        }
-                    }
-                    None => None,
-                }
-            }
-            None => None,
-        };
-
-        self.previous_token = result;
-        result
+        self.get_next_token()
     }
 }
 
@@ -845,8 +943,8 @@ false #
                 (CommentMulti, Some("#-\nmultiline -\nfalse #\n-#"), 5),
                 (True, None, 5),
                 (NewLine, None, 6),
-                (ParenOpen, None, 6),
-                (ParenClose, None, 6),
+                (RoundOpen, None, 6),
+                (RoundClose, None, 6),
             ],
         );
     }
@@ -855,29 +953,99 @@ false #
     fn strings() {
         let input = r#"
 "hello, world!"
-"escaped \"\n string"
+"escaped \"\n\$ string"
 "double-\"quoted\" 'string'"
-'single-\'quoted\' "string"'"#;
+'single-\'quoted\' "string"'
+""
+"#;
 
         check_lexer_output(
             input,
             &[
                 (NewLine, None, 2),
-                (StringDoubleQuoted, Some(r#""hello, world!""#), 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("hello, world!"), 2),
+                (DoubleQuote, None, 2),
                 (NewLine, None, 3),
-                (StringDoubleQuoted, Some(r#""escaped \"\n string""#), 3),
+                (DoubleQuote, None, 3),
+                (StringLiteral, Some(r#"escaped \"\n\$ string"#), 3),
+                (DoubleQuote, None, 3),
                 (NewLine, None, 4),
-                (
-                    StringDoubleQuoted,
-                    Some(r#""double-\"quoted\" 'string'""#),
-                    4,
-                ),
+                (DoubleQuote, None, 4),
+                (StringLiteral, Some(r#"double-\"quoted\" 'string'"#), 4),
+                (DoubleQuote, None, 4),
                 (NewLine, None, 5),
-                (
-                    StringSingleQuoted,
-                    Some(r#"'single-\'quoted\' "string"'"#),
-                    5,
-                ),
+                (SingleQuote, None, 5),
+                (StringLiteral, Some(r#"single-\'quoted\' "string""#), 5),
+                (SingleQuote, None, 5),
+                (NewLine, None, 6),
+                (DoubleQuote, None, 6),
+                (DoubleQuote, None, 6),
+                (NewLine, None, 7),
+            ],
+        );
+    }
+
+    #[test]
+    fn interpolated_string_ids() {
+        let input = r#"
+"hello $name, how are you?"
+'$foo$bar'
+"#;
+        check_lexer_output(
+            input,
+            &[
+                (NewLine, None, 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("hello "), 2),
+                (Dollar, None, 2),
+                (Id, Some("name"), 2),
+                (StringLiteral, Some(", how are you?"), 2),
+                (DoubleQuote, None, 2),
+                (NewLine, None, 3),
+                (SingleQuote, None, 3),
+                (Dollar, None, 3),
+                (Id, Some("foo"), 3),
+                (Dollar, None, 3),
+                (Id, Some("bar"), 3),
+                (SingleQuote, None, 3),
+                (NewLine, None, 4),
+            ],
+        );
+    }
+
+    #[test]
+    fn interpolated_string_expressions() {
+        let input = r#"
+"x + y == ${x + y}"
+'${'{}'.format foo}'
+"#;
+        check_lexer_output(
+            input,
+            &[
+                (NewLine, None, 2),
+                (DoubleQuote, None, 2),
+                (StringLiteral, Some("x + y == "), 2),
+                (Dollar, None, 2),
+                (CurlyOpen, None, 2),
+                (Id, Some("x"), 2),
+                (Add, None, 2),
+                (Id, Some("y"), 2),
+                (CurlyClose, None, 2),
+                (DoubleQuote, None, 2),
+                (NewLine, None, 3),
+                (SingleQuote, None, 3),
+                (Dollar, None, 3),
+                (CurlyOpen, None, 3),
+                (SingleQuote, None, 3),
+                (StringLiteral, Some("{}"), 3),
+                (SingleQuote, None, 3),
+                (Dot, None, 3),
+                (Id, Some("format"), 3),
+                (Id, Some("foo"), 3),
+                (CurlyClose, None, 3),
+                (SingleQuote, None, 3),
+                (NewLine, None, 4),
             ],
         );
     }
@@ -933,15 +1101,15 @@ false #
                 (Number, Some("1.0"), 1),
                 (Dot, None, 1),
                 (Id, Some("sin"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
                 (NewLine, None, 2),
                 (Subtract, None, 2),
                 (Number, Some("1e-3"), 2),
                 (Dot, None, 2),
                 (Id, Some("abs"), 2),
-                (ParenOpen, None, 2),
-                (ParenClose, None, 2),
+                (RoundOpen, None, 2),
+                (RoundClose, None, 2),
                 (NewLine, None, 3),
                 (Number, Some("1"), 3),
                 (Dot, None, 3),
@@ -951,8 +1119,8 @@ false #
                 (Number, Some("9"), 4),
                 (Dot, None, 4),
                 (Id, Some("exp"), 4),
-                (ParenOpen, None, 4),
-                (ParenClose, None, 4),
+                (RoundOpen, None, 4),
+                (RoundClose, None, 4),
             ],
         );
     }
@@ -990,14 +1158,14 @@ x = [i for i in 0..5]";
             input,
             &[
                 (Id, Some("a"), 1),
-                (ListStart, None, 1),
+                (SquareOpen, None, 1),
                 (RangeInclusive, None, 1),
                 (Number, Some("9"), 1),
-                (ListEnd, None, 1),
+                (SquareClose, None, 1),
                 (NewLine, None, 2),
                 (Id, Some("x"), 2),
                 (Assign, None, 2),
-                (ListStart, None, 2),
+                (SquareOpen, None, 2),
                 (Id, Some("i"), 2),
                 (For, None, 2),
                 (Id, Some("i"), 2),
@@ -1005,7 +1173,7 @@ x = [i for i in 0..5]";
                 (Number, Some("0"), 2),
                 (Range, None, 2),
                 (Number, Some("5"), 2),
-                (ListEnd, None, 2),
+                (SquareClose, None, 2),
             ],
         );
     }
@@ -1037,14 +1205,14 @@ f()";
                 (Id, Some("b"), 2, 2),
                 (Dot, None, 2, 2),
                 (Id, Some("size"), 2, 2),
-                (ParenOpen, None, 2, 2),
-                (ParenClose, None, 2, 2),
+                (RoundOpen, None, 2, 2),
+                (RoundClose, None, 2, 2),
                 (NewLineIndented, None, 3, 2),
                 (Id, Some("c"), 3, 2),
                 (NewLine, None, 4, 0),
                 (Id, Some("f"), 4, 0),
-                (ParenOpen, None, 4, 0),
-                (ParenClose, None, 4, 0),
+                (RoundOpen, None, 4, 0),
+                (RoundClose, None, 4, 0),
             ],
         );
     }
@@ -1108,13 +1276,13 @@ else
                 (Id, Some("检验"), 1),
                 (Dot, None, 1),
                 (Id, Some("foo"), 1),
-                (ListStart, None, 1),
+                (SquareOpen, None, 1),
                 (Number, Some("1"), 1),
-                (ListEnd, None, 1),
+                (SquareClose, None, 1),
                 (Dot, None, 1),
                 (Id, Some("bär"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
             ],
         );
     }
@@ -1129,8 +1297,8 @@ else
                 (Id, Some("foo"), 1),
                 (Dot, None, 1),
                 (Id, Some("and"), 1),
-                (ParenOpen, None, 1),
-                (ParenClose, None, 1),
+                (RoundOpen, None, 1),
+                (RoundClose, None, 1),
             ],
         );
     }
