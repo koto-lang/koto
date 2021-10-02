@@ -457,7 +457,7 @@ impl fmt::Display for UnaryOp {
     }
 }
 
-pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, String> {
+pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKey, String> {
     use {BinaryOp::*, UnaryOp::*};
 
     let result = match id {
@@ -475,15 +475,11 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<&str>) -> Result<MetaKey, Stri
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
-        MetaKeyId::Named => MetaKey::Named(
-            name.ok_or_else(|| "Missing name for named meta entry".to_string())?
-                .into(),
-        ),
+        MetaKeyId::Named => {
+            MetaKey::Named(name.ok_or_else(|| "Missing name for named meta entry".to_string())?)
+        }
         MetaKeyId::Tests => MetaKey::Tests,
-        MetaKeyId::Test => MetaKey::Test(
-            name.ok_or_else(|| "Missing name for test".to_string())?
-                .into(),
-        ),
+        MetaKeyId::Test => MetaKey::Test(name.ok_or_else(|| "Missing name for test".to_string())?),
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,
         MetaKeyId::Type => MetaKey::Type,

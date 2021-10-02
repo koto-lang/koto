@@ -71,14 +71,11 @@ pub enum Op {
     Index,               // result, indexable, index
     SetIndex,            // indexable, index, value
     MapInsert,           // map, key, value
-    MetaInsert,          // map register, value register, key id
-    MetaInsertNamed,     // map register, value register, key id, name constant
-    MetaInsertNamedLong, // map register, value register, key id, name constant[4]
+    MetaInsert,          // map register, key id, value register
+    MetaInsertNamed,     // map register, key id, name register, value register
     MetaExport,          // key id, value register
-    MetaExportNamed,     // key id, value register, name constant
-    MetaExportNamedLong, // key id, value register, name constant[4]
+    MetaExportNamed,     // key id, name register, value register
     ValueExport,         // name, value
-    ValueExportLong,     // name[4], value
     Access,              // result, value, key
     IsList,              // register, value
     IsTuple,             // register, value
@@ -91,6 +88,9 @@ pub enum Op {
     StringStart,         // register
     StringPush,          // register, value register
     StringFinish,        // register
+    Unused84,
+    Unused85,
+    Unused86,
     Unused87,
     Unused88,
     Unused89,
