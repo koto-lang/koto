@@ -880,8 +880,8 @@ impl Vm {
                 name,
             } => self.run_meta_insert_named(register, value, id, name),
             Instruction::MetaExport { value, id } => self.run_meta_export(value, id),
-            Instruction::MetaExportNamed { value, id, name } => {
-                self.run_meta_export_named(value, id, name)
+            Instruction::MetaExportNamed { id, name, value } => {
+                self.run_meta_export_named(id, name, value)
             }
             Instruction::Access {
                 register,
@@ -957,13 +957,10 @@ impl Vm {
         }
     }
 
-    fn run_value_export(&mut self, name: ConstantIndex, value_register: u8) {
-        let export_name = Value::Str(self.value_string_from_constant(name));
+    fn run_value_export(&mut self, name_register: u8, value_register: u8) {
+        let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
-        self.context_mut()
-            .exports
-            .data_mut()
-            .insert(export_name.into(), value);
+        self.context_mut().exports.data_mut().insert(name, value);
     }
 
     fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
@@ -2466,14 +2463,18 @@ impl Vm {
     fn run_meta_insert_named(
         &mut self,
         map_register: u8,
-        value: u8,
+        value_register: u8,
         meta_id: MetaKeyId,
-        name: ConstantIndex,
+        name_register: u8,
     ) -> InstructionResult {
-        let value = self.clone_register(value);
-        let meta_key = match meta_id_to_key(meta_id, Some(self.get_constant_str(name))) {
-            Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("MetaInsert: {}", error),
+        let value = self.clone_register(value_register);
+
+        let meta_key = match self.clone_register(name_register) {
+            Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
+                Ok(key) => key,
+                Err(e) => return runtime_error!("MetaInsertNamed: {}", e),
+            },
+            other => return self.unexpected_type_error("MetaInsertNamed: expected string", &other),
         };
 
         match self.get_register_mut(map_register) {
@@ -2504,14 +2505,18 @@ impl Vm {
 
     fn run_meta_export_named(
         &mut self,
-        value: u8,
         meta_id: MetaKeyId,
-        name: ConstantIndex,
+        name_register: u8,
+        value_register: u8,
     ) -> InstructionResult {
-        let value = self.clone_register(value);
-        let meta_key = match meta_id_to_key(meta_id, Some(self.get_constant_str(name))) {
-            Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("MetaExportNamed: {}", error),
+        let value = self.clone_register(value_register);
+
+        let meta_key = match self.clone_register(name_register) {
+            Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
+                Ok(key) => key,
+                Err(e) => return runtime_error!("MetaExportNamed: {}", e),
+            },
+            other => return self.unexpected_type_error("MetaExportNamed: expected string", &other),
         };
 
         self.context_mut()

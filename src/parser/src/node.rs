@@ -1,9 +1,7 @@
 use {
-    crate::ast::AstIndex,
+    crate::{ast::AstIndex, ConstantIndex},
     std::{convert::TryFrom, fmt},
 };
-
-pub type ConstantIndex = u32;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {

@@ -4,95 +4,95 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Op {
-    Copy,                // target, source
-    SetEmpty,            // register
-    SetFalse,            // register
-    SetTrue,             // register
-    Set0,                // register
-    Set1,                // register
-    SetNumberU8,         // register, number
-    LoadFloat,           // register, constant
-    LoadFloatLong,       // register, constant[4]
-    LoadInt,             // register, constant
-    LoadIntLong,         // register, constant[4]
-    LoadString,          // register, constant
-    LoadStringLong,      // register, constant[4]
-    LoadNonLocal,        // register, constant
-    LoadNonLocalLong,    // register, constant[4]
-    Import,              // register, constant
-    ImportLong,          // register, constant[4]
-    MakeTuple,           // register, start register, count
-    MakeTempTuple,       // register, start register, count
-    MakeList,            // register, size hint
-    MakeListLong,        // register, size hint[4]
-    MakeMap,             // register, size hint
-    MakeMapLong,         // register, size hint[4]
-    MakeNum2,            // register, element count, first element
-    MakeNum4,            // register, element count, first element
-    MakeIterator,        // register, range
-    Function,            // register, arg count, capture count, flags, size[2]
-    Capture,             // function, target, source
-    Range,               // register, start, end
-    RangeInclusive,      // register, start, end
-    RangeTo,             // register, end
-    RangeToInclusive,    // register, end
-    RangeFrom,           // register, start
-    RangeFull,           // register
-    Negate,              // register, source
-    Add,                 // result, lhs, rhs
-    Subtract,            // result, lhs, rhs
-    Multiply,            // result, lhs, rhs
-    Divide,              // result, lhs, rhs
-    Modulo,              // result, lhs, rhs
-    Less,                // result, lhs, rhs
-    LessOrEqual,         // result, lhs, rhs
-    Greater,             // result, lhs, rhs
-    GreaterOrEqual,      // result, lhs, rhs
-    Equal,               // result, lhs, rhs
-    NotEqual,            // result, lhs, rhs
-    Jump,                // offset[2]
-    JumpTrue,            // condition, offset[2]
-    JumpFalse,           // condition, offset[2]
-    JumpBack,            // offset[2]
-    JumpBackFalse,       // offset[2]
-    Call,                // result, function, arg register, arg count
-    CallChild,           // result, function, arg register, arg count, parent
-    Return,              // register
-    Yield,               // register
-    Throw,               // register
-    IterNext,            // output, iterator, jump offset[2]
-    IterNextTemp,        // output, iterator, jump offset[2]
-    IterNextQuiet,       // iterator, jump offset[2]
-    ValueIndex,          // result, value register, signed index
-    SliceFrom,           // result, value register, signed index
-    SliceTo,             // result, value register, signed index
-    ListPushValue,       // list, value
-    ListPushValues,      // list, start register, count
-    Index,               // result, indexable, index
-    SetIndex,            // indexable, index, value
-    MapInsert,           // map, key, value
-    MetaInsert,          // map register, value register, key id
-    MetaInsertNamed,     // map register, value register, key id, name constant
-    MetaInsertNamedLong, // map register, value register, key id, name constant[4]
-    MetaExport,          // key id, value register
-    MetaExportNamed,     // key id, value register, name constant
-    MetaExportNamedLong, // key id, value register, name constant[4]
-    ValueExport,         // name, value
-    ValueExportLong,     // name[4], value
-    Access,              // result, value, key
-    IsList,              // register, value
-    IsTuple,             // register, value
-    Size,                // register, value
-    TryStart,            // catch arg register, catch body offset[2]
-    TryEnd,              //
-    Debug,               // register, constant[4]
-    CheckType,           // register, type (see TypeId)
-    CheckSize,           // register, size
-    StringStart,         // register
-    StringPush,          // register, value register
-    StringFinish,        // register
-    Unused87,
-    Unused88,
+    Copy,             // target, source
+    SetEmpty,         // register
+    SetFalse,         // register
+    SetTrue,          // register
+    Set0,             // register
+    Set1,             // register
+    SetNumberU8,      // register, number
+    LoadFloat,        // register, constant
+    LoadFloat16,      // register, constant[2]
+    LoadFloat24,      // register, constant[3]
+    LoadInt,          // register, constant
+    LoadInt16,        // register, constant[2]
+    LoadInt24,        // register, constant[3]
+    LoadString,       // register, constant
+    LoadString16,     // register, constant[2]
+    LoadString24,     // register, constant[3]
+    LoadNonLocal,     // register, constant
+    LoadNonLocal16,   // register, constant[2]
+    LoadNonLocal24,   // register, constant[3]
+    Import,           // register, constant
+    Import16,         // register, constant[2]
+    Import24,         // register, constant[3]
+    MakeTuple,        // register, start register, count
+    MakeTempTuple,    // register, start register, count
+    MakeList,         // register, size hint
+    MakeList32,       // register, size hint[4]
+    MakeMap,          // register, size hint
+    MakeMap32,        // register, size hint[4]
+    MakeNum2,         // register, element count, first element
+    MakeNum4,         // register, element count, first element
+    MakeIterator,     // register, range
+    Function,         // register, arg count, capture count, flags, size[2]
+    Capture,          // function, target, source
+    Range,            // register, start, end
+    RangeInclusive,   // register, start, end
+    RangeTo,          // register, end
+    RangeToInclusive, // register, end
+    RangeFrom,        // register, start
+    RangeFull,        // register
+    Negate,           // register, source
+    Add,              // result, lhs, rhs
+    Subtract,         // result, lhs, rhs
+    Multiply,         // result, lhs, rhs
+    Divide,           // result, lhs, rhs
+    Modulo,           // result, lhs, rhs
+    Less,             // result, lhs, rhs
+    LessOrEqual,      // result, lhs, rhs
+    Greater,          // result, lhs, rhs
+    GreaterOrEqual,   // result, lhs, rhs
+    Equal,            // result, lhs, rhs
+    NotEqual,         // result, lhs, rhs
+    Jump,             // offset[2]
+    JumpTrue,         // condition, offset[2]
+    JumpFalse,        // condition, offset[2]
+    JumpBack,         // offset[2]
+    JumpBackFalse,    // offset[2]
+    Call,             // result, function, arg register, arg count
+    CallChild,        // result, function, arg register, arg count, parent
+    Return,           // register
+    Yield,            // register
+    Throw,            // register
+    IterNext,         // output, iterator, jump offset[2]
+    IterNextTemp,     // output, iterator, jump offset[2]
+    IterNextQuiet,    // iterator, jump offset[2]
+    ValueIndex,       // result, value register, signed index
+    SliceFrom,        // result, value register, signed index
+    SliceTo,          // result, value register, signed index
+    ListPushValue,    // list, value
+    ListPushValues,   // list, start register, count
+    Index,            // result, indexable, index
+    SetIndex,         // indexable, index, value
+    MapInsert,        // map, key, value
+    MetaInsert,       // map register, key id, value register
+    MetaInsertNamed,  // map register, key id, name register, value register
+    MetaExport,       // key id, value register
+    MetaExportNamed,  // key id, name register, value register
+    ValueExport,      // name, value
+    Access,           // result, value, key
+    IsList,           // register, value
+    IsTuple,          // register, value
+    Size,             // register, value
+    TryStart,         // catch arg register, catch body offset[2]
+    TryEnd,           //
+    Debug,            // register, constant[3]
+    CheckType,        // register, type (see TypeId)
+    CheckSize,        // register, size
+    StringStart,      // register
+    StringPush,       // register, value register
+    StringFinish,     // register
     Unused89,
     Unused90,
     Unused91,

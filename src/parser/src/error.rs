@@ -7,6 +7,7 @@ use {
 pub enum InternalError {
     ArgumentsParseFailure,
     AstCapacityOverflow,
+    ConstantPoolCapacityOverflow,
     ExpectedIdInImportItem,
     ForParseFailure,
     FunctionParseFailure,
@@ -84,6 +85,7 @@ pub enum SyntaxError {
     ExpectedNegatableExpression,
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
+    ExpectedStringPlaceholderEnd,
     ExpectedThenExpression,
     ExpectedTestName,
     ExpectedUntilCondition,
@@ -106,10 +108,12 @@ pub enum SyntaxError {
     UnexpectedMetaKey,
     UnexpectedSwitchElse,
     UnexpectedToken,
+    UnexpectedTokenAfterDollarInString,
     UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
     UnicodeEscapeCodeOutOfRange,
     UnterminatedNumericEscapeCode,
+    UnterminatedString,
 }
 
 #[derive(Clone, Debug)]
@@ -181,6 +185,9 @@ impl fmt::Display for InternalError {
             ArgumentsParseFailure => f.write_str("Failed to parse arguments"),
             AstCapacityOverflow => {
                 f.write_str("There are more nodes in the program than the AST can support")
+            }
+            ConstantPoolCapacityOverflow => {
+                f.write_str("There are more constants in the program than the runtime can support")
             }
             ExpectedIdInImportItem => f.write_str("Expected ID in import item"),
             ForParseFailure => f.write_str("Failed to parse for loop"),
@@ -273,6 +280,9 @@ impl fmt::Display for SyntaxError {
             ExpectedMetaKey => f.write_str("Expected meta key after @"),
             ExpectedMetaId => f.write_str("Expected id after @meta"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
+            ExpectedStringPlaceholderEnd => {
+                f.write_str("Expected '}' at end of string placeholder")
+            }
             ExpectedSwitchArmExpression => f.write_str("Expected expression in switch arm"),
             ExpectedSwitchArmExpressionAfterThen => {
                 f.write_str("Expected expression after then in switch arm")
@@ -311,6 +321,9 @@ impl fmt::Display for SyntaxError {
             UnexpectedMetaKey => f.write_str("Unexpected meta key"),
             UnexpectedSwitchElse => f.write_str("Unexpected else in switch arm"),
             UnexpectedToken => f.write_str("Unexpected token"),
+            UnexpectedTokenAfterDollarInString => {
+                f.write_str("Unexpected token after $ in string, expected $ID or ${expression}")
+            }
             UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {
                 f.write_str("Unexpected token in import expression")
@@ -319,6 +332,7 @@ impl fmt::Display for SyntaxError {
                 f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
             }
             UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
+            UnterminatedString => f.write_str("Unterminated string"),
         }
     }
 }

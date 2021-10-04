@@ -438,14 +438,26 @@ impl Compiler {
             Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadFloat, LoadFloatLong);
+                    self.compile_constant_op(
+                        result.register,
+                        *constant,
+                        LoadFloat,
+                        LoadFloat16,
+                        LoadFloat24,
+                    );
                 }
                 result
             }
             Node::Int(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadInt, LoadIntLong);
+                    self.compile_constant_op(
+                        result.register,
+                        *constant,
+                        LoadInt,
+                        LoadInt16,
+                        LoadInt24,
+                    );
                 }
                 result
             }
@@ -729,7 +741,7 @@ impl Compiler {
                     .unwrap();
 
                 self.push_op(Debug, &[expression_register.register]);
-                self.push_bytes(&expression_string.to_le_bytes());
+                self.push_bytes(&expression_string.bytes());
 
                 if let Some(result) = result {
                     self.push_op(Copy, &[result.register, expression_register.register]);
@@ -1064,7 +1076,7 @@ impl Compiler {
                         }
                     }
                     Scope::Export => {
-                        self.compile_value_export(*id_index, value_register.register);
+                        self.compile_value_export(*id_index, value_register.register)?;
                     }
                 }
             }
@@ -1078,7 +1090,7 @@ impl Compiler {
                 )?;
             }
             Node::Meta(meta_id, name) => {
-                self.compile_meta_export(*meta_id, *name, value_register.register);
+                self.compile_meta_export(*meta_id, *name, value_register.register)?;
             }
             Node::Wildcard => {}
             unexpected => {
@@ -1207,13 +1219,16 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_value_export(&mut self, id: ConstantIndex, register: u8) {
-        if id <= u8::MAX as u32 {
-            self.push_op(Op::ValueExport, &[id as u8, register]);
-        } else {
-            self.push_op(Op::ValueExportLong, &id.to_le_bytes());
-            self.push_bytes(&[register]);
-        }
+    fn compile_value_export(
+        &mut self,
+        id: ConstantIndex,
+        value_register: u8,
+    ) -> Result<(), CompilerError> {
+        let id_register = self.push_register()?;
+        self.compile_load_string_constant(id_register, id);
+        self.push_op(Op::ValueExport, &[id_register, value_register]);
+        self.pop_register()?;
+        Ok(())
     }
 
     fn compile_meta_export(
@@ -1221,30 +1236,53 @@ impl Compiler {
         meta_id: MetaKeyId,
         name: Option<ConstantIndex>,
         value_register: u8,
-    ) {
+    ) -> Result<(), CompilerError> {
         if let Some(name) = name {
-            if name <= u8::MAX as u32 {
-                self.push_op(
-                    Op::MetaExportNamed,
-                    &[meta_id as u8, value_register, name as u8],
-                );
-            } else {
-                self.push_op(Op::MetaExportNamedLong, &[meta_id as u8, value_register]);
-                self.push_bytes(&name.to_le_bytes());
-            }
+            let name_register = self.push_register()?;
+            self.compile_load_string_constant(name_register, name);
+            self.push_op_without_span(
+                Op::MetaExportNamed,
+                &[meta_id as u8, name_register, value_register],
+            );
+            self.pop_register()?;
         } else {
             self.push_op(Op::MetaExport, &[meta_id as u8, value_register]);
         }
+        Ok(())
+    }
+
+    fn compile_load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
+        self.compile_constant_op(
+            result_register,
+            index,
+            Op::LoadString,
+            Op::LoadString16,
+            Op::LoadString24,
+        );
     }
 
     fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
-        use Op::*;
+        self.compile_constant_op(
+            result_register,
+            id,
+            Op::LoadNonLocal,
+            Op::LoadNonLocal16,
+            Op::LoadNonLocal24,
+        );
+    }
 
-        if id <= u8::MAX as u32 {
-            self.push_op(LoadNonLocal, &[result_register, id as u8]);
-        } else {
-            self.push_op(LoadNonLocalLong, &[result_register]);
-            self.push_bytes(&id.to_le_bytes());
+    fn compile_constant_op(
+        &mut self,
+        result_register: u8,
+        id: ConstantIndex,
+        op8: Op,
+        op16: Op,
+        op24: Op,
+    ) {
+        match id.bytes() {
+            [byte1, 0, 0] => self.push_op(op8, &[result_register, byte1]),
+            [byte1, byte2, 0] => self.push_op(op16, &[result_register, byte1, byte2]),
+            [byte1, byte2, byte3] => self.push_op(op24, &[result_register, byte1, byte2, byte3]),
         }
     }
 
@@ -1277,7 +1315,7 @@ impl Compiler {
                 self.commit_local_register(import_register)?;
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*import_id, import_register);
+                    self.compile_value_export(*import_id, import_register)?;
                 }
             }
         } else {
@@ -1303,7 +1341,7 @@ impl Compiler {
                 imported.push(import_register);
 
                 if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*import_id, import_register);
+                    self.compile_value_export(*import_id, import_register)?;
                 }
             }
 
@@ -1357,12 +1395,7 @@ impl Compiler {
             }
         } else {
             // If the id isn't a local then it needs to be imported
-            if id <= u8::MAX as u32 {
-                self.push_op(Import, &[result_register, id as u8]);
-            } else {
-                self.push_op(ImportLong, &[result_register]);
-                self.push_bytes(&id.to_le_bytes());
-            }
+            self.compile_constant_op(result_register, id, Op::Import, Op::Import16, Op::Import24);
         }
     }
 
@@ -1688,12 +1721,7 @@ impl Compiler {
             [] => return compiler_error!(self, "compile_string: Missing string nodes"),
             [StringNode::Literal(constant_index)] => {
                 if let Some(result) = result {
-                    self.load_constant(
-                        result.register,
-                        *constant_index,
-                        Op::LoadString,
-                        Op::LoadStringLong,
-                    );
+                    self.compile_load_string_constant(result.register, *constant_index);
                 }
             }
             _ => {
@@ -1707,12 +1735,7 @@ impl Compiler {
                             if let Some(result) = result {
                                 let node_register = self.push_register()?;
 
-                                self.load_constant(
-                                    node_register,
-                                    *constant_index,
-                                    Op::LoadString,
-                                    Op::LoadStringLong,
-                                );
+                                self.compile_load_string_constant(node_register, *constant_index);
                                 self.push_op_without_span(
                                     Op::StringPush,
                                     &[result.register, node_register],
@@ -1926,7 +1949,7 @@ impl Compiler {
                 if size_hint <= u8::MAX as usize {
                     self.push_op(MakeList, &[result.register, size_hint as u8]);
                 } else {
-                    self.push_op(MakeListLong, &[result.register]);
+                    self.push_op(MakeList32, &[result.register]);
                     self.push_bytes(&size_hint.to_le_bytes());
                 }
 
@@ -1997,7 +2020,7 @@ impl Compiler {
                 if size_hint <= u8::MAX as usize {
                     self.push_op(MakeMap, &[result.register, size_hint as u8]);
                 } else {
-                    self.push_op(MakeMapLong, &[result.register]);
+                    self.push_op(MakeMap32, &[result.register]);
                     self.push_bytes(&size_hint.to_le_bytes());
                 }
 
@@ -2362,39 +2385,28 @@ impl Compiler {
         match key {
             MapKey::Id(id) => {
                 let key_register = self.push_register()?;
-                self.load_constant(key_register, *id, LoadString, LoadStringLong);
-                self.push_op_without_span(
-                    Op::MapInsert,
-                    &[map_register, key_register, value_register],
-                );
+                self.compile_load_string_constant(key_register, *id);
+                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
                 self.pop_register()?;
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
-                self.push_op_without_span(
-                    Op::MapInsert,
-                    &[map_register, key_register, value_register],
-                );
+                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
                 self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
                 let key = *key as u8;
                 if let Some(name) = name {
-                    if *name <= u8::MAX as u32 {
-                        self.push_op_without_span(
-                            Op::MetaInsertNamed,
-                            &[map_register, value_register, key, *name as u8],
-                        );
-                    } else {
-                        self.push_op_without_span(
-                            Op::MetaInsertNamedLong,
-                            &[map_register, value_register, key],
-                        );
-                        self.push_bytes(&name.to_le_bytes());
-                    }
+                    let name_register = self.push_register()?;
+                    self.compile_load_string_constant(name_register, *name);
+                    self.push_op_without_span(
+                        MetaInsertNamed,
+                        &[map_register, key, name_register, value_register],
+                    );
+                    self.pop_register()?;
                 } else {
-                    self.push_op_without_span(Op::MetaInsert, &[map_register, value_register, key]);
+                    self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
                 }
             }
         }
@@ -2409,7 +2421,7 @@ impl Compiler {
         key: ConstantIndex,
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
-        self.load_constant(key_register, key, Op::LoadString, Op::LoadStringLong);
+        self.compile_load_string_constant(key_register, key);
         self.push_op(Op::Access, &[result_register, value_register, key_register]);
         self.pop_register()?;
         Ok(())
@@ -3190,7 +3202,7 @@ impl Compiler {
                     Some(register) => register,
                     None => return compiler_error!(self, "Missing arg register"),
                 };
-                self.compile_value_export(*arg, arg_register);
+                self.compile_value_export(*arg, arg_register)?;
             }
         }
 
@@ -3254,21 +3266,6 @@ impl Compiler {
         }
 
         Ok(result)
-    }
-
-    fn load_constant(
-        &mut self,
-        result_register: u8,
-        index: ConstantIndex,
-        short_op: Op,
-        long_op: Op,
-    ) {
-        if index <= u8::MAX as u32 {
-            self.push_op(short_op, &[result_register, index as u8]);
-        } else {
-            self.push_op(long_op, &[result_register]);
-            self.push_bytes(&index.to_le_bytes());
-        }
     }
 
     fn compile_node_with_jump_offset(
