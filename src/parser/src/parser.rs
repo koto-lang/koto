@@ -2651,36 +2651,34 @@ impl<'source> Parser<'source> {
 
                     nodes.push(StringNode::Literal(self.add_string_constant(&literal)?));
                 }
-                Dollar => {
-                    match self.peek_token() {
-                        Some(Id) => {
-                            self.consume_token();
-                            let id = self.add_string_constant(self.lexer.slice())?;
-                            self.frame_mut()?.add_id_access(id);
-                            let id_node = self.push_node(Node::Id(id))?;
-                            nodes.push(StringNode::Expr(id_node));
-                        }
-                        Some(CurlyOpen) => {
-                            self.consume_token();
-
-                            if let Some(expression) =
-                                self.parse_expressions(&mut ExpressionContext::inline(), true)?
-                            {
-                                nodes.push(StringNode::Expr(expression));
-                            } else {
-                                return syntax_error!(ExpectedExpression, self);
-                            }
-
-                            if self.consume_token() != Some(CurlyClose) {
-                                return syntax_error!(ExpectedMapEnd, self); // TODO better error
-                            }
-                        }
-                        Some(_) => {
-                            return syntax_error!(UnexpectedToken, self); // TODO better error
-                        }
-                        None => break,
+                Dollar => match self.peek_token() {
+                    Some(Id) => {
+                        self.consume_token();
+                        let id = self.add_string_constant(self.lexer.slice())?;
+                        self.frame_mut()?.add_id_access(id);
+                        let id_node = self.push_node(Node::Id(id))?;
+                        nodes.push(StringNode::Expr(id_node));
                     }
-                }
+                    Some(CurlyOpen) => {
+                        self.consume_token();
+
+                        if let Some(expression) =
+                            self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                        {
+                            nodes.push(StringNode::Expr(expression));
+                        } else {
+                            return syntax_error!(ExpectedExpression, self);
+                        }
+
+                        if self.consume_token() != Some(CurlyClose) {
+                            return syntax_error!(ExpectedStringPlaceholderEnd, self);
+                        }
+                    }
+                    Some(_) => {
+                        return syntax_error!(UnexpectedTokenAfterDollarInString, self);
+                    }
+                    None => break,
+                },
                 c if c == string_quote => {
                     let quotation_mark = if string_quote == SingleQuote {
                         QuotationMark::Single
@@ -2700,14 +2698,11 @@ impl<'source> Parser<'source> {
                         self.span_with_start(start_span),
                     )));
                 }
-                _ => {
-                    return syntax_error!(UnexpectedToken, self); // TODO better error
-                }
+                _ => return syntax_error!(UnexpectedToken, self),
             }
         }
 
-        // Unterminated string
-        return syntax_error!(UnexpectedToken, self); // TODO better error
+        syntax_error!(UnterminatedString, self)
     }
 
     fn push_ast_op(
