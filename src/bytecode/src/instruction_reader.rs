@@ -984,7 +984,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_u8!() as ConstantIndex,
             }),
-            Op::LoadFloatLong => Some(LoadFloat {
+            Op::LoadFloat32 => Some(LoadFloat {
                 register: get_u8!(),
                 constant: get_u32!() as ConstantIndex,
             }),
@@ -992,7 +992,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_u8!() as ConstantIndex,
             }),
-            Op::LoadIntLong => Some(LoadInt {
+            Op::LoadInt32 => Some(LoadInt {
                 register: get_u8!(),
                 constant: get_u32!() as ConstantIndex,
             }),
@@ -1000,7 +1000,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_u8!() as ConstantIndex,
             }),
-            Op::LoadStringLong => Some(LoadString {
+            Op::LoadString32 => Some(LoadString {
                 register: get_u8!(),
                 constant: get_u32!() as ConstantIndex,
             }),
@@ -1008,7 +1008,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_u8!() as ConstantIndex,
             }),
-            Op::LoadNonLocalLong => Some(LoadNonLocal {
+            Op::LoadNonLocal32 => Some(LoadNonLocal {
                 register: get_u8!(),
                 constant: get_u32!() as ConstantIndex,
             }),
@@ -1020,7 +1020,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: get_u8!() as ConstantIndex,
             }),
-            Op::ImportLong => Some(Import {
+            Op::Import32 => Some(Import {
                 register: get_u8!(),
                 constant: get_u32!() as ConstantIndex,
             }),
@@ -1038,7 +1038,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 size_hint: get_u8!() as usize,
             }),
-            Op::MakeListLong => Some(MakeList {
+            Op::MakeList32 => Some(MakeList {
                 register: get_u8!(),
                 size_hint: get_u32!() as usize,
             }),
@@ -1046,7 +1046,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 size_hint: get_u8!() as usize,
             }),
-            Op::MakeMapLong => Some(MakeMap {
+            Op::MakeMap32 => Some(MakeMap {
                 register: get_u8!(),
                 size_hint: get_u32!() as usize,
             }),
