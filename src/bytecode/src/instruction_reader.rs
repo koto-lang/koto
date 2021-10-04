@@ -982,35 +982,51 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
+                constant: ConstantIndex(get_u8!(), 0, 0),
             }),
-            Op::LoadFloat32 => Some(LoadFloat {
+            Op::LoadFloat16 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::LoadFloat24 => Some(LoadFloat {
+                register: get_u8!(),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
+                constant: ConstantIndex(get_u8!(), 0, 0),
             }),
-            Op::LoadInt32 => Some(LoadInt {
+            Op::LoadInt16 => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::LoadInt24 => Some(LoadInt {
+                register: get_u8!(),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
+                constant: ConstantIndex(get_u8!(), 0, 0),
             }),
-            Op::LoadString32 => Some(LoadString {
+            Op::LoadString16 => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::LoadString24 => Some(LoadString {
+                register: get_u8!(),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
+                constant: ConstantIndex(get_u8!(), 0, 0),
             }),
-            Op::LoadNonLocal32 => Some(LoadNonLocal {
+            Op::LoadNonLocal16 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::LoadNonLocal24 => Some(LoadNonLocal {
+                register: get_u8!(),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -1018,11 +1034,15 @@ impl Iterator for InstructionReader {
             }),
             Op::Import => Some(Import {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u8!()),
+                constant: ConstantIndex(get_u8!(), 0, 0),
             }),
-            Op::Import32 => Some(Import {
+            Op::Import16 => Some(Import {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::Import24 => Some(Import {
+                register: get_u8!(),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::MakeTuple => Some(MakeTuple {
                 register: get_u8!(),
@@ -1359,7 +1379,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: ConstantIndex::from(get_u32!()),
+                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::CheckType => {
                 let register = get_u8!();

@@ -438,14 +438,26 @@ impl Compiler {
             Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(result.register, *constant, LoadFloat, LoadFloat32);
+                    self.compile_constant_op(
+                        result.register,
+                        *constant,
+                        LoadFloat,
+                        LoadFloat16,
+                        LoadFloat24,
+                    );
                 }
                 result
             }
             Node::Int(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.compile_constant_op(result.register, *constant, LoadInt, LoadInt32);
+                    self.compile_constant_op(
+                        result.register,
+                        *constant,
+                        LoadInt,
+                        LoadInt16,
+                        LoadInt24,
+                    );
                 }
                 result
             }
@@ -730,7 +742,6 @@ impl Compiler {
 
                 self.push_op(Debug, &[expression_register.register]);
                 self.push_bytes(&expression_string.bytes());
-                self.push_bytes(&[0]); // TODO remove once debug op is 24bit
 
                 if let Some(result) = result {
                     self.push_op(Copy, &[result.register, expression_register.register]);
@@ -1214,7 +1225,7 @@ impl Compiler {
         value_register: u8,
     ) -> Result<(), CompilerError> {
         let id_register = self.push_register()?;
-        self.load_string_constant(id_register, id);
+        self.compile_load_string_constant(id_register, id);
         self.push_op(Op::ValueExport, &[id_register, value_register]);
         self.pop_register()?;
         Ok(())
@@ -1228,7 +1239,7 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         if let Some(name) = name {
             let name_register = self.push_register()?;
-            self.load_string_constant(name_register, name);
+            self.compile_load_string_constant(name_register, name);
             self.push_op_without_span(
                 Op::MetaExportNamed,
                 &[meta_id as u8, name_register, value_register],
@@ -1240,14 +1251,38 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
-        self.compile_constant_op(result_register, id, Op::LoadNonLocal, Op::LoadNonLocal32);
+    fn compile_load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
+        self.compile_constant_op(
+            result_register,
+            index,
+            Op::LoadString,
+            Op::LoadString16,
+            Op::LoadString24,
+        );
     }
 
-    fn compile_constant_op(&mut self, result_register: u8, id: ConstantIndex, op8: Op, op32: Op) {
+    fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
+        self.compile_constant_op(
+            result_register,
+            id,
+            Op::LoadNonLocal,
+            Op::LoadNonLocal16,
+            Op::LoadNonLocal24,
+        );
+    }
+
+    fn compile_constant_op(
+        &mut self,
+        result_register: u8,
+        id: ConstantIndex,
+        op8: Op,
+        op16: Op,
+        op24: Op,
+    ) {
         match id.bytes() {
-            [byte, 0, 0] => self.push_op(op8, &[result_register, byte]),
-            [byte1, byte2, byte3] => self.push_op(op32, &[result_register, byte1, byte2, byte3]),
+            [byte1, 0, 0] => self.push_op(op8, &[result_register, byte1]),
+            [byte1, byte2, 0] => self.push_op(op16, &[result_register, byte1, byte2]),
+            [byte1, byte2, byte3] => self.push_op(op24, &[result_register, byte1, byte2, byte3]),
         }
     }
 
@@ -1360,7 +1395,7 @@ impl Compiler {
             }
         } else {
             // If the id isn't a local then it needs to be imported
-            self.compile_constant_op(result_register, id, Op::Import, Op::Import32);
+            self.compile_constant_op(result_register, id, Op::Import, Op::Import16, Op::Import24);
         }
     }
 
@@ -1686,7 +1721,7 @@ impl Compiler {
             [] => return compiler_error!(self, "compile_string: Missing string nodes"),
             [StringNode::Literal(constant_index)] => {
                 if let Some(result) = result {
-                    self.load_string_constant(result.register, *constant_index);
+                    self.compile_load_string_constant(result.register, *constant_index);
                 }
             }
             _ => {
@@ -1700,7 +1735,7 @@ impl Compiler {
                             if let Some(result) = result {
                                 let node_register = self.push_register()?;
 
-                                self.load_string_constant(node_register, *constant_index);
+                                self.compile_load_string_constant(node_register, *constant_index);
                                 self.push_op_without_span(
                                     Op::StringPush,
                                     &[result.register, node_register],
@@ -2350,7 +2385,7 @@ impl Compiler {
         match key {
             MapKey::Id(id) => {
                 let key_register = self.push_register()?;
-                self.load_string_constant(key_register, *id);
+                self.compile_load_string_constant(key_register, *id);
                 self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
                 self.pop_register()?;
             }
@@ -2364,7 +2399,7 @@ impl Compiler {
                 let key = *key as u8;
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
-                    self.load_string_constant(name_register, *name);
+                    self.compile_load_string_constant(name_register, *name);
                     self.push_op_without_span(
                         MetaInsertNamed,
                         &[map_register, key, name_register, value_register],
@@ -2386,7 +2421,7 @@ impl Compiler {
         key: ConstantIndex,
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
-        self.load_string_constant(key_register, key);
+        self.compile_load_string_constant(key_register, key);
         self.push_op(Op::Access, &[result_register, value_register, key_register]);
         self.pop_register()?;
         Ok(())
@@ -3231,10 +3266,6 @@ impl Compiler {
         }
 
         Ok(result)
-    }
-
-    fn load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
-        self.compile_constant_op(result_register, index, Op::LoadString, Op::LoadString32);
     }
 
     fn compile_node_with_jump_offset(

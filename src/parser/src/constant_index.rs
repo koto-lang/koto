@@ -90,8 +90,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_behaviour() {
-        let x = ConstantIndex::from(2_u8);
-        assert_eq!(2usize, usize::from(x));
+    fn test_bytes_from_usize() {
+        let x = usize::from_le_bytes([12, 34, 56, 0, 0, 0, 0, 0]);
+        let constant = ConstantIndex::try_from(x).unwrap();
+        assert_eq!(constant.bytes(), [12, 34, 56]);
     }
 }

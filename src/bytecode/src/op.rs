@@ -12,15 +12,20 @@ pub enum Op {
     Set1,             // register
     SetNumberU8,      // register, number
     LoadFloat,        // register, constant
-    LoadFloat32,      // register, constant[4]
+    LoadFloat16,      // register, constant[2]
+    LoadFloat24,      // register, constant[3]
     LoadInt,          // register, constant
-    LoadInt32,        // register, constant[4]
+    LoadInt16,        // register, constant[2]
+    LoadInt24,        // register, constant[3]
     LoadString,       // register, constant
-    LoadString32,     // register, constant[4]
+    LoadString16,     // register, constant[2]
+    LoadString24,     // register, constant[3]
     LoadNonLocal,     // register, constant
-    LoadNonLocal32,   // register, constant[4]
+    LoadNonLocal16,   // register, constant[2]
+    LoadNonLocal24,   // register, constant[3]
     Import,           // register, constant
-    Import32,         // register, constant[4]
+    Import16,         // register, constant[2]
+    Import24,         // register, constant[3]
     MakeTuple,        // register, start register, count
     MakeTempTuple,    // register, start register, count
     MakeList,         // register, size hint
@@ -82,17 +87,12 @@ pub enum Op {
     Size,             // register, value
     TryStart,         // catch arg register, catch body offset[2]
     TryEnd,           //
-    Debug,            // register, constant[4]
+    Debug,            // register, constant[3]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
     StringStart,      // register
     StringPush,       // register, value register
     StringFinish,     // register
-    Unused84,
-    Unused85,
-    Unused86,
-    Unused87,
-    Unused88,
     Unused89,
     Unused90,
     Unused91,
