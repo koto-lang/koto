@@ -1213,7 +1213,7 @@ impl Compiler {
         value_register: u8,
     ) -> Result<(), CompilerError> {
         let id_register = self.push_register()?;
-        self.load_constant(id_register, id, Op::LoadString, Op::LoadString32);
+        self.load_string_constant(id_register, id);
         self.push_op(Op::ValueExport, &[id_register, value_register]);
         self.pop_register()?;
         Ok(())
@@ -1227,7 +1227,7 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         if let Some(name) = name {
             let name_register = self.push_register()?;
-            self.load_constant(name_register, name, Op::LoadString, Op::LoadString32);
+            self.load_string_constant(name_register, name);
             self.push_op_without_span(
                 Op::MetaExportNamed,
                 &[meta_id as u8, name_register, value_register],
@@ -1690,12 +1690,7 @@ impl Compiler {
             [] => return compiler_error!(self, "compile_string: Missing string nodes"),
             [StringNode::Literal(constant_index)] => {
                 if let Some(result) = result {
-                    self.load_constant(
-                        result.register,
-                        *constant_index,
-                        Op::LoadString,
-                        Op::LoadString32,
-                    );
+                    self.load_string_constant(result.register, *constant_index);
                 }
             }
             _ => {
@@ -1709,12 +1704,7 @@ impl Compiler {
                             if let Some(result) = result {
                                 let node_register = self.push_register()?;
 
-                                self.load_constant(
-                                    node_register,
-                                    *constant_index,
-                                    Op::LoadString,
-                                    Op::LoadString32,
-                                );
+                                self.load_string_constant(node_register, *constant_index);
                                 self.push_op_without_span(
                                     Op::StringPush,
                                     &[result.register, node_register],
@@ -2364,34 +2354,28 @@ impl Compiler {
         match key {
             MapKey::Id(id) => {
                 let key_register = self.push_register()?;
-                self.load_constant(key_register, *id, LoadString, LoadString32);
-                self.push_op_without_span(
-                    Op::MapInsert,
-                    &[map_register, key_register, value_register],
-                );
+                self.load_string_constant(key_register, *id);
+                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
                 self.pop_register()?;
             }
             MapKey::Str(string) => {
                 let key_register = self.push_register()?;
                 self.compile_string(ResultRegister::Fixed(key_register), &string.nodes, ast)?;
-                self.push_op_without_span(
-                    Op::MapInsert,
-                    &[map_register, key_register, value_register],
-                );
+                self.push_op_without_span(MapInsert, &[map_register, key_register, value_register]);
                 self.pop_register()?;
             }
             MapKey::Meta(key, name) => {
                 let key = *key as u8;
                 if let Some(name) = name {
                     let name_register = self.push_register()?;
-                    self.load_constant(name_register, *name, LoadString, LoadString32);
+                    self.load_string_constant(name_register, *name);
                     self.push_op_without_span(
-                        Op::MetaInsertNamed,
+                        MetaInsertNamed,
                         &[map_register, key, name_register, value_register],
                     );
                     self.pop_register()?;
                 } else {
-                    self.push_op_without_span(Op::MetaInsert, &[map_register, key, value_register]);
+                    self.push_op_without_span(MetaInsert, &[map_register, key, value_register]);
                 }
             }
         }
@@ -2406,7 +2390,7 @@ impl Compiler {
         key: ConstantIndex,
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
-        self.load_constant(key_register, key, Op::LoadString, Op::LoadString32);
+        self.load_string_constant(key_register, key);
         self.push_op(Op::Access, &[result_register, value_register, key_register]);
         self.pop_register()?;
         Ok(())
@@ -3251,6 +3235,10 @@ impl Compiler {
         }
 
         Ok(result)
+    }
+
+    fn load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
+        self.load_constant(result_register, index, Op::LoadString, Op::LoadString32);
     }
 
     fn load_constant(
