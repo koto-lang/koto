@@ -982,35 +982,35 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: get_u8!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadFloat32 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: get_u8!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadInt32 => Some(LoadInt {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: get_u8!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadString32 => Some(LoadString {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: get_u8!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadNonLocal32 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -1018,11 +1018,11 @@ impl Iterator for InstructionReader {
             }),
             Op::Import => Some(Import {
                 register: get_u8!(),
-                constant: get_u8!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::Import32 => Some(Import {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::MakeTuple => Some(MakeTuple {
                 register: get_u8!(),
@@ -1359,7 +1359,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: get_u32!() as ConstantIndex,
+                constant: ConstantIndex::from(get_u32!()),
             }),
             Op::CheckType => {
                 let register = get_u8!();

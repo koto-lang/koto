@@ -438,14 +438,14 @@ impl Compiler {
             Node::Float(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadFloat, LoadFloat32);
+                    self.compile_constant_op(result.register, *constant, LoadFloat, LoadFloat32);
                 }
                 result
             }
             Node::Int(constant) => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.load_constant(result.register, *constant, LoadInt, LoadInt32);
+                    self.compile_constant_op(result.register, *constant, LoadInt, LoadInt32);
                 }
                 result
             }
@@ -729,7 +729,8 @@ impl Compiler {
                     .unwrap();
 
                 self.push_op(Debug, &[expression_register.register]);
-                self.push_bytes(&expression_string.to_le_bytes());
+                self.push_bytes(&expression_string.bytes());
+                self.push_bytes(&[0]); // TODO remove once debug op is 24bit
 
                 if let Some(result) = result {
                     self.push_op(Copy, &[result.register, expression_register.register]);
@@ -1240,13 +1241,13 @@ impl Compiler {
     }
 
     fn compile_load_non_local(&mut self, result_register: u8, id: ConstantIndex) {
-        use Op::*;
+        self.compile_constant_op(result_register, id, Op::LoadNonLocal, Op::LoadNonLocal32);
+    }
 
-        if id <= u8::MAX as u32 {
-            self.push_op(LoadNonLocal, &[result_register, id as u8]);
-        } else {
-            self.push_op(LoadNonLocal32, &[result_register]);
-            self.push_bytes(&id.to_le_bytes());
+    fn compile_constant_op(&mut self, result_register: u8, id: ConstantIndex, op8: Op, op32: Op) {
+        match id.bytes() {
+            [byte, 0, 0] => self.push_op(op8, &[result_register, byte]),
+            [byte1, byte2, byte3] => self.push_op(op32, &[result_register, byte1, byte2, byte3]),
         }
     }
 
@@ -1359,12 +1360,7 @@ impl Compiler {
             }
         } else {
             // If the id isn't a local then it needs to be imported
-            if id <= u8::MAX as u32 {
-                self.push_op(Import, &[result_register, id as u8]);
-            } else {
-                self.push_op(Import32, &[result_register]);
-                self.push_bytes(&id.to_le_bytes());
-            }
+            self.compile_constant_op(result_register, id, Op::Import, Op::Import32);
         }
     }
 
@@ -3238,22 +3234,7 @@ impl Compiler {
     }
 
     fn load_string_constant(&mut self, result_register: u8, index: ConstantIndex) {
-        self.load_constant(result_register, index, Op::LoadString, Op::LoadString32);
-    }
-
-    fn load_constant(
-        &mut self,
-        result_register: u8,
-        index: ConstantIndex,
-        short_op: Op,
-        long_op: Op,
-    ) {
-        if index <= u8::MAX as u32 {
-            self.push_op(short_op, &[result_register, index as u8]);
-        } else {
-            self.push_op(long_op, &[result_register]);
-            self.push_bytes(&index.to_le_bytes());
-        }
+        self.compile_constant_op(result_register, index, Op::LoadString, Op::LoadString32);
     }
 
     fn compile_node_with_jump_offset(

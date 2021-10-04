@@ -292,7 +292,7 @@ impl<'source> Parser<'source> {
         let mut args_context = ExpressionContext::permissive();
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
-            match self.parse_id_or_wildcard(&mut args_context) {
+            match self.parse_id_or_wildcard(&mut args_context)? {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
                     if self.constants.pool().get_str(constant_index) == "self" {
                         return syntax_error!(SelfArgNotInFirstPosition, self);
@@ -360,7 +360,7 @@ impl<'source> Parser<'source> {
         let mut args_context = ExpressionContext::permissive();
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
-            match self.parse_id_or_wildcard(context) {
+            match self.parse_id_or_wildcard(context)? {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
                     if self.constants.pool().get_str(constant_index) == "self" {
                         if !arg_nodes.is_empty() {
@@ -712,39 +712,49 @@ impl<'source> Parser<'source> {
         }
     }
 
-    fn parse_id(&mut self, context: &mut ExpressionContext) -> Option<ConstantIndex> {
+    fn add_string_constant(&mut self, s: &str) -> Result<ConstantIndex, ParserError> {
+        match self.constants.add_string(s) {
+            Ok(result) => Ok(result),
+            Err(_) => internal_error!(ConstantPoolCapacityOverflow, self),
+        }
+    }
+
+    fn parse_id(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<ConstantIndex>, ParserError> {
         match self.peek_next_token(context) {
             Some(PeekInfo {
                 token: Token::Id, ..
             }) => {
                 self.consume_next_token(context);
-                Some(self.constants.add_string(self.lexer.slice()) as ConstantIndex)
+                let result = self.add_string_constant(self.lexer.slice())?;
+                Ok(Some(result))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
     fn parse_id_or_wildcard(
         &mut self,
         context: &mut ExpressionContext,
-    ) -> Option<ConstantIndexOrWildcard> {
+    ) -> Result<Option<ConstantIndexOrWildcard>, ParserError> {
         match self.peek_next_token(context) {
             Some(PeekInfo {
                 token: Token::Id, ..
             }) => {
                 self.consume_next_token(context);
-                Some(ConstantIndexOrWildcard::Index(
-                    self.constants.add_string(self.lexer.slice()) as ConstantIndex,
-                ))
+                let result = self.add_string_constant(self.lexer.slice())?;
+                Ok(Some(ConstantIndexOrWildcard::Index(result)))
             }
             Some(PeekInfo {
                 token: Token::Wildcard,
                 ..
             }) => {
                 self.consume_next_token_on_same_line();
-                Some(ConstantIndexOrWildcard::Wildcard)
+                Ok(Some(ConstantIndexOrWildcard::Wildcard))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
 
@@ -779,8 +789,7 @@ impl<'source> Parser<'source> {
                 "post_test" => MetaKeyId::PostTest,
                 "test" => match self.consume_next_token_on_same_line() {
                     Some(Token::Id) => {
-                        let test_name =
-                            self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                        let test_name = self.add_string_constant(self.lexer.slice())?;
                         meta_name = Some(test_name);
                         MetaKeyId::Test
                     }
@@ -788,7 +797,7 @@ impl<'source> Parser<'source> {
                 },
                 "meta" => match self.consume_next_token_on_same_line() {
                     Some(Token::Id) => {
-                        let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                        let id = self.add_string_constant(self.lexer.slice())?;
                         meta_name = Some(id);
                         MetaKeyId::Named
                     }
@@ -808,7 +817,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_map_key(&mut self) -> Result<Option<MapKey>, ParserError> {
-        let result = if let Some(id) = self.parse_id(&mut ExpressionContext::restricted()) {
+        let result = if let Some(id) = self.parse_id(&mut ExpressionContext::restricted())? {
             Some(MapKey::Id(id))
         } else if let Some((meta_key_id, meta_name)) = self.parse_meta_key()? {
             Some(MapKey::Meta(meta_key_id, meta_name))
@@ -875,7 +884,7 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        if let Some(constant_index) = self.parse_id(context) {
+        if let Some(constant_index) = self.parse_id(context)? {
             if context.allow_map_block && self.peek_token() == Some(Token::Colon) {
                 self.parse_map_block(MapKey::Id(constant_index))
             } else {
@@ -1037,7 +1046,7 @@ impl<'source> Parser<'source> {
                     ) {
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) =
-                        self.parse_id(&mut ExpressionContext::restricted())
+                        self.parse_id(&mut ExpressionContext::restricted())?
                     {
                         lookup.push((LookupNode::Id(id_index), self.current_span()));
                     } else if let Some((lookup_string, span)) =
@@ -1196,7 +1205,7 @@ impl<'source> Parser<'source> {
 
         self.consume_next_token_on_same_line();
 
-        let export_id = if let Some(constant_index) = self.parse_id(context) {
+        let export_id = if let Some(constant_index) = self.parse_id(context)? {
             self.push_node(Node::Id(constant_index))?
         } else if let Some((meta_key_id, name)) = self.parse_meta_key()? {
             self.push_node(Node::Meta(meta_key_id, name))?
@@ -1272,10 +1281,9 @@ impl<'source> Parser<'source> {
 
         let expression_source_end = self.lexer.source_position();
 
-        let expression_string = self
-            .constants
-            .add_string(&self.lexer.source()[expression_source_start..expression_source_end])
-            as u32;
+        let expression_string = self.add_string_constant(
+            &self.lexer.source()[expression_source_start..expression_source_end],
+        )?;
 
         let result = self.ast.push(
             Node::Debug {
@@ -1491,15 +1499,19 @@ impl<'source> Parser<'source> {
                 self.push_node(Number1)?
             } else {
                 let n = if negate { -n } else { n };
-                let constant_index = self.constants.add_i64(n) as u32;
-                self.push_node(Int(constant_index))?
+                match self.constants.add_i64(n) {
+                    Ok(constant_index) => self.push_node(Int(constant_index))?,
+                    Err(_) => return internal_error!(ConstantPoolCapacityOverflow, self),
+                }
             }
         } else {
             match f64::from_str(slice) {
                 Ok(n) => {
                     let n = if negate { -n } else { n };
-                    let constant_index = self.constants.add_f64(n) as u32;
-                    self.push_node(Float(constant_index))?
+                    match self.constants.add_f64(n) {
+                        Ok(constant_index) => self.push_node(Float(constant_index))?,
+                        Err(_) => return internal_error!(ConstantPoolCapacityOverflow, self),
+                    }
                 }
                 Err(_) => {
                     return internal_error!(NumberParseFailure, self);
@@ -1701,7 +1713,7 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
 
         let mut args = Vec::new();
-        while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context) {
+        while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
             match id_or_wildcard {
                 ConstantIndexOrWildcard::Index(id_index) => {
                     args.push(Some(id_index));
@@ -2167,7 +2179,7 @@ impl<'source> Parser<'source> {
                 True | False | Number | SingleQuote | DoubleQuote | Subtract => {
                     return self.parse_term(&mut pattern_context)
                 }
-                Id => match self.parse_id(&mut pattern_context) {
+                Id => match self.parse_id(&mut pattern_context)? {
                     Some(id) => {
                         let result = if self.peek_token() == Some(Ellipsis) {
                             self.consume_token();
@@ -2326,7 +2338,7 @@ impl<'source> Parser<'source> {
         self.consume_next_token(context);
 
         let catch_arg = if let Some(catch_arg) =
-            self.parse_id_or_wildcard(&mut ExpressionContext::restricted())
+            self.parse_id_or_wildcard(&mut ExpressionContext::restricted())?
         {
             match catch_arg {
                 ConstantIndexOrWildcard::Index(id_index) => {
@@ -2375,13 +2387,13 @@ impl<'source> Parser<'source> {
         let mut items = vec![];
         let mut item_context = ExpressionContext::permissive();
 
-        while let Some(item_root) = self.parse_id(&mut item_context) {
+        while let Some(item_root) = self.parse_id(&mut item_context)? {
             let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
-                match self.parse_id(&mut ExpressionContext::restricted()) {
+                match self.parse_id(&mut ExpressionContext::restricted())? {
                     Some(id) => item.push(id),
                     None => return syntax_error!(ExpectedImportModuleId, self),
                 }
@@ -2637,13 +2649,13 @@ impl<'source> Parser<'source> {
                         }
                     }
 
-                    nodes.push(StringNode::Literal(self.constants.add_string(&literal)));
+                    nodes.push(StringNode::Literal(self.add_string_constant(&literal)?));
                 }
                 Dollar => {
                     match self.peek_token() {
                         Some(Id) => {
                             self.consume_token();
-                            let id = self.constants.add_string(self.lexer.slice()) as ConstantIndex;
+                            let id = self.add_string_constant(self.lexer.slice())?;
                             self.frame_mut()?.add_id_access(id);
                             let id_node = self.push_node(Node::Id(id))?;
                             nodes.push(StringNode::Expr(id_node));
@@ -2677,7 +2689,7 @@ impl<'source> Parser<'source> {
                     };
 
                     if nodes.is_empty() {
-                        nodes.push(StringNode::Literal(self.constants.add_string("")));
+                        nodes.push(StringNode::Literal(self.add_string_constant("")?));
                     }
 
                     return Ok(Some((

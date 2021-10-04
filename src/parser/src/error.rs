@@ -7,6 +7,7 @@ use {
 pub enum InternalError {
     ArgumentsParseFailure,
     AstCapacityOverflow,
+    ConstantPoolCapacityOverflow,
     ExpectedIdInImportItem,
     ForParseFailure,
     FunctionParseFailure,
@@ -181,6 +182,9 @@ impl fmt::Display for InternalError {
             ArgumentsParseFailure => f.write_str("Failed to parse arguments"),
             AstCapacityOverflow => {
                 f.write_str("There are more nodes in the program than the AST can support")
+            }
+            ConstantPoolCapacityOverflow => {
+                f.write_str("There are more constants in the program than the runtime can support")
             }
             ExpectedIdInImportItem => f.write_str("Expected ID in import item"),
             ForParseFailure => f.write_str("Failed to parse for loop"),

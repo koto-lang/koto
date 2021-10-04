@@ -1,7 +1,8 @@
 use {
-    crate::ConstantIndex,
+    crate::{ConstantIndex, ConstantIndexTryFromOutOfRange},
     std::{
         collections::{hash_map::DefaultHasher, HashMap},
+        convert::TryFrom,
         fmt,
         hash::{Hash, Hasher},
         ops::Range,
@@ -53,8 +54,8 @@ impl ConstantPool {
         self.len() == 0
     }
 
-    pub fn get(&self, index: ConstantIndex) -> Option<Constant> {
-        match self.index.get(index as usize) {
+    pub fn get(&self, index: usize) -> Option<Constant> {
+        match self.index.get(index) {
             Some(constant_info) => match constant_info {
                 ConstantInfo::F64(index) => Some(Constant::F64(self.floats[*index])),
                 ConstantInfo::I64(index) => Some(Constant::I64(self.ints[*index])),
@@ -75,21 +76,21 @@ impl ConstantPool {
     }
 
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
-        match self.index.get(index as usize) {
+        match self.index.get(usize::from(index)) {
             Some(ConstantInfo::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
         }
     }
 
     pub fn get_f64(&self, index: ConstantIndex) -> f64 {
-        match self.index.get(index as usize) {
+        match self.index.get(usize::from(index)) {
             Some(ConstantInfo::F64(index)) => self.floats[*index],
             _ => panic!("Invalid index"),
         }
     }
 
     pub fn get_i64(&self, index: ConstantIndex) -> i64 {
-        match self.index.get(index as usize) {
+        match self.index.get(usize::from(index)) {
             Some(ConstantInfo::I64(index)) => self.ints[*index],
             _ => panic!("Invalid index"),
         }
@@ -102,7 +103,7 @@ impl ConstantPool {
 
 pub struct ConstantPoolIterator<'a> {
     pool: &'a ConstantPool,
-    index: ConstantIndex,
+    index: usize,
 }
 
 impl<'a> ConstantPoolIterator<'a> {
@@ -162,59 +163,62 @@ impl ConstantPoolBuilder {
         Self::default()
     }
 
-    pub fn add_string(&mut self, s: &str) -> ConstantIndex {
+    pub fn add_string(&mut self, s: &str) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
         match self.string_map.get(s) {
-            Some(index) => *index,
+            Some(index) => Ok(*index),
             None => {
+                let result = ConstantIndex::try_from(self.pool.index.len())?;
+
                 let start = self.pool.strings.len();
                 let end = start + s.len();
                 self.pool.strings.push_str(s);
                 s.hash(&mut self.hasher);
 
-                let result = self.pool.index.len() as ConstantIndex;
                 self.pool.index.push(ConstantInfo::Str(start..end));
 
                 self.string_map.insert(s.to_string(), result);
 
-                result
+                Ok(result)
             }
         }
     }
 
-    pub fn add_f64(&mut self, n: f64) -> ConstantIndex {
+    pub fn add_f64(&mut self, n: f64) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
         let n_u64 = n.to_bits();
 
         match self.float_map.get(&n_u64) {
-            Some(index) => *index,
+            Some(index) => Ok(*index),
             None => {
+                let result = ConstantIndex::try_from(self.pool.index.len())?;
+
                 let number_index = self.pool.floats.len();
                 self.pool.floats.push(n);
                 n_u64.hash(&mut self.hasher);
 
-                let result = self.pool.index.len() as ConstantIndex;
                 self.pool.index.push(ConstantInfo::F64(number_index));
 
                 self.float_map.insert(n_u64, result);
 
-                result
+                Ok(result)
             }
         }
     }
 
-    pub fn add_i64(&mut self, n: i64) -> ConstantIndex {
+    pub fn add_i64(&mut self, n: i64) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
         match self.int_map.get(&n) {
-            Some(index) => *index,
+            Some(index) => Ok(*index),
             None => {
+                let result = ConstantIndex::try_from(self.pool.index.len())?;
+
                 let number_index = self.pool.ints.len();
                 self.pool.ints.push(n);
                 n.hash(&mut self.hasher);
 
-                let result = self.pool.index.len() as ConstantIndex;
                 self.pool.index.push(ConstantInfo::I64(number_index));
 
                 self.int_map.insert(n, result);
 
-                result
+                Ok(result)
             }
         }
     }
@@ -246,17 +250,17 @@ mod tests {
         let s2 = "test2";
 
         // 1 byte for string length
-        assert_eq!(0, builder.add_string(s1));
-        assert_eq!(1, builder.add_string(s2));
+        assert_eq!(0, builder.add_string(s1).unwrap());
+        assert_eq!(1, builder.add_string(s2).unwrap());
 
         // don't duplicate strings
-        assert_eq!(0, builder.add_string(s1));
-        assert_eq!(1, builder.add_string(s2));
+        assert_eq!(0, builder.add_string(s1).unwrap());
+        assert_eq!(1, builder.add_string(s2).unwrap());
 
         let pool = builder.build();
 
-        assert_eq!(s1, pool.get_str(0));
-        assert_eq!(s2, pool.get_str(1));
+        assert_eq!(s1, pool.get_str(ConstantIndex::from(0_u8)));
+        assert_eq!(s2, pool.get_str(ConstantIndex::from(1_u8)));
 
         assert_eq!(2, pool.len());
     }
@@ -268,17 +272,20 @@ mod tests {
         let n1 = 3;
         let n2 = 9.87654321;
 
-        assert_eq!(0, builder.add_i64(n1));
-        assert_eq!(1, builder.add_f64(n2));
+        assert_eq!(0, builder.add_i64(n1).unwrap());
+        assert_eq!(1, builder.add_f64(n2).unwrap());
 
         // don't duplicate numbers
-        assert_eq!(0, builder.add_i64(n1));
-        assert_eq!(1, builder.add_f64(n2));
+        assert_eq!(0, builder.add_i64(n1).unwrap());
+        assert_eq!(1, builder.add_f64(n2).unwrap());
 
         let pool = builder.build();
 
-        assert_eq!(n1, pool.get_i64(0));
-        assert!(floats_are_equal(n2, pool.get_f64(1)));
+        assert_eq!(n1, pool.get_i64(ConstantIndex::from(0_u8)));
+        assert!(floats_are_equal(
+            n2,
+            pool.get_f64(ConstantIndex::from(1_u8))
+        ));
 
         assert_eq!(2, pool.len());
     }
@@ -292,17 +299,20 @@ mod tests {
         let s1 = "O_o";
         let s2 = "^_^";
 
-        assert_eq!(0, builder.add_f64(n1));
-        assert_eq!(1, builder.add_string(s1));
-        assert_eq!(2, builder.add_i64(n2));
-        assert_eq!(3, builder.add_string(s2));
+        assert_eq!(0, builder.add_f64(n1).unwrap());
+        assert_eq!(1, builder.add_string(s1).unwrap());
+        assert_eq!(2, builder.add_i64(n2).unwrap());
+        assert_eq!(3, builder.add_string(s2).unwrap());
 
         let pool = builder.build();
 
-        assert!(floats_are_equal(n1, pool.get_f64(0)));
-        assert_eq!(s1, pool.get_str(1));
-        assert_eq!(n2, pool.get_i64(2));
-        assert_eq!(s2, pool.get_str(3));
+        assert!(floats_are_equal(
+            n1,
+            pool.get_f64(ConstantIndex::from(0_u8))
+        ));
+        assert_eq!(s1, pool.get_str(ConstantIndex::from(1_u8)));
+        assert_eq!(n2, pool.get_i64(ConstantIndex::from(2_u8)));
+        assert_eq!(s2, pool.get_str(ConstantIndex::from(3_u8)));
 
         assert_eq!(4, pool.len());
     }
@@ -316,10 +326,10 @@ mod tests {
         let s1 = "O_o";
         let s2 = "^_^";
 
-        builder.add_i64(n1);
-        builder.add_string(s1);
-        builder.add_f64(n2);
-        builder.add_string(s2);
+        builder.add_i64(n1).unwrap();
+        builder.add_string(s1).unwrap();
+        builder.add_f64(n2).unwrap();
+        builder.add_string(s2).unwrap();
 
         let pool = builder.build();
 
