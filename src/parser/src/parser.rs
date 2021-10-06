@@ -603,10 +603,9 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        let last_lhs = match lhs {
-            [last] => *last,
-            [.., last] => *last,
-            _ => return internal_error!(MissingContinuedExpressionLhs, self),
+        let last_lhs = match lhs.last() {
+            Some(last) => *last,
+            None => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
         if let Some(next) = self.peek_next_token(context) {
