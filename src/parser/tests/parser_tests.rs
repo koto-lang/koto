@@ -3499,6 +3499,46 @@ x.iter()
                 ]),
             )
         }
+
+        #[test]
+        fn lookup_followed_by_continued_expression_on_next_line() {
+            let source = "
+foo.bar
+  or foo.baz or
+    false
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),
+                    Lookup((LookupNode::Id(constant(1)), None)),
+                    Lookup((LookupNode::Root(0), Some(1))),
+                    Id(constant(0)),
+                    Lookup((LookupNode::Id(constant(2)), None)),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    BinaryOp {
+                        op: AstOp::Or,
+                        lhs: 2,
+                        rhs: 5,
+                    },
+                    BoolFalse,
+                    BinaryOp {
+                        op: AstOp::Or,
+                        lhs: 6,
+                        rhs: 7,
+                    },
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("baz"),
+                ]),
+            )
+        }
     }
 
     mod keywords {

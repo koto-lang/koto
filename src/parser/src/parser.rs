@@ -581,25 +581,17 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let start_line = self.current_line_number();
-
         let expression_start = match self.parse_term(context)? {
             Some(term) => term,
             None => return Ok(None),
         };
 
-        let continue_expression = start_line == self.current_line_number();
-
-        if continue_expression {
-            if let Some(lhs) = lhs {
-                let mut lhs_with_expression_start = lhs.to_vec();
-                lhs_with_expression_start.push(expression_start);
-                self.parse_expression_continued(&lhs_with_expression_start, min_precedence, context)
-            } else {
-                self.parse_expression_continued(&[expression_start], min_precedence, context)
-            }
+        if let Some(lhs) = lhs {
+            let mut lhs_with_expression_start = lhs.to_vec();
+            lhs_with_expression_start.push(expression_start);
+            self.parse_expression_continued(&lhs_with_expression_start, min_precedence, context)
         } else {
-            Ok(Some(expression_start))
+            self.parse_expression_continued(&[expression_start], min_precedence, context)
         }
     }
 
@@ -611,10 +603,9 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
-        let last_lhs = match lhs {
-            [last] => *last,
-            [.., last] => *last,
-            _ => return internal_error!(MissingContinuedExpressionLhs, self),
+        let last_lhs = match lhs.last() {
+            Some(last) => *last,
+            None => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
         if let Some(next) = self.peek_next_token(context) {
