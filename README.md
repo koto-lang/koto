@@ -1,8 +1,9 @@
 # Koto
 
-[![Docs](https://docs.rs/koto/badge.svg)][docs]
+[![Docs](https://img.shields.io/docsrs/koto)][docs]
 [![Crates.io](https://img.shields.io/crates/v/koto.svg)][crates]
 [![CI](https://github.com/koto-lang/koto/workflows/CI/badge.svg)][ci]
+[![Discord](https://img.shields.io/discord/894599423970136167?logo=discord)][discord]
 
 Koto is an embeddable scripting language, written in Rust. It has been designed
 for ease of use and built for speed, with the goal of it being an ideal choice
@@ -20,7 +21,6 @@ iteration during game development, or experimentation in creative coding.
   - [REPL](#repl)
 - [Language Goals](#language-goals)
 - [Editor Support](#editor-support)
-  - [Vim / Neovim](#vim--neovim)
 
 ## Current State
 
@@ -41,15 +41,16 @@ a try, your early feedback will be invaluable.
 import test.assert_eq
 
 # Numbers
-assert_eq (1 + 2.5), 3.5
+x = 1 + 2.5 + 100.sqrt()
+assert_eq x, 13.5
 
 # Strings
-hello = "{}, {}!".format "Hello", "World"
-io.print hello
+name = "Koto"
+io.print "Hello, $name!"
 
 # Functions
 square = |n| n * n
-assert_eq (square 8), 64
+io.print "8 squared is ${square 8}"
 
 add_squares = |a, b| (square a) + (square b)
 assert_eq (add_squares 2, 4), 20
@@ -69,8 +70,18 @@ assert_eq
   ["Buzz", 11, "Fizz", 13, 14, "Fizz Buzz"]
 
 # Maps and tuples
-x = {foo: 42, bar: "bar"}
-assert_eq x.keys().to_tuple(), ("foo", "bar")
+x = {peaches: 42, pears: 99}
+assert_eq
+  x.keys().to_tuple(),
+  ("peaches", "pears")
+
+y = # Maps can also be defined using indented `key: value` pairs
+  apples: 123
+  plums: 99
+
+fruits = x + y # Maps can be combined using the `+` operator
+
+io.print "How many fruits? ${fruits.values().sum()} fruits!"
 ```
 
 ### Learning the Language
@@ -84,6 +95,9 @@ that are a good starting point for getting to know the language.
 
 Reference documentation for Koto's core library can be found
 [here](./docs/reference/core_lib/).
+
+You're also welcome to ask for help in [Discussions][discussions],
+or on the [discord server][discord].
 
 ### Installation
 
@@ -99,7 +113,7 @@ cargo install koto_cli
 A [REPL][repl] is provided to allow for quick experimentation.
 Launching the `koto` CLI without providing a script enters the REPL.
 
-```
+```haskell
 » koto
 Welcome to Koto v0.1.0
 » 1 + 1
@@ -126,8 +140,10 @@ A help system is included in the REPL.  Run `help` for instructions.
     in other applications, so it should be a good citizen and not introduce too
     much overhead.
 
-[crates]: https://crates.io/crates/koto
 [ci]: https://github.com/koto-lang/koto/actions
+[crates]: https://crates.io/crates/koto
+[discord]: https://discord.gg/JeV8RuK4CT
+[discussions]: https://github.com/koto-lang/koto/discussions
 [docs]: https://docs.rs/koto
 [repl]: https://en.wikipedia.org/wiki/Read–eval–print_loop
 
