@@ -1,12 +1,8 @@
 use {
     crate::{
-        make_runtime_error, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString,
-        ValueTuple, Vm,
+        Mutex, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
     },
-    std::{
-        fmt,
-        sync::{Arc, Mutex},
-    },
+    std::{fmt, sync::Arc},
     unicode_segmentation::GraphemeCursor,
 };
 
@@ -218,12 +214,7 @@ impl ValueIterator {
         &mut self,
         mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorOutput>,
     ) -> Option<ValueIteratorOutput> {
-        match self.0.lock() {
-            Ok(mut internals) => f(&mut internals),
-            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "Failed to access iterator internals"
-            ))),
-        }
+        f(&mut self.0.lock())
     }
 }
 
@@ -231,12 +222,7 @@ impl Iterator for ValueIterator {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.0.lock() {
-            Ok(mut internals) => internals.next(),
-            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "Failed to access iterator internals"
-            ))),
-        }
+        self.0.lock().next()
     }
 }
 
