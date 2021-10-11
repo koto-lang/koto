@@ -95,6 +95,11 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("iterator.consume: Expected iterable as argument"),
     });
 
+    result.add_fn("copy", |vm, args| match vm.get_args(args) {
+        [Iterator(iter)] => Ok(Iterator(iter.make_copy())),
+        _ => runtime_error!("iterator.copy: Expected iterator as argument"),
+    });
+
     result.add_fn("count", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let mut result = 0;

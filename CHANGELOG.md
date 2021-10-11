@@ -25,6 +25,8 @@ The Koto project adheres to
   - Indexing a string with a range starting from 'one past the end' is now
     supported.
     - e.g. `"x"[1..]` is allowed, and produces an empty string.
+- Iterator improvements
+  - Added `iterator.copy`.
 - Num2 / Num4 improvements.
   - Elements can now be assigned via indexing.
     - e.g.

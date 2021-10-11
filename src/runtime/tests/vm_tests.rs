@@ -2074,6 +2074,23 @@ foo = {@display: |self| 'Foo'}
         }
     }
 
+    mod iterators {
+        use super::*;
+
+        #[test]
+        fn iterator_copy() {
+            let script = "
+x = (1..10).iter()
+z = x.copy()
+x.next()
+x.next()
+z.next()
+z.next()
+";
+            test_script(script, Number(2.into()));
+        }
+    }
+
     mod error_recovery {
         use super::*;
 

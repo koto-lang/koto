@@ -72,6 +72,17 @@ export @tests =
     (1..=5).each(|n| x.push n).consume()
     assert_eq x, [1, 2, 3, 4, 5]
 
+  @test copy: ||
+    x = (1..10).iter()
+    y = x # x and y share the same iteration count
+    z = x.copy() # z gets a unique iteration count, starting from where x's current count
+    assert_eq x.next(), 1
+    assert_eq x.next(), 2
+    assert_eq y.next(), 3
+    assert_eq y.next(), 4
+    assert_eq z.next(), 1
+    assert_eq z.next(), 2
+
   @test count: ||
     result = 0..10
       .keep |n| n % 2 == 0
