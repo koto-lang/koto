@@ -27,6 +27,8 @@ The Koto project adheres to
     - e.g. `"x"[1..]` is allowed, and produces an empty string.
 - Iterator improvements
   - Added `iterator.copy`.
+  - `iterator.min`, `iterator.max`, and `iterator.min_max` now all have
+    overloads that accept a key function.
 - Num2 / Num4 improvements.
   - Elements can now be assigned via indexing.
     - e.g.

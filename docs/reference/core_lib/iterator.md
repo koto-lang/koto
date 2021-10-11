@@ -323,6 +323,11 @@ Consumes the iterator, returning the last yielded value.
 
 Returns the maximum value found in the iterable.
 
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the maximum value found in the iterable, based on first calling a 'key'
+function with the value, and then using the resulting keys for the comparisons.
+
 A `<` 'less than' comparison is performed between each value and the maximum
 found so far, until all values in the iterator have been compared.
 
@@ -344,6 +349,11 @@ found so far, until all values in the iterator have been compared.
 
 Returns the minimum value found in the iterable.
 
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the minimum value found in the iterable, based on first calling a 'key'
+function with the value, and then using the resulting keys for the comparisons.
+
 A `<` 'less than' comparison is performed between each value and the minimum
 found so far, until all values in the iterator have been compared.
 
@@ -364,6 +374,12 @@ found so far, until all values in the iterator have been compared.
 `|Iterable| -> (Value, Value)`
 
 Returns the minimum and maximum values found in the iterable.
+
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the minimum and maximum values found in the iterable, based on first
+calling a 'key' function with the value, and then using the resulting keys for
+the comparisons.
 
 A `<` 'less than' comparison is performed between each value and both the
 minimum and maximum found so far, until all values in the iterator have been
