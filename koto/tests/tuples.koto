@@ -63,7 +63,7 @@ export @tests =
   @test iter: ||
     assert_eq
       (1, 2, 3)
-        .each |n| "{}".format n
+        .each |n| "$n"
         .to_tuple(),
       ("1", "2", "3")
 

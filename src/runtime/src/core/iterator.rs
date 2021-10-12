@@ -13,7 +13,6 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
-            let vm = vm.child_vm();
 
             for output in iter {
                 match output {
@@ -45,7 +44,6 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
-            let vm = vm.child_vm();
 
             for output in iter {
                 match output {
@@ -153,7 +151,6 @@ pub fn make_module() -> ValueMap {
                 let result = result.clone();
                 let f = f.clone();
                 let mut iter = make_iterator(iterable).unwrap();
-                let vm = vm.child_vm();
 
                 match iter
                     .lock_internals(|iterator| {
@@ -302,7 +299,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let vm = vm.child_vm();
             let mut result: Option<Value> = None;
 
             for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
@@ -341,7 +337,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let vm = vm.child_vm();
             let mut result: Option<Value> = None;
 
             for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
@@ -380,7 +375,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("min_max", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let vm = vm.child_vm();
             let mut result = None;
 
             let compare_values = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
@@ -434,7 +428,6 @@ pub fn make_module() -> ValueMap {
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iter = make_iterator(iterable).unwrap().map(collect_pair);
             let f = f.clone();
-            let vm = vm.child_vm();
 
             for (i, output) in iter.enumerate() {
                 match output {
@@ -629,7 +622,6 @@ fn fold_with_operator(
     initial_value: Value,
     operator: BinaryOp,
 ) -> RuntimeResult {
-    let vm = vm.child_vm();
     let mut result = initial_value;
 
     for output in make_iterator(&iterable).unwrap().map(collect_pair) {

@@ -81,6 +81,12 @@ The Koto project adheres to
 - `$` symbols in string literals now need to be escaped due to the addition of
   string interpolation.
 
+### Removed
+
+- The `child_vm` mechanism has been removed.
+  - External functions that make use of it should be able to switch to reusing
+    the vm passed into the external function.
+
 ## [0.8.1] 2021.08.18
 
 ### Fixed

@@ -30,14 +30,14 @@ locals.foo_meta =
   @[]: |self, index| self.x + index
 
   # Formatting
-  @display: |self| "Foo ({})".format self.x
+  @display: |self| "Foo (${self.x})"
 
   # Type
   @type: "Foo"
 
   # Named meta entries are accessible on the value but don't appear as map entries
   @meta hello: "Hello"
-  @meta say_hello: |self, name| "{}, {}!".format(self.hello, name)
+  @meta say_hello: |self, name| "${self.hello}, $name!"
 
 export @tests =
   @test add: ||
@@ -96,7 +96,7 @@ export @tests =
     assert_eq foo(100)[-1], 99
 
   @test display: ||
-    assert_eq ("{}".format (foo -1)), "Foo (-1)"
+    assert_eq "${foo -1}", "Foo (-1)"
 
   @test type: ||
     assert_eq (koto.type (foo 0)), "Foo"

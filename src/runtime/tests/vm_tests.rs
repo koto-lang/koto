@@ -2063,6 +2063,15 @@ m.'key$x'
 ";
             test_script(script, Number(123.into()));
         }
+
+        #[test]
+        fn interpolated_string_with_value_with_overloaded_display() {
+            let script = "
+foo = {@display: |self| 'Foo'}
+'$foo'
+";
+            test_script(script, string("Foo"));
+        }
     }
 
     mod error_recovery {

@@ -155,7 +155,6 @@ pub fn make_module() -> ValueMap {
         [Map(l), f] if f.is_callable() => {
             let m = l.clone();
             let f = f.clone();
-            let vm = vm.child_vm();
             let mut error = None;
 
             let get_sort_key =
@@ -211,19 +210,15 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
-        [Map(m), key, f] if key.is_immutable() && f.is_callable() => do_map_update(
-            m.clone(),
-            key.clone().into(),
-            Empty,
-            f.clone(),
-            vm.child_vm(),
-        ),
+        [Map(m), key, f] if key.is_immutable() && f.is_callable() => {
+            do_map_update(m.clone(), key.clone().into(), Empty, f.clone(), vm)
+        }
         [Map(m), key, default, f] if key.is_immutable() && f.is_callable() => do_map_update(
             m.clone(),
             key.clone().into(),
             default.clone(),
             f.clone(),
-            vm.child_vm(),
+            vm,
         ),
         _ => runtime_error!("map.update: Expected map, key, and function as arguments"),
     });

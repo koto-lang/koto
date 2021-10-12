@@ -12,7 +12,6 @@ pub fn make_module() -> ValueMap {
         [Tuple(t), value] => {
             let t = t.clone();
             let value = value.clone();
-            let vm = vm.child_vm();
             for candidate in t.data().iter() {
                 match vm.run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone()) {
                     Ok(Bool(false)) => {}
@@ -79,7 +78,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => {
             let mut result = t.data().to_vec();
-            let vm = vm.child_vm();
 
             sort_values(vm, &mut result)?;
 

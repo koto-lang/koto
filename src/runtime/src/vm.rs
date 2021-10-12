@@ -169,7 +169,6 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
     stop_flag: Option<Arc<AtomicBool>>,
-    child_vm: Option<Box<Vm>>,
 }
 
 impl Default for Vm {
@@ -191,7 +190,6 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
-            child_vm: None,
         }
     }
 
@@ -203,7 +201,6 @@ impl Vm {
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
             stop_flag: None,
-            child_vm: None,
         }
     }
 
@@ -215,7 +212,6 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: None,
-            child_vm: None,
         }
     }
 
@@ -232,15 +228,7 @@ impl Vm {
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
             stop_flag: Some(stop_flag),
-            child_vm: None,
         }
-    }
-
-    pub fn child_vm(&mut self) -> &mut Vm {
-        if self.child_vm.is_none() {
-            self.child_vm = Some(Box::new(self.spawn_shared_vm()))
-        }
-        self.child_vm.as_mut().unwrap()
     }
 
     pub fn prelude(&self) -> ValueMap {
@@ -321,19 +309,12 @@ impl Vm {
         function: Value,
         args: &[Value],
     ) -> RuntimeResult {
-        if !self.call_stack.is_empty() {
-            return runtime_error!(
-                "run_function: the call stack must be empty, \
-                 are you calling run_function on an active VM?"
-            );
-        }
-
         if !function.is_callable() {
             return runtime_error!("run_function: the provided value isn't a function");
         }
 
-        let result_register = 0;
-        let frame_base = 1;
+        let result_register = self.next_register();
+        let frame_base = result_register + 1;
         // If there's an instance value then it goes in the frame base
         let instance_register = if instance.is_some() {
             Some(frame_base)
@@ -341,10 +322,11 @@ impl Vm {
             None
         };
 
-        self.value_stack.clear();
         self.value_stack.push(Value::Empty); // result register
         self.value_stack.push(instance.unwrap_or_default()); // frame base
         self.value_stack.extend_from_slice(args);
+
+        let old_frame_count = self.call_stack.len();
 
         self.call_function(
             result_register,
@@ -354,84 +336,100 @@ impl Vm {
             instance_register,
         )?;
 
-        if self.call_stack.is_empty() {
-            // If the call stack is empty, then an external function was called and the result
-            // should be in the frame base.
-            match self.value_stack.first() {
-                Some(value) => Ok(value.clone()),
-                None => runtime_error!("run_function: missing return register"),
-            }
+        let result = if self.call_stack.len() == old_frame_count {
+            // If the call stack is the same size as before calling the function,
+            // then an external function was called and the result should be in the frame base.
+            let result = self.clone_register(result_register);
+            Ok(result)
         } else {
-            self.frame_mut().catch_barrier = true;
+            self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
                 self.pop_frame(Value::Empty)?;
             }
             result
-        }
+        };
+
+        self.truncate_registers(result_register);
+        result
     }
 
     pub fn run_unary_op(&mut self, op: UnaryOp, value: Value) -> RuntimeResult {
-        if !self.call_stack.is_empty() {
-            return runtime_error!(
-                "run_unary_op: the call stack must be empty,
-                 are you calling run_unary_op on an active VM?"
-            );
-        }
+        let old_frame_count = self.call_stack.len();
+        let result_register = self.next_register();
+        let value_register = result_register + 1;
 
-        self.value_stack.clear();
-        self.value_stack.push(Value::Empty); // result register
-        self.value_stack.push(value);
+        self.value_stack.push(Value::Empty); // result_register
+        self.value_stack.push(value); // value_register
 
         match op {
-            UnaryOp::Negate => self.run_negate(0, 1)?,
-            UnaryOp::Display => self.run_display(0, 1)?,
+            UnaryOp::Negate => self.run_negate(result_register, value_register)?,
+            UnaryOp::Display => self.run_display(result_register, value_register)?,
         }
 
-        if self.call_stack.is_empty() {
-            // If the call stack is empty, then the result will be in the result register
-            Ok(self.clone_register(0))
+        let result = if self.call_stack.len() == old_frame_count {
+            // If the call stack is the same size, then the result will be in the result register
+            Ok(self.clone_register(result_register))
         } else {
-            // If the call stack isn't empty, then an overloaded operator has been called.
-            self.execute_instructions()
-        }
+            // If the call stack size has changed, then an overloaded operator has been called.
+            self.frame_mut().execution_barrier = true;
+            let result = self.execute_instructions();
+            if result.is_err() {
+                self.pop_frame(Value::Empty)?;
+            }
+            result
+        };
+
+        self.truncate_registers(result_register);
+        result
     }
 
     pub fn run_binary_op(&mut self, op: BinaryOp, lhs: Value, rhs: Value) -> RuntimeResult {
-        if !self.call_stack.is_empty() {
-            return runtime_error!(
-                "run_binary_op: the call stack must be empty,
-                 are you calling run_binary_op on an active VM?"
-            );
-        }
+        let old_frame_count = self.call_stack.len();
+        let result_register = self.next_register();
+        let lhs_register = result_register + 1;
+        let rhs_register = result_register + 2;
 
-        self.value_stack.clear();
         self.value_stack.push(Value::Empty); // result register
         self.value_stack.push(lhs);
         self.value_stack.push(rhs);
 
         match op {
-            BinaryOp::Add => self.run_add(0, 1, 2)?,
-            BinaryOp::Subtract => self.run_subtract(0, 1, 2)?,
-            BinaryOp::Multiply => self.run_multiply(0, 1, 2)?,
-            BinaryOp::Divide => self.run_divide(0, 1, 2)?,
-            BinaryOp::Modulo => self.run_modulo(0, 1, 2)?,
-            BinaryOp::Less => self.run_less(0, 1, 2)?,
-            BinaryOp::LessOrEqual => self.run_less_or_equal(0, 1, 2)?,
-            BinaryOp::Greater => self.run_greater(0, 1, 2)?,
-            BinaryOp::GreaterOrEqual => self.run_greater_or_equal(0, 1, 2)?,
-            BinaryOp::Equal => self.run_equal(0, 1, 2)?,
-            BinaryOp::NotEqual => self.run_not_equal(0, 1, 2)?,
-            BinaryOp::Index => self.run_index(0, 1, 2)?,
+            BinaryOp::Add => self.run_add(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Subtract => self.run_subtract(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Multiply => self.run_multiply(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Divide => self.run_divide(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Modulo => self.run_modulo(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register)?,
+            BinaryOp::LessOrEqual => {
+                self.run_less_or_equal(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Greater => self.run_greater(result_register, lhs_register, rhs_register)?,
+            BinaryOp::GreaterOrEqual => {
+                self.run_greater_or_equal(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Equal => self.run_equal(result_register, lhs_register, rhs_register)?,
+            BinaryOp::NotEqual => {
+                self.run_not_equal(result_register, lhs_register, rhs_register)?
+            }
+            BinaryOp::Index => self.run_index(result_register, lhs_register, rhs_register)?,
         }
 
-        if self.call_stack.is_empty() {
-            // If the call stack is empty, then the result will be in the result register
-            Ok(self.clone_register(0))
+        let result = if self.call_stack.len() == old_frame_count {
+            // If the call stack is the same size, then the result will be in the result register
+            Ok(self.clone_register(result_register))
         } else {
-            // If the call stack isn't empty, then an overloaded operator has been called.
-            self.execute_instructions()
-        }
+            // If the call stack size has changed, then an overloaded operator has been called.
+            self.frame_mut().execution_barrier = true;
+            let result = self.execute_instructions();
+            if result.is_err() {
+                self.pop_frame(Value::Empty)?;
+            }
+            result
+        };
+
+        self.truncate_registers(result_register);
+        result
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
@@ -553,7 +551,7 @@ impl Vm {
                             recover_register_and_ip = Some((*error_register, *catch_ip));
                             break;
                         } else {
-                            if frame.catch_barrier {
+                            if frame.execution_barrier {
                                 return Err(error);
                             }
 
@@ -1626,21 +1624,21 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                self.compare_value_ranges(&data_a, &data_b)?
             }
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                self.child_vm().compare_value_ranges(data_a, data_b)?
+                self.compare_value_ranges(data_a, data_b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Equal, {
                     if let Map(rhs_map) = rhs_value {
                         let a = map.clone();
                         let b = rhs_map.clone();
-                        self.child_vm().compare_value_maps(a, b)?
+                        self.compare_value_maps(a, b)?
                     } else {
                         false
                     }
@@ -1655,7 +1653,7 @@ impl Vm {
                             let captures_b = captures_b.clone();
                             let data_a = captures_a.data();
                             let data_b = captures_b.data();
-                            self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                            self.compare_value_ranges(&data_a, &data_b)?
                         }
                         _ => false,
                     }
@@ -1693,21 +1691,21 @@ impl Vm {
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                !self.compare_value_ranges(&data_a, &data_b)?
             }
             (Tuple(a), Tuple(b)) => {
                 let a = a.clone();
                 let b = b.clone();
                 let data_a = a.data();
                 let data_b = b.data();
-                !self.child_vm().compare_value_ranges(data_a, data_b)?
+                !self.compare_value_ranges(data_a, data_b)?
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, NotEqual, {
                     if let Map(rhs_map) = rhs_value {
                         let a = map.clone();
                         let b = rhs_map.clone();
-                        !self.child_vm().compare_value_maps(a, b)?
+                        !self.compare_value_maps(a, b)?
                     } else {
                         true
                     }
@@ -1722,7 +1720,7 @@ impl Vm {
                             let captures_b = captures_b.clone();
                             let data_a = captures_a.data();
                             let data_b = captures_b.data();
-                            !self.child_vm().compare_value_ranges(&data_a, &data_b)?
+                            !self.compare_value_ranges(&data_a, &data_b)?
                         }
                         _ => true,
                     }
@@ -2923,8 +2921,7 @@ impl Vm {
         instruction_ip: usize,
     ) -> InstructionResult {
         let value = self.clone_register(register);
-        let vm = self.child_vm();
-        let value_string = match vm.run_unary_op(UnaryOp::Display, value)? {
+        let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
             result @ Value::Str(_) => result,
             other => {
                 return runtime_error!(
@@ -2983,14 +2980,12 @@ impl Vm {
         }
     }
 
-    fn run_string_push(&mut self, register: u8, value: u8) -> InstructionResult {
-        let temporary_register = self.temporary_register();
-
-        // Replace the value with its display representation
-        self.run_display(temporary_register, value)?;
+    fn run_string_push(&mut self, register: u8, value_register: u8) -> InstructionResult {
+        let value = self.clone_register(value_register);
+        let display_result = self.run_unary_op(UnaryOp::Display, value)?;
 
         // Add the resulting string to the string builder
-        match self.remove_register(temporary_register) {
+        match display_result {
             Value::Str(string) => {
                 match self.get_register_mut(register) {
                     Value::StringBuilder(builder) => {
@@ -3011,7 +3006,7 @@ impl Vm {
     }
 
     fn run_string_finish(&mut self, register: u8) -> InstructionResult {
-        // Move the string builder out of its register
+        // Move the string builder out of its register to avoid cloning the string data
         match self.remove_register(register) {
             Value::StringBuilder(result) => {
                 // Make a ValueString out of the string builder's contents
@@ -3070,19 +3065,26 @@ impl Vm {
     fn pop_frame(&mut self, return_value: Value) -> Result<Option<Value>, RuntimeError> {
         self.truncate_registers(0);
 
-        if self.call_stack.pop().is_none() {
-            return runtime_error!("pop_frame: Empty call stack");
-        };
+        match self.call_stack.pop() {
+            Some(popped_frame) => {
+                if self.call_stack.is_empty() {
+                    Ok(Some(return_value))
+                } else {
+                    let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
 
-        if !self.call_stack.is_empty() && self.frame().return_register_and_ip.is_some() {
-            let (return_register, return_ip) = self.frame().return_register_and_ip.unwrap();
+                    self.set_register(return_register, return_value.clone());
+                    self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
 
-            self.set_register(return_register, return_value);
-            self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
-
-            Ok(None)
-        } else {
-            Ok(Some(return_value))
+                    if popped_frame.execution_barrier {
+                        Ok(Some(return_value))
+                    } else {
+                        Ok(None)
+                    }
+                }
+            }
+            None => {
+                runtime_error!("pop_frame: Empty call stack")
+            }
         }
     }
 
@@ -3097,7 +3099,8 @@ impl Vm {
         self.register_base() + register as usize
     }
 
-    fn temporary_register(&self) -> u8 {
+    // Returns the register id that corresponds to the next push to the value stack
+    fn next_register(&self) -> u8 {
         (self.value_stack.len() - self.register_base()) as u8
     }
 

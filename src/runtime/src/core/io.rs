@@ -81,7 +81,6 @@ pub fn make_module() -> ValueMap {
             [Str(format), format_args @ ..] => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
-                let vm = vm.child_vm();
                 match format::format_string(vm, &format, &format_args) {
                     Ok(result) => vm.stdout().write_line(&result),
                     Err(error) => Err(error),

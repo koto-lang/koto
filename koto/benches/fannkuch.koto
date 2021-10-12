@@ -71,7 +71,7 @@ export main = ||
 
   if (koto.args.get 1) != "quiet"
     print sum
-    print "Pfannkuchen({}) = {}", n, flips
+    print "Pfannkuchen($n) = $flips"
 
 export @tests =
   @test fannkuch_5: ||
