@@ -50,6 +50,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [any](#any)
 - [chain](#chain)
 - [consume](#consume)
+- [copy](#copy)
 - [count](#count)
 - [each](#each)
 - [enumerate](#enumerate)
@@ -142,7 +143,44 @@ followed by the output of the second iterator.
 `|Iterable| -> ()`
 
 Consumes the output of the iterator. This is useful when the side-effects of
-the iterator chain are important, but not so much the output value.
+the iterator chain are important, but the output values aren't required.
+
+### Example
+
+```koto
+result = []
+(1..=10)
+  .keep |n| n % 2 == 0
+  .each |n| result.push n
+  .consume()
+result
+# [2, 4, 6, 8, 10]
+```
+
+## copy
+
+`|Iterator| -> Iterator`
+
+Returns an iterator that shares the same iterable data, but with a unique
+iteration position (which is part of an iterator's shared state by default).
+
+### Example
+
+```koto
+x = (1..=10).iter()
+y = x # y shares the same iteration position as x.
+z = x.copy() # z shares the same iteration data (the range 1..=10),
+             # but has a unique iteration position.
+
+x.next()
+# 1
+x.next()
+# 2
+y.next() # y shares x's iteration position.
+# 3
+z.next() # z's iteration hasn't been impacted by the advancing of x and y.
+# 1
+```
 
 ## count
 
@@ -285,6 +323,11 @@ Consumes the iterator, returning the last yielded value.
 
 Returns the maximum value found in the iterable.
 
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the maximum value found in the iterable, based on first calling a 'key'
+function with the value, and then using the resulting keys for the comparisons.
+
 A `<` 'less than' comparison is performed between each value and the maximum
 found so far, until all values in the iterator have been compared.
 
@@ -306,6 +349,11 @@ found so far, until all values in the iterator have been compared.
 
 Returns the minimum value found in the iterable.
 
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the minimum value found in the iterable, based on first calling a 'key'
+function with the value, and then using the resulting keys for the comparisons.
+
 A `<` 'less than' comparison is performed between each value and the minimum
 found so far, until all values in the iterator have been compared.
 
@@ -326,6 +374,12 @@ found so far, until all values in the iterator have been compared.
 `|Iterable| -> (Value, Value)`
 
 Returns the minimum and maximum values found in the iterable.
+
+`|Iterable, |Value| -> Value| -> Value`
+
+Returns the minimum and maximum values found in the iterable, based on first
+calling a 'key' function with the value, and then using the resulting keys for
+the comparisons.
 
 A `<` 'less than' comparison is performed between each value and both the
 minimum and maximum found so far, until all values in the iterator have been

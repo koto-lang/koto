@@ -2074,6 +2074,37 @@ foo = {@display: |self| 'Foo'}
         }
     }
 
+    mod iterators {
+        use super::*;
+
+        #[test]
+        fn iterator_copy() {
+            let script = "
+x = (1..10).iter()
+z = x.copy()
+x.next()
+x.next()
+z.next()
+z.next()
+";
+            test_script(script, Number(2.into()));
+        }
+
+        #[test]
+        fn iterators_in_a_deep_copy() {
+            let script = "
+r = 1..10
+x = [r.iter()]
+z = x.deep_copy()
+x[0].next()
+x[0].next()
+z[0].next()
+z[0].next()
+";
+            test_script(script, Number(2.into()));
+        }
+    }
+
     mod error_recovery {
         use super::*;
 

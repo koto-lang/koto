@@ -97,7 +97,7 @@ impl Value {
     }
 
     pub fn deep_copy(&self) -> Value {
-        use Value::{List, Map, Tuple};
+        use Value::*;
 
         match &self {
             List(l) => {
@@ -117,6 +117,7 @@ impl Value {
                 let meta = m.meta().clone();
                 Map(ValueMap::with_contents(data, meta))
             }
+            Iterator(i) => Iterator(i.make_copy()),
             _ => self.clone(),
         }
     }

@@ -25,6 +25,12 @@ The Koto project adheres to
   - Indexing a string with a range starting from 'one past the end' is now
     supported.
     - e.g. `"x"[1..]` is allowed, and produces an empty string.
+- Iterator improvements
+  - `iterator.min`, `iterator.max`, and `iterator.min_max` now all have
+    overloads that accept a key function.
+  - Added `iterator.copy`.
+  - `deep_copy` operations will now make copies of contained iterators (instead
+    of the resulting iterators having shared iterator positions).
 - Num2 / Num4 improvements.
   - Elements can now be assigned via indexing.
     - e.g.

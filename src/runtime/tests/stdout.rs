@@ -1,7 +1,6 @@
 use {
     koto_bytecode::Chunk,
-    koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, RuntimeError, Vm, VmSettings},
-    parking_lot::Mutex,
+    koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, Mutex, RuntimeError, Vm, VmSettings},
     std::{fmt, sync::Arc},
 };
 

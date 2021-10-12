@@ -1,7 +1,7 @@
 use crate::{
     make_runtime_error, runtime_error,
     value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
-    BinaryOp, DataMap, RuntimeResult, Value, ValueList, ValueMap, ValueVec, Vm,
+    BinaryOp, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueVec, Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -93,6 +93,11 @@ pub fn make_module() -> ValueMap {
             Ok(Empty)
         }
         _ => runtime_error!("iterator.consume: Expected iterable as argument"),
+    });
+
+    result.add_fn("copy", |vm, args| match vm.get_args(args) {
+        [Iterator(iter)] => Ok(Iterator(iter.make_copy())),
+        _ => runtime_error!("iterator.copy: Expected iterator as argument"),
     });
 
     result.add_fn("count", |vm, args| match vm.get_args(args) {
@@ -299,37 +304,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("max", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let mut result: Option<Value> = None;
-
-            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
-                match iter_output {
-                    Output::Value(value) => {
-                        result = Some(match result {
-                            Some(result) => match vm.run_binary_op(
-                                BinaryOp::Less,
-                                result.clone(),
-                                value.clone(),
-                            ) {
-                                Ok(Bool(true)) => value,
-                                Ok(Bool(false)) => result,
-                                Ok(unexpected) => {
-                                    return runtime_error!(
-                                        "iterator.max: \
-                                         Expected Bool from < comparison, found '{}'",
-                                        unexpected.type_as_string()
-                                    );
-                                }
-                                Err(error) => return Err(error.with_prefix("iterator.max")),
-                            },
-                            None => value,
-                        })
-                    }
-                    Output::Error(error) => return Err(error.with_prefix("iterator.max")),
-                    _ => unreachable!(),
-                }
-            }
-
-            Ok(result.unwrap_or(Empty))
+            run_iterator_comparison(vm, iterable, InvertResult::Yes)
+                .map_err(|e| e.with_prefix("iterator.max"))
+        }
+        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
+            let iterable = iterable.clone();
+            let key_fn = key_fn.clone();
+            run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::Yes)
+                .map_err(|e| e.with_prefix("iterator.max"))
         }
         _ => runtime_error!("iterator.max: Expected iterable as argument"),
     });
@@ -337,37 +319,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("min", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let mut result: Option<Value> = None;
-
-            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
-                match iter_output {
-                    Output::Value(value) => {
-                        result = Some(match result {
-                            Some(result) => match vm.run_binary_op(
-                                BinaryOp::Less,
-                                result.clone(),
-                                value.clone(),
-                            ) {
-                                Ok(Bool(true)) => result,
-                                Ok(Bool(false)) => value,
-                                Ok(unexpected) => {
-                                    return runtime_error!(
-                                        "iterator.min: \
-                                         Expected Bool from < comparison, found '{}'",
-                                        unexpected.type_as_string()
-                                    );
-                                }
-                                Err(error) => return Err(error.with_prefix("iterator.min")),
-                            },
-                            None => value,
-                        })
-                    }
-                    Output::Error(error) => return Err(error.with_prefix("iterator.min")),
-                    _ => unreachable!(),
-                }
-            }
-
-            Ok(result.unwrap_or(Empty))
+            run_iterator_comparison(vm, iterable, InvertResult::No)
+                .map_err(|e| e.with_prefix("iterator.min"))
+        }
+        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
+            let iterable = iterable.clone();
+            let key_fn = key_fn.clone();
+            run_iterator_comparison_by_key(vm, iterable, key_fn, InvertResult::No)
+                .map_err(|e| e.with_prefix("iterator.min"))
         }
         _ => runtime_error!("iterator.min: Expected iterable as argument"),
     });
@@ -377,29 +336,15 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let mut result = None;
 
-            let compare_values = |vm: &mut Vm, op, a: Value, b: Value| -> RuntimeResult {
-                match vm.run_binary_op(op, a.clone(), b.clone()) {
-                    Ok(Bool(true)) => Ok(a),
-                    Ok(Bool(false)) => Ok(b),
-                    Ok(unexpected) => {
-                        return runtime_error!(
-                            "iterator.min_max: \
-                             Expected Bool from {} comparison, found '{}'",
-                            op,
-                            unexpected.type_as_string()
-                        );
-                    }
-                    Err(error) => Err(error.with_prefix("iterator.min_max")),
-                }
-            };
-
             for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Output::Value(value) => {
                         result = Some(match result {
                             Some((min, max)) => (
-                                compare_values(vm, BinaryOp::Less, min, value.clone())?,
-                                compare_values(vm, BinaryOp::Greater, max, value)?,
+                                compare_values(vm, min, value.clone(), InvertResult::No)
+                                    .map_err(|e| e.with_prefix("iterator.min_max"))?,
+                                compare_values(vm, max, value, InvertResult::Yes)
+                                    .map_err(|e| e.with_prefix("iterator.min_max"))?,
                             ),
                             None => (value.clone(), value),
                         })
@@ -410,6 +355,44 @@ pub fn make_module() -> ValueMap {
             }
 
             Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
+        }
+        [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
+            let iterable = iterable.clone();
+            let key_fn = key_fn.clone();
+            let mut result = None;
+
+            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+                match iter_output {
+                    Output::Value(value) => {
+                        let key = vm.run_function(key_fn.clone(), &[value.clone()])?;
+                        let value_and_key = (value, key);
+
+                        result = Some(match result {
+                            Some((min_and_key, max_and_key)) => (
+                                compare_values_with_key(
+                                    vm,
+                                    min_and_key,
+                                    value_and_key.clone(),
+                                    InvertResult::No,
+                                )
+                                .map_err(|e| e.with_prefix("iterator.min_max"))?,
+                                compare_values_with_key(
+                                    vm,
+                                    max_and_key,
+                                    value_and_key,
+                                    InvertResult::Yes,
+                                )
+                                .map_err(|e| e.with_prefix("iterator.min_max"))?,
+                            ),
+                            None => (value_and_key.clone(), value_and_key),
+                        })
+                    }
+                    Output::Error(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(result.map_or(Empty, |((min, _), (max, _))| Tuple(vec![min, max].into())))
         }
         _ => runtime_error!("iterator.min_max: Expected iterable as argument"),
     });
@@ -635,4 +618,110 @@ fn fold_with_operator(
     }
 
     Ok(result)
+}
+
+fn run_iterator_comparison(
+    vm: &mut Vm,
+    iterable: Value,
+    invert_result: InvertResult,
+) -> RuntimeResult {
+    let mut result: Option<Value> = None;
+
+    for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+        match iter_output {
+            Output::Value(value) => {
+                result = Some(match result {
+                    Some(result) => {
+                        compare_values(vm, result.clone(), value.clone(), invert_result)?
+                    }
+                    None => value,
+                })
+            }
+            Output::Error(error) => return Err(error),
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(result.unwrap_or_default())
+}
+
+fn run_iterator_comparison_by_key(
+    vm: &mut Vm,
+    iterable: Value,
+    key_fn: Value,
+    invert_result: InvertResult,
+) -> RuntimeResult {
+    let mut result_and_key: Option<(Value, Value)> = None;
+
+    for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+        match iter_output {
+            Output::Value(value) => {
+                let key = vm.run_function(key_fn.clone(), &[value.clone()])?;
+                let value_and_key = (value, key);
+
+                result_and_key = Some(match result_and_key {
+                    Some(result_and_key) => {
+                        compare_values_with_key(vm, result_and_key, value_and_key, invert_result)?
+                    }
+                    None => value_and_key,
+                });
+            }
+            Output::Error(error) => return Err(error),
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(result_and_key.map_or(Value::Empty, |(value, _)| value))
+}
+
+// Compares two values using BinaryOp::Less
+//
+// Returns the lesser of the two values, unless `invert_result` is set to Yes
+fn compare_values(vm: &mut Vm, a: Value, b: Value, invert_result: InvertResult) -> RuntimeResult {
+    use {InvertResult::*, Value::Bool};
+
+    let comparison_result = vm.run_binary_op(BinaryOp::Less, a.clone(), b.clone())?;
+
+    match (comparison_result, invert_result) {
+        (Bool(true), No) => Ok(a),
+        (Bool(false), No) => Ok(b),
+        (Bool(true), Yes) => Ok(b),
+        (Bool(false), Yes) => Ok(a),
+        (other, _) => runtime_error!(
+            "Expected Bool from '<' comparison, found '{}'",
+            other.type_as_string()
+        ),
+    }
+}
+
+// Compares two values using BinaryOp::Less
+//
+// Returns the lesser of the two values, unless `invert_result` is set to Yes
+fn compare_values_with_key(
+    vm: &mut Vm,
+    a_and_key: (Value, Value),
+    b_and_key: (Value, Value),
+    invert_result: InvertResult,
+) -> Result<(Value, Value), RuntimeError> {
+    use {InvertResult::*, Value::Bool};
+
+    let comparison_result =
+        vm.run_binary_op(BinaryOp::Less, a_and_key.1.clone(), b_and_key.1.clone())?;
+
+    match (comparison_result, invert_result) {
+        (Bool(true), No) => Ok(a_and_key),
+        (Bool(false), No) => Ok(b_and_key),
+        (Bool(true), Yes) => Ok(b_and_key),
+        (Bool(false), Yes) => Ok(a_and_key),
+        (other, _) => runtime_error!(
+            "Expected Bool from '<' comparison, found '{}'",
+            other.type_as_string()
+        ),
+    }
+}
+
+#[derive(Clone, Copy)]
+enum InvertResult {
+    Yes,
+    No,
 }

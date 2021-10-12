@@ -1,12 +1,8 @@
 use {
     crate::{
-        make_runtime_error, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString,
-        ValueTuple, Vm,
+        Mutex, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
     },
-    std::{
-        fmt,
-        sync::{Arc, Mutex},
-    },
+    std::{fmt, sync::Arc},
     unicode_segmentation::GraphemeCursor,
 };
 
@@ -28,7 +24,7 @@ pub enum ValueIteratorOutput {
     Error(RuntimeError),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Iterable {
     Num2(Num2),
     Num4(Num4),
@@ -37,19 +33,20 @@ pub enum Iterable {
     Tuple(ValueTuple),
     Map(ValueMap),
     Str(ValueString),
-    Generator(Box<Vm>),
+    Generator(Arc<Mutex<Vm>>),
     External(ExternalIterator),
 }
 
+#[derive(Clone)]
 pub struct ExternalIterator(
-    Box<dyn FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static>,
+    Arc<Mutex<dyn FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static>>,
 );
 
 impl Iterator for ExternalIterator {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        (self.0)()
+        (self.0.lock())()
     }
 }
 
@@ -59,7 +56,7 @@ impl fmt::Debug for ExternalIterator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ValueIteratorInternals {
     index: usize,
     iterable: Iterable,
@@ -154,7 +151,7 @@ impl Iterator for ValueIteratorInternals {
                     None => None,
                 }
             }
-            Iterable::Generator(vm) => match vm.continue_running() {
+            Iterable::Generator(vm) => match vm.lock().continue_running() {
                 Ok(Value::Empty) => None,
                 Ok(Value::TemporaryTuple(_)) => {
                     unreachable!("Yield shouldn't produce temporary tuples")
@@ -204,13 +201,19 @@ impl ValueIterator {
     }
 
     pub fn with_vm(vm: Vm) -> Self {
-        Self::new(Iterable::Generator(Box::new(vm)))
+        Self::new(Iterable::Generator(Arc::new(Mutex::new(vm))))
+    }
+
+    pub fn make_copy(&self) -> Self {
+        Self(Arc::new(Mutex::new(self.0.lock().clone())))
     }
 
     pub fn make_external(
         external: impl FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static,
     ) -> Self {
-        Self::new(Iterable::External(ExternalIterator(Box::new(external))))
+        Self::new(Iterable::External(ExternalIterator(Arc::new(Mutex::new(
+            external,
+        )))))
     }
 
     // For internal functions that want to perform repeated iterations with a single lock
@@ -218,12 +221,7 @@ impl ValueIterator {
         &mut self,
         mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorOutput>,
     ) -> Option<ValueIteratorOutput> {
-        match self.0.lock() {
-            Ok(mut internals) => f(&mut internals),
-            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "Failed to access iterator internals"
-            ))),
-        }
+        f(&mut self.0.lock())
     }
 }
 
@@ -231,12 +229,7 @@ impl Iterator for ValueIterator {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.0.lock() {
-            Ok(mut internals) => internals.next(),
-            Err(_) => Some(ValueIteratorOutput::Error(make_runtime_error!(
-                "Failed to access iterator internals"
-            ))),
-        }
+        self.0.lock().next()
     }
 }
 

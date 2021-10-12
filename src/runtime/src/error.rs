@@ -1,8 +1,7 @@
 use {
-    crate::{UnaryOp, Value, Vm},
+    crate::{Mutex, UnaryOp, Value, Vm},
     koto_bytecode::Chunk,
     koto_parser::format_error_with_excerpt,
-    parking_lot::Mutex,
     std::{
         sync::Arc,
         {error, fmt},
