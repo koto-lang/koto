@@ -5,13 +5,13 @@ export @tests =
     file_data = try
       io.read_to_string koto.script_dir + "/data/test.json"
     catch error
-      io.stderr().write_line "Error reading file data: {}".format error
+      io.stderr().write_line "Error reading file data: $error"
       assert false
 
     data = try
       json.from_string file_data
     catch error
-      io.stderr().write_line "Error reading decoding json data: {}".format error
+      io.stderr().write_line "Error reading decoding json data: $error"
       assert false
 
     assert_eq data.empty, ()

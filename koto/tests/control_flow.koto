@@ -65,7 +65,7 @@ export @tests =
       # Lookups (map/list accesses, function calls) match if their results are equal
       m.foo then "foo"
       m.bar then "bar"
-      other then "{}".format other
+      other then "$other"
     assert_eq z, "bar"
 
   @test match_multiple_values: ||
@@ -89,7 +89,7 @@ export @tests =
       [3, 4, ...] then "starts with 3, 4"
       # A name can be given to capture the matched elements
       [start..., y, 10]
-        "starts with {} elements and ends with {}, 10".format start.size() y
+        "starts with ${start.size()} elements and ends with [...$y, 10]"
       # Matched lists and tuples can be nested
       [a, b, (3, 4), (c, [6, rest...])]
         a + b + c + rest.size()
