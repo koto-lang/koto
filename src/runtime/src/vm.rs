@@ -2980,14 +2980,12 @@ impl Vm {
         }
     }
 
-    fn run_string_push(&mut self, register: u8, value: u8) -> InstructionResult {
-        let temporary_register = self.next_register();
-
-        // Replace the value with its display representation
-        self.run_display(temporary_register, value)?;
+    fn run_string_push(&mut self, register: u8, value_register: u8) -> InstructionResult {
+        let value = self.clone_register(value_register);
+        let display_result = self.run_unary_op(UnaryOp::Display, value)?;
 
         // Add the resulting string to the string builder
-        match self.remove_register(temporary_register) {
+        match display_result {
             Value::Str(string) => {
                 match self.get_register_mut(register) {
                     Value::StringBuilder(builder) => {
@@ -3008,7 +3006,7 @@ impl Vm {
     }
 
     fn run_string_finish(&mut self, register: u8) -> InstructionResult {
-        // Move the string builder out of its register
+        // Move the string builder out of its register to avoid cloning the string data
         match self.remove_register(register) {
             Value::StringBuilder(result) => {
                 // Make a ValueString out of the string builder's contents
