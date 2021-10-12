@@ -818,7 +818,7 @@ impl fmt::Debug for Instruction {
                 id,
             } => write!(
                 f,
-                "MetaInsert\tmap: {}\tid: {:?}\t\tvalue: {}",
+                "MetaInsert\tmap: {}\t\tid: {:?}\t\tvalue: {}",
                 register, id, value
             ),
             MetaInsertNamed {

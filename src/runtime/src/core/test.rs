@@ -28,9 +28,7 @@ pub fn make_module() -> ValueMap {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = vm
-                .child_vm()
-                .run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
+            let result = vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
@@ -50,9 +48,7 @@ pub fn make_module() -> ValueMap {
         [a, b] => {
             let a = a.clone();
             let b = b.clone();
-            let result = vm
-                .child_vm()
-                .run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
+            let result = vm.run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {

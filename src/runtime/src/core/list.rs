@@ -25,7 +25,6 @@ pub fn make_module() -> ValueMap {
         [List(l), value] => {
             let l = l.clone();
             let value = value.clone();
-            let vm = vm.child_vm();
             for candidate in l.data().iter() {
                 match vm.run_binary_op(BinaryOp::Equal, value.clone(), candidate.clone()) {
                     Ok(Bool(false)) => {}
@@ -171,7 +170,6 @@ pub fn make_module() -> ValueMap {
             [List(l), f] if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
-                let vm = vm.child_vm();
 
                 let mut write_index = 0;
                 for read_index in 0..l.len() {
@@ -198,7 +196,6 @@ pub fn make_module() -> ValueMap {
             [List(l), value] => {
                 let l = l.clone();
                 let value = value.clone();
-                let vm = vm.child_vm();
 
                 let mut error = None;
                 l.data_mut().retain(|x| {
@@ -251,7 +248,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let l = l.clone();
-            let vm = vm.child_vm();
             let mut data = l.data_mut();
             sort_values(vm, &mut data)?;
             Ok(Empty)
@@ -259,7 +255,6 @@ pub fn make_module() -> ValueMap {
         [List(l), f] if f.is_callable() => {
             let l = l.clone();
             let f = f.clone();
-            let vm = vm.child_vm();
 
             // apply function and construct a vec of (key, value)
             let mut pairs = l
@@ -306,7 +301,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             let mut result = l.data().clone();
-            let vm = vm.child_vm();
             sort_values(vm, &mut result)?;
             Ok(List(ValueList::with_data(result)))
         }
@@ -331,7 +325,6 @@ pub fn make_module() -> ValueMap {
         [List(l), f] if f.is_callable() => {
             let l = l.clone();
             let f = f.clone();
-            let vm = vm.child_vm();
 
             for value in l.data_mut().iter_mut() {
                 *value = match vm.run_function(f.clone(), &[value.clone()]) {

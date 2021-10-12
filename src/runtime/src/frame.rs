@@ -11,9 +11,10 @@ pub(crate) struct Frame {
     pub return_register_and_ip: Option<(u8, usize)>,
     // A stack of catch points for handling errors
     pub catch_stack: Vec<(u8, usize)>, // catch error register, catch ip
-    // True if the frame should prevent errors from being caught further down the stack,
-    // e.g. when an external function is calling back into the VM with a functor
-    pub catch_barrier: bool,
+    // True if the frame should prevent execution from continuing after the frame is exited.
+    // e.g. when an overloaded operator is being executed as a result of a regular instruction,
+    //      or when an external function is calling back into the VM with a functor,
+    pub execution_barrier: bool,
 }
 
 impl Frame {
@@ -23,7 +24,7 @@ impl Frame {
             register_base,
             return_register_and_ip: None,
             catch_stack: vec![],
-            catch_barrier: false,
+            execution_barrier: false,
         }
     }
 }
