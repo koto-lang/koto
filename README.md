@@ -82,7 +82,7 @@ y = # Maps can also be defined using indented `key: value` pairs
 fruits = x + y # Maps can be combined using the `+` operator
 
 fruit, amount = fruits.max |(_, amount)| amount
-print "Fruit with the highest amount: $amount $fruit"
+print "The highest amount of fruit is: $amount $fruit"
 ```
 
 ### Learning the Language
