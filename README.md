@@ -38,7 +38,7 @@ a try, your early feedback will be invaluable.
 ### A Quick Tour
 
 ```coffee
-import test.assert_eq
+import io.print, test.assert_eq
 
 # Numbers
 x = 1 + 2.5 + 100.sqrt()
@@ -46,11 +46,11 @@ assert_eq x, 13.5
 
 # Strings
 name = "Koto"
-io.print "Hello, $name!"
+print "Hello, $name!"
 
 # Functions
 square = |n| n * n
-io.print "8 squared is ${square 8}"
+print "8 squared is ${square 8}"
 
 add_squares = |a, b| (square a) + (square b)
 assert_eq (add_squares 2, 4), 20
@@ -81,7 +81,8 @@ y = # Maps can also be defined using indented `key: value` pairs
 
 fruits = x + y # Maps can be combined using the `+` operator
 
-io.print "How many fruits? ${fruits.values().sum()} fruits!"
+fruit, amount = fruits.max |(_, amount)| amount
+print "Fruit with the highest amount: $amount $fruit"
 ```
 
 ### Learning the Language
