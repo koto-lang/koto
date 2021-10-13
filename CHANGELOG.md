@@ -111,6 +111,16 @@ The Koto project adheres to
 
 ### Removed
 
+- Range expansion when making a list is no longer supported due to a reworking
+  of list / tuple building. Iterators and `.to_list()` can be used as an
+  alternative.
+  - e.g.
+    ```koto
+    # Instead of:
+    x = [1..=5] # [1, 2, 3, 4, 5]
+    # Use .to_list():
+    x = (1..=5).to_list() # [1, 2, 3, 4, 5]
+    ```
 - The `child_vm` mechanism has been removed.
   - External functions that make use of it should be able to switch to reusing
     the vm passed into the external function.

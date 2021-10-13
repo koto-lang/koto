@@ -11,7 +11,7 @@ from test import assert, assert_eq
 
 fannkuch = |n|
   assert n >= 4
-  p = [0..=n]
+  p = (0..=n).to_list()
   s = p.copy()
   q = p.copy()
   sign = 1

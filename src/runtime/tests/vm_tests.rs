@@ -175,11 +175,6 @@ a = 1
         }
 
         #[test]
-        fn from_range() {
-            test_script("[3..0]", number_list(&[3, 2, 1]));
-        }
-
-        #[test]
         fn access_element() {
             let script = "
 a = [1, 2, 3]
@@ -574,7 +569,7 @@ match x
         #[test]
         fn match_list_subslice() {
             let script = "
-x = [1..=5]
+x = (1..=5).to_list()
 match x
   [0, ...] then 0
   [..., 1] then -1
@@ -587,7 +582,7 @@ match x
         #[test]
         fn match_list_subslice_with_id() {
             let script = "
-x = [1..=5]
+x = (1..=5).to_list()
 match x
   [0, rest...] then rest
   [rest..., 3, 2, 1] then rest
@@ -600,7 +595,7 @@ match x
         #[test]
         fn match_list_subslice_at_start_with_id() {
             let script = "
-x = [1..=5]
+x = (1..=5).to_list()
 match x
   [0, rest...] then rest
   [rest..., 3, 4, 5] then rest

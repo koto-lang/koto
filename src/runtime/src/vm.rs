@@ -6,10 +6,11 @@ use {
         meta_map::meta_id_to_key,
         num2, num4, runtime_error,
         value::{self, RegisterSlice, RuntimeFunction},
-        value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
+        value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
-        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple,
+        ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -634,27 +635,12 @@ impl Vm {
                 Ok(())
             }
             Instruction::Import { register, constant } => self.run_import(register, constant),
-            Instruction::MakeTuple {
-                register,
-                start,
-                count,
-            } => {
-                self.run_make_tuple(register, start, count);
-                Ok(())
-            }
             Instruction::MakeTempTuple {
                 register,
                 start,
                 count,
             } => {
                 self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
-                Ok(())
-            }
-            Instruction::MakeList {
-                register,
-                size_hint,
-            } => {
-                self.set_register(register, List(ValueList::with_capacity(size_hint)));
                 Ok(())
             }
             Instruction::MakeMap {
@@ -674,6 +660,34 @@ impl Vm {
                 count,
                 element_register,
             } => self.run_make_num4(register, count, element_register),
+            Instruction::SequenceStart {
+                register,
+                size_hint,
+            } => {
+                self.set_register(register, SequenceBuilder(Vec::with_capacity(size_hint)));
+                Ok(())
+            }
+            Instruction::SequencePush { sequence, value } => {
+                self.run_sequence_push(sequence, value)
+            }
+            Instruction::SequencePushN {
+                sequence,
+                start,
+                count,
+            } => {
+                for value_register in start..(start + count) {
+                    self.run_sequence_push(sequence, value_register)?;
+                }
+                Ok(())
+            }
+            Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
+            Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
+            Instruction::StringStart { register } => {
+                self.set_register(register, StringBuilder(String::new()));
+                Ok(())
+            }
+            Instruction::StringPush { register, value } => self.run_string_push(register, value),
+            Instruction::StringFinish { register } => self.run_string_finish(register),
             Instruction::Range {
                 register,
                 start,
@@ -840,17 +854,6 @@ impl Vm {
                 value,
                 index,
             } => self.run_slice(register, value, index, true),
-            Instruction::ListPushValue { list, value } => self.run_list_push(list, value),
-            Instruction::ListPushValues {
-                list,
-                values_start,
-                count,
-            } => {
-                for value_register in values_start..(values_start + count) {
-                    self.run_list_push(list, value_register)?;
-                }
-                Ok(())
-            }
             Instruction::Index {
                 register,
                 value,
@@ -903,12 +906,6 @@ impl Vm {
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
-            Instruction::StringStart { register } => {
-                self.set_register(register, Value::StringBuilder(String::new()));
-                Ok(())
-            }
-            Instruction::StringPush { register, value } => self.run_string_push(register, value),
-            Instruction::StringFinish { register } => self.run_string_finish(register),
         }?;
 
         Ok(control_flow)
@@ -959,16 +956,6 @@ impl Vm {
         let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
         self.context_mut().exports.data_mut().insert(name, value);
-    }
-
-    fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
-        let mut copied = Vec::with_capacity(count as usize);
-
-        for register in start..start + count {
-            copied.push(self.clone_register(register));
-        }
-
-        self.set_register(register, Value::Tuple(copied.into()));
     }
 
     fn run_make_range(
@@ -2055,31 +2042,6 @@ impl Vm {
         Ok(())
     }
 
-    fn run_list_push(&mut self, list_register: u8, value_register: u8) -> InstructionResult {
-        use Value::*;
-
-        let value = self.clone_register(value_register);
-
-        match self.get_register_mut(list_register) {
-            List(list) => match value {
-                Range(range) => {
-                    list.data_mut()
-                        .extend(ValueIterator::new(Iterable::Range(range)).map(
-                            |iterator_output| match iterator_output {
-                                ValueIteratorOutput::Value(value) => value,
-                                _ => unreachable!(),
-                            },
-                        ));
-                }
-                _ => list.data_mut().push(value),
-            },
-            unexpected => {
-                return runtime_error!("Expected List, found '{}'", unexpected,);
-            }
-        };
-        Ok(())
-    }
-
     fn run_set_index(
         &mut self,
         indexable_register: u8,
@@ -2955,6 +2917,49 @@ impl Vm {
                 value_size,
                 expected_size
             )
+        }
+    }
+
+    fn run_sequence_push(
+        &mut self,
+        sequence_register: u8,
+        value_register: u8,
+    ) -> InstructionResult {
+        let value = self.clone_register(value_register);
+        match self.get_register_mut(sequence_register) {
+            Value::SequenceBuilder(builder) => {
+                builder.push(value);
+                Ok(())
+            }
+            other => {
+                runtime_error!(
+                    "SequencePush: Expected SequenceBuilder, found '{}'",
+                    other.type_as_string()
+                )
+            }
+        }
+    }
+
+    fn run_sequence_to_list(&mut self, register: u8) -> InstructionResult {
+        // Move the sequence builder out of its register to avoid cloning the Vec
+        match self.remove_register(register) {
+            Value::SequenceBuilder(result) => {
+                let list = ValueList::with_data(ValueVec::from_vec(result));
+                self.set_register(register, Value::List(list));
+                Ok(())
+            }
+            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
+        }
+    }
+
+    fn run_sequence_to_tuple(&mut self, register: u8) -> InstructionResult {
+        // Move the sequence builder out of its register to avoid cloning the Vec
+        match self.remove_register(register) {
+            Value::SequenceBuilder(result) => {
+                self.set_register(register, Value::Tuple(ValueTuple::from(result)));
+                Ok(())
+            }
+            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
         }
     }
 
