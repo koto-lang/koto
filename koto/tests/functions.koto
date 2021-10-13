@@ -27,12 +27,24 @@ export @tests =
     assert_eq (foo 1, 2, 3), 4
 
   @test list_unpacking: ||
-    foo = |a, [b, [c, d]], e| a * b * c * d * e
+    foo = |a, [b, [c, d]], e|
+      a * b * c * d * e
     assert_eq (foo 1, [2, [3, 4]], 5), 120
 
   @test tuple_unpacking: ||
-    foo = |a, (b, (c, d)), e| a + b + c + d + e
+    foo = |a, (b, (c, d)), e|
+      a + b + c + d + e
     assert_eq (foo 1, (2, (3, 4)), 5), 15
+
+  @test missing_args_set_to_empty: ||
+    foo = |a, b|
+      a = if a == () then 100 else a
+      b = if b == () then 42 else b
+      a + b
+
+    assert_eq foo(), 142
+    assert_eq foo(1), 43
+    assert_eq foo(1, 2), 3
 
   @test nested_function: ||
     add = |x, y|
@@ -80,7 +92,8 @@ export @tests =
 
   @test return_multiple_values: ||
     f = ||
-      return -1, 1
+      if true
+        return -1, 1
     a, b = f()
     assert_eq a, -1
     assert_eq b, 1

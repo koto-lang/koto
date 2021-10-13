@@ -2750,34 +2750,9 @@ impl Vm {
             0
         };
 
-        // Check for variadic arguments, and validate argument count
-        if variadic {
-            if call_arg_count >= expected_arg_count {
-                // Capture the varargs into a tuple and place them in the
-                // generator vm's last arg register
-                let varargs_start = frame_base + 1 + expected_arg_count;
-                let varargs_count = call_arg_count - expected_arg_count;
-                let varargs =
-                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                generator_vm.set_register(expected_arg_count + arg_offset, varargs);
-            } else {
-                return runtime_error!(
-                    "Insufficient arguments for function call, expected {}, found {}",
-                    expected_arg_count,
-                    call_arg_count,
-                );
-            }
-        } else if call_arg_count != expected_arg_count {
-            return runtime_error!(
-                "Incorrect argument count, expected {}, found {}",
-                expected_arg_count,
-                call_arg_count,
-            );
-        }
-
         // Copy any regular (non-instance, non-variadic) arguments into the generator vm
         for (arg_index, arg) in self
-            .register_slice(frame_base + 1, expected_arg_count)
+            .register_slice(frame_base + 1, expected_arg_count.min(call_arg_count))
             .iter()
             .cloned()
             .enumerate()
@@ -2785,12 +2760,33 @@ impl Vm {
             generator_vm.set_register(arg_index as u8 + arg_offset, arg);
         }
 
-        if let Some(captures) = captures {
-            // Copy the function's captures into the generator vm
-            let capture_offset = arg_offset + expected_arg_count;
-            for (capture_index, capture) in captures.data().iter().cloned().enumerate() {
-                generator_vm.set_register(capture_index as u8 + capture_offset, capture);
+        // Ensure that registers for missing arguments are set to Empty
+        if call_arg_count < expected_arg_count {
+            for arg_index in call_arg_count..expected_arg_count {
+                generator_vm.set_register(arg_index as u8 + arg_offset, Value::Empty);
             }
+        }
+
+        // Check for variadic arguments, and validate argument count
+        if variadic {
+            let variadic_register = expected_arg_count + arg_offset;
+            if call_arg_count >= expected_arg_count {
+                // Capture the varargs into a tuple and place them in the
+                // generator vm's last arg register
+                let varargs_start = frame_base + 1 + expected_arg_count;
+                let varargs_count = call_arg_count - expected_arg_count;
+                let varargs =
+                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                generator_vm.set_register(variadic_register, varargs);
+            } else {
+                generator_vm.set_register(variadic_register, Value::Empty);
+            }
+        }
+        // Place any captures in the registers following the arguments
+        if let Some(captures) = captures {
+            generator_vm
+                .value_stack
+                .extend(captures.data().iter().cloned())
         }
 
         // The args have been cloned into the generator vm, so at this point they can be removed
@@ -2858,45 +2854,27 @@ impl Vm {
                     frame_base + 1
                 };
 
-                if variadic {
-                    if call_arg_count >= expected_arg_count {
-                        // The last defined arg is the start of the var_args,
-                        // e.g. f = |x, y, z...|
-                        // arg index 2 is the first vararg, and where the tuple will be placed
-                        let arg_base = frame_base + 1;
-                        let varargs_start = arg_base + expected_arg_count;
-                        let varargs_count = call_arg_count - expected_arg_count;
-                        let varargs =
-                            Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                        self.set_register(varargs_start, varargs);
-                        self.truncate_registers(varargs_start + 1);
-                    } else {
-                        return runtime_error!(
-                            "Insufficient arguments for function call, expected {}, found {}",
-                            expected_arg_count,
-                            call_arg_count,
-                        );
-                    }
-                } else if call_arg_count != expected_arg_count {
-                    return runtime_error!(
-                        "Incorrect argument count, expected {}, found {}",
-                        expected_arg_count,
-                        call_arg_count,
-                    );
+                if variadic && call_arg_count >= expected_arg_count {
+                    // The last defined arg is the start of the var_args,
+                    // e.g. f = |x, y, z...|
+                    // arg index 2 is the first vararg, and where the tuple will be placed
+                    let arg_base = frame_base + 1;
+                    let varargs_start = arg_base + expected_arg_count;
+                    let varargs_count = call_arg_count - expected_arg_count;
+                    let varargs =
+                        Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                    self.set_register(varargs_start, varargs);
+                    self.truncate_registers(varargs_start + 1);
                 }
 
+                // Ensure that registers have been filled with Empty for any missing args.
+                // If there are extra args, truncating is OK at this point. Extra args have either
+                // been bundled into a variadic Tuple or they can be ignored.
+                let args_end = self.register_index(adjusted_frame_base + function_arg_count);
+                self.value_stack.resize(args_end, Value::Empty);
+
                 if let Some(captures) = captures {
-                    // Ensure that the value stack is initialized to the end of the args,
-                    // so that the captures can be directly copied to the correct position.
-                    // Q: Why would the stack need to be truncated?
-                    // A: Registers aren't automatically cleaned up during execution.
-                    // Q: Why would the stack need to be extended?
-                    // A: If there are no args then the frame base may have been left
-                    //    uninitialized, so using .extend() here for the captures would place them
-                    //    in the wrong position.
-                    let captures_start =
-                        self.register_index(adjusted_frame_base + function_arg_count);
-                    self.value_stack.resize(captures_start, Value::Empty);
+                    // Copy the captures list into the registers following the args
                     self.value_stack.extend(captures.data().iter().cloned());
                 }
 

@@ -798,6 +798,24 @@ add(5, 6)";
         }
 
         #[test]
+        fn call_with_insufficient_args() {
+            let script = "
+foo = |a, b| b
+foo 42
+";
+            test_script(script, Empty);
+        }
+
+        #[test]
+        fn call_with_extra_args() {
+            let script = "
+foo = |a, b| a + b
+foo 10, 20, 30, 40
+";
+            test_script(script, Number(30.into()));
+        }
+
+        #[test]
         fn nested_call_without_parens() {
             let script = "
 add = |a, b|
@@ -895,6 +913,14 @@ f = |a, b...|
   a + b.fold 0, |x, y| x + y
 f 5, 10, 20, 30";
             test_script(script, Number(65.0.into()));
+        }
+
+        #[test]
+        fn variadic_function_with_missing_args() {
+            let script = "
+f = |a, b...| b
+f()";
+            test_script(script, Empty);
         }
 
         #[test]
@@ -1656,6 +1682,17 @@ gen(1..=5).to_tuple()";
         }
 
         #[test]
+        fn generator_with_missing_arg() {
+            let script = "
+gen = |xs|
+  xs = if xs == () then (1, 2, 3) else xs
+  for x in xs
+    yield x
+gen().to_tuple()";
+            test_script(script, number_tuple(&[1, 2, 3]));
+        }
+
+        #[test]
         fn generator_variadic() {
             let script = "
 gen = |offset, xs...|
@@ -1686,6 +1723,19 @@ gen = ||
 gen().to_tuple()
 ";
             test_script(script, number_tuple(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn generator_with_captured_data_and_missing_args() {
+            let script = "
+x = 1, 2, 3
+gen = |offset, bar...|
+  offset = if offset == () then 10 else offset
+  for y in x
+    yield y + offset
+gen().to_tuple()
+";
+            test_script(script, number_tuple(&[11, 12, 13]));
         }
     }
 
