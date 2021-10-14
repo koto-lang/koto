@@ -272,6 +272,8 @@ number_traits_float!(f64);
 
 number_traits_int!(i8);
 number_traits_int!(u8);
+number_traits_int!(i16);
+number_traits_int!(u16);
 number_traits_int!(i32);
 number_traits_int!(u32);
 number_traits_int!(i64);
