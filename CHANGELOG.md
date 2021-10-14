@@ -77,8 +77,15 @@ The Koto project adheres to
     # ^~~~ An 'unexpected token' error would previously be generated here
       2
     ```
-- The Koto struct now has a `Koto::exports()` getter that allows access to a
-  script's exported values.
+- Internals
+  - `From` implementations are extended to cover integer and floating point number types for `Value`. Also additional `From` implementations for `u16` and `i16` are added for both `Value` and `ValueNumber`.
+    - e.g.
+      ```rust
+      let mut number: Value = 42_u16.into();
+      number = -42_i16.into();
+      ```
+  - The Koto struct now has a `Koto::exports()` getter that allows access to a
+    script's exported values.
 
 ### Changed
 
