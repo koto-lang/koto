@@ -168,6 +168,11 @@ pub enum Instruction {
         register: u8,
         iterable: u8,
     },
+    SimpleFunction {
+        register: u8,
+        arg_count: u8,
+        size: usize,
+    },
     Function {
         register: u8,
         arg_count: u8,
@@ -423,6 +428,7 @@ impl fmt::Display for Instruction {
             RangeFrom { .. } => write!(f, "RangeFrom"),
             RangeFull { .. } => write!(f, "RangeFull"),
             MakeIterator { .. } => write!(f, "MakeIterator"),
+            SimpleFunction { .. } => write!(f, "SimpleFunction"),
             Function { .. } => write!(f, "Function"),
             Capture { .. } => write!(f, "Capture"),
             Negate { .. } => write!(f, "Negate"),
@@ -594,6 +600,15 @@ impl fmt::Debug for Instruction {
                 f,
                 "MakeIterator\tresult: {}\titerable: {}",
                 register, iterable
+            ),
+            SimpleFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
+                f,
+                "SimpleFunction\tresult: {}\targs: {}\t\tsize: {}",
+                register, arg_count, size,
             ),
             Function {
                 register,
@@ -813,7 +828,7 @@ impl fmt::Debug for Instruction {
                 id,
             } => write!(
                 f,
-                "MetaInsert\tmap: {}\t\tid: {:?}\t\tvalue: {}",
+                "MetaInsert\tmap: {}\t\tid: {:?}\tvalue: {}",
                 register, id, value
             ),
             MetaInsertNamed {
@@ -823,7 +838,7 @@ impl fmt::Debug for Instruction {
                 value,
             } => write!(
                 f,
-                "MetaInsertNamed\tmap: {}\t\tid: {:?}\tname: {}\tvalue: {}",
+                "MetaInsertNamed\tmap: {}\t\tid: {:?}\tname: {}\t\tvalue: {}",
                 register, id, name, value
             ),
             MetaExport { id, value } => write!(f, "MetaExport\tid: {:?}\tvalue: {}", id, value),
@@ -1114,6 +1129,17 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 iterable: get_u8!(),
             }),
+            Op::SimpleFunction => {
+                let register = get_u8!();
+                let arg_count = get_u8!();
+                let size = get_u16!() as usize;
+
+                Some(SimpleFunction {
+                    register,
+                    arg_count,
+                    size,
+                })
+            }
             Op::Function => {
                 let register = get_u8!();
                 let arg_count = get_u8!();

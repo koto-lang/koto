@@ -41,6 +41,7 @@ pub enum Op {
     StringStart,      // register
     StringPush,       // register, value register
     StringFinish,     // register
+    SimpleFunction,   // register, arg count, size[2]
     Function,         // register, arg count, capture count, flags, size[2]
     Capture,          // function, target, source
     Range,            // register, start, end
@@ -94,7 +95,6 @@ pub enum Op {
     Debug,            // register, constant[3]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
-    Unused90,
     Unused91,
     Unused92,
     Unused93,

@@ -41,14 +41,17 @@ pub enum Value {
     /// The string type used in Koto
     Str(ValueString),
 
-    /// A callable function
-    Function(RuntimeFunction),
+    /// A callable function with simple properties
+    SimpleFunction(SimpleFunctionInfo),
+
+    /// A callable function with less simple properties, e.g. captures, instance function, etc.
+    Function(FunctionInfo),
 
     /// A function that produces an Iterator when called
     ///
     /// A [Vm] gets spawned for the function to run in, which pauses each time a yield instruction
     /// is encountered. See Vm::call_generator and Iterable::Generator.
-    Generator(RuntimeFunction),
+    Generator(FunctionInfo),
 
     /// The iterator type used in Koto
     Iterator(ValueIterator),
@@ -128,7 +131,8 @@ impl Value {
     }
 
     pub fn is_callable(&self) -> bool {
-        matches!(self, Value::Function { .. } | Value::ExternalFunction(_))
+        use Value::*;
+        matches!(self, SimpleFunction(_) | Function(_) | ExternalFunction(_))
     }
 
     pub fn is_immutable(&self) -> bool {
@@ -188,8 +192,9 @@ impl Value {
             },
             Str(_) => "String".to_string(),
             Tuple(_) => "Tuple".to_string(),
-            Function { .. } => "Function".to_string(),
-            Generator { .. } => "Generator".to_string(),
+            SimpleFunction(_) => "Function".to_string(),
+            Function(_) => "Function".to_string(),
+            Generator(_) => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
             ExternalValue(value) => match value.meta().get(&MetaKey::Type) {
                 Some(Str(s)) => s.as_str().to_string(),
@@ -237,7 +242,7 @@ impl fmt::Display for Value {
                 }
             }
             Range(IntRange { start, end }) => write!(f, "{}..{}", start, end),
-            Function(_) => write!(f, "||"),
+            SimpleFunction(_) | Function(_) => write!(f, "||"),
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
@@ -284,12 +289,42 @@ impl From<ValueIterator> for Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct RuntimeFunction {
+pub struct SimpleFunctionInfo {
+    /// The [Chunk] in which the function can be found.
     pub chunk: Arc<Chunk>,
+    /// The start ip of the function.
     pub ip: usize,
+    /// The expected number of arguments for the function
     pub arg_count: u8,
+}
+
+#[derive(Clone, Debug)]
+pub struct FunctionInfo {
+    /// The [Chunk] in which the function can be found.
+    pub chunk: Arc<Chunk>,
+    /// The start ip of the function.
+    pub ip: usize,
+    /// The expected number of arguments for the function.
+    pub arg_count: u8,
+    /// If the function is an instance function, then the first argument will be `self`.
     pub instance_function: bool,
+    /// If the function is variadic, then extra args will be captured in a tuple.
     pub variadic: bool,
+    /// The optional list of captures that should be copied into scope when the function is called.
+    //
+    // Q. Why use a ValueList?
+    // A. Because capturing values currently works by assigning by index, after the function
+    //    itself has been created.
+    // Q. Why not use a SequenceBuilder?
+    // A. Recursive functions need to capture themselves into the list, and the captured function
+    //    and the assigned function need to share the same captures list. Currently the only way
+    //    for this to work is to allow mutation of the shared list after the creation of the
+    //    function, so a ValueList is a reasonable choice.
+    // Q. What about using Arc<[Value]> for non-recursive functions, or Option<Value> for
+    //    non-recursive functions with a single capture?
+    // A. These could be potential optimizations to investigate at some point, but would involve
+    //    placing FunctionInfo behind an Arc due to its increased size, so it's not clear if there
+    //    would be an overall performance win.
     pub captures: Option<ValueList>,
 }
 

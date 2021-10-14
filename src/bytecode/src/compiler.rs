@@ -2097,6 +2097,8 @@ impl Compiler {
         function: &Function,
         ast: &Ast,
     ) -> CompileNodeResult {
+        use Op::*;
+
         if let Some(result) = self.get_result_register(result_register)? {
             let arg_count = match u8::try_from(function.args.len()) {
                 Ok(x) => x,
@@ -2121,16 +2123,21 @@ impl Compiler {
             }
             let capture_count = captures.len() as u8;
 
-            let flags = FunctionFlags {
+            let flags_byte = FunctionFlags {
                 instance_function: function.is_instance_function,
                 variadic: function.is_variadic,
                 generator: function.is_generator,
-            };
+            }
+            .as_byte();
 
-            self.push_op(
-                Op::Function,
-                &[result.register, arg_count, capture_count, flags.as_byte()],
-            );
+            if flags_byte == 0 && capture_count == 0 {
+                self.push_op(SimpleFunction, &[result.register, arg_count]);
+            } else {
+                self.push_op(
+                    Function,
+                    &[result.register, arg_count, capture_count, flags_byte],
+                );
+            }
 
             let function_size_ip = self.push_offset_placeholder();
 
@@ -2177,17 +2184,17 @@ impl Compiler {
                     self.frame_mut()
                         .defer_op_until_register_is_committed(
                             local_register,
-                            vec![Op::Capture as u8, result.register, i as u8, local_register],
+                            vec![Capture as u8, result.register, i as u8, local_register],
                         )
                         .map_err(|e| self.make_error(e))?;
                 } else if let Some(local_register) =
                     self.frame().get_local_assigned_register(*capture)
                 {
-                    self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
+                    self.push_op(Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
                     self.compile_load_non_local(capture_register, *capture);
-                    self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
+                    self.push_op(Capture, &[result.register, i as u8, capture_register]);
                     self.pop_register()?;
                 }
             }

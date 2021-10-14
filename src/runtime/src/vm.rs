@@ -5,7 +5,7 @@ use {
         frame::Frame,
         meta_map::meta_id_to_key,
         num2, num4, runtime_error,
-        value::{self, RegisterSlice, RuntimeFunction},
+        value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
@@ -329,7 +329,7 @@ impl Vm {
 
         let old_frame_count = self.call_stack.len();
 
-        self.call_function(
+        self.call_callable(
             result_register,
             function,
             frame_base,
@@ -711,6 +711,20 @@ impl Vm {
             Instruction::MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable)
             }
+            Instruction::SimpleFunction {
+                register,
+                arg_count,
+                size,
+            } => {
+                let result = Value::SimpleFunction(SimpleFunctionInfo {
+                    chunk: self.chunk(),
+                    ip: self.ip(),
+                    arg_count,
+                });
+                self.set_register(register, result);
+                self.jump_ip(size);
+                Ok(())
+            }
             Instruction::Function { .. } => {
                 self.run_make_function(instruction);
                 Ok(())
@@ -759,7 +773,7 @@ impl Vm {
                 function,
                 frame_base,
                 arg_count,
-            } => self.call_function(
+            } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
@@ -772,7 +786,7 @@ impl Vm {
                 frame_base,
                 arg_count,
                 parent,
-            } => self.call_function(
+            } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
@@ -1229,7 +1243,7 @@ impl Vm {
                     None
                 };
 
-                let function = RuntimeFunction {
+                let function = FunctionInfo {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
@@ -1648,6 +1662,9 @@ impl Vm {
                     false
                 }
             }
+            (SimpleFunction(a), SimpleFunction(b)) => {
+                a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count
+            }
             (ExternalValue(ev), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Equal, false)
             }
@@ -1790,7 +1807,7 @@ impl Vm {
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
         self.value_stack.push(Value::Empty); // frame_base
-        self.call_function(
+        self.call_callable(
             result_register,
             op,
             frame_base,
@@ -1811,7 +1828,7 @@ impl Vm {
         let frame_base = (stack_len - self.register_base()) as u8;
         self.value_stack.push(Value::Empty); // frame_base
         self.value_stack.push(rhs); // arg
-        self.call_function(
+        self.call_callable(
             result_register,
             op,
             frame_base,
@@ -2593,15 +2610,26 @@ impl Vm {
                     };
                     ExternalFunction(f_as_instance_function)
                 }
+                SimpleFunction(f) => {
+                    let f_as_instance_function = FunctionInfo {
+                        chunk: f.chunk,
+                        ip: f.ip,
+                        arg_count: f.arg_count,
+                        instance_function: true,
+                        variadic: false,
+                        captures: None,
+                    };
+                    Function(f_as_instance_function)
+                }
                 Function(f) => {
-                    let f_as_instance_function = RuntimeFunction {
+                    let f_as_instance_function = FunctionInfo {
                         instance_function: true,
                         ..f
                     };
                     Function(f_as_instance_function)
                 }
                 Generator(f) => {
-                    let f_as_instance_function = RuntimeFunction {
+                    let f_as_instance_function = FunctionInfo {
                         instance_function: true,
                         ..f
                     };
@@ -2669,12 +2697,12 @@ impl Vm {
     fn call_generator(
         &mut self,
         result_register: u8,
-        function: RuntimeFunction,
+        function: FunctionInfo,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
     ) -> InstructionResult {
-        let RuntimeFunction {
+        let FunctionInfo {
             chunk,
             ip: function_ip,
             arg_count: function_arg_count,
@@ -2763,6 +2791,80 @@ impl Vm {
     fn call_function(
         &mut self,
         result_register: u8,
+        function: FunctionInfo,
+        frame_base: u8,
+        call_arg_count: u8,
+        instance_register: Option<u8>,
+    ) -> InstructionResult {
+        let FunctionInfo {
+            chunk,
+            ip: function_ip,
+            arg_count: function_arg_count,
+            instance_function,
+            variadic,
+            captures,
+        } = function;
+
+        let expected_arg_count = match (instance_function, variadic) {
+            (true, true) => function_arg_count - 2,
+            (true, false) | (false, true) => function_arg_count - 1,
+            (false, false) => function_arg_count,
+        };
+
+        // Clone the instance register into the first register of the frame
+        let adjusted_frame_base = if instance_function {
+            if let Some(instance_register) = instance_register {
+                if instance_register != frame_base {
+                    let instance = self.clone_register(instance_register);
+                    self.set_register(frame_base, instance);
+                }
+                frame_base
+            } else {
+                return runtime_error!("Missing instance for call to instance function");
+            }
+        } else {
+            // If there's no self arg, then the frame's instance register is unused,
+            // so the new function's frame base is offset by 1
+            frame_base + 1
+        };
+
+        if variadic && call_arg_count >= expected_arg_count {
+            // The last defined arg is the start of the var_args,
+            // e.g. f = |x, y, z...|
+            // arg index 2 is the first vararg, and where the tuple will be placed
+            let arg_base = frame_base + 1;
+            let varargs_start = arg_base + expected_arg_count;
+            let varargs_count = call_arg_count - expected_arg_count;
+            let varargs = Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+            self.set_register(varargs_start, varargs);
+            self.truncate_registers(varargs_start + 1);
+        }
+
+        // Ensure that registers have been filled with Empty for any missing args.
+        // If there are extra args, truncating is OK at this point. Extra args have either
+        // been bundled into a variadic Tuple or they can be ignored.
+        let args_end = self.register_index(adjusted_frame_base + function_arg_count);
+        self.value_stack.resize(args_end, Value::Empty);
+
+        if let Some(captures) = captures {
+            // Copy the captures list into the registers following the args
+            self.value_stack.extend(captures.data().iter().cloned());
+        }
+
+        if !self.call_stack.is_empty() {
+            // Set info for when the current frame is returned to
+            self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+        }
+
+        // Set up a new frame for the called function
+        self.push_frame(chunk, function_ip, adjusted_frame_base);
+
+        Ok(())
+    }
+
+    fn call_callable(
+        &mut self,
+        result_register: u8,
         function: Value,
         frame_base: u8,
         call_arg_count: u8,
@@ -2771,74 +2873,19 @@ impl Vm {
         use Value::*;
 
         match function {
-            ExternalFunction(external_function) => self.call_external_function(
-                result_register,
-                external_function,
-                frame_base,
-                call_arg_count,
-                instance_register,
-            ),
-            Generator(runtime_function) => self.call_generator(
-                result_register,
-                runtime_function,
-                frame_base,
-                call_arg_count,
-                instance_register,
-            ),
-            Function(RuntimeFunction {
+            SimpleFunction(SimpleFunctionInfo {
                 chunk,
                 ip: function_ip,
-                arg_count: function_arg_count,
-                instance_function,
-                variadic,
-                captures,
+                arg_count,
             }) => {
-                let expected_arg_count = match (instance_function, variadic) {
-                    (true, true) => function_arg_count - 2,
-                    (true, false) | (false, true) => function_arg_count - 1,
-                    (false, false) => function_arg_count,
-                };
-
-                // Clone the instance register into the first register of the frame
-                let adjusted_frame_base = if instance_function {
-                    if let Some(instance_register) = instance_register {
-                        if instance_register != frame_base {
-                            let instance = self.clone_register(instance_register);
-                            self.set_register(frame_base, instance);
-                        }
-                        frame_base
-                    } else {
-                        return runtime_error!("Missing instance for call to instance function");
-                    }
-                } else {
-                    // If there's no self arg, then the frame's instance register is unused,
-                    // so the new function's frame base is offset by 1
-                    frame_base + 1
-                };
-
-                if variadic && call_arg_count >= expected_arg_count {
-                    // The last defined arg is the start of the var_args,
-                    // e.g. f = |x, y, z...|
-                    // arg index 2 is the first vararg, and where the tuple will be placed
-                    let arg_base = frame_base + 1;
-                    let varargs_start = arg_base + expected_arg_count;
-                    let varargs_count = call_arg_count - expected_arg_count;
-                    let varargs =
-                        Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                    self.set_register(varargs_start, varargs);
-                    self.truncate_registers(varargs_start + 1);
-                }
+                // The frame base is offset by one since the frame's instance register is unused.
+                let frame_base = frame_base + 1;
 
                 // Ensure that registers have been filled with Empty for any missing args.
-                // If there are extra args, truncating is OK at this point. Extra args have either
-                // been bundled into a variadic Tuple or they can be ignored.
-                let args_end = self.register_index(adjusted_frame_base + function_arg_count);
+                // If there are extra args, truncating is OK at this point (variadic calls aren't
+                // available for SimpleFunction).
+                let args_end = self.register_index(frame_base + arg_count);
                 self.value_stack.resize(args_end, Value::Empty);
-
-                if let Some(captures) = captures {
-                    // Copy the captures list into the registers following the args
-                    self.value_stack.extend(captures.data().iter().cloned());
-                }
 
                 if !self.call_stack.is_empty() {
                     // Set info for when the current frame is returned to
@@ -2846,11 +2893,32 @@ impl Vm {
                 }
 
                 // Set up a new frame for the called function
-                self.push_frame(chunk, function_ip, adjusted_frame_base);
+                self.push_frame(chunk, function_ip, frame_base);
 
                 Ok(())
             }
-            unexpected => self.unexpected_type_error("Expected Function", &unexpected),
+            Function(function_info) => self.call_function(
+                result_register,
+                function_info,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            Generator(function_info) => self.call_generator(
+                result_register,
+                function_info,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            ExternalFunction(external_function) => self.call_external_function(
+                result_register,
+                external_function,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            unexpected => self.unexpected_type_error("Expected callable function", &unexpected),
         }
     }
 

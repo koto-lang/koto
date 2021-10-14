@@ -32,7 +32,7 @@ pub use {
     num4::Num4,
     parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
-    value::{RuntimeFunction, Value},
+    value::{FunctionInfo, Value},
     value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},
