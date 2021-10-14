@@ -1,3 +1,4 @@
+use crate::Value;
 use std::{
     cmp::Ordering,
     fmt,
@@ -184,6 +185,18 @@ macro_rules! number_traits_float {
             }
         }
 
+        impl From<$type> for Value {
+            fn from(value: $type) -> Self {
+                Self::Number(value.into())
+            }
+        }
+
+        impl From<&$type> for Value {
+            fn from(value: &$type) -> Self {
+                Self::Number(value.into())
+            }
+        }
+
         impl PartialEq<$type> for ValueNumber {
             fn eq(&self, b: &$type) -> bool {
                 let b = *b as f64;
@@ -217,6 +230,18 @@ macro_rules! number_traits_int {
         impl From<&$type> for ValueNumber {
             fn from(n: &$type) -> ValueNumber {
                 ValueNumber::I64(*n as i64)
+            }
+        }
+
+        impl From<$type> for Value {
+            fn from(value: $type) -> Self {
+                Self::Number(value.into())
+            }
+        }
+
+        impl From<&$type> for Value {
+            fn from(value: &$type) -> Self {
+                Self::Number(value.into())
             }
         }
 
