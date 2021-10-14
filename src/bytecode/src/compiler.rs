@@ -1445,7 +1445,7 @@ impl Compiler {
         self.push_op_without_span(Jump, &[]);
 
         let finally_offset = self.push_offset_placeholder();
-        self.update_offset_placeholder(catch_offset);
+        self.update_offset_placeholder(catch_offset)?;
 
         let catch_node = ast.node(*catch_block);
         self.span_stack.push(*ast.span(catch_node.span));
@@ -1462,7 +1462,7 @@ impl Compiler {
             self.pop_register()?;
         }
 
-        self.update_offset_placeholder(finally_offset);
+        self.update_offset_placeholder(finally_offset)?;
         if let Some(finally_block) = finally_block {
             // If there's a finally block then the result of the expression is derived from there
             let finally_result_register = match result {
@@ -1640,7 +1640,7 @@ impl Compiler {
         }
 
         for jump_offset in jump_offsets.iter() {
-            self.update_offset_placeholder(*jump_offset);
+            self.update_offset_placeholder(*jump_offset)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -2170,7 +2170,7 @@ impl Compiler {
                 }
             };
 
-            self.update_offset_placeholder(function_size_ip);
+            self.update_offset_placeholder(function_size_ip)?;
 
             for (i, capture) in captures.iter().enumerate() {
                 if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
@@ -2558,7 +2558,7 @@ impl Compiler {
         };
 
         // A failing condition for the if jumps to here, at the start of the else if / else blocks
-        self.update_offset_placeholder(condition_jump_ip);
+        self.update_offset_placeholder(condition_jump_ip)?;
 
         // Iterate through the else if blocks and collect their end jump placeholders
         let else_if_jump_ips = else_if_blocks
@@ -2581,7 +2581,7 @@ impl Compiler {
                     self.push_op_without_span(Jump, &[]);
                     let else_if_jump_ip = self.push_offset_placeholder();
 
-                    self.update_offset_placeholder(conditon_jump_ip);
+                    self.update_offset_placeholder(conditon_jump_ip)?;
 
                     Ok(else_if_jump_ip)
                 },
@@ -2597,11 +2597,11 @@ impl Compiler {
 
         // We're at the end, so update the if and else if jump placeholders
         if let Some(if_jump_ip) = if_jump_ip {
-            self.update_offset_placeholder(if_jump_ip);
+            self.update_offset_placeholder(if_jump_ip)?;
         }
 
         for else_if_jump_ip in else_if_jump_ips.iter() {
-            self.update_offset_placeholder(*else_if_jump_ip);
+            self.update_offset_placeholder(*else_if_jump_ip)?;
         }
 
         Ok(result)
@@ -2652,12 +2652,12 @@ impl Compiler {
             }
 
             if let Some(jump_placeholder) = arm_end_jump_placeholder {
-                self.update_offset_placeholder(jump_placeholder);
+                self.update_offset_placeholder(jump_placeholder)?;
             }
         }
 
         for jump_placeholder in result_jump_placeholders.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -2703,7 +2703,7 @@ impl Compiler {
         }
 
         for jump_placeholder in result_jump_placeholders.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -2800,7 +2800,7 @@ impl Compiler {
             }
 
             for jump_placeholder in jumps.alternative_end.iter() {
-                self.update_offset_placeholder(*jump_placeholder);
+                self.update_offset_placeholder(*jump_placeholder)?;
             }
 
             self.span_stack.pop(); // arm node
@@ -2808,7 +2808,7 @@ impl Compiler {
 
         // Update the match end jump placeholders before the condition
         for jump_placeholder in jumps.match_end.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         // Arm condition, e.g.
@@ -2843,7 +2843,7 @@ impl Compiler {
         };
 
         for jump_placeholder in jumps.arm_end.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         Ok(result_jump_placeholder)
@@ -3211,7 +3211,7 @@ impl Compiler {
         match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder);
+                    self.update_offset_placeholder(*placeholder)?;
                 }
             }
             None => return compiler_error!(self, "Empty loop info stack"),
@@ -3282,7 +3282,7 @@ impl Compiler {
         match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder);
+                    self.update_offset_placeholder(*placeholder)?;
                 }
             }
             None => return compiler_error!(self, "Empty loop info stack"),
@@ -3299,7 +3299,7 @@ impl Compiler {
     ) -> CompileNodeResult {
         let offset_ip = self.push_offset_placeholder();
         let result = self.compile_node(result_register, node, ast)?;
-        self.update_offset_placeholder(offset_ip);
+        self.update_offset_placeholder(offset_ip)?;
         Ok(result)
     }
 
@@ -3333,11 +3333,21 @@ impl Compiler {
         }
     }
 
-    fn update_offset_placeholder(&mut self, offset_ip: usize) {
-        let offset = self.bytes.len() - offset_ip - 2;
-        let offset_bytes = (offset as u16).to_le_bytes();
-        self.bytes[offset_ip] = offset_bytes[0];
-        self.bytes[offset_ip + 1] = offset_bytes[1];
+    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<(), CompilerError> {
+        let offset = self.bytes.len() - offset_ip - 2; // -2 bytes for u16
+        match u16::try_from(offset) {
+            Ok(offset_u16) => {
+                let offset_bytes = offset_u16.to_le_bytes();
+                self.bytes[offset_ip] = offset_bytes[0];
+                self.bytes[offset_ip + 1] = offset_bytes[1];
+                Ok(())
+            }
+            Err(_) => compiler_error!(
+                self,
+                "Jump offset is too large, {} is larger than the maximum of {}.
+                 Try breaking up this part of the program a bit."
+            ),
+        }
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {
