@@ -21,4 +21,4 @@ export @tests =
       .to_tuple()
 
     assert_eq thread_results, worker_indices
-    assert_eq data, [10..18]
+    assert_eq data, (10..18).to_list()

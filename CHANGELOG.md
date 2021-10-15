@@ -78,7 +78,9 @@ The Koto project adheres to
       2
     ```
 - Internals
-  - `From` implementations are extended to cover integer and floating point number types for `Value`. Also additional `From` implementations for `u16` and `i16` are added for both `Value` and `ValueNumber`.
+  - `From` implementations are extended to cover integer and floating point
+    number types for `Value`. Also additional `From` implementations for `u16`
+    and `i16` are added for both `Value` and `ValueNumber`.
     - e.g.
       ```rust
       let mut number: Value = 42_u16.into();
@@ -89,6 +91,19 @@ The Koto project adheres to
 
 ### Changed
 
+- Functions can now be called with missing arguments, with any missing arguments
+  set to Empty.
+  - e.g.
+    ```koto
+    foo = |a, b|
+      a = if a == () then 100 else a
+      b = if b == () then 42 else b
+      a + b
+
+    foo()    # 142
+    foo 1    # 43
+    foo 1, 2 # 3
+    ```
 - Compilation errors from the top-level Koto struct are now returned as a
   variant of `KotoError`.
 - `$` symbols in string literals now need to be escaped due to the addition of
@@ -96,6 +111,16 @@ The Koto project adheres to
 
 ### Removed
 
+- Range expansion when making a list is no longer supported due to a reworking
+  of list / tuple building. Iterators and `.to_list()` can be used as an
+  alternative.
+  - e.g.
+    ```koto
+    # Instead of:
+    x = [1..=5] # [1, 2, 3, 4, 5]
+    # Use .to_list():
+    x = (1..=5).to_list() # [1, 2, 3, 4, 5]
+    ```
 - The `child_vm` mechanism has been removed.
   - External functions that make use of it should be able to switch to reusing
     the vm passed into the external function.

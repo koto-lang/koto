@@ -13,8 +13,9 @@ export @tests =
     assert_eq x, []
 
   @test contains: ||
-    assert [0..10].contains 5
-    assert not [0..10].contains 15
+    x = (0..10).to_list()
+    assert x.contains 5
+    assert not x.contains 15
 
   @test contains_with_overloaded_equality_op: ||
     bar = |x|
@@ -79,8 +80,9 @@ export @tests =
     assert_eq z, [1, 42, 3, -1]
 
   @test get: ||
-    assert_eq ([0..10].get 5), 5
-    assert_eq ([0..10].get 15), ()
+    x = (0..10).to_list()
+    assert_eq (x.get 5), 5
+    assert_eq (x.get 15), ()
 
   @test fill: ||
     a = [1, 2, 3]
@@ -101,7 +103,7 @@ export @tests =
     assert_eq z, ["hello", "hello"]
 
   @test retain_predicate: ||
-    z = [0..10]
+    z = (0..10).to_list()
     z.retain |n| n % 2 == 0
     assert_eq z, [0, 2, 4, 6, 8]
 

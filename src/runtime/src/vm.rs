@@ -5,11 +5,12 @@ use {
         frame::Frame,
         meta_map::meta_id_to_key,
         num2, num4, runtime_error,
-        value::{self, RegisterSlice, RuntimeFunction},
-        value_iterator::{IntRange, Iterable, ValueIterator, ValueIteratorOutput},
+        value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
+        value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
         RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
-        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueVec,
+        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple,
+        ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -328,7 +329,7 @@ impl Vm {
 
         let old_frame_count = self.call_stack.len();
 
-        self.call_function(
+        self.call_callable(
             result_register,
             function,
             frame_base,
@@ -634,27 +635,12 @@ impl Vm {
                 Ok(())
             }
             Instruction::Import { register, constant } => self.run_import(register, constant),
-            Instruction::MakeTuple {
-                register,
-                start,
-                count,
-            } => {
-                self.run_make_tuple(register, start, count);
-                Ok(())
-            }
             Instruction::MakeTempTuple {
                 register,
                 start,
                 count,
             } => {
                 self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
-                Ok(())
-            }
-            Instruction::MakeList {
-                register,
-                size_hint,
-            } => {
-                self.set_register(register, List(ValueList::with_capacity(size_hint)));
                 Ok(())
             }
             Instruction::MakeMap {
@@ -674,6 +660,34 @@ impl Vm {
                 count,
                 element_register,
             } => self.run_make_num4(register, count, element_register),
+            Instruction::SequenceStart {
+                register,
+                size_hint,
+            } => {
+                self.set_register(register, SequenceBuilder(Vec::with_capacity(size_hint)));
+                Ok(())
+            }
+            Instruction::SequencePush { sequence, value } => {
+                self.run_sequence_push(sequence, value)
+            }
+            Instruction::SequencePushN {
+                sequence,
+                start,
+                count,
+            } => {
+                for value_register in start..(start + count) {
+                    self.run_sequence_push(sequence, value_register)?;
+                }
+                Ok(())
+            }
+            Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
+            Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
+            Instruction::StringStart { register } => {
+                self.set_register(register, StringBuilder(String::new()));
+                Ok(())
+            }
+            Instruction::StringPush { register, value } => self.run_string_push(register, value),
+            Instruction::StringFinish { register } => self.run_string_finish(register),
             Instruction::Range {
                 register,
                 start,
@@ -696,6 +710,20 @@ impl Vm {
             Instruction::RangeFull { register } => self.run_make_range(register, None, None, false),
             Instruction::MakeIterator { register, iterable } => {
                 self.run_make_iterator(register, iterable)
+            }
+            Instruction::SimpleFunction {
+                register,
+                arg_count,
+                size,
+            } => {
+                let result = Value::SimpleFunction(SimpleFunctionInfo {
+                    chunk: self.chunk(),
+                    ip: self.ip(),
+                    arg_count,
+                });
+                self.set_register(register, result);
+                self.jump_ip(size);
+                Ok(())
             }
             Instruction::Function { .. } => {
                 self.run_make_function(instruction);
@@ -745,7 +773,7 @@ impl Vm {
                 function,
                 frame_base,
                 arg_count,
-            } => self.call_function(
+            } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
@@ -758,7 +786,7 @@ impl Vm {
                 frame_base,
                 arg_count,
                 parent,
-            } => self.call_function(
+            } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
@@ -840,17 +868,6 @@ impl Vm {
                 value,
                 index,
             } => self.run_slice(register, value, index, true),
-            Instruction::ListPushValue { list, value } => self.run_list_push(list, value),
-            Instruction::ListPushValues {
-                list,
-                values_start,
-                count,
-            } => {
-                for value_register in values_start..(values_start + count) {
-                    self.run_list_push(list, value_register)?;
-                }
-                Ok(())
-            }
             Instruction::Index {
                 register,
                 value,
@@ -903,12 +920,6 @@ impl Vm {
             }
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
-            Instruction::StringStart { register } => {
-                self.set_register(register, Value::StringBuilder(String::new()));
-                Ok(())
-            }
-            Instruction::StringPush { register, value } => self.run_string_push(register, value),
-            Instruction::StringFinish { register } => self.run_string_finish(register),
         }?;
 
         Ok(control_flow)
@@ -959,16 +970,6 @@ impl Vm {
         let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
         self.context_mut().exports.data_mut().insert(name, value);
-    }
-
-    fn run_make_tuple(&mut self, register: u8, start: u8, count: u8) {
-        let mut copied = Vec::with_capacity(count as usize);
-
-        for register in start..start + count {
-            copied.push(self.clone_register(register));
-        }
-
-        self.set_register(register, Value::Tuple(copied.into()));
     }
 
     fn run_make_range(
@@ -1242,7 +1243,7 @@ impl Vm {
                     None
                 };
 
-                let function = RuntimeFunction {
+                let function = FunctionInfo {
                     chunk: self.chunk(),
                     ip: self.ip(),
                     arg_count,
@@ -1661,6 +1662,9 @@ impl Vm {
                     false
                 }
             }
+            (SimpleFunction(a), SimpleFunction(b)) => {
+                a.chunk == b.chunk && a.ip == b.ip && a.arg_count == b.arg_count
+            }
             (ExternalValue(ev), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Equal, false)
             }
@@ -1803,7 +1807,7 @@ impl Vm {
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
         self.value_stack.push(Value::Empty); // frame_base
-        self.call_function(
+        self.call_callable(
             result_register,
             op,
             frame_base,
@@ -1824,7 +1828,7 @@ impl Vm {
         let frame_base = (stack_len - self.register_base()) as u8;
         self.value_stack.push(Value::Empty); // frame_base
         self.value_stack.push(rhs); // arg
-        self.call_function(
+        self.call_callable(
             result_register,
             op,
             frame_base,
@@ -2052,31 +2056,6 @@ impl Vm {
         };
 
         self.set_register(result_register, Num4(result));
-        Ok(())
-    }
-
-    fn run_list_push(&mut self, list_register: u8, value_register: u8) -> InstructionResult {
-        use Value::*;
-
-        let value = self.clone_register(value_register);
-
-        match self.get_register_mut(list_register) {
-            List(list) => match value {
-                Range(range) => {
-                    list.data_mut()
-                        .extend(ValueIterator::new(Iterable::Range(range)).map(
-                            |iterator_output| match iterator_output {
-                                ValueIteratorOutput::Value(value) => value,
-                                _ => unreachable!(),
-                            },
-                        ));
-                }
-                _ => list.data_mut().push(value),
-            },
-            unexpected => {
-                return runtime_error!("Expected List, found '{}'", unexpected,);
-            }
-        };
         Ok(())
     }
 
@@ -2631,15 +2610,26 @@ impl Vm {
                     };
                     ExternalFunction(f_as_instance_function)
                 }
+                SimpleFunction(f) => {
+                    let f_as_instance_function = FunctionInfo {
+                        chunk: f.chunk,
+                        ip: f.ip,
+                        arg_count: f.arg_count,
+                        instance_function: true,
+                        variadic: false,
+                        captures: None,
+                    };
+                    Function(f_as_instance_function)
+                }
                 Function(f) => {
-                    let f_as_instance_function = RuntimeFunction {
+                    let f_as_instance_function = FunctionInfo {
                         instance_function: true,
                         ..f
                     };
                     Function(f_as_instance_function)
                 }
                 Generator(f) => {
-                    let f_as_instance_function = RuntimeFunction {
+                    let f_as_instance_function = FunctionInfo {
                         instance_function: true,
                         ..f
                     };
@@ -2707,12 +2697,12 @@ impl Vm {
     fn call_generator(
         &mut self,
         result_register: u8,
-        function: RuntimeFunction,
+        function: FunctionInfo,
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
     ) -> InstructionResult {
-        let RuntimeFunction {
+        let FunctionInfo {
             chunk,
             ip: function_ip,
             arg_count: function_arg_count,
@@ -2750,34 +2740,9 @@ impl Vm {
             0
         };
 
-        // Check for variadic arguments, and validate argument count
-        if variadic {
-            if call_arg_count >= expected_arg_count {
-                // Capture the varargs into a tuple and place them in the
-                // generator vm's last arg register
-                let varargs_start = frame_base + 1 + expected_arg_count;
-                let varargs_count = call_arg_count - expected_arg_count;
-                let varargs =
-                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                generator_vm.set_register(expected_arg_count + arg_offset, varargs);
-            } else {
-                return runtime_error!(
-                    "Insufficient arguments for function call, expected {}, found {}",
-                    expected_arg_count,
-                    call_arg_count,
-                );
-            }
-        } else if call_arg_count != expected_arg_count {
-            return runtime_error!(
-                "Incorrect argument count, expected {}, found {}",
-                expected_arg_count,
-                call_arg_count,
-            );
-        }
-
         // Copy any regular (non-instance, non-variadic) arguments into the generator vm
         for (arg_index, arg) in self
-            .register_slice(frame_base + 1, expected_arg_count)
+            .register_slice(frame_base + 1, expected_arg_count.min(call_arg_count))
             .iter()
             .cloned()
             .enumerate()
@@ -2785,12 +2750,33 @@ impl Vm {
             generator_vm.set_register(arg_index as u8 + arg_offset, arg);
         }
 
-        if let Some(captures) = captures {
-            // Copy the function's captures into the generator vm
-            let capture_offset = arg_offset + expected_arg_count;
-            for (capture_index, capture) in captures.data().iter().cloned().enumerate() {
-                generator_vm.set_register(capture_index as u8 + capture_offset, capture);
+        // Ensure that registers for missing arguments are set to Empty
+        if call_arg_count < expected_arg_count {
+            for arg_index in call_arg_count..expected_arg_count {
+                generator_vm.set_register(arg_index as u8 + arg_offset, Value::Empty);
             }
+        }
+
+        // Check for variadic arguments, and validate argument count
+        if variadic {
+            let variadic_register = expected_arg_count + arg_offset;
+            if call_arg_count >= expected_arg_count {
+                // Capture the varargs into a tuple and place them in the
+                // generator vm's last arg register
+                let varargs_start = frame_base + 1 + expected_arg_count;
+                let varargs_count = call_arg_count - expected_arg_count;
+                let varargs =
+                    Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+                generator_vm.set_register(variadic_register, varargs);
+            } else {
+                generator_vm.set_register(variadic_register, Value::Empty);
+            }
+        }
+        // Place any captures in the registers following the arguments
+        if let Some(captures) = captures {
+            generator_vm
+                .value_stack
+                .extend(captures.data().iter().cloned())
         }
 
         // The args have been cloned into the generator vm, so at this point they can be removed
@@ -2805,6 +2791,80 @@ impl Vm {
     fn call_function(
         &mut self,
         result_register: u8,
+        function: FunctionInfo,
+        frame_base: u8,
+        call_arg_count: u8,
+        instance_register: Option<u8>,
+    ) -> InstructionResult {
+        let FunctionInfo {
+            chunk,
+            ip: function_ip,
+            arg_count: function_arg_count,
+            instance_function,
+            variadic,
+            captures,
+        } = function;
+
+        let expected_arg_count = match (instance_function, variadic) {
+            (true, true) => function_arg_count - 2,
+            (true, false) | (false, true) => function_arg_count - 1,
+            (false, false) => function_arg_count,
+        };
+
+        // Clone the instance register into the first register of the frame
+        let adjusted_frame_base = if instance_function {
+            if let Some(instance_register) = instance_register {
+                if instance_register != frame_base {
+                    let instance = self.clone_register(instance_register);
+                    self.set_register(frame_base, instance);
+                }
+                frame_base
+            } else {
+                return runtime_error!("Missing instance for call to instance function");
+            }
+        } else {
+            // If there's no self arg, then the frame's instance register is unused,
+            // so the new function's frame base is offset by 1
+            frame_base + 1
+        };
+
+        if variadic && call_arg_count >= expected_arg_count {
+            // The last defined arg is the start of the var_args,
+            // e.g. f = |x, y, z...|
+            // arg index 2 is the first vararg, and where the tuple will be placed
+            let arg_base = frame_base + 1;
+            let varargs_start = arg_base + expected_arg_count;
+            let varargs_count = call_arg_count - expected_arg_count;
+            let varargs = Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
+            self.set_register(varargs_start, varargs);
+            self.truncate_registers(varargs_start + 1);
+        }
+
+        // Ensure that registers have been filled with Empty for any missing args.
+        // If there are extra args, truncating is OK at this point. Extra args have either
+        // been bundled into a variadic Tuple or they can be ignored.
+        let args_end = self.register_index(adjusted_frame_base + function_arg_count);
+        self.value_stack.resize(args_end, Value::Empty);
+
+        if let Some(captures) = captures {
+            // Copy the captures list into the registers following the args
+            self.value_stack.extend(captures.data().iter().cloned());
+        }
+
+        if !self.call_stack.is_empty() {
+            // Set info for when the current frame is returned to
+            self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
+        }
+
+        // Set up a new frame for the called function
+        self.push_frame(chunk, function_ip, adjusted_frame_base);
+
+        Ok(())
+    }
+
+    fn call_callable(
+        &mut self,
+        result_register: u8,
         function: Value,
         frame_base: u8,
         call_arg_count: u8,
@@ -2813,92 +2873,19 @@ impl Vm {
         use Value::*;
 
         match function {
-            ExternalFunction(external_function) => self.call_external_function(
-                result_register,
-                external_function,
-                frame_base,
-                call_arg_count,
-                instance_register,
-            ),
-            Generator(runtime_function) => self.call_generator(
-                result_register,
-                runtime_function,
-                frame_base,
-                call_arg_count,
-                instance_register,
-            ),
-            Function(RuntimeFunction {
+            SimpleFunction(SimpleFunctionInfo {
                 chunk,
                 ip: function_ip,
-                arg_count: function_arg_count,
-                instance_function,
-                variadic,
-                captures,
+                arg_count,
             }) => {
-                let expected_arg_count = match (instance_function, variadic) {
-                    (true, true) => function_arg_count - 2,
-                    (true, false) | (false, true) => function_arg_count - 1,
-                    (false, false) => function_arg_count,
-                };
+                // The frame base is offset by one since the frame's instance register is unused.
+                let frame_base = frame_base + 1;
 
-                // Clone the instance register into the first register of the frame
-                let adjusted_frame_base = if instance_function {
-                    if let Some(instance_register) = instance_register {
-                        if instance_register != frame_base {
-                            let instance = self.clone_register(instance_register);
-                            self.set_register(frame_base, instance);
-                        }
-                        frame_base
-                    } else {
-                        return runtime_error!("Missing instance for call to instance function");
-                    }
-                } else {
-                    // If there's no self arg, then the frame's instance register is unused,
-                    // so the new function's frame base is offset by 1
-                    frame_base + 1
-                };
-
-                if variadic {
-                    if call_arg_count >= expected_arg_count {
-                        // The last defined arg is the start of the var_args,
-                        // e.g. f = |x, y, z...|
-                        // arg index 2 is the first vararg, and where the tuple will be placed
-                        let arg_base = frame_base + 1;
-                        let varargs_start = arg_base + expected_arg_count;
-                        let varargs_count = call_arg_count - expected_arg_count;
-                        let varargs =
-                            Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
-                        self.set_register(varargs_start, varargs);
-                        self.truncate_registers(varargs_start + 1);
-                    } else {
-                        return runtime_error!(
-                            "Insufficient arguments for function call, expected {}, found {}",
-                            expected_arg_count,
-                            call_arg_count,
-                        );
-                    }
-                } else if call_arg_count != expected_arg_count {
-                    return runtime_error!(
-                        "Incorrect argument count, expected {}, found {}",
-                        expected_arg_count,
-                        call_arg_count,
-                    );
-                }
-
-                if let Some(captures) = captures {
-                    // Ensure that the value stack is initialized to the end of the args,
-                    // so that the captures can be directly copied to the correct position.
-                    // Q: Why would the stack need to be truncated?
-                    // A: Registers aren't automatically cleaned up during execution.
-                    // Q: Why would the stack need to be extended?
-                    // A: If there are no args then the frame base may have been left
-                    //    uninitialized, so using .extend() here for the captures would place them
-                    //    in the wrong position.
-                    let captures_start =
-                        self.register_index(adjusted_frame_base + function_arg_count);
-                    self.value_stack.resize(captures_start, Value::Empty);
-                    self.value_stack.extend(captures.data().iter().cloned());
-                }
+                // Ensure that registers have been filled with Empty for any missing args.
+                // If there are extra args, truncating is OK at this point (variadic calls aren't
+                // available for SimpleFunction).
+                let args_end = self.register_index(frame_base + arg_count);
+                self.value_stack.resize(args_end, Value::Empty);
 
                 if !self.call_stack.is_empty() {
                     // Set info for when the current frame is returned to
@@ -2906,11 +2893,32 @@ impl Vm {
                 }
 
                 // Set up a new frame for the called function
-                self.push_frame(chunk, function_ip, adjusted_frame_base);
+                self.push_frame(chunk, function_ip, frame_base);
 
                 Ok(())
             }
-            unexpected => self.unexpected_type_error("Expected Function", &unexpected),
+            Function(function_info) => self.call_function(
+                result_register,
+                function_info,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            Generator(function_info) => self.call_generator(
+                result_register,
+                function_info,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            ExternalFunction(external_function) => self.call_external_function(
+                result_register,
+                external_function,
+                frame_base,
+                call_arg_count,
+                instance_register,
+            ),
+            unexpected => self.unexpected_type_error("Expected callable function", &unexpected),
         }
     }
 
@@ -2977,6 +2985,49 @@ impl Vm {
                 value_size,
                 expected_size
             )
+        }
+    }
+
+    fn run_sequence_push(
+        &mut self,
+        sequence_register: u8,
+        value_register: u8,
+    ) -> InstructionResult {
+        let value = self.clone_register(value_register);
+        match self.get_register_mut(sequence_register) {
+            Value::SequenceBuilder(builder) => {
+                builder.push(value);
+                Ok(())
+            }
+            other => {
+                runtime_error!(
+                    "SequencePush: Expected SequenceBuilder, found '{}'",
+                    other.type_as_string()
+                )
+            }
+        }
+    }
+
+    fn run_sequence_to_list(&mut self, register: u8) -> InstructionResult {
+        // Move the sequence builder out of its register to avoid cloning the Vec
+        match self.remove_register(register) {
+            Value::SequenceBuilder(result) => {
+                let list = ValueList::with_data(ValueVec::from_vec(result));
+                self.set_register(register, Value::List(list));
+                Ok(())
+            }
+            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
+        }
+    }
+
+    fn run_sequence_to_tuple(&mut self, register: u8) -> InstructionResult {
+        // Move the sequence builder out of its register to avoid cloning the Vec
+        match self.remove_register(register) {
+            Value::SequenceBuilder(result) => {
+                self.set_register(register, Value::Tuple(ValueTuple::from(result)));
+                Ok(())
+            }
+            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
         }
     }
 

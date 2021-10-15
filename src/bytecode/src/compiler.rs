@@ -464,7 +464,9 @@ impl Compiler {
             Node::Str(string) => self.compile_string(result_register, &string.nodes, ast)?,
             Node::Num2(elements) => self.compile_make_num2(result_register, elements, ast)?,
             Node::Num4(elements) => self.compile_make_num4(result_register, elements, ast)?,
-            Node::List(elements) => self.compile_make_list(result_register, elements, ast)?,
+            Node::List(elements) => {
+                self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
+            }
             Node::Map(entries) => self.compile_make_map(result_register, entries, ast)?,
             Node::Range {
                 start,
@@ -554,10 +556,10 @@ impl Compiler {
             }
             Node::Block(expressions) => self.compile_block(result_register, expressions, ast)?,
             Node::Tuple(elements) => {
-                self.compile_make_tuple(result_register, elements, false, ast)?
+                self.compile_make_sequence(result_register, elements, Op::SequenceToTuple, ast)?
             }
             Node::TempTuple(elements) => {
-                self.compile_make_tuple(result_register, elements, true, ast)?
+                self.compile_make_temp_tuple(result_register, elements, ast)?
             }
             Node::Negate(expression) => self.compile_negate(result_register, *expression, ast)?,
             Node::Function(f) => self.compile_function(result_register, f, ast)?,
@@ -1351,14 +1353,13 @@ impl Compiler {
         if let Some(result) = result {
             match imported.as_slice() {
                 [] => return compiler_error!(self, "Missing item to import"),
-                [single_item] => {
-                    self.push_op(Copy, &[result.register, *single_item]);
-                }
+                [single_item] => self.push_op(Copy, &[result.register, *single_item]),
                 _ => {
-                    self.push_op(MakeList, &[result.register, imported.len() as u8]);
+                    self.push_op(SequenceStart, &[result.register, imported.len() as u8]);
                     for item in imported.iter() {
-                        self.push_op(ListPushValue, &[result.register, *item]);
+                        self.push_op(SequencePush, &[result.register, *item]);
                     }
+                    self.push_op(SequenceToTuple, &[result.register]);
                 }
             }
         }
@@ -1444,7 +1445,7 @@ impl Compiler {
         self.push_op_without_span(Jump, &[]);
 
         let finally_offset = self.push_offset_placeholder();
-        self.update_offset_placeholder(catch_offset);
+        self.update_offset_placeholder(catch_offset)?;
 
         let catch_node = ast.node(*catch_block);
         self.span_stack.push(*ast.span(catch_node.span));
@@ -1461,7 +1462,7 @@ impl Compiler {
             self.pop_register()?;
         }
 
-        self.update_offset_placeholder(finally_offset);
+        self.update_offset_placeholder(finally_offset)?;
         if let Some(finally_block) = finally_block {
             // If there's a finally block then the result of the expression is derived from there
             let finally_result_register = match result {
@@ -1639,7 +1640,7 @@ impl Compiler {
         }
 
         for jump_offset in jump_offsets.iter() {
-            self.update_offset_placeholder(*jump_offset);
+            self.update_offset_placeholder(*jump_offset)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -1890,67 +1891,75 @@ impl Compiler {
         Ok(result)
     }
 
-    fn compile_make_tuple(
+    fn compile_make_temp_tuple(
         &mut self,
         result_register: ResultRegister,
         elements: &[AstIndex],
-        temp_tuple: bool,
         ast: &Ast,
     ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
-        let stack_count = self.frame().register_stack.len();
+        let result = match self.get_result_register(result_register)? {
+            Some(result) => {
+                for element in elements.iter() {
+                    let element_register = self.push_register()?;
+                    self.compile_node(
+                        ResultRegister::Fixed(element_register),
+                        ast.node(*element),
+                        ast,
+                    )?;
+                }
 
-        for element in elements.iter() {
-            let element_register = self.push_register()?;
-            self.compile_node(
-                ResultRegister::Fixed(element_register),
-                ast.node(*element),
-                ast,
-            )?;
-        }
+                let start_register = self.peek_register(elements.len() - 1)?;
 
-        let result = if let Some(result) = result {
-            let start_register = self.peek_register(elements.len() - 1)?;
-
-            if temp_tuple {
                 self.push_op(
                     Op::MakeTempTuple,
                     &[result.register, start_register as u8, elements.len() as u8],
                 );
-            // If we're making a temp tuple then the registers need to be kept around
-            } else {
-                self.push_op(
-                    Op::MakeTuple,
-                    &[result.register, start_register as u8, elements.len() as u8],
-                );
-                self.truncate_register_stack(stack_count)?;
-            }
 
-            Some(result)
-        } else {
-            None
+                // If we're making a temp tuple then the registers need to be kept around,
+                // and they should be removed by the caller.
+
+                Some(result)
+            }
+            None => {
+                // Compile the element nodes for side-effects
+                for element in elements.iter() {
+                    self.compile_node(ResultRegister::None, ast.node(*element), ast)?;
+                }
+
+                None
+            }
         };
 
         Ok(result)
     }
 
-    fn compile_make_list(
+    fn compile_make_sequence(
         &mut self,
         result_register: ResultRegister,
         elements: &[AstIndex],
+        finish_op: Op,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
-                // TODO take ranges into account when determining size hint
-                let size_hint = elements.len();
-                if size_hint <= u8::MAX as usize {
-                    self.push_op(MakeList, &[result.register, size_hint as u8]);
-                } else {
-                    self.push_op(MakeList32, &[result.register]);
-                    self.push_bytes(&size_hint.to_le_bytes());
+                match elements.len() {
+                    size_hint if size_hint <= u8::MAX as usize => {
+                        self.push_op(SequenceStart, &[result.register, size_hint as u8]);
+                    }
+                    size_hint if size_hint <= u32::MAX as usize => {
+                        self.push_op(SequenceStart32, &[result.register]);
+                        self.push_bytes(&(size_hint as u32).to_le_bytes());
+                    }
+                    overflow => {
+                        return compiler_error!(
+                            self,
+                            "Too many list elements, {} is greater than the maximum of {}",
+                            overflow,
+                            u32::MAX
+                        );
+                    }
                 }
 
                 match elements {
@@ -1960,7 +1969,7 @@ impl Compiler {
                             .compile_node(ResultRegister::Any, ast.node(*single_element), ast)?
                             .unwrap();
                         self.push_op_without_span(
-                            ListPushValue,
+                            SequencePush,
                             &[result.register, element.register],
                         );
                         if element.is_temporary {
@@ -1983,7 +1992,7 @@ impl Compiler {
                             }
 
                             self.push_op_without_span(
-                                ListPushValues,
+                                SequencePushN,
                                 &[result.register, start_register, elements_batch.len() as u8],
                             );
 
@@ -1991,6 +2000,10 @@ impl Compiler {
                         }
                     }
                 }
+
+                // Now that the elements have been added to the sequence builder,
+                // add the finishing op.
+                self.push_op(finish_op, &[result.register]);
 
                 Some(result)
             }
@@ -2016,12 +2029,22 @@ impl Compiler {
 
         let result = match self.get_result_register(result_register)? {
             Some(result) => {
-                let size_hint = entries.len();
-                if size_hint <= u8::MAX as usize {
-                    self.push_op(MakeMap, &[result.register, size_hint as u8]);
-                } else {
-                    self.push_op(MakeMap32, &[result.register]);
-                    self.push_bytes(&size_hint.to_le_bytes());
+                match entries.len() {
+                    size_hint if size_hint <= u8::MAX as usize => {
+                        self.push_op(MakeMap, &[result.register, size_hint as u8]);
+                    }
+                    size_hint if size_hint <= u32::MAX as usize => {
+                        self.push_op(MakeMap32, &[result.register]);
+                        self.push_bytes(&(size_hint as u32).to_le_bytes());
+                    }
+                    overflow => {
+                        return compiler_error!(
+                            self,
+                            "Too many map entries, {} is greater than the maximum of {}",
+                            overflow,
+                            u32::MAX
+                        );
+                    }
                 }
 
                 for (key, maybe_value_node) in entries.iter() {
@@ -2074,6 +2097,8 @@ impl Compiler {
         function: &Function,
         ast: &Ast,
     ) -> CompileNodeResult {
+        use Op::*;
+
         if let Some(result) = self.get_result_register(result_register)? {
             let arg_count = match u8::try_from(function.args.len()) {
                 Ok(x) => x,
@@ -2098,16 +2123,21 @@ impl Compiler {
             }
             let capture_count = captures.len() as u8;
 
-            let flags = FunctionFlags {
+            let flags_byte = FunctionFlags {
                 instance_function: function.is_instance_function,
                 variadic: function.is_variadic,
                 generator: function.is_generator,
-            };
+            }
+            .as_byte();
 
-            self.push_op(
-                Op::Function,
-                &[result.register, arg_count, capture_count, flags.as_byte()],
-            );
+            if flags_byte == 0 && capture_count == 0 {
+                self.push_op(SimpleFunction, &[result.register, arg_count]);
+            } else {
+                self.push_op(
+                    Function,
+                    &[result.register, arg_count, capture_count, flags_byte],
+                );
+            }
 
             let function_size_ip = self.push_offset_placeholder();
 
@@ -2147,24 +2177,24 @@ impl Compiler {
                 }
             };
 
-            self.update_offset_placeholder(function_size_ip);
+            self.update_offset_placeholder(function_size_ip)?;
 
             for (i, capture) in captures.iter().enumerate() {
                 if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
                     self.frame_mut()
                         .defer_op_until_register_is_committed(
                             local_register,
-                            vec![Op::Capture as u8, result.register, i as u8, local_register],
+                            vec![Capture as u8, result.register, i as u8, local_register],
                         )
                         .map_err(|e| self.make_error(e))?;
                 } else if let Some(local_register) =
                     self.frame().get_local_assigned_register(*capture)
                 {
-                    self.push_op(Op::Capture, &[result.register, i as u8, local_register]);
+                    self.push_op(Capture, &[result.register, i as u8, local_register]);
                 } else {
                     let capture_register = self.push_register()?;
                     self.compile_load_non_local(capture_register, *capture);
-                    self.push_op(Op::Capture, &[result.register, i as u8, capture_register]);
+                    self.push_op(Capture, &[result.register, i as u8, capture_register]);
                     self.pop_register()?;
                 }
             }
@@ -2535,7 +2565,7 @@ impl Compiler {
         };
 
         // A failing condition for the if jumps to here, at the start of the else if / else blocks
-        self.update_offset_placeholder(condition_jump_ip);
+        self.update_offset_placeholder(condition_jump_ip)?;
 
         // Iterate through the else if blocks and collect their end jump placeholders
         let else_if_jump_ips = else_if_blocks
@@ -2558,7 +2588,7 @@ impl Compiler {
                     self.push_op_without_span(Jump, &[]);
                     let else_if_jump_ip = self.push_offset_placeholder();
 
-                    self.update_offset_placeholder(conditon_jump_ip);
+                    self.update_offset_placeholder(conditon_jump_ip)?;
 
                     Ok(else_if_jump_ip)
                 },
@@ -2574,11 +2604,11 @@ impl Compiler {
 
         // We're at the end, so update the if and else if jump placeholders
         if let Some(if_jump_ip) = if_jump_ip {
-            self.update_offset_placeholder(if_jump_ip);
+            self.update_offset_placeholder(if_jump_ip)?;
         }
 
         for else_if_jump_ip in else_if_jump_ips.iter() {
-            self.update_offset_placeholder(*else_if_jump_ip);
+            self.update_offset_placeholder(*else_if_jump_ip)?;
         }
 
         Ok(result)
@@ -2629,12 +2659,12 @@ impl Compiler {
             }
 
             if let Some(jump_placeholder) = arm_end_jump_placeholder {
-                self.update_offset_placeholder(jump_placeholder);
+                self.update_offset_placeholder(jump_placeholder)?;
             }
         }
 
         for jump_placeholder in result_jump_placeholders.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -2680,7 +2710,7 @@ impl Compiler {
         }
 
         for jump_placeholder in result_jump_placeholders.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         self.truncate_register_stack(stack_count)?;
@@ -2777,7 +2807,7 @@ impl Compiler {
             }
 
             for jump_placeholder in jumps.alternative_end.iter() {
-                self.update_offset_placeholder(*jump_placeholder);
+                self.update_offset_placeholder(*jump_placeholder)?;
             }
 
             self.span_stack.pop(); // arm node
@@ -2785,7 +2815,7 @@ impl Compiler {
 
         // Update the match end jump placeholders before the condition
         for jump_placeholder in jumps.match_end.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         // Arm condition, e.g.
@@ -2820,7 +2850,7 @@ impl Compiler {
         };
 
         for jump_placeholder in jumps.arm_end.iter() {
-            self.update_offset_placeholder(*jump_placeholder);
+            self.update_offset_placeholder(*jump_placeholder)?;
         }
 
         Ok(result_jump_placeholder)
@@ -3188,7 +3218,7 @@ impl Compiler {
         match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder);
+                    self.update_offset_placeholder(*placeholder)?;
                 }
             }
             None => return compiler_error!(self, "Empty loop info stack"),
@@ -3259,7 +3289,7 @@ impl Compiler {
         match self.frame_mut().loop_stack.pop() {
             Some(loop_info) => {
                 for placeholder in loop_info.jump_placeholders.iter() {
-                    self.update_offset_placeholder(*placeholder);
+                    self.update_offset_placeholder(*placeholder)?;
                 }
             }
             None => return compiler_error!(self, "Empty loop info stack"),
@@ -3276,7 +3306,7 @@ impl Compiler {
     ) -> CompileNodeResult {
         let offset_ip = self.push_offset_placeholder();
         let result = self.compile_node(result_register, node, ast)?;
-        self.update_offset_placeholder(offset_ip);
+        self.update_offset_placeholder(offset_ip)?;
         Ok(result)
     }
 
@@ -3310,11 +3340,21 @@ impl Compiler {
         }
     }
 
-    fn update_offset_placeholder(&mut self, offset_ip: usize) {
-        let offset = self.bytes.len() - offset_ip - 2;
-        let offset_bytes = (offset as u16).to_le_bytes();
-        self.bytes[offset_ip] = offset_bytes[0];
-        self.bytes[offset_ip + 1] = offset_bytes[1];
+    fn update_offset_placeholder(&mut self, offset_ip: usize) -> Result<(), CompilerError> {
+        let offset = self.bytes.len() - offset_ip - 2; // -2 bytes for u16
+        match u16::try_from(offset) {
+            Ok(offset_u16) => {
+                let offset_bytes = offset_u16.to_le_bytes();
+                self.bytes[offset_ip] = offset_bytes[0];
+                self.bytes[offset_ip + 1] = offset_bytes[1];
+                Ok(())
+            }
+            Err(_) => compiler_error!(
+                self,
+                "Jump offset is too large, {} is larger than the maximum of {}.
+                 Try breaking up this part of the program a bit."
+            ),
+        }
     }
 
     fn push_op(&mut self, op: Op, bytes: &[u8]) {

@@ -101,19 +101,10 @@ pub enum Instruction {
         register: u8,
         constant: ConstantIndex,
     },
-    MakeTuple {
-        register: u8,
-        start: u8,
-        count: u8,
-    },
     MakeTempTuple {
         register: u8,
         start: u8,
         count: u8,
-    },
-    MakeList {
-        register: u8,
-        size_hint: usize,
     },
     MakeMap {
         register: u8,
@@ -128,6 +119,25 @@ pub enum Instruction {
         register: u8,
         count: u8,
         element_register: u8,
+    },
+    SequenceStart {
+        register: u8,
+        size_hint: usize,
+    },
+    SequencePush {
+        sequence: u8,
+        value: u8,
+    },
+    SequencePushN {
+        sequence: u8,
+        start: u8,
+        count: u8,
+    },
+    SequenceToList {
+        sequence: u8,
+    },
+    SequenceToTuple {
+        sequence: u8,
     },
     Range {
         register: u8,
@@ -157,6 +167,11 @@ pub enum Instruction {
     MakeIterator {
         register: u8,
         iterable: u8,
+    },
+    SimpleFunction {
+        register: u8,
+        arg_count: u8,
+        size: usize,
     },
     Function {
         register: u8,
@@ -310,15 +325,6 @@ pub enum Instruction {
         register: u8,
         value: u8,
     },
-    ListPushValue {
-        list: u8,
-        value: u8,
-    },
-    ListPushValues {
-        list: u8,
-        values_start: u8,
-        count: u8,
-    },
     Index {
         register: u8,
         value: u8,
@@ -403,12 +409,18 @@ impl fmt::Display for Instruction {
             LoadNonLocal { .. } => write!(f, "LoadNonLocal"),
             ValueExport { .. } => write!(f, "ValueExport"),
             Import { .. } => write!(f, "Import"),
-            MakeTuple { .. } => write!(f, "MakeTuple"),
             MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
-            MakeList { .. } => write!(f, "MakeList"),
             MakeMap { .. } => write!(f, "MakeMap"),
             MakeNum2 { .. } => write!(f, "MakeNum2"),
             MakeNum4 { .. } => write!(f, "MakeNum4"),
+            SequenceStart { .. } => write!(f, "SequenceStart"),
+            SequencePush { .. } => write!(f, "SequencePush"),
+            SequencePushN { .. } => write!(f, "SequencePushN"),
+            SequenceToList { .. } => write!(f, "SequenceToList"),
+            SequenceToTuple { .. } => write!(f, "SequenceToTuple"),
+            StringStart { .. } => write!(f, "StringStart"),
+            StringPush { .. } => write!(f, "StringPush"),
+            StringFinish { .. } => write!(f, "StringFinish"),
             Range { .. } => write!(f, "Range"),
             RangeInclusive { .. } => write!(f, "RangeInclusive"),
             RangeTo { .. } => write!(f, "RangeTo"),
@@ -416,6 +428,7 @@ impl fmt::Display for Instruction {
             RangeFrom { .. } => write!(f, "RangeFrom"),
             RangeFull { .. } => write!(f, "RangeFull"),
             MakeIterator { .. } => write!(f, "MakeIterator"),
+            SimpleFunction { .. } => write!(f, "SimpleFunction"),
             Function { .. } => write!(f, "Function"),
             Capture { .. } => write!(f, "Capture"),
             Negate { .. } => write!(f, "Negate"),
@@ -448,8 +461,6 @@ impl fmt::Display for Instruction {
             SliceTo { .. } => write!(f, "SliceTo"),
             IsTuple { .. } => write!(f, "IsTuple"),
             IsList { .. } => write!(f, "IsList"),
-            ListPushValue { .. } => write!(f, "ListPushValue"),
-            ListPushValues { .. } => write!(f, "ListPushValues"),
             Index { .. } => write!(f, "Index"),
             SetIndex { .. } => write!(f, "SetIndex"),
             MapInsert { .. } => write!(f, "MapInsert"),
@@ -463,9 +474,6 @@ impl fmt::Display for Instruction {
             Debug { .. } => write!(f, "Debug"),
             CheckType { .. } => write!(f, "CheckType"),
             CheckSize { .. } => write!(f, "CheckSize"),
-            StringStart { .. } => write!(f, "StringStart"),
-            StringPush { .. } => write!(f, "StringPush"),
-            StringFinish { .. } => write!(f, "StringFinish"),
         }
     }
 }
@@ -505,15 +513,6 @@ impl fmt::Debug for Instruction {
             Import { register, constant } => {
                 write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
             }
-            MakeTuple {
-                register,
-                start,
-                count,
-            } => write!(
-                f,
-                "MakeTuple\tresult: {}\tstart: {}\tcount: {}",
-                register, start, count
-            ),
             MakeTempTuple {
                 register,
                 start,
@@ -522,14 +521,6 @@ impl fmt::Debug for Instruction {
                 f,
                 "MakeTempTuple\tresult: {}\tstart: {}\tcount: {}",
                 register, start, count
-            ),
-            MakeList {
-                register,
-                size_hint,
-            } => write!(
-                f,
-                "MakeList\tresult: {}\tsize_hint: {}",
-                register, size_hint
             ),
             MakeMap {
                 register,
@@ -557,6 +548,28 @@ impl fmt::Debug for Instruction {
                 "MakeNum4\tresult: {}\tcount: {}\telement reg: {}",
                 register, count, element_register
             ),
+            SequenceStart {
+                register,
+                size_hint,
+            } => write!(
+                f,
+                "SequenceStart\tresult: {}\tsize_hint: {}",
+                register, size_hint
+            ),
+            SequencePush { sequence, value } => {
+                write!(f, "SequencePush\tsequence: {}\tvalue: {}", sequence, value)
+            }
+            SequencePushN {
+                sequence,
+                start,
+                count,
+            } => write!(
+                f,
+                "SequencePushN\tsequence: {}\tstart: {}\tcount: {}",
+                sequence, start, count
+            ),
+            SequenceToList { sequence } => write!(f, "SequenceToList\tsequence: {}", sequence),
+            SequenceToTuple { sequence } => write!(f, "SequenceToTuple\tsequence: {}", sequence),
             Range {
                 register,
                 start,
@@ -587,6 +600,15 @@ impl fmt::Debug for Instruction {
                 f,
                 "MakeIterator\tresult: {}\titerable: {}",
                 register, iterable
+            ),
+            SimpleFunction {
+                register,
+                arg_count,
+                size,
+            } => write!(
+                f,
+                "SimpleFunction\tresult: {}\targs: {}\t\tsize: {}",
+                register, arg_count, size,
             ),
             Function {
                 register,
@@ -773,18 +795,6 @@ impl fmt::Debug for Instruction {
             IsList { register, value } => {
                 write!(f, "IsList\t\tresult: {}\tvalue: {}", register, value)
             }
-            ListPushValue { list, value } => {
-                write!(f, "ListPushValue\tlist: {}\tvalue: {}", list, value)
-            }
-            ListPushValues {
-                list,
-                values_start,
-                count,
-            } => write!(
-                f,
-                "ListPushValues\tlist: {}\t\tstart: {}\tcount: {}",
-                list, values_start, count
-            ),
             Index {
                 register,
                 value,
@@ -818,7 +828,7 @@ impl fmt::Debug for Instruction {
                 id,
             } => write!(
                 f,
-                "MetaInsert\tmap: {}\t\tid: {:?}\t\tvalue: {}",
+                "MetaInsert\tmap: {}\t\tid: {:?}\tvalue: {}",
                 register, id, value
             ),
             MetaInsertNamed {
@@ -828,7 +838,7 @@ impl fmt::Debug for Instruction {
                 value,
             } => write!(
                 f,
-                "MetaInsertNamed\tmap: {}\t\tid: {:?}\tname: {}\tvalue: {}",
+                "MetaInsertNamed\tmap: {}\t\tid: {:?}\tname: {}\t\tvalue: {}",
                 register, id, name, value
             ),
             MetaExport { id, value } => write!(f, "MetaExport\tid: {:?}\tvalue: {}", id, value),
@@ -1044,23 +1054,10 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
-            Op::MakeTuple => Some(MakeTuple {
-                register: get_u8!(),
-                start: get_u8!(),
-                count: get_u8!(),
-            }),
             Op::MakeTempTuple => Some(MakeTempTuple {
                 register: get_u8!(),
                 start: get_u8!(),
                 count: get_u8!(),
-            }),
-            Op::MakeList => Some(MakeList {
-                register: get_u8!(),
-                size_hint: get_u8!() as usize,
-            }),
-            Op::MakeList32 => Some(MakeList {
-                register: get_u8!(),
-                size_hint: get_u32!() as usize,
             }),
             Op::MakeMap => Some(MakeMap {
                 register: get_u8!(),
@@ -1079,6 +1076,29 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 count: get_u8!(),
                 element_register: get_u8!(),
+            }),
+            Op::SequenceStart => Some(SequenceStart {
+                register: get_u8!(),
+                size_hint: get_u8!() as usize,
+            }),
+            Op::SequenceStart32 => Some(SequenceStart {
+                register: get_u8!(),
+                size_hint: get_u32!() as usize,
+            }),
+            Op::SequencePush => Some(SequencePush {
+                sequence: get_u8!(),
+                value: get_u8!(),
+            }),
+            Op::SequencePushN => Some(SequencePushN {
+                sequence: get_u8!(),
+                start: get_u8!(),
+                count: get_u8!(),
+            }),
+            Op::SequenceToList => Some(SequenceToList {
+                sequence: get_u8!(),
+            }),
+            Op::SequenceToTuple => Some(SequenceToTuple {
+                sequence: get_u8!(),
             }),
             Op::Range => Some(Range {
                 register: get_u8!(),
@@ -1109,6 +1129,17 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 iterable: get_u8!(),
             }),
+            Op::SimpleFunction => {
+                let register = get_u8!();
+                let arg_count = get_u8!();
+                let size = get_u16!() as usize;
+
+                Some(SimpleFunction {
+                    register,
+                    arg_count,
+                    size,
+                })
+            }
             Op::Function => {
                 let register = get_u8!();
                 let arg_count = get_u8!();
@@ -1273,15 +1304,6 @@ impl Iterator for InstructionReader {
             Op::IsList => Some(IsList {
                 register: get_u8!(),
                 value: get_u8!(),
-            }),
-            Op::ListPushValue => Some(ListPushValue {
-                list: get_u8!(),
-                value: get_u8!(),
-            }),
-            Op::ListPushValues => Some(ListPushValues {
-                list: get_u8!(),
-                values_start: get_u8!(),
-                count: get_u8!(),
             }),
             Op::Index => Some(Index {
                 register: get_u8!(),

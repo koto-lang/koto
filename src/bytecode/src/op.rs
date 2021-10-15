@@ -26,15 +26,22 @@ pub enum Op {
     Import,           // register, constant
     Import16,         // register, constant[2]
     Import24,         // register, constant[3]
-    MakeTuple,        // register, start register, count
     MakeTempTuple,    // register, start register, count
-    MakeList,         // register, size hint
-    MakeList32,       // register, size hint[4]
     MakeMap,          // register, size hint
     MakeMap32,        // register, size hint[4]
     MakeNum2,         // register, element count, first element
     MakeNum4,         // register, element count, first element
     MakeIterator,     // register, range
+    SequenceStart,    // register, size hint
+    SequenceStart32,  // register, size hint[4]
+    SequencePush,     // register, value
+    SequencePushN,    // register, start register, count
+    SequenceToList,   // register
+    SequenceToTuple,  // register
+    StringStart,      // register
+    StringPush,       // register, value register
+    StringFinish,     // register
+    SimpleFunction,   // register, arg count, size[2]
     Function,         // register, arg count, capture count, flags, size[2]
     Capture,          // function, target, source
     Range,            // register, start, end
@@ -71,8 +78,6 @@ pub enum Op {
     ValueIndex,       // result, value register, signed index
     SliceFrom,        // result, value register, signed index
     SliceTo,          // result, value register, signed index
-    ListPushValue,    // list, value
-    ListPushValues,   // list, start register, count
     Index,            // result, indexable, index
     SetIndex,         // indexable, index, value
     MapInsert,        // map, key, value
@@ -90,11 +95,6 @@ pub enum Op {
     Debug,            // register, constant[3]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
-    StringStart,      // register
-    StringPush,       // register, value register
-    StringFinish,     // register
-    Unused89,
-    Unused90,
     Unused91,
     Unused92,
     Unused93,
