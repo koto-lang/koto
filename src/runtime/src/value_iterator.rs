@@ -16,6 +16,14 @@ impl IntRange {
     pub fn is_ascending(&self) -> bool {
         self.start <= self.end
     }
+
+    fn len(&self) -> usize {
+        if self.is_ascending() {
+            (self.end - self.start) as usize
+        } else {
+            (self.start - self.end) as usize
+        }
+    }
 }
 
 pub enum ValueIteratorOutput {
@@ -230,6 +238,33 @@ impl Iterator for ValueIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.lock().next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        use Iterable::*;
+
+        let internals = self.0.lock();
+        let index = internals.index;
+
+        let iterable_size = match &internals.iterable {
+            Num2(_) => 2,
+            Num4(_) => 4,
+            Range(r) => r.len(),
+            List(l) => l.len(),
+            Tuple(t) => t.data().len(),
+            Map(m) => m.len(),
+            Str(s) => {
+                let upper_bound = s[index..].len();
+                let lower_bound = if upper_bound == 0 { 0 } else { 1 };
+                return (lower_bound, Some(upper_bound));
+            }
+            Generator(_) => 0,
+            External(_) => 0, // TODO
+        };
+
+        let remaining = iterable_size - index;
+
+        (remaining, Some(remaining))
     }
 }
 

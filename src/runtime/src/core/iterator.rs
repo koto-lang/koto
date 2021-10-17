@@ -495,9 +495,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let mut result = ValueVec::new();
+            let iterator = make_iterator(iterable).unwrap();
+            let (size_hint, _) = iterator.size_hint();
+            let mut result = ValueVec::with_capacity(size_hint);
 
-            for output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for output in iterator.map(collect_pair) {
                 match output {
                     Output::Value(value) => result.push(value),
                     Output::Error(error) => return Err(error),
@@ -512,10 +514,15 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_map", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let mut result = DataMap::new();
+            let iterator = make_iterator(iterable).unwrap();
+            let (size_hint, _) = iterator.size_hint();
+            let mut result = DataMap::with_capacity(size_hint);
 
-            for output in make_iterator(iterable).unwrap() {
+            for output in iterator {
                 match output {
+                    Output::ValuePair(key, value) => {
+                        result.insert(key.into(), value);
+                    }
                     Output::Value(Tuple(t)) if t.data().len() == 2 => {
                         let key = t.data()[0].clone();
                         let value = t.data()[1].clone();
@@ -523,9 +530,6 @@ pub fn make_module() -> ValueMap {
                     }
                     Output::Value(value) => {
                         result.insert(value.into(), Value::Empty);
-                    }
-                    Output::ValuePair(key, value) => {
-                        result.insert(key.into(), value);
                     }
                     Output::Error(error) => return Err(error),
                 }
@@ -538,9 +542,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let mut result = String::new();
+            let iterator = make_iterator(iterable).unwrap();
+            let (size_hint, _) = iterator.size_hint();
+            let mut result = String::with_capacity(size_hint);
 
-            for output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for output in iterator.map(collect_pair) {
                 match output {
                     Output::Value(Str(s)) => result.push_str(&s),
                     Output::Value(value) => result.push_str(&value.to_string()),
@@ -556,9 +562,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let mut result = Vec::new();
+            let iterator = make_iterator(iterable).unwrap();
+            let (size_hint, _) = iterator.size_hint();
+            let mut result = Vec::with_capacity(size_hint);
 
-            for output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for output in iterator.map(collect_pair) {
                 match output {
                     Output::Value(value) => result.push(value),
                     Output::Error(error) => return Err(error),
