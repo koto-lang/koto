@@ -109,6 +109,49 @@ impl Iterator for Each {
     }
 }
 
+/// An iterator that attaches an enumerated iteration position to each value
+pub struct Enumerate {
+    iter: ValueIterator,
+    index: usize,
+}
+
+impl Enumerate {
+    pub fn new(iter: ValueIterator) -> Self {
+        Self { iter, index: 0 }
+    }
+}
+
+impl ExternalIterator2 for Enumerate {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            index: self.index,
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Enumerate {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self
+            .iter
+            .next()
+            .map(collect_pair)
+            .map(|output| match output {
+                Output::Value(value) => Output::ValuePair(self.index.into(), value),
+                other => other,
+            });
+        self.index += 1;
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
 fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),

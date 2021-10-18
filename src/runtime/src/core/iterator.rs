@@ -131,16 +131,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let mut iter = make_iterator(iterable)
-                .unwrap()
-                .enumerate()
-                .map(|(i, iter_output)| match collect_pair(iter_output) {
-                    Output::Value(value) => Output::ValuePair(Number(i.into()), value),
-                    Output::Error(error) => Output::Error(error),
-                    _ => unreachable!(),
-                });
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            let result = adaptors::Enumerate::new(make_iterator(iterable).unwrap());
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("iterator.enumerate: Expected iterable as argument"),
     });

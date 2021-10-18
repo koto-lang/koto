@@ -1,6 +1,6 @@
 mod runtime_test_utils;
 
-use crate::runtime_test_utils::test_script;
+use crate::runtime_test_utils::{test_script, value_tuple};
 
 mod iterator {
     use super::*;
@@ -51,6 +51,23 @@ x.next() # 25
 y.next()
 ";
             test_script(script, 16.into());
+        }
+    }
+
+    mod enumerate {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = (10..20).enumerate()
+x.next() # 0, 10
+y = x.copy()
+x.next() # 1, 11
+x.next() # 2, 12
+y.next()
+";
+            test_script(script, value_tuple(&[1.into(), 11.into()]));
         }
     }
 }
