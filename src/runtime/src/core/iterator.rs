@@ -118,20 +118,13 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("each", |vm, args| match vm.get_args(args) {
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let result = adaptors::Each::new(
+                make_iterator(iterable).unwrap(),
+                f.clone(),
+                vm.spawn_shared_vm(),
+            );
 
-            let mut iter = iter.map(move |iter_output| match iter_output {
-                Output::Value(value) => match vm.run_function(f.clone(), &[value]) {
-                    Ok(result) => Output::Value(result),
-                    Err(error) => Output::Error(error.with_prefix("iterator.each")),
-                },
-                Output::Error(error) => Output::Error(error),
-                _ => unreachable!(),
-            });
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("iterator.each: Expected iterable and function as arguments"),
     });

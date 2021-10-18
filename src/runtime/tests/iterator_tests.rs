@@ -36,4 +36,21 @@ y.next()
             test_script(script, 3.into());
         }
     }
+
+    mod each {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = (3, 4, 5, 6).each |x| x * x
+x.next() # 9
+y = x.copy()
+x.next() # 16
+x.next() # 25
+y.next()
+";
+            test_script(script, 16.into());
+        }
+    }
 }

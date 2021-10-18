@@ -1,4 +1,7 @@
-use crate::value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput};
+use crate::{
+    value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
+    Value, Vm,
+};
 
 /// An iterator that links the output of two iterators together in a chained sequence
 pub struct Chain {
@@ -26,7 +29,7 @@ impl ExternalIterator2 for Chain {
 }
 
 impl Iterator for Chain {
-    type Item = ValueIteratorOutput;
+    type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter_a {
@@ -57,6 +60,59 @@ impl Iterator for Chain {
             }
             None => self.iter_b.size_hint(),
         }
+    }
+}
+
+/// An iterator that runs a function on each output value from the adapted iterator
+pub struct Each {
+    iter: ValueIterator,
+    function: Value,
+    vm: Vm,
+}
+
+impl Each {
+    pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
+        Self { iter, function, vm }
+    }
+}
+
+impl ExternalIterator2 for Each {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            function: self.function.clone(),
+            vm: self.vm.spawn_shared_vm(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Each {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(collect_pair) // TODO Does collecting the pair for iterator.each still make sense?
+            .map(|output| match output {
+                Output::Value(value) => match self.vm.run_function(self.function.clone(), &[value])
+                {
+                    Ok(result) => Output::Value(result),
+                    Err(error) => Output::Error(error.with_prefix("iterator.each")),
+                },
+                other => other,
+            })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+fn collect_pair(iterator_output: Output) -> Output {
+    match iterator_output {
+        Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),
+        _ => iterator_output,
     }
 }
 

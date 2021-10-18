@@ -194,7 +194,7 @@ impl Vm {
         }
     }
 
-    pub fn spawn_new_vm(&mut self) -> Self {
+    pub fn spawn_new_vm(&self) -> Self {
         Self {
             context: Arc::new(RwLock::new(self.context().spawn_new_context())),
             context_shared: self.context_shared.clone(),
@@ -205,7 +205,7 @@ impl Vm {
         }
     }
 
-    pub fn spawn_shared_vm(&mut self) -> Self {
+    pub fn spawn_shared_vm(&self) -> Self {
         Self {
             context: self.context.clone(),
             context_shared: self.context_shared.clone(),
