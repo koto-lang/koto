@@ -26,6 +26,7 @@ impl IntRange {
     }
 }
 
+#[derive(Clone)]
 pub enum ValueIteratorOutput {
     Value(Value),
     ValuePair(Value, Value),

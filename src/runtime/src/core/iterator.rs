@@ -182,50 +182,19 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("intersperse", |vm, args| match vm.get_args(args) {
         [iterable, separator_fn] if iterable.is_iterable() && separator_fn.is_callable() => {
-            let mut iter = make_iterator(iterable).unwrap().peekable();
-            let mut intersperse = false;
-            let separator_fn = separator_fn.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let result = adaptors::IntersperseWith::new(
+                make_iterator(iterable).unwrap(),
+                separator_fn.clone(),
+                vm.spawn_shared_vm(),
+            );
 
-            let result = move || {
-                if iter.peek().is_some() {
-                    let result = if intersperse {
-                        match vm.run_function(separator_fn.clone(), &[]) {
-                            Ok(result) => Output::Value(result),
-                            Err(error) => Output::Error(error.with_prefix("iterator.intersperse")),
-                        }
-                    } else {
-                        iter.next().unwrap()
-                    };
-                    intersperse = !intersperse;
-                    Some(result)
-                } else {
-                    None
-                }
-            };
-
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         [iterable, separator] if iterable.is_iterable() => {
-            let mut iter = make_iterator(iterable).unwrap().peekable();
-            let mut intersperse = false;
-            let separator = separator.clone();
+            let result =
+                adaptors::Intersperse::new(make_iterator(iterable).unwrap(), separator.clone());
 
-            let result = move || {
-                if iter.peek().is_some() {
-                    let result = if intersperse {
-                        Output::Value(separator.clone())
-                    } else {
-                        iter.next().unwrap()
-                    };
-                    intersperse = !intersperse;
-                    Some(result)
-                } else {
-                    None
-                }
-            };
-
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("iterator.intersperse: Expected iterable as argument"),
     });

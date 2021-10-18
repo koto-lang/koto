@@ -70,4 +70,36 @@ y.next()
             test_script(script, value_tuple(&[1.into(), 11.into()]));
         }
     }
+
+    mod intersperse {
+        use super::*;
+
+        #[test]
+        fn intersperse_by_value_make_copy() {
+            let script = "
+x = (1, 2, 3).intersperse 0
+x.next() # 1
+x.next() # 0
+y = x.copy()
+x.next() # 2
+x.next() # 0
+y.next()
+";
+            test_script(script, 2.into());
+        }
+
+        #[test]
+        fn intersperse_with_function_make_copy() {
+            let script = "
+x = (10, 20, 30).intersperse || 42
+x.next() # 10
+x.next() # 42
+y = x.copy()
+x.next() # 20
+x.next() # 42
+y.next()
+";
+            test_script(script, 20.into());
+        }
+    }
 }

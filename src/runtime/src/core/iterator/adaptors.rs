@@ -152,6 +152,142 @@ impl Iterator for Enumerate {
     }
 }
 
+/// An iterator that inserts a separator value between each output value from the adapted iterator
+pub struct Intersperse {
+    iter: ValueIterator,
+    peeked: Option<Output>,
+    next_is_separator: bool,
+    separator: Value,
+}
+
+impl Intersperse {
+    pub fn new(iter: ValueIterator, separator: Value) -> Self {
+        Self {
+            iter,
+            peeked: None,
+            next_is_separator: false,
+            separator,
+        }
+    }
+}
+
+impl ExternalIterator2 for Intersperse {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            peeked: self.peeked.clone(),
+            next_is_separator: self.next_is_separator,
+            separator: self.separator.clone(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Intersperse {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.peeked.take().or_else(|| self.iter.next());
+
+        match next {
+            output @ Some(_) => {
+                let result = if self.next_is_separator {
+                    self.peeked = output;
+                    Some(Output::Value(self.separator.clone()))
+                } else {
+                    output
+                };
+
+                self.next_is_separator = !self.next_is_separator;
+                result
+            }
+            None => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        intersperse_size_hint(&self.iter, self.next_is_separator)
+    }
+}
+
+/// An iterator that inserts a separator value between each output value from the adapted iterator
+///
+/// The separator value is the result of calling a provided separator function.
+pub struct IntersperseWith {
+    iter: ValueIterator,
+    peeked: Option<Output>,
+    next_is_separator: bool,
+    separator_function: Value,
+    vm: Vm,
+}
+
+impl IntersperseWith {
+    pub fn new(iter: ValueIterator, separator_function: Value, vm: Vm) -> Self {
+        Self {
+            iter,
+            peeked: None,
+            next_is_separator: false,
+            separator_function,
+            vm,
+        }
+    }
+}
+
+impl ExternalIterator2 for IntersperseWith {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            peeked: self.peeked.clone(),
+            next_is_separator: self.next_is_separator,
+            separator_function: self.separator_function.clone(),
+            vm: self.vm.spawn_shared_vm(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for IntersperseWith {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.peeked.take().or_else(|| self.iter.next());
+
+        match next {
+            output @ Some(_) => {
+                let result = if self.next_is_separator {
+                    self.peeked = output;
+                    Some(
+                        match self.vm.run_function(self.separator_function.clone(), &[]) {
+                            Ok(result) => Output::Value(result),
+                            Err(error) => Output::Error(error),
+                        },
+                    )
+                } else {
+                    output
+                };
+
+                self.next_is_separator = !self.next_is_separator;
+                result
+            }
+            None => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        intersperse_size_hint(&self.iter, self.next_is_separator)
+    }
+}
+
+fn intersperse_size_hint(iter: &ValueIterator, next_is_separator: bool) -> (usize, Option<usize>) {
+    let (lower, upper) = iter.size_hint();
+    let offset = !next_is_separator as usize;
+
+    let lower = lower.saturating_sub(offset).saturating_add(lower);
+    let upper = upper.and_then(|upper| upper.saturating_sub(offset).checked_add(upper));
+
+    (lower, upper)
+}
+
 fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),

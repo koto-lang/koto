@@ -29,7 +29,7 @@ pub enum RuntimeErrorType {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RuntimeError {
     pub error: RuntimeErrorType,
     pub trace: Vec<ErrorFrame>,
