@@ -1,3 +1,5 @@
+mod adaptors;
+
 use crate::{
     make_runtime_error, runtime_error,
     value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
@@ -73,12 +75,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("chain", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let iter_a = make_iterator(iterable_a).unwrap();
-            let iter_b = make_iterator(iterable_b).unwrap();
+            let result = ValueIterator::make_external_2(adaptors::Chain::new(
+                make_iterator(iterable_a).unwrap(),
+                make_iterator(iterable_b).unwrap(),
+            ));
 
-            let mut iter = iter_a.chain(iter_b);
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            Ok(Iterator(result))
         }
         _ => runtime_error!("iterator.chain: Expected two iterables as arguments"),
     });
