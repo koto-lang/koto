@@ -208,4 +208,20 @@ y.next()
             test_script(script, 98.into());
         }
     }
+
+    mod lines {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = 'abc\ndef\nxyz'.lines()
+x.next() # abc
+y = x.copy()
+x.next() # def
+y.next()
+";
+            test_script(script, "def".into());
+        }
+    }
 }

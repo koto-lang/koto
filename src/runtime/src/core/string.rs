@@ -66,32 +66,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
-            let input = s.clone();
-
-            let mut start = 0;
-
-            let iterator = ValueIterator::make_external(move || {
-                if start < input.len() {
-                    let end = match input[start..].find('\n') {
-                        Some(end) => {
-                            if end > start && input.as_bytes()[end - 1] == b'\r' {
-                                start + end - 1
-                            } else {
-                                start + end
-                            }
-                        }
-                        None => input.len(),
-                    };
-
-                    let result = Str(input.with_bounds(start..end).unwrap());
-                    start = end + 1;
-                    Some(ValueIteratorOutput::Value(result))
-                } else {
-                    None
-                }
-            });
-
-            Ok(Iterator(iterator))
+            let result = iterators::Lines::new(s.clone());
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("string.lines: Expected string as argument"),
     });
