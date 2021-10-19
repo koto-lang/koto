@@ -163,6 +163,7 @@ impl Default for VmSettings {
     }
 }
 
+#[derive(Clone)]
 pub struct Vm {
     context: Arc<RwLock<ModuleContext>>,
     context_shared: Arc<SharedContext>,
@@ -194,7 +195,7 @@ impl Vm {
         }
     }
 
-    pub fn spawn_new_vm(&mut self) -> Self {
+    pub fn spawn_new_vm(&self) -> Self {
         Self {
             context: Arc::new(RwLock::new(self.context().spawn_new_context())),
             context_shared: self.context_shared.clone(),
@@ -205,7 +206,7 @@ impl Vm {
         }
     }
 
-    pub fn spawn_shared_vm(&mut self) -> Self {
+    pub fn spawn_shared_vm(&self) -> Self {
         Self {
             context: self.context.clone(),
             context_shared: self.context_shared.clone(),
@@ -3250,4 +3251,20 @@ fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
     } else {
         index as usize
     }
+}
+
+// Used when calling iterator.copy on a generator
+//
+// The idea here is to clone the VM, and then scan through the value stack to make copies of
+// any iterators that it finds. This makes simple generators copyable, although any captured or
+// contained iterators in the generator VM will have shared state. This behaviour is noted in the
+// documentation for iterator.copy and should hopefully be sufficient.
+pub(crate) fn clone_generator_vm(vm: &Vm) -> Vm {
+    let mut result = vm.clone();
+    for value in result.value_stack.iter_mut() {
+        if let Value::Iterator(ref mut i) = value {
+            *i = i.make_copy()
+        }
+    }
+    result
 }

@@ -164,6 +164,16 @@ result
 Returns an iterator that shares the same iterable data, but with a unique
 iteration position (which is part of an iterator's shared state by default).
 
+### Note
+
+If the iterator is a generator then some effort will be made to make the
+generator's copy provide the same output as the original, however this isn't
+guaranteeed to be successful. Specifically, the value stack of the copied VM
+will be scanned for iterators, and each iterator will have a copy made.
+Iterators that may be used in other ways by the generator (e.g. stored in
+containers or function captures) won't be copied and will still have shared
+state.
+
 ### Example
 
 ```koto

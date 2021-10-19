@@ -1,6 +1,6 @@
 use {koto_bytecode::Chunk, std::sync::Arc};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Frame {
     // The chunk being interpreted in this frame
     pub chunk: Arc<Chunk>,

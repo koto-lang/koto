@@ -16,15 +16,24 @@ impl IntRange {
     pub fn is_ascending(&self) -> bool {
         self.start <= self.end
     }
+
+    fn len(&self) -> usize {
+        if self.is_ascending() {
+            (self.end - self.start) as usize
+        } else {
+            (self.start - self.end) as usize
+        }
+    }
 }
 
+#[derive(Clone)]
 pub enum ValueIteratorOutput {
     Value(Value),
     ValuePair(Value, Value),
     Error(RuntimeError),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Iterable {
     Num2(Num2),
     Num4(Num4),
@@ -34,29 +43,15 @@ pub enum Iterable {
     Map(ValueMap),
     Str(ValueString),
     Generator(Arc<Mutex<Vm>>),
-    External(ExternalIterator),
+    External(Arc<Mutex<dyn ExternalIterator>>),
+}
+
+pub trait ExternalIterator: Iterator<Item = ValueIteratorOutput> + Send + Sync {
+    /// Returns a copy of the iterator that (when possible), will produce the same output
+    fn make_copy(&self) -> ValueIterator;
 }
 
 #[derive(Clone)]
-pub struct ExternalIterator(
-    Arc<Mutex<dyn FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static>>,
-);
-
-impl Iterator for ExternalIterator {
-    type Item = ValueIteratorOutput;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        (self.0.lock())()
-    }
-}
-
-impl fmt::Debug for ExternalIterator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("ExternalIterator")
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct ValueIteratorInternals {
     index: usize,
     iterable: Iterable,
@@ -159,12 +154,12 @@ impl Iterator for ValueIteratorInternals {
                 Ok(result) => Some(ValueIteratorOutput::Value(result)),
                 Err(error) => Some(ValueIteratorOutput::Error(error)),
             },
-            Iterable::External(external_iterator) => external_iterator.next(),
+            Iterable::External(external_iterator) => external_iterator.lock().next(),
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ValueIterator(Arc<Mutex<ValueIteratorInternals>>);
 
 impl ValueIterator {
@@ -205,15 +200,19 @@ impl ValueIterator {
     }
 
     pub fn make_copy(&self) -> Self {
-        Self(Arc::new(Mutex::new(self.0.lock().clone())))
+        let internals = self.0.lock();
+        match &internals.iterable {
+            Iterable::Generator(generator_vm) => {
+                let new_vm = crate::vm::clone_generator_vm(&generator_vm.lock());
+                Self::with_vm(new_vm)
+            }
+            Iterable::External(external) => external.lock().make_copy(),
+            _ => Self(Arc::new(Mutex::new(internals.clone()))),
+        }
     }
 
-    pub fn make_external(
-        external: impl FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static,
-    ) -> Self {
-        Self::new(Iterable::External(ExternalIterator(Arc::new(Mutex::new(
-            external,
-        )))))
+    pub fn make_external(external: impl ExternalIterator + 'static) -> Self {
+        Self::new(Iterable::External(Arc::new(Mutex::new(external))))
     }
 
     // For internal functions that want to perform repeated iterations with a single lock
@@ -230,6 +229,39 @@ impl Iterator for ValueIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.lock().next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        use Iterable::*;
+
+        let internals = self.0.lock();
+        let index = internals.index;
+
+        let iterable_size = match &internals.iterable {
+            Num2(_) => 2,
+            Num4(_) => 4,
+            Range(r) => r.len(),
+            List(l) => l.len(),
+            Tuple(t) => t.data().len(),
+            Map(m) => m.len(),
+            Str(s) => {
+                let upper_bound = s[index..].len();
+                let lower_bound = if upper_bound == 0 { 0 } else { 1 };
+                return (lower_bound, Some(upper_bound));
+            }
+            Generator(_) => 0,
+            External(external_iterator) => return external_iterator.lock().size_hint(),
+        };
+
+        let remaining = iterable_size - index;
+
+        (remaining, Some(remaining))
+    }
+}
+
+impl fmt::Debug for ValueIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ValueIterator")
     }
 }
 

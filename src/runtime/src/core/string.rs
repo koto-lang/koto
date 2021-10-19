@@ -1,11 +1,8 @@
 pub mod format;
+pub mod iterators;
 
 use {
-    crate::{
-        make_runtime_error, runtime_error,
-        value_iterator::{ValueIterator, ValueIteratorOutput},
-        Value, ValueMap,
-    },
+    crate::{runtime_error, value_iterator::ValueIterator, Value, ValueMap},
     unicode_segmentation::UnicodeSegmentation,
 };
 
@@ -16,22 +13,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
-            let result = ValueIterator::make_external({
-                let s = s.clone();
-                let mut index = 0;
-
-                move || match s.as_bytes().get(index) {
-                    Some(byte) => {
-                        index += 1;
-                        Some(ValueIteratorOutput::Value(Number(byte.into())))
-                    }
-                    None => None,
-                }
-            });
-
-            Ok(Iterator(result))
+            let result = iterators::Bytes::new(s.clone());
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
-        _ => runtime_error!("string.lines: Expected string as argument"),
+        _ => runtime_error!("string.bytes: Expected string as argument"),
     });
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
@@ -77,32 +62,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
-            let input = s.clone();
-
-            let mut start = 0;
-
-            let iterator = ValueIterator::make_external(move || {
-                if start < input.len() {
-                    let end = match input[start..].find('\n') {
-                        Some(end) => {
-                            if end > start && input.as_bytes()[end - 1] == b'\r' {
-                                start + end - 1
-                            } else {
-                                start + end
-                            }
-                        }
-                        None => input.len(),
-                    };
-
-                    let result = Str(input.with_bounds(start..end).unwrap());
-                    start = end + 1;
-                    Some(ValueIteratorOutput::Value(result))
-                } else {
-                    None
-                }
-            });
-
-            Ok(Iterator(iterator))
+            let result = iterators::Lines::new(s.clone());
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("string.lines: Expected string as argument"),
     });
@@ -133,73 +94,18 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("split", |vm, args| {
-        use ValueIteratorOutput as Output;
-
         let iterator = match vm.get_args(args) {
             [Str(input), Str(pattern)] => {
-                let input = input.clone();
-                let pattern = pattern.clone();
-                let mut start = 0;
-                let pattern_len = pattern.len();
-                ValueIterator::make_external(move || {
-                    if start <= input.len() {
-                        let end = match input[start..].find(pattern.as_str()) {
-                            Some(end) => start + end,
-                            None => input.len(),
-                        };
-
-                        let output = Str(input.with_bounds(start..end).unwrap());
-                        start = end + pattern_len;
-                        Some(Output::Value(output))
-                    } else {
-                        None
-                    }
-                })
+                let result = iterators::Split::new(input.clone(), pattern.clone());
+                ValueIterator::make_external(result)
             }
-            [Str(input), pattern] if pattern.is_callable() => {
-                let input = input.clone();
-                let pattern = pattern.clone();
-                let mut vm = vm.spawn_shared_vm();
-                let mut start = 0;
-                ValueIterator::make_external(move || {
-                    if start < input.len() {
-                        let mut end = None;
-                        let mut grapheme_len = 0;
-
-                        for (grapheme_index, grapheme) in input[start..].grapheme_indices(true) {
-                            grapheme_len = grapheme.len();
-                            let grapheme_start = start + grapheme_index;
-                            let grapheme_end = grapheme_start + grapheme_len;
-                            let x = input.with_bounds(grapheme_start..grapheme_end).unwrap();
-                            match vm.run_function(pattern.clone(), &[Str(x)]) {
-                                Ok(Bool(split_match)) => {
-                                    if split_match {
-                                        end = Some(grapheme_start);
-                                        break;
-                                    }
-                                }
-                                Ok(unexpected) => {
-                                    return Some(Output::Error(make_runtime_error!(format!(
-                                        "string.split: Expected a bool from match function, \
-                                            got '{}'",
-                                        unexpected.to_string()
-                                    ))));
-                                }
-                                Err(error) => {
-                                    return Some(Output::Error(error.with_prefix("string.split")))
-                                }
-                            }
-                        }
-
-                        let end = end.unwrap_or_else(|| input.len());
-                        let output = Str(input.with_bounds(start..end).unwrap());
-                        start = end + grapheme_len;
-
-                        Some(Output::Value(output))
-                    } else {
-                        None
-                    }
-                })
+            [Str(input), predicate] if predicate.is_callable() => {
+                let result = iterators::SplitWith::new(
+                    input.clone(),
+                    predicate.clone(),
+                    vm.spawn_shared_vm(),
+                );
+                ValueIterator::make_external(result)
             }
             _ => {
                 return runtime_error!(
