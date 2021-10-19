@@ -1,4 +1,5 @@
 use crate::{
+    make_runtime_error,
     value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
     Value, Vm,
 };
@@ -286,6 +287,69 @@ fn intersperse_size_hint(iter: &ValueIterator, next_is_separator: bool) -> (usiz
     let upper = upper.and_then(|upper| upper.saturating_sub(offset).checked_add(upper));
 
     (lower, upper)
+}
+
+/// An iterator that skips over values that fail a predicate, and keeps those that pass
+pub struct Keep {
+    iter: ValueIterator,
+    predicate: Value,
+    vm: Vm,
+}
+
+impl Keep {
+    pub fn new(iter: ValueIterator, predicate: Value, vm: Vm) -> Self {
+        Self {
+            iter,
+            predicate,
+            vm,
+        }
+    }
+}
+
+impl ExternalIterator2 for Keep {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            predicate: self.predicate.clone(),
+            vm: self.vm.spawn_shared_vm(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Keep {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(output) = self.iter.next().map(collect_pair) {
+            let result = match output {
+                Output::Value(value) => match self
+                    .vm
+                    .run_function(self.predicate.clone(), &[value.clone()])
+                {
+                    Ok(Value::Bool(false)) => continue,
+                    Ok(Value::Bool(true)) => Output::Value(value),
+                    Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                        "iterator.keep: Expected a Bool to be returned from the \
+                             predicate, found '{}'",
+                        unexpected.type_as_string(),
+                    ))),
+                    Err(error) => Output::Error(error.with_prefix("iterator.keep")),
+                },
+                error @ Output::Error(_) => error,
+                _ => unreachable!(), // ValuePairs have been collected in collect_pair
+            };
+
+            return Some(result);
+        }
+
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_lower, upper) = self.iter.size_hint();
+        (0, upper)
+    }
 }
 
 fn collect_pair(iterator_output: Output) -> Output {

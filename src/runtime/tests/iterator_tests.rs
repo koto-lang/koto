@@ -102,4 +102,20 @@ y.next()
             test_script(script, 20.into());
         }
     }
+
+    mod keep {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = 'abcdef'.chars().keep |c| 'bef'.contains c
+x.next() # 'b'
+y = x.copy()
+x.next() # 'e'
+y.next()
+";
+            test_script(script, "e".into());
+        }
+    }
 }

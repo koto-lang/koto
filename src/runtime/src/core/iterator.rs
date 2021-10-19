@@ -1,7 +1,7 @@
 mod adaptors;
 
 use crate::{
-    make_runtime_error, runtime_error,
+    runtime_error,
     value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
     BinaryOp, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueVec, Vm,
 };
@@ -200,41 +200,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("keep", |vm, args| match vm.get_args(args) {
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let mut iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let f = f.clone();
-            let mut vm = vm.spawn_shared_vm();
-
-            Ok(Iterator(ValueIterator::make_external(move || {
-                for output in &mut iter {
-                    match output {
-                        Output::Value(value) => {
-                            match vm.run_function(f.clone(), &[value.clone()]) {
-                                Ok(Bool(result)) => {
-                                    if result {
-                                        return Some(Output::Value(value));
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                Ok(unexpected) => {
-                                    return Some(Output::Error(make_runtime_error!(format!(
-                                        "iterator.keep: Expected a Bool to be returned from the \
-                                         predicate, found '{}'",
-                                        unexpected.type_as_string(),
-                                    ))))
-                                }
-                                Err(error) => {
-                                    return Some(Output::Error(error.with_prefix("iterator.keep")))
-                                }
-                            }
-                        }
-                        error @ Output::Error(_) => return Some(error),
-                        _ => unreachable!(),
-                    }
-                }
-                None
-            })))
+        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let result = adaptors::Keep::new(
+                make_iterator(iterable).unwrap(),
+                predicate.clone(),
+                vm.spawn_shared_vm(),
+            );
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("iterator.keep: Expected iterable and function as arguments"),
     });
