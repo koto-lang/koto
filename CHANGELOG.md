@@ -104,10 +104,12 @@ The Koto project adheres to
     foo 1    # 43
     foo 1, 2 # 3
     ```
-- Compilation errors from the top-level Koto struct are now returned as a
-  variant of `KotoError`.
 - `$` symbols in string literals now need to be escaped due to the addition of
   string interpolation.
+- Internals
+  - Compilation errors from the top-level Koto struct are now returned as a
+    variant of `KotoError`.
+  - External iterators must now implement the `ExternalIterator` trait.
 
 ### Removed
 
