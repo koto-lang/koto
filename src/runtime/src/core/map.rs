@@ -1,7 +1,8 @@
 use {
+    super::iterator::adaptors,
     crate::{
-        runtime_error, value_iterator::ValueIteratorOutput as Output, value_sort::compare_values,
-        DataMap, RuntimeResult, Value, ValueIterator, ValueKey, ValueMap, Vm,
+        runtime_error, value_sort::compare_values, DataMap, RuntimeResult, Value, ValueIterator,
+        ValueKey, ValueMap, Vm,
     },
     std::{cmp::Ordering, ops::Deref},
 };
@@ -108,13 +109,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
-                Output::ValuePair(key, _) => Output::Value(key),
-                error @ Output::Error(_) => error,
-                _ => unreachable!(),
-            });
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         [other, ..] => runtime_error!(
             "map.keys: Expected map as argument, found '{}'",
@@ -225,13 +221,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
-            let mut iter = ValueIterator::with_map(m.clone()).map(|output| match output {
-                Output::ValuePair(_, value) => Output::Value(value),
-                error @ Output::Error(_) => error,
-                _ => unreachable!(),
-            });
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         [other, ..] => runtime_error!(
             "map.values: Expected map as argument, found '{}'",

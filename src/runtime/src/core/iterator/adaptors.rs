@@ -449,6 +449,76 @@ impl Iterator for Zip {
     }
 }
 
+/// An iterator that outputs the first element from any ValuePairs
+pub struct PairFirst {
+    iter: ValueIterator,
+}
+
+impl PairFirst {
+    pub fn new(iter: ValueIterator) -> Self {
+        Self { iter }
+    }
+}
+
+impl ExternalIterator2 for PairFirst {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for PairFirst {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(Output::ValuePair(first, _)) => Some(Output::Value(first)),
+            other => other,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+/// An iterator that outputs the second element from any ValuePairs
+pub struct PairSecond {
+    iter: ValueIterator,
+}
+
+impl PairSecond {
+    pub fn new(iter: ValueIterator) -> Self {
+        Self { iter }
+    }
+}
+
+impl ExternalIterator2 for PairSecond {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for PairSecond {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(Output::ValuePair(_, second)) => Some(Output::Value(second)),
+            other => other,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
 fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),

@@ -153,3 +153,39 @@ y.next()
         }
     }
 }
+
+mod map {
+    use super::*;
+
+    mod keys {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = {foo: 42, bar: 99, baz: -1}.keys()
+x.next() # foo
+y = x.copy()
+x.next() # bar
+y.next()
+";
+            test_script(script, "bar".into());
+        }
+    }
+
+    mod values {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = {foo: 42, bar: 99, baz: -1}.values()
+x.next() # 42
+y = x.copy()
+x.next() # 99
+y.next()
+";
+            test_script(script, 99.into());
+        }
+    }
+}

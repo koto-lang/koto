@@ -1,4 +1,4 @@
-mod adaptors;
+pub mod adaptors;
 
 use crate::{
     runtime_error,
