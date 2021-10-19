@@ -352,6 +352,52 @@ impl Iterator for Keep {
     }
 }
 
+/// An iterator that takes up to N values from the adapted iterator, and then stops
+pub struct Take {
+    iter: ValueIterator,
+    remaining: usize,
+}
+
+impl Take {
+    pub fn new(iter: ValueIterator, count: usize) -> Self {
+        Self {
+            iter,
+            remaining: count,
+        }
+    }
+}
+
+impl ExternalIterator2 for Take {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            remaining: self.remaining,
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Take {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining > 0 {
+            self.remaining -= 1;
+            self.iter.next()
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iter.size_hint();
+        (
+            lower.min(self.remaining),
+            upper.map(|upper| upper.min(self.remaining)),
+        )
+    }
+}
+
 fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),

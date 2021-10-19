@@ -118,4 +118,21 @@ y.next()
             test_script(script, "e".into());
         }
     }
+
+    mod take {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = 'abcdef'.chars().take 4
+x.next() # 'a'
+x.next() # 'b'
+y = x.copy()
+x.next() # 'c'
+y.next()
+";
+            test_script(script, "c".into());
+        }
+    }
 }

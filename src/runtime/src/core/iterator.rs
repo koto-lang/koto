@@ -412,9 +412,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
-            let mut iter = make_iterator(iterable).unwrap().take(n.into());
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            let result = adaptors::Take::new(make_iterator(iterable).unwrap(), n.into());
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => {
             runtime_error!("iterator.take: Expected iterable and non-negative number as arguments")
