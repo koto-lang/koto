@@ -202,6 +202,10 @@ impl ValueIterator {
     pub fn make_copy(&self) -> Self {
         let internals = self.0.lock();
         match &internals.iterable {
+            Iterable::Generator(generator_vm) => {
+                let new_vm = crate::vm::clone_generator_vm(&generator_vm.lock());
+                Self::with_vm(new_vm)
+            }
             Iterable::External(external) => external.lock().make_copy(),
             _ => Self(Arc::new(Mutex::new(internals.clone()))),
         }

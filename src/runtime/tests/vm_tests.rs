@@ -2148,6 +2148,22 @@ z[0].next()
 ";
             test_script(script, Number(2.into()));
         }
+
+        #[test]
+        fn copy_of_a_generator() {
+            let script = "
+generator = ||
+  for x in (1, 2, 3, 4, 5)
+    yield x
+x = generator()
+x.next() # 1
+y = x.copy()
+x.next() # 2
+x.next() # 3
+y.next()
+";
+            test_script(script, Number(2.into()));
+        }
     }
 
     mod error_recovery {
