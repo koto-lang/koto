@@ -135,4 +135,21 @@ y.next()
             test_script(script, "c".into());
         }
     }
+
+    mod zip {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = (1..5).zip 11..15
+x.next() # (1, 11)
+x.next() # (2, 12)
+y = x.copy()
+x.next() # (3, 13)
+y.next()
+";
+            test_script(script, value_tuple(&[3.into(), 13.into()]));
+        }
+    }
 }

@@ -398,6 +398,57 @@ impl Iterator for Take {
     }
 }
 
+/// An iterator that combines the output of two iterators, 'zipping' output pairs together
+pub struct Zip {
+    iter_a: ValueIterator,
+    iter_b: ValueIterator,
+}
+
+impl Zip {
+    pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
+        Self { iter_a, iter_b }
+    }
+}
+
+impl ExternalIterator2 for Zip {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter_a: self.iter_a.make_copy(),
+            iter_b: self.iter_b.make_copy(),
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Zip {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter_a.next().map(collect_pair) {
+            Some(Output::Value(value_a)) => match self.iter_b.next().map(collect_pair) {
+                Some(Output::Value(value_b)) => Some(Output::ValuePair(value_a, value_b)),
+                error @ Some(Output::Error(_)) => error,
+                _ => None,
+            },
+            error @ Some(Output::Error(_)) => error,
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower_a, upper_a) = self.iter_a.size_hint();
+        let (lower_b, upper_b) = self.iter_b.size_hint();
+
+        let lower = lower_a.min(lower_b);
+        let upper = match (upper_a, upper_b) {
+            (Some(upper_a), Some(upper_b)) => Some(upper_a.min(upper_b)),
+            _ => None,
+        };
+
+        (lower, upper)
+    }
+}
+
 fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),

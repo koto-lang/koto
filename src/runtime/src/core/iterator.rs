@@ -508,18 +508,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("zip", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let iter_a = make_iterator(iterable_a).unwrap().map(collect_pair);
-            let iter_b = make_iterator(iterable_b).unwrap().map(collect_pair);
-
-            let mut iter = iter_a.zip(iter_b).map(|(a, b)| match (a, b) {
-                (Output::Value(output_a), Output::Value(output_b)) => {
-                    Output::ValuePair(output_a, output_b)
-                }
-                (Output::Error(e), _) | (_, Output::Error(e)) => Output::Error(e),
-                _ => unreachable!(),
-            });
-
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            let result = adaptors::Zip::new(
+                make_iterator(iterable_a).unwrap(),
+                make_iterator(iterable_b).unwrap(),
+            );
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
         _ => runtime_error!("iterator.zip: Expected two iterables as arguments"),
     });
