@@ -1,6 +1,10 @@
-use crate::{
-    value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
-    Value, ValueString,
+use {
+    crate::{
+        make_runtime_error,
+        value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
+        Value, ValueString, Vm,
+    },
+    unicode_segmentation::UnicodeSegmentation,
 };
 
 /// An iterator that outputs the individual bytes contained in a string
@@ -90,6 +94,143 @@ impl Iterator for Lines {
             let result = Value::Str(self.input.with_bounds(start..end).unwrap());
             self.start = end + 1;
             Some(Output::Value(result))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining_bytes = self.input.len() - self.start;
+        (1.min(remaining_bytes), Some(remaining_bytes))
+    }
+}
+
+/// An iterator that splits up a string into parts, separated by a provided pattern
+pub struct Split {
+    input: ValueString,
+    pattern: ValueString,
+    start: usize,
+}
+
+impl Split {
+    pub fn new(input: ValueString, pattern: ValueString) -> Self {
+        Self {
+            input,
+            pattern,
+            start: 0,
+        }
+    }
+}
+
+impl ExternalIterator2 for Split {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            input: self.input.clone(),
+            pattern: self.pattern.clone(),
+            start: self.start,
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for Split {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.start;
+        if start <= self.input.len() {
+            let end = match self.input[start..].find(self.pattern.as_str()) {
+                Some(end) => start + end,
+                None => self.input.len(),
+            };
+
+            let output = Value::Str(self.input.with_bounds(start..end).unwrap());
+            self.start = end + self.pattern.len();
+            Some(Output::Value(output))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining_bytes = self.input.len() - self.start;
+        (1.min(remaining_bytes), Some(remaining_bytes))
+    }
+}
+
+/// An iterator that splits up a string into parts, separated when a char passes a predicate
+pub struct SplitWith {
+    input: ValueString,
+    predicate: Value,
+    vm: Vm,
+    start: usize,
+}
+
+impl SplitWith {
+    pub fn new(input: ValueString, predicate: Value, vm: Vm) -> Self {
+        Self {
+            input,
+            predicate,
+            vm,
+            start: 0,
+        }
+    }
+}
+
+impl ExternalIterator2 for SplitWith {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            input: self.input.clone(),
+            predicate: self.predicate.clone(),
+            vm: self.vm.spawn_shared_vm(),
+            start: self.start,
+        };
+        ValueIterator::make_external_2(result)
+    }
+}
+
+impl Iterator for SplitWith {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use Value::{Bool, Str};
+
+        let start = self.start;
+        if start < self.input.len() {
+            let mut end = None;
+            let mut grapheme_len = 0;
+
+            for (grapheme_index, grapheme) in self.input[start..].grapheme_indices(true) {
+                grapheme_len = grapheme.len();
+                let grapheme_start = start + grapheme_index;
+                let grapheme_end = grapheme_start + grapheme_len;
+                let x = self
+                    .input
+                    .with_bounds(grapheme_start..grapheme_end)
+                    .unwrap();
+                match self.vm.run_function(self.predicate.clone(), &[Str(x)]) {
+                    Ok(Bool(split_match)) => {
+                        if split_match {
+                            end = Some(grapheme_start);
+                            break;
+                        }
+                    }
+                    Ok(unexpected) => {
+                        let error = make_runtime_error!(format!(
+                            "string.split: Expected a bool from match function, got '{}'",
+                            unexpected.to_string()
+                        ));
+                        return Some(Output::Error(error));
+                    }
+                    Err(error) => return Some(Output::Error(error.with_prefix("string.split"))),
+                }
+            }
+
+            let end = end.unwrap_or_else(|| self.input.len());
+            let output = Str(self.input.with_bounds(start..end).unwrap());
+            self.start = end + grapheme_len;
+
+            Some(Output::Value(output))
         } else {
             None
         }

@@ -224,4 +224,32 @@ y.next()
             test_script(script, "def".into());
         }
     }
+
+    mod split {
+        use super::*;
+
+        #[test]
+        fn make_copy_pattern() {
+            let script = "
+x = '1-2-3'.split '-'
+x.next() # 1
+y = x.copy()
+x.next() # 2
+y.next()
+";
+            test_script(script, "2".into());
+        }
+
+        #[test]
+        fn make_copy_predicate() {
+            let script = "
+x = '1-2_3'.split |c| '-_'.contains c
+x.next() # 1
+y = x.copy()
+x.next() # 2
+y.next()
+";
+            test_script(script, "2".into());
+        }
+    }
 }
