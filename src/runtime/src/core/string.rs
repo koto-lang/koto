@@ -1,4 +1,5 @@
 pub mod format;
+pub mod iterators;
 
 use {
     crate::{
@@ -16,22 +17,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
-            let result = ValueIterator::make_external({
-                let s = s.clone();
-                let mut index = 0;
-
-                move || match s.as_bytes().get(index) {
-                    Some(byte) => {
-                        index += 1;
-                        Some(ValueIteratorOutput::Value(Number(byte.into())))
-                    }
-                    None => None,
-                }
-            });
-
-            Ok(Iterator(result))
+            let result = iterators::Bytes::new(s.clone());
+            Ok(Iterator(ValueIterator::make_external_2(result)))
         }
-        _ => runtime_error!("string.lines: Expected string as argument"),
+        _ => runtime_error!("string.bytes: Expected string as argument"),
     });
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {

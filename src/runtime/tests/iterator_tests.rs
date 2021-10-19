@@ -189,3 +189,23 @@ y.next()
         }
     }
 }
+
+mod string {
+    use super::*;
+
+    mod bytes {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = 'abc'.bytes()
+x.next() # 97
+y = x.copy()
+x.next() # 98
+y.next()
+";
+            test_script(script, 98.into());
+        }
+    }
+}
