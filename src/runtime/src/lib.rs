@@ -33,7 +33,7 @@ pub use {
     parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, Value},
-    value_iterator::{ExternalIterator2, IntRange, ValueIterator, ValueIteratorOutput},
+    value_iterator::{ExternalIterator, IntRange, ValueIterator, ValueIteratorOutput},
     value_key::ValueKey,
     value_list::{ValueList, ValueVec},
     value_map::{DataMap, ValueMap},

@@ -14,7 +14,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = iterators::Bytes::new(s.clone());
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("string.bytes: Expected string as argument"),
     });
@@ -63,7 +63,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
             let result = iterators::Lines::new(s.clone());
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("string.lines: Expected string as argument"),
     });
@@ -97,7 +97,7 @@ pub fn make_module() -> ValueMap {
         let iterator = match vm.get_args(args) {
             [Str(input), Str(pattern)] => {
                 let result = iterators::Split::new(input.clone(), pattern.clone());
-                ValueIterator::make_external_2(result)
+                ValueIterator::make_external(result)
             }
             [Str(input), predicate] if predicate.is_callable() => {
                 let result = iterators::SplitWith::new(
@@ -105,7 +105,7 @@ pub fn make_module() -> ValueMap {
                     predicate.clone(),
                     vm.spawn_shared_vm(),
                 );
-                ValueIterator::make_external_2(result)
+                ValueIterator::make_external(result)
             }
             _ => {
                 return runtime_error!(

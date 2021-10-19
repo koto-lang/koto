@@ -1,7 +1,7 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        make_runtime_error, runtime_error, ExternalData, ExternalIterator2, ExternalValue, MetaMap,
+        make_runtime_error, runtime_error, ExternalData, ExternalIterator, ExternalValue, MetaMap,
         RwLock, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     lazy_static::lazy_static,
@@ -50,7 +50,7 @@ lazy_static! {
             let iter = PoetryIter {
                 poetry: external_value.clone(),
             };
-            Ok(Iterator(ValueIterator::make_external_2(iter)))
+            Ok(Iterator(ValueIterator::make_external(iter)))
         });
 
         bindings.add_named_instance_fn_mut("next_word", |poetry: &mut KotoPoetry, _, _| {
@@ -70,9 +70,9 @@ struct PoetryIter {
     poetry: ExternalValue,
 }
 
-impl ExternalIterator2 for PoetryIter {
+impl ExternalIterator for PoetryIter {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external_2(self.clone())
+        ValueIterator::make_external(self.clone())
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     make_runtime_error,
-    value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
+    value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
     Value, Vm,
 };
 
@@ -19,13 +19,13 @@ impl Chain {
     }
 }
 
-impl ExternalIterator2 for Chain {
+impl ExternalIterator for Chain {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.as_ref().map(|iter| iter.make_copy()),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -77,14 +77,14 @@ impl Each {
     }
 }
 
-impl ExternalIterator2 for Each {
+impl ExternalIterator for Each {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -122,13 +122,13 @@ impl Enumerate {
     }
 }
 
-impl ExternalIterator2 for Enumerate {
+impl ExternalIterator for Enumerate {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             index: self.index,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -172,7 +172,7 @@ impl Intersperse {
     }
 }
 
-impl ExternalIterator2 for Intersperse {
+impl ExternalIterator for Intersperse {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -180,7 +180,7 @@ impl ExternalIterator2 for Intersperse {
             next_is_separator: self.next_is_separator,
             separator: self.separator.clone(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -234,7 +234,7 @@ impl IntersperseWith {
     }
 }
 
-impl ExternalIterator2 for IntersperseWith {
+impl ExternalIterator for IntersperseWith {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -243,7 +243,7 @@ impl ExternalIterator2 for IntersperseWith {
             separator_function: self.separator_function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -306,14 +306,14 @@ impl Keep {
     }
 }
 
-impl ExternalIterator2 for Keep {
+impl ExternalIterator for Keep {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -367,13 +367,13 @@ impl Take {
     }
 }
 
-impl ExternalIterator2 for Take {
+impl ExternalIterator for Take {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             remaining: self.remaining,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -410,13 +410,13 @@ impl Zip {
     }
 }
 
-impl ExternalIterator2 for Zip {
+impl ExternalIterator for Zip {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.make_copy(),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -460,12 +460,12 @@ impl PairFirst {
     }
 }
 
-impl ExternalIterator2 for PairFirst {
+impl ExternalIterator for PairFirst {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -495,12 +495,12 @@ impl PairSecond {
     }
 }
 
-impl ExternalIterator2 for PairSecond {
+impl ExternalIterator for PairSecond {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 

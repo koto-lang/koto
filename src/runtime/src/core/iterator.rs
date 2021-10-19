@@ -75,7 +75,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("chain", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let result = ValueIterator::make_external_2(adaptors::Chain::new(
+            let result = ValueIterator::make_external(adaptors::Chain::new(
                 make_iterator(iterable_a).unwrap(),
                 make_iterator(iterable_b).unwrap(),
             ));
@@ -124,7 +124,7 @@ pub fn make_module() -> ValueMap {
                 vm.spawn_shared_vm(),
             );
 
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("iterator.each: Expected iterable and function as arguments"),
     });
@@ -132,7 +132,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let result = adaptors::Enumerate::new(make_iterator(iterable).unwrap());
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("iterator.enumerate: Expected iterable as argument"),
     });
@@ -188,13 +188,13 @@ pub fn make_module() -> ValueMap {
                 vm.spawn_shared_vm(),
             );
 
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         [iterable, separator] if iterable.is_iterable() => {
             let result =
                 adaptors::Intersperse::new(make_iterator(iterable).unwrap(), separator.clone());
 
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("iterator.intersperse: Expected iterable as argument"),
     });
@@ -206,7 +206,7 @@ pub fn make_module() -> ValueMap {
                 predicate.clone(),
                 vm.spawn_shared_vm(),
             );
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("iterator.keep: Expected iterable and function as arguments"),
     });
@@ -413,7 +413,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
             let result = adaptors::Take::new(make_iterator(iterable).unwrap(), n.into());
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => {
             runtime_error!("iterator.take: Expected iterable and non-negative number as arguments")
@@ -512,7 +512,7 @@ pub fn make_module() -> ValueMap {
                 make_iterator(iterable_a).unwrap(),
                 make_iterator(iterable_b).unwrap(),
             );
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         _ => runtime_error!("iterator.zip: Expected two iterables as arguments"),
     });

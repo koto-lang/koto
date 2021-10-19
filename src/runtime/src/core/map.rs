@@ -110,7 +110,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         [other, ..] => runtime_error!(
             "map.keys: Expected map as argument, found '{}'",
@@ -222,7 +222,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::make_external_2(result)))
+            Ok(Iterator(ValueIterator::make_external(result)))
         }
         [other, ..] => runtime_error!(
             "map.values: Expected map as argument, found '{}'",

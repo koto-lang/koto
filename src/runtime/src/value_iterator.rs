@@ -43,24 +43,10 @@ pub enum Iterable {
     Map(ValueMap),
     Str(ValueString),
     Generator(Arc<Mutex<Vm>>),
-    External(ExternalIterator),
-    External2(Arc<Mutex<dyn ExternalIterator2>>),
+    External(Arc<Mutex<dyn ExternalIterator>>),
 }
 
-#[derive(Clone)]
-pub struct ExternalIterator(
-    Arc<Mutex<dyn FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static>>,
-);
-
-impl Iterator for ExternalIterator {
-    type Item = ValueIteratorOutput;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        (self.0.lock())()
-    }
-}
-
-pub trait ExternalIterator2: Iterator<Item = ValueIteratorOutput> + Send + Sync {
+pub trait ExternalIterator: Iterator<Item = ValueIteratorOutput> + Send + Sync {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> ValueIterator;
 }
@@ -168,8 +154,7 @@ impl Iterator for ValueIteratorInternals {
                 Ok(result) => Some(ValueIteratorOutput::Value(result)),
                 Err(error) => Some(ValueIteratorOutput::Error(error)),
             },
-            Iterable::External(external_iterator) => external_iterator.next(),
-            Iterable::External2(external_iterator) => external_iterator.lock().next(),
+            Iterable::External(external_iterator) => external_iterator.lock().next(),
         }
     }
 }
@@ -217,21 +202,13 @@ impl ValueIterator {
     pub fn make_copy(&self) -> Self {
         let internals = self.0.lock();
         match &internals.iterable {
-            Iterable::External2(external) => external.lock().make_copy(),
+            Iterable::External(external) => external.lock().make_copy(),
             _ => Self(Arc::new(Mutex::new(internals.clone()))),
         }
     }
 
-    pub fn make_external(
-        external: impl FnMut() -> Option<ValueIteratorOutput> + Send + Sync + 'static,
-    ) -> Self {
-        Self::new(Iterable::External(ExternalIterator(Arc::new(Mutex::new(
-            external,
-        )))))
-    }
-
-    pub fn make_external_2(external: impl ExternalIterator2 + 'static) -> Self {
-        Self::new(Iterable::External2(Arc::new(Mutex::new(external))))
+    pub fn make_external(external: impl ExternalIterator + 'static) -> Self {
+        Self::new(Iterable::External(Arc::new(Mutex::new(external))))
     }
 
     // For internal functions that want to perform repeated iterations with a single lock
@@ -269,8 +246,7 @@ impl Iterator for ValueIterator {
                 return (lower_bound, Some(upper_bound));
             }
             Generator(_) => 0,
-            External(_) => 0, // TODO
-            External2(external_iterator) => return external_iterator.lock().size_hint(),
+            External(external_iterator) => return external_iterator.lock().size_hint(),
         };
 
         let remaining = iterable_size - index;

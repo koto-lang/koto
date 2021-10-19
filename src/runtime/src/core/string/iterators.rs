@@ -1,7 +1,7 @@
 use {
     crate::{
         make_runtime_error,
-        value_iterator::{ExternalIterator2, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
         Value, ValueString, Vm,
     },
     unicode_segmentation::UnicodeSegmentation,
@@ -19,13 +19,13 @@ impl Bytes {
     }
 }
 
-impl ExternalIterator2 for Bytes {
+impl ExternalIterator for Bytes {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             input: self.input.clone(),
             index: self.index,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -64,13 +64,13 @@ impl Lines {
     }
 }
 
-impl ExternalIterator2 for Lines {
+impl ExternalIterator for Lines {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             input: self.input.clone(),
             start: self.start,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -122,14 +122,14 @@ impl Split {
     }
 }
 
-impl ExternalIterator2 for Split {
+impl ExternalIterator for Split {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             input: self.input.clone(),
             pattern: self.pattern.clone(),
             start: self.start,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
@@ -177,7 +177,7 @@ impl SplitWith {
     }
 }
 
-impl ExternalIterator2 for SplitWith {
+impl ExternalIterator for SplitWith {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             input: self.input.clone(),
@@ -185,7 +185,7 @@ impl ExternalIterator2 for SplitWith {
             vm: self.vm.spawn_shared_vm(),
             start: self.start,
         };
-        ValueIterator::make_external_2(result)
+        ValueIterator::make_external(result)
     }
 }
 
