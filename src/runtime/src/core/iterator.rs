@@ -390,7 +390,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(Iterator(ValueIterator::make_external(move || iter.next())))
+            Ok(Iterator(iter))
         }
         _ => {
             runtime_error!("iterator.skip: Expected iterable and non-negative number as arguments")
