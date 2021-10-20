@@ -1596,9 +1596,7 @@ impl<'source> Parser<'source> {
             if self.peek_next_token_on_same_line() == Some(Colon) {
                 self.consume_next_token_on_same_line();
 
-                if let Some(value) =
-                    self.parse_expressions(&mut ExpressionContext::inline(), false)?
-                {
+                if let Some(value) = self.parse_expression(&mut ExpressionContext::inline())? {
                     entries.push((key, Some(value)));
                 } else {
                     // If a value wasn't found on the same line as the key,

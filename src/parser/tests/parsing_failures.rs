@@ -243,6 +243,17 @@ x =
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn block_value_with_multiple_expressions() {
+                let source = "
+x =
+  foo: 42
+  bar: 1, 2, 3
+  baz: 99
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod match_expressions {
