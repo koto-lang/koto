@@ -104,6 +104,24 @@ The Koto project adheres to
     foo 1    # 43
     foo 1, 2 # 3
     ```
+- Curly braces are now optional when defining maps using inline syntax.
+  - e.g.
+    ```koto
+    # The following map definition:
+    x = {foo: 42, bar: -1}
+    # ...can also now be written as:
+    x = foo: 42, bar: -1
+    ```
+  - Curly braces are still useful when creating empty maps, or when using the
+    'valueless map entry' feature, e.g.
+    ```koto
+    # Empty map
+    x = {}
+    # Valueless map entry
+    foo = 42
+    x = {foo, bar: -1}
+    assert_eq x.foo, 42
+    ```
 - `$` symbols in string literals now need to be escaped due to the addition of
   string interpolation.
 - Internals

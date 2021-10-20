@@ -137,7 +137,7 @@ export @tests =
     assert_eq ("hello", "goodbye").max(), "hello"
 
     # A key function can be used to convert values before the max comparison is performed
-    x = {foo: 42, bar: 99}
+    x = foo: 42, bar: 99
     assert_eq x.max(|(key, value)| value), ("bar", 99)
 
     x = [[1], [2, 3], [4, 5, 6]]

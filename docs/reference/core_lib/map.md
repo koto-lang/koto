@@ -280,7 +280,7 @@ contain the key.
 ### Example
 
 ```koto
-x = {hello: -1}
+x = hello: -1
 x.get "hello"
 # -1
 
@@ -308,7 +308,7 @@ An error will be thrown if a negative index is provided.
 ### Example
 
 ```koto
-x = {foo: -1, bar: -2}
+x = foo: -1, bar: -2
 x.get_index 1
 # (bar, -2)
 
@@ -336,7 +336,7 @@ If the key didn't already exist, then `()` is returned.
 ### Example
 
 ```koto
-x = {hello: -1}
+x = hello: -1
 x.insert "hello", 99 # -1 already exists at `hello`, so it's returned here
 # -1
 

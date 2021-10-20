@@ -205,30 +205,10 @@ x .foo
             use super::*;
 
             #[test]
-            fn block_without_indentation() {
-                let source = "
-foo: 42
-bar: 99
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn block_starting_on_same_line_as_assignment() {
                 let source = "
 x = foo: 42
     bar: 99
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
-            fn block_without_indentation_in_function_after_first_line() {
-                let source = "
-f = ||
-  a = 1
-  foo: 42
-  bar: 99
 ";
                 check_parsing_fails(source);
             }
