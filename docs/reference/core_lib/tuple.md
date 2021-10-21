@@ -85,9 +85,11 @@ x.first()
 ## get
 
 `|Tuple, Number| -> Value`
+`|Tuple, Number, Value| -> Value`
 
-Gets the Nth value in the tuple, or `()` if the tuple doesn't contain a value at
-that position.
+Gets the Nth value in the tuple.
+If the tuple doesn't contain a value at that position then the provided default
+value is returned. If no default value is provided then `()` is returned.
 
 ### Example
 

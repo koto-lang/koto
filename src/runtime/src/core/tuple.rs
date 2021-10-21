@@ -43,18 +43,20 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("tuple.first: Expected tuple as argument"),
     });
 
-    result.add_fn("get", |vm, args| match vm.get_args(args) {
-        [Tuple(t), Number(n)] => {
-            if *n < 0.0 {
-                return runtime_error!("tuple.get: Negative indices aren't allowed");
-            }
-            let index: usize = n.into();
-            match t.data().get(index) {
-                Some(value) => Ok(value.clone()),
-                None => Ok(Value::Empty),
-            }
+    result.add_fn("get", |vm, args| {
+        let (tuple, index, default) = match vm.get_args(args) {
+            [Tuple(tuple), Number(n)] => (tuple, n, &Empty),
+            [Tuple(tuple), Number(n), default] => (tuple, n, default),
+            _ => return runtime_error!("tuple.get: Expected tuple and number as arguments"),
+        };
+
+        if *index < 0.0 {
+            return runtime_error!("tuple.get: Negative indices aren't allowed");
         }
-        _ => runtime_error!("tuple.get: Expected tuple and number as arguments"),
+        match tuple.data().get::<usize>(index.into()) {
+            Some(value) => Ok(value.clone()),
+            None => Ok(default.clone()),
+        }
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {

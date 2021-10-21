@@ -45,13 +45,6 @@ The Koto project adheres to
       x = num4 5, 6, 7, 8
       assert_eq x.keep(|n| n > 6).count(), 2
       ```
-  - Added core operations:
-    - `num2.iter` / `num4.iter`
-    - `num2.length` / `num4.length`
-    - `num2.max` / `num4.max`
-    - `num2.min` / `num4.min`
-    - `num2.normalize` / `num4.normalize`
-    - `num2.product` / `num4.product`
   - Following a parenthesized num2/num4 expression with a lookup is now
     supported.
     - e.g.
@@ -59,6 +52,16 @@ The Koto project adheres to
       num2(1, 2).sum()
       #         ^-- Previously this would result in an 'unexpected token' error.
       ```
+- Core library additions:
+  - `list.get`, `tuple.get`, `map.get`, and `map.get_index` now accept an
+    optional default value that should be returned when an entry isn't found.
+  - `num2.iter` / `num4.iter`
+  - `num2.iter` / `num4.iter`
+  - `num2.length` / `num4.length`
+  - `num2.max` / `num4.max`
+  - `num2.min` / `num4.min`
+  - `num2.normalize` / `num4.normalize`
+  - `num2.product` / `num4.product`
 - Added an optional library for working with YAML data.
 - Throw and debug expressions can now be used more freely, in particular as
   expressions in match and switch arms.

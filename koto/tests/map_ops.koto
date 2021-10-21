@@ -58,7 +58,10 @@ export @tests =
     assert_eq (m.get "foo"), 42
     assert_eq (m.get "bar"), ()
 
-  @test get_non_string_key: ||
+    # A default value can also be provided
+    assert_eq (m.get "bar", 99), 99
+
+    # Any immutable value type can be used as a key
     m = {}
     m.insert 1, "O_o"
     assert_eq (m.get 1), "O_o"
@@ -68,6 +71,10 @@ export @tests =
     m = foo: 42, bar: 99, baz: 123
     assert_eq (m.get_index 1), ("bar", 99)
     assert_eq (m.get_index 2), ("baz", 123)
+    assert_eq (m.get_index 5), (),
+
+    # A default value can also be provided
+    assert_eq (m.get_index 5, ("not found", -1)), ("not found", -1)
 
   @test keys: ||
     m = {foo: 42}
