@@ -2308,6 +2308,7 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedImportKeywordAfterFrom, self);
             }
             self.consume_next_token_on_same_line();
+
             from
         } else {
             vec![]
@@ -2322,13 +2323,14 @@ impl<'source> Parser<'source> {
             }
         }
 
+        // Mark any imported ids as locally assigned
         for item in items.iter() {
             match item.last() {
-                Some(id) => {
+                Some(ImportItem::Id(id)) => {
                     self.frame_mut()?.ids_assigned_in_scope.insert(*id);
                 }
                 None => return internal_error!(ExpectedIdInImportItem, self),
-            }
+            };
         }
 
         Ok(Some(self.push_node_with_start_span(
@@ -2408,18 +2410,18 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
-    fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
+    fn consume_import_items(&mut self) -> Result<Vec<Vec<ImportItem>>, ParserError> {
         let mut items = vec![];
         let mut item_context = ExpressionContext::permissive();
 
         while let Some(item_root) = self.parse_id(&mut item_context)? {
-            let mut item = vec![item_root];
+            let mut item = vec![ImportItem::Id(item_root)];
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
                 match self.parse_id(&mut ExpressionContext::restricted())? {
-                    Some(id) => item.push(id),
+                    Some(id) => item.push(ImportItem::Id(id)),
                     None => return syntax_error!(ExpectedImportModuleId, self),
                 }
             }
