@@ -62,6 +62,16 @@ The Koto project adheres to
   - `num2.min` / `num4.min`
   - `num2.normalize` / `num4.normalize`
   - `num2.product` / `num4.product`
+- `import` improvements
+  - Strings can now be used in import expressions, which allows for more
+    flexible module naming, and for dynamically importing items.
+    - e.g.
+      ```koto
+      # Dynamically choosing a module path
+      from "${module_path()}/my_module" import foo, bar
+      # Loading a module with a name that isn't allowed as an identifier
+      my_module = import "123"
+      ```
 - Added an optional library for working with YAML data.
 - Throw and debug expressions can now be used more freely, in particular as
   expressions in match and switch arms.

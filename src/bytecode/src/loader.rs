@@ -191,13 +191,13 @@ impl Loader {
         let extension = "koto";
         let named_path = path.join(name);
 
-        // first, check for a neighbouring file with a matching name
+        // First, check for a neighbouring file with a matching name.
         let module_path = named_path.with_extension(extension);
         if module_path.exists() {
             load_module_from_path(module_path)
         } else {
-            // alternatively, check for a neighbouring directory with a matching name,
-            // containing a main file
+            // Alternatively, check for a neighbouring directory with a matching name,
+            // that also contains a main file.
             let module_path = named_path.join("main").with_extension(extension);
             if module_path.exists() {
                 load_module_from_path(module_path)

@@ -3751,6 +3751,13 @@ assert_eq x, "hello"
             ImportItem::Id(constant(id))
         }
 
+        fn import_string(literal_index: u8, quotation_mark: QuotationMark) -> ImportItem {
+            ImportItem::Str(AstString {
+                quotation_mark,
+                nodes: vec![StringNode::Literal(constant(literal_index))],
+            })
+        }
+
         #[test]
         fn import_module() {
             let source = "import foo";
@@ -3823,7 +3830,7 @@ assert_eq x, "hello"
 
         #[test]
         fn import_items() {
-            let source = "import foo, bar, baz";
+            let source = "import foo, 'bar', baz";
             check_ast(
                 source,
                 &[
@@ -3831,13 +3838,13 @@ assert_eq x, "hello"
                         from: vec![],
                         items: vec![
                             vec![import_id(0)],
-                            vec![import_id(1)],
+                            vec![import_string(1, QuotationMark::Single)],
                             vec![import_id(2)],
                         ],
                     },
                     MainBlock {
                         body: vec![0],
-                        local_count: 3,
+                        local_count: 2, // foo and baz, bar needs to be assigned
                     },
                 ],
                 Some(&[
@@ -3873,12 +3880,12 @@ assert_eq x, "hello"
 
         #[test]
         fn import_nested_items() {
-            let source = "from foo.bar import abc.def, xyz";
+            let source = "from 'foo'.bar import abc.def, xyz";
             check_ast(
                 source,
                 &[
                     Import {
-                        from: vec![import_id(0), import_id(1)],
+                        from: vec![import_string(0, QuotationMark::Single), import_id(1)],
                         items: vec![vec![import_id(2), import_id(3)], vec![import_id(4)]],
                     },
                     MainBlock {

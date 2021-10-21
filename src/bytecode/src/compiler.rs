@@ -606,7 +606,7 @@ impl Compiler {
                 }
             }
             Node::Import { from, items } => {
-                self.compile_import_expression(result_register, from, items)?
+                self.compile_import_expression(result_register, from, items, ast)?
             }
             Node::Assign {
                 target,
@@ -1293,10 +1293,13 @@ impl Compiler {
         result_register: ResultRegister,
         from: &[ImportItem],
         items: &[Vec<ImportItem>],
+        ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
+
+        let stack_count = self.frame().register_stack.len();
 
         let mut imported = vec![];
 
@@ -1309,7 +1312,7 @@ impl Compiler {
                         // import search.
                         let import_register = self.reserve_local_register(*import_id)?;
 
-                        self.compile_import_item(import_register, item)?;
+                        self.compile_import_item(import_register, item, ast)?;
                         imported.push(import_register);
 
                         // Commit the register now that the import is complete
@@ -1320,13 +1323,19 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
+                    Some(ImportItem::Str(_)) => {
+                        // String imports need to be explicitly assigned
+                        let import_register = self.push_register()?;
+                        self.compile_import_item(import_register, item, ast)?;
+                        imported.push(import_register);
+                    }
                     None => return compiler_error!(self, "Missing ID in import item"),
                 };
             }
         } else {
             let from_register = self.push_register()?;
 
-            self.compile_import_item(from_register, from)?;
+            self.compile_import_item(from_register, from, ast)?;
 
             for item in items.iter() {
                 match item.last() {
@@ -1339,10 +1348,18 @@ impl Compiler {
                         for item_node in item.iter() {
                             match item_node {
                                 ImportItem::Id(id) => {
-                                    self.compile_access(import_register, access_register, *id)?;
-                                    access_register = import_register;
+                                    self.compile_access_id(import_register, access_register, *id)?;
+                                }
+                                ImportItem::Str(string) => {
+                                    self.compile_access_string(
+                                        import_register,
+                                        access_register,
+                                        &string.nodes,
+                                        ast,
+                                    )?;
                                 }
                             }
+                            access_register = import_register;
                         }
 
                         imported.push(import_register);
@@ -1351,11 +1368,34 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
+                    Some(ImportItem::Str(_)) => {
+                        // String imports need to be explicitly assigned
+                        let import_register = self.push_register()?;
+
+                        // Access the item from from_register, incrementally accessing nested items
+                        let mut access_register = from_register;
+                        for item_node in item.iter() {
+                            match item_node {
+                                ImportItem::Id(id) => {
+                                    self.compile_access_id(import_register, access_register, *id)?;
+                                }
+                                ImportItem::Str(string) => {
+                                    self.compile_access_string(
+                                        import_register,
+                                        access_register,
+                                        &string.nodes,
+                                        ast,
+                                    )?;
+                                }
+                            }
+                            access_register = import_register;
+                        }
+
+                        imported.push(import_register);
+                    }
                     None => return compiler_error!(self, "Missing ID in import item"),
                 };
             }
-
-            self.pop_register()?; // from_register
         }
 
         if let Some(result) = result {
@@ -1372,6 +1412,8 @@ impl Compiler {
             }
         }
 
+        self.truncate_register_stack(stack_count)?;
+
         Ok(result)
     }
 
@@ -1379,18 +1421,27 @@ impl Compiler {
         &mut self,
         result_register: u8,
         item: &[ImportItem],
+        ast: &Ast,
     ) -> Result<(), CompilerError> {
         match item {
             [] => return compiler_error!(self, "Missing item to import"),
-            [root] => self.compile_import_root(result_register, root),
+            [root] => {
+                self.compile_import_root(result_register, root, ast)?;
+            }
             [root, nested @ ..] => {
-                self.compile_import_root(result_register, root);
+                self.compile_import_root(result_register, root, ast)?;
 
                 for nested_item in nested.iter() {
                     match nested_item {
                         ImportItem::Id(id) => {
-                            self.compile_access(result_register, result_register, *id)?
+                            self.compile_access_id(result_register, result_register, *id)?
                         }
+                        ImportItem::Str(string) => self.compile_access_string(
+                            result_register,
+                            result_register,
+                            &string.nodes,
+                            ast,
+                        )?,
                     }
                 }
             }
@@ -1399,27 +1450,33 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_import_root(&mut self, result_register: u8, root: &ImportItem) {
+    fn compile_import_root(
+        &mut self,
+        import_register: u8,
+        root: &ImportItem,
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
         match root {
             ImportItem::Id(id) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
-                    if local_register != result_register {
-                        self.push_op(Copy, &[result_register, local_register]);
+                    if local_register != import_register {
+                        self.push_op(Copy, &[import_register, local_register]);
                     }
                 } else {
                     // If the id isn't a local then it needs to be imported
-                    self.compile_constant_op(
-                        result_register,
-                        *id,
-                        Op::Import,
-                        Op::Import16,
-                        Op::Import24,
-                    );
+                    self.compile_load_string_constant(import_register, *id);
                 }
             }
+            ImportItem::Str(string) => {
+                self.compile_string(ResultRegister::Fixed(import_register), &string.nodes, ast)?;
+            }
         }
+
+        self.push_op(Import, &[import_register]);
+
+        Ok(())
     }
 
     fn compile_try_expression(
@@ -2284,12 +2341,12 @@ impl Compiler {
                                 ast,
                             )?;
                         } else if let Some(result) = result {
-                            self.compile_access(result.register, parent_register, id)?;
+                            self.compile_access_id(result.register, parent_register, id)?;
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.compile_access(node_register, parent_register, id)?;
+                        self.compile_access_id(node_register, parent_register, id)?;
                     }
                 }
                 LookupNode::Str(lookup_string) => {
@@ -2466,7 +2523,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_access(
+    fn compile_access_id(
         &mut self,
         result_register: u8,
         value_register: u8,
@@ -2474,6 +2531,20 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
         self.compile_load_string_constant(key_register, key);
+        self.push_op(Op::Access, &[result_register, value_register, key_register]);
+        self.pop_register()?;
+        Ok(())
+    }
+
+    fn compile_access_string(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key_string_nodes: &[StringNode],
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        let key_register = self.push_register()?;
+        self.compile_string(ResultRegister::Fixed(key_register), key_string_nodes, ast)?;
         self.push_op(Op::Access, &[result_register, value_register, key_register]);
         self.pop_register()?;
         Ok(())

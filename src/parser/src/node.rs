@@ -330,4 +330,5 @@ pub enum QuotationMark {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ImportItem {
     Id(ConstantIndex),
+    Str(AstString),
 }

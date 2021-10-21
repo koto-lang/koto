@@ -635,7 +635,7 @@ impl Vm {
                 self.run_value_export(name, value);
                 Ok(())
             }
-            Instruction::Import { register, constant } => self.run_import(register, constant),
+            Instruction::Import { register } => self.run_import(register),
             Instruction::MakeTempTuple {
                 register,
                 start,
@@ -1881,76 +1881,96 @@ impl Vm {
         self.set_register(register, Value::Number(result.into()));
     }
 
-    fn run_import(
-        &mut self,
-        result_register: u8,
-        import_constant: ConstantIndex,
-    ) -> InstructionResult {
-        let import_name = self.value_string_from_constant(import_constant);
+    fn run_import(&mut self, import_register: u8) -> InstructionResult {
+        // The import name string will have been placed in the import register
+        let import_name = match self.get_register(import_register) {
+            Value::Str(s) => s.clone(),
+            other => {
+                return runtime_error!(
+                    "Expected import id or string, found '{}'",
+                    other.type_as_string()
+                )
+            }
+        };
 
-        let maybe_export = self
+        // Is the import in the exports?
+        let maybe_in_exports = self
             .context()
             .exports
             .data()
             .get_with_string(&import_name)
             .cloned();
-        if let Some(value) = maybe_export {
-            self.set_register(result_register, value);
-        } else {
-            let maybe_in_prelude = self
-                .context_shared
-                .prelude
-                .data()
-                .get_with_string(&import_name)
-                .cloned();
-            if let Some(value) = maybe_in_prelude {
-                self.set_register(result_register, value);
-            } else {
-                let source_path = self.reader.chunk.source_path.clone();
-                let compile_result = self
-                    .context_mut()
-                    .loader
-                    .compile_module(&import_name, source_path);
-                let (module_chunk, module_path) = match compile_result {
-                    Ok(chunk) => chunk,
-                    Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
-                };
-                let maybe_module = self.context().modules.get(&module_path).cloned();
-                match maybe_module {
-                    Some(Some(module)) => self.set_register(result_register, Value::Map(module)),
-                    Some(None) => {
-                        return runtime_error!("Recursive import of module '{}'", import_name)
-                    }
-                    None => {
-                        // Insert a placeholder for the new module, preventing recursive imports
-                        self.context_mut().modules.insert(module_path.clone(), None);
+        if let Some(value) = maybe_in_exports {
+            self.set_register(import_register, value);
+            return Ok(());
+        }
 
-                        // Run the module chunk
-                        let mut vm = self.spawn_new_vm();
-                        match vm.run(module_chunk) {
-                            Ok(_) => {
-                                if let Some(main) = vm.get_exported_function("main") {
-                                    if let Err(error) = vm.run_function(main, &[]) {
-                                        self.context_mut().modules.remove(&module_path);
-                                        return Err(error);
-                                    }
-                                }
-                            }
-                            Err(error) => {
+        // Is the import in the prelude?
+        let maybe_in_prelude = self
+            .context_shared
+            .prelude
+            .data()
+            .get_with_string(&import_name)
+            .cloned();
+        if let Some(value) = maybe_in_prelude {
+            self.set_register(import_register, value);
+            return Ok(());
+        }
+
+        // Attempt to compile the imported module from disk,
+        // using the current source path as the relative starting location
+        let source_path = self.reader.chunk.source_path.clone();
+        let (module_chunk, module_path) = match self
+            .context_mut()
+            .loader
+            .compile_module(&import_name, source_path)
+        {
+            Ok((chunk, path)) => (chunk, path),
+            Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
+        };
+
+        // Has the module been loaded previously?
+        let maybe_in_cache = self.context().modules.get(&module_path).cloned();
+        match maybe_in_cache {
+            Some(Some(cached_exports)) => {
+                self.set_register(import_register, Value::Map(cached_exports));
+                return Ok(());
+            }
+            Some(None) => {
+                // If the cache contains a None entry for the module path,
+                // then we're in a recursive import (see below).
+                return runtime_error!("Recursive import of module '{}'", import_name);
+            }
+            None => {
+                // The module is new to the runtime, so it needs to be loaded
+
+                // Insert a placeholder for the new module, preventing recursive imports
+                self.context_mut().modules.insert(module_path.clone(), None);
+
+                // Run the module chunk in a new vm
+                let mut vm = self.spawn_new_vm();
+                match vm.run(module_chunk) {
+                    Ok(_) => {
+                        if let Some(main) = vm.get_exported_function("main") {
+                            if let Err(error) = vm.run_function(main, &[]) {
                                 self.context_mut().modules.remove(&module_path);
                                 return Err(error);
                             }
                         }
-
-                        // Cache the resulting module's exports map
-                        let module_exports = vm.context().exports.clone();
-                        self.context_mut()
-                            .modules
-                            .insert(module_path, Some(module_exports.clone()));
-
-                        self.set_register(result_register, Value::Map(module_exports));
+                    }
+                    Err(error) => {
+                        self.context_mut().modules.remove(&module_path);
+                        return Err(error);
                     }
                 }
+
+                // Cache the module's resulting exports map
+                let module_exports = vm.context().exports.clone();
+                self.context_mut()
+                    .modules
+                    .insert(module_path, Some(module_exports.clone()));
+
+                self.set_register(import_register, Value::Map(module_exports));
             }
         }
 

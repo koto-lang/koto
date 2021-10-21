@@ -2329,6 +2329,7 @@ impl<'source> Parser<'source> {
                 Some(ImportItem::Id(id)) => {
                     self.frame_mut()?.ids_assigned_in_scope.insert(*id);
                 }
+                Some(ImportItem::Str(_)) => {}
                 None => return internal_error!(ExpectedIdInImportItem, self),
             };
         }
@@ -2414,15 +2415,28 @@ impl<'source> Parser<'source> {
         let mut items = vec![];
         let mut item_context = ExpressionContext::permissive();
 
-        while let Some(item_root) = self.parse_id(&mut item_context)? {
-            let mut item = vec![ImportItem::Id(item_root)];
+        loop {
+            let item_root = match self.parse_id(&mut item_context)? {
+                Some(id) => ImportItem::Id(id),
+                None => match self.parse_string(&mut item_context)? {
+                    Some((import_string, _span)) => ImportItem::Str(import_string),
+                    None => break,
+                },
+            };
+
+            let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
                 match self.parse_id(&mut ExpressionContext::restricted())? {
                     Some(id) => item.push(ImportItem::Id(id)),
-                    None => return syntax_error!(ExpectedImportModuleId, self),
+                    None => match self.parse_string(&mut ExpressionContext::restricted())? {
+                        Some((node_string, _span)) => {
+                            item.push(ImportItem::Str(node_string));
+                        }
+                        None => return syntax_error!(ExpectedImportModuleId, self),
+                    },
                 }
             }
 

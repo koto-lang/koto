@@ -99,7 +99,6 @@ pub enum Instruction {
     },
     Import {
         register: u8,
-        constant: ConstantIndex,
     },
     MakeTempTuple {
         register: u8,
@@ -510,9 +509,7 @@ impl fmt::Debug for Instruction {
             ValueExport { name, value } => {
                 write!(f, "ValueExport\tname: {}\tvalue: {}", name, value)
             }
-            Import { register, constant } => {
-                write!(f, "Import\t\tresult: {}\tconstant: {}", register, constant)
-            }
+            Import { register } => write!(f, "Import\t\tregister: {}", register),
             MakeTempTuple {
                 register,
                 start,
@@ -1044,15 +1041,6 @@ impl Iterator for InstructionReader {
             }),
             Op::Import => Some(Import {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
-            }),
-            Op::Import16 => Some(Import {
-                register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
-            }),
-            Op::Import24 => Some(Import {
-                register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
             }),
             Op::MakeTempTuple => Some(MakeTempTuple {
                 register: get_u8!(),
