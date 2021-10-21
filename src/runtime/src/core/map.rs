@@ -42,30 +42,40 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("map.deep_copy: Expected map as argument"),
     });
 
-    result.add_fn("get", |vm, args| match vm.get_args(args) {
-        [Map(m), key] if key.is_immutable() => match m.data().get(&ValueKey::from(key.clone())) {
+    result.add_fn("get", |vm, args| {
+        let (map, key, default) = match vm.get_args(args) {
+            [Map(map), key] if key.is_immutable() => (map, key, &Empty),
+            [Map(map), key, default] if key.is_immutable() => (map, key, default),
+            [other_a, other_b, ..] => {
+                return runtime_error!(
+                    "map.get: Expected map and key as arguments, found '{}' and '{}'",
+                    other_a.type_as_string(),
+                    other_b.type_as_string()
+                )
+            }
+            _ => return runtime_error!("map.get: Expected map and key as arguments"),
+        };
+
+        match map.data().get(&ValueKey::from(key.clone())) {
             Some(value) => Ok(value.clone()),
-            None => Ok(Empty),
-        },
-        [other_a, other_b, ..] => runtime_error!(
-            "map.get: Expected map and key as arguments, found '{}' and '{}'",
-            other_a.type_as_string(),
-            other_b.type_as_string()
-        ),
-        _ => runtime_error!("map.get: Expected map and key as arguments"),
+            None => Ok(default.clone()),
+        }
     });
 
-    result.add_fn("get_index", |vm, args| match vm.get_args(args) {
-        [Map(m), Number(n)] => {
-            if *n < 0.0 {
-                return runtime_error!("map.get_index: Negative indices aren't allowed");
-            }
-            match m.data().get_index(n.into()) {
-                Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
-                None => Ok(Empty),
-            }
+    result.add_fn("get_index", |vm, args| {
+        let (map, index, default) = match vm.get_args(args) {
+            [Map(map), Number(n)] => (map, n, &Empty),
+            [Map(map), Number(n), default] => (map, n, default),
+            _ => return runtime_error!("map.get_index: Expected map and index as arguments"),
+        };
+
+        if *index < 0.0 {
+            return runtime_error!("map.get_index: Negative indices aren't allowed");
         }
-        _ => runtime_error!("map.get_index: Expected map and index as arguments"),
+        match map.data().get_index(index.into()) {
+            Some((key, value)) => Ok(Tuple(vec![key.deref().clone(), value.clone()].into())),
+            None => Ok(default.clone()),
+        }
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {

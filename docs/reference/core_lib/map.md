@@ -273,19 +273,25 @@ x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
 ## get
 
 `|Map, Key| -> Value`
+`|Map, Key, Value| -> Value`
 
-Returns the value corresponding to the given key, or `()` if the map doesn't
-contain the key.
+Returns the value corresponding to the given key, or the provided default value
+if the map doesn't contain the key.
+
+If no default value is provided then `()` is returned.
 
 ### Example
 
 ```koto
-x = {hello: -1}
+x = hello: -1
 x.get "hello"
 # -1
 
 x.get "goodbye"
 # ()
+
+x.get "goodbye", "byeeee"
+# "byeeee"
 
 x.insert 99, "xyz"
 x.get 99
@@ -299,21 +305,27 @@ x.get 99
 ## get_index
 
 `|Map, Number| -> Tuple`
+`|Map, Number, Value| -> Tuple`
 
-Returns the entry at the given index as a key/value tuple, or `()` if the map
-doesn't contain an entry at that index.
+Returns the entry at the given index as a key/value tuple, or the provided
+default value if the map doesn't contain an entry at that index.
+
+If no default value is provided then `()` is returned.
 
 An error will be thrown if a negative index is provided.
 
 ### Example
 
 ```koto
-x = {foo: -1, bar: -2}
+x = foo: -1, bar: -2
 x.get_index 1
 # (bar, -2)
 
 x.get_index 99
 # ()
+
+x.get_index 99, "xyz"
+# "xyz"
 ```
 
 ### See also
@@ -336,7 +348,7 @@ If the key didn't already exist, then `()` is returned.
 ### Example
 
 ```koto
-x = {hello: -1}
+x = hello: -1
 x.insert "hello", 99 # -1 already exists at `hello`, so it's returned here
 # -1
 

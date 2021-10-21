@@ -71,17 +71,20 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("list.first: Expected list as argument"),
     });
 
-    result.add_fn("get", |vm, args| match vm.get_args(args) {
-        [List(l), Number(n)] => {
-            if *n < 0.0 {
-                return runtime_error!("list.get: Negative indices aren't allowed");
-            }
-            match l.data().get(usize::from(n)) {
-                Some(value) => Ok(value.clone()),
-                None => Ok(Value::Empty),
-            }
+    result.add_fn("get", |vm, args| {
+        let (list, index, default) = match vm.get_args(args) {
+            [List(list), Number(n)] => (list, n, &Empty),
+            [List(list), Number(n), default] => (list, n, default),
+            _ => return runtime_error!("list.get: Expected list and number as arguments"),
+        };
+
+        if *index < 0.0 {
+            return runtime_error!("list.get: Negative indices aren't allowed");
         }
-        _ => runtime_error!("list.get: Expected list and number as arguments"),
+        match list.data().get::<usize>(index.into()) {
+            Some(value) => Ok(value.clone()),
+            None => Ok(default.clone()),
+        }
     });
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {

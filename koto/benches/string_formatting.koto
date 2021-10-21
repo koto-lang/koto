@@ -32,7 +32,7 @@ export main = ||
     () then 50
     arg then arg.to_number()
 
-  result = ((-n)..n)
+  result = -n..n
     .each |x| number_to_english x
     .to_tuple()
 

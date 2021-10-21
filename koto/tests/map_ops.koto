@@ -8,12 +8,12 @@ make_foo = |x|
 
 export @tests =
   @test clear: ||
-    m = {foo: 42, bar: 99}
+    m = foo: 42, bar: 99
     m.clear()
     assert_eq m, {}
 
   @test contains_key: ||
-    m = {foo: 42, bar: 99}
+    m = foo: 42, bar: 99
     assert m.contains_key "foo"
     assert m.contains_key "bar"
     assert not m.contains_key "baz"
@@ -25,7 +25,7 @@ export @tests =
     assert_eq m2.bar.baz, 99
 
   @test insert: ||
-    m = {foo: 42}
+    m = foo: 42
     old_value = m.insert "foo", 99
     assert_eq m.foo, 99
     assert_eq old_value, 42
@@ -33,12 +33,12 @@ export @tests =
   @test insert_via_map_module: ||
     # map ops are also available in the map module,
     # which allows access to ops when a key might have a matching name.
-    m = {foo: 42}
+    m = foo: 42
     map.insert m, "foo", -1
     assert_eq m.foo, -1
 
   @test insert_without_value: ||
-    m = {foo: 42}
+    m = foo: 42
     m.insert "foo"
     assert_eq m.foo, ()
 
@@ -54,20 +54,27 @@ export @tests =
     assert not {foo: 42}.is_empty()
 
   @test get: ||
-    m = {foo: 42}
+    m = foo: 42
     assert_eq (m.get "foo"), 42
     assert_eq (m.get "bar"), ()
 
-  @test get_non_string_key: ||
+    # A default value can also be provided
+    assert_eq (m.get "bar", 99), 99
+
+    # Any immutable value type can be used as a key
     m = {}
     m.insert 1, "O_o"
     assert_eq (m.get 1), "O_o"
     assert_eq (m.get num2 1, 2), ()
 
   @test get_index: ||
-    m = {foo: 42, bar: 99, baz: 123}
+    m = foo: 42, bar: 99, baz: 123
     assert_eq (m.get_index 1), ("bar", 99)
     assert_eq (m.get_index 2), ("baz", 123)
+    assert_eq (m.get_index 5), (),
+
+    # A default value can also be provided
+    assert_eq (m.get_index 5, ("not found", -1)), ("not found", -1)
 
   @test keys: ||
     m = {foo: 42}
@@ -76,7 +83,7 @@ export @tests =
     assert_eq m.keys().to_tuple(), ("foo", 0)
 
   @test remove: ||
-    m = {foo: 42, bar: 99, baz: -1}
+    m = foo: 42, bar: 99, baz: -1
     assert_eq (m.remove "foo"), 42
     assert_eq m.keys().to_tuple(), ("bar", "baz")
     assert_eq (m.remove "bar"), 99
@@ -87,7 +94,7 @@ export @tests =
     assert_eq {foo: 42}.size(), 1
 
   @test sort: ||
-    m = {foo: 42, bar: 99}
+    m = foo: 42, bar: 99
     assert_eq m.keys().to_tuple(), ("foo", "bar")
 
     m.sort()
@@ -108,7 +115,7 @@ export @tests =
     assert_eq m.keys().to_tuple(), ("baz", "foo", "bar")
 
   @test update: ||
-    m = {foo: 42}
+    m = foo: 42
 
     # update takes a function that receives the entry's current value,
     # which is then replaced with the function's result.
@@ -122,5 +129,5 @@ export @tests =
     assert_eq m.xyz, 50
 
   @test values: ||
-    m = {foo: 42, bar: "O_o"}
+    m = foo: 42, bar: "O_o"
     assert_eq m.values().to_tuple(), (42, "O_o")

@@ -407,6 +407,44 @@ x = [
         }
 
         #[test]
+        fn map_inline_without_braces() {
+            let source = "
+x = foo: 42, bar: 'hello'
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)), // x
+                    Int(constant(2)),
+                    string_literal(4, QuotationMark::Single),
+                    Map(vec![
+                        (MapKey::Id(constant(1)), Some(1)),
+                        (MapKey::Id(constant(3)), Some(2)),
+                    ]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::I64(42),
+                    Constant::Str("bar"),
+                    Constant::Str("hello"),
+                ]),
+            )
+        }
+
+        #[test]
         fn map_inline_multiline() {
             let source = r#"
 {
@@ -515,6 +553,46 @@ x =
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("foo"), Constant::I64(42)]),
+            )
+        }
+
+        #[test]
+        fn map_block_first_entry_is_nested_map_block() {
+            let source = r#"
+x =
+  foo:
+    bar: 42
+"#;
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),  // x
+                    Int(constant(3)), // 42
+                    Map(vec![
+                        (MapKey::Id(constant(2)), Some(1)), // bar: 42
+                    ]),
+                    Map(vec![
+                        (MapKey::Id(constant(1)), Some(2)), // foo: ...
+                    ]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 3,
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::I64(42),
+                ]),
             )
         }
 
@@ -2436,6 +2514,59 @@ f = ||
                     Constant::Str("foo"),
                     Constant::Str("x"),
                     Constant::Str("bar"),
+                ]),
+            )
+        }
+
+        #[test]
+        fn function_map_block_with_nested_map_as_first_entry() {
+            let source = "
+f = ||
+  foo:
+    bar: x
+  baz: 0
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)), // f
+                    Id(constant(3)), // x
+                    Map(vec![
+                        (MapKey::Id(constant(2)), Some(1)), // bar: x
+                    ]),
+                    Number0,
+                    Map(vec![
+                        (MapKey::Id(constant(1)), Some(2)), // foo: ...
+                        (MapKey::Id(constant(4)), Some(3)), // baz: 0
+                    ]),
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 0,
+                        accessed_non_locals: vec![constant(3)],
+                        body: 4,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }), // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("x"),
+                    Constant::Str("baz"),
                 ]),
             )
         }

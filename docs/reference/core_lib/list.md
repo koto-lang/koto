@@ -175,9 +175,11 @@ Returns the first value in the list, or `()` if the list is empty.
 ## get
 
 `|List, Number| -> Value`
+`|List, Number, Value| -> Value`
 
-Gets the Nth value in the list, or `()` if the list doesn't contain a value at
-that position.
+Gets the Nth value in the list.
+If the list doesn't contain a value at that position then the provided default
+value is returned. If no default value is provided then `()` is returned.
 
 ### Example
 
@@ -187,6 +189,9 @@ that position.
 
 [99, -1, 42].get 5
 # ()
+
+[99, -1, 42].get 5, 123
+# 123
 ```
 
 ### See also

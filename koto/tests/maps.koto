@@ -2,12 +2,12 @@ from test import assert, assert_eq, assert_ne
 
 export @tests =
   @test access_by_key: ||
-    m = {key: "value", another_key: "another_value"}
+    m = key: "value", another_key: "another_value"
     assert_eq m.key, "value"
     assert_eq m.another_key, "another_value"
 
   @test assign_by_key: ||
-    m = {key: -1}
+    m = key: -1
     m.key = 42
     assert_eq m.key, 42
 
@@ -19,14 +19,14 @@ export @tests =
     assert_eq m.baz, -1
 
   @test map_iteration: ||
-    m = {foo: 42, bar: -1}
+    m = foo: 42, bar: -1
     for key, value in m
       assert_ne key, ()
       assert_ne value, ()
 
   @test map_string_keys: ||
     # Strings can be used for keys that would otherwise be disallowed
-    x = {"for": -1, 'while': 99, "20": "twenty"}
+    x = "for": -1, 'while': 99, "20": "twenty"
     assert_eq x."for", -1
     assert_eq x."while", 99
     assert_eq x."20", "twenty"
@@ -62,7 +62,7 @@ export @tests =
     assert_eq sum, 861
 
   @test equality_and_shared_data: ||
-    m = {foo: 42, bar: -1}
+    m = foo: 42, bar: -1
     m2 = m
     assert_eq m, m2
     m2.foo = -1
@@ -82,10 +82,10 @@ export @tests =
     assert_eq m.baz.child_foo, 99
 
   @test addition: ||
-    m = {foo: 42}
-    m2 = m + {bar: -1}
+    m = foo: 42
+    m2 = m + bar: -1
     assert_eq m2.bar, -1
-    m2 += {extra: 99}
+    m2 += extra: 99
     assert_eq m2.extra, 99
 
   @test value_mutation: ||
@@ -137,6 +137,10 @@ export @tests =
     assert_eq deep.a.b.c.d.e.f, 42
     deep.a.b.c.d.e.f = 99
     assert_eq deep.a.b.c.d.e.f, 99
+
+    #... and without curly braces
+    deep2 = a: b: c: d: e: f: 99
+    assert_eq deep, deep2
 
   @test nested_block: ||
     deep =
