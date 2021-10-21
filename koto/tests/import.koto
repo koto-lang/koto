@@ -1,4 +1,4 @@
-import test.assert_eq
+from test import assert, assert_eq
 
 #-
 An import expression will attempt to import a module matching the requested name from the
@@ -56,6 +56,12 @@ export @tests =
   @test import_from_path: ||
     baz = import "test_module/baz"
     assert_eq baz.qux, "O_o"
+
+  @test tests_should_be_run_when_importing_a_module: ||
+    # Tests will be run when importing a module when the 'run import tests' setting is set
+    # in the runtime.
+    import test_module.tests_were_run
+    assert tests_were_run
 
   @test dynamic_exported_value: ||
     x = "value_x"

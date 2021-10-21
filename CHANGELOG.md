@@ -90,6 +90,9 @@ The Koto project adheres to
     # ^~~~ An 'unexpected token' error would previously be generated here
       2
     ```
+- CLI
+  - An `import_tests` flag has been added that causes a module's tests to be run
+    when it's first imported.
 - Internals
   - `From` implementations are extended to cover integer and floating point
     number types for `Value`. Also additional `From` implementations for `u16`
@@ -101,6 +104,8 @@ The Koto project adheres to
       ```
   - The Koto struct now has a `Koto::exports()` getter that allows access to a
     script's exported values.
+  - A `run_import_tests` setting has been added to the runtime which will cause
+    a module's tests to be run when it's imported.
 
 ### Changed
 

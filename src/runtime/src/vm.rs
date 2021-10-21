@@ -63,25 +63,17 @@ struct SharedContext {
     stdin: Arc<dyn KotoFile>,
     stdout: Arc<dyn KotoFile>,
     stderr: Arc<dyn KotoFile>,
+    run_import_tests: bool,
 }
 
 impl Default for SharedContext {
     fn default() -> Self {
-        let default_settings = VmSettings::default();
-        Self::with_outputs(
-            default_settings.stdin,
-            default_settings.stdout,
-            default_settings.stderr,
-        )
+        Self::with_settings(VmSettings::default())
     }
 }
 
 impl SharedContext {
-    fn with_outputs(
-        stdin: Arc<dyn KotoFile>,
-        stdout: Arc<dyn KotoFile>,
-        stderr: Arc<dyn KotoFile>,
-    ) -> Self {
+    fn with_settings(settings: VmSettings) -> Self {
         let core_lib = CoreLib::default();
 
         let mut prelude = ValueMap::default();
@@ -101,9 +93,10 @@ impl SharedContext {
         Self {
             prelude,
             core_lib,
-            stdin,
-            stdout,
-            stderr,
+            stdin: settings.stdin,
+            stdout: settings.stdout,
+            stderr: settings.stderr,
+            run_import_tests: settings.run_import_tests,
         }
     }
 }
@@ -151,6 +144,7 @@ pub struct VmSettings {
     pub stdin: Arc<dyn KotoFile>,
     pub stdout: Arc<dyn KotoFile>,
     pub stderr: Arc<dyn KotoFile>,
+    pub run_import_tests: bool,
 }
 
 impl Default for VmSettings {
@@ -159,6 +153,7 @@ impl Default for VmSettings {
             stdin: Arc::new(DefaultStdin::default()),
             stdout: Arc::new(DefaultStdout::default()),
             stderr: Arc::new(DefaultStderr::default()),
+            run_import_tests: true,
         }
     }
 }
@@ -183,11 +178,7 @@ impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             context: Arc::new(RwLock::new(ModuleContext::default())),
-            context_shared: Arc::new(SharedContext::with_outputs(
-                settings.stdin,
-                settings.stdout,
-                settings.stderr,
-            )),
+            context_shared: Arc::new(SharedContext::with_settings(settings)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -1951,6 +1942,30 @@ impl Vm {
                 let mut vm = self.spawn_new_vm();
                 match vm.run(module_chunk) {
                     Ok(_) => {
+                        if self.context_shared.run_import_tests {
+                            let maybe_tests =
+                                vm.context().exports.meta().get(&MetaKey::Tests).cloned();
+                            match maybe_tests {
+                                Some(Value::Map(tests)) => {
+                                    if let Err(error) = vm.run_tests(tests) {
+                                        return runtime_error!(
+                                            "Module '{}' - {}",
+                                            import_name,
+                                            error
+                                        );
+                                    }
+                                }
+                                Some(other) => {
+                                    return runtime_error!(
+                                        "Expected map for tests in module '{}', found '{}'",
+                                        import_name,
+                                        other.type_as_string()
+                                    );
+                                }
+                                None => {}
+                            }
+                        }
+
                         if let Some(main) = vm.get_exported_function("main") {
                             if let Err(error) = vm.run_function(main, &[]) {
                                 self.context_mut().modules.remove(&module_path);
