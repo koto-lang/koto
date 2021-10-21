@@ -46,8 +46,8 @@ pub enum Node {
         args: Vec<AstIndex>,
     },
     Import {
-        from: Vec<ConstantIndex>,
-        items: Vec<Vec<ConstantIndex>>,
+        from: Vec<ImportItem>,
+        items: Vec<Vec<ImportItem>>,
     },
     Assign {
         target: AssignTarget,
@@ -325,4 +325,10 @@ pub enum MapKey {
 pub enum QuotationMark {
     Double,
     Single,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ImportItem {
+    Id(ConstantIndex),
+    Str(AstString),
 }

@@ -2308,6 +2308,7 @@ impl<'source> Parser<'source> {
                 return syntax_error!(ExpectedImportKeywordAfterFrom, self);
             }
             self.consume_next_token_on_same_line();
+
             from
         } else {
             vec![]
@@ -2322,13 +2323,15 @@ impl<'source> Parser<'source> {
             }
         }
 
+        // Mark any imported ids as locally assigned
         for item in items.iter() {
             match item.last() {
-                Some(id) => {
+                Some(ImportItem::Id(id)) => {
                     self.frame_mut()?.ids_assigned_in_scope.insert(*id);
                 }
+                Some(ImportItem::Str(_)) => {}
                 None => return internal_error!(ExpectedIdInImportItem, self),
-            }
+            };
         }
 
         Ok(Some(self.push_node_with_start_span(
@@ -2408,19 +2411,32 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
-    fn consume_import_items(&mut self) -> Result<Vec<Vec<ConstantIndex>>, ParserError> {
+    fn consume_import_items(&mut self) -> Result<Vec<Vec<ImportItem>>, ParserError> {
         let mut items = vec![];
         let mut item_context = ExpressionContext::permissive();
 
-        while let Some(item_root) = self.parse_id(&mut item_context)? {
+        loop {
+            let item_root = match self.parse_id(&mut item_context)? {
+                Some(id) => ImportItem::Id(id),
+                None => match self.parse_string(&mut item_context)? {
+                    Some((import_string, _span)) => ImportItem::Str(import_string),
+                    None => break,
+                },
+            };
+
             let mut item = vec![item_root];
 
             while self.peek_token() == Some(Token::Dot) {
                 self.consume_token();
 
                 match self.parse_id(&mut ExpressionContext::restricted())? {
-                    Some(id) => item.push(id),
-                    None => return syntax_error!(ExpectedImportModuleId, self),
+                    Some(id) => item.push(ImportItem::Id(id)),
+                    None => match self.parse_string(&mut ExpressionContext::restricted())? {
+                        Some((node_string, _span)) => {
+                            item.push(ImportItem::Str(node_string));
+                        }
+                        None => return syntax_error!(ExpectedImportModuleId, self),
+                    },
                 }
             }
 

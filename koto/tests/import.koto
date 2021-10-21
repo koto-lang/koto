@@ -1,10 +1,27 @@
-import test.assert_eq
+from test import assert, assert_eq
+
+#-
+An import expression will attempt to import a module matching the requested name from the
+following locations, in order:
+  1. The current module's exports map.
+  2. The runtime's prelude.
+  3. The runtime's module cache.
+  4. A file in the same location as the current script that matches the import name with
+     a '.koto' extension.
+  5. A directory in the same location as the current script that matches the import name,
+     that contains a `main.koto` file.
+
+Importing a module automatically brings the module's exports map into local scope with a
+name matching the imported module.
+
+If a string is used for the imported name, then the imported module isn't automatically
+brought into scope, and it needs to be assigned to a local value.
+-#
 
 export @tests =
   @test import_module: ||
-    # Importing a module brings the module's exports map into scope by assignment.
-    # The test_module module is defined in the test_module directory,
-    # with test_module/main.koto as its entry point.
+    # The test_module module being imported here is defined in the neighbouring
+    # test_module directory, with test_module/main.koto as its entry point.
     import test_module
     assert_eq (koto.type test_module), "Map"
     assert_eq test_module.foo, 42
@@ -29,7 +46,24 @@ export @tests =
     assert_eq x, 42
     assert_eq y, -1
 
-  @test access_export: ||
+  @test import_multiple_items_with_from_using_string: ||
+    module_name = "test_module"
+    bar = "bar"
+    x, y = from "$module_name" import "foo", "$bar"
+    assert_eq x, 42
+    assert_eq y, -1
+
+  @test import_from_path: ||
+    baz = import "test_module/baz"
+    assert_eq baz.qux, "O_o"
+
+  @test tests_should_be_run_when_importing_a_module: ||
+    # Tests will be run when importing a module when the 'run import tests' setting is set
+    # in the runtime.
+    import test_module.tests_were_run
+    assert tests_were_run
+
+  @test dynamic_exported_value: ||
     x = "value_x"
     koto.exports().insert x, 99
     assert_eq value_x, 99

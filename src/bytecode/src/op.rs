@@ -23,9 +23,7 @@ pub enum Op {
     LoadNonLocal,     // register, constant
     LoadNonLocal16,   // register, constant[2]
     LoadNonLocal24,   // register, constant[3]
-    Import,           // register, constant
-    Import16,         // register, constant[2]
-    Import24,         // register, constant[3]
+    Import,           // register
     MakeTempTuple,    // register, start register, count
     MakeMap,          // register, size hint
     MakeMap32,        // register, size hint[4]
@@ -95,6 +93,8 @@ pub enum Op {
     Debug,            // register, constant[3]
     CheckType,        // register, type (see TypeId)
     CheckSize,        // register, size
+    Unused89,
+    Unused90,
     Unused91,
     Unused92,
     Unused93,

@@ -2,8 +2,8 @@ use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope, Span,
-        StringNode, SwitchArm,
+        ConstantIndex, Function, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope,
+        Span, StringNode, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -606,7 +606,7 @@ impl Compiler {
                 }
             }
             Node::Import { from, items } => {
-                self.compile_import_expression(result_register, from, items)?
+                self.compile_import_expression(result_register, from, items, ast)?
             }
             Node::Assign {
                 target,
@@ -1291,63 +1291,111 @@ impl Compiler {
     fn compile_import_expression(
         &mut self,
         result_register: ResultRegister,
-        from: &[ConstantIndex],
-        items: &[Vec<ConstantIndex>],
+        from: &[ImportItem],
+        items: &[Vec<ImportItem>],
+        ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
 
         let result = self.get_result_register(result_register)?;
 
+        let stack_count = self.frame().register_stack.len();
+
         let mut imported = vec![];
 
         if from.is_empty() {
             for item in items.iter() {
-                let import_id = match item.last() {
-                    Some(id) => id,
+                match item.last() {
+                    Some(ImportItem::Id(import_id)) => {
+                        // Reserve a local for the imported item.
+                        // The register must only be reserved for now otherwise it'll show up in the
+                        // import search.
+                        let import_register = self.reserve_local_register(*import_id)?;
+
+                        self.compile_import_item(import_register, item, ast)?;
+                        imported.push(import_register);
+
+                        // Commit the register now that the import is complete
+                        self.commit_local_register(import_register)?;
+
+                        // If we're in repl mode then re-export the imported id
+                        if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                            self.compile_value_export(*import_id, import_register)?;
+                        }
+                    }
+                    Some(ImportItem::Str(_)) => {
+                        // String imports need to be explicitly assigned
+                        let import_register = self.push_register()?;
+                        self.compile_import_item(import_register, item, ast)?;
+                        imported.push(import_register);
+                    }
                     None => return compiler_error!(self, "Missing ID in import item"),
                 };
-
-                // Reserve a local for the imported item
-                // (only reserve the register otherwise it'll show up in the import search)
-                let import_register = self.reserve_local_register(*import_id)?;
-
-                self.compile_import_item(import_register, item)?;
-
-                imported.push(import_register);
-                self.commit_local_register(import_register)?;
-
-                if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*import_id, import_register)?;
-                }
             }
         } else {
             let from_register = self.push_register()?;
 
-            self.compile_import_item(from_register, from)?;
+            self.compile_import_item(from_register, from, ast)?;
 
             for item in items.iter() {
-                let mut access_register = from_register;
-                let import_id = match item.last() {
-                    Some(id) => id,
+                match item.last() {
+                    Some(ImportItem::Id(import_id)) => {
+                        // Assign the leaf item to a local with a matching name.
+                        let import_register = self.assign_local_register(*import_id)?;
+
+                        // Access the item from from_register, incrementally accessing nested items
+                        let mut access_register = from_register;
+                        for item_node in item.iter() {
+                            match item_node {
+                                ImportItem::Id(id) => {
+                                    self.compile_access_id(import_register, access_register, *id)?;
+                                }
+                                ImportItem::Str(string) => {
+                                    self.compile_access_string(
+                                        import_register,
+                                        access_register,
+                                        &string.nodes,
+                                        ast,
+                                    )?;
+                                }
+                            }
+                            access_register = import_register;
+                        }
+
+                        imported.push(import_register);
+
+                        if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                            self.compile_value_export(*import_id, import_register)?;
+                        }
+                    }
+                    Some(ImportItem::Str(_)) => {
+                        // String imports need to be explicitly assigned
+                        let import_register = self.push_register()?;
+
+                        // Access the item from from_register, incrementally accessing nested items
+                        let mut access_register = from_register;
+                        for item_node in item.iter() {
+                            match item_node {
+                                ImportItem::Id(id) => {
+                                    self.compile_access_id(import_register, access_register, *id)?;
+                                }
+                                ImportItem::Str(string) => {
+                                    self.compile_access_string(
+                                        import_register,
+                                        access_register,
+                                        &string.nodes,
+                                        ast,
+                                    )?;
+                                }
+                            }
+                            access_register = import_register;
+                        }
+
+                        imported.push(import_register);
+                    }
                     None => return compiler_error!(self, "Missing ID in import item"),
                 };
-
-                // assign the leaf item to a local with a matching name
-                let import_register = self.assign_local_register(*import_id)?;
-
-                for id in item.iter() {
-                    self.compile_access(import_register, access_register, *id)?;
-                    access_register = import_register;
-                }
-
-                imported.push(import_register);
-
-                if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                    self.compile_value_export(*import_id, import_register)?;
-                }
             }
-
-            self.pop_register()?; // from_register
         }
 
         if let Some(result) = result {
@@ -1364,22 +1412,37 @@ impl Compiler {
             }
         }
 
+        self.truncate_register_stack(stack_count)?;
+
         Ok(result)
     }
 
     fn compile_import_item(
         &mut self,
         result_register: u8,
-        item: &[ConstantIndex],
+        item: &[ImportItem],
+        ast: &Ast,
     ) -> Result<(), CompilerError> {
         match item {
             [] => return compiler_error!(self, "Missing item to import"),
-            [import_id] => self.compile_import_id(result_register, *import_id),
-            [import_id, nested @ ..] => {
-                self.compile_import_id(result_register, *import_id);
+            [root] => {
+                self.compile_import_root(result_register, root, ast)?;
+            }
+            [root, nested @ ..] => {
+                self.compile_import_root(result_register, root, ast)?;
 
                 for nested_item in nested.iter() {
-                    self.compile_access(result_register, result_register, *nested_item)?;
+                    match nested_item {
+                        ImportItem::Id(id) => {
+                            self.compile_access_id(result_register, result_register, *id)?
+                        }
+                        ImportItem::Str(string) => self.compile_access_string(
+                            result_register,
+                            result_register,
+                            &string.nodes,
+                            ast,
+                        )?,
+                    }
                 }
             }
         }
@@ -1387,17 +1450,33 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_import_id(&mut self, result_register: u8, id: ConstantIndex) {
+    fn compile_import_root(
+        &mut self,
+        import_register: u8,
+        root: &ImportItem,
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
         use Op::*;
 
-        if let Some(local_register) = self.frame().get_local_assigned_register(id) {
-            if local_register != result_register {
-                self.push_op(Copy, &[result_register, local_register]);
+        match root {
+            ImportItem::Id(id) => {
+                if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
+                    if local_register != import_register {
+                        self.push_op(Copy, &[import_register, local_register]);
+                    }
+                } else {
+                    // If the id isn't a local then it needs to be imported
+                    self.compile_load_string_constant(import_register, *id);
+                }
             }
-        } else {
-            // If the id isn't a local then it needs to be imported
-            self.compile_constant_op(result_register, id, Op::Import, Op::Import16, Op::Import24);
+            ImportItem::Str(string) => {
+                self.compile_string(ResultRegister::Fixed(import_register), &string.nodes, ast)?;
+            }
         }
+
+        self.push_op(Import, &[import_register]);
+
+        Ok(())
     }
 
     fn compile_try_expression(
@@ -2262,12 +2341,12 @@ impl Compiler {
                                 ast,
                             )?;
                         } else if let Some(result) = result {
-                            self.compile_access(result.register, parent_register, id)?;
+                            self.compile_access_id(result.register, parent_register, id)?;
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.compile_access(node_register, parent_register, id)?;
+                        self.compile_access_id(node_register, parent_register, id)?;
                     }
                 }
                 LookupNode::Str(lookup_string) => {
@@ -2444,7 +2523,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_access(
+    fn compile_access_id(
         &mut self,
         result_register: u8,
         value_register: u8,
@@ -2452,6 +2531,20 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
         self.compile_load_string_constant(key_register, key);
+        self.push_op(Op::Access, &[result_register, value_register, key_register]);
+        self.pop_register()?;
+        Ok(())
+    }
+
+    fn compile_access_string(
+        &mut self,
+        result_register: u8,
+        value_register: u8,
+        key_string_nodes: &[StringNode],
+        ast: &Ast,
+    ) -> Result<(), CompilerError> {
+        let key_register = self.push_register()?;
+        self.compile_string(ResultRegister::Fixed(key_register), key_string_nodes, ast)?;
         self.push_op(Op::Access, &[result_register, value_register, key_register]);
         self.pop_register()?;
         Ok(())

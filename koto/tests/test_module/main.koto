@@ -2,6 +2,18 @@
 
 export foo = 42
 export bar = -1
+
+#-
+Note here that neighbouring baz.koto module is being imported.
+
+Re-exporting can be performed by assigning an import directly to an export
+-#
 export baz = import baz
 
 export square = |x| x * x
+
+export tests_were_run = false
+
+export @tests =
+  @test run_tests: ||
+    export tests_were_run = true

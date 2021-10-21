@@ -30,6 +30,7 @@ FLAGS:
     -i, --show_instructions  Show compiled instructions annotated with source lines
     -b, --show_bytecode      Show the script's compiled bytecode
     -t, --tests              Run the script's tests before running the script
+    -T, --import_tests       Run tests when importing modules
     -h, --help               Prints help information
     -v, --version            Prints version information
 
@@ -47,6 +48,7 @@ struct KotoArgs {
     version: bool,
     eval_script: bool,
     run_tests: bool,
+    run_import_tests: bool,
     show_bytecode: bool,
     show_instructions: bool,
     script: Option<String>,
@@ -60,6 +62,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
     let show_instructions = args.contains(["-i", "--show_instructions"]);
     let show_bytecode = args.contains(["-b", "--show_bytecode"]);
     let run_tests = args.contains(["-t", "--tests"]);
+    let run_import_tests = args.contains(["-T", "--import_tests"]);
     let help = args.contains(["-h", "--help"]);
     let version = args.contains(["-v", "--version"]);
 
@@ -84,6 +87,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
         version,
         eval_script,
         run_tests,
+        run_import_tests,
         show_bytecode,
         show_instructions,
         script,

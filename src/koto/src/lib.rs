@@ -86,6 +86,7 @@ pub type KotoResult = Result<Value, KotoError>;
 #[derive(Clone)]
 pub struct KotoSettings {
     pub run_tests: bool,
+    pub run_import_tests: bool,
     pub repl_mode: bool,
     pub stdin: Arc<dyn KotoFile>,
     pub stdout: Arc<dyn KotoFile>,
@@ -97,6 +98,7 @@ impl Default for KotoSettings {
         let default_vm_settings = VmSettings::default();
         Self {
             run_tests: true,
+            run_import_tests: true,
             repl_mode: false,
             stdin: default_vm_settings.stdin,
             stdout: default_vm_settings.stdout,
@@ -134,6 +136,7 @@ impl Koto {
                 stdin: settings.stdin,
                 stdout: settings.stdout,
                 stderr: settings.stderr,
+                run_import_tests: settings.run_import_tests,
             }),
             loader: Loader::default(),
             chunk: None,
