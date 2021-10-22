@@ -55,6 +55,20 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("io.exists: Expected path string as argument"),
     });
 
+    result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
+        [Str(path), nodes @ ..] => {
+            let mut path = PathBuf::from(path.as_str());
+            for node in nodes {
+                match node {
+                    Str(s) => path.push(s.as_str()),
+                    other => path.push(other.to_string()),
+                }
+            }
+            Ok(path.to_string_lossy().to_string().into())
+        }
+        _ => runtime_error!("io.extend_path: Expected path string as first argument"),
+    });
+
     result.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
             [Str(path)] => match fs::canonicalize(path.as_str()) {

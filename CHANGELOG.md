@@ -53,6 +53,7 @@ The Koto project adheres to
       #         ^-- Previously this would result in an 'unexpected token' error.
       ```
 - Core library additions:
+  - `io.extend_path`
   - `list.get`, `tuple.get`, `map.get`, and `map.get_index` now accept an
     optional default value that should be returned when an entry isn't found.
   - `num2.iter` / `num4.iter`
