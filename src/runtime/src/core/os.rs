@@ -7,6 +7,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("cpu_count", |_vm, _args| Ok(Number(num_cpus::get().into())));
 
+    result.add_fn("name", |_vm, _args| Ok(std::env::consts::OS.into()));
+
     result.add_fn("physical_cpu_count", |_vm, _args| {
         Ok(Number(num_cpus::get_physical().into()))
     });

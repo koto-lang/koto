@@ -62,6 +62,7 @@ The Koto project adheres to
   - `num2.min` / `num4.min`
   - `num2.normalize` / `num4.normalize`
   - `num2.product` / `num4.product`
+  - `os.name`
 - `import` improvements
   - Strings can now be used in import expressions, which allows for more
     flexible module naming, and for dynamically importing items.
