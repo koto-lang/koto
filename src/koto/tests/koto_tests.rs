@@ -32,7 +32,10 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
 fn load_and_run_script(script_path: &str) {
     let mut path = PathBuf::new();
     path.push(env!("CARGO_MANIFEST_DIR"));
-    path.push("../../koto/tests");
+    path.push("..");
+    path.push("..");
+    path.push("koto");
+    path.push("tests");
     path.push(script_path);
     if !path.exists() {
         panic!("Path doesn't exist: {:?}", path);

@@ -1,6 +1,13 @@
 from test import assert, assert_eq, assert_ne
 
-test_path = koto.script_dir + "/data/test.txt"
+extend_path = |path, nodes...|
+  separator = if os.os_name() == "windows" then "\\" else "/"
+  for node in nodes
+    path += separator + node
+  path
+
+
+test_path = extend_path koto.script_dir, "data", "test.txt"
 
 test_contents = "\
 aaa
@@ -19,7 +26,7 @@ export @tests =
     assert io.exists test_path
 
   @test create: ||
-    path = io.temp_dir() + "/io-created-file.txt"
+    path = extend_path io.temp_dir(), "io-created-file.txt"
     io.create path
     assert io.exists path
 
@@ -28,7 +35,7 @@ export @tests =
 
   @test file_path: ||
     file = io.open test_path
-    assert_eq file.path(), test_path
+    assert file.path().ends_with "test.txt"
 
   @test file_read_line: ||
     file = io.open test_path
@@ -49,7 +56,7 @@ export @tests =
     assert_eq file.read_line(), "aaa"
 
   @test file_write: ||
-    path = io.temp_dir() + "/io-write-file.txt"
+    path = extend_path io.temp_dir(), "io-write-file.txt"
     file = io.create path
     file_contents = "dooby-doo"
     file.write file_contents

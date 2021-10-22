@@ -1,5 +1,6 @@
 use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
+    dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
     std::{collections::HashMap, error, fmt, path::PathBuf, sync::Arc},
 };
@@ -150,7 +151,7 @@ impl Loader {
     ) -> Result<(Arc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let path = match &load_from_path {
-            Some(path) => match path.canonicalize() {
+            Some(path) => match canonicalize(path) {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
                     None => {

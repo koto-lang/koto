@@ -13,4 +13,6 @@ keywords = ["scripting", "language", "koto"]
 
 [dependencies]
 koto_parser = { path = "../parser", version = "^0.8.0"}
+
+dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
 smallvec = "1.2.0"
