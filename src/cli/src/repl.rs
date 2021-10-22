@@ -1,13 +1,17 @@
 use {
     crate::help::Help,
+    crossterm::{
+        cursor,
+        event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
+        execute, queue, style,
+        terminal::{self, ClearType},
+        tty::IsTty,
+        Result,
+    },
     koto::{bytecode::Chunk, Koto, KotoSettings},
     std::{
         fmt,
         io::{self, Stdout, Write},
-    },
-    termion::{
-        clear, color, cursor, cursor::DetectCursorPos, event::Key, input::TermRead,
-        raw::IntoRawMode, raw::RawTerminal, style,
     },
 };
 
@@ -56,62 +60,54 @@ impl Repl {
         }
     }
 
-    pub fn run(&mut self) {
-        let stdin = io::stdin();
+    pub fn run(&mut self) -> Result<()> {
         let mut stdout = io::stdout();
-        let mut tty = if termion::is_tty(&stdout) {
-            match termion::get_tty() {
-                Ok(tty) => Some(tty.into_raw_mode().expect("Failed to activate raw mode")),
-                Err(_) => None,
-            }
-        } else {
-            None
-        };
 
         write!(stdout, "Welcome to Koto v{}\r\n{}", VERSION, PROMPT).unwrap();
         stdout.flush().unwrap();
 
-        for c in stdin.keys() {
-            self.on_keypress(c.unwrap(), &mut stdout, &mut tty);
-
-            if let Some(ref mut tty) = tty {
-                let (_, cursor_y) = stdout.cursor_pos().unwrap();
-
-                let prompt = if self.continued_lines.is_empty() {
-                    PROMPT
-                } else {
-                    CONTINUED
-                };
-
-                write!(
-                    tty,
-                    "{move_cursor}{clear}{prompt}{input}",
-                    move_cursor = cursor::Goto(1, cursor_y),
-                    clear = clear::CurrentLine,
-                    prompt = prompt,
-                    input = self.input
-                )
-                .unwrap();
-
-                if let Some(position) = self.cursor {
-                    if position < self.input.len() {
-                        let x_offset = (self.input.len() - position) as u16;
-                        let (cursor_x, cursor_y) = stdout.cursor_pos().unwrap();
-                        write!(tty, "{}", cursor::Goto(cursor_x - x_offset, cursor_y),).unwrap();
-                    }
-                }
+        loop {
+            if stdout.is_tty() {
+                terminal::enable_raw_mode()?;
             }
 
-            stdout.flush().unwrap();
+            if let Event::Key(key_event) = read()? {
+                self.on_keypress(key_event, &mut stdout)?;
+
+                if stdout.is_tty() {
+                    let (_, cursor_y) = cursor::position()?;
+
+                    let prompt = if self.continued_lines.is_empty() {
+                        PROMPT
+                    } else {
+                        CONTINUED
+                    };
+
+                    queue!(
+                        stdout,
+                        cursor::MoveTo(0, cursor_y),
+                        terminal::Clear(ClearType::CurrentLine),
+                        style::Print(prompt),
+                        style::Print(&self.input),
+                    )?;
+
+                    if let Some(position) = self.cursor {
+                        if position < self.input.len() {
+                            let x_offset = (self.input.len() - position) as u16;
+                            let (cursor_x, cursor_y) = cursor::position()?;
+                            queue!(stdout, cursor::MoveTo(cursor_x - x_offset, cursor_y))?;
+                        }
+                    }
+
+                    stdout.flush().unwrap();
+                }
+            }
         }
     }
 
-    fn on_keypress<T>(&mut self, key: Key, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>)
-    where
-        T: Write,
-    {
-        match key {
-            Key::Up => {
+    fn on_keypress(&mut self, event: KeyEvent, stdout: &mut Stdout) -> Result<()> {
+        match event.code {
+            KeyCode::Up => {
                 if !self.input_history.is_empty() {
                     let new_position = match self.history_position {
                         Some(position) => {
@@ -128,7 +124,7 @@ impl Repl {
                     self.history_position = Some(new_position);
                 }
             }
-            Key::Down => {
+            KeyCode::Down => {
                 self.history_position = match self.history_position {
                     Some(position) => {
                         if position < self.input_history.len() - 1 {
@@ -146,7 +142,7 @@ impl Repl {
                 }
                 self.cursor = None;
             }
-            Key::Left => match self.cursor {
+            KeyCode::Left => match self.cursor {
                 Some(position) => {
                     if position > 0 {
                         self.cursor = Some(position - 1);
@@ -158,7 +154,7 @@ impl Repl {
                     }
                 }
             },
-            Key::Right => {
+            KeyCode::Right => {
                 if let Some(position) = self.cursor {
                     if position < self.input.len() - 1 {
                         self.cursor = Some(position + 1);
@@ -167,7 +163,7 @@ impl Repl {
                     }
                 }
             }
-            Key::Backspace => {
+            KeyCode::Backspace => {
                 let cursor = self.cursor;
                 match cursor {
                     Some(position) => {
@@ -184,26 +180,14 @@ impl Repl {
                     }
                 }
             }
-            Key::Char(c) => match c {
-                '\n' => self.on_enter(stdout, tty),
-                _ => {
-                    let cursor = self.cursor;
-                    match cursor {
-                        Some(position) => {
-                            self.input.insert(position, c);
-                            self.cursor = Some(position + 1);
-                        }
-                        None => self.input.push(c),
-                    }
-                }
-            },
-            Key::Ctrl(c) => match c {
+            KeyCode::Enter => self.on_enter(stdout)?,
+            KeyCode::Char(c) if event.modifiers.contains(KeyModifiers::CONTROL) => match c {
                 'c' => {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
                         stdout.flush().unwrap();
-                        if let Some(tty) = tty {
-                            tty.suspend_raw_mode().unwrap();
+                        if stdout.is_tty() {
+                            terminal::disable_raw_mode()?;
                         }
                         std::process::exit(0)
                     } else {
@@ -214,26 +198,35 @@ impl Repl {
                 'd' if self.input.is_empty() => {
                     write!(stdout, "^D\r\n").unwrap();
                     stdout.flush().unwrap();
-                    if let Some(tty) = tty {
-                        tty.suspend_raw_mode().unwrap();
+                    if stdout.is_tty() {
+                        terminal::disable_raw_mode()?;
                     }
                     std::process::exit(0)
                 }
                 _ => {}
             },
+            KeyCode::Char(c) => {
+                let cursor = self.cursor;
+                match cursor {
+                    Some(position) => {
+                        self.input.insert(position, c);
+                        self.cursor = Some(position + 1);
+                    }
+                    None => self.input.push(c),
+                }
+            }
             _ => {}
         }
+
+        Ok(())
     }
 
-    fn on_enter<T>(&mut self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>)
-    where
-        T: Write,
-    {
-        write!(stdout, "\r\n").unwrap();
-
-        if let Some(tty) = tty {
-            tty.suspend_raw_mode().unwrap();
+    fn on_enter(&mut self, stdout: &mut Stdout) -> Result<()> {
+        if stdout.is_tty() {
+            terminal::disable_raw_mode()?;
         }
+
+        println!();
 
         let mut indent_next_line = false;
 
@@ -266,7 +259,7 @@ impl Repl {
                             if let Some(help) = self.run_help(&input) {
                                 writeln!(stdout, "{}\n", help).unwrap()
                             } else {
-                                self.print_error(stdout, tty, &error)
+                                self.print_error(stdout, &error)?;
                             }
                         }
                     }
@@ -279,7 +272,7 @@ impl Repl {
                     } else if let Some(help) = self.run_help(&input) {
                         writeln!(stdout, "{}\n", help).unwrap()
                     } else {
-                        self.print_error(stdout, tty, &e.to_string());
+                        self.print_error(stdout, &e.to_string())?;
                         self.continued_lines.clear();
                     }
                 }
@@ -295,10 +288,6 @@ impl Repl {
                     indent_next_line = true;
                 }
             }
-        }
-
-        if let Some(tty) = tty {
-            tty.activate_raw_mode().unwrap();
         }
 
         if !input_is_whitespace
@@ -327,6 +316,8 @@ impl Repl {
         };
 
         self.input = " ".repeat(indent);
+
+        Ok(())
     }
 
     fn run_help(&mut self, input: &str) -> Option<String> {
@@ -348,26 +339,25 @@ impl Repl {
         help.get_help(search)
     }
 
-    fn print_error<T, E>(&self, stdout: &mut Stdout, tty: &mut Option<RawTerminal<T>>, error: &E)
+    fn print_error<E>(&self, stdout: &mut Stdout, error: &E) -> Result<()>
     where
-        T: Write,
         E: fmt::Display,
     {
-        if let Some(tty) = tty {
-            write!(
-                tty,
-                "{red}error{reset}: {bold}",
-                red = color::Fg(color::Red),
-                bold = style::Bold,
-                reset = style::Reset,
+        if stdout.is_tty() {
+            use style::*;
+
+            execute!(
+                stdout,
+                SetForegroundColor(Color::DarkRed),
+                Print("error"),
+                ResetColor,
+                Print(": "),
+                SetAttribute(Attribute::Bold),
+                Print(format!("{:#}\n\n", error)),
+                SetAttribute(Attribute::Reset),
             )
-            .unwrap();
-            tty.suspend_raw_mode().unwrap();
-            println!("{:#}\n", error);
-            tty.activate_raw_mode().unwrap();
-            write!(tty, "{}", style::Reset).unwrap();
         } else {
-            writeln!(stdout, "{:#}", error).unwrap();
+            writeln!(stdout, "{:#}", error)
         }
     }
 }

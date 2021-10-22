@@ -2,6 +2,7 @@ mod help;
 mod repl;
 
 use {
+    crossterm::tty::IsTty,
     koto::{bytecode::Chunk, Koto, KotoSettings},
     repl::{Repl, ReplSettings},
     std::{
@@ -137,8 +138,7 @@ fn run() -> Result<(), ()> {
                 Some(script),
             )
         }
-    } else if termion::is_tty(&stdin) || std::env::var_os("KOTO_FORCE_REPL_MODE").is_some() {
-        // Forcing REPL mode is useful for testing the behaviour of the REPL
+    } else if stdin.is_tty() {
         (None, None)
     } else {
         let mut script = String::new();
@@ -186,6 +186,8 @@ fn run() -> Result<(), ()> {
                 return Err(());
             }
         }
+
+        Ok(())
     } else {
         let mut repl = Repl::with_settings(
             ReplSettings {
@@ -194,8 +196,6 @@ fn run() -> Result<(), ()> {
             },
             koto_settings,
         );
-        repl.run();
+        repl.run().map_err(|_| ())
     }
-
-    Ok(())
 }
