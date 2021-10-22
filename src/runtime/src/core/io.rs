@@ -153,7 +153,10 @@ lazy_static! {
 
         meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
             match file.read_line() {
-                Ok(Some(result)) => Ok(result[..result.len() - 1].into()),
+                Ok(Some(result)) => {
+                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                    Ok(result[..result.len() - newline_bytes].into())
+                }
                 Ok(None) => Ok(Empty),
                 Err(e) => Err(e.with_prefix("File.read_line")),
             }

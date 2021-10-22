@@ -80,9 +80,13 @@ impl Iterator for Lines {
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.start;
         if start < self.input.len() {
-            let end = match self.input[start..].find('\n') {
+            let mut newline_bytes = 1;
+            let remaining = &self.input[start..];
+
+            let end = match remaining.find('\n') {
                 Some(end) => {
-                    if end > start && self.input.as_bytes()[end - 1] == b'\r' {
+                    if end > 0 && remaining.as_bytes()[end - 1] == b'\r' {
+                        newline_bytes += 1;
                         start + end - 1
                     } else {
                         start + end
@@ -92,7 +96,7 @@ impl Iterator for Lines {
             };
 
             let result = Value::Str(self.input.with_bounds(start..end).unwrap());
-            self.start = end + 1;
+            self.start = end + newline_bytes;
             Some(Output::Value(result))
         } else {
             None

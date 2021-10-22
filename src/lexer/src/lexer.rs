@@ -177,21 +177,28 @@ impl<'a> TokenLexer<'a> {
     fn consume_newline(&mut self, mut chars: Peekable<Chars>) -> Token {
         use Token::*;
 
-        let mut char_bytes = 1;
+        let mut consumed_bytes = 1;
+        let mut newline_bytes = 1;
+
+        if chars.peek() == Some(&'\r') {
+            consumed_bytes += 1;
+            newline_bytes += 1;
+            chars.next();
+        }
 
         match chars.next() {
             Some('\n') => {}
             _ => return Error,
         }
 
-        char_bytes += consume_and_count(&mut chars, is_whitespace);
+        consumed_bytes += consume_and_count(&mut chars, is_whitespace);
 
-        self.indent = char_bytes - 1; // -1 for newline
+        self.indent = consumed_bytes - newline_bytes;
         self.advance_to_position(
-            char_bytes,
+            consumed_bytes,
             Position {
                 line: self.position.line + 1,
-                column: char_bytes as u32, // indexing from 1 for column
+                column: (consumed_bytes - newline_bytes + 1) as u32, // indexing from 1 for column
             },
         );
 
@@ -236,6 +243,14 @@ impl<'a> TokenLexer<'a> {
                             }
                         }
                     }
+                    '\r' => {
+                        if chars.next() != Some('\n') {
+                            return Error;
+                        }
+                        char_bytes += 1;
+                        position.line += 1;
+                        position.column = 1;
+                    }
                     '\n' => {
                         position.line += 1;
                         position.column = 1;
@@ -253,7 +268,8 @@ impl<'a> TokenLexer<'a> {
             }
         } else {
             // single-line comment
-            let (comment_bytes, comment_width) = consume_and_count_utf8(&mut chars, |c| c != '\n');
+            let (comment_bytes, comment_width) =
+                consume_and_count_utf8(&mut chars, |c| !matches!(c, '\r' | '\n'));
             self.advance_line_utf8(comment_bytes + 1, comment_width + 1);
             CommentSingle
         }
@@ -297,6 +313,15 @@ impl<'a> TokenLexer<'a> {
                         string_bytes += 1;
                         position.column += 1;
                     }
+                }
+                '\r' => {
+                    chars.next();
+                    if chars.next() != Some('\n') {
+                        return Error;
+                    }
+                    string_bytes += 2;
+                    position.line += 1;
+                    position.column = 1;
                 }
                 '\n' => {
                     chars.next();
@@ -559,7 +584,7 @@ impl<'a> TokenLexer<'a> {
                             self.advance_line(count);
                             Some(Whitespace)
                         }
-                        '\n' => Some(self.consume_newline(chars)),
+                        '\r' | '\n' => Some(self.consume_newline(chars)),
                         '#' => Some(self.consume_comment(chars)),
                         '"' => {
                             self.advance_line(1);
@@ -1305,6 +1330,22 @@ else
                 (Id, Some("and"), 1),
                 (RoundOpen, None, 1),
                 (RoundClose, None, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn windows_line_endings() {
+        let input = "123\r\n456\r\n789";
+
+        check_lexer_output(
+            input,
+            &[
+                (Number, Some("123"), 1),
+                (NewLine, None, 2),
+                (Number, Some("456"), 2),
+                (NewLine, None, 3),
+                (Number, Some("789"), 3),
             ],
         );
     }
