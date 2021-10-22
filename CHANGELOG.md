@@ -10,6 +10,7 @@ The Koto project adheres to
 
 ### Added
 
+- Koto is now supported on Windows.
 - String improvements
   - Support for string interpolation has been added.
     - e.g.
