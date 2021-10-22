@@ -163,6 +163,10 @@ The Koto project adheres to
   - External functions that make use of it should be able to switch to reusing
     the vm passed into the external function.
 
+### Fixed
+
+- Strings that end with an escaped backslash are now parsed correctly.
+
 ## [0.8.1] 2021.08.18
 
 ### Fixed

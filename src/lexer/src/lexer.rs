@@ -287,6 +287,7 @@ impl<'a> TokenLexer<'a> {
 
                     let skip_next_char = match chars.peek() {
                         Some('$') => true,
+                        Some('\\') => true,
                         Some(c) if *c == string_quote => true,
                         _ => false,
                     };
@@ -953,10 +954,11 @@ false #
     fn strings() {
         let input = r#"
 "hello, world!"
-"escaped \"\n\$ string"
+"escaped \\\"\n\$ string"
 "double-\"quoted\" 'string'"
 'single-\'quoted\' "string"'
 ""
+"\\"
 "#;
 
         check_lexer_output(
@@ -968,7 +970,7 @@ false #
                 (DoubleQuote, None, 2),
                 (NewLine, None, 3),
                 (DoubleQuote, None, 3),
-                (StringLiteral, Some(r#"escaped \"\n\$ string"#), 3),
+                (StringLiteral, Some(r#"escaped \\\"\n\$ string"#), 3),
                 (DoubleQuote, None, 3),
                 (NewLine, None, 4),
                 (DoubleQuote, None, 4),
@@ -982,6 +984,10 @@ false #
                 (DoubleQuote, None, 6),
                 (DoubleQuote, None, 6),
                 (NewLine, None, 7),
+                (DoubleQuote, None, 7),
+                (StringLiteral, Some(r#"\\"#), 7),
+                (DoubleQuote, None, 7),
+                (NewLine, None, 8),
             ],
         );
     }

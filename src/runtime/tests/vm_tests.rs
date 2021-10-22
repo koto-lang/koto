@@ -2021,6 +2021,11 @@ num4(1, -1, 2, -2).keep(|n| n > 0).count()
         }
 
         #[test]
+        fn escaped_backslash() {
+            test_script(r#""\\""#, string("\\"));
+        }
+
+        #[test]
         fn interpolated_id() {
             let script = "
 x = 1
