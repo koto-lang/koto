@@ -1,7 +1,7 @@
 use {
     criterion::{criterion_group, criterion_main, Criterion},
     koto::Koto,
-    std::{env::current_dir, fs::read_to_string},
+    std::{fs::read_to_string, path::PathBuf},
 };
 
 #[cfg(not(target_env = "msvc"))]
@@ -14,7 +14,7 @@ struct BenchmarkRunner {
 
 impl BenchmarkRunner {
     fn new(script_path: &str, args: &[String]) -> Self {
-        let mut path = current_dir().unwrap().canonicalize().unwrap();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("..");
         path.push("..");
         path.push("koto");

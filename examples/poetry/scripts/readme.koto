@@ -1,7 +1,7 @@
 import io.print
 
 export main = ||
-  input_file = koto.script_dir + "/../../../README.md"
+  input_file = io.extend_path koto.script_dir, "..", "..", "..", "README.md"
   generator = poetry
     .new io.read_to_string input_file
     .iter()

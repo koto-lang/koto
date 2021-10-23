@@ -51,21 +51,35 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
-        [Str(path)] => Ok(Bool(Path::new(path.as_str()).exists())),
+        [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
         _ => runtime_error!("io.exists: Expected path string as argument"),
+    });
+
+    result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
+        [Str(path), nodes @ ..] => {
+            let mut path = PathBuf::from(path.as_str());
+            for node in nodes {
+                match node {
+                    Str(s) => path.push(s.as_str()),
+                    other => path.push(other.to_string()),
+                }
+            }
+            Ok(path.to_string_lossy().to_string().into())
+        }
+        _ => runtime_error!("io.extend_path: Expected path string as first argument"),
     });
 
     result.add_fn("open", {
         move |vm, args| match vm.get_args(args) {
-            [Str(path)] => {
-                let path = Path::new(path.as_str()).to_path_buf();
-                match fs::File::open(&path) {
+            [Str(path)] => match fs::canonicalize(path.as_str()) {
+                Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
                     Err(e) => {
                         return runtime_error!("io.open: Error while opening path: {}", e);
                     }
-                }
-            }
+                },
+                Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
+            },
             [unexpected] => runtime_error!(
                 "io.open: Expected a String as argument, found '{}'",
                 unexpected.type_as_string(),
@@ -153,7 +167,10 @@ lazy_static! {
 
         meta.add_named_instance_fn_mut("read_line", |file: &mut File, _, _| {
             match file.read_line() {
-                Ok(Some(result)) => Ok(result[..result.len() - 1].into()),
+                Ok(Some(result)) => {
+                    let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
+                    Ok(result[..result.len() - newline_bytes].into())
+                }
                 Ok(None) => Ok(Empty),
                 Err(e) => Err(e.with_prefix("File.read_line")),
             }

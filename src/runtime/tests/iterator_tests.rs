@@ -223,6 +223,17 @@ y.next()
 ";
             test_script(script, "def".into());
         }
+
+        #[test]
+        fn crlf_line_endings() {
+            let script = "
+'abc\r\ndef\r\nxyz\r\n\r\n'.lines().to_tuple()
+";
+            test_script(
+                script,
+                value_tuple(&["abc".into(), "def".into(), "xyz".into(), "".into()]),
+            );
+        }
     }
 
     mod split {

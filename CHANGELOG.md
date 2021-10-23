@@ -10,6 +10,7 @@ The Koto project adheres to
 
 ### Added
 
+- Koto is now supported on Windows.
 - String improvements
   - Support for string interpolation has been added.
     - e.g.
@@ -53,6 +54,7 @@ The Koto project adheres to
       #         ^-- Previously this would result in an 'unexpected token' error.
       ```
 - Core library additions:
+  - `io.extend_path`
   - `list.get`, `tuple.get`, `map.get`, and `map.get_index` now accept an
     optional default value that should be returned when an entry isn't found.
   - `num2.iter` / `num4.iter`
@@ -62,6 +64,7 @@ The Koto project adheres to
   - `num2.min` / `num4.min`
   - `num2.normalize` / `num4.normalize`
   - `num2.product` / `num4.product`
+  - `os.name`
 - `import` improvements
   - Strings can now be used in import expressions, which allows for more
     flexible module naming, and for dynamically importing items.
@@ -162,6 +165,10 @@ The Koto project adheres to
 - The `child_vm` mechanism has been removed.
   - External functions that make use of it should be able to switch to reusing
     the vm passed into the external function.
+
+### Fixed
+
+- Strings that end with an escaped backslash are now parsed correctly.
 
 ## [0.8.1] 2021.08.18
 

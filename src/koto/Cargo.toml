@@ -18,6 +18,8 @@ koto_bytecode = { path = "../bytecode", version = "^0.8.0"}
 koto_parser = { path = "../parser", version = "^0.8.0"}
 koto_runtime = { path = "../runtime", version = "^0.8.0"}
 
+dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
+
 [target.'cfg(not(wasm32))'.dependencies]
 parking_lot = "0.11.1"
 

@@ -29,6 +29,7 @@
 pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runtime};
 
 use {
+    dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{KotoFile, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings},
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
@@ -241,12 +242,12 @@ impl Koto {
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
-                let path = path.canonicalize().expect("Invalid script path");
+                let path = canonicalize(path).expect("Invalid script path");
 
                 let script_dir = path
                     .parent()
                     .map(|p| {
-                        let s = p.to_string_lossy() + "/";
+                        let s = p.to_string_lossy();
                         Str(s.into_owned().into())
                     })
                     .or(Some(Empty))

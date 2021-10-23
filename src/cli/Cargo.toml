@@ -25,8 +25,8 @@ koto_tempfile = { path = "../../libs/tempfile", version = "^0.8.0"}
 koto_toml = { path = "../../libs/toml", version = "^0.8.0"}
 koto_yaml = { path = "../../libs/yaml", version = "^0.8.0"}
 
+crossterm = "0.22.1" # A crossplatform terminal library for manipulating terminals.
 indexmap = "1.4.0"
-termion = "1.5.5"
 
 [dependencies.pulldown-cmark]
 # Markdown parsing

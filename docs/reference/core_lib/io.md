@@ -7,6 +7,7 @@ A collection of utilities for working with the local filesystem.
 - [create](#create)
 - [current_dir](#current_dir)
 - [exists](#exists)
+- [extend_path](#extend_path)
 - [open](#open)
 - [print](#print)
 - [read_to_string](#read_to_string)
@@ -67,6 +68,25 @@ io.exists path
 io.create path
 io.exists path
 # true
+```
+
+## extend_path
+
+`|String, Value...| -> String`
+
+Takes an initial path as a string, and extends it with the provided nodes,
+inserting a platform-appropriate separator between each node.
+
+### Example
+
+```koto
+# On Windows
+io.extend_path ".", "foo", "bar", "baz.txt"
+# .\foo\bar\baz.txt
+
+# On Linux
+io.extend_path ".", "foo", "bar", "baz.txt"
+# ./foo/bar/baz.txt
 ```
 
 ## open
