@@ -124,6 +124,7 @@ fn run() -> Result<(), ()> {
 
     let koto_settings = KotoSettings {
         run_tests: args.run_tests,
+        run_import_tests: args.run_import_tests,
         ..Default::default()
     };
 
