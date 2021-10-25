@@ -8,6 +8,8 @@ The Koto project adheres to
 
 ## Unreleased
 
+## [0.9.0] 2021.10.25
+
 ### Added
 
 - Koto is now supported on Windows.

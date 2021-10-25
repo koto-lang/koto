@@ -1,6 +1,6 @@
 [package]
 name = "koto"
-version = "0.8.1"
+version = "0.9.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,9 +14,9 @@ default = []
 panic_on_runtime_error = ["koto_runtime/panic_on_runtime_error"]
 
 [dependencies]
-koto_bytecode = { path = "../bytecode", version = "^0.8.0"}
-koto_parser = { path = "../parser", version = "^0.8.0"}
-koto_runtime = { path = "../runtime", version = "^0.8.0"}
+koto_bytecode = { path = "../bytecode", version = "^0.9.0"}
+koto_parser = { path = "../parser", version = "^0.9.0"}
+koto_runtime = { path = "../runtime", version = "^0.9.0"}
 
 dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
 

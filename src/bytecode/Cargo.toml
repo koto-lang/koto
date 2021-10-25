@@ -1,6 +1,6 @@
 [package]
 name = "koto_bytecode"
-version = "0.8.1"
+version = "0.9.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,7 +12,7 @@ keywords = ["scripting", "language", "koto"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-koto_parser = { path = "../parser", version = "^0.8.0"}
+koto_parser = { path = "../parser", version = "^0.9.0"}
 
 dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
 smallvec = "1.2.0"
