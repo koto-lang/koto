@@ -270,11 +270,35 @@ match x
             }
 
             #[test]
+            fn then_followed_by_indented_block() {
+                let source = "
+match x
+  0 then
+    1
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
             fn pattern_used_with_no_match_value() {
                 let source = "
 match
   0 if true then 1
   else 2
+";
+                check_parsing_fails(source);
+            }
+        }
+
+        mod switch_expressions {
+            use super::*;
+
+            #[test]
+            fn then_followed_by_indented_block() {
+                let source = "
+switch
+  true then
+    1
 ";
                 check_parsing_fails(source);
             }

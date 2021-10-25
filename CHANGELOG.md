@@ -145,6 +145,9 @@ The Koto project adheres to
     ```
 - `$` symbols in string literals now need to be escaped due to the addition of
   string interpolation.
+- `then` is no longer allowed in match and switch expression arms that have
+  indented bodies. `then` is only to be used for inline arms, similar to inline
+  `if` expressions.
 - Internals
   - Compilation errors from the top-level Koto struct are now returned as a
     variant of `KotoError`.

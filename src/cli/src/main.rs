@@ -134,10 +134,15 @@ fn run() -> Result<(), ()> {
         if args.eval_script {
             (Some(script), None)
         } else {
-            (
-                Some(fs::read_to_string(&script).expect("Unable to load script")),
-                Some(script),
-            )
+            let script_path = script;
+            let script_contents = match fs::read_to_string(&script_path) {
+                Ok(contents) => contents,
+                Err(e) => {
+                    eprintln!("Error while loading script: {}", e);
+                    return Err(());
+                }
+            };
+            (Some(script_contents), Some(script_path))
         }
     } else if stdin.is_tty() {
         (None, None)
