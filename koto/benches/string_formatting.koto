@@ -10,7 +10,7 @@ number_to_english = |n|
   switch
     n < 0 then "minus ${number_to_english n.abs()}"
     n < 20 then digits[n]
-    n < 100 then
+    n < 100
       x = (n / 10).floor()
       y = n % 10
       if y == 0
