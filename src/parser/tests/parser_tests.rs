@@ -2422,6 +2422,44 @@ f x";
         }
 
         #[test]
+        fn call_with_pipe() {
+            let source = "f x >> g >> h";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)), // f
+                    Id(constant(1)), // x
+                    Call {
+                        function: 0,
+                        args: vec![1],
+                    },
+                    Id(constant(2)), // g
+                    BinaryOp {
+                        op: AstOp::Pipe,
+                        lhs: 2,
+                        rhs: 3,
+                    },
+                    Id(constant(3)), // 5, h
+                    BinaryOp {
+                        op: AstOp::Pipe,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    MainBlock {
+                        body: vec![6],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("f"),
+                    Constant::Str("x"),
+                    Constant::Str("g"),
+                    Constant::Str("h"),
+                ]),
+            )
+        }
+
+        #[test]
         fn instance_function() {
             let source = "{foo: 42, bar: |self, x| self.foo = x}";
             check_ast(

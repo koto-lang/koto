@@ -1575,6 +1575,7 @@ impl Compiler {
                 self.compile_comparison_op(result_register, op, lhs_node, rhs_node, ast)
             }
             And | Or => self.compile_logic_op(result_register, op, lhs, rhs, ast),
+            Pipe => unimplemented!(),
         }
     }
 

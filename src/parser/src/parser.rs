@@ -563,7 +563,15 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let result = self.parse_expression_start(None, 0, context)?;
+        self.parse_expression_with_min_precedence(0, context)
+    }
+
+    fn parse_expression_with_min_precedence(
+        &mut self,
+        min_precedence: u8,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let result = self.parse_expression_start(None, min_precedence, context)?;
 
         let result = match self.peek_next_token_on_same_line() {
             Some(Token::Range) | Some(Token::RangeInclusive) => {
@@ -855,7 +863,9 @@ impl<'source> Parser<'source> {
                 break;
             }
 
-            if let Some(expression) = self.parse_expression(&mut arg_context)? {
+            if let Some(expression) = self
+                .parse_expression_with_min_precedence(MIN_PRECEDENCE_AFTER_PIPE, &mut arg_context)?
+            {
                 args.push(expression);
             } else {
                 break;
@@ -2759,6 +2769,8 @@ impl<'source> Parser<'source> {
             And => AstOp::And,
             Or => AstOp::Or,
 
+            Pipe => AstOp::Pipe,
+
             _ => unreachable!(),
         };
         self.push_node(Node::BinaryOp {
@@ -2997,11 +3009,21 @@ impl<'source> Parser<'source> {
     }
 }
 
+// The first operator that's above the pipe operator >> in precedence.
+// Q: Why is this needed?
+// A: Function calls without parentheses aren't currently treated as operators (a Call operator
+//    with higher precedence than Pipe would allow this to go away, but would likely take quite a
+//    bit of reworking. All calls to parse_call_args will need to reworked).
+//    parse_call_args needs to parse arguments as expressions with a minimum precedence that
+//    excludes piping, otherwise `f g >> x` would be parsed as `f (g >> x)` instead of `(f g) >> x`.
+const MIN_PRECEDENCE_AFTER_PIPE: u8 = 3;
+
 fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     use Token::*;
     let priority = match op {
-        Or => (1, 2),
-        And => (3, 4),
+        Pipe => (1, 2),
+        Or => (MIN_PRECEDENCE_AFTER_PIPE, 4),
+        And => (5, 6),
         // Chained comparisons require right-associativity
         Equal | NotEqual => (8, 7),
         Greater | GreaterOrEqual | Less | LessOrEqual => (10, 9),
