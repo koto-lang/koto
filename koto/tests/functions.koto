@@ -67,6 +67,17 @@ export @tests =
     add = |x, y| x + y
     assert_eq (add (add 1, 1), (add -1, -1)), 0
 
+  @test piped_calls: ||
+    add = |x, y| x + y
+    multiply = |x, y| x * y
+    square = |x| x * x
+
+    # Piping can help with making long call chains more readable
+    x = multiply 2, square add 1, 3
+    y = 3 >> add 1 >> square >> multiply 2
+    assert_eq x, y
+    assert_eq y, 32
+
   @test function_returning_multiple_values: ||
     f = |x| x - 1, x + 1
     a, b = f 0

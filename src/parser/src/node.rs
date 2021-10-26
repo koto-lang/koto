@@ -6,6 +6,7 @@ use {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Empty,
+    Nested(AstIndex), // A single expression in parentheses
     Id(ConstantIndex),
     Meta(MetaKeyId, Option<ConstantIndex>),
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
@@ -108,6 +109,7 @@ impl fmt::Display for Node {
         use Node::*;
         match self {
             Empty => write!(f, "Empty"),
+            Nested(_) => write!(f, "Nested"),
             Id(_) => write!(f, "Id"),
             Meta(_, _) => write!(f, "Meta"),
             Lookup(_) => write!(f, "Lookup"),
@@ -249,7 +251,10 @@ pub enum LookupNode {
     Id(ConstantIndex),
     Str(AstString),
     Index(AstIndex),
-    Call(Vec<AstIndex>),
+    Call {
+        args: Vec<AstIndex>,
+        with_parens: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

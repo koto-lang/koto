@@ -3,8 +3,8 @@ mod runtime_test_utils;
 mod vm {
     use {
         crate::runtime_test_utils::{
-            num2, num4, number_list, number_tuple, string, test_script, test_script_with_vm,
-            value_tuple,
+            int_list, num2, num4, number_list, number_tuple, string, test_script,
+            test_script_with_vm, value_tuple,
         },
         koto_runtime::{
             runtime_error, DataMap, IntRange, Value, Value::*, ValueList, ValueMap, Vm,
@@ -1147,6 +1147,76 @@ f = || 1, 2, 3
 f().fold 0, |x, n| x += n
 ";
             test_script(script, Number(6.0.into()));
+        }
+
+        mod piped_calls {
+            use super::*;
+
+            #[test]
+            fn chained_piping() {
+                let script = "
+add = |a, b| a + b
+multiply = |a, b| a * b
+square = |x| x * x
+add 1, 2
+  >> square
+  >> multiply 10
+";
+                test_script(script, 90.into());
+            }
+
+            #[test]
+            fn from_int_into_map_functions() {
+                let script = "
+ops =
+  add: |a, b| a + b
+  multiply: |a, b| a * b
+  square: |x| x * x
+
+2
+  >> ops.add 1
+  >> ops.square
+  >> ops.multiply 2
+";
+                test_script(script, 18.into());
+            }
+
+            #[test]
+            fn piping_into_array_entries_and_function_calls() {
+                let script = "
+inc = |x| x + 1
+dec = |x| x - 1
+
+ops = [inc, dec]
+get_op = |i| ops[i]
+
+0
+  >> ops[0]     # 1
+  >> get_op(0)  # 2
+  >> (get_op 0) # 3
+  >> get_op(1)  # 2
+";
+                test_script(script, 2.into());
+            }
+
+            #[test]
+            fn chained_pipe_call_order() {
+                let script = "
+calls = []
+
+f = |x|
+  calls.push x + 10
+  x + 10
+g = |x|
+  calls.push x
+  f
+
+g(1)(100) >> g(2) >> g(3) >> g(4)
+
+calls
+";
+                test_script(script, int_list(&[1, 110, 2, 120, 3, 130, 4, 140]));
+            }
         }
     }
 

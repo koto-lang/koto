@@ -403,9 +403,10 @@ impl Compiler {
                 }
                 result
             }
+            Node::Nested(nested) => self.compile_node(result_register, ast.node(*nested), ast)?,
             Node::Id(index) => self.compile_load_id(result_register, *index)?,
             Node::Lookup(lookup) => {
-                self.compile_lookup(result_register, lookup, None, None, ast)?
+                self.compile_lookup(result_register, lookup, None, None, None, ast)?
             }
             Node::BoolTrue => {
                 let result = self.get_result_register(result_register)?;
@@ -564,46 +565,7 @@ impl Compiler {
             Node::Negate(expression) => self.compile_negate(result_register, *expression, ast)?,
             Node::Function(f) => self.compile_function(result_register, f, ast)?,
             Node::Call { function, args } => {
-                match &ast.node(*function).node {
-                    Node::Id(id) => {
-                        if let Some(function_register) =
-                            self.frame().get_local_assigned_register(*id)
-                        {
-                            self.compile_call(result_register, function_register, args, None, ast)?
-                        } else {
-                            let result = self.get_result_register(result_register)?;
-                            let call_result_register = if let Some(result) = result {
-                                ResultRegister::Fixed(result.register)
-                            } else {
-                                ResultRegister::None
-                            };
-
-                            let function_register = self.push_register()?;
-                            self.compile_load_non_local(function_register, *id);
-
-                            self.compile_call(
-                                call_result_register,
-                                function_register,
-                                args,
-                                None,
-                                ast,
-                            )?;
-
-                            self.pop_register()?; // function_register
-                            result
-                        }
-                    }
-                    Node::Lookup(function_lookup) => self.compile_lookup(
-                        result_register,
-                        function_lookup,
-                        Some(&LookupNode::Call(args.clone())),
-                        None,
-                        ast,
-                    )?,
-                    _ => {
-                        return compiler_error!(self, "Call: unexpected node at index {}", function)
-                    }
-                }
+                self.compile_call_node(result_register, *function, args, None, ast)?
             }
             Node::Import { from, items } => {
                 self.compile_import_expression(result_register, from, items, ast)?
@@ -1087,6 +1049,7 @@ impl Compiler {
                     ResultRegister::None,
                     lookup,
                     None,
+                    None,
                     Some(value_register.register),
                     ast,
                 )?;
@@ -1158,6 +1121,7 @@ impl Compiler {
                         self.compile_lookup(
                             ResultRegister::None,
                             lookup,
+                            None,
                             None,
                             Some(register),
                             ast,
@@ -1575,7 +1539,7 @@ impl Compiler {
                 self.compile_comparison_op(result_register, op, lhs_node, rhs_node, ast)
             }
             And | Or => self.compile_logic_op(result_register, op, lhs, rhs, ast),
-            Pipe => unimplemented!(),
+            Pipe => self.compile_piped_call(result_register, lhs, rhs, ast),
         }
     }
 
@@ -2290,6 +2254,7 @@ impl Compiler {
         result_register: ResultRegister,
         (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
         add_node_to_end_of_lookup: Option<&LookupNode>,
+        piped_arg_register: Option<u8>,
         set_value: Option<u8>,
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2310,15 +2275,27 @@ impl Compiler {
         let stack_count = self.frame().register_stack.len();
         let span_stack_count = self.span_stack.len();
 
-        let mut i = 0;
+        let mut node_count = 0;
         let mut lookup_node = root_node.clone();
+
+        let mut piped_call_args = Vec::new();
+
+        let chain_result_register = match (result, piped_arg_register) {
+            // If there's a piped call after the lookup chain, then place the result of the lookup
+            // chain in a temporary register.
+            (_, Some(_)) => Some(self.push_register()?),
+            // If there's a result register and no piped call, then use the result register
+            (Some(result), None) => Some(result.register),
+            // No result register and no piped call, so the result of the lookup chain isn't needed.
+            (None, None) => None,
+        };
 
         loop {
             let is_last_node = next_node_index.is_none();
 
             match lookup_node {
                 LookupNode::Root(root_node) => {
-                    assert!(i == 0, "Root node not in first position");
+                    assert!(node_count == 0, "Root node not in first position");
 
                     let root = self
                         .compile_node(ResultRegister::Any, ast.node(root_node), ast)?
@@ -2341,8 +2318,9 @@ impl Compiler {
                                 &MapKey::Id(id),
                                 ast,
                             )?;
-                        } else if let Some(result) = result {
-                            self.compile_access_id(result.register, parent_register, id)?;
+                        } else if let Some(result_register) = chain_result_register {
+                            self.compile_access_id(result_register, parent_register, id)?;
+                            node_registers.push(result_register);
                         }
                     } else {
                         let node_register = self.push_register()?;
@@ -2366,14 +2344,15 @@ impl Compiler {
                                 &MapKey::Str(lookup_string),
                                 ast,
                             )?;
-                        } else if let Some(result) = result {
+                        } else if let Some(result_register) = chain_result_register {
                             let key_register = self.push_register()?;
                             self.compile_string(
                                 ResultRegister::Fixed(key_register),
                                 &lookup_string.nodes,
                                 ast,
                             )?;
-                            self.push_op(Access, &[result.register, parent_register, key_register]);
+                            self.push_op(Access, &[result_register, parent_register, key_register]);
+                            node_registers.push(result_register);
                             self.pop_register()?;
                         }
                     } else {
@@ -2398,8 +2377,9 @@ impl Compiler {
                     if is_last_node {
                         if let Some(set_value) = set_value {
                             self.push_op(SetIndex, &[list_register, index.register, set_value]);
-                        } else if let Some(result) = result {
-                            self.push_op(Index, &[result.register, list_register, index.register]);
+                        } else if let Some(result_register) = chain_result_register {
+                            self.push_op(Index, &[result_register, list_register, index.register]);
+                            node_registers.push(result_register);
                         }
                     } else {
                         let node_register = self.push_register()?;
@@ -2407,42 +2387,56 @@ impl Compiler {
                         self.push_op(Index, &[node_register, list_register, index.register]);
                     }
                 }
-                LookupNode::Call(args) => {
+                LookupNode::Call { args, with_parens } => {
                     // Function call
 
                     if is_last_node && set_value.is_some() {
                         return compiler_error!(self, "Assigning to temporary value");
                     }
 
-                    let parent_register = if i > 1 {
-                        Some(node_registers[node_registers.len() - 2])
+                    if is_last_node && piped_arg_register.is_some() && !with_parens {
+                        // Defer the call args to the piped call after the lookup chain is complete
+                        //
+                        // e.g.
+                        //
+                        // 42 >> foo.bar 99
+                        // ...should be equivalent to
+                        // foo.bar 99, 42
+                        piped_call_args.extend(args);
                     } else {
-                        None
-                    };
+                        let (parent_register, function_register) = match &node_registers.as_slice()
+                        {
+                            [.., parent, function] => (Some(*parent), *function),
+                            [function] => (None, *function),
+                            [] => unreachable!(),
+                        };
 
-                    let function_register = *node_registers.last().expect("Empty node registers");
-
-                    if is_last_node {
-                        let call_result = if let Some(result) = result {
-                            ResultRegister::Fixed(result.register)
-                        } else {
-                            ResultRegister::None
+                        let call_result_register = match chain_result_register {
+                            Some(result_register) if is_last_node => {
+                                // In the last node, and there's no piped call to come,
+                                // so use the provided result register.
+                                node_registers.push(result_register);
+                                ResultRegister::Fixed(result_register)
+                            }
+                            None if is_last_node => {
+                                // In the last node, and there's no chain result register,
+                                // and there's no piped call to come, so we don't need the result.
+                                ResultRegister::None
+                            }
+                            _ => {
+                                // Not in the last node, so for the lookup chain to continue,
+                                // use a temporary register for the call result.
+                                let call_result_register = self.push_register()?;
+                                node_registers.push(call_result_register);
+                                ResultRegister::Fixed(call_result_register)
+                            }
                         };
 
                         self.compile_call(
-                            call_result,
+                            call_result_register,
                             function_register,
                             &args,
-                            parent_register,
-                            ast,
-                        )?;
-                    } else {
-                        let node_register = self.push_register()?;
-                        node_registers.push(node_register);
-                        self.compile_call(
-                            ResultRegister::Fixed(node_register),
-                            function_register,
-                            &args,
+                            None,
                             parent_register,
                             ast,
                         )?;
@@ -2450,6 +2444,9 @@ impl Compiler {
                 }
             }
 
+            node_count += 1;
+
+            // Is the lookup chain complete?
             if let Some(next) = next_node_index {
                 let next_lookup_node = ast.node(next);
 
@@ -2471,10 +2468,39 @@ impl Compiler {
             } else if let Some(node) = add_node_to_end_of_lookup {
                 lookup_node = node.clone();
             } else {
+                // The lookup chain is complete.
+
+                // Do we need to make a piped function call?
+                if piped_arg_register.is_some() {
+                    let (parent_register, function_register) = match &node_registers.as_slice() {
+                        [.., parent, function] => (Some(*parent), *function),
+                        [function] => (None, *function),
+                        [] => unreachable!(),
+                    };
+
+                    let call_result = if let Some(result) = result {
+                        ResultRegister::Fixed(result.register)
+                    } else {
+                        ResultRegister::None
+                    };
+
+                    self.compile_call(
+                        call_result,
+                        function_register,
+                        &piped_call_args,
+                        piped_arg_register,
+                        parent_register,
+                        ast,
+                    )?;
+                } else {
+                    debug_assert!(
+                        piped_call_args.is_empty(),
+                        "piped_call_args should only contain entries if there's a piped arg "
+                    );
+                }
+
                 break;
             }
-
-            i += 1;
         }
 
         self.span_stack.truncate(span_stack_count);
@@ -2551,11 +2577,135 @@ impl Compiler {
         Ok(())
     }
 
+    // Compiles a node like `f x >> g`, compiling the lhs as the last arg for a call on the rhs
+    fn compile_piped_call(
+        &mut self,
+        result_register: ResultRegister,
+        lhs: AstIndex,
+        rhs: AstIndex,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        // First things first, if a temporary result register is to be used, assign it now.
+        let result = self.get_result_register(result_register)?;
+
+        // The piped call should either go into the specified register, or it can be ignored
+        let call_result_register = if let Some(result) = result {
+            ResultRegister::Fixed(result.register)
+        } else {
+            ResultRegister::None
+        };
+
+        // Next, compile the LHS to produce the value that should be piped into the call
+        let piped_value = self
+            .compile_node(ResultRegister::Any, ast.node(lhs), ast)?
+            .unwrap();
+
+        let rhs_node = ast.node(rhs);
+        let result = match &rhs_node.node {
+            Node::Call { function, args } => self.compile_call_node(
+                call_result_register,
+                *function,
+                args,
+                Some(piped_value.register),
+                ast,
+            ),
+            Node::Id(_) => {
+                // Compile the id as if it were a function call
+                self.compile_call_node(result_register, rhs, &[], Some(piped_value.register), ast)
+            }
+            Node::Lookup(lookup_node) => {
+                // Compile the lookup, passing in the piped call arg, which will either be appended
+                // to call args at the end of a lookup, or the last node will be turned into a call.
+                self.compile_lookup(
+                    call_result_register,
+                    lookup_node,
+                    None,
+                    Some(piped_value.register),
+                    None,
+                    ast,
+                )
+            }
+            _ => {
+                // If the RHS is none of the above, then compile it assuming that the result will
+                // be a function.
+                let function = self
+                    .compile_node(ResultRegister::Any, rhs_node, ast)?
+                    .unwrap();
+                let result = self.compile_call(
+                    call_result_register,
+                    function.register,
+                    &[],
+                    Some(piped_value.register),
+                    None,
+                    ast,
+                )?;
+                if function.is_temporary {
+                    self.pop_register()?;
+                }
+                Ok(result)
+            }
+        };
+
+        if piped_value.is_temporary {
+            self.pop_register()?;
+        }
+
+        result
+    }
+
+    fn compile_call_node(
+        &mut self,
+        result_register: ResultRegister,
+        function: AstIndex,
+        args: &[AstIndex],
+        piped_arg: Option<u8>,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        match &ast.node(function).node {
+            Node::Id(id) => {
+                if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
+                    self.compile_call(
+                        result_register,
+                        function_register,
+                        args,
+                        piped_arg,
+                        None,
+                        ast,
+                    )
+                } else {
+                    let result = self.get_result_register(result_register)?;
+                    let call_result_register = if let Some(result) = result {
+                        ResultRegister::Fixed(result.register)
+                    } else {
+                        ResultRegister::None
+                    };
+
+                    let function_register = self.push_register()?;
+                    self.compile_load_non_local(function_register, *id);
+
+                    self.compile_call(
+                        call_result_register,
+                        function_register,
+                        args,
+                        piped_arg,
+                        None,
+                        ast,
+                    )?;
+
+                    self.pop_register()?; // function_register
+                    Ok(result)
+                }
+            }
+            _ => compiler_error!(self, "Call: unexpected node at index {}", function),
+        }
+    }
+
     fn compile_call(
         &mut self,
         result_register: ResultRegister,
         function_register: u8,
         args: &[AstIndex],
+        piped_arg: Option<u8>,
         parent: Option<u8>,
         ast: &Ast,
     ) -> CompileNodeResult {
@@ -2568,9 +2718,17 @@ impl Compiler {
         // (it's decided at runtime if the parent value will be used or not).
         let frame_base = self.push_register()?;
 
+        let mut arg_count = args.len();
+
         for arg in args.iter() {
             let arg_register = self.push_register()?;
             self.compile_node(ResultRegister::Fixed(arg_register), ast.node(*arg), ast)?;
+        }
+
+        if let Some(piped_arg) = piped_arg {
+            arg_count += 1;
+            let arg_register = self.push_register()?;
+            self.push_op(Copy, &[arg_register, piped_arg]);
         }
 
         let call_result_register = if let Some(result) = result {
@@ -2590,7 +2748,7 @@ impl Compiler {
                         call_result_register,
                         function_register,
                         frame_base,
-                        args.len() as u8,
+                        arg_count as u8,
                         parent_register,
                     ],
                 );
@@ -2602,7 +2760,7 @@ impl Compiler {
                         call_result_register,
                         function_register,
                         frame_base,
-                        args.len() as u8,
+                        arg_count as u8,
                     ],
                 );
             }

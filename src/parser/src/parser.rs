@@ -942,7 +942,10 @@ impl<'source> Parser<'source> {
                     node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
                     lookup.push((
-                        LookupNode::Call(args),
+                        LookupNode::Call {
+                            args,
+                            with_parens: true,
+                        },
                         self.span_with_start(node_start_span),
                     ));
                 }
@@ -1106,7 +1109,13 @@ impl<'source> Parser<'source> {
                         // No arguments found, so we're at the end of the lookup
                         break;
                     } else {
-                        lookup.push((LookupNode::Call(args), node_start_span));
+                        lookup.push((
+                            LookupNode::Call {
+                                args,
+                                with_parens: false,
+                            },
+                            node_start_span,
+                        ));
                     }
                 }
             }
@@ -2536,7 +2545,9 @@ impl<'source> Parser<'source> {
 
         let expressions_node = match expressions.as_slice() {
             [] => self.push_node(Node::Empty)?,
-            [single_expression] if !encountered_comma => *single_expression,
+            [single_expression] if !encountered_comma => {
+                self.push_node(Node::Nested(*single_expression))?
+            }
             _ => self.push_node(Node::Tuple(expressions))?,
         };
 

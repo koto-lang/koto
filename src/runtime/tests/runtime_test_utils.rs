@@ -67,6 +67,18 @@ where
     Number(f64::from(value).into())
 }
 
+pub fn int_list<T>(values: &[T]) -> Value
+where
+    T: Copy,
+    i64: From<T>,
+{
+    let values = values
+        .iter()
+        .map(|n| Number(i64::from(*n).into()))
+        .collect::<Vec<_>>();
+    value_list(&values)
+}
+
 pub fn number_list<T>(values: &[T]) -> Value
 where
     T: Copy,
@@ -77,6 +89,18 @@ where
         .map(|n| Number(f64::from(*n).into()))
         .collect::<Vec<_>>();
     value_list(&values)
+}
+
+pub fn int_tuple<T>(values: &[T]) -> Value
+where
+    T: Copy,
+    i64: From<T>,
+{
+    let values = values
+        .iter()
+        .map(|n| Number(i64::from(*n).into()))
+        .collect::<Vec<_>>();
+    value_tuple(&values)
 }
 
 pub fn number_tuple<T>(values: &[T]) -> Value

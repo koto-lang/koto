@@ -279,9 +279,10 @@ a
                         lhs: 8,
                         rhs: 9,
                     }, // 10
-                    Negate(10),
+                    Nested(10),
+                    Negate(11),
                     MainBlock {
-                        body: vec![0, 2, 7, 11],
+                        body: vec![0, 2, 7, 12],
                         local_count: 0,
                     },
                 ],
@@ -1167,7 +1168,13 @@ x";
                     Wildcard,
                     Id(constant(1)),
                     Id(constant(2)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     MultiAssign {
                         targets: vec![
@@ -1349,20 +1356,22 @@ x %= 4";
                         lhs: 0,
                         rhs: 1,
                     },
+                    Nested(2),
                     Number1,
-                    Number0,
+                    Number0, // 5
                     BinaryOp {
                         op: AstOp::Add,
-                        lhs: 3,
-                        rhs: 4,
-                    },
-                    BinaryOp {
-                        op: AstOp::Multiply,
-                        lhs: 2,
+                        lhs: 4,
                         rhs: 5,
                     },
+                    Nested(6),
+                    BinaryOp {
+                        op: AstOp::Multiply,
+                        lhs: 3,
+                        rhs: 7,
+                    },
                     MainBlock {
-                        body: vec![6],
+                        body: vec![8],
                         local_count: 0,
                     },
                 ],
@@ -1912,9 +1921,15 @@ for a in x.zip y
             check_ast(
                 source,
                 &[
-                    Id(constant(1)),
-                    Id(constant(3)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Id(constant(1)), // x
+                    Id(constant(3)), // xip
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(2)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     Id(constant(0)), // 5
@@ -1969,7 +1984,13 @@ a()";
                         expression: 2,
                     },
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)), // 5
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )), // 5
                     Lookup((LookupNode::Root(4), Some(5))),
                     MainBlock {
                         body: vec![3, 6],
@@ -2023,7 +2044,13 @@ a()";
                     Id(constant(1)),
                     Id(constant(0)),
                     Id(constant(1)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(2)), Some(4))), // 5
                     Lookup((LookupNode::Root(3), Some(5))),
                     BinaryOp {
@@ -2252,7 +2279,13 @@ f 42";
                     Id(constant(1)),
                     Id(constant(1)),
                     Negate(2),
-                    Lookup((LookupNode::Call(vec![1, 3]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1, 3],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Root(0), Some(4))),
                     MainBlock {
                         body: vec![5],
@@ -2382,23 +2415,25 @@ f x";
                         is_variadic: false,
                         is_generator: false,
                     }),
+                    Nested(6),
                     Id(constant(2)), // x
                     Id(constant(1)), // g
-                    Id(constant(2)),
+                    Id(constant(2)), // 10 - x
                     Call {
-                        function: 8,
-                        args: vec![9],
-                    }, // 10
+                        function: 9,
+                        args: vec![10],
+                    },
                     Function(koto_parser::Function {
-                        args: vec![7],
+                        args: vec![8],
                         local_count: 1,
                         accessed_non_locals: vec![constant(1)],
-                        body: 10,
+                        body: 11,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
                     }),
-                    TempTuple(vec![6, 11]),
+                    Nested(12),
+                    TempTuple(vec![7, 13]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -2410,10 +2445,10 @@ f x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expression: 12,
+                        expression: 14,
                     },
                     MainBlock {
-                        body: vec![13],
+                        body: vec![15],
                         local_count: 2,
                     },
                 ],
@@ -2666,7 +2701,13 @@ f()";
                         expression: 11,
                     },
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Root(13), Some(14))), // 15
                     MainBlock {
                         body: vec![12, 15],
@@ -3217,7 +3258,13 @@ y z";
                 source,
                 &[
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
                     MainBlock {
@@ -3236,7 +3283,13 @@ y z";
                 source,
                 &[
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
                     Number1,
@@ -3270,7 +3323,13 @@ x.bar()."baz" = 1
                         }),
                         None,
                     )),
-                    Lookup((LookupNode::Call(vec![]), Some(1))),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        Some(1),
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     Number1, // 5
@@ -3303,7 +3362,13 @@ x.bar()."baz" = 1
                 &[
                     Id(constant(0)),
                     Int(constant(2)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     MainBlock {
@@ -3326,7 +3391,13 @@ x.foo
                 &[
                     Id(constant(0)),
                     Int(constant(2)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     MainBlock {
@@ -3376,10 +3447,11 @@ x.foo
                         function: 0,
                         args: vec![1],
                     },
+                    Nested(2),
                     Lookup((LookupNode::Id(constant(2)), None)),
-                    Lookup((LookupNode::Root(2), Some(3))),
+                    Lookup((LookupNode::Root(3), Some(4))), // 5
                     MainBlock {
-                        body: vec![4],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -3399,11 +3471,12 @@ x.foo
                         function: 0,
                         args: vec![1],
                     },
+                    Nested(2),
                     Number0,
-                    Lookup((LookupNode::Index(3), None)),
-                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    Lookup((LookupNode::Index(4), None)), // 5
+                    Lookup((LookupNode::Root(3), Some(5))),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -3423,11 +3496,18 @@ x.foo
                         function: 0,
                         args: vec![1],
                     },
+                    Nested(2),
                     Id(constant(2)),
-                    Lookup((LookupNode::Call(vec![3]), None)),
-                    Lookup((LookupNode::Root(2), Some(4))),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![4],
+                            with_parens: true,
+                        },
+                        None,
+                    )), // 5
+                    Lookup((LookupNode::Root(3), Some(5))),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -3442,7 +3522,13 @@ x.foo
                 source,
                 &[
                     Number1,
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(0)), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
                     MainBlock {
@@ -3462,7 +3548,13 @@ x.foo
                 &[
                     string_literal(0, QuotationMark::Single),
                     Id(constant(2)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     MainBlock {
@@ -3488,7 +3580,13 @@ x.foo
                     Number1,
                     List(vec![0, 1]),
                     Id(constant(1)),
-                    Lookup((LookupNode::Call(vec![3]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![3],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(0)), Some(4))), // 5
                     Lookup((LookupNode::Root(2), Some(5))),
                     MainBlock {
@@ -3507,7 +3605,13 @@ x.foo
                 source,
                 &[
                     Map(vec![(MapKey::Id(constant(0)), None)]),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(1))),
                     Lookup((LookupNode::Root(0), Some(2))),
                     MainBlock {
@@ -3527,7 +3631,13 @@ x.foo
                 &[
                     Number1,
                     Num2(vec![0]),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(0)), Some(2))),
                     Lookup((LookupNode::Root(1), Some(3))),
                     MainBlock {
@@ -3547,7 +3657,13 @@ x.foo
                 &[
                     Number1,
                     Num4(vec![0]),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(0)), Some(2))),
                     Lookup((LookupNode::Root(1), Some(3))),
                     MainBlock {
@@ -3572,11 +3688,18 @@ x.foo
                         end: 1,
                         inclusive: false,
                     },
-                    Lookup((LookupNode::Call(vec![]), None)),
-                    Lookup((LookupNode::Id(constant(0)), Some(3))),
-                    Lookup((LookupNode::Root(2), Some(4))), // 5
+                    Nested(2),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
+                    Lookup((LookupNode::Id(constant(0)), Some(4))), // 5
+                    Lookup((LookupNode::Root(3), Some(5))),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -3600,7 +3723,13 @@ x.foo
                         end: 1,
                         inclusive: false,
                     },
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(0)), Some(3))),
                     Lookup((LookupNode::Root(2), Some(4))), // 5
                     MainBlock {
@@ -3619,12 +3748,20 @@ x.foo
                 source,
                 &[
                     Id(constant(0)),
+                    Nested(0),
                     Id(constant(2)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
-                    Lookup((LookupNode::Id(constant(1)), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![2],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
+                    Lookup((LookupNode::Id(constant(1)), Some(3))),
+                    Lookup((LookupNode::Root(1), Some(4))), // 5
+                    Nested(5),
                     MainBlock {
-                        body: vec![4],
+                        body: vec![6],
                         local_count: 0,
                     },
                 ],
@@ -3648,11 +3785,29 @@ x.iter()
                 &[
                     Id(constant(0)),
                     Number1,
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(3)), Some(2))),
-                    Lookup((LookupNode::Call(vec![1]), Some(3))),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        Some(3),
+                    )),
                     Lookup((LookupNode::Id(constant(2)), Some(4))), // 5
-                    Lookup((LookupNode::Call(vec![]), Some(5))),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        Some(5),
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(6))),
                     Lookup((LookupNode::Root(0), Some(7))),
                     MainBlock {
@@ -3957,7 +4112,13 @@ catch e
                 source,
                 &[
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Root(0), Some(1))),
                     Id(constant(1)),
                     Debug {
@@ -4021,7 +4182,13 @@ finally
                 source,
                 &[
                     Id(constant(0)),
-                    Lookup((LookupNode::Call(vec![]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![],
+                            with_parens: true,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Root(0), Some(1))),
                     Id(constant(1)),
                     Debug {
@@ -4507,7 +4674,13 @@ match x.foo 42
                 &[
                     Id(constant(0)),
                     Int(constant(2)),
-                    Lookup((LookupNode::Call(vec![1]), None)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
                     Empty, // 5
