@@ -5,7 +5,9 @@ use {
     unicode_xid::UnicodeXID,
 };
 
+/// The tokens that can emerge from the lexer
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[allow(missing_docs)]
 pub enum Token {
     Error,
     Whitespace,
@@ -95,57 +97,74 @@ pub enum Token {
 }
 
 impl Token {
+    /// Returns true if the token should be counted as whitespace
     pub fn is_whitespace(&self) -> bool {
         use Token::*;
         matches!(self, Whitespace | CommentMulti | CommentSingle)
     }
 
+    /// Returns true if the token represents a new line
     pub fn is_newline(&self) -> bool {
         use Token::*;
         matches!(self, NewLine | NewLineIndented)
     }
 }
 
-#[derive(Clone)]
-struct TokenLexer<'a> {
-    source: &'a str,
-    previous_byte: usize,
-    current_byte: usize,
-    indent: usize,
-    previous_token: Option<Token>,
-    position: Position,
-    span: Span,
-    string_mode_stack: Vec<StringMode>,
-}
-
+// Used to keep track of different lexing modes while working through a string
 #[derive(Clone)]
 enum StringMode {
-    // Inside a string literal, expected end quote
+    // Inside a string literal, expecting an end quote
     Literal(char),
     // Just after a $ symbol, either an id or a '{' will follow
     TemplateStart,
     // Inside a string template, e.g. '${...}'
     TemplateExpression,
     // Inside an inline map in a template expression, e.g. '${foo({bar: 42})}'
+    // A closing '}' will end the map rather than the template expression.
     TemplateExpressionInlineMap,
 }
 
+// Separates the input source into Tokens
+//
+// TokenLexer is the internal implementation, KotoLexer provides the external interface.
+#[derive(Clone)]
+struct TokenLexer<'a> {
+    // The input source
+    source: &'a str,
+    // The current position in the source
+    current_byte: usize,
+    // Used to provide the token's slice
+    previous_byte: usize,
+    // A cache of the previous token that was emitted
+    previous_token: Option<Token>,
+    // The span represented by the current token
+    span: Span,
+    // The indentation of the current line
+    indent: usize,
+    // A stack of string modes, allowing for nested mode changes while parsing strings
+    string_mode_stack: Vec<StringMode>,
+}
+
 impl<'a> TokenLexer<'a> {
-    pub fn new(source: &'a str) -> Self {
+    fn new(source: &'a str) -> Self {
         Self {
             source,
             previous_byte: 0,
             current_byte: 0,
             indent: 0,
             previous_token: None,
-            position: Position::default(),
             span: Span::default(),
             string_mode_stack: vec![],
         }
     }
 
-    pub fn slice(&self) -> &'a str {
+    // The slice associated with the token that was just emitted
+    fn slice(&self) -> &'a str {
         &self.source[self.previous_byte..self.current_byte]
+    }
+
+    fn current_position(&self) -> Position {
+        self.span.end
     }
 
     fn advance_line(&mut self, char_bytes: usize) {
@@ -156,19 +175,19 @@ impl<'a> TokenLexer<'a> {
         self.previous_byte = self.current_byte;
         self.current_byte += char_bytes;
 
-        self.position.column += char_count as u32;
-
+        let previous_end = self.span.end;
         self.span = Span {
-            start: self.span.end,
-            end: self.position,
+            start: previous_end,
+            end: Position {
+                line: previous_end.line,
+                column: previous_end.column + char_count as u32,
+            },
         };
     }
 
     fn advance_to_position(&mut self, char_bytes: usize, position: Position) {
         self.previous_byte = self.current_byte;
         self.current_byte += char_bytes;
-
-        self.position = position;
 
         self.span = Span {
             start: self.span.end,
@@ -199,7 +218,7 @@ impl<'a> TokenLexer<'a> {
         self.advance_to_position(
             consumed_bytes,
             Position {
-                line: self.position.line + 1,
+                line: self.current_position().line + 1,
                 column: (consumed_bytes - newline_bytes + 1) as u32, // indexing from 1 for column
             },
         );
@@ -221,7 +240,7 @@ impl<'a> TokenLexer<'a> {
             // multi-line comment
             let mut char_bytes = 1;
             let mut nest_count = 1;
-            let mut position = self.position;
+            let mut position = self.current_position();
             while let Some(c) = chars.next() {
                 char_bytes += c.len_utf8();
                 position.column += c.width().unwrap_or(0) as u32;
@@ -286,7 +305,7 @@ impl<'a> TokenLexer<'a> {
         };
 
         let mut string_bytes = 0;
-        let mut position = self.position;
+        let mut position = self.current_position();
 
         while let Some(c) = chars.peek().cloned() {
             match c {
@@ -664,10 +683,12 @@ fn is_whitespace(c: char) -> bool {
     matches!(c, ' ' | '\t')
 }
 
+/// Returns true if the character matches the XID_Start Unicode property
 pub fn is_id_start(c: char) -> bool {
     UnicodeXID::is_xid_start(c)
 }
 
+/// Returns true if the character matches the XID_Continue Unicode property
 pub fn is_id_continue(c: char) -> bool {
     UnicodeXID::is_xid_continue(c)
 }
@@ -714,6 +735,9 @@ struct PeekedToken<'a> {
     source_position: usize,
 }
 
+/// The lexer used by the Koto parser
+///
+/// Wraps a TokenLexer with unbounded lookahead, see peek_n().
 #[derive(Clone)]
 pub struct KotoLexer<'a> {
     lexer: TokenLexer<'a>,
@@ -722,6 +746,7 @@ pub struct KotoLexer<'a> {
 }
 
 impl<'a> KotoLexer<'a> {
+    /// Initializes a lexer with the given input script
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: TokenLexer::new(source),
@@ -730,6 +755,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Peeks the next token in the output stream
     pub fn peek(&mut self) -> Option<Token> {
         if self.peeked_tokens.is_empty() {
             self.peek_n(0)
@@ -738,6 +764,10 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Peeks the nth token that will appear in the output stream
+    ///
+    /// peek_n(0) is equivalent to calling peek().
+    /// peek_n(1) returns the token that will appear after that, and so forth.
     pub fn peek_n(&mut self, n: usize) -> Option<Token> {
         while self.peeked_tokens.len() - self.current_peek_index <= n {
             let span = self.lexer.span;
@@ -757,10 +787,12 @@ impl<'a> KotoLexer<'a> {
         self.peeked_tokens[self.current_peek_index + n].token
     }
 
+    /// Returns the input source
     pub fn source(&self) -> &'a str {
         self.lexer.source
     }
 
+    /// Returns the current position in the input source
     pub fn source_position(&self) -> usize {
         if self.peeked_tokens.is_empty() {
             self.lexer.current_byte
@@ -769,6 +801,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the current span
     pub fn span(&self) -> Span {
         if self.peeked_tokens.is_empty() {
             self.lexer.span
@@ -777,6 +810,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the span that belongs to the next token in the output stream
     pub fn next_span(&self) -> Span {
         if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
         {
@@ -786,6 +820,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the string slice of the input associated with the current token
     pub fn slice(&self) -> &'a str {
         if self.peeked_tokens.is_empty() {
             self.lexer.slice()
@@ -794,6 +829,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the indent associated with the current token
     pub fn current_indent(&self) -> usize {
         if self.peeked_tokens.is_empty() {
             self.lexer.indent
@@ -802,6 +838,7 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the indent associated with the next token in the output stream
     pub fn next_indent(&self) -> usize {
         if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
         {
@@ -811,14 +848,17 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the indent associated with the nth coming token in the output stream
     pub fn peek_indent(&self, peek_index: usize) -> usize {
         self.peeked_tokens[self.current_peek_index + peek_index].indent
     }
 
+    /// Returns the line number associated with the current token
     pub fn line_number(&self) -> u32 {
         self.span().end.line
     }
 
+    /// Returns the line number associated with the nth coming token in the output stream
     pub fn peek_line_number(&self, peek_index: usize) -> u32 {
         self.peeked_tokens[self.current_peek_index + peek_index]
             .span

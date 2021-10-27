@@ -1,5 +1,7 @@
 //! Contains the lexer used by the Koto language
 
+#![warn(missing_docs)]
+
 mod lexer;
 mod span;
 
