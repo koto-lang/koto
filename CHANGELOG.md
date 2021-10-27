@@ -23,6 +23,26 @@ The Koto project adheres to
       >> then_that
     ```
 
+### Changed
+
+- Linebreaks are now more flexible.
+  - Linebreaks are allowed before assignment operators.
+    - e.g.
+      ```koto
+      foo
+        = 123 + 456
+      # ^~~ Previously the indented `=` here would be disallowed.
+      ```
+  - Indentation can increase in arithmetic expressions.
+    - e.g.
+      ```koto
+      x = 123
+          + 456
+            * 789
+            # ^~~ Previously this indentation would have been disallowed.
+          + 321
+      ```
+
 ## [0.9.0] 2021.10.25
 
 ### Added

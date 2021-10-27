@@ -55,16 +55,6 @@ mod parser {
             }
 
             #[test]
-            fn extra_indentation_in_arithmetic() {
-                let source = "
-x = 1
-    + 2
-      + 3
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn list_end_with_incorrect_indentation() {
                 let source = "
 x = [

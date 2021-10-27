@@ -69,9 +69,17 @@ x = [
 ]
 assert_eq x[1], 99
 
-
-a = 1 +
-    2 + #- inline comment -# 3 +
+# Linebreaks before operators
+a = 1
+  + 2 + #- inline comment -# 3
     # Another comment
-    4
+    + 4
+assert_eq a, 10
+
+# Linebreaks after operators
+a = 1 +
+    # Indentation can increase between operators
+      2 + #- inline comment -# 3 +
+        # Another comment
+        4
 assert_eq a, 10

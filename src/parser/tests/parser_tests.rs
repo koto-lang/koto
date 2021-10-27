@@ -2479,6 +2479,54 @@ f x";
         }
 
         #[test]
+        fn indented_piped_calls_after_lookup() {
+            let source = "
+foo.bar x
+  >> y
+  >> z
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)), // foo
+                    Id(constant(2)), // x
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![1],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
+                    Lookup((LookupNode::Id(constant(1)), Some(2))),
+                    Lookup((LookupNode::Root(0), Some(3))),
+                    Id(constant(3)), // 5 - y
+                    BinaryOp {
+                        op: AstOp::Pipe,
+                        lhs: 4,
+                        rhs: 5,
+                    },
+                    Id(constant(4)), // z
+                    BinaryOp {
+                        op: AstOp::Pipe,
+                        lhs: 6,
+                        rhs: 7,
+                    },
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("foo"),
+                    Constant::Str("bar"),
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                ]),
+            )
+        }
+
+        #[test]
         fn instance_function() {
             let source = "{foo: 42, bar: |self, x| self.foo = x}";
             check_ast(
