@@ -6,9 +6,16 @@ use {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Empty,
+    Nested(AstIndex), // A single expression in parentheses
     Id(ConstantIndex),
     Meta(MetaKeyId, Option<ConstantIndex>),
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
+    // A parentheses-free call on a named id, e.g. `foo 1, 2, 3`
+    // Calls with parentheses or on temporary values are parsed as Lookups
+    NamedCall {
+        id: ConstantIndex,
+        args: Vec<AstIndex>,
+    },
     BoolTrue,
     BoolFalse,
     Number0,
@@ -41,10 +48,6 @@ pub enum Node {
     },
     Block(Vec<AstIndex>),
     Function(Function),
-    Call {
-        function: AstIndex,
-        args: Vec<AstIndex>,
-    },
     Import {
         from: Vec<ImportItem>,
         items: Vec<Vec<ImportItem>>,
@@ -108,6 +111,7 @@ impl fmt::Display for Node {
         use Node::*;
         match self {
             Empty => write!(f, "Empty"),
+            Nested(_) => write!(f, "Nested"),
             Id(_) => write!(f, "Id"),
             Meta(_, _) => write!(f, "Meta"),
             Lookup(_) => write!(f, "Lookup"),
@@ -132,7 +136,7 @@ impl fmt::Display for Node {
             Block(_) => write!(f, "Block"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
-            Call { .. } => write!(f, "Call"),
+            NamedCall { .. } => write!(f, "NamedCall"),
             Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
@@ -216,6 +220,7 @@ pub enum AstOp {
     GreaterOrEqual,
     And,
     Or,
+    Pipe,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -248,7 +253,10 @@ pub enum LookupNode {
     Id(ConstantIndex),
     Str(AstString),
     Index(AstIndex),
-    Call(Vec<AstIndex>),
+    Call {
+        args: Vec<AstIndex>,
+        with_parens: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

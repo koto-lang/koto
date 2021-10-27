@@ -59,6 +59,8 @@ pub enum Token {
     Less,
     LessOrEqual,
 
+    Pipe,
+
     // Keywords
     And,
     Break,
@@ -496,6 +498,8 @@ impl<'a> TokenLexer<'a> {
 
         check_symbol!("..=", RangeInclusive);
         check_symbol!("..", Range);
+
+        check_symbol!(">>", Pipe);
 
         check_symbol!("==", Equal);
         check_symbol!("!=", NotEqual);
@@ -1077,6 +1081,25 @@ false #
                 (CurlyClose, None, 3),
                 (SingleQuote, None, 3),
                 (NewLine, None, 4),
+            ],
+        );
+    }
+
+    #[test]
+    fn operators() {
+        let input = r#"
+> >= >> < <=
+"#;
+        check_lexer_output(
+            input,
+            &[
+                (NewLine, None, 2),
+                (Greater, None, 2),
+                (GreaterOrEqual, None, 2),
+                (Pipe, None, 2),
+                (Less, None, 2),
+                (LessOrEqual, None, 2),
+                (NewLine, None, 3),
             ],
         );
     }

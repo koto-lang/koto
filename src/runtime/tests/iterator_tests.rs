@@ -1,6 +1,6 @@
 mod runtime_test_utils;
 
-use crate::runtime_test_utils::{test_script, value_tuple};
+use crate::runtime_test_utils::{number_tuple, test_script, value_tuple};
 
 mod iterator {
     use super::*;
@@ -149,7 +149,7 @@ y = x.copy()
 x.next() # (3, 13)
 y.next()
 ";
-            test_script(script, value_tuple(&[3.into(), 13.into()]));
+            test_script(script, number_tuple(&[3, 13]));
         }
     }
 }

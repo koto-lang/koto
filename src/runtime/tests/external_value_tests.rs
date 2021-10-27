@@ -2,7 +2,7 @@ mod runtime_test_utils;
 
 mod external_values {
     use {
-        crate::runtime_test_utils::{number, string, test_script_with_vm},
+        crate::runtime_test_utils::{string, test_script_with_vm},
         koto_runtime::{
             runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, RwLock, UnaryOp, Value,
             Vm,
@@ -210,7 +210,7 @@ mod external_values {
 x = make_external 42
 x.to_number()
 ";
-            test_script_with_external_value(script, number(42));
+            test_script_with_external_value(script, 42.into());
         }
 
         #[test]
@@ -221,7 +221,7 @@ y = x
 y.set_all_instances make_external 99
 x.to_number()
 ";
-            test_script_with_external_value(script, number(99));
+            test_script_with_external_value(script, 99.into());
         }
 
         #[test]
@@ -232,7 +232,7 @@ x_data = x.get_data()
 y = make_external x_data
 y.to_number()
 ";
-            test_script_with_external_value(script, number(42));
+            test_script_with_external_value(script, 42.into());
         }
     }
 
@@ -252,7 +252,7 @@ x = make_external -123
 x = -x
 x.to_number()
 ";
-            test_script_with_external_value(script, number(123));
+            test_script_with_external_value(script, 123.into());
         }
     }
 
@@ -265,7 +265,7 @@ x.to_number()
 x = (make_external 11) + (make_external 22)
 x.to_number()
 ";
-            test_script_with_external_value(script, number(33));
+            test_script_with_external_value(script, 33.into());
         }
 
         #[test]
@@ -274,7 +274,7 @@ x.to_number()
 x = (make_external 99) - (make_external 90)
 x.to_number()
 ";
-            test_script_with_external_value(script, number(9));
+            test_script_with_external_value(script, 9.into());
         }
 
         #[test]
@@ -283,7 +283,7 @@ x.to_number()
 x = (make_external 3) * (make_external 11)
 x.to_number()
 ";
-            test_script_with_external_value(script, number(33));
+            test_script_with_external_value(script, 33.into());
         }
 
         #[test]
@@ -292,7 +292,7 @@ x.to_number()
 x = (make_external 90) / (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, number(9));
+            test_script_with_external_value(script, 9.into());
         }
 
         #[test]
@@ -301,7 +301,7 @@ x.to_number()
 x = (make_external 45) % (make_external 10)
 x.to_number()
 ";
-            test_script_with_external_value(script, number(5));
+            test_script_with_external_value(script, 5.into());
         }
 
         #[test]
@@ -334,7 +334,7 @@ x.to_number()
 x = make_external 100
 x[23]
 ";
-            test_script_with_external_value(script, number(123));
+            test_script_with_external_value(script, 123.into());
         }
     }
 }

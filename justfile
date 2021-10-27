@@ -1,5 +1,5 @@
 clippy:
-  cargo clippy --all-targets --all-features
+  cargo watch -x "clippy --all-targets --all-features"
 
 doc:
   cargo watch -x "doc --workspace --exclude koto_cli --open"

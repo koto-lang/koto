@@ -13,7 +13,7 @@ const CONSTANT_INDEX_MAX: usize = 2_usize.pow(24) - 1;
 /// Q: What if we need more than 2^24 constants in a script?
 /// A: Let's wait and see, ConstantIndex can be transitioned to a u32
 ///    (along with corresponding constant loading ops) if it really turns out to be necessary.
-#[derive(Clone, Copy, Debug, Hash, PartialEq)]
+#[derive(Clone, Copy, Hash, PartialEq)]
 pub struct ConstantIndex(pub u8, pub u8, pub u8);
 
 impl ConstantIndex {
@@ -72,6 +72,12 @@ impl PartialEq<ConstantIndex> for usize {
 impl fmt::Display for ConstantIndex {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", usize::from(self))
+    }
+}
+
+impl fmt::Debug for ConstantIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_string())
     }
 }
 
