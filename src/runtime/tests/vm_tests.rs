@@ -3,7 +3,7 @@ mod runtime_test_utils;
 mod vm {
     use {
         crate::runtime_test_utils::{
-            int_list, num2, num4, number_list, number_tuple, string, test_script,
+            num2, num4, number, number_list, number_tuple, string, test_script,
             test_script_with_vm, value_tuple,
         },
         koto_runtime::{
@@ -21,22 +21,22 @@ mod vm {
 
         #[test]
         fn bool_true() {
-            test_script("true", Bool(true));
+            test_script("true", true.into());
         }
 
         #[test]
         fn bool_false() {
-            test_script("false", Bool(false));
+            test_script("false", false.into());
         }
 
         #[test]
         fn number() {
-            test_script("24.0", Number(24.0.into()));
+            test_script("24.0", 24.into());
         }
 
         #[test]
         fn string() {
-            test_script("\"Hello\"", Str("Hello".into()));
+            test_script("\"Hello\"", "Hello".into());
         }
     }
 
@@ -45,40 +45,40 @@ mod vm {
 
         #[test]
         fn add_multiply() {
-            test_script("1 + 2 * 3 + 4", Number(11.0.into()));
+            test_script("1 + 2 * 3 + 4", 11.into());
         }
 
         #[test]
         fn add_multiply_compressed_whitespace() {
-            test_script("1+ 2 *3+4", Number(11.0.into()));
+            test_script("1+ 2 *3+4", 11.into());
         }
 
         #[test]
         fn subtract_divide_modulo() {
-            test_script("(20 - 2) / 3 % 4", Number(2.0.into()));
+            test_script("(20 - 2) / 3 % 4", 2.into());
         }
 
         #[test]
         fn comparison() {
             test_script(
                 "false or 1 < 2 <= 2 <= 3 and 3 >= 2 >= 2 > 1 or false",
-                Bool(true),
+                true.into(),
             );
         }
 
         #[test]
         fn equality() {
-            test_script("1 + 1 == 2 and 2 + 2 != 5", Bool(true));
+            test_script("1 + 1 == 2 and 2 + 2 != 5", true.into());
         }
 
         #[test]
         fn not_bool() {
-            test_script("not false", Bool(true));
+            test_script("not false", true.into());
         }
 
         #[test]
         fn not_expression() {
-            test_script("not 1 + 1 == 2", Bool(false));
+            test_script("not 1 + 1 == 2", false.into());
         }
 
         #[test]
@@ -86,7 +86,7 @@ mod vm {
             let script = "
 a = 1 * 3
 a + 1";
-            test_script(script, Number(4.0.into()));
+            test_script(script, 4.into());
         }
 
         #[test]
@@ -94,7 +94,7 @@ a + 1";
             let script = "
 a = 99
 -a";
-            test_script(script, Number(f64::from(-99).into()));
+            test_script(script, number(-99));
         }
     }
 
@@ -179,7 +179,7 @@ a = 1
             let script = "
 a = [1, 2, 3]
 a[1]";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -297,7 +297,7 @@ l = [1, 2, 3]
 l2 = l
 l[1] = -1
 l2[1]";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -307,7 +307,7 @@ l = [1, 2, 3]
 l2 = l.copy()
 l[1] = -1
 l2[1]";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
     }
 
@@ -336,10 +336,7 @@ x";
             let script = "
 a, b, c = [7, 8]
 a, b, c";
-            test_script(
-                script,
-                value_tuple(&[Number(7.0.into()), Number(8.0.into()), Empty]),
-            );
+            test_script(script, value_tuple(&[7.into(), 8.into(), Empty]));
         }
 
         #[test]
@@ -359,7 +356,7 @@ a, b, c";
 a, b = 0, 1
 a, b = b, a
 b";
-            test_script(script, Number(0.0.into()));
+            test_script(script, 0.into());
         }
 
         #[test]
@@ -368,7 +365,7 @@ b";
 a, b = 10, 7
 a, b = a+b, a%b
 b";
-            test_script(script, Number(3.0.into()));
+            test_script(script, 3.into());
         }
     }
 
@@ -385,7 +382,7 @@ else if 1 < 2
 else
   99
 x";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -398,7 +395,7 @@ else if 1 < 2
 else
   99
 x";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -411,7 +408,7 @@ else if 2 < 1
 else
   99
 x";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -444,7 +441,7 @@ if false
 else if true
   99
 ";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -461,7 +458,7 @@ else if true
 else
   0
 ";
-            test_script(script, Number(100.0.into()));
+            test_script(script, 100.into());
         }
     }
 
@@ -476,7 +473,7 @@ x = match 0 == 1
   false then 99
 x
 ";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -489,7 +486,7 @@ match x % 3, x % 5
   _, 0 then "Buzz"
   _ then x # alternative to else
 "#;
-            test_script(script, Number(11.0.into()));
+            test_script(script, 11.into());
         }
 
         #[test]
@@ -503,7 +500,7 @@ match x
   y if y == "hello"
     42
 "#;
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -516,7 +513,7 @@ match 0
   foo.bar if x == 42 then 42
   else -1
 "#;
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -528,7 +525,7 @@ match 42
   21 or 42 then 33
   else 44
 ";
-            test_script(script, Number(33.0.into()));
+            test_script(script, 33.into());
         }
 
         #[test]
@@ -539,7 +536,7 @@ match (1, (2, 3), 4)
   (_, (a, b), _) then a + b
   else 123
 ";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -551,7 +548,7 @@ match [1, [2, 3], [4, 5, 6]]
   [1, [x, 3], [_, 5, y]] then x + y
   else 123
 ";
-            test_script(script, Number(8.0.into()));
+            test_script(script, 8.into());
         }
 
         #[test]
@@ -563,7 +560,7 @@ match x
   [x, y] or [x, y, z] then 99
   else -1
 ";
-            test_script(script, Number(123.0.into()));
+            test_script(script, 123.into());
         }
 
         #[test]
@@ -576,7 +573,7 @@ match x
   [1, ...] then 1
   else 123
 ";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -589,7 +586,7 @@ match x
   [1, 2, rest...] then rest
   else 123
 ";
-            test_script(script, number_list(&[3.0, 4.0, 5.0]));
+            test_script(script, number_list(&[3, 4, 5]));
         }
 
         #[test]
@@ -602,7 +599,7 @@ match x
   [1, 2, rest...] then rest
   else 123
 ";
-            test_script(script, number_list(&[1.0, 2.0]));
+            test_script(script, number_list(&[1, 2]));
         }
 
         #[test]
@@ -615,7 +612,7 @@ match x
   (1, 2, rest...) then rest
   else 123
 ";
-            test_script(script, number_tuple(&[1.0, 2.0]));
+            test_script(script, number_tuple(&[1, 2]));
         }
 
         #[test]
@@ -628,7 +625,7 @@ match 0, 1
   0, _ or 1, _ then -4 # The first alternative (0, _) should match
   else -5
 ";
-            test_script(script, Number(f64::from(-4).into()));
+            test_script(script, number(-4));
         }
 
         #[test]
@@ -641,7 +638,7 @@ match 0, 1
   0, _ or 1, _ then -4
   else -5
 ";
-            test_script(script, Number(f64::from(-3).into()));
+            test_script(script, number(-3));
         }
 
         #[test]
@@ -653,7 +650,7 @@ match 99
   x.bar then 2
   else -1
 ";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -667,7 +664,7 @@ f = ||
     else -1
 f()
 ";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -685,7 +682,7 @@ m = match "hello"
     value_2: 7
 m.value_1 + m.value_2
 "#;
-            test_script(script, Number(24.0.into()));
+            test_script(script, 24.into());
         }
     }
 
@@ -702,7 +699,7 @@ switch
   n == 42 then 99
   else 1
 "#;
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
     }
 
@@ -713,7 +710,7 @@ switch
             let vm = Vm::default();
             let mut prelude = vm.prelude();
 
-            prelude.add_value("test_value", Number(42.0.into()));
+            prelude.add_value("test_value", 42.into());
             prelude.add_fn("assert", |vm, args| {
                 for value in vm.get_args(args).iter() {
                     match value {
@@ -739,7 +736,7 @@ switch
         #[test]
         fn load_value() {
             let script = "test_value";
-            test_script_with_prelude(script, Number(42.0.into()));
+            test_script_with_prelude(script, 42.into());
         }
 
         #[test]
@@ -763,7 +760,7 @@ switch
             let script = "
 f = || 42
 f()";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -771,7 +768,7 @@ f()";
             let script = "
 square = |x| x * x
 square 8";
-            test_script(script, Number(64.0.into()));
+            test_script(script, 64.into());
         }
 
         #[test]
@@ -780,7 +777,7 @@ square 8";
 add = |a, b|
   a + b
 add 5, 6";
-            test_script(script, Number(11.0.into()));
+            test_script(script, 11.into());
         }
 
         #[test]
@@ -789,7 +786,7 @@ add 5, 6";
 add = |a, b|
   a + b
 add(5, 6)";
-            test_script(script, Number(11.0.into()));
+            test_script(script, 11.into());
         }
 
         #[test]
@@ -807,7 +804,7 @@ foo 42
 foo = |a, b| a + b
 foo 10, 20, 30, 40
 ";
-            test_script(script, Number(30.into()));
+            test_script(script, 30.into());
         }
 
         #[test]
@@ -816,7 +813,7 @@ foo 10, 20, 30, 40
 add = |a, b|
   a + b
 add 2, add 3, 4";
-            test_script(script, Number(9.0.into()));
+            test_script(script, 9.into());
         }
 
         #[test]
@@ -825,7 +822,7 @@ add 2, add 3, 4";
 add = |a, b|
   a + b
 add(5, add 6, 7)";
-            test_script(script, Number(18.0.into()));
+            test_script(script, 18.into());
         }
 
         #[test]
@@ -834,7 +831,7 @@ add(5, add 6, 7)";
 f = |_, b, c| b + c
 f 1, 2, 3
 ";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -843,7 +840,7 @@ f 1, 2, 3
 f = |a, _, c| a + c
 f 1, 2, 3
 ";
-            test_script(script, Number(4.0.into()));
+            test_script(script, 4.into());
         }
 
         #[test]
@@ -852,7 +849,7 @@ f 1, 2, 3
 f = |a, b, _| a + b
 f 1, 2, 3
 ";
-            test_script(script, Number(3.0.into()));
+            test_script(script, 3.into());
         }
 
         #[test]
@@ -861,7 +858,7 @@ f 1, 2, 3
 f = |a, (_, c), d| a + c + d
 f 1, (2, 3), 4
 ";
-            test_script(script, Number(8.0.into()));
+            test_script(script, 8.into());
         }
 
         #[test]
@@ -870,7 +867,7 @@ f 1, (2, 3), 4
 f = |a, (_, (c, d), _), f| a + c + d + f
 f 1, (2, (3, 4), 5), 6
 ";
-            test_script(script, Number(14.0.into()));
+            test_script(script, 14.into());
         }
 
         #[test]
@@ -879,7 +876,7 @@ f 1, (2, (3, 4), 5), 6
 f = |a, [_, c], d| a + c + d
 f 1, [2, 3], 4
 ";
-            test_script(script, Number(8.0.into()));
+            test_script(script, 8.into());
         }
 
         #[test]
@@ -888,7 +885,7 @@ f 1, [2, 3], 4
 f = |a, (b, [_, d]), e| a + b + d + e
 f 1, (2, [3, 4]), 5
 ";
-            test_script(script, Number(12.0.into()));
+            test_script(script, 12.into());
         }
 
         #[test]
@@ -898,7 +895,7 @@ x = 10
 f = |a, (b, c)| a + b + c + x
 f 1, (2, 3)
 ";
-            test_script(script, Number(16.0.into()));
+            test_script(script, 16.into());
         }
 
         #[test]
@@ -907,7 +904,7 @@ f 1, (2, 3)
 f = |a, b...|
   a + b.fold 0, |x, y| x + y
 f 5, 10, 20, 30";
-            test_script(script, Number(65.0.into()));
+            test_script(script, 65.into());
         }
 
         #[test]
@@ -925,7 +922,7 @@ add = |a, b|
   add2 = |x, y| x + y
   add2 a, b
 add 10, 20";
-            test_script(script, Number(30.0.into()));
+            test_script(script, 30.into());
         }
 
         #[test]
@@ -933,7 +930,7 @@ add 10, 20";
             let script = "
 add = |a, b| a + b
 add 10, (add 20, 30)";
-            test_script(script, Number(60.0.into()));
+            test_script(script, 60.into());
         }
 
         #[test]
@@ -946,7 +943,7 @@ f = |n|
     f n - 1
 f 4
 ";
-            test_script(script, Number(0.0.into()));
+            test_script(script, 0.into());
         }
 
         #[test]
@@ -961,7 +958,7 @@ fib = |n|
     (fib n - 1) + (fib n - 2)
 fib 4
 ";
-            test_script(script, Number(3.0.into()));
+            test_script(script, 3.into());
         }
 
         #[test]
@@ -1003,7 +1000,7 @@ f = |x|
     return x * -1
   x
 f -42";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1014,7 +1011,7 @@ f = ||
     foo: 42
     bar: 99
 f().bar";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1023,7 +1020,7 @@ f().bar";
 x = 3
 f = || x * x
 f()";
-            test_script(script, Number(9.0.into()));
+            test_script(script, 9.into());
         }
 
         #[test]
@@ -1035,7 +1032,7 @@ f = ||
   data = () # shadowed assignment doesn't affect the original copy of data
 f()
 data[1]";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1049,7 +1046,7 @@ capture_test = |a, b, c|
   b, c = (), () # inner and inner2 have captured their own copies of b and c
   inner()
 capture_test 1, 2, 3";
-            test_script(script, Number(6.0.into()));
+            test_script(script, 6.into());
         }
 
         #[test]
@@ -1064,7 +1061,7 @@ if f() == 100
 else
   -1
 ";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1076,7 +1073,7 @@ f = |x|
   inner()
   x.foo
 f {foo: 42, bar: 99}";
-            test_script(script, Number(123.0.into()));
+            test_script(script, 123.into());
         }
 
         #[test]
@@ -1098,7 +1095,7 @@ f = ||
   export x = 42
 f()
 x";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1107,7 +1104,7 @@ x";
 f = |n| n
 a, b = (f 1), (f 2)
 a";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -1122,7 +1119,7 @@ f2 = ||
     x
 f3 = |x| f2() x
 f3 1";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -1135,7 +1132,7 @@ f2 = ||
     x
 f3 = |x| f2() x
 f3 1";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -1146,7 +1143,7 @@ f3 1";
 f = || 1, 2, 3
 f().fold 0, |x, n| x += n
 ";
-            test_script(script, Number(6.0.into()));
+            test_script(script, 6.into());
         }
 
         mod piped_calls {
@@ -1215,7 +1212,7 @@ g(1)(100) >> g(2) >> g(3) >> g(4)
 
 calls
 ";
-                test_script(script, int_list(&[1, 110, 2, 120, 3, 130, 4, 140]));
+                test_script(script, number_list(&[1, 110, 2, 120, 3, 130, 4, 140]));
             }
         }
     }
@@ -1230,7 +1227,7 @@ count = 0
 while count < 10
   count += 1
 count";
-            test_script(script, Number(10.0.into()));
+            test_script(script, 10.into());
         }
 
         #[test]
@@ -1240,7 +1237,7 @@ count = 10
 until count == 20
   count += 1
 count";
-            test_script(script, Number(20.0.into()));
+            test_script(script, 20.into());
         }
 
         #[test]
@@ -1250,7 +1247,7 @@ count = 32
 for _ in 0..10
   count += 1
 count";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1260,7 +1257,7 @@ sum = 0
 for a in [10, 20, 30, 40]
   sum += a
 sum";
-            test_script(script, Number(100.0.into()));
+            test_script(script, 100.into());
         }
 
         #[test]
@@ -1272,7 +1269,7 @@ for i in 1..10
     break
   sum += i
 sum";
-            test_script(script, Number(10.0.into()));
+            test_script(script, 10.into());
         }
 
         #[test]
@@ -1285,7 +1282,7 @@ for i in [1, 2, 3]
       break
     sum += i
 sum";
-            test_script(script, Number(12.0.into()));
+            test_script(script, 12.into());
         }
 
         #[test]
@@ -1297,7 +1294,7 @@ for i in 1..10
     continue
   sum += i
 sum";
-            test_script(script, Number(15.0.into()));
+            test_script(script, 15.into());
         }
 
         #[test]
@@ -1310,7 +1307,7 @@ for i in [2, 4, 6]
       continue
     sum += i
 sum";
-            test_script(script, Number(24.0.into()));
+            test_script(script, 24.into());
         }
 
         #[test]
@@ -1322,7 +1319,7 @@ while (i += 1) < 1000000
     break
   sum += 1
 sum";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -1334,7 +1331,7 @@ while (i += 1) < 10
     continue
   sum += 1
 sum";
-            test_script(script, Number(6.0.into()));
+            test_script(script, 6.into());
         }
 
         #[test]
@@ -1348,7 +1345,7 @@ loop
   else
     break
 i";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -1361,7 +1358,7 @@ f = ||
         return i
   -1
 f()";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -1372,7 +1369,7 @@ for a, b in ((1, 2), (3, 4))
   sum += a + b
 sum
 ";
-            test_script(script, Number(10.0.into()));
+            test_script(script, 10.into());
         }
     }
 
@@ -1387,8 +1384,8 @@ sum
         #[test]
         fn from_literals() {
             let mut result_data = DataMap::new();
-            result_data.add_value("foo", Number(42.0.into()));
-            result_data.add_value("bar", Str("baz".into()));
+            result_data.add_value("foo", 42.into());
+            result_data.add_value("bar", "baz".into());
 
             test_script(
                 "{foo: 42, bar: 'baz'}",
@@ -1401,7 +1398,7 @@ sum
             let script = "
 m = {foo: -1}
 m.foo";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1410,7 +1407,7 @@ m.foo";
 m = {}
 m.foo = 42
 m.foo";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1419,7 +1416,7 @@ m.foo";
 m = {bar: -1}
 m.bar = 99
 m.bar";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1428,7 +1425,7 @@ m.bar";
 foo, baz = 42, -1
 m = {foo, bar: 99, baz}
 m.baz";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1437,7 +1434,7 @@ m.baz";
 foo, bar = 42, -1
 m = {foo, bar, 'baz': 99}
 m.baz"#;
-            test_script(script, Number(99.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1447,7 +1444,7 @@ make_o = ||
   {foo: 42, get_foo: |self| self.foo}
 o = make_o()
 o.get_foo()";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1459,7 +1456,7 @@ make_o = ||
 o = make_o()
 o.set_foo 10, 20
 o.foo";
-            test_script(script, Number(30.0.into()));
+            test_script(script, 30.into());
         }
 
         #[test]
@@ -1476,7 +1473,7 @@ m = {foo: -1, bar: 42} + {foo: 99}
 m = {foo: 42, bar: || 99}
 m2 = m
 m == m2";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -1486,7 +1483,7 @@ m = {foo: 42, bar: || 99}
 m2 = m.copy()
 m2.foo = 99
 m != m2";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -1496,7 +1493,7 @@ m = {foo: 42}
 m2 = m
 m.foo = -1
 m2.foo";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1506,7 +1503,7 @@ m = {foo: 42}
 m2 = m.copy()
 m.foo = -1
 m2.foo";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
     }
 
@@ -1518,7 +1515,7 @@ m2.foo";
             let script = "
 m = {x: [100, 200]}
 m.x[1]";
-            test_script(script, Number(200.0.into()));
+            test_script(script, 200.into());
         }
 
         #[test]
@@ -1527,7 +1524,7 @@ m.x[1]";
 m = {foo: 99}
 l = [m, m, m]
 l[2].foo";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1537,7 +1534,7 @@ m = {bar: 0}
 l = [m, m, m]
 l[1].bar = -1
 l[1].bar";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1547,7 +1544,7 @@ m = {foo: [1, 2, 3]}
 l = [m, m, m]
 l[2].foo[0] = 99
 l[2].foo[0]";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1555,7 +1552,7 @@ l[2].foo[0]";
             let script = "
 m = {get_map: || { foo: -1 }}
 m.get_map().foo";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1566,7 +1563,7 @@ m =
     xs.fold x, |a, b| a + b
 m.foo 1, 2, 3
 ";
-            test_script(script, Number(6.0.into()));
+            test_script(script, 6.into());
         }
 
         #[test]
@@ -1578,7 +1575,7 @@ m =
   offset: 10
 m.foo 1, 2, 3
 ";
-            test_script(script, Number(16.0.into()));
+            test_script(script, 16.into());
         }
 
         #[test]
@@ -1603,7 +1600,7 @@ x = [0, [1, {foo: 2}]]
 x2 = x.deep_copy()
 x[1][1].foo = 42
 x2[1][1].foo";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -1614,7 +1611,7 @@ x = (0, list)
 x2 = x.deep_copy()
 list[1][0] = 42
 x2[1][1][0]";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -1624,7 +1621,7 @@ m = {foo: {bar: -1}}
 m2 = m.deep_copy()
 m.foo.bar = 99
 m2.foo.bar";
-            test_script(script, Number(f64::from(-1).into()));
+            test_script(script, number(-1));
         }
 
         #[test]
@@ -1634,7 +1631,7 @@ m = {foo: {bar: 88}, get_foo: |self| self.foo}
 m2 = m.get_foo().copy()
 m.get_foo().bar = 99
 m2.bar";
-            test_script(script, Number(88.0.into()));
+            test_script(script, 88.into());
         }
 
         #[test]
@@ -1646,7 +1643,7 @@ make_map = ||
 m = make_map()
 m.foo
 ";
-            test_script(script, Number(42.0.into()));
+            test_script(script, 42.into());
         }
 
         #[test]
@@ -1661,7 +1658,7 @@ result = {}
   .consume()
 result.size()
 ";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -1672,7 +1669,7 @@ equal
   (0..10).position(|n| n == 5),
   5
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -1682,7 +1679,7 @@ foo = |range, x| range.size() + x
 min, max = 0, 10
 foo min..max, 20
 ";
-            test_script(script, Number(30.0.into()));
+            test_script(script, 30.into());
         }
     }
 
@@ -1707,7 +1704,7 @@ fold = |xs, f|
     result = f result, x
   result
 fold 0..5, |n, _| n + 1";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
     }
 
@@ -1860,7 +1857,7 @@ x = num2 1, -2
             let script = "
 x = num2 4, 5
 x[1]";
-            test_script(script, Number(5.0.into()));
+            test_script(script, 5.into());
         }
 
         #[test]
@@ -1869,7 +1866,7 @@ x[1]";
 x = num2 4, 5
 x[1] = 99
 x[1]";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -1878,7 +1875,7 @@ x[1]";
 x = num2 4, 5
 x[0..2] = 1
 x[0] + x[1]";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -1895,7 +1892,7 @@ x";
             let script = "
 num2(1, -1).keep(|n| n < 0).count()
 ";
-            test_script(script, Number(1.0.into()));
+            test_script(script, 1.into());
         }
     }
 
@@ -1976,7 +1973,7 @@ x = num4 1, -2, 3, -4
             let script = "
 x = num4 9, 8, 7, 6
 x[3]";
-            test_script(script, Number(6.0.into()));
+            test_script(script, 6.into());
         }
 
         #[test]
@@ -1985,7 +1982,7 @@ x[3]";
 x = num4 4, 5, 6, 7
 x[2] = 99
 x[2]";
-            test_script(script, Number(99.0.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -2003,7 +2000,7 @@ x";
 x = num4 4, 5, 6, 7
 x[..] = 2
 x.sum()";
-            test_script(script, Number(8.0.into()));
+            test_script(script, 8.into());
         }
 
         #[test]
@@ -2011,7 +2008,7 @@ x.sum()";
             let script = "
 num4(1, -1, 2, -2).keep(|n| n > 0).count()
 ";
-            test_script(script, Number(2.0.into()));
+            test_script(script, 2.into());
         }
     }
 
@@ -2025,26 +2022,26 @@ num4(1, -1, 2, -2).keep(|n| n > 0).count()
 
         #[test]
         fn less() {
-            test_script(r#""abc" < "abd""#, Bool(true));
-            test_script(r#""abx" < "abc""#, Bool(false));
+            test_script(r#""abc" < "abd""#, true.into());
+            test_script(r#""abx" < "abc""#, false.into());
         }
 
         #[test]
         fn less_or_equal() {
-            test_script(r#""abc" <= "abc""#, Bool(true));
-            test_script(r#""xyz" <= "abd""#, Bool(false));
+            test_script(r#""abc" <= "abc""#, true.into());
+            test_script(r#""xyz" <= "abd""#, false.into());
         }
 
         #[test]
         fn greater() {
-            test_script(r#""hello42" > "hello1""#, Bool(true));
-            test_script(r#""hello1" > "hellø1""#, Bool(false));
+            test_script(r#""hello42" > "hello1""#, true.into());
+            test_script(r#""hello1" > "hellø1""#, false.into());
         }
 
         #[test]
         fn greater_or_equal() {
-            test_script(r#""héllö42" >= "héllö11""#, Bool(true));
-            test_script(r#""hello1" >= "hello42""#, Bool(false));
+            test_script(r#""héllö42" >= "héllö11""#, true.into());
+            test_script(r#""hello1" >= "hello42""#, false.into());
         }
 
         #[test]
@@ -2181,7 +2178,7 @@ m =
 m.'key$x' = 123
 m.'key$x'
 ";
-            test_script(script, Number(123.into()));
+            test_script(script, 123.into());
         }
 
         #[test]
@@ -2207,7 +2204,7 @@ x.next()
 z.next()
 z.next()
 ";
-            test_script(script, Number(2.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -2221,7 +2218,7 @@ x[0].next()
 z[0].next()
 z[0].next()
 ";
-            test_script(script, Number(2.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -2237,7 +2234,7 @@ x.next() # 2
 x.next() # 3
 y.next()
 ";
-            test_script(script, Number(2.into()));
+            test_script(script, 2.into());
         }
     }
 
@@ -2254,7 +2251,7 @@ try
 catch _
   x + 1
 ";
-            test_script(script, Number(3.into()));
+            test_script(script, 3.into());
         }
 
         #[test]
@@ -2267,7 +2264,7 @@ try
 catch error
   error
 "#;
-            test_script(script, Str("2".into()));
+            test_script(script, "2".into());
         }
 
         #[test]
@@ -2282,7 +2279,7 @@ try
 catch error
   error.data
 "#;
-            test_script(script, Number(2.into()));
+            test_script(script, 2.into());
         }
 
         #[test]
@@ -2295,7 +2292,7 @@ catch e
 finally
   99
 ";
-            test_script(script, Number(99.into()));
+            test_script(script, 99.into());
         }
 
         #[test]
@@ -2313,7 +2310,7 @@ try
 catch _
   x += 1
 ";
-            test_script(script, Number(4.into()));
+            test_script(script, 4.into());
         }
     }
 
@@ -2335,7 +2332,7 @@ locals.foo_meta =
 z = ((foo 2) * (foo 10) / (foo 4) + (foo 1) - (foo 2)) % foo 3
 z.x
 ";
-            test_script(script, Number(1.into()));
+            test_script(script, 1.into());
         }
 
         #[test]
@@ -2347,7 +2344,7 @@ foo = |x|
 
 (foo 10) < (foo 20) and not (foo 30) < (foo 30)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2359,7 +2356,7 @@ foo = |x|
 
 (foo 10) <= (foo 20) and (foo 30) <= (foo 30)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2371,7 +2368,7 @@ foo = |x|
 
 (foo 0) > (foo -1) and not (foo 0) > (foo 0)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2383,7 +2380,7 @@ foo = |x|
 
 (foo 50) >= (foo 40) and (foo 50) >= (foo 50)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2397,7 +2394,7 @@ foo = |x|
 
 (foo 41) == (foo 42) and not (foo 42) == (foo 42)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2411,7 +2408,7 @@ foo = |x|
 
 (foo 99) != (foo 99) and not (foo 99) != (foo 100)
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2427,7 +2424,7 @@ a = [foo(0), foo(1)]
 b = [foo(1), foo(2)]
 a == b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2443,7 +2440,7 @@ a = { foo: foo(42) }
 b = { foo: foo(99) }
 a == b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2459,7 +2456,7 @@ a = (foo(0), foo(1))
 b = (foo(1), foo(2))
 a == b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2475,7 +2472,7 @@ a = [foo(0), foo(0)]
 b = [foo(0), foo(0)]
 a != b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2491,7 +2488,7 @@ a = { foo: foo(42) }
 b = { foo: foo(42) }
 a != b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2507,7 +2504,7 @@ a = (foo(1), foo(2))
 b = (foo(1), foo(2))
 a != b # Should evaluate to true due to the inverted equality operator
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2521,7 +2518,7 @@ a = foo 42
 b = a.deep_copy()
 b >= a
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
 
         #[test]
@@ -2538,7 +2535,7 @@ foos = (0, 1)
 
 foos[0] == foos[1]
 ";
-            test_script(script, Bool(true));
+            test_script(script, true.into());
         }
     }
 
@@ -2555,7 +2552,7 @@ locals.foo_meta =
 a = foo 10
 a.x + a.get_x()
 ";
-            test_script(script, Number(20.0.into()));
+            test_script(script, 20.into());
         }
 
         #[test]
@@ -2568,7 +2565,7 @@ locals.foo_meta =
 a = foo 10
 a.x + a.y # The meta map's y entry is hidden by the data entry
 ";
-            test_script(script, Number(110.0.into()));
+            test_script(script, 110.into());
         }
     }
 }
