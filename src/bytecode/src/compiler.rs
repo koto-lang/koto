@@ -406,7 +406,7 @@ impl Compiler {
             Node::Nested(nested) => self.compile_node(result_register, ast.node(*nested), ast)?,
             Node::Id(index) => self.compile_load_id(result_register, *index)?,
             Node::Lookup(lookup) => {
-                self.compile_lookup(result_register, lookup, None, None, None, ast)?
+                self.compile_lookup(result_register, lookup, None, None, ast)?
             }
             Node::BoolTrue => {
                 let result = self.get_result_register(result_register)?;
@@ -1049,7 +1049,6 @@ impl Compiler {
                     ResultRegister::None,
                     lookup,
                     None,
-                    None,
                     Some(value_register.register),
                     ast,
                 )?;
@@ -1121,7 +1120,6 @@ impl Compiler {
                         self.compile_lookup(
                             ResultRegister::None,
                             lookup,
-                            None,
                             None,
                             Some(register),
                             ast,
@@ -2249,11 +2247,21 @@ impl Compiler {
         }
     }
 
+    // Works through a lookup chain.
+    //
+    // The lookup chain is a linked list of LookupNodes stored as AST indices.
+    //
+    // The loop keeps track of the temporary values that are the result of each lookup step.
+    //
+    // piped_arg_register - used when a value is being piped into the lookup,
+    //   e.g. `f x >> foo.bar 123`, should be equivalent to `foo.bar 123, (f x)`
+    //
+    // set_value - used when assigning to the result of a lookup,
+    //   e.g. `foo.bar = 42`, or `foo[123] = bar`
     fn compile_lookup(
         &mut self,
         result_register: ResultRegister,
         (root_node, mut next_node_index): &(LookupNode, Option<AstIndex>),
-        add_node_to_end_of_lookup: Option<&LookupNode>,
         piped_arg_register: Option<u8>,
         set_value: Option<u8>,
         ast: &Ast,
@@ -2264,10 +2272,12 @@ impl Compiler {
             return compiler_error!(self, "compile_lookup: missing next node index");
         }
 
+        // First things first, if the result is going into a temporary register assign it now.
         let result = self.get_result_register(result_register)?;
 
         // Keep track of a register for each lookup node.
-        // This produces a lookup chain, allowing lookup operations to access parent containers.
+        // This produces a chain of temporary value registers, allowing lookup operations to access
+        // parent containers when needed, e.g. calls to instance functions.
         let mut node_registers = SmallVec::<[u8; 4]>::new();
 
         // At the end of the lookup we'll pop the whole stack,
@@ -2275,11 +2285,7 @@ impl Compiler {
         let stack_count = self.frame().register_stack.len();
         let span_stack_count = self.span_stack.len();
 
-        let mut node_count = 0;
-        let mut lookup_node = root_node.clone();
-
-        let mut piped_call_args = Vec::new();
-
+        // Where should the final value in the lookup chain be placed?
         let chain_result_register = match (result, piped_arg_register) {
             // If there's a piped call after the lookup chain, then place the result of the lookup
             // chain in a temporary register.
@@ -2290,12 +2296,18 @@ impl Compiler {
             (None, None) => None,
         };
 
+        let mut lookup_node = root_node.clone();
+
         loop {
+            let mut piped_call_args = Vec::new();
+
             let is_last_node = next_node_index.is_none();
 
             match lookup_node {
                 LookupNode::Root(root_node) => {
-                    assert!(node_count == 0, "Root node not in first position");
+                    if !node_registers.is_empty() {
+                        return compiler_error!(self, "Root lookup node not in root position");
+                    }
 
                     let root = self
                         .compile_node(ResultRegister::Any, ast.node(root_node), ast)?
@@ -2308,7 +2320,10 @@ impl Compiler {
                     //    - x = Root
                     //    - foo = Id
                     //    - () = Call
-                    let parent_register = *node_registers.last().expect("Empty node registers");
+                    let parent_register = match node_registers.last() {
+                        Some(register) => *register,
+                        None => return compiler_error!(self, "Child lookup node in root position"),
+                    };
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
@@ -2334,7 +2349,11 @@ impl Compiler {
                     //    - x = Root
                     //    - "123" = Str
                     //    - () = Call
-                    let parent_register = *node_registers.last().expect("Empty node registers");
+
+                    let parent_register = match node_registers.last() {
+                        Some(register) => *register,
+                        None => return compiler_error!(self, "Child lookup node in root position"),
+                    };
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
@@ -2369,26 +2388,38 @@ impl Compiler {
                     }
                 }
                 LookupNode::Index(index_node) => {
+                    // Indexing into a value
+                    // e.g. foo.bar[123]
+                    //    - foo = Root
+                    //    - bar = Id
+                    //    - [123] = Index, with 123 as index node
+                    let parent_register = match node_registers.last() {
+                        Some(register) => *register,
+                        None => return compiler_error!(self, "Child lookup node in root position"),
+                    };
+
                     let index = self
                         .compile_node(ResultRegister::Any, ast.node(index_node), ast)?
                         .unwrap();
-                    let list_register = *node_registers.last().expect("Empty node registers");
 
                     if is_last_node {
                         if let Some(set_value) = set_value {
-                            self.push_op(SetIndex, &[list_register, index.register, set_value]);
+                            self.push_op(SetIndex, &[parent_register, index.register, set_value]);
                         } else if let Some(result_register) = chain_result_register {
-                            self.push_op(Index, &[result_register, list_register, index.register]);
+                            self.push_op(
+                                Index,
+                                &[result_register, parent_register, index.register],
+                            );
                             node_registers.push(result_register);
                         }
                     } else {
                         let node_register = self.push_register()?;
                         node_registers.push(node_register);
-                        self.push_op(Index, &[node_register, list_register, index.register]);
+                        self.push_op(Index, &[node_register, parent_register, index.register]);
                     }
                 }
                 LookupNode::Call { args, with_parens } => {
-                    // Function call
+                    // Function call on a lookup result
 
                     if is_last_node && set_value.is_some() {
                         return compiler_error!(self, "Assigning to temporary value");
@@ -2399,10 +2430,15 @@ impl Compiler {
                         //
                         // e.g.
                         //
-                        // 42 >> foo.bar 99
-                        // ...should be equivalent to
-                        // foo.bar 99, 42
-                        piped_call_args.extend(args);
+                        // 42 >> foo.bar 40, 41
+                        // ...should be equivalent to:
+                        // foo.bar 40, 41, 42
+                        //
+                        // Note that the lack of call parentheses is important here:
+                        // 42 >> foo.bar(40, 41)
+                        // ...should be equivalent to:
+                        // foo.bar(40, 41)(42)
+                        piped_call_args = args.clone();
                     } else {
                         let (parent_register, function_register) = match &node_registers.as_slice()
                         {
@@ -2411,6 +2447,7 @@ impl Compiler {
                             [] => unreachable!(),
                         };
 
+                        // Where should the call result go?
                         let call_result_register = match chain_result_register {
                             Some(result_register) if is_last_node => {
                                 // In the last node, and there's no piped call to come,
@@ -2444,8 +2481,6 @@ impl Compiler {
                 }
             }
 
-            node_count += 1;
-
             // Is the lookup chain complete?
             if let Some(next) = next_node_index {
                 let next_lookup_node = ast.node(next);
@@ -2465,8 +2500,6 @@ impl Compiler {
                 };
 
                 self.span_stack.push(*ast.span(next_lookup_node.span));
-            } else if let Some(node) = add_node_to_end_of_lookup {
-                lookup_node = node.clone();
             } else {
                 // The lookup chain is complete.
 
@@ -2619,7 +2652,6 @@ impl Compiler {
                 self.compile_lookup(
                     call_result_register,
                     lookup_node,
-                    None,
                     Some(piped_value.register),
                     None,
                     ast,
