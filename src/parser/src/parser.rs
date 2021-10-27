@@ -890,21 +890,21 @@ impl<'source> Parser<'source> {
                 self.parse_braceless_map_start(MapKey::Id(constant_index), context)
             } else {
                 self.frame_mut()?.add_id_access(constant_index);
-                let id_index = self.push_node(Node::Id(constant_index))?;
 
                 let mut context = context.start_new_expression();
                 let result = if self.next_token_is_lookup_start(&context) {
+                    let id_index = self.push_node(Node::Id(constant_index))?;
                     self.parse_lookup(id_index, &mut context)?
                 } else {
                     let start_span = self.current_span();
                     let args = self.parse_call_args(&mut context)?;
 
                     if args.is_empty() {
-                        id_index
+                        self.push_node(Node::Id(constant_index))?
                     } else {
                         self.push_node_with_start_span(
-                            Node::Call {
-                                function: id_index,
+                            Node::NamedCall {
+                                id: constant_index,
                                 args,
                             },
                             start_span,

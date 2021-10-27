@@ -10,6 +10,12 @@ pub enum Node {
     Id(ConstantIndex),
     Meta(MetaKeyId, Option<ConstantIndex>),
     Lookup((LookupNode, Option<AstIndex>)), // lookup node, next node
+    // A parentheses-free call on a named id, e.g. `foo 1, 2, 3`
+    // Calls with parentheses or on temporary values are parsed as Lookups
+    NamedCall {
+        id: ConstantIndex,
+        args: Vec<AstIndex>,
+    },
     BoolTrue,
     BoolFalse,
     Number0,
@@ -42,10 +48,6 @@ pub enum Node {
     },
     Block(Vec<AstIndex>),
     Function(Function),
-    Call {
-        function: AstIndex,
-        args: Vec<AstIndex>,
-    },
     Import {
         from: Vec<ImportItem>,
         items: Vec<Vec<ImportItem>>,
@@ -134,7 +136,7 @@ impl fmt::Display for Node {
             Block(_) => write!(f, "Block"),
             Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
-            Call { .. } => write!(f, "Call"),
+            NamedCall { .. } => write!(f, "NamedCall"),
             Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),

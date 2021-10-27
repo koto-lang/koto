@@ -564,8 +564,8 @@ impl Compiler {
             }
             Node::Negate(expression) => self.compile_negate(result_register, *expression, ast)?,
             Node::Function(f) => self.compile_function(result_register, f, ast)?,
-            Node::Call { function, args } => {
-                self.compile_call_node(result_register, *function, args, None, ast)?
+            Node::NamedCall { id, args } => {
+                self.compile_named_call(result_register, *id, args, None, ast)?
             }
             Node::Import { from, items } => {
                 self.compile_import_expression(result_register, from, items, ast)?
@@ -2602,16 +2602,16 @@ impl Compiler {
 
         let rhs_node = ast.node(rhs);
         let result = match &rhs_node.node {
-            Node::Call { function, args } => self.compile_call_node(
+            Node::NamedCall { id, args } => self.compile_named_call(
                 call_result_register,
-                *function,
+                *id,
                 args,
                 Some(piped_value.register),
                 ast,
             ),
-            Node::Id(_) => {
-                // Compile the id as if it were a function call
-                self.compile_call_node(result_register, rhs, &[], Some(piped_value.register), ast)
+            Node::Id(id) => {
+                // Compile a call with the piped arg using the id to access the function
+                self.compile_named_call(result_register, *id, &[], Some(piped_value.register), ast)
             }
             Node::Lookup(lookup_node) => {
                 // Compile the lookup, passing in the piped call arg, which will either be appended
@@ -2653,50 +2653,45 @@ impl Compiler {
         result
     }
 
-    fn compile_call_node(
+    fn compile_named_call(
         &mut self,
         result_register: ResultRegister,
-        function: AstIndex,
+        function_id: ConstantIndex,
         args: &[AstIndex],
         piped_arg: Option<u8>,
         ast: &Ast,
     ) -> CompileNodeResult {
-        match &ast.node(function).node {
-            Node::Id(id) => {
-                if let Some(function_register) = self.frame().get_local_assigned_register(*id) {
-                    self.compile_call(
-                        result_register,
-                        function_register,
-                        args,
-                        piped_arg,
-                        None,
-                        ast,
-                    )
-                } else {
-                    let result = self.get_result_register(result_register)?;
-                    let call_result_register = if let Some(result) = result {
-                        ResultRegister::Fixed(result.register)
-                    } else {
-                        ResultRegister::None
-                    };
+        if let Some(function_register) = self.frame().get_local_assigned_register(function_id) {
+            self.compile_call(
+                result_register,
+                function_register,
+                args,
+                piped_arg,
+                None,
+                ast,
+            )
+        } else {
+            let result = self.get_result_register(result_register)?;
+            let call_result_register = if let Some(result) = result {
+                ResultRegister::Fixed(result.register)
+            } else {
+                ResultRegister::None
+            };
 
-                    let function_register = self.push_register()?;
-                    self.compile_load_non_local(function_register, *id);
+            let function_register = self.push_register()?;
+            self.compile_load_non_local(function_register, function_id);
 
-                    self.compile_call(
-                        call_result_register,
-                        function_register,
-                        args,
-                        piped_arg,
-                        None,
-                        ast,
-                    )?;
+            self.compile_call(
+                call_result_register,
+                function_register,
+                args,
+                piped_arg,
+                None,
+                ast,
+            )?;
 
-                    self.pop_register()?; // function_register
-                    Ok(result)
-                }
-            }
-            _ => compiler_error!(self, "Call: unexpected node at index {}", function),
+            self.pop_register()?; // function_register
+            Ok(result)
         }
     }
 

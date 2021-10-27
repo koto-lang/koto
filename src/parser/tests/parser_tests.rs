@@ -1435,29 +1435,28 @@ x %= 4";
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
+                    Id(constant(0)), // x
                     Number1,
-                    Id(constant(1)),
-                    Id(constant(2)),
-                    Call {
-                        function: 2,
-                        args: vec![3],
+                    Id(constant(2)), // y
+                    NamedCall {
+                        id: constant(1), // f
+                        args: vec![2],
                     },
                     BinaryOp {
                         op: AstOp::Add,
                         lhs: 1,
-                        rhs: 4,
-                    }, // 5
+                        rhs: 3,
+                    },
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 5,
-                    },
+                        expression: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 1,
                     },
                 ],
@@ -1795,20 +1794,19 @@ for x in y
             check_ast(
                 source,
                 &[
-                    Id(constant(1)),
-                    Id(constant(2)),
-                    Id(constant(0)),
-                    Call {
-                        function: 1,
-                        args: vec![2],
+                    Id(constant(1)), // y
+                    Id(constant(0)), // x
+                    NamedCall {
+                        id: constant(2), // f
+                        args: vec![1],
                     },
                     For(AstFor {
                         args: vec![Some(constant(0))], // constant 0
                         range: 0,                      // ast 0
-                        body: 3,
+                        body: 2,
                     }),
                     MainBlock {
-                        body: vec![4],
+                        body: vec![3],
                         local_count: 1,
                     },
                 ],
@@ -1824,25 +1822,24 @@ while x > y
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
-                    Id(constant(1)),
+                    Id(constant(0)), // x
+                    Id(constant(1)), // y
                     BinaryOp {
                         op: AstOp::Greater,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Id(constant(2)),
-                    Id(constant(0)),
-                    Call {
-                        function: 3,
-                        args: vec![4],
-                    }, // 5
+                    Id(constant(0)), // x
+                    NamedCall {
+                        id: constant(2), // f
+                        args: vec![3],
+                    },
                     While {
                         condition: 2,
-                        body: 5,
-                    },
+                        body: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -1858,25 +1855,24 @@ until x < y
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
-                    Id(constant(1)),
+                    Id(constant(0)), // x
+                    Id(constant(1)), // y
                     BinaryOp {
                         op: AstOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
-                    Id(constant(2)),
-                    Id(constant(1)),
-                    Call {
-                        function: 3,
-                        args: vec![4],
-                    }, // 5
+                    Id(constant(1)), // y
+                    NamedCall {
+                        id: constant(2), // f
+                        args: vec![3],
+                    },
                     Until {
                         condition: 2,
-                        body: 5,
-                    },
+                        body: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -2121,14 +2117,13 @@ f 42";
                         op: AssignOp::Equal,
                         expression: 7,
                     },
-                    Id(constant(0)),
-                    Int(constant(3)), // 10
-                    Call {
-                        function: 9,
-                        args: vec![10],
-                    },
+                    Int(constant(3)), // 42
+                    NamedCall {
+                        id: constant(0),
+                        args: vec![9],
+                    }, // 10
                     MainBlock {
-                        body: vec![8, 11],
+                        body: vec![8, 10],
                         local_count: 1,
                     },
                 ],
@@ -2174,38 +2169,36 @@ f 42";
                         op: AssignOp::Equal,
                         expression: 5,
                     },
-                    Id(constant(2)), // y
                     Id(constant(1)), // x
-                    Call {
-                        function: 7,
-                        args: vec![8],
+                    NamedCall {
+                        id: constant(2), // y
+                        args: vec![7],
                     },
-                    Block(vec![6, 9]), // 10
+                    Block(vec![6, 8]),
                     Function(koto_parser::Function {
                         args: vec![1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 10,
+                        body: 9,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // 10
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 11,
+                        expression: 10,
                     },
-                    Id(constant(0)), // f
-                    Int(constant(4)),
-                    Call {
-                        function: 13,
-                        args: vec![14],
-                    }, // 15
+                    Int(constant(4)), // 42
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![12],
+                    },
                     MainBlock {
-                        body: vec![12, 15],
+                        body: vec![11, 13],
                         local_count: 1,
                     },
                 ],
@@ -2225,16 +2218,15 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
                     Id(constant(1)),
                     Id(constant(1)),
-                    Negate(2),
-                    Call {
-                        function: 0,
-                        args: vec![1, 3],
+                    Negate(1),
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![0, 2],
                     },
                     MainBlock {
-                        body: vec![4],
+                        body: vec![3],
                         local_count: 0,
                     },
                 ],
@@ -2248,20 +2240,19 @@ f 42";
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
                     Id(constant(1)),
                     Number1,
                     BinaryOp {
                         op: AstOp::Subtract,
-                        lhs: 1,
-                        rhs: 2,
+                        lhs: 0,
+                        rhs: 1,
                     },
-                    Call {
-                        function: 0,
-                        args: vec![3],
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![2],
                     },
                     MainBlock {
-                        body: vec![4],
+                        body: vec![3],
                         local_count: 0,
                     },
                 ],
@@ -2297,7 +2288,7 @@ f 42";
         }
 
         #[test]
-        fn call_over_lines() {
+        fn call_with_indentated_args() {
             let source = "
 foo
   x,
@@ -2305,15 +2296,14 @@ foo
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
                     Id(constant(1)),
                     Id(constant(2)),
-                    Call {
-                        function: 0,
-                        args: vec![1, 2],
+                    NamedCall {
+                        id: constant(0), // foo
+                        args: vec![0, 1],
                     },
                     MainBlock {
-                        body: vec![3],
+                        body: vec![2],
                         local_count: 0,
                     },
                 ],
@@ -2330,20 +2320,18 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
                     Id(constant(1)),
-                    Call {
-                        function: 0,
-                        args: vec![1],
+                    NamedCall {
+                        id: constant(0),
+                        args: vec![0],
                     },
-                    Id(constant(0)),
                     Id(constant(1)),
-                    Call {
-                        function: 3,
-                        args: vec![4],
+                    NamedCall {
+                        id: constant(0),
+                        args: vec![2],
                     }, // 5
                     MainBlock {
-                        body: vec![2, 5],
+                        body: vec![1, 3],
                         local_count: 0,
                     },
                 ],
@@ -2359,31 +2347,30 @@ f x";
                 &[
                     Id(constant(0)), // f
                     Id(constant(1)), // x
-                    Id(constant(0)),
-                    Id(constant(1)),
-                    Call {
-                        function: 2,
-                        args: vec![3],
+                    Id(constant(1)), // x
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![2],
                     },
                     Function(koto_parser::Function {
                         args: vec![1],
                         local_count: 1,
                         accessed_non_locals: vec![constant(0)],
-                        body: 4,
+                        body: 3,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }), // 5
+                    }),
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 5,
-                    },
+                        expression: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 1,
                     },
                 ],
@@ -2400,40 +2387,38 @@ f x";
                     Id(constant(0)), // f
                     Id(constant(1)), // g
                     Id(constant(2)), // x
-                    Id(constant(0)),
                     Id(constant(2)),
-                    Call {
-                        function: 3,
-                        args: vec![4],
-                    }, // 5
+                    NamedCall {
+                        id: constant(0),
+                        args: vec![3],
+                    },
                     Function(koto_parser::Function {
                         args: vec![2],
                         local_count: 1,
                         accessed_non_locals: vec![constant(0)],
-                        body: 5,
+                        body: 4,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
-                    Nested(6),
+                    }), // 5
+                    Nested(5),
                     Id(constant(2)), // x
-                    Id(constant(1)), // g
-                    Id(constant(2)), // 10 - x
-                    Call {
-                        function: 9,
-                        args: vec![10],
+                    Id(constant(2)), // x
+                    NamedCall {
+                        id: constant(1), // g
+                        args: vec![8],
                     },
                     Function(koto_parser::Function {
-                        args: vec![8],
+                        args: vec![7],
                         local_count: 1,
                         accessed_non_locals: vec![constant(1)],
-                        body: 11,
+                        body: 9,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
-                    Nested(12),
-                    TempTuple(vec![7, 13]),
+                    }), // 10
+                    Nested(10),
+                    TempTuple(vec![6, 11]),
                     MultiAssign {
                         targets: vec![
                             AssignTarget {
@@ -2445,10 +2430,10 @@ f x";
                                 scope: Scope::Local,
                             },
                         ],
-                        expression: 14,
+                        expression: 12,
                     },
                     MainBlock {
-                        body: vec![15],
+                        body: vec![13],
                         local_count: 2,
                     },
                 ],
@@ -2462,26 +2447,25 @@ f x";
             check_ast(
                 source,
                 &[
-                    Id(constant(0)), // f
                     Id(constant(1)), // x
-                    Call {
-                        function: 0,
-                        args: vec![1],
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![0],
                     },
                     Id(constant(2)), // g
                     BinaryOp {
                         op: AstOp::Pipe,
-                        lhs: 2,
-                        rhs: 3,
+                        lhs: 1,
+                        rhs: 2,
                     },
-                    Id(constant(3)), // 5, h
+                    Id(constant(3)), // h
                     BinaryOp {
                         op: AstOp::Pipe,
-                        lhs: 4,
-                        rhs: 5,
-                    },
+                        lhs: 3,
+                        rhs: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -2910,52 +2894,50 @@ y z";
                 source,
                 &[
                     Id(constant(0)), // z
-                    Id(constant(1)), // y
                     Number0,
                     Int(constant(2)),
                     Range {
-                        start: 2,
-                        end: 3,
+                        start: 1,
+                        end: 2,
                         inclusive: false,
                     },
-                    List(vec![4]),   // 5
-                    Id(constant(3)), // x
+                    List(vec![3]),
+                    Id(constant(3)), // 5 - x
                     Id(constant(3)),
                     Number1,
                     BinaryOp {
                         op: AstOp::Greater,
-                        lhs: 7,
-                        rhs: 8,
+                        lhs: 6,
+                        rhs: 7,
                     },
                     Function(koto_parser::Function {
-                        args: vec![6],
+                        args: vec![5],
                         local_count: 1,
                         accessed_non_locals: vec![],
-                        body: 9,
+                        body: 8,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }), // 10
-                    Call {
-                        function: 1,
-                        args: vec![5, 10],
-                    },
+                    }),
+                    NamedCall {
+                        id: constant(1), // y
+                        args: vec![4, 9],
+                    }, // 10
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 11,
+                        expression: 10,
                     },
-                    Id(constant(1)),
-                    Id(constant(0)),
-                    Call {
-                        function: 13,
-                        args: vec![14],
+                    Id(constant(0)), // z
+                    NamedCall {
+                        id: constant(1), // y
+                        args: vec![12],
                     },
                     MainBlock {
-                        body: vec![12, 15],
+                        body: vec![11, 13],
                         local_count: 1,
                     },
                 ],
@@ -3441,17 +3423,16 @@ x.foo
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
-                    Id(constant(1)),
-                    Call {
-                        function: 0,
-                        args: vec![1],
+                    Id(constant(1)), // x
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![0],
                     },
-                    Nested(2),
+                    Nested(1),
                     Lookup((LookupNode::Id(constant(2)), None)),
-                    Lookup((LookupNode::Root(3), Some(4))), // 5
+                    Lookup((LookupNode::Root(2), Some(3))),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![4],
                         local_count: 0,
                     },
                 ],
@@ -3465,18 +3446,17 @@ x.foo
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
-                    Id(constant(1)),
-                    Call {
-                        function: 0,
-                        args: vec![1],
+                    Id(constant(1)), // x
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![0],
                     },
-                    Nested(2),
+                    Nested(1),
                     Number0,
-                    Lookup((LookupNode::Index(4), None)), // 5
-                    Lookup((LookupNode::Root(3), Some(5))),
+                    Lookup((LookupNode::Index(3), None)),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -3490,24 +3470,23 @@ x.foo
             check_ast(
                 source,
                 &[
-                    Id(constant(0)),
-                    Id(constant(1)),
-                    Call {
-                        function: 0,
-                        args: vec![1],
+                    Id(constant(1)), // x
+                    NamedCall {
+                        id: constant(0), // f
+                        args: vec![0],
                     },
-                    Nested(2),
-                    Id(constant(2)),
+                    Nested(1),
+                    Id(constant(2)), // y
                     Lookup((
                         LookupNode::Call {
-                            args: vec![4],
+                            args: vec![3],
                             with_parens: true,
                         },
                         None,
-                    )), // 5
-                    Lookup((LookupNode::Root(3), Some(5))),
+                    )),
+                    Lookup((LookupNode::Root(2), Some(4))), // 5
                     MainBlock {
-                        body: vec![6],
+                        body: vec![5],
                         local_count: 0,
                     },
                 ],
@@ -3915,15 +3894,14 @@ assert_eq x, "hello"
                         expression_string: constant(1),
                         expression: 4,
                     }, // 5
-                    Id(constant(2)),
-                    Id(constant(0)),
+                    Id(constant(0)), // x
                     string_literal(3, QuotationMark::Double),
-                    Call {
-                        function: 6,
-                        args: vec![7, 8],
+                    NamedCall {
+                        id: constant(2),
+                        args: vec![6, 7],
                     },
                     MainBlock {
-                        body: vec![1, 5, 9],
+                        body: vec![1, 5, 8],
                         local_count: 0,
                     },
                 ],
