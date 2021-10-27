@@ -263,11 +263,9 @@ impl<'source> Parser<'source> {
         }
 
         // Check that all tokens were consumed
-        if self
-            .peek_next_token(&ExpressionContext::permissive())
-            .is_some()
-        {
-            self.consume_next_token(&mut ExpressionContext::permissive());
+        self.consume_until_next_token(&mut ExpressionContext::permissive());
+        if self.peek_token().is_some() {
+            self.consume_token(); // Consume the token so that the error span is correct
             return syntax_error!(UnexpectedToken, self);
         }
 
