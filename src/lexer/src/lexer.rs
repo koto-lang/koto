@@ -755,6 +755,20 @@ impl<'a> KotoLexer<'a> {
         }
     }
 
+    /// Returns the input source
+    pub fn source(&self) -> &'a str {
+        self.lexer.source
+    }
+
+    /// Returns the current position in the input source
+    pub fn source_position(&self) -> usize {
+        if self.peeked_tokens.is_empty() {
+            self.lexer.current_byte
+        } else {
+            self.peeked_tokens[self.current_peek_index].source_position
+        }
+    }
+
     /// Peeks the next token in the output stream
     pub fn peek(&mut self) -> Option<Token> {
         if self.peeked_tokens.is_empty() {
@@ -787,36 +801,12 @@ impl<'a> KotoLexer<'a> {
         self.peeked_tokens[self.current_peek_index + n].token
     }
 
-    /// Returns the input source
-    pub fn source(&self) -> &'a str {
-        self.lexer.source
-    }
-
-    /// Returns the current position in the input source
-    pub fn source_position(&self) -> usize {
-        if self.peeked_tokens.is_empty() {
-            self.lexer.current_byte
-        } else {
-            self.peeked_tokens[self.current_peek_index].source_position
-        }
-    }
-
     /// Returns the current span
     pub fn span(&self) -> Span {
         if self.peeked_tokens.is_empty() {
             self.lexer.span
         } else {
             self.peeked_tokens[self.current_peek_index].span
-        }
-    }
-
-    /// Returns the span that belongs to the next token in the output stream
-    pub fn next_span(&self) -> Span {
-        if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
-        {
-            self.peeked_tokens[self.current_peek_index + 1].span
-        } else {
-            self.lexer.span
         }
     }
 
@@ -835,16 +825,6 @@ impl<'a> KotoLexer<'a> {
             self.lexer.indent
         } else {
             self.peeked_tokens[self.current_peek_index].indent
-        }
-    }
-
-    /// Returns the indent associated with the next token in the output stream
-    pub fn next_indent(&self) -> usize {
-        if !self.peeked_tokens.is_empty() && self.current_peek_index < self.peeked_tokens.len() - 1
-        {
-            self.peeked_tokens[self.current_peek_index + 1].indent
-        } else {
-            self.lexer.indent
         }
     }
 
