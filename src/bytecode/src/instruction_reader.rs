@@ -507,7 +507,7 @@ impl fmt::Debug for Instruction {
                 register, constant
             ),
             ValueExport { name, value } => {
-                write!(f, "ValueExport\tname: {}\tvalue: {}", name, value)
+                write!(f, "ValueExport\tname: {}\t\tvalue: {}", name, value)
             }
             Import { register } => write!(f, "Import\t\tregister: {}", register),
             MakeTempTuple {

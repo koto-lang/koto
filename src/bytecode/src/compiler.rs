@@ -1770,17 +1770,15 @@ impl Compiler {
         expression: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+
         let source = self
             .compile_node(ResultRegister::Any, ast.node(expression), ast)?
             .unwrap();
 
-        let result = match self.get_result_register(result_register)? {
-            Some(target) => {
-                self.push_op(Op::Negate, &[target.register, source.register]);
-                Some(target)
-            }
-            None => None,
-        };
+        if let Some(result) = result {
+            self.push_op(Op::Negate, &[result.register, source.register]);
+        }
 
         if source.is_temporary {
             self.pop_register()?;
