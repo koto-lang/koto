@@ -11,17 +11,6 @@ pub fn test_script(script: &str, expected_output: Value) {
 }
 
 pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
-    let print_chunk = |script: &str, chunk: Arc<Chunk>| {
-        println!("{}\n", script);
-        let script_lines = script.lines().collect::<Vec<_>>();
-
-        println!("Constants\n---------\n{}\n", chunk.constants.to_string());
-        println!(
-            "Instructions\n------------\n{}",
-            Chunk::instructions_as_string(chunk, &script_lines)
-        );
-    };
-
     let mut loader = Loader::default();
     let chunk = match loader.compile_script(script, &None) {
         Ok(chunk) => chunk,
@@ -57,6 +46,17 @@ pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
             panic!("Error while running script: {}", e.to_string());
         }
     }
+}
+
+pub fn print_chunk(script: &str, chunk: Arc<Chunk>) {
+    println!("{}\n", script);
+    let script_lines = script.lines().collect::<Vec<_>>();
+
+    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+    println!(
+        "Instructions\n------------\n{}",
+        Chunk::instructions_as_string(chunk, &script_lines)
+    );
 }
 
 pub fn number<T>(value: T) -> Value

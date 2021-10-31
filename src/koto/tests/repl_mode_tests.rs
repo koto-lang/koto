@@ -1,5 +1,6 @@
 use {
     koto::{
+        bytecode::Chunk,
         runtime::{KotoFile, KotoRead, KotoWrite, Mutex, RuntimeError},
         Koto, KotoSettings,
     },
@@ -20,9 +21,26 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
         ..Default::default()
     });
 
+    let mut chunks = Vec::with_capacity(inputs_and_expected_outputs.len());
+
     for (input, expected_output) in inputs_and_expected_outputs {
-        koto.compile(input).unwrap();
-        koto.run().unwrap();
+        match koto.compile(input) {
+            Ok(chunk) => chunks.push((input, chunk)),
+            Err(error) => panic!("{}", error),
+        }
+
+        if let Err(error) = koto.run() {
+            for (input, chunk) in chunks.iter() {
+                println!("\n--------\n{}\n--------\n", input);
+                println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+                println!(
+                    "Instructions\n------------\n{}",
+                    Chunk::instructions_as_string(chunk.clone(), &[input])
+                );
+            }
+
+            panic!("{}", error);
+        }
 
         assert_eq!(&output.lock().trim(), &expected_output.trim());
 
@@ -97,5 +115,10 @@ x: 3
 ",
             ),
         ]);
+    }
+
+    #[test]
+    fn negated_id() {
+        run_repl_mode_test(&[("a = 2", ""), ("b = -a", ""), ("io.print a + b", "0")]);
     }
 }
