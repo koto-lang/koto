@@ -132,20 +132,6 @@ impl Frame {
         }
     }
 
-    fn get_local_register(&self, index: ConstantIndex) -> Option<u8> {
-        self.local_registers
-            .iter()
-            .position(|local_register| {
-                let register_index = match local_register {
-                    LocalRegister::Assigned(register_index) => register_index,
-                    LocalRegister::Reserved(register_index, _) => register_index,
-                    LocalRegister::Allocated => return false,
-                };
-                *register_index == index
-            })
-            .map(|position| position as u8)
-    }
-
     fn get_local_assigned_register(&self, index: ConstantIndex) -> Option<u8> {
         self.local_registers
             .iter()
@@ -1087,71 +1073,78 @@ impl Compiler {
     ) -> CompileNodeResult {
         use Op::*;
 
-        assert!(targets.len() < u8::MAX as usize);
+        if targets.len() >= u8::MAX as usize {
+            return compiler_error!(
+                self,
+                "Too many targets in multi-assignment, ({})",
+                targets.len()
+            );
+        }
 
-        let result = {
-            // reserve ids on lhs before compiling rhs
-            for target in targets.iter() {
-                if let Node::Id(id_index) = &ast.node(target.target_index).node {
-                    self.reserve_local_register(*id_index)?;
+        let result = self.get_result_register(result_register)?;
+
+        // Reserve any assignment registers for IDs on the LHS before compiling the RHS
+        let target_registers = targets
+            .iter()
+            .map(|target| self.local_register_for_assign_target(target, ast))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let rhs = self
+            .compile_node(ResultRegister::Any, ast.node(expression), ast)?
+            .unwrap();
+
+        for (i, (target, target_register)) in
+            targets.iter().zip(target_registers.iter()).enumerate()
+        {
+            match &ast.node(target.target_index).node {
+                Node::Id(id_index) => {
+                    match (target_register, self.scope_for_assign_target(target)) {
+                        (Some(target_register), Scope::Local) => {
+                            self.push_op(ValueIndex, &[*target_register, rhs.register, i as u8]);
+                            // The register was reserved before the RHS was compiled, and now it
+                            // needs to be committed.
+                            self.commit_local_register(*target_register)?;
+                        }
+                        (None, Scope::Export) => {
+                            let index_register = self.push_register()?;
+                            self.push_op(ValueIndex, &[index_register, rhs.register, i as u8]);
+                            self.compile_value_export(*id_index, index_register)?;
+                            self.pop_register()?; // index_register
+                        }
+                        _ => {
+                            // Either the scope is local, so there should be a reserved target
+                            // register, or the scope is export, so there shouldn't be a
+                            // reserved register.
+                            unreachable!();
+                        }
+                    }
                 }
-            }
+                Node::Lookup(lookup) => {
+                    let register = self.push_register()?;
 
-            let rhs = self
-                .compile_node(ResultRegister::Any, ast.node(expression), ast)?
-                .unwrap();
+                    self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
+                    self.compile_lookup(ResultRegister::None, lookup, None, Some(register), ast)?;
 
-            for (i, target) in targets.iter().enumerate() {
-                match &ast.node(target.target_index).node {
-                    Node::Id(id_index) => {
-                        let local_register = match self.frame().get_local_register(*id_index) {
-                            Some(register) => register,
-                            None => return compiler_error!(self, "Missing register for target"),
-                        };
-                        // Get the value for the target by index
-                        self.push_op(ValueIndex, &[local_register, rhs.register, i as u8]);
-                        // Commit the register now that it's assigned
-                        self.commit_local_register(local_register)?;
-                    }
-                    Node::Lookup(lookup) => {
-                        let register = self.push_register()?;
-
-                        self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
-                        self.compile_lookup(
-                            ResultRegister::None,
-                            lookup,
-                            None,
-                            Some(register),
-                            ast,
-                        )?;
-
-                        self.pop_register()?;
-                    }
-                    Node::Wildcard => {}
-                    unexpected => {
-                        return compiler_error!(
-                            self,
-                            "Expected ID or lookup in AST, found {}",
-                            unexpected
-                        );
-                    }
-                };
-            }
-
-            match result_register {
-                ResultRegister::Fixed(register) => {
-                    self.push_op(Copy, &[register, rhs.register]);
-
-                    if rhs.is_temporary {
-                        self.pop_register()?;
-                    }
-
-                    Some(CompileResult::with_assigned(register))
+                    self.pop_register()?;
                 }
-                ResultRegister::Any => Some(rhs),
-                ResultRegister::None => None,
-            }
-        };
+                Node::Wildcard => {}
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID or lookup in AST, found {}",
+                        unexpected
+                    );
+                }
+            };
+        }
+
+        if let Some(result) = result {
+            self.push_op(Copy, &[result.register, rhs.register]);
+        }
+
+        if rhs.is_temporary {
+            self.pop_register()?;
+        }
 
         Ok(result)
     }
@@ -1733,17 +1726,15 @@ impl Compiler {
         expression: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+
         let source = self
             .compile_node(ResultRegister::Any, ast.node(expression), ast)?
             .unwrap();
 
-        let result = match self.get_result_register(result_register)? {
-            Some(target) => {
-                self.push_op(Op::Negate, &[target.register, source.register]);
-                Some(target)
-            }
-            None => None,
-        };
+        if let Some(result) = result {
+            self.push_op(Op::Negate, &[result.register, source.register]);
+        }
 
         if source.is_temporary {
             self.pop_register()?;
