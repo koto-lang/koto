@@ -1081,85 +1081,70 @@ impl Compiler {
             );
         }
 
-        let result = {
-            // Reserve any assignment registers for IDs on the LHS before compiling the RHS
-            let target_registers = targets
-                .iter()
-                .map(|target| self.local_register_for_assign_target(target, ast))
-                .collect::<Result<Vec<_>, _>>()?;
+        let result = self.get_result_register(result_register)?;
 
-            let rhs = self
-                .compile_node(ResultRegister::Any, ast.node(expression), ast)?
-                .unwrap();
+        // Reserve any assignment registers for IDs on the LHS before compiling the RHS
+        let target_registers = targets
+            .iter()
+            .map(|target| self.local_register_for_assign_target(target, ast))
+            .collect::<Result<Vec<_>, _>>()?;
 
-            for (i, (target, target_register)) in
-                targets.iter().zip(target_registers.iter()).enumerate()
-            {
-                match &ast.node(target.target_index).node {
-                    Node::Id(id_index) => {
-                        match (target_register, self.scope_for_assign_target(target)) {
-                            (Some(target_register), Scope::Local) => {
-                                self.push_op(
-                                    ValueIndex,
-                                    &[*target_register, rhs.register, i as u8],
-                                );
-                                // The register was reserved before the RHS was compiled, and now it
-                                // needs to be committed.
-                                self.commit_local_register(*target_register)?;
-                            }
-                            (None, Scope::Export) => {
-                                let index_register = self.push_register()?;
-                                self.push_op(ValueIndex, &[index_register, rhs.register, i as u8]);
-                                self.compile_value_export(*id_index, index_register)?;
-                                self.pop_register()?; // index_register
-                            }
-                            _ => {
-                                // Either the scope is local, so there should be a reserved target
-                                // register, or the scope is export, so there shouldn't be a
-                                // reserved register.
-                                unreachable!();
-                            }
+        let rhs = self
+            .compile_node(ResultRegister::Any, ast.node(expression), ast)?
+            .unwrap();
+
+        for (i, (target, target_register)) in
+            targets.iter().zip(target_registers.iter()).enumerate()
+        {
+            match &ast.node(target.target_index).node {
+                Node::Id(id_index) => {
+                    match (target_register, self.scope_for_assign_target(target)) {
+                        (Some(target_register), Scope::Local) => {
+                            self.push_op(ValueIndex, &[*target_register, rhs.register, i as u8]);
+                            // The register was reserved before the RHS was compiled, and now it
+                            // needs to be committed.
+                            self.commit_local_register(*target_register)?;
+                        }
+                        (None, Scope::Export) => {
+                            let index_register = self.push_register()?;
+                            self.push_op(ValueIndex, &[index_register, rhs.register, i as u8]);
+                            self.compile_value_export(*id_index, index_register)?;
+                            self.pop_register()?; // index_register
+                        }
+                        _ => {
+                            // Either the scope is local, so there should be a reserved target
+                            // register, or the scope is export, so there shouldn't be a
+                            // reserved register.
+                            unreachable!();
                         }
                     }
-                    Node::Lookup(lookup) => {
-                        let register = self.push_register()?;
-
-                        self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
-                        self.compile_lookup(
-                            ResultRegister::None,
-                            lookup,
-                            None,
-                            Some(register),
-                            ast,
-                        )?;
-
-                        self.pop_register()?;
-                    }
-                    Node::Wildcard => {}
-                    unexpected => {
-                        return compiler_error!(
-                            self,
-                            "Expected ID or lookup in AST, found {}",
-                            unexpected
-                        );
-                    }
-                };
-            }
-
-            match result_register {
-                ResultRegister::Fixed(register) => {
-                    self.push_op(Copy, &[register, rhs.register]);
-
-                    if rhs.is_temporary {
-                        self.pop_register()?;
-                    }
-
-                    Some(CompileResult::with_assigned(register))
                 }
-                ResultRegister::Any => Some(rhs),
-                ResultRegister::None => None,
-            }
-        };
+                Node::Lookup(lookup) => {
+                    let register = self.push_register()?;
+
+                    self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
+                    self.compile_lookup(ResultRegister::None, lookup, None, Some(register), ast)?;
+
+                    self.pop_register()?;
+                }
+                Node::Wildcard => {}
+                unexpected => {
+                    return compiler_error!(
+                        self,
+                        "Expected ID or lookup in AST, found {}",
+                        unexpected
+                    );
+                }
+            };
+        }
+
+        if let Some(result) = result {
+            self.push_op(Copy, &[result.register, rhs.register]);
+        }
+
+        if rhs.is_temporary {
+            self.pop_register()?;
+        }
 
         Ok(result)
     }
