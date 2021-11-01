@@ -121,4 +121,9 @@ x: 3
     fn negated_id() {
         run_repl_mode_test(&[("a = 2", ""), ("b = -a", ""), ("io.print a + b", "0")]);
     }
+
+    #[test]
+    fn multi_assign() {
+        run_repl_mode_test(&[("x, y = 1, 2", ""), ("io.print x + y", " 3")]);
+    }
 }
