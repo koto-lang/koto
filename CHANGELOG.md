@@ -43,6 +43,11 @@ The Koto project adheres to
           + 321
       ```
 
+### Fixed
+
+- Fixed a couple of REPL bugs, assigning from a negated value or while using
+  multi-assignment didn't work correctly.
+
 ## [0.9.0] 2021.10.25
 
 ### Added
