@@ -144,17 +144,15 @@ pub enum Node {
 
     /// An import expression
     ///
-    /// Each import item is defined as a series of [ImportItem]s,
+    /// Each import item is defined as a series of [ImportItemNode]s,
     /// e.g. `from foo.fun import baz.bar, caz.car.cax`
-    ///
-    /// TODO Rename ImportItem to ImportItemNode
     Import {
         /// The series of items to import
-        items: Vec<Vec<ImportItem>>,
+        items: Vec<Vec<ImportItemNode>>,
         /// Where the items should be imported from
         ///
         /// An empty list here implies that import without `from` has been used.
-        from: Vec<ImportItem>,
+        from: Vec<ImportItemNode>,
     },
 
     /// An assignment expression
@@ -244,13 +242,8 @@ pub enum Node {
     /// The continue keyword
     Continue,
 
-    /// The return keyword
-    ///
-    /// Used when `return` is used without an return value expression.
-    Return,
-
-    /// A return expression
-    ReturnExpression(AstIndex),
+    /// A return expression, with optional return value
+    Return(Option<AstIndex>),
 
     /// A negation expression
     ///
@@ -327,8 +320,7 @@ impl fmt::Display for Node {
             Loop { .. } => write!(f, "Loop"),
             Break => write!(f, "Break"),
             Continue => write!(f, "Continue"),
-            Return => write!(f, "Return"),
-            ReturnExpression(_) => write!(f, "ReturnExpression"),
+            Return(_) => write!(f, "Return"),
             Try { .. } => write!(f, "Try"),
             Throw(_) => write!(f, "Throw"),
             Yield { .. } => write!(f, "Yield"),
@@ -391,9 +383,7 @@ pub struct AstFor {
     /// The optional arguments that capture each iteration's output values
     pub args: Vec<Option<ConstantIndex>>,
     /// The expression that produces an iterable value
-    ///
-    /// TODO: Rename to iterable
-    pub range: AstIndex,
+    pub iterable: AstIndex,
     /// The body of the for loop
     pub body: AstIndex,
 }
@@ -640,7 +630,7 @@ pub enum QuotationMark {
 
 /// A node in an import item, see [Node::Import]
 #[derive(Clone, Debug, PartialEq)]
-pub enum ImportItem {
+pub enum ImportItemNode {
     /// An identifier node
     ///
     /// e.g. import foo.bar

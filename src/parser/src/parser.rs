@@ -1496,14 +1496,9 @@ impl<'source> Parser<'source> {
                 }
                 Token::Return => {
                     self.consume_next_token(context);
-                    let result = if let Some(expression) =
-                        self.parse_expressions(&mut context.start_new_expression(), TempResult::No)?
-                    {
-                        self.push_node(Node::ReturnExpression(expression))?
-                    } else {
-                        self.push_node(Node::Return)?
-                    };
-                    Some(result)
+                    let return_value = self
+                        .parse_expressions(&mut context.start_new_expression(), TempResult::No)?;
+                    Some(self.push_node(Node::Return(return_value))?)
                 }
                 Token::Throw => self.parse_throw_expression()?,
                 Token::Debug => self.parse_debug_expression()?,
@@ -1835,15 +1830,19 @@ impl<'source> Parser<'source> {
             return syntax_error!(ExpectedForArgs, self);
         }
 
-        let range = match self.parse_expression(&mut ExpressionContext::inline())? {
-            Some(range) => range,
-            None => return syntax_error!(ExpectedForRanges, self),
+        let iterable = match self.parse_expression(&mut ExpressionContext::inline())? {
+            Some(iterable) => iterable,
+            None => return syntax_error!(ExpectedForIterable, self),
         };
 
         match self.parse_indented_block()? {
             Some(body) => {
                 let result = self.push_node_with_start_span(
-                    Node::For(AstFor { args, range, body }),
+                    Node::For(AstFor {
+                        args,
+                        iterable,
+                        body,
+                    }),
                     start_span,
                 )?;
 
@@ -2392,10 +2391,10 @@ impl<'source> Parser<'source> {
         // Mark any imported ids as locally assigned
         for item in items.iter() {
             match item.last() {
-                Some(ImportItem::Id(id)) => {
+                Some(ImportItemNode::Id(id)) => {
                     self.frame_mut()?.ids_assigned_in_scope.insert(*id);
                 }
-                Some(ImportItem::Str(_)) => {}
+                Some(ImportItemNode::Str(_)) => {}
                 None => return internal_error!(ExpectedIdInImportItem, self),
             };
         }
@@ -2477,15 +2476,15 @@ impl<'source> Parser<'source> {
         Ok(Some(result))
     }
 
-    fn consume_import_items(&mut self) -> Result<Vec<Vec<ImportItem>>, ParserError> {
+    fn consume_import_items(&mut self) -> Result<Vec<Vec<ImportItemNode>>, ParserError> {
         let mut items = vec![];
         let mut item_context = ExpressionContext::permissive();
 
         loop {
             let item_root = match self.parse_id(&mut item_context)? {
-                Some(id) => ImportItem::Id(id),
+                Some(id) => ImportItemNode::Id(id),
                 None => match self.parse_string(&mut item_context)? {
-                    Some((import_string, _span)) => ImportItem::Str(import_string),
+                    Some((import_string, _span)) => ImportItemNode::Str(import_string),
                     None => break,
                 },
             };
@@ -2496,10 +2495,10 @@ impl<'source> Parser<'source> {
                 self.consume_token();
 
                 match self.parse_id(&mut ExpressionContext::restricted())? {
-                    Some(id) => item.push(ImportItem::Id(id)),
+                    Some(id) => item.push(ImportItemNode::Id(id)),
                     None => match self.parse_string(&mut ExpressionContext::restricted())? {
                         Some((node_string, _span)) => {
-                            item.push(ImportItem::Str(node_string));
+                            item.push(ImportItemNode::Str(node_string));
                         }
                         None => return syntax_error!(ExpectedImportModuleId, self),
                     },

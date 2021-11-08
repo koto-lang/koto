@@ -1755,7 +1755,7 @@ a";
                 source,
                 &[
                     BoolTrue,
-                    Return,
+                    Return(None),
                     If(AstIf {
                         condition: 0,
                         then_node: 1,
@@ -1802,7 +1802,7 @@ for x in y
                     },
                     For(AstFor {
                         args: vec![Some(constant(0))], // constant 0
-                        range: 0,                      // ast 0
+                        iterable: 0,                   // ast 0
                         body: 2,
                     }),
                     MainBlock {
@@ -1896,7 +1896,7 @@ for x in y
                     Id(constant(0)),
                     For(AstFor {
                         args: vec![Some(constant(0))],
-                        range: 1,
+                        iterable: 1,
                         body: 2,
                     }),
                     MainBlock {
@@ -1931,7 +1931,7 @@ for a in x.zip y
                     Id(constant(0)), // 5
                     For(AstFor {
                         args: vec![Some(constant(0))],
-                        range: 4,
+                        iterable: 4,
                         body: 5,
                     }),
                     MainBlock {
@@ -2789,7 +2789,7 @@ f = |n|
                         rhs: 8,
                     },
                     Id(constant(3)), // 10
-                    ReturnExpression(10),
+                    Return(Some(10)),
                     If(AstIf {
                         condition: 9,
                         then_node: 11,
@@ -2798,7 +2798,7 @@ f = |n|
                     }),
                     For(AstFor {
                         args: vec![Some(constant(3))],
-                        range: 6,
+                        iterable: 6,
                         body: 12,
                     }),
                     Function(koto_parser::Function {
@@ -3907,9 +3907,9 @@ return 1";
                 &[
                     Break,
                     Continue,
-                    Return,
+                    Return(None),
                     Number1,
-                    ReturnExpression(3),
+                    Return(Some(3)),
                     MainBlock {
                         body: vec![0, 1, 2, 4],
                         local_count: 0,
@@ -3966,12 +3966,12 @@ assert_eq x, "hello"
     mod import {
         use super::*;
 
-        fn import_id(id: u8) -> ImportItem {
-            ImportItem::Id(constant(id))
+        fn import_id(id: u8) -> ImportItemNode {
+            ImportItemNode::Id(constant(id))
         }
 
-        fn import_string(literal_index: u8, quotation_mark: QuotationMark) -> ImportItem {
-            ImportItem::Str(AstString {
+        fn import_string(literal_index: u8, quotation_mark: QuotationMark) -> ImportItemNode {
+            ImportItemNode::Str(AstString {
                 quotation_mark,
                 nodes: vec![StringNode::Literal(constant(literal_index))],
             })
