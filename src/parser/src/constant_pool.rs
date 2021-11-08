@@ -60,7 +60,7 @@ impl Default for ConstantPool {
 
 impl ConstantPool {
     /// Provides the number of constants in the pool
-    pub fn len(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.constants.len()
     }
 
@@ -290,7 +290,7 @@ mod tests {
         assert_eq!(s1, pool.get_str(ConstantIndex::from(0_u8)));
         assert_eq!(s2, pool.get_str(ConstantIndex::from(1_u8)));
 
-        assert_eq!(2, pool.len());
+        assert_eq!(2, pool.size());
     }
 
     #[test]
@@ -315,7 +315,7 @@ mod tests {
             pool.get_f64(ConstantIndex::from(1_u8))
         ));
 
-        assert_eq!(2, pool.len());
+        assert_eq!(2, pool.size());
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(n2, pool.get_i64(ConstantIndex::from(2_u8)));
         assert_eq!(s2, pool.get_str(ConstantIndex::from(3_u8)));
 
-        assert_eq!(4, pool.len());
+        assert_eq!(4, pool.size());
     }
 
     #[test]

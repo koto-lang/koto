@@ -24,9 +24,9 @@ mod parser {
                         assert_eq!(constant, *expected_constant);
                     }
                     assert_eq!(
-                        constants.len(),
+                        constants.size(),
                         expected_constants.len(),
-                        "Constant list length mismatch"
+                        "Constant pool size mismatch"
                     );
                 }
             }
