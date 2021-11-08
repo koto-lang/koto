@@ -9,27 +9,43 @@ use {
     },
 };
 
+// An entry in the list of constants contained in a [ConstantPool]
 #[derive(Clone, Debug, Hash, PartialEq)]
 enum ConstantInfo {
+    // The index of an f64 constant
     F64(usize),
+    // The index of an i64 constant
     I64(usize),
+    // The range in bytes in the ConstantPool's string data for a string constant
     Str(Range<usize>),
 }
 
+/// A constant provided by a [ConstantPool]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Constant<'a> {
+    /// An f64 constant
     F64(f64),
+    /// An i64 constant
     I64(i64),
+    /// A string constant
     Str(&'a str),
 }
 
+/// A constant pool produced by the [Parser] for a Koto script
+///
+/// A [ConstantPoolBuilder] is used to prepare the pool.
 #[derive(Clone, Debug)]
 pub struct ConstantPool {
+    // The list of constants in the pool
+    //
+    // A [ConstantIndex] is an index into this list, which then provides information to get the
+    // constant itself.
     index: Vec<ConstantInfo>,
-    // Constant strings concatanated into one
+    // Constant strings concatanated into a single string
     strings: String,
     floats: Vec<f64>,
     ints: Vec<i64>,
+    // A hash of the pool contents is incrementally prepared by the builder
     hash: u64,
 }
 
@@ -46,14 +62,12 @@ impl Default for ConstantPool {
 }
 
 impl ConstantPool {
+    /// Provides the number of constants in the pool
     pub fn len(&self) -> usize {
         self.index.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
+    /// Returns the constant corresponding to the provided index
     pub fn get(&self, index: usize) -> Option<Constant> {
         match self.index.get(index) {
             Some(constant_info) => match constant_info {
@@ -65,16 +79,23 @@ impl ConstantPool {
         }
     }
 
+    /// Returns the concatanated string data stored in the pool
     pub fn string_data(&self) -> &str {
         &self.strings
     }
 
+    /// Returns the string corresponding to the provided index
+    ///
+    /// Warning! Panics if there isn't a string at the provided index
     #[inline]
     pub fn get_str(&self, index: ConstantIndex) -> &str {
         // Safety: The bounds have already been checked while the pool is being prepared
         unsafe { self.strings.get_unchecked(self.get_str_bounds(index)) }
     }
 
+    /// Returns bounds in the concatenated string data corresponding to the provided index
+    ///
+    /// Warning! Panics if there isn't a string at the provided index
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
         match self.index.get(usize::from(index)) {
             Some(ConstantInfo::Str(range)) => range.clone(),
@@ -82,6 +103,9 @@ impl ConstantPool {
         }
     }
 
+    /// Returns the f64 corresponding to the provided constant index
+    ///
+    /// Warning! Panics if there isn't an f64 at the provided index
     pub fn get_f64(&self, index: ConstantIndex) -> f64 {
         match self.index.get(usize::from(index)) {
             Some(ConstantInfo::F64(index)) => self.floats[*index],
@@ -89,6 +113,9 @@ impl ConstantPool {
         }
     }
 
+    /// Returns the i64 corresponding to the provided constant index
+    ///
+    /// Warning! Panics if there isn't an i64 at the provided index
     pub fn get_i64(&self, index: ConstantIndex) -> i64 {
         match self.index.get(usize::from(index)) {
             Some(ConstantInfo::I64(index)) => self.ints[*index],
@@ -96,11 +123,13 @@ impl ConstantPool {
         }
     }
 
+    /// Provides an iterator that iterates over the pool's constants
     pub fn iter(&self) -> ConstantPoolIterator {
         ConstantPoolIterator::new(self)
     }
 }
 
+/// An iterator that iterates over a [ConstantPool]'s constants
 pub struct ConstantPoolIterator<'a> {
     pool: &'a ConstantPool,
     index: usize,
@@ -150,7 +179,7 @@ impl Hash for ConstantPool {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ConstantPoolBuilder {
+pub(crate) struct ConstantPoolBuilder {
     pool: ConstantPool,
     hasher: DefaultHasher, // Used to incrementally hash the constant pool's contents
     string_map: HashMap<String, ConstantIndex>,

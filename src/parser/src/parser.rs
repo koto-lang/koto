@@ -209,6 +209,7 @@ impl ExpressionContext {
     }
 }
 
+/// Koto's parser
 pub struct Parser<'source> {
     ast: Ast,
     constants: ConstantPoolBuilder,
@@ -217,6 +218,7 @@ pub struct Parser<'source> {
 }
 
 impl<'source> Parser<'source> {
+    /// Takes in a source script, and produces an Ast and associated [ConstantPool]
     pub fn parse(source: &'source str) -> Result<(Ast, ConstantPool), ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {

@@ -1,5 +1,7 @@
 //! Contains the parser and AST format used by the Koto language
 
+#![warn(missing_docs)]
+
 mod ast;
 mod constant_index;
 mod constant_pool;

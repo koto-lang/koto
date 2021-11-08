@@ -4,11 +4,17 @@ use {
     std::convert::TryFrom,
 };
 
+/// The index type used by nodes in the [Ast]
 pub type AstIndex = u32;
 
+/// A [Node] in the [Ast], along with its corresponding [Span]
 #[derive(Clone, Debug, Default)]
 pub struct AstNode {
+    /// The node itself
     pub node: Node,
+    /// The index of the node's corresponding [Span]
+    ///
+    /// The span is stored in the [Ast], and retrieved via [Ast::span].
     pub span: AstIndex,
 }
 
@@ -23,6 +29,7 @@ pub struct Ast {
 }
 
 impl Ast {
+    /// Initializes an Ast with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(capacity),
@@ -31,12 +38,7 @@ impl Ast {
         }
     }
 
-    pub fn clear(&mut self) {
-        self.nodes.clear();
-        self.spans.clear();
-        self.entry_point = 0;
-    }
-
+    /// Pushes a node and corresponding span onto the tree
     pub fn push(&mut self, node: Node, span: Span) -> Result<AstIndex, ParserError> {
         // We could potentially achieve some compression by
         // using a set for the spans, for now a Vec will do.
@@ -52,6 +54,7 @@ impl Ast {
             .map_err(|_| ParserError::new(InternalError::AstCapacityOverflow.into(), span))
     }
 
+    /// Pushes a node onto the tree, associating it with an existing span
     pub fn push_with_span_index(
         &mut self,
         node: Node,
@@ -69,31 +72,30 @@ impl Ast {
         })
     }
 
+    /// Returns a node for a given node index
     pub fn node(&self, index: AstIndex) -> &AstNode {
         &self.nodes[index as usize]
     }
 
+    /// Returns a span for a given span index
     pub fn span(&self, index: AstIndex) -> &Span {
         &self.spans[index as usize]
     }
 
-    pub fn set_entry_point(&mut self, index: AstIndex) {
+    // Sets the entry point for the AST
+    //
+    // In practice this will always be the last node in the nodes list,
+    // so this could likely be removed.
+    pub(crate) fn set_entry_point(&mut self, index: AstIndex) {
         self.entry_point = index;
     }
 
+    /// Returns the root node in the tree
     pub fn entry_point(&self) -> Option<&AstNode> {
         self.nodes.get(self.entry_point as usize)
     }
 
-    pub fn reset_point(&self) -> (usize, usize) {
-        (self.nodes.len(), self.spans.len())
-    }
-
-    pub fn reset(&mut self, reset_point: (usize, usize)) {
-        self.nodes.truncate(reset_point.0);
-        self.spans.truncate(reset_point.1);
-    }
-
+    /// Used in testing to validate the tree's contents
     pub fn nodes(&self) -> &[AstNode] {
         &self.nodes
     }
