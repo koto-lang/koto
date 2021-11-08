@@ -1710,10 +1710,10 @@ a";
                     BoolTrue,
                     Number0,
                     Number1,
-                    TempTuple(vec![3, 4]), // 5
+                    Tuple(vec![3, 4]), // 5
                     Number1,
                     Number0,
-                    TempTuple(vec![6, 7]),
+                    Tuple(vec![6, 7]),
                     If(AstIf {
                         condition: 2,
                         then_node: 5,

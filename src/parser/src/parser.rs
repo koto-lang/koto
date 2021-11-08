@@ -505,7 +505,7 @@ impl<'source> Parser<'source> {
         } else if let Some(result) = self.parse_export(context)? {
             Some(result)
         } else {
-            self.parse_expressions(context, false)?
+            self.parse_expressions(context, TempResult::No)?
         };
 
         self.frame_mut()?.finish_expression();
@@ -513,10 +513,18 @@ impl<'source> Parser<'source> {
         Ok(result)
     }
 
+    // Parse a comma separated series of expressions
+    //
+    // If only a single expression is encountered then that expression's node is the only thing
+    // generated.
+    //
+    // Otherwise, for multiple expressions, the result of the expression can be temporary
+    // (i.e. not assigned to an identifier) in which case a TempTuple is generated,
+    // otherwise the result will be a Tuple.
     fn parse_expressions(
         &mut self,
         context: &mut ExpressionContext,
-        temp_result: bool,
+        temp_result: TempResult,
     ) -> Result<Option<AstIndex>, ParserError> {
         let mut expression_context = ExpressionContext {
             allow_space_separated_call: true,
@@ -558,10 +566,9 @@ impl<'source> Parser<'source> {
             if expressions.len() == 1 && !encountered_comma {
                 Ok(Some(first))
             } else {
-                let result = if temp_result {
-                    Node::TempTuple(expressions)
-                } else {
-                    Node::Tuple(expressions)
+                let result = match temp_result {
+                    TempResult::No => Node::Tuple(expressions),
+                    TempResult::Yes => Node::TempTuple(expressions),
                 };
                 Ok(Some(self.push_node(result)?))
             }
@@ -723,8 +730,15 @@ impl<'source> Parser<'source> {
         }
 
         let single_target = targets.len() == 1;
+
+        let temp_result = if single_target {
+            TempResult::No
+        } else {
+            TempResult::Yes
+        };
+
         if let Some(rhs) =
-            self.parse_expressions(&mut ExpressionContext::permissive(), !single_target)?
+            self.parse_expressions(&mut ExpressionContext::permissive(), temp_result)?
         {
             let node = if single_target {
                 Node::Assign {
@@ -1267,7 +1281,7 @@ impl<'source> Parser<'source> {
                 self.consume_next_token_on_same_line();
 
                 if let Some(rhs) =
-                    self.parse_expressions(&mut ExpressionContext::permissive(), false)?
+                    self.parse_expressions(&mut ExpressionContext::permissive(), TempResult::No)?
                 {
                     let node = Node::Assign {
                         target: AssignTarget {
@@ -1322,11 +1336,12 @@ impl<'source> Parser<'source> {
 
         let mut context = ExpressionContext::permissive();
         let expression_source_start = self.lexer.source_position();
-        let expression = if let Some(expression) = self.parse_expressions(&mut context, false)? {
-            expression
-        } else {
-            return syntax_error!(ExpectedExpression, self);
-        };
+        let expression =
+            if let Some(expression) = self.parse_expressions(&mut context, TempResult::No)? {
+                expression
+            } else {
+                return syntax_error!(ExpectedExpression, self);
+            };
 
         let expression_source_end = self.lexer.source_position();
 
@@ -1462,7 +1477,7 @@ impl<'source> Parser<'source> {
                 Token::Yield => {
                     self.consume_next_token(context);
                     if let Some(expression) =
-                        self.parse_expressions(&mut context.start_new_expression(), false)?
+                        self.parse_expressions(&mut context.start_new_expression(), TempResult::No)?
                     {
                         let result = self.push_node(Node::Yield(expression))?;
                         self.frame_mut()?.contains_yield = true;
@@ -1482,7 +1497,7 @@ impl<'source> Parser<'source> {
                 Token::Return => {
                     self.consume_next_token(context);
                     let result = if let Some(expression) =
-                        self.parse_expressions(&mut context.start_new_expression(), false)?
+                        self.parse_expressions(&mut context.start_new_expression(), TempResult::No)?
                     {
                         self.push_node(Node::ReturnExpression(expression))?
                     } else {
@@ -1917,13 +1932,14 @@ impl<'source> Parser<'source> {
 
         let result = if self.peek_next_token_on_same_line() == Some(Token::Then) {
             self.consume_next_token_on_same_line();
-            let then_node = match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
-                Some(then_node) => then_node,
-                None => return syntax_error!(ExpectedThenExpression, self),
-            };
+            let then_node =
+                match self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)? {
+                    Some(then_node) => then_node,
+                    None => return syntax_error!(ExpectedThenExpression, self),
+                };
             let else_node = if self.peek_next_token_on_same_line() == Some(Token::Else) {
                 self.consume_next_token_on_same_line();
-                match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                match self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)? {
                     Some(else_node) => Some(else_node),
                     None => return syntax_error!(ExpectedElseExpression, self),
                 }
@@ -2031,7 +2047,7 @@ impl<'source> Parser<'source> {
                     self.consume_next_token_on_same_line();
 
                     if let Some(expression) =
-                        self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                        self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
                         expression
                     } else if let Some(indented_expression) = self.parse_indented_block()? {
@@ -2042,7 +2058,9 @@ impl<'source> Parser<'source> {
                 }
                 Some(Token::Then) => {
                     self.consume_next_token_on_same_line();
-                    match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                    match self
+                        .parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
+                    {
                         Some(expression) => expression,
                         None => return syntax_error!(ExpectedSwitchArmExpressionAfterThen, self),
                     }
@@ -2098,7 +2116,7 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
 
         let match_expression =
-            match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+            match self.parse_expressions(&mut ExpressionContext::inline(), TempResult::Yes)? {
                 Some(expression) => expression,
                 None => {
                     return syntax_error!(ExpectedMatchExpression, self);
@@ -2168,7 +2186,7 @@ impl<'source> Parser<'source> {
                     self.consume_next_token_on_same_line();
 
                     if let Some(expression) =
-                        self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                        self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
                         expression
                     } else if let Some(indented_expression) = self.parse_indented_block()? {
@@ -2183,7 +2201,9 @@ impl<'source> Parser<'source> {
                     }
 
                     self.consume_next_token_on_same_line();
-                    match self.parse_expressions(&mut ExpressionContext::inline(), true)? {
+                    match self
+                        .parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
+                    {
                         Some(expression) => expression,
                         None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
                     }
@@ -2751,8 +2771,8 @@ impl<'source> Parser<'source> {
                     Some(CurlyOpen) => {
                         self.consume_token();
 
-                        if let Some(expression) =
-                            self.parse_expressions(&mut ExpressionContext::inline(), true)?
+                        if let Some(expression) = self
+                            .parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                         {
                             nodes.push(StringNode::Expr(expression));
                         } else {
@@ -3059,6 +3079,11 @@ impl<'source> Parser<'source> {
 
         None
     }
+}
+
+enum TempResult {
+    No,
+    Yes,
 }
 
 // The first operator that's above the pipe operator >> in precedence.
