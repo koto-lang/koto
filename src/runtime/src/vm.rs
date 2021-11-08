@@ -3255,9 +3255,12 @@ impl Vm {
     }
 
     fn value_string_from_constant(&self, constant_index: ConstantIndex) -> ValueString {
-        let bounds = self.reader.chunk.constants.get_str_bounds(constant_index);
-        ValueString::new_with_bounds(self.reader.chunk.string_constants_arc.clone(), bounds)
-            .unwrap() // The bounds have been already checked in the constant pool
+        let constants = &self.reader.chunk.constants;
+        let bounds = constants.get_str_bounds(constant_index);
+
+        ValueString::new_with_bounds(constants.string_data().clone(), bounds)
+            // The bounds have been already checked in the constant pool
+            .unwrap()
     }
 
     fn unexpected_type_error<T>(&self, message: &str, value: &Value) -> Result<T, RuntimeError> {

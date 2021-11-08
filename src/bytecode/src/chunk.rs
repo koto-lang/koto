@@ -49,8 +49,6 @@ pub struct Chunk {
     pub bytes: Vec<u8>,
     /// The constant data associated with the chunk's bytecode
     pub constants: ConstantPool,
-    /// The constant string data associated with the chunk's bytecode
-    pub string_constants_arc: Arc<str>,
     /// The path of the program's source file
     pub source_path: Option<PathBuf>,
     /// Debug information associated with the chunk's bytecode
@@ -62,7 +60,6 @@ impl Default for Chunk {
         Self {
             bytes: vec![],
             constants: ConstantPool::default(),
-            string_constants_arc: String::default().into(),
             source_path: None,
             debug_info: DebugInfo::default(),
         }
@@ -78,7 +75,6 @@ impl Chunk {
     ) -> Self {
         Self {
             bytes,
-            string_constants_arc: constants.string_data().into(),
             constants,
             source_path,
             debug_info,
