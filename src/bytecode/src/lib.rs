@@ -2,6 +2,8 @@
 //!
 //! Contains Koto's compiler and its bytecode operations
 
+#![warn(missing_docs)]
+
 mod chunk;
 mod compiler;
 mod instruction_reader;

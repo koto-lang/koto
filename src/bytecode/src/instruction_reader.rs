@@ -6,6 +6,7 @@ use {
 
 #[derive(Debug)]
 #[repr(u8)]
+#[allow(missing_docs)]
 pub enum TypeId {
     List,
     Tuple,
@@ -23,17 +24,25 @@ impl TypeId {
     }
 }
 
+/// Flags used to define the properties of a Function
 pub struct FunctionFlags {
+    /// True if the function is an instance function
     pub instance_function: bool,
+    /// True if the function has a variadic argument
     pub variadic: bool,
+    /// True if the function is a generator
     pub generator: bool,
 }
 
 impl FunctionFlags {
-    pub const INSTANCE: u8 = 0b0000001;
-    pub const VARIADIC: u8 = 0b0000010;
-    pub const GENERATOR: u8 = 0b0000100;
+    /// Corresponding to [FunctionFlags::instance_function]
+    pub const INSTANCE: u8 = 1 << 0;
+    /// Corresponding to [FunctionFlags::variadic]
+    pub const VARIADIC: u8 = 1 << 1;
+    /// Corresponding to [FunctionFlags::generator]
+    pub const GENERATOR: u8 = 1 << 2;
 
+    /// Initializes a flags struct from a byte
     pub fn from_byte(byte: u8) -> Self {
         Self {
             instance_function: byte & Self::INSTANCE == Self::INSTANCE,
@@ -42,6 +51,7 @@ impl FunctionFlags {
         }
     }
 
+    /// Returns a byte containing the packed flags
     pub fn as_byte(&self) -> u8 {
         let mut result = 0;
         if self.instance_function {
@@ -58,6 +68,9 @@ impl FunctionFlags {
 }
 
 /// Decoded instructions produced by an [InstructionReader] for execution in the runtime
+///
+/// For descriptions of each instruction's purpose, see corresponding [Op] entries.
+#[allow(missing_docs)]
 pub enum Instruction {
     Error {
         message: String,
@@ -887,11 +900,14 @@ impl fmt::Debug for Instruction {
 /// An iterator that converts bytecode into a series of [Instruction]s
 #[derive(Clone, Default)]
 pub struct InstructionReader {
+    /// The chunk that the reader is reading from
     pub chunk: Arc<Chunk>,
+    /// The reader's instruction pointer
     pub ip: usize,
 }
 
 impl InstructionReader {
+    /// Initializes a reader with the given chunk
     pub fn new(chunk: Arc<Chunk>) -> Self {
         Self { chunk, ip: 0 }
     }

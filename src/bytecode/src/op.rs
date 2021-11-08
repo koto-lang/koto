@@ -1,98 +1,527 @@
-/// The operation identifiers used in Koto bytecode
+/// The operations used in Koto bytecode
 ///
-/// See [InstructionReader]
+/// Each operation is made up of a byte, followed by N additional bytes that define its behaviour.
+/// The combined operation bytes are interpreted as an [Instruction] by the [InstructionReader].
+///
+/// In the comments for each operation, the additional bytes are specified inside square brackets.
+/// Bytes prefixed with * show that the byte is referring to a register.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
+#[allow(missing_docs)] // Allowed for the UnusedX ops
 pub enum Op {
-    Copy,             // target, source
-    SetEmpty,         // register
-    SetFalse,         // register
-    SetTrue,          // register
-    Set0,             // register
-    Set1,             // register
-    SetNumberU8,      // register, number
-    LoadFloat,        // register, constant
-    LoadFloat16,      // register, constant[2]
-    LoadFloat24,      // register, constant[3]
-    LoadInt,          // register, constant
-    LoadInt16,        // register, constant[2]
-    LoadInt24,        // register, constant[3]
-    LoadString,       // register, constant
-    LoadString16,     // register, constant[2]
-    LoadString24,     // register, constant[3]
-    LoadNonLocal,     // register, constant
-    LoadNonLocal16,   // register, constant[2]
-    LoadNonLocal24,   // register, constant[3]
-    Import,           // register
-    MakeTempTuple,    // register, start register, count
-    MakeMap,          // register, size hint
-    MakeMap32,        // register, size hint[4]
-    MakeNum2,         // register, element count, first element
-    MakeNum4,         // register, element count, first element
-    MakeIterator,     // register, range
-    SequenceStart,    // register, size hint
-    SequenceStart32,  // register, size hint[4]
-    SequencePush,     // register, value
-    SequencePushN,    // register, start register, count
-    SequenceToList,   // register
-    SequenceToTuple,  // register
-    StringStart,      // register
-    StringPush,       // register, value register
-    StringFinish,     // register
-    SimpleFunction,   // register, arg count, size[2]
-    Function,         // register, arg count, capture count, flags, size[2]
-    Capture,          // function, target, source
-    Range,            // register, start, end
-    RangeInclusive,   // register, start, end
-    RangeTo,          // register, end
-    RangeToInclusive, // register, end
-    RangeFrom,        // register, start
-    RangeFull,        // register
-    Negate,           // register, source
-    Add,              // result, lhs, rhs
-    Subtract,         // result, lhs, rhs
-    Multiply,         // result, lhs, rhs
-    Divide,           // result, lhs, rhs
-    Modulo,           // result, lhs, rhs
-    Less,             // result, lhs, rhs
-    LessOrEqual,      // result, lhs, rhs
-    Greater,          // result, lhs, rhs
-    GreaterOrEqual,   // result, lhs, rhs
-    Equal,            // result, lhs, rhs
-    NotEqual,         // result, lhs, rhs
-    Jump,             // offset[2]
-    JumpTrue,         // condition, offset[2]
-    JumpFalse,        // condition, offset[2]
-    JumpBack,         // offset[2]
-    JumpBackFalse,    // offset[2]
-    Call,             // result, function, arg register, arg count
-    CallChild,        // result, function, arg register, arg count, parent
-    Return,           // register
-    Yield,            // register
-    Throw,            // register
-    IterNext,         // output, iterator, jump offset[2]
-    IterNextTemp,     // output, iterator, jump offset[2]
-    IterNextQuiet,    // iterator, jump offset[2]
-    ValueIndex,       // result, value register, signed index
-    SliceFrom,        // result, value register, signed index
-    SliceTo,          // result, value register, signed index
-    Index,            // result, indexable, index
-    SetIndex,         // indexable, index, value
-    MapInsert,        // map, key, value
-    MetaInsert,       // map register, key id, value register
-    MetaInsertNamed,  // map register, key id, name register, value register
-    MetaExport,       // key id, value register
-    MetaExportNamed,  // key id, name register, value register
-    ValueExport,      // name, value
-    Access,           // result, value, key
-    IsList,           // register, value
-    IsTuple,          // register, value
-    Size,             // register, value
-    TryStart,         // catch arg register, catch body offset[2]
-    TryEnd,           //
-    Debug,            // register, constant[3]
-    CheckType,        // register, type (see TypeId)
-    CheckSize,        // register, size
+    /// Copies the source value to the target register
+    ///
+    /// `[Copy, *target, *source]`
+    Copy,
+
+    /// Sets a register to contain Empty
+    ///
+    /// `[*target]`
+    SetEmpty,
+
+    /// Sets a register to contain Bool(false)
+    ///
+    /// `[*target]`
+    SetFalse,
+
+    /// Sets a register to contain Bool(true)
+    ///
+    /// `[*target]`
+    SetTrue,
+
+    /// Sets a register to contain Int(0)
+    ///
+    /// `[*target]`
+    Set0,
+
+    /// Sets a register to contain Int(1)
+    ///
+    /// `[*target]`
+    Set1,
+
+    /// Sets a register to contain Int(n)
+    ///
+    /// `[*target, n]`
+    SetNumberU8,
+
+    /// Loads an f64 constant into a register
+    ///
+    /// `[*target, constant]`
+    LoadFloat,
+
+    /// Loads an f64 constant with a u16 index into a register
+    ///
+    /// `[*target, constant[2]]`
+    LoadFloat16,
+
+    /// Loads an f64 constant with a u24 index into a register
+    ///
+    /// `[*target, constant[3]]`
+    LoadFloat24,
+
+    /// Loads an i64 constant into a register
+    ///
+    /// `[*target, constant]`
+    LoadInt,
+
+    /// Loads an i64 constant with a u16 index into a register
+    ///
+    /// `[*target, constant[2]]`
+    LoadInt16,
+
+    /// Loads an i64 constant with a u24 index into a register
+    ///
+    /// `[*target, constant[3]]`
+    LoadInt24,
+
+    /// Loads a string constant into a register
+    ///
+    /// `[*target, constant]`
+    LoadString,
+
+    /// Loads a string constant with a u16 index into a register
+    ///
+    /// `[*target, constant[2]]`
+    LoadString16,
+
+    /// Loads a string constant with a u24 index into a register
+    ///
+    /// `[*target, constant[3]]`
+    LoadString24,
+
+    /// Loads a non-local value into a register
+    ///
+    /// `[*target, constant]`
+    LoadNonLocal,
+
+    /// Loads a non-local value with a u16 id index into a register
+    ///
+    /// `[*target, constant[2]]`
+    LoadNonLocal16,
+
+    /// Loads a non-local value with a u24 id index into a register
+    ///
+    /// `[*target, constant[3]]`
+    LoadNonLocal24,
+
+    /// Imports a value
+    ///
+    /// The name of the value to be imported will be placed in the register before running this op,
+    /// the imported value will then be placed in the same register.
+    ///
+    /// `[*register]`
+    Import,
+
+    /// Makes a temporary tuple out of values stored in consecutive registers
+    ///
+    /// Used when a tuple is made which won't be assigned to a value,
+    /// e.g. in multiple-assignment: `x, y, z = 1, 2, 3`
+    ///
+    /// `[*target, *start, value count]`
+    MakeTempTuple,
+
+    /// Makes an empty map with the given size hint
+    ///
+    /// `[*target, size hint]`
+    MakeMap,
+
+    /// Makes an empty map with the given u32 size hint
+    ///
+    /// `[*target, size hint[4]]`
+    MakeMap32,
+
+    /// Makes a Num2 in the target register
+    ///
+    /// TODO switch byte order to match MakeTempTuple
+    ///
+    /// [*target, value count, *start]
+    MakeNum2,
+
+    /// Makes a Num4 in the target register
+    ///
+    /// TODO switch byte order to match MakeTempTuple
+    ///
+    /// [*target, value count, *start]
+    MakeNum4,
+
+    /// Makes an Iterator out of an iterable value
+    ///
+    /// `[*target, *iterable]`
+    MakeIterator,
+
+    /// Makes a SequenceBuilder with the given size hint
+    ///
+    /// `[*target, size hint]`
+    SequenceStart,
+
+    /// Makes a SequenceBuilder with the given u32 size hint
+    ///
+    /// `[*target, size hint[4]]`
+    SequenceStart32,
+
+    /// Pushes a single value to the end of a SequenceBuilder
+    ///
+    /// `[*target, *value]`
+    SequencePush,
+
+    /// Pushes values from consecutive registers to the end of a SequenceBuilder
+    ///
+    /// `[*target, *start, value count]`
+    SequencePushN,
+
+    /// Converts a SequenceBuilder into a List
+    ///
+    /// `[*register]`
+    SequenceToList,
+
+    /// Converts a SequenceBuilder into a Tuple
+    ///
+    /// `[*register]`
+    SequenceToTuple,
+
+    /// Makes a StringBuilder
+    ///
+    /// TODO Add a size hint
+    ///
+    /// [*target]
+    StringStart,
+
+    /// Pushes a value to the end of a StringBuilder
+    ///
+    /// Strings will have their contents added directly to the StringBuilder
+    /// Other values will be formatted to a string and then added to the StrignBuilder.
+    ///
+    /// `[*target, *value]`
+    StringPush,
+
+    /// Replaces a StringBuilder with a String containing the builder's contents
+    ///
+    /// `[*target]`
+    StringFinish,
+
+    /// Makes a SimpleFunction
+    ///
+    /// The N size bytes following this instruction make up the body of the function.
+    ///
+    /// `[*target, arg count, function size[2]]`
+    SimpleFunction,
+
+    /// Makes a Function
+    ///
+    /// Like a SimpleFunction, but with extended properties and captured values.
+    ///
+    /// The flags are a bitfield constructed from [FunctionFlags].
+    /// The N size bytes following this instruction make up the body of the function.
+    ///
+    /// `[*target, arg count, capture count, flags, function size[2]]`
+    Function,
+
+    /// Captures a value for a Function
+    ///
+    /// The value gets cloned to the Function's captures list at the given index.
+    ///
+    /// `[*function, capture index, *value]`
+    Capture,
+
+    /// Makes a Range with defined start and end values
+    ///
+    /// `[*target, *start, *end]`
+    Range,
+
+    /// Makes an inclusive Range with defined start and end values
+    ///
+    /// `[*target, *start, *end]`
+    RangeInclusive,
+
+    /// Makes a Range with a defined end value and no start
+    ///
+    /// `[*target, *end]`
+    RangeTo,
+
+    /// Makes an inclusive Range with a defined end value and no start
+    ///
+    /// `[*target, *end]`
+    RangeToInclusive,
+
+    /// Makes a Range with a defined start value and no end
+    ///
+    /// `[*target, *start]`
+    RangeFrom,
+
+    /// Makes a full Range with undefined start and end
+    ///
+    /// `[*target]`
+    RangeFull,
+
+    /// Negates a value
+    ///
+    /// `[*target, *source]`
+    Negate,
+
+    /// Adds lhs and rhs together
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Add,
+
+    /// Subtracts rhs from lhs
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Subtract,
+
+    /// Multiplies lhs and rhs together
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Multiply,
+
+    /// Divides lhs by rhs
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Divide,
+
+    /// Performs the modulo operation with lhs and rhs
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Modulo,
+
+    /// Compares lhs and rhs using the '<' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Less,
+
+    /// Compares lhs and rhs using the '<=' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    LessOrEqual,
+
+    /// Compares lhs and rhs using the '>' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Greater,
+
+    /// Compares lhs and rhs using the '>=' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    GreaterOrEqual,
+
+    /// Compares lhs and rhs using the '==' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    Equal,
+
+    /// Compares lhs and rhs using the '!=' operator
+    ///
+    /// `[*result, *lhs, *rhs]`
+    NotEqual,
+
+    /// Causes the instruction pointer to jump forward by a number of bytes
+    ///
+    /// `[offset[2]]`
+    Jump,
+
+    /// Causes the instruction pointer to jump forward, if a condition is true
+    ///
+    /// `[*condition, offset[2]]`
+    JumpTrue,
+
+    /// Causes the instruction pointer to jump forward, if a condition is false
+    ///
+    /// `[*condition, offset[2]]`
+    JumpFalse,
+
+    /// Causes the instruction pointer to jump back by a number of bytes
+    ///
+    /// `[offset[2]]`
+    JumpBack,
+
+    /// Causes the instruction pointer to jump back, if a condition is false
+    ///
+    /// TODO Can this be removed?
+    ///
+    /// [*condition, offset[2]]
+    JumpBackFalse,
+
+    /// Calls a function
+    ///
+    /// `[*result, *function, *first arg, arg count]`
+    Call,
+
+    /// Calls a child function
+    ///
+    /// TODO rename to CallInstance ?
+    ///
+    /// [*result, *function, *first arg, arg count, *parent]
+    CallChild,
+
+    /// Returns from the current frame with the given result
+    ///
+    /// `[*result]`
+    Return,
+
+    /// Yields a value from the current generator
+    ///
+    /// `[*value]`
+    Yield,
+
+    /// Throws an error
+    ///
+    /// `[*error]`
+    Throw,
+
+    /// Gets the next value from an Iterator
+    ///
+    /// The output from the iterator is placed in the output register.
+    /// If the iterator is finished then the instruction jumps forward by the given offset.
+    ///
+    /// `[*output, *iterator, offset[2]]`
+    IterNext,
+
+    /// Gets the next value from an Iterator, used when the output is treated as temporary
+    ///
+    /// The output from the iterator is placed in the output register.
+    /// The output is treated as temporary, with assigned values being unpacked from the output.
+    ///   - e.g. `for key, value in map`
+    /// If the iterator is finished then the instruction jumps forward by the given offset.
+    ///
+    /// `[*output, *iterator, offset[2]]`
+    IterNextTemp,
+
+    /// Gets the next value from an Iterator, used when the output can be ignored
+    ///
+    /// If the iterator is finished then the instruction jumps forward by the given offset.
+    ///
+    /// `[*iterator, offset[2]]`
+    IterNextQuiet,
+
+    /// Accesses a contained value using a u8 index
+    ///
+    /// This is used for internal indexing operations.
+    /// e.g. when unpacking a temporary value in multi-assignment
+    ///
+    /// TODO rename to Index8 or similar
+    ///
+    /// [*result, *value, index]
+    ValueIndex,
+
+    /// Takes a slice from the end of a given List or Tuple, starting from a u8 index
+    ///
+    /// Used in unpacking expressions, e.g. in a match arm
+    ///
+    /// `[*result, *value, index]`
+    SliceFrom,
+
+    /// Takes a slice from the start of a given List or Tuple, ending at a u8 index
+    ///
+    /// Used in unpacking expressions, e.g. in a match arm
+    ///
+    /// `[*result, *value, index]`
+    SliceTo,
+
+    /// Accesses a contained value via index
+    ///
+    /// `[*result, *indexable, *index]`
+    Index,
+
+    /// Sets a contained value via index
+    ///
+    /// `[*indexable, *value, *index]`
+    SetIndex,
+
+    /// Inserts a key/value entry into a map
+    ///
+    /// `[*map, *key, *value]`
+    MapInsert,
+
+    /// Inserts a key/value entry into a map's metamap
+    ///
+    /// `[*map, *key, *value]`
+    MetaInsert,
+
+    /// Inserts a named key/value entry into a map's metamap
+    ///
+    /// Used for meta keys that take a name as part of the key, like @test or @meta
+    ///
+    /// `[*map, *key, *name, *value]`
+    MetaInsertNamed,
+
+    /// Adds a key/value entry into the module's exported metamap
+    ///
+    /// Used for expressions like `export @tests = ...`
+    ///
+    /// `[*key, *value]`
+    MetaExport,
+
+    /// Adds a named key/value entry into the module's exported metamap
+    ///
+    /// Used for expressions like `export @tests = ...`
+    ///
+    /// `[*key, *name, *value]`
+    MetaExportNamed,
+
+    /// Exports a value by adding it to the module's exports map
+    ///
+    /// Used for expressions like `export foo = ...`
+    ///
+    /// `[*name, *value]`
+    ValueExport,
+
+    /// Access a contained value via key
+    ///
+    /// Used in '.' access operations.
+    ///
+    /// `[*result, *value, *key]`
+    Access,
+
+    /// Sets the result register to true if the value is a List
+    ///
+    /// `[*result, *value]`
+    IsList,
+
+    /// Sets the result register to true if the value is a Tuple
+    ///
+    /// `[*result, *value]`
+    IsTuple,
+
+    /// Gets the size of a value
+    ///
+    /// `[*result, *value]`
+    Size,
+
+    /// Starts a try block
+    ///
+    /// If an error is thrown in the try block then the error will be placed in the error register
+    /// and the instruction pointer will be jumped forward to the location referred to by the catch
+    /// offset.
+    ///
+    /// `[*error, catch offset[2]]`
+    TryStart,
+
+    /// Ends a try block
+    ///
+    /// `[]`
+    TryEnd,
+
+    /// Displays the contents of a value along with the source expression that produced it
+    ///
+    /// `[*value, expression constant[3]]`
+    Debug,
+
+    /// Throws an error if the value doesn't match the expected type
+    ///
+    /// Used when matching function arguments.
+    ///
+    /// See [TypeId] for the list of types that are checked against.
+    ///
+    /// `[*value, type]`
+    CheckType,
+
+    /// Throws an error if the value doesn't match the expected size
+    ///
+    /// Used when matching function arguments.
+    ///
+    /// [*value, size]
+    CheckSize,
+
+    // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
     Unused89,
     Unused90,
     Unused91,

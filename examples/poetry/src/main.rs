@@ -121,7 +121,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             .expect("Failed to initialize file watcher");
         hotwatch
             .watch(&args.script, move |event: Event| {
-                // dbg!(&event);
                 match event {
                     Event::Create(script_path) | Event::Write(script_path) => {
                         if let Err(e) = compile_and_run(&mut koto, &script_path) {

@@ -7,12 +7,14 @@ use {
 
 /// Errors that can be returned from [Loader] operations
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub enum LoaderErrorType {
     Parser(ParserError),
     Compiler(CompilerError),
     Io(String),
 }
 
+/// The error type used by the [Loader]
 #[derive(Clone, Debug)]
 pub struct LoaderError {
     error: LoaderErrorType,
@@ -21,7 +23,7 @@ pub struct LoaderError {
 }
 
 impl LoaderError {
-    pub fn from_parser_error(
+    pub(crate) fn from_parser_error(
         error: ParserError,
         source: &str,
         source_path: Option<PathBuf>,
@@ -33,7 +35,7 @@ impl LoaderError {
         }
     }
 
-    pub fn from_compiler_error(
+    pub(crate) fn from_compiler_error(
         error: CompilerError,
         source: &str,
         source_path: Option<PathBuf>,
@@ -45,7 +47,7 @@ impl LoaderError {
         }
     }
 
-    pub fn io_error(error: String) -> Self {
+    pub(crate) fn io_error(error: String) -> Self {
         Self {
             error: LoaderErrorType::Io(error),
             source: "".into(),
@@ -53,6 +55,7 @@ impl LoaderError {
         }
     }
 
+    /// Returns true if the error was caused by the expectation of indentation during parsing
     pub fn is_indentation_error(&self) -> bool {
         match &self.error {
             LoaderErrorType::Parser(e) => e.is_indentation_error(),
@@ -132,10 +135,12 @@ impl Loader {
         }
     }
 
+    /// Compiles a script in REPL mode
     pub fn compile_repl(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
         self.compile(script, None, CompilerSettings { repl_mode: true })
     }
 
+    /// Compiles a script
     pub fn compile_script(
         &mut self,
         script: &str,
@@ -144,6 +149,7 @@ impl Loader {
         self.compile(script, script_path.clone(), CompilerSettings::default())
     }
 
+    /// Finds a module from its name, and then compiles it
     pub fn compile_module(
         &mut self,
         name: &str,

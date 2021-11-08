@@ -589,7 +589,7 @@ impl Vm {
                 runtime_error!("{}", message)
             }
             Instruction::Copy { target, source } => {
-                self.run_copy(target, source);
+                self.set_register(target, self.clone_register(source));
                 Ok(())
             }
             Instruction::SetEmpty { register } => {
@@ -915,18 +915,6 @@ impl Vm {
         }?;
 
         Ok(control_flow)
-    }
-
-    fn run_copy(&mut self, target: u8, source: u8) {
-        let value = match self.clone_register(source) {
-            Value::TemporaryTuple(RegisterSlice { start, count }) => {
-                // A temporary tuple shouldn't make it into a named value,
-                // so here it gets converted into a regular tuple.
-                Value::Tuple(self.register_slice(start, count).into())
-            }
-            other => other,
-        };
-        self.set_register(target, value);
     }
 
     fn run_load_non_local(

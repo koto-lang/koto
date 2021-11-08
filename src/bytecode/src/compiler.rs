@@ -12,7 +12,9 @@ use {
 /// The error type used to report errors during compilation
 #[derive(Clone, Debug)]
 pub struct CompilerError {
+    /// The error's message
     pub message: String,
+    /// The span in the source where the error occurred
     pub span: Span,
 }
 
@@ -355,6 +357,9 @@ pub struct Compiler {
 }
 
 impl Compiler {
+    /// Compiles an [Ast]
+    ///
+    /// Returns compiled bytecode along with corresponding debug information
     pub fn compile(
         ast: &Ast,
         settings: CompilerSettings,
