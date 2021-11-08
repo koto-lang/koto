@@ -10,12 +10,12 @@ use {
 };
 
 // An entry in the list of constants contained in a [ConstantPool]
-#[derive(Clone, Debug, Hash, PartialEq)]
-enum ConstantInfo {
-    // The index of an f64 constant
-    F64(usize),
-    // The index of an i64 constant
-    I64(usize),
+#[derive(Clone, Debug, PartialEq)]
+enum ConstantEntry {
+    // An f64 constant
+    F64(f64),
+    // An i64 constant
+    I64(i64),
     // The range in bytes in the ConstantPool's string data for a string constant
     Str(Range<usize>),
 }
@@ -40,11 +40,9 @@ pub struct ConstantPool {
     //
     // A [ConstantIndex] is an index into this list, which then provides information to get the
     // constant itself.
-    index: Vec<ConstantInfo>,
+    constants: Vec<ConstantEntry>,
     // Constant strings concatanated into a single string
     strings: String,
-    floats: Vec<f64>,
-    ints: Vec<i64>,
     // A hash of the pool contents is incrementally prepared by the builder
     hash: u64,
 }
@@ -52,10 +50,8 @@ pub struct ConstantPool {
 impl Default for ConstantPool {
     fn default() -> Self {
         Self {
-            index: vec![],
+            constants: vec![],
             strings: String::default(),
-            floats: vec![],
-            ints: vec![],
             hash: 0,
         }
     }
@@ -64,16 +60,16 @@ impl Default for ConstantPool {
 impl ConstantPool {
     /// Provides the number of constants in the pool
     pub fn len(&self) -> usize {
-        self.index.len()
+        self.constants.len()
     }
 
     /// Returns the constant corresponding to the provided index
     pub fn get(&self, index: usize) -> Option<Constant> {
-        match self.index.get(index) {
+        match self.constants.get(index) {
             Some(constant_info) => match constant_info {
-                ConstantInfo::F64(index) => Some(Constant::F64(self.floats[*index])),
-                ConstantInfo::I64(index) => Some(Constant::I64(self.ints[*index])),
-                ConstantInfo::Str(range) => Some(Constant::Str(&self.strings[range.clone()])),
+                ConstantEntry::F64(n) => Some(Constant::F64(*n)),
+                ConstantEntry::I64(n) => Some(Constant::I64(*n)),
+                ConstantEntry::Str(range) => Some(Constant::Str(&self.strings[range.clone()])),
             },
             None => None,
         }
@@ -97,8 +93,8 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't a string at the provided index
     pub fn get_str_bounds(&self, index: ConstantIndex) -> Range<usize> {
-        match self.index.get(usize::from(index)) {
-            Some(ConstantInfo::Str(range)) => range.clone(),
+        match self.constants.get(usize::from(index)) {
+            Some(ConstantEntry::Str(range)) => range.clone(),
             _ => panic!("Invalid index"),
         }
     }
@@ -107,8 +103,8 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an f64 at the provided index
     pub fn get_f64(&self, index: ConstantIndex) -> f64 {
-        match self.index.get(usize::from(index)) {
-            Some(ConstantInfo::F64(index)) => self.floats[*index],
+        match self.constants.get(usize::from(index)) {
+            Some(ConstantEntry::F64(n)) => *n,
             _ => panic!("Invalid index"),
         }
     }
@@ -117,8 +113,8 @@ impl ConstantPool {
     ///
     /// Warning! Panics if there isn't an i64 at the provided index
     pub fn get_i64(&self, index: ConstantIndex) -> i64 {
-        match self.index.get(usize::from(index)) {
-            Some(ConstantInfo::I64(index)) => self.ints[*index],
+        match self.constants.get(usize::from(index)) {
+            Some(ConstantEntry::I64(n)) => *n,
             _ => panic!("Invalid index"),
         }
     }
@@ -196,14 +192,13 @@ impl ConstantPoolBuilder {
         match self.string_map.get(s) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.index.len())?;
+                let result = ConstantIndex::try_from(self.pool.constants.len())?;
 
                 let start = self.pool.strings.len();
                 let end = start + s.len();
                 self.pool.strings.push_str(s);
+                self.pool.constants.push(ConstantEntry::Str(start..end));
                 s.hash(&mut self.hasher);
-
-                self.pool.index.push(ConstantInfo::Str(start..end));
 
                 self.string_map.insert(s.to_string(), result);
 
@@ -218,16 +213,10 @@ impl ConstantPoolBuilder {
         match self.float_map.get(&n_u64) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.index.len())?;
-
-                let number_index = self.pool.floats.len();
-                self.pool.floats.push(n);
+                let result = ConstantIndex::try_from(self.pool.constants.len())?;
+                self.pool.constants.push(ConstantEntry::F64(n));
                 n_u64.hash(&mut self.hasher);
-
-                self.pool.index.push(ConstantInfo::F64(number_index));
-
                 self.float_map.insert(n_u64, result);
-
                 Ok(result)
             }
         }
@@ -237,16 +226,10 @@ impl ConstantPoolBuilder {
         match self.int_map.get(&n) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.index.len())?;
-
-                let number_index = self.pool.ints.len();
-                self.pool.ints.push(n);
+                let result = ConstantIndex::try_from(self.pool.constants.len())?;
+                self.pool.constants.push(ConstantEntry::I64(n));
                 n.hash(&mut self.hasher);
-
-                self.pool.index.push(ConstantInfo::I64(number_index));
-
                 self.int_map.insert(n, result);
-
                 Ok(result)
             }
         }
@@ -257,7 +240,6 @@ impl ConstantPoolBuilder {
     }
 
     pub fn build(mut self) -> ConstantPool {
-        self.pool.index.hash(&mut self.hasher);
         self.pool.hash = self.hasher.finish();
         self.pool
     }
