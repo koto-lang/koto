@@ -2,8 +2,8 @@ use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
         AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, ImportItem, LookupNode, MapKey, MatchArm, MetaKeyId, Node, Scope,
-        Span, StringNode, SwitchArm,
+        ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node,
+        Scope, Span, StringNode, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -604,7 +604,7 @@ impl Compiler {
                 }
                 result
             }
-            Node::Return => match self.get_result_register(result_register)? {
+            Node::Return(None) => match self.get_result_register(result_register)? {
                 Some(result) => {
                     self.push_op(SetEmpty, &[result.register]);
                     self.push_op(Return, &[result.register]);
@@ -618,7 +618,7 @@ impl Compiler {
                     None
                 }
             },
-            Node::ReturnExpression(expression) => {
+            Node::Return(Some(expression)) => {
                 let expression_register = self
                     .compile_node(ResultRegister::Any, ast.node(*expression), ast)?
                     .unwrap();
@@ -1246,8 +1246,8 @@ impl Compiler {
     fn compile_import_expression(
         &mut self,
         result_register: ResultRegister,
-        from: &[ImportItem],
-        items: &[Vec<ImportItem>],
+        from: &[ImportItemNode],
+        items: &[Vec<ImportItemNode>],
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -1261,7 +1261,7 @@ impl Compiler {
         if from.is_empty() {
             for item in items.iter() {
                 match item.last() {
-                    Some(ImportItem::Id(import_id)) => {
+                    Some(ImportItemNode::Id(import_id)) => {
                         // Reserve a local for the imported item.
                         // The register must only be reserved for now otherwise it'll show up in the
                         // import search.
@@ -1278,7 +1278,7 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    Some(ImportItem::Str(_)) => {
+                    Some(ImportItemNode::Str(_)) => {
                         // String imports need to be explicitly assigned
                         let import_register = self.push_register()?;
                         self.compile_import_item(import_register, item, ast)?;
@@ -1294,7 +1294,7 @@ impl Compiler {
 
             for item in items.iter() {
                 match item.last() {
-                    Some(ImportItem::Id(import_id)) => {
+                    Some(ImportItemNode::Id(import_id)) => {
                         // Assign the leaf item to a local with a matching name.
                         let import_register = self.assign_local_register(*import_id)?;
 
@@ -1302,10 +1302,10 @@ impl Compiler {
                         let mut access_register = from_register;
                         for item_node in item.iter() {
                             match item_node {
-                                ImportItem::Id(id) => {
+                                ImportItemNode::Id(id) => {
                                     self.compile_access_id(import_register, access_register, *id)?;
                                 }
-                                ImportItem::Str(string) => {
+                                ImportItemNode::Str(string) => {
                                     self.compile_access_string(
                                         import_register,
                                         access_register,
@@ -1323,7 +1323,7 @@ impl Compiler {
                             self.compile_value_export(*import_id, import_register)?;
                         }
                     }
-                    Some(ImportItem::Str(_)) => {
+                    Some(ImportItemNode::Str(_)) => {
                         // String imports need to be explicitly assigned
                         let import_register = self.push_register()?;
 
@@ -1331,10 +1331,10 @@ impl Compiler {
                         let mut access_register = from_register;
                         for item_node in item.iter() {
                             match item_node {
-                                ImportItem::Id(id) => {
+                                ImportItemNode::Id(id) => {
                                     self.compile_access_id(import_register, access_register, *id)?;
                                 }
-                                ImportItem::Str(string) => {
+                                ImportItemNode::Str(string) => {
                                     self.compile_access_string(
                                         import_register,
                                         access_register,
@@ -1375,7 +1375,7 @@ impl Compiler {
     fn compile_import_item(
         &mut self,
         result_register: u8,
-        item: &[ImportItem],
+        item: &[ImportItemNode],
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         match item {
@@ -1388,10 +1388,10 @@ impl Compiler {
 
                 for nested_item in nested.iter() {
                     match nested_item {
-                        ImportItem::Id(id) => {
+                        ImportItemNode::Id(id) => {
                             self.compile_access_id(result_register, result_register, *id)?
                         }
-                        ImportItem::Str(string) => self.compile_access_string(
+                        ImportItemNode::Str(string) => self.compile_access_string(
                             result_register,
                             result_register,
                             &string.nodes,
@@ -1408,13 +1408,13 @@ impl Compiler {
     fn compile_import_root(
         &mut self,
         import_register: u8,
-        root: &ImportItem,
+        root: &ImportItemNode,
         ast: &Ast,
     ) -> Result<(), CompilerError> {
         use Op::*;
 
         match root {
-            ImportItem::Id(id) => {
+            ImportItemNode::Id(id) => {
                 if let Some(local_register) = self.frame().get_local_assigned_register(*id) {
                     if local_register != import_register {
                         self.push_op(Copy, &[import_register, local_register]);
@@ -1424,7 +1424,7 @@ impl Compiler {
                     self.compile_load_string_constant(import_register, *id);
                 }
             }
-            ImportItem::Str(string) => {
+            ImportItemNode::Str(string) => {
                 self.compile_string(ResultRegister::Fixed(import_register), &string.nodes, ast)?;
             }
         }
@@ -3402,7 +3402,11 @@ impl Compiler {
     ) -> CompileNodeResult {
         use Op::*;
 
-        let AstFor { args, range, body } = &ast_for;
+        let AstFor {
+            args,
+            iterable,
+            body,
+        } = &ast_for;
 
         //   make iterator, iterator_register
         //   make local registers for args
@@ -3421,13 +3425,16 @@ impl Compiler {
 
         let iterator_register = {
             let iterator_register = self.push_register()?;
-            let range_register = self
-                .compile_node(ResultRegister::Any, ast.node(*range), ast)?
+            let iterable_register = self
+                .compile_node(ResultRegister::Any, ast.node(*iterable), ast)?
                 .unwrap();
 
-            self.push_op_without_span(MakeIterator, &[iterator_register, range_register.register]);
+            self.push_op_without_span(
+                MakeIterator,
+                &[iterator_register, iterable_register.register],
+            );
 
-            if range_register.is_temporary {
+            if iterable_register.is_temporary {
                 self.pop_register()?;
             }
 

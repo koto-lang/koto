@@ -3,7 +3,9 @@ use {
     std::{error, fmt, path::PathBuf},
 };
 
+/// An error that represents a problem with the Parser's internal logic, rather than a user error
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub enum InternalError {
     ArgumentsParseFailure,
     AstCapacityOverflow,
@@ -25,9 +27,10 @@ pub enum InternalError {
 
 /// Errors that arise from expecting an indented block
 ///
-/// Having these errors separated out is useful for the interactive input,
-/// where an indented continuation can be started in response to an indentation error.
+/// Having these errors separated out from [SyntaxError] is useful when working with interactive
+/// input, where an indented continuation can be started in response to an indentation error.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub enum ExpectedIndentation {
     CatchBody,
     ElseBlock,
@@ -45,7 +48,9 @@ pub enum ExpectedIndentation {
     WhileBody,
 }
 
+/// A syntax error encountered by the [Parser]
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub enum SyntaxError {
     AsciiEscapeCodeOutOfRange,
     ExpectedArgsEnd,
@@ -62,7 +67,7 @@ pub enum SyntaxError {
     ExpectedForArgs,
     ExpectedForCondition,
     ExpectedForInKeyword,
-    ExpectedForRanges,
+    ExpectedForIterable,
     ExpectedFunctionArgsEnd,
     ExpectedIdInImportExpression,
     ExpectedIfCondition,
@@ -118,7 +123,9 @@ pub enum SyntaxError {
     UnterminatedString,
 }
 
+/// See [ParserError]
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub enum ErrorType {
     InternalError(InternalError),
     ExpectedIndentation(ExpectedIndentation),
@@ -155,17 +162,22 @@ impl fmt::Display for ErrorType {
     }
 }
 
+/// An error that can be produced by the [Parser]
 #[derive(Clone, Debug)]
 pub struct ParserError {
+    /// The error itself
     pub error: ErrorType,
+    /// The span in the source string where the error occurred
     pub span: Span,
 }
 
 impl ParserError {
+    /// Initializes a parser error with the specific error type and its associated span
     pub fn new(error: ErrorType, span: Span) -> Self {
         Self { error, span }
     }
 
+    /// Returns true if the error was caused by the expectation of indentation
     pub fn is_indentation_error(&self) -> bool {
         matches!(self.error, ErrorType::ExpectedIndentation(_))
     }
@@ -257,7 +269,7 @@ impl fmt::Display for SyntaxError {
             ExpectedForArgs => f.write_str("Expected arguments in for loop"),
             ExpectedForCondition => f.write_str("Expected condition after 'if' in for loop"),
             ExpectedForInKeyword => f.write_str("Expected in keyword in for loop"),
-            ExpectedForRanges => f.write_str("Expected ranges in for loop"),
+            ExpectedForIterable => f.write_str("Expected iterable in for loop"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
             ExpectedIfCondition => f.write_str("Expected condition in if expression"),
@@ -341,6 +353,7 @@ impl fmt::Display for SyntaxError {
     }
 }
 
+/// Produces a formatted error string with a corresponding source excerpt
 pub fn format_error_with_excerpt(
     message: Option<&str>,
     source_path: &Option<PathBuf>,

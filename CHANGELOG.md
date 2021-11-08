@@ -43,6 +43,16 @@ The Koto project adheres to
           + 321
       ```
 
+### Fixed
+
+- Inline control flow expressions no longer incorrectly produce temporary results when the
+  bodies are implicit tuples.
+  - e.g.
+    ```koto
+    x = if foo then 1, 2, 3 else 4, 5, 6
+    assert_eq x[0], 1 # Previously this would result in an error
+    ```
+
 ## [0.9.1] 2021.11.01
 
 ### Fixed

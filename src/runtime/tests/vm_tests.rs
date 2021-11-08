@@ -460,6 +460,16 @@ else
 ";
             test_script(script, 100.into());
         }
+
+        #[test]
+        fn inline_if_with_multiple_expressions_in_body() {
+            let script = "
+foo = true
+x = if foo then 1, 2, 3 else 4, 5, 6
+x
+";
+            test_script(script, number_tuple(&[1, 2, 3]));
+        }
     }
 
     mod match_expressions {
@@ -684,6 +694,18 @@ m.value_1 + m.value_2
 "#;
             test_script(script, 24.into());
         }
+
+        #[test]
+        fn mutliple_expressions_in_inline_arm() {
+            let script = r#"
+m = match 42
+  23 then 1, 2
+  42 then 3, 4
+  else 5, 6
+m
+"#;
+            test_script(script, number_tuple(&[3, 4]));
+        }
     }
 
     mod switch_expressions {
@@ -700,6 +722,17 @@ switch
   else 1
 "#;
             test_script(script, 99.into());
+        }
+
+        #[test]
+        fn multiple_expressions_in_inline_arm() {
+            let script = r#"
+x = switch
+  false then 1, 2
+  true then 3, 4
+x
+"#;
+            test_script(script, number_tuple(&[3, 4]));
         }
     }
 
@@ -2188,6 +2221,14 @@ foo = {@display: |self| 'Foo'}
 '$foo'
 ";
             test_script(script, string("Foo"));
+        }
+
+        #[test]
+        fn interpolated_string_with_multiple_expressions_in_curly_braces() {
+            let script = "
+'${1, 2, 3}'
+";
+            test_script(script, string("(1, 2, 3)"));
         }
     }
 

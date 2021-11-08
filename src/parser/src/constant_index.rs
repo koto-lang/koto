@@ -7,16 +7,18 @@ const CONSTANT_INDEX_MAX: usize = 2_usize.pow(24) - 1;
 /// Values are stored as little-endian 24 bit values.
 ///
 /// Q: Why not just use a u32?
-/// A: Minimizing the memory footprint for a complex script with lots of constants seems like a
-///    healthy idea. Having a dedicated u24 type also forces the validity of a value to be checked
-///    when its first created, after creation an in-range index is guaranteed.
+/// A: Minimizing the memory footprint for a complex script with lots of constants seems
+///    like a healthy idea. Having a dedicated u24 type also forces the validity of a
+///    value to be checked when its first created; after creation an in-range index is
+///    guaranteed.
 /// Q: What if we need more than 2^24 constants in a script?
-/// A: Let's wait and see, ConstantIndex can be transitioned to a u32
-///    (along with corresponding constant loading ops) if it really turns out to be necessary.
+/// A: Let's wait and see, ConstantIndex can be transitioned to a u32 (along with the
+///    corresponding constant loading ops) if it really turns out to be necessary.
 #[derive(Clone, Copy, Hash, PartialEq)]
 pub struct ConstantIndex(pub u8, pub u8, pub u8);
 
 impl ConstantIndex {
+    /// The raw bytes representing the constant index
     pub fn bytes(&self) -> [u8; 3] {
         [self.0, self.1, self.2]
     }
@@ -25,14 +27,6 @@ impl ConstantIndex {
 impl From<u8> for ConstantIndex {
     fn from(x: u8) -> Self {
         Self(x, 0, 0)
-    }
-}
-
-impl From<u32> for ConstantIndex {
-    fn from(x: u32) -> Self {
-        let bytes = x.to_le_bytes();
-        assert_eq!(bytes[3], 0); // TODO - remove From<u32> once 32bit constant ops are removed
-        Self(bytes[0], bytes[1], bytes[2])
     }
 }
 
