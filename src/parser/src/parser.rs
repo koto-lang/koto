@@ -223,7 +223,7 @@ impl<'source> Parser<'source> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
-            constants: ConstantPoolBuilder::new(),
+            constants: ConstantPoolBuilder::default(),
             lexer: Lexer::new(source),
             frame_stack: Vec::new(),
         };

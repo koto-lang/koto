@@ -175,7 +175,13 @@ impl Hash for ConstantPool {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+/// A builder of [ConstantPool]s
+///
+/// The parser uses this builder to build up a pool of constants.
+///
+/// [ConstantPoolBuilder::build]() is called when parsing is finished to produce a finalized
+/// ConstantPool.
+#[derive(Default)]
 pub(crate) struct ConstantPoolBuilder {
     // The list of constants
     constants: Vec<ConstantEntry>,
@@ -192,10 +198,6 @@ pub(crate) struct ConstantPoolBuilder {
 }
 
 impl ConstantPoolBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn add_string(&mut self, s: &str) -> Result<ConstantIndex, ConstantIndexTryFromOutOfRange> {
         match self.string_map.get(s) {
             Some(index) => Ok(*index),
@@ -272,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_adding_strings() {
-        let mut builder = ConstantPoolBuilder::new();
+        let mut builder = ConstantPoolBuilder::default();
 
         let s1 = "test";
         let s2 = "test2";
@@ -295,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_adding_numbers() {
-        let mut builder = ConstantPoolBuilder::new();
+        let mut builder = ConstantPoolBuilder::default();
 
         let n1 = 3;
         let n2 = 9.87654321;
@@ -320,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_adding_numbers_and_strings() {
-        let mut builder = ConstantPoolBuilder::new();
+        let mut builder = ConstantPoolBuilder::default();
 
         let n1 = -1.1;
         let n2 = 99;
@@ -347,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_iter() {
-        let mut builder = ConstantPoolBuilder::new();
+        let mut builder = ConstantPoolBuilder::default();
 
         let n1 = -1;
         let n2 = 99.9;
