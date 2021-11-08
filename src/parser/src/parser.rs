@@ -313,7 +313,7 @@ impl<'source> Parser<'source> {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(&mut args_context)? {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
-                    if self.constants.pool().get_str(constant_index) == "self" {
+                    if self.constants.get_str(constant_index) == "self" {
                         return syntax_error!(SelfArgNotInFirstPosition, self);
                     }
 
@@ -381,7 +381,7 @@ impl<'source> Parser<'source> {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(context)? {
                 Some(ConstantIndexOrWildcard::Index(constant_index)) => {
-                    if self.constants.pool().get_str(constant_index) == "self" {
+                    if self.constants.get_str(constant_index) == "self" {
                         if !arg_nodes.is_empty() {
                             return syntax_error!(SelfArgNotInFirstPosition, self);
                         }

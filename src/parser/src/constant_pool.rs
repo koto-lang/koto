@@ -6,6 +6,7 @@ use {
         fmt,
         hash::{Hash, Hasher},
         ops::Range,
+        sync::Arc,
     },
 };
 
@@ -41,9 +42,9 @@ pub struct ConstantPool {
     // A [ConstantIndex] is an index into this list, which then provides information to get the
     // constant itself.
     constants: Vec<ConstantEntry>,
-    // Constant strings concatanated into a single string
-    strings: String,
-    // A hash of the pool contents is incrementally prepared by the builder
+    // A series of constant strings concatenated into a single string
+    string_data: Arc<str>,
+    // A hash of the pool contents, incrementally prepared by the builder
     hash: u64,
 }
 
@@ -51,7 +52,7 @@ impl Default for ConstantPool {
     fn default() -> Self {
         Self {
             constants: vec![],
-            strings: String::default(),
+            string_data: String::default().into(),
             hash: 0,
         }
     }
@@ -69,15 +70,15 @@ impl ConstantPool {
             Some(constant_info) => match constant_info {
                 ConstantEntry::F64(n) => Some(Constant::F64(*n)),
                 ConstantEntry::I64(n) => Some(Constant::I64(*n)),
-                ConstantEntry::Str(range) => Some(Constant::Str(&self.strings[range.clone()])),
+                ConstantEntry::Str(range) => Some(Constant::Str(&self.string_data[range.clone()])),
             },
             None => None,
         }
     }
 
-    /// Returns the concatanated string data stored in the pool
-    pub fn string_data(&self) -> &str {
-        &self.strings
+    /// Returns the concatenated string data stored in the pool
+    pub fn string_data(&self) -> &Arc<str> {
+        &self.string_data
     }
 
     /// Returns the string corresponding to the provided index
@@ -86,7 +87,7 @@ impl ConstantPool {
     #[inline]
     pub fn get_str(&self, index: ConstantIndex) -> &str {
         // Safety: The bounds have already been checked while the pool is being prepared
-        unsafe { self.strings.get_unchecked(self.get_str_bounds(index)) }
+        unsafe { self.string_data.get_unchecked(self.get_str_bounds(index)) }
     }
 
     /// Returns bounds in the concatenated string data corresponding to the provided index
@@ -176,10 +177,17 @@ impl Hash for ConstantPool {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ConstantPoolBuilder {
-    pool: ConstantPool,
-    hasher: DefaultHasher, // Used to incrementally hash the constant pool's contents
+    // The list of constants
+    constants: Vec<ConstantEntry>,
+    // The concatenated string constants
+    string_data: String,
+    // A hash of the pool contents, incrementally built up as constants are added
+    hasher: DefaultHasher,
+    // A map that keeps track of which string constants have already been added
     string_map: HashMap<String, ConstantIndex>,
+    // A map that keeps track of which float constants have already been added
     float_map: HashMap<u64, ConstantIndex>,
+    // A map that keeps track of which integer constants have already been added
     int_map: HashMap<i64, ConstantIndex>,
 }
 
@@ -192,12 +200,12 @@ impl ConstantPoolBuilder {
         match self.string_map.get(s) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.constants.len())?;
+                let result = ConstantIndex::try_from(self.constants.len())?;
 
-                let start = self.pool.strings.len();
+                let start = self.string_data.len();
                 let end = start + s.len();
-                self.pool.strings.push_str(s);
-                self.pool.constants.push(ConstantEntry::Str(start..end));
+                self.string_data.push_str(s);
+                self.constants.push(ConstantEntry::Str(start..end));
                 s.hash(&mut self.hasher);
 
                 self.string_map.insert(s.to_string(), result);
@@ -213,8 +221,8 @@ impl ConstantPoolBuilder {
         match self.float_map.get(&n_u64) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.constants.len())?;
-                self.pool.constants.push(ConstantEntry::F64(n));
+                let result = ConstantIndex::try_from(self.constants.len())?;
+                self.constants.push(ConstantEntry::F64(n));
                 n_u64.hash(&mut self.hasher);
                 self.float_map.insert(n_u64, result);
                 Ok(result)
@@ -226,8 +234,8 @@ impl ConstantPoolBuilder {
         match self.int_map.get(&n) {
             Some(index) => Ok(*index),
             None => {
-                let result = ConstantIndex::try_from(self.pool.constants.len())?;
-                self.pool.constants.push(ConstantEntry::I64(n));
+                let result = ConstantIndex::try_from(self.constants.len())?;
+                self.constants.push(ConstantEntry::I64(n));
                 n.hash(&mut self.hasher);
                 self.int_map.insert(n, result);
                 Ok(result)
@@ -235,13 +243,22 @@ impl ConstantPoolBuilder {
         }
     }
 
-    pub fn pool(&self) -> &ConstantPool {
-        &self.pool
+    pub fn get_str(&self, index: ConstantIndex) -> &str {
+        match self.constants.get(usize::from(index)) {
+            Some(ConstantEntry::Str(range)) => {
+                // Safety: The bounds have already been checked while the pool is being prepared
+                unsafe { self.string_data.get_unchecked(range.clone()) }
+            }
+            _ => panic!("Invalid index"),
+        }
     }
 
-    pub fn build(mut self) -> ConstantPool {
-        self.pool.hash = self.hasher.finish();
-        self.pool
+    pub fn build(self) -> ConstantPool {
+        ConstantPool {
+            constants: self.constants,
+            string_data: self.string_data.into(),
+            hash: self.hasher.finish(),
+        }
     }
 }
 
@@ -264,7 +281,7 @@ mod tests {
         assert_eq!(0, builder.add_string(s1).unwrap());
         assert_eq!(1, builder.add_string(s2).unwrap());
 
-        // don't duplicate strings
+        // don't duplicate string_data
         assert_eq!(0, builder.add_string(s1).unwrap());
         assert_eq!(1, builder.add_string(s2).unwrap());
 
