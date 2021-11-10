@@ -1756,6 +1756,23 @@ impl Compiler {
     ) -> CompileNodeResult {
         let result = self.get_result_register(result_register)?;
 
+        let size_hint = nodes.iter().fold(0, |result, node| {
+            match node {
+                StringNode::Literal(constant_index) => {
+                    result + ast.constants().get_str(*constant_index).len()
+                }
+                StringNode::Expr(_) => {
+                    // Q. Why use '1' here?
+                    // A. The expression can result in a displayed string of any length,
+                    //    We can make an assumption that the expression will almost always produce
+                    //    at least 1 character to display, but it's unhealthy to over-allocate so
+                    //    let's leave it there for now until we have real-world practice that tells
+                    //    us otherwise.
+                    result + 1
+                }
+            }
+        });
+
         match nodes {
             [] => return compiler_error!(self, "compile_string: Missing string nodes"),
             [StringNode::Literal(constant_index)] => {
@@ -1765,7 +1782,15 @@ impl Compiler {
             }
             _ => {
                 if let Some(result) = result {
-                    self.push_op(Op::StringStart, &[result.register]);
+                    if size_hint <= u8::MAX as usize {
+                        self.push_op(Op::StringStart, &[result.register, size_hint as u8]);
+                    } else {
+                        // Limit the size hint to u32::MAX, u64 size hinting can be added later if
+                        // it would be useful in practice.
+                        let size_hint = size_hint.min(u32::MAX as usize) as u32;
+                        self.push_op(Op::StringStart32, &[result.register]);
+                        self.push_bytes(&size_hint.to_le_bytes());
+                    }
                 }
 
                 for node in nodes.iter() {

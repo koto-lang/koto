@@ -145,12 +145,12 @@ pub enum Op {
     /// `[*target, *iterable]`
     MakeIterator,
 
-    /// Makes a SequenceBuilder with the given size hint
+    /// Makes a SequenceBuilder with a u8 size hint
     ///
     /// `[*target, size hint]`
     SequenceStart,
 
-    /// Makes a SequenceBuilder with the given u32 size hint
+    /// Makes a SequenceBuilder with a u32 size hint
     ///
     /// `[*target, size hint[4]]`
     SequenceStart32,
@@ -175,12 +175,15 @@ pub enum Op {
     /// `[*register]`
     SequenceToTuple,
 
-    /// Makes a StringBuilder
+    /// Makes a StringBuilder with a u8 size hint
     ///
-    /// TODO Add a size hint
-    ///
-    /// [*target]
+    /// `[*target, size hint]`
     StringStart,
+
+    /// Makes a StringBuilder with a u32 size hint
+    ///
+    /// `[*target, size hint[4]]`
+    StringStart32,
 
     /// Pushes a value to the end of a StringBuilder
     ///
@@ -505,11 +508,10 @@ pub enum Op {
     ///
     /// Used when matching function arguments.
     ///
-    /// [*value, size]
+    /// `[*value, size]`
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused88,
     Unused89,
     Unused90,
     Unused91,

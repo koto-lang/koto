@@ -674,8 +674,11 @@ impl Vm {
             }
             Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
             Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
-            Instruction::StringStart { register } => {
-                self.set_register(register, StringBuilder(String::new()));
+            Instruction::StringStart {
+                register,
+                size_hint,
+            } => {
+                self.set_register(register, StringBuilder(String::with_capacity(size_hint)));
                 Ok(())
             }
             Instruction::StringPush { register, value } => self.run_string_push(register, value),

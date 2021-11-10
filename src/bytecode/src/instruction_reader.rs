@@ -391,6 +391,7 @@ pub enum Instruction {
     },
     StringStart {
         register: u8,
+        size_hint: usize,
     },
     StringPush {
         register: u8,
@@ -870,8 +871,8 @@ impl fmt::Debug for Instruction {
             CheckSize { register, size } => {
                 write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
             }
-            StringStart { register } => {
-                write!(f, "StringStart\tregister: {}", register)
+            StringStart { register, size_hint } => {
+                write!(f, "StringStart\tregister: {}\t size hint: {}", register, size_hint)
             }
             StringPush { register, value } => {
                 write!(f, "StringPush\tregister: {}\tvalue: {}", register, value)
@@ -1403,6 +1404,11 @@ impl Iterator for InstructionReader {
             }),
             Op::StringStart => Some(StringStart {
                 register: get_u8!(),
+                size_hint: get_u8!() as usize,
+            }),
+            Op::StringStart32 => Some(StringStart {
+                register: get_u8!(),
+                size_hint: get_u32!() as usize,
             }),
             Op::StringPush => Some(StringPush {
                 register: get_u8!(),
