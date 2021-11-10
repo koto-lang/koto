@@ -275,12 +275,12 @@ pub enum Instruction {
         frame_base: u8,
         arg_count: u8,
     },
-    CallChild {
+    CallInstance {
         result: u8,
         function: u8,
         frame_base: u8,
         arg_count: u8,
-        parent: u8,
+        instance: u8,
     },
     Return {
         register: u8,
@@ -454,7 +454,7 @@ impl fmt::Display for Instruction {
             JumpIf { .. } => write!(f, "JumpIf"),
             JumpBack { .. } => write!(f, "JumpBack"),
             Call { .. } => write!(f, "Call"),
-            CallChild { .. } => write!(f, "CallChild"),
+            CallInstance { .. } => write!(f, "CallInstance"),
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
             Throw { .. } => write!(f, "Throw"),
@@ -624,8 +624,8 @@ impl fmt::Debug for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\n\
-                     \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}
+                 \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
                 register, arg_count, capture_count, size, instance_function, variadic, generator,
             ),
             Capture {
@@ -716,16 +716,17 @@ impl fmt::Debug for Instruction {
                 "Call\t\tresult: {}\tfunction: {}\tframe base: {}\targs: {}",
                 result, function, frame_base, arg_count
             ),
-            CallChild {
+            CallInstance {
                 result,
                 function,
-                parent,
                 frame_base,
                 arg_count,
+                instance,
             } => write!(
                 f,
-                "CallChild\tresult: {}\tfunction: {}\tframe_base: {}\n\t\t\targs: {}\t\tparent: {}",
-                result, function, frame_base, arg_count, parent
+                "CallInstance\tresult: {}\tfunction: {}\tframe_base: {}
+                 \t\t\targs: {}\t\tinstance: {}",
+                result, function, frame_base, arg_count, instance
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
@@ -1232,12 +1233,12 @@ impl Iterator for InstructionReader {
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
             }),
-            Op::CallChild => Some(CallChild {
+            Op::CallInstance => Some(CallInstance {
                 result: get_u8!(),
                 function: get_u8!(),
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
-                parent: get_u8!(),
+                instance: get_u8!(),
             }),
             Op::Return => Some(Return {
                 register: get_u8!(),

@@ -334,12 +334,10 @@ pub enum Op {
     /// `[*result, *function, *first arg, arg count]`
     Call,
 
-    /// Calls a child function
+    /// Calls an instance function
     ///
-    /// TODO rename to CallInstance ?
-    ///
-    /// [*result, *function, *first arg, arg count, *parent]
-    CallChild,
+    /// `[*result, *function, *first arg, arg count, *instance]`
+    CallInstance,
 
     /// Returns from the current frame with the given result
     ///

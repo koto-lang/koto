@@ -2729,7 +2729,7 @@ impl Compiler {
         function_register: u8,
         args: &[AstIndex],
         piped_arg: Option<u8>,
-        parent: Option<u8>,
+        instance: Option<u8>,
         ast: &Ast,
     ) -> CompileNodeResult {
         use Op::*;
@@ -2737,8 +2737,8 @@ impl Compiler {
         let result = self.get_result_register(result_register)?;
         let stack_count = self.frame().register_stack.len();
 
-        // The frame base is an empty register that may be used for a parent value if needed
-        // (it's decided at runtime if the parent value will be used or not).
+        // The frame base is an empty register that may be used for an instance value if needed
+        // (it's decided at runtime if the instance value will be used or not).
         let frame_base = self.push_register()?;
 
         let mut arg_count = args.len();
@@ -2763,16 +2763,16 @@ impl Compiler {
             frame_base
         };
 
-        match parent {
-            Some(parent_register) => {
+        match instance {
+            Some(instance_register) => {
                 self.push_op(
-                    CallChild,
+                    CallInstance,
                     &[
                         call_result_register,
                         function_register,
                         frame_base,
                         arg_count as u8,
-                        parent_register,
+                        instance_register,
                     ],
                 );
             }

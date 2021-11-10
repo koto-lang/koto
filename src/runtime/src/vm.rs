@@ -767,18 +767,18 @@ impl Vm {
                 arg_count,
                 None,
             ),
-            Instruction::CallChild {
+            Instruction::CallInstance {
                 result,
                 function,
                 frame_base,
                 arg_count,
-                parent,
+                instance,
             } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
                 arg_count,
-                Some(parent),
+                Some(instance),
             ),
             Instruction::Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
