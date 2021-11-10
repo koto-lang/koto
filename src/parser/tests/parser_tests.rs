@@ -5,7 +5,7 @@ mod parser {
         println!("{}", source);
 
         match Parser::parse(source) {
-            Ok((ast, constants)) => {
+            Ok(ast) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {
@@ -19,12 +19,12 @@ mod parser {
 
                 if let Some(expected_constants) = expected_constants {
                     for (constant, expected_constant) in
-                        constants.iter().zip(expected_constants.iter())
+                        ast.constants().iter().zip(expected_constants.iter())
                     {
                         assert_eq!(constant, *expected_constant);
                     }
                     assert_eq!(
-                        constants.size(),
+                        ast.constants().size(),
                         expected_constants.len(),
                         "Constant pool size mismatch"
                     );

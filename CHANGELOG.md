@@ -42,6 +42,9 @@ The Koto project adheres to
             # ^~~ Previously this indentation would have been disallowed.
           + 321
       ```
+- Internals
+  - The AST struct returned by the parser now includes its associated constant
+    pool as a member.
 
 ### Fixed
 

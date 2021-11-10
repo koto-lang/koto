@@ -116,7 +116,7 @@ impl Loader {
         compiler_settings: CompilerSettings,
     ) -> Result<Arc<Chunk>, LoaderError> {
         match Parser::parse(script) {
-            Ok((ast, constants)) => {
+            Ok(ast) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
                     Ok((bytes, debug_info)) => (bytes, debug_info),
                     Err(e) => return Err(LoaderError::from_compiler_error(e, script, script_path)),
@@ -126,7 +126,7 @@ impl Loader {
 
                 Ok(Arc::new(Chunk::new(
                     bytes,
-                    constants,
+                    ast.consume_constants(),
                     script_path,
                     debug_info,
                 )))

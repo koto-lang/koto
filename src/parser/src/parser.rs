@@ -218,8 +218,8 @@ pub struct Parser<'source> {
 }
 
 impl<'source> Parser<'source> {
-    /// Takes in a source script, and produces an Ast and associated [ConstantPool]
-    pub fn parse(source: &'source str) -> Result<(Ast, ConstantPool), ParserError> {
+    /// Takes in a source script, and produces an Ast
+    pub fn parse(source: &'source str) -> Result<Ast, ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
@@ -230,8 +230,9 @@ impl<'source> Parser<'source> {
 
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
+        parser.ast.set_constants(parser.constants.build());
 
-        Ok((parser.ast, parser.constants.build()))
+        Ok(parser.ast)
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {

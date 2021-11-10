@@ -1,5 +1,5 @@
 use {
-    crate::{error::*, Node},
+    crate::{error::*, ConstantPool, Node},
     koto_lexer::Span,
     std::convert::TryFrom,
 };
@@ -25,6 +25,7 @@ pub struct AstNode {
 pub struct Ast {
     nodes: Vec<AstNode>,
     spans: Vec<Span>,
+    constants: ConstantPool,
     entry_point: u32,
 }
 
@@ -34,6 +35,7 @@ impl Ast {
         Self {
             nodes: Vec::with_capacity(capacity),
             spans: Vec::with_capacity(capacity),
+            constants: ConstantPool::default(),
             entry_point: 0,
         }
     }
@@ -82,17 +84,34 @@ impl Ast {
         &self.spans[index as usize]
     }
 
+    /// Returns the constant pool referred to by the AST
+    pub fn constants(&self) -> &ConstantPool {
+        &self.constants
+    }
+
+    /// Moves the constants out of the AST
+    ///
+    /// This is used when building a [Chunk] after compilation. The constants get transferred to
+    /// the Chunk once the AST has been converted into bytecode.
+    pub fn consume_constants(self) -> ConstantPool {
+        self.constants
+    }
+
+    pub(crate) fn set_constants(&mut self, constants: ConstantPool) {
+        self.constants = constants
+    }
+
+    /// Returns the root node in the tree
+    pub fn entry_point(&self) -> Option<&AstNode> {
+        self.nodes.get(self.entry_point as usize)
+    }
+
     // Sets the entry point for the AST
     //
     // In practice this will always be the last node in the nodes list,
     // so this could likely be removed.
     pub(crate) fn set_entry_point(&mut self, index: AstIndex) {
         self.entry_point = index;
-    }
-
-    /// Returns the root node in the tree
-    pub fn entry_point(&self) -> Option<&AstNode> {
-        self.nodes.get(self.entry_point as usize)
     }
 
     /// Used in testing to validate the tree's contents
