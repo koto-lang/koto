@@ -3,9 +3,9 @@ use {
     std::{convert::TryFrom, fmt},
 };
 
-/// A parsed node that can be included in the [AST](ast).
+/// A parsed node that can be included in the [AST](crate::Ast).
 ///
-/// Nodes refer to each other via [AstIndex]s, see [AstNode].
+/// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     /// An Empty node, used for `()` empty expressions
@@ -157,7 +157,7 @@ pub enum Node {
 
     /// An assignment expression
     ///
-    /// Used for single-assignment, multiple-assignment is represented by [MultiAssign].
+    /// Used for single-assignment, multiple-assignment is represented by [Node::MultiAssign].
     Assign {
         /// The target of the assignment
         target: AssignTarget,
@@ -472,12 +472,12 @@ pub enum Scope {
 /// In other words, some series of operations involving indexing, `.` accesses, and function calls.
 ///
 /// e.g.
-/// foo.bar."baz"[0](42)
-/// |  |   |     |  ^ Call {args: 42, with_parens: true}
-/// |  |   |     ^ Index (0)
-/// |  |   ^ Str (baz)
-/// |  ^ Id (bar)
-/// ^ Root (foo)
+/// `foo.bar."baz"[0](42)`
+///  |  |   |     |  ^ Call {args: 42, with_parens: true}
+///  |  |   |     ^ Index (0)
+///  |  |   ^ Str (baz)
+///  |  ^ Id (bar)
+///  ^ Root (foo)
 #[derive(Clone, Debug, PartialEq)]
 pub enum LookupNode {
     /// The root of the lookup chain
@@ -500,7 +500,6 @@ pub enum LookupNode {
         ///   `99 >> foo.bar 42` is equivalent to `foo.bar(42, 99)`
         /// but:
         ///   `99 >> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
-        /// ```
         with_parens: bool,
     },
 }
@@ -578,14 +577,14 @@ pub enum MetaKeyId {
 
     /// @tests
     Tests,
-    /// @test [test_name]
+    /// @test test_name
     Test,
     /// @pre_test
     PreTest,
     /// @post_test
     PostTest,
 
-    /// @meta [name]
+    /// @meta name
     Named,
 
     /// Unused

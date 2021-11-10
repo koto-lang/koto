@@ -91,8 +91,8 @@ impl Ast {
 
     /// Moves the constants out of the AST
     ///
-    /// This is used when building a [Chunk] after compilation. The constants get transferred to
-    /// the Chunk once the AST has been converted into bytecode.
+    /// This is used when building a `Chunk` after compilation.
+    /// The constants get transferred to the `Chunk` once the AST has been converted into bytecode.
     pub fn consume_constants(self) -> ConstantPool {
         self.constants
     }

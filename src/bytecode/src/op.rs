@@ -1,7 +1,8 @@
 /// The operations used in Koto bytecode
 ///
 /// Each operation is made up of a byte, followed by N additional bytes that define its behaviour.
-/// The combined operation bytes are interpreted as an [Instruction] by the [InstructionReader].
+/// The combined operation bytes are interpreted as an [Instruction](crate::Instruction) by the
+/// [InstructionReader](crate::InstructionReader).
 ///
 /// In the comments for each operation, the additional bytes are specified inside square brackets.
 /// Bytes prefixed with * show that the byte is referring to a register.
@@ -209,7 +210,7 @@ pub enum Op {
     ///
     /// Like a SimpleFunction, but with extended properties and captured values.
     ///
-    /// The flags are a bitfield constructed from [FunctionFlags].
+    /// The flags are a bitfield constructed from [FunctionFlags](crate::FunctionFlags).
     /// The N size bytes following this instruction make up the body of the function.
     ///
     /// `[*target, arg count, capture count, flags, function size[2]]`
@@ -497,7 +498,7 @@ pub enum Op {
     ///
     /// Used when matching function arguments.
     ///
-    /// See [TypeId] for the list of types that are checked against.
+    /// See [TypeId](crate::TypeId) for the list of types that are checked against.
     ///
     /// `[*value, type]`
     CheckType,
