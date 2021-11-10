@@ -382,15 +382,13 @@ pub enum Op {
     /// `[*iterator, offset[2]]`
     IterNextQuiet,
 
-    /// Accesses a contained value using a u8 index
+    /// Accesses a contained value from a temporary value using a u8 index
     ///
     /// This is used for internal indexing operations.
     /// e.g. when unpacking a temporary value in multi-assignment
     ///
-    /// TODO rename to Index8 or similar
-    ///
-    /// [*result, *value, index]
-    ValueIndex,
+    /// `[*result, *value, index]`
+    TempIndex,
 
     /// Takes a slice from the end of a given List or Tuple, starting from a u8 index
     ///

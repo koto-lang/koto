@@ -864,14 +864,14 @@ impl Compiler {
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(
-                        Op::ValueIndex,
+                        Op::TempIndex,
                         &[local_register, container_register, arg_index as u8],
                     );
                 }
                 Node::List(nested_args) => {
                     let list_register = self.push_register()?;
                     self.push_op(
-                        Op::ValueIndex,
+                        Op::TempIndex,
                         &[list_register, container_register, arg_index as u8],
                     );
                     self.push_op(Op::CheckType, &[list_register, TypeId::List as u8]);
@@ -882,7 +882,7 @@ impl Compiler {
                 Node::Tuple(nested_args) => {
                     let tuple_register = self.push_register()?;
                     self.push_op(
-                        Op::ValueIndex,
+                        Op::TempIndex,
                         &[tuple_register, container_register, arg_index as u8],
                     );
                     self.push_op(Op::CheckType, &[tuple_register, TypeId::Tuple as u8]);
@@ -1105,14 +1105,14 @@ impl Compiler {
                 Node::Id(id_index) => {
                     match (target_register, self.scope_for_assign_target(target)) {
                         (Some(target_register), Scope::Local) => {
-                            self.push_op(ValueIndex, &[*target_register, rhs.register, i as u8]);
+                            self.push_op(TempIndex, &[*target_register, rhs.register, i as u8]);
                             // The register was reserved before the RHS was compiled, and now it
                             // needs to be committed.
                             self.commit_local_register(*target_register)?;
                         }
                         (None, Scope::Export) => {
                             let index_register = self.push_register()?;
-                            self.push_op(ValueIndex, &[index_register, rhs.register, i as u8]);
+                            self.push_op(TempIndex, &[index_register, rhs.register, i as u8]);
                             self.compile_value_export(*id_index, index_register)?;
                             self.pop_register()?; // index_register
                         }
@@ -1127,7 +1127,7 @@ impl Compiler {
                 Node::Lookup(lookup) => {
                     let register = self.push_register()?;
 
-                    self.push_op(ValueIndex, &[register, rhs.register, i as u8]);
+                    self.push_op(TempIndex, &[register, rhs.register, i as u8]);
                     self.compile_lookup(ResultRegister::None, lookup, None, Some(register), ast)?;
 
                     self.pop_register()?;
@@ -3194,7 +3194,7 @@ impl Compiler {
                     if match_is_container {
                         let element = self.push_register()?;
                         self.push_op(
-                            ValueIndex,
+                            TempIndex,
                             &[element, params.match_register, pattern_index as u8],
                         );
                         self.push_op(Equal, &[comparison, pattern, element]);
@@ -3230,7 +3230,7 @@ impl Compiler {
                     let id_register = self.assign_local_register(*id)?;
                     if match_is_container {
                         self.push_op(
-                            ValueIndex,
+                            TempIndex,
                             &[id_register, params.match_register, pattern_index as u8],
                         );
                     } else {
@@ -3335,7 +3335,7 @@ impl Compiler {
             // Place the nested container into a register
             let value_register = self.push_register()?;
             self.push_op(
-                ValueIndex,
+                TempIndex,
                 &[value_register, params.match_register, pattern_index as u8],
             );
             value_register
@@ -3502,7 +3502,7 @@ impl Compiler {
                     if let Some(arg) = maybe_arg {
                         let arg_register = self.assign_local_register(*arg)?;
                         self.push_op_without_span(
-                            ValueIndex,
+                            TempIndex,
                             &[arg_register, temp_register, i as u8],
                         );
                     }

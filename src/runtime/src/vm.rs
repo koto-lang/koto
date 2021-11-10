@@ -843,11 +843,11 @@ impl Vm {
                 iterator,
                 jump_offset,
             } => self.run_iterator_next(None, iterator, jump_offset, false),
-            Instruction::ValueIndex {
+            Instruction::TempIndex {
                 register,
                 value,
                 index,
-            } => self.run_value_index(register, value, index),
+            } => self.run_temp_index(register, value, index),
             Instruction::SliceFrom {
                 register,
                 value,
@@ -1105,7 +1105,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_value_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
+    fn run_temp_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
         use Value::*;
 
         let result = match self.get_register(value) {

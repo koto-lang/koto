@@ -309,7 +309,7 @@ pub enum Instruction {
         iterator: u8,
         jump_offset: usize,
     },
-    ValueIndex {
+    TempIndex {
         register: u8,
         value: u8,
         index: i8,
@@ -463,7 +463,7 @@ impl fmt::Display for Instruction {
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
-            ValueIndex { .. } => write!(f, "ValueIndex"),
+            TempIndex { .. } => write!(f, "TempIndex"),
             SliceFrom { .. } => write!(f, "SliceFrom"),
             SliceTo { .. } => write!(f, "SliceTo"),
             IsTuple { .. } => write!(f, "IsTuple"),
@@ -759,13 +759,13 @@ impl fmt::Debug for Instruction {
                 "IterNextQuiet\titerator: {}\tjump offset: {}",
                 iterator, jump_offset
             ),
-            ValueIndex {
+            TempIndex {
                 register,
                 value,
                 index,
             } => write!(
                 f,
-                "ValueIndex\tresult: {}\tvalue: {}\tindex: {}",
+                "TempIndex\tresult: {}\tvalue: {}\tindex: {}",
                 register, value, index
             ),
             SliceFrom {
@@ -1268,7 +1268,7 @@ impl Iterator for InstructionReader {
                 iterator: get_u8!(),
                 jump_offset: get_u16!() as usize,
             }),
-            Op::ValueIndex => Some(ValueIndex {
+            Op::TempIndex => Some(TempIndex {
                 register: get_u8!(),
                 value: get_u8!(),
                 index: get_u8!() as i8,
