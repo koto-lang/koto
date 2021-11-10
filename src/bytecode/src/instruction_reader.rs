@@ -124,13 +124,13 @@ pub enum Instruction {
     },
     MakeNum2 {
         register: u8,
-        count: u8,
         element_register: u8,
+        count: u8,
     },
     MakeNum4 {
         register: u8,
-        count: u8,
         element_register: u8,
+        count: u8,
     },
     SequenceStart {
         register: u8,
@@ -1073,13 +1073,13 @@ impl Iterator for InstructionReader {
             }),
             Op::MakeNum2 => Some(MakeNum2 {
                 register: get_u8!(),
-                count: get_u8!(),
                 element_register: get_u8!(),
+                count: get_u8!(),
             }),
             Op::MakeNum4 => Some(MakeNum4 {
                 register: get_u8!(),
-                count: get_u8!(),
                 element_register: get_u8!(),
+                count: get_u8!(),
             }),
             Op::SequenceStart => Some(SequenceStart {
                 register: get_u8!(),

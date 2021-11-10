@@ -132,16 +132,12 @@ pub enum Op {
 
     /// Makes a Num2 in the target register
     ///
-    /// TODO switch byte order to match MakeTempTuple
-    ///
-    /// [*target, value count, *start]
+    /// `[*target, *start, value count]`
     MakeNum2,
 
     /// Makes a Num4 in the target register
     ///
-    /// TODO switch byte order to match MakeTempTuple
-    ///
-    /// [*target, value count, *start]
+    /// `[*target, *start, value count]`
     MakeNum4,
 
     /// Makes an Iterator out of an iterable value

@@ -1855,8 +1855,8 @@ impl Compiler {
                     Op::MakeNum2,
                     &[
                         result.register,
-                        elements.len() as u8,
                         first_element_register,
+                        elements.len() as u8,
                     ],
                 );
 
@@ -1907,8 +1907,8 @@ impl Compiler {
                     Op::MakeNum4,
                     &[
                         result.register,
-                        elements.len() as u8,
                         first_element_register,
+                        elements.len() as u8,
                     ],
                 );
 

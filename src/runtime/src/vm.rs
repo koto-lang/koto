@@ -644,14 +644,14 @@ impl Vm {
             }
             Instruction::MakeNum2 {
                 register,
-                count,
                 element_register,
-            } => self.run_make_num2(register, count, element_register),
+                count,
+            } => self.run_make_num2(register, element_register, count),
             Instruction::MakeNum4 {
                 register,
-                count,
                 element_register,
-            } => self.run_make_num4(register, count, element_register),
+                count,
+            } => self.run_make_num4(register, element_register, count),
             Instruction::SequenceStart {
                 register,
                 size_hint,
@@ -1983,8 +1983,8 @@ impl Vm {
     fn run_make_num2(
         &mut self,
         result_register: u8,
-        element_count: u8,
         element_register: u8,
+        element_count: u8,
     ) -> InstructionResult {
         use Value::*;
 
@@ -2033,8 +2033,8 @@ impl Vm {
     fn run_make_num4(
         &mut self,
         result_register: u8,
-        element_count: u8,
         element_register: u8,
+        element_count: u8,
     ) -> InstructionResult {
         use Value::*;
         let result = if element_count == 1 {
