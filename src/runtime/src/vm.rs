@@ -755,11 +755,6 @@ impl Vm {
                 self.jump_ip_back(offset);
                 Ok(())
             }
-            Instruction::JumpBackIf {
-                register,
-                offset,
-                jump_condition,
-            } => self.run_jump_back_if(register, offset, jump_condition),
             Instruction::Call {
                 result,
                 function,
@@ -1827,25 +1822,6 @@ impl Vm {
             Value::Bool(b) => {
                 if *b == jump_condition {
                     self.jump_ip(offset);
-                }
-            }
-            unexpected => {
-                return self.unexpected_type_error("JumpIf: expected Bool", unexpected);
-            }
-        }
-        Ok(())
-    }
-
-    fn run_jump_back_if(
-        &mut self,
-        register: u8,
-        offset: usize,
-        jump_condition: bool,
-    ) -> InstructionResult {
-        match self.get_register(register) {
-            Value::Bool(b) => {
-                if *b == jump_condition {
-                    self.jump_ip_back(offset);
                 }
             }
             unexpected => {

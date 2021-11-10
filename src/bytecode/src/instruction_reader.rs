@@ -269,11 +269,6 @@ pub enum Instruction {
     JumpBack {
         offset: usize,
     },
-    JumpBackIf {
-        register: u8,
-        offset: usize,
-        jump_condition: bool,
-    },
     Call {
         result: u8,
         function: u8,
@@ -458,7 +453,6 @@ impl fmt::Display for Instruction {
             Jump { .. } => write!(f, "Jump"),
             JumpIf { .. } => write!(f, "JumpIf"),
             JumpBack { .. } => write!(f, "JumpBack"),
-            JumpBackIf { .. } => write!(f, "JumpBackIf"),
             Call { .. } => write!(f, "Call"),
             CallChild { .. } => write!(f, "CallChild"),
             Return { .. } => write!(f, "Return"),
@@ -712,15 +706,6 @@ impl fmt::Debug for Instruction {
                 register, offset, jump_condition
             ),
             JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
-            JumpBackIf {
-                register,
-                offset,
-                jump_condition,
-            } => write!(
-                f,
-                "JumpBackIf\tresult: {}\toffset: {}\tcondition: {}",
-                register, offset, jump_condition
-            ),
             Call {
                 result,
                 function,
@@ -1240,11 +1225,6 @@ impl Iterator for InstructionReader {
             }),
             Op::JumpBack => Some(JumpBack {
                 offset: get_u16!() as usize,
-            }),
-            Op::JumpBackFalse => Some(JumpBackIf {
-                register: get_u8!(),
-                offset: get_u16!() as usize,
-                jump_condition: false,
             }),
             Op::Call => Some(Call {
                 result: get_u8!(),

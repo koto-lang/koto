@@ -329,13 +329,6 @@ pub enum Op {
     /// `[offset[2]]`
     JumpBack,
 
-    /// Causes the instruction pointer to jump back, if a condition is false
-    ///
-    /// TODO Can this be removed?
-    ///
-    /// [*condition, offset[2]]
-    JumpBackFalse,
-
     /// Calls a function
     ///
     /// `[*result, *function, *first arg, arg count]`
@@ -518,6 +511,7 @@ pub enum Op {
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused88,
     Unused89,
     Unused90,
     Unused91,
