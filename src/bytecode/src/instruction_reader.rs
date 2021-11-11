@@ -938,6 +938,14 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8 {
             () => {{
+                #[cfg(not(debug_assertions))]
+                {
+                    let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
+                    self.ip += 1;
+                    *byte
+                }
+
+                #[cfg(debug_assertions)]
                 match self.chunk.bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
@@ -954,15 +962,25 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 2) {
-                    Some(u16_bytes) => {
-                        self.ip += 2;
-                        u16::from_le_bytes(u16_bytes.try_into().unwrap())
-                    }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 2 bytes at position {}", self.ip),
-                        });
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
+                    self.ip += 2;
+                    u16::from_le_bytes(bytes.try_into().unwrap())
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                        Some(u16_bytes) => {
+                            self.ip += 2;
+                            u16::from_le_bytes(u16_bytes.try_into().unwrap())
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 2 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
@@ -970,15 +988,25 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u32 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 4) {
-                    Some(u32_bytes) => {
-                        self.ip += 4;
-                        u32::from_le_bytes(u32_bytes.try_into().unwrap())
-                    }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 4 bytes at position {}", self.ip),
-                        });
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 4) };
+                    self.ip += 4;
+                    u32::from_le_bytes(bytes.try_into().unwrap())
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 4) {
+                        Some(u32_bytes) => {
+                            self.ip += 4;
+                            u32::from_le_bytes(u32_bytes.try_into().unwrap())
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 4 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
@@ -986,16 +1014,27 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16_constant {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 2) {
-                    Some(bytes) => {
-                        self.ip += 2;
-                        let bytes: [u8; 2] = bytes.try_into().unwrap();
-                        ConstantIndex::from(bytes)
-                    }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 2 bytes at position {}", self.ip),
-                        });
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
+                    self.ip += 2;
+                    let bytes: [u8; 2] = bytes.try_into().unwrap();
+                    ConstantIndex::from(bytes)
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                        Some(bytes) => {
+                            self.ip += 2;
+                            let bytes: [u8; 2] = bytes.try_into().unwrap();
+                            ConstantIndex::from(bytes)
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 2 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
@@ -1003,16 +1042,27 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u24_constant {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 3) {
-                    Some(bytes) => {
-                        self.ip += 3;
-                        let bytes: [u8; 3] = bytes.try_into().unwrap();
-                        ConstantIndex::from(bytes)
-                    }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 3 bytes at position {}", self.ip),
-                        });
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 3) };
+                    self.ip += 3;
+                    let bytes: [u8; 3] = bytes.try_into().unwrap();
+                    ConstantIndex::from(bytes)
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 3) {
+                        Some(bytes) => {
+                            self.ip += 3;
+                            let bytes: [u8; 3] = bytes.try_into().unwrap();
+                            ConstantIndex::from(bytes)
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 3 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
