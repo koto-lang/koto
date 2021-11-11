@@ -255,8 +255,15 @@ pub enum Op {
 
     /// Negates a value
     ///
+    /// Used for the unary negation operator, i.e. `x = -y`
+    ///
     /// `[*target, *source]`
     Negate,
+
+    /// Flips the value of a boolean
+    ///
+    /// `[*target, *source]`
+    Not,
 
     /// Adds lhs and rhs together
     ///
@@ -511,7 +518,6 @@ pub enum Op {
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused89,
     Unused90,
     Unused91,
     Unused92,

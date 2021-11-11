@@ -177,10 +177,18 @@ pub enum Node {
         expression: AstIndex,
     },
 
+    /// A unary operation
+    UnaryOp {
+        /// The operator to use
+        op: AstUnaryOp,
+        /// The value used in the operation
+        value: AstIndex,
+    },
+
     /// A binary operation
     BinaryOp {
         /// The operator to use
-        op: AstOp,
+        op: AstBinaryOp,
         /// The "left hand side" of the operation
         lhs: AstIndex,
         /// The "right hand side" of the operation
@@ -245,11 +253,6 @@ pub enum Node {
     /// A return expression, with optional return value
     Return(Option<AstIndex>),
 
-    /// A negation expression
-    ///
-    /// Used for both inverting the sign of a numerical value and for the `not` operator.
-    Negate(AstIndex),
-
     /// A try expression
     Try(AstTry),
 
@@ -302,12 +305,12 @@ impl fmt::Display for Node {
             Map(_) => write!(f, "Map"),
             MainBlock { .. } => write!(f, "MainBlock"),
             Block(_) => write!(f, "Block"),
-            Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             NamedCall { .. } => write!(f, "NamedCall"),
             Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
+            UnaryOp { .. } => write!(f, "UnaryOp"),
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
@@ -401,10 +404,18 @@ pub struct AstIf {
     pub else_node: Option<AstIndex>,
 }
 
+/// An operation used in UnaryOp expressions
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(missing_docs)]
+pub enum AstUnaryOp {
+    Negate,
+    Not,
+}
+
 /// An operation used in BinaryOp expressions
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(missing_docs)]
-pub enum AstOp {
+pub enum AstBinaryOp {
     Add,
     Subtract,
     Multiply,
@@ -572,6 +583,8 @@ pub enum MetaKeyId {
     Display,
     /// @negate
     Negate,
+    /// @not
+    Not,
     /// @type
     Type,
 

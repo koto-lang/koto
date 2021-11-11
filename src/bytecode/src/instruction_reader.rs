@@ -201,7 +201,11 @@ pub enum Instruction {
     },
     Negate {
         register: u8,
-        source: u8,
+        value: u8,
+    },
+    Not {
+        register: u8,
+        value: u8,
     },
     Add {
         register: u8,
@@ -440,6 +444,7 @@ impl fmt::Display for Instruction {
             Function { .. } => write!(f, "Function"),
             Capture { .. } => write!(f, "Capture"),
             Negate { .. } => write!(f, "Negate"),
+            Not { .. } => write!(f, "Not"),
             Add { .. } => write!(f, "Add"),
             Subtract { .. } => write!(f, "Subtract"),
             Multiply { .. } => write!(f, "Multiply"),
@@ -638,8 +643,11 @@ impl fmt::Debug for Instruction {
                 "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
                 function, target, source
             ),
-            Negate { register, source } => {
-                write!(f, "Negate\t\tresult: {}\tsource: {}", register, source)
+            Negate { register, value } => {
+                write!(f, "Negate\t\tresult: {}\tsource: {}", register, value)
+            }
+            Not { register, value } => {
+                write!(f, "Not\t\tresult: {}\tsource: {}", register, value)
             }
             Add { register, lhs, rhs } => write!(
                 f,
@@ -871,8 +879,15 @@ impl fmt::Debug for Instruction {
             CheckSize { register, size } => {
                 write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
             }
-            StringStart { register, size_hint } => {
-                write!(f, "StringStart\tregister: {}\t size hint: {}", register, size_hint)
+            StringStart {
+                register,
+                size_hint,
+            } => {
+                write!(
+                    f,
+                    "StringStart\tregister: {}\tsize hint: {}",
+                    register, size_hint
+                )
             }
             StringPush { register, value } => {
                 write!(f, "StringPush\tregister: {}\tvalue: {}", register, value)
@@ -1155,7 +1170,11 @@ impl Iterator for InstructionReader {
             }),
             Op::Negate => Some(Negate {
                 register: get_u8!(),
-                source: get_u8!(),
+                value: get_u8!(),
+            }),
+            Op::Not => Some(Not {
+                register: get_u8!(),
+                value: get_u8!(),
             }),
             Op::Add => Some(Add {
                 register: get_u8!(),

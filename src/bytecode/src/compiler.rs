@@ -1,9 +1,9 @@
 use {
     crate::{DebugInfo, FunctionFlags, Op, TypeId},
     koto_parser::{
-        AssignOp, AssignTarget, Ast, AstFor, AstIf, AstIndex, AstNode, AstOp, AstTry,
-        ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm, MetaKeyId, Node,
-        Scope, Span, StringNode, SwitchArm,
+        AssignOp, AssignTarget, Ast, AstBinaryOp, AstFor, AstIf, AstIndex, AstNode, AstTry,
+        AstUnaryOp, ConstantIndex, Function, ImportItemNode, LookupNode, MapKey, MatchArm,
+        MetaKeyId, Node, Scope, Span, StringNode, SwitchArm,
     },
     smallvec::SmallVec,
     std::{convert::TryFrom, error, fmt},
@@ -553,7 +553,6 @@ impl Compiler {
             Node::TempTuple(elements) => {
                 self.compile_make_temp_tuple(result_register, elements, ast)?
             }
-            Node::Negate(expression) => self.compile_negate(result_register, *expression, ast)?,
             Node::Function(f) => self.compile_function(result_register, f, ast)?,
             Node::NamedCall { id, args } => {
                 self.compile_named_call(result_register, *id, args, None, ast)?
@@ -570,6 +569,9 @@ impl Compiler {
                 targets,
                 expression,
             } => self.compile_multi_assign(result_register, targets, *expression, ast)?,
+            Node::UnaryOp { op, value } => {
+                self.compile_unary_op(result_register, *op, *value, ast)?
+            }
             Node::BinaryOp { op, lhs, rhs } => {
                 self.compile_binary_op(result_register, *op, *lhs, *rhs, ast)?
             }
@@ -980,35 +982,35 @@ impl Compiler {
             }
             AssignOp::Add => self.compile_binary_op(
                 value_result_register,
-                AstOp::Add,
+                AstBinaryOp::Add,
                 target.target_index,
                 expression,
                 ast,
             )?,
             AssignOp::Subtract => self.compile_binary_op(
                 value_result_register,
-                AstOp::Subtract,
+                AstBinaryOp::Subtract,
                 target.target_index,
                 expression,
                 ast,
             )?,
             AssignOp::Multiply => self.compile_binary_op(
                 value_result_register,
-                AstOp::Multiply,
+                AstBinaryOp::Multiply,
                 target.target_index,
                 expression,
                 ast,
             )?,
             AssignOp::Divide => self.compile_binary_op(
                 value_result_register,
-                AstOp::Divide,
+                AstBinaryOp::Divide,
                 target.target_index,
                 expression,
                 ast,
             )?,
             AssignOp::Modulo => self.compile_binary_op(
                 value_result_register,
-                AstOp::Modulo,
+                AstBinaryOp::Modulo,
                 target.target_index,
                 expression,
                 ast,
@@ -1514,22 +1516,51 @@ impl Compiler {
         }
     }
 
+    fn compile_unary_op(
+        &mut self,
+        result_register: ResultRegister,
+        op: AstUnaryOp,
+        value: AstIndex,
+        ast: &Ast,
+    ) -> CompileNodeResult {
+        let result = self.get_result_register(result_register)?;
+
+        let value_register = self
+            .compile_node(ResultRegister::Any, ast.node(value), ast)?
+            .unwrap();
+
+        if let Some(result) = result {
+            let op_code = match op {
+                AstUnaryOp::Negate => Op::Negate,
+                AstUnaryOp::Not => Op::Not,
+            };
+
+            self.push_op(op_code, &[result.register, value_register.register]);
+        }
+
+        if value_register.is_temporary {
+            self.pop_register()?;
+        }
+
+        Ok(result)
+    }
+
     fn compile_binary_op(
         &mut self,
         result_register: ResultRegister,
-        op: AstOp,
+        op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use AstOp::*;
+        use AstBinaryOp::*;
 
         let lhs_node = ast.node(lhs);
         let rhs_node = ast.node(rhs);
 
         match op {
             Add | Subtract | Multiply | Divide | Modulo => {
-                self.compile_op(result_register, op, lhs_node, rhs_node, ast)
+                self.compile_arithmetic_op(result_register, op, lhs_node, rhs_node, ast)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
                 self.compile_comparison_op(result_register, op, lhs_node, rhs_node, ast)
@@ -1539,15 +1570,15 @@ impl Compiler {
         }
     }
 
-    fn compile_op(
+    fn compile_arithmetic_op(
         &mut self,
         result_register: ResultRegister,
-        op: AstOp,
+        op: AstBinaryOp,
         lhs_node: &AstNode,
         rhs_node: &AstNode,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use AstOp::*;
+        use AstBinaryOp::*;
 
         let op = match op {
             Add => Op::Add,
@@ -1591,12 +1622,12 @@ impl Compiler {
     fn compile_comparison_op(
         &mut self,
         result_register: ResultRegister,
-        ast_op: AstOp,
+        ast_op: AstBinaryOp,
         lhs: &AstNode,
         rhs: &AstNode,
         ast: &Ast,
     ) -> CompileNodeResult {
-        use AstOp::*;
+        use AstBinaryOp::*;
 
         let get_comparision_op = |ast_op| {
             Ok(match ast_op {
@@ -1691,7 +1722,7 @@ impl Compiler {
     fn compile_logic_op(
         &mut self,
         result_register: ResultRegister,
-        op: AstOp,
+        op: AstBinaryOp,
         lhs: AstIndex,
         rhs: AstIndex,
         ast: &Ast,
@@ -1708,8 +1739,8 @@ impl Compiler {
         self.compile_node(ResultRegister::Fixed(register), ast.node(lhs), ast)?;
 
         let jump_op = match op {
-            AstOp::And => Op::JumpFalse,
-            AstOp::Or => Op::JumpTrue,
+            AstBinaryOp::And => Op::JumpFalse,
+            AstBinaryOp::Or => Op::JumpTrue,
             _ => unreachable!(),
         };
 
@@ -1719,29 +1750,6 @@ impl Compiler {
         self.compile_node_with_jump_offset(ResultRegister::Fixed(register), ast.node(rhs), ast)?;
 
         if result.is_none() {
-            self.pop_register()?;
-        }
-
-        Ok(result)
-    }
-
-    fn compile_negate(
-        &mut self,
-        result_register: ResultRegister,
-        expression: AstIndex,
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        let result = self.get_result_register(result_register)?;
-
-        let source = self
-            .compile_node(ResultRegister::Any, ast.node(expression), ast)?
-            .unwrap();
-
-        if let Some(result) = result {
-            self.push_op(Op::Negate, &[result.register, source.register]);
-        }
-
-        if source.is_temporary {
             self.pop_register()?;
         }
 

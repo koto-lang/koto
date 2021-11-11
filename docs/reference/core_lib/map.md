@@ -142,6 +142,9 @@ Additionally, the following meta functions can customize object behaviour:
 - `@negate`
   - Overloads the unary negation operator:
     - `@negate: |self| make_x -self.data`
+- `@not`
+  - Overloads the unary `not` operator:
+    - `@not: |self| self.data == 0`
 - `@index`
   - Overloads `[]` indexing:
     - `@index: |self, index| self.data + index`

@@ -357,6 +357,7 @@ impl Vm {
 
         match op {
             UnaryOp::Negate => self.run_negate(result_register, value_register)?,
+            UnaryOp::Not => self.run_not(result_register, value_register)?,
             UnaryOp::Display => self.run_display(result_register, value_register)?,
         }
 
@@ -729,7 +730,8 @@ impl Vm {
                 target,
                 source,
             } => self.run_capture_value(function, target, source),
-            Instruction::Negate { register, source } => self.run_negate(register, source),
+            Instruction::Negate { register, value } => self.run_negate(register, value),
+            Instruction::Not { register, value } => self.run_not(register, value),
             Instruction::Add { register, lhs, rhs } => self.run_add(register, lhs, rhs),
             Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
             Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
@@ -1271,7 +1273,6 @@ impl Vm {
         use {UnaryOp::Negate, Value::*};
 
         let result_value = match &self.get_register(value) {
-            Bool(b) => Bool(!b),
             Number(n) => Number(-n),
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
@@ -1281,6 +1282,28 @@ impl Vm {
             }
             ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Negate)) => {
                 let op = v.meta().get(&MetaKey::UnaryOp(Negate)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            unexpected => {
+                return self.unexpected_type_error("Negate: expected negatable value", unexpected);
+            }
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
+    }
+
+    fn run_not(&mut self, result: u8, value: u8) -> InstructionResult {
+        use {UnaryOp::Not, Value::*};
+
+        let result_value = match &self.get_register(value) {
+            Bool(b) => Bool(!b),
+            Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Not)) => {
+                let op = map.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Not)) => {
+                let op = v.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             unexpected => {

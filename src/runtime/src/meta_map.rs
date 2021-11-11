@@ -439,6 +439,7 @@ impl fmt::Display for BinaryOp {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     Negate,
+    Not,
     Display,
 }
 
@@ -451,6 +452,7 @@ impl fmt::Display for UnaryOp {
             "{}",
             match self {
                 Negate => "negate",
+                Not => "not",
                 Display => "display",
             }
         )
@@ -474,6 +476,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::NotEqual => MetaKey::BinaryOp(NotEqual),
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
+        MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),
         MetaKeyId::Named => {
             MetaKey::Named(name.ok_or_else(|| "Missing name for named meta entry".to_string())?)
