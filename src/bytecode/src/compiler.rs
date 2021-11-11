@@ -2393,13 +2393,17 @@ impl Compiler {
                                 ast,
                             )?;
                         } else if let Some(result_register) = chain_result_register {
+                            // TODO use compile_access_string
                             let key_register = self.push_register()?;
                             self.compile_string(
                                 ResultRegister::Fixed(key_register),
                                 &lookup_string.nodes,
                                 ast,
                             )?;
-                            self.push_op(Access, &[result_register, parent_register, key_register]);
+                            self.push_op(
+                                AccessString,
+                                &[result_register, parent_register, key_register],
+                            );
                             node_registers.push(result_register);
                             self.pop_register()?;
                         }
@@ -2407,12 +2411,16 @@ impl Compiler {
                         let node_register = self.push_register()?;
                         let key_register = self.push_register()?;
                         node_registers.push(node_register);
+                        // TODO use compile_access_string
                         self.compile_string(
                             ResultRegister::Fixed(key_register),
                             &lookup_string.nodes,
                             ast,
                         )?;
-                        self.push_op(Access, &[node_register, parent_register, key_register]);
+                        self.push_op(
+                            AccessString,
+                            &[node_register, parent_register, key_register],
+                        );
                         self.pop_register()?; // key_register
                     }
                 }
@@ -2614,14 +2622,18 @@ impl Compiler {
 
     fn compile_access_id(
         &mut self,
-        result_register: u8,
-        value_register: u8,
+        result: u8,
+        value: u8,
         key: ConstantIndex,
     ) -> Result<(), CompilerError> {
-        let key_register = self.push_register()?;
-        self.compile_load_string_constant(key_register, key);
-        self.push_op(Op::Access, &[result_register, value_register, key_register]);
-        self.pop_register()?;
+        use Op::*;
+
+        match key.bytes() {
+            [byte1, 0, 0] => self.push_op(Access, &[result, value, byte1]),
+            [byte1, byte2, 0] => self.push_op(Access16, &[result, value, byte1, byte2]),
+            [byte1, byte2, byte3] => self.push_op(Access24, &[result, value, byte1, byte2, byte3]),
+        }
+
         Ok(())
     }
 
@@ -2634,7 +2646,10 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         let key_register = self.push_register()?;
         self.compile_string(ResultRegister::Fixed(key_register), key_string_nodes, ast)?;
-        self.push_op(Op::Access, &[result_register, value_register, key_register]);
+        self.push_op(
+            Op::AccessString,
+            &[result_register, value_register, key_register],
+        );
         self.pop_register()?;
         Ok(())
     }

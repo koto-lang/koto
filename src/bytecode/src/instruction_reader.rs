@@ -374,6 +374,11 @@ pub enum Instruction {
     Access {
         register: u8,
         value: u8,
+        key: ConstantIndex,
+    },
+    AccessString {
+        register: u8,
+        value: u8,
         key: u8,
     },
     TryStart {
@@ -481,6 +486,7 @@ impl fmt::Display for Instruction {
             MetaExport { .. } => write!(f, "MetaExport"),
             MetaExportNamed { .. } => write!(f, "MetaExportNamed"),
             Access { .. } => write!(f, "Access"),
+            AccessString { .. } => write!(f, "AccessString"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
             Debug { .. } => write!(f, "Debug"),
@@ -859,6 +865,15 @@ impl fmt::Debug for Instruction {
             } => write!(
                 f,
                 "Access\t\tresult: {}\tvalue: {}\tkey: {}",
+                register, value, key
+            ),
+            AccessString {
+                register,
+                value,
+                key,
+            } => write!(
+                f,
+                "AccessString\tresult: {}\tvalue: {}\tkey: {}",
                 register, value, key
             ),
             TryStart {
@@ -1395,6 +1410,23 @@ impl Iterator for InstructionReader {
                 }
             }
             Op::Access => Some(Access {
+                register: get_u8!(),
+                value: get_u8!(),
+                key: ConstantIndex(get_u8!(), 0, 0),
+            }),
+            Op::Access16 => Some(Access {
+                register: get_u8!(),
+                value: get_u8!(),
+                // TODO get_u16_constant!()
+                key: ConstantIndex(get_u8!(), get_u8!(), 0),
+            }),
+            Op::Access24 => Some(Access {
+                register: get_u8!(),
+                value: get_u8!(),
+                // TODO get_u24_constant!()
+                key: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+            }),
+            Op::AccessString => Some(AccessString {
                 register: get_u8!(),
                 value: get_u8!(),
                 key: get_u8!(),

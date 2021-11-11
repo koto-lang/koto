@@ -460,12 +460,27 @@ pub enum Op {
     /// `[*name, *value]`
     ValueExport,
 
-    /// Access a contained value via key
+    /// Accesses a contained value via a constant key
     ///
-    /// Used in '.' access operations.
+    /// `[*target, constant]`
+    Access,
+
+    /// Accesses a contained value via a u16 constant key
+    ///
+    /// `[*target, constant[2]]`
+    Access16,
+
+    /// Accesses a contained value via a u24 constant key
+    ///
+    /// `[*target, constant[3]]`
+    Access24,
+
+    /// Access a contained value via a string key
+    ///
+    /// Used in '.' access operations that use a quoted string, e.g. `foo."bar"`.
     ///
     /// `[*result, *value, *key]`
-    Access,
+    AccessString,
 
     /// Sets the result register to true if the value is a List
     ///
@@ -518,9 +533,6 @@ pub enum Op {
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused90,
-    Unused91,
-    Unused92,
     Unused93,
     Unused94,
     Unused95,

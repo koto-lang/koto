@@ -894,7 +894,18 @@ impl Vm {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, key),
+            } => self.run_access(register, value, self.value_string_from_constant(key)),
+            Instruction::AccessString {
+                register,
+                value,
+                key,
+            } => {
+                let key_string = match self.clone_register(key) {
+                    Str(s) => s,
+                    other => return self.unexpected_type_error("Access: expected string", &other),
+                };
+                self.run_access(register, value, key_string)
+            }
             Instruction::TryStart {
                 arg_register,
                 catch_offset,
@@ -2533,15 +2544,11 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key_register: u8,
+        key_string: ValueString,
     ) -> InstructionResult {
         use Value::*;
 
         let accessed_value = self.clone_register(value_register);
-        let key_string = match self.clone_register(key_register) {
-            Str(s) => s,
-            other => return self.unexpected_type_error("Access: expected string", &other),
-        };
         let key = ValueKey::from(key_string.clone());
 
         macro_rules! core_op {
