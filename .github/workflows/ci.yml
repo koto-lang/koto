@@ -33,7 +33,7 @@ jobs:
       - name: Run poetry example
         run: cargo run --example poetry -- -s examples/poetry/scripts/readme.koto
 
-  fmt_and_clippy:
+  code_checks:
     runs-on: ubuntu-latest
 
     steps:
@@ -50,6 +50,11 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets --all-features
+
+      - name: Docs
+        run: cargo doc --workspace --exclude koto_cli
+        env:
+          RUSTDOCFLAGS: -Dwarnings
 
   wasm:
     runs-on: ubuntu-latest

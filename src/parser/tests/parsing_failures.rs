@@ -9,7 +9,7 @@ mod parser {
             panic!(
                 "Unexpected success while parsing:\n{}\n{:#?}",
                 source,
-                ast.0.nodes()
+                ast.nodes()
             );
         }
     }
@@ -20,7 +20,7 @@ mod parser {
             panic!(
                 "Unexpected success while parsing:\n{}\n{:#?}",
                 source,
-                ast.0.nodes()
+                ast.nodes()
             );
         }
     }

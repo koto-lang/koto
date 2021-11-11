@@ -218,8 +218,8 @@ pub struct Parser<'source> {
 }
 
 impl<'source> Parser<'source> {
-    /// Takes in a source script, and produces an Ast and associated [ConstantPool]
-    pub fn parse(source: &'source str) -> Result<(Ast, ConstantPool), ParserError> {
+    /// Takes in a source script, and produces an Ast
+    pub fn parse(source: &'source str) -> Result<Ast, ParserError> {
         let capacity_guess = source.len() / 4;
         let mut parser = Parser {
             ast: Ast::with_capacity(capacity_guess),
@@ -230,8 +230,9 @@ impl<'source> Parser<'source> {
 
         let main_block = parser.parse_main_block()?;
         parser.ast.set_entry_point(main_block);
+        parser.ast.set_constants(parser.constants.build());
 
-        Ok((parser.ast, parser.constants.build()))
+        Ok(parser.ast)
     }
 
     fn frame(&self) -> Result<&Frame, ParserError> {
@@ -827,6 +828,7 @@ impl<'source> Parser<'source> {
             Some(Token::GreaterOrEqual) => MetaKeyId::GreaterOrEqual,
             Some(Token::Equal) => MetaKeyId::Equal,
             Some(Token::NotEqual) => MetaKeyId::NotEqual,
+            Some(Token::Not) => MetaKeyId::Not,
             Some(Token::Id) => match self.lexer.slice() {
                 "display" => MetaKeyId::Display,
                 "negate" => MetaKeyId::Negate,
@@ -1455,7 +1457,11 @@ impl<'source> Parser<'source> {
                     Some(_) => {
                         self.consume_next_token(context);
                         if let Some(term) = self.parse_term(&mut ExpressionContext::restricted())? {
-                            Some(self.push_node(Node::Negate(term))?)
+                            let result = self.push_node(Node::UnaryOp {
+                                op: AstUnaryOp::Negate,
+                                value: term,
+                            })?;
+                            Some(result)
                         } else {
                             return syntax_error!(ExpectedExpression, self);
                         }
@@ -1469,7 +1475,11 @@ impl<'source> Parser<'source> {
                         expected_indentation: Indentation::Greater,
                         ..*context
                     })? {
-                        Some(self.push_node(Node::Negate(expression))?)
+                        let result = self.push_node(Node::UnaryOp {
+                            op: AstUnaryOp::Not,
+                            value: expression,
+                        })?;
+                        Some(result)
                     } else {
                         return syntax_error!(ExpectedExpression, self);
                     }
@@ -2821,24 +2831,24 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         use Token::*;
         let ast_op = match op {
-            Add => AstOp::Add,
-            Subtract => AstOp::Subtract,
-            Multiply => AstOp::Multiply,
-            Divide => AstOp::Divide,
-            Modulo => AstOp::Modulo,
+            Add => AstBinaryOp::Add,
+            Subtract => AstBinaryOp::Subtract,
+            Multiply => AstBinaryOp::Multiply,
+            Divide => AstBinaryOp::Divide,
+            Modulo => AstBinaryOp::Modulo,
 
-            Equal => AstOp::Equal,
-            NotEqual => AstOp::NotEqual,
+            Equal => AstBinaryOp::Equal,
+            NotEqual => AstBinaryOp::NotEqual,
 
-            Greater => AstOp::Greater,
-            GreaterOrEqual => AstOp::GreaterOrEqual,
-            Less => AstOp::Less,
-            LessOrEqual => AstOp::LessOrEqual,
+            Greater => AstBinaryOp::Greater,
+            GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
+            Less => AstBinaryOp::Less,
+            LessOrEqual => AstBinaryOp::LessOrEqual,
 
-            And => AstOp::And,
-            Or => AstOp::Or,
+            And => AstBinaryOp::And,
+            Or => AstBinaryOp::Or,
 
-            Pipe => AstOp::Pipe,
+            Pipe => AstBinaryOp::Pipe,
 
             _ => unreachable!(),
         };

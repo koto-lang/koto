@@ -1616,7 +1616,6 @@ m.foo 1, 2, 3
             let script = "
 m =
   foo: |self, first, xs...|
-    debug self
     for x in xs
       yield self.offset + first + x
     self.offset + xs.fold x, |a, b| a + b

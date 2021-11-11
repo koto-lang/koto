@@ -2,7 +2,7 @@ clippy:
   cargo watch -x "clippy --all-targets --all-features"
 
 doc:
-  cargo watch -x "doc --workspace --exclude koto_cli --open"
+  cargo watch -x "doc --workspace --exclude koto_cli"
 
 fmt:
   cargo fmt --all -- --check

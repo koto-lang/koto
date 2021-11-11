@@ -6,6 +6,7 @@ use {
 
 #[derive(Debug)]
 #[repr(u8)]
+#[allow(missing_docs)]
 pub enum TypeId {
     List,
     Tuple,
@@ -23,17 +24,25 @@ impl TypeId {
     }
 }
 
+/// Flags used to define the properties of a Function
 pub struct FunctionFlags {
+    /// True if the function is an instance function
     pub instance_function: bool,
+    /// True if the function has a variadic argument
     pub variadic: bool,
+    /// True if the function is a generator
     pub generator: bool,
 }
 
 impl FunctionFlags {
-    pub const INSTANCE: u8 = 0b0000001;
-    pub const VARIADIC: u8 = 0b0000010;
-    pub const GENERATOR: u8 = 0b0000100;
+    /// Corresponding to [FunctionFlags::instance_function]
+    pub const INSTANCE: u8 = 1 << 0;
+    /// Corresponding to [FunctionFlags::variadic]
+    pub const VARIADIC: u8 = 1 << 1;
+    /// Corresponding to [FunctionFlags::generator]
+    pub const GENERATOR: u8 = 1 << 2;
 
+    /// Initializes a flags struct from a byte
     pub fn from_byte(byte: u8) -> Self {
         Self {
             instance_function: byte & Self::INSTANCE == Self::INSTANCE,
@@ -42,6 +51,7 @@ impl FunctionFlags {
         }
     }
 
+    /// Returns a byte containing the packed flags
     pub fn as_byte(&self) -> u8 {
         let mut result = 0;
         if self.instance_function {
@@ -58,6 +68,9 @@ impl FunctionFlags {
 }
 
 /// Decoded instructions produced by an [InstructionReader] for execution in the runtime
+///
+/// For descriptions of each instruction's purpose, see corresponding [Op] entries.
+#[allow(missing_docs)]
 pub enum Instruction {
     Error {
         message: String,
@@ -111,13 +124,13 @@ pub enum Instruction {
     },
     MakeNum2 {
         register: u8,
-        count: u8,
         element_register: u8,
+        count: u8,
     },
     MakeNum4 {
         register: u8,
-        count: u8,
         element_register: u8,
+        count: u8,
     },
     SequenceStart {
         register: u8,
@@ -188,7 +201,11 @@ pub enum Instruction {
     },
     Negate {
         register: u8,
-        source: u8,
+        value: u8,
+    },
+    Not {
+        register: u8,
+        value: u8,
     },
     Add {
         register: u8,
@@ -256,23 +273,18 @@ pub enum Instruction {
     JumpBack {
         offset: usize,
     },
-    JumpBackIf {
-        register: u8,
-        offset: usize,
-        jump_condition: bool,
-    },
     Call {
         result: u8,
         function: u8,
         frame_base: u8,
         arg_count: u8,
     },
-    CallChild {
+    CallInstance {
         result: u8,
         function: u8,
         frame_base: u8,
         arg_count: u8,
-        parent: u8,
+        instance: u8,
     },
     Return {
         register: u8,
@@ -301,7 +313,7 @@ pub enum Instruction {
         iterator: u8,
         jump_offset: usize,
     },
-    ValueIndex {
+    TempIndex {
         register: u8,
         value: u8,
         index: i8,
@@ -362,6 +374,11 @@ pub enum Instruction {
     Access {
         register: u8,
         value: u8,
+        key: ConstantIndex,
+    },
+    AccessString {
+        register: u8,
+        value: u8,
         key: u8,
     },
     TryStart {
@@ -383,6 +400,7 @@ pub enum Instruction {
     },
     StringStart {
         register: u8,
+        size_hint: usize,
     },
     StringPush {
         register: u8,
@@ -431,6 +449,7 @@ impl fmt::Display for Instruction {
             Function { .. } => write!(f, "Function"),
             Capture { .. } => write!(f, "Capture"),
             Negate { .. } => write!(f, "Negate"),
+            Not { .. } => write!(f, "Not"),
             Add { .. } => write!(f, "Add"),
             Subtract { .. } => write!(f, "Subtract"),
             Multiply { .. } => write!(f, "Multiply"),
@@ -445,9 +464,8 @@ impl fmt::Display for Instruction {
             Jump { .. } => write!(f, "Jump"),
             JumpIf { .. } => write!(f, "JumpIf"),
             JumpBack { .. } => write!(f, "JumpBack"),
-            JumpBackIf { .. } => write!(f, "JumpBackIf"),
             Call { .. } => write!(f, "Call"),
-            CallChild { .. } => write!(f, "CallChild"),
+            CallInstance { .. } => write!(f, "CallInstance"),
             Return { .. } => write!(f, "Return"),
             Yield { .. } => write!(f, "Yield"),
             Throw { .. } => write!(f, "Throw"),
@@ -455,7 +473,7 @@ impl fmt::Display for Instruction {
             IterNext { .. } => write!(f, "IterNext"),
             IterNextTemp { .. } => write!(f, "IterNextTemp"),
             IterNextQuiet { .. } => write!(f, "IterNextQuiet"),
-            ValueIndex { .. } => write!(f, "ValueIndex"),
+            TempIndex { .. } => write!(f, "TempIndex"),
             SliceFrom { .. } => write!(f, "SliceFrom"),
             SliceTo { .. } => write!(f, "SliceTo"),
             IsTuple { .. } => write!(f, "IsTuple"),
@@ -468,6 +486,7 @@ impl fmt::Display for Instruction {
             MetaExport { .. } => write!(f, "MetaExport"),
             MetaExportNamed { .. } => write!(f, "MetaExportNamed"),
             Access { .. } => write!(f, "Access"),
+            AccessString { .. } => write!(f, "AccessString"),
             TryStart { .. } => write!(f, "TryStart"),
             TryEnd => write!(f, "TryEnd"),
             Debug { .. } => write!(f, "Debug"),
@@ -617,8 +636,8 @@ impl fmt::Debug for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}\n\
-                     \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
+                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}
+                 \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
                 register, arg_count, capture_count, size, instance_function, variadic, generator,
             ),
             Capture {
@@ -630,8 +649,11 @@ impl fmt::Debug for Instruction {
                 "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
                 function, target, source
             ),
-            Negate { register, source } => {
-                write!(f, "Negate\t\tresult: {}\tsource: {}", register, source)
+            Negate { register, value } => {
+                write!(f, "Negate\t\tresult: {}\tsource: {}", register, value)
+            }
+            Not { register, value } => {
+                write!(f, "Not\t\tresult: {}\tsource: {}", register, value)
             }
             Add { register, lhs, rhs } => write!(
                 f,
@@ -699,15 +721,6 @@ impl fmt::Debug for Instruction {
                 register, offset, jump_condition
             ),
             JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
-            JumpBackIf {
-                register,
-                offset,
-                jump_condition,
-            } => write!(
-                f,
-                "JumpBackIf\tresult: {}\toffset: {}\tcondition: {}",
-                register, offset, jump_condition
-            ),
             Call {
                 result,
                 function,
@@ -718,16 +731,17 @@ impl fmt::Debug for Instruction {
                 "Call\t\tresult: {}\tfunction: {}\tframe base: {}\targs: {}",
                 result, function, frame_base, arg_count
             ),
-            CallChild {
+            CallInstance {
                 result,
                 function,
-                parent,
                 frame_base,
                 arg_count,
+                instance,
             } => write!(
                 f,
-                "CallChild\tresult: {}\tfunction: {}\tframe_base: {}\n\t\t\targs: {}\t\tparent: {}",
-                result, function, frame_base, arg_count, parent
+                "CallInstance\tresult: {}\tfunction: {}\tframe_base: {}
+                 \t\t\targs: {}\t\tinstance: {}",
+                result, function, frame_base, arg_count, instance
             ),
             Return { register } => write!(f, "Return\t\tresult: {}", register),
             Yield { register } => write!(f, "Yield\t\tresult: {}", register),
@@ -759,13 +773,13 @@ impl fmt::Debug for Instruction {
                 "IterNextQuiet\titerator: {}\tjump offset: {}",
                 iterator, jump_offset
             ),
-            ValueIndex {
+            TempIndex {
                 register,
                 value,
                 index,
             } => write!(
                 f,
-                "ValueIndex\tresult: {}\tvalue: {}\tindex: {}",
+                "TempIndex\tresult: {}\tvalue: {}\tindex: {}",
                 register, value, index
             ),
             SliceFrom {
@@ -853,6 +867,15 @@ impl fmt::Debug for Instruction {
                 "Access\t\tresult: {}\tvalue: {}\tkey: {}",
                 register, value, key
             ),
+            AccessString {
+                register,
+                value,
+                key,
+            } => write!(
+                f,
+                "AccessString\tresult: {}\tvalue: {}\tkey: {}",
+                register, value, key
+            ),
             TryStart {
                 arg_register,
                 catch_offset,
@@ -871,8 +894,15 @@ impl fmt::Debug for Instruction {
             CheckSize { register, size } => {
                 write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
             }
-            StringStart { register } => {
-                write!(f, "StringStart\tregister: {}", register)
+            StringStart {
+                register,
+                size_hint,
+            } => {
+                write!(
+                    f,
+                    "StringStart\tregister: {}\tsize hint: {}",
+                    register, size_hint
+                )
             }
             StringPush { register, value } => {
                 write!(f, "StringPush\tregister: {}\tvalue: {}", register, value)
@@ -887,11 +917,14 @@ impl fmt::Debug for Instruction {
 /// An iterator that converts bytecode into a series of [Instruction]s
 #[derive(Clone, Default)]
 pub struct InstructionReader {
+    /// The chunk that the reader is reading from
     pub chunk: Arc<Chunk>,
+    /// The reader's instruction pointer
     pub ip: usize,
 }
 
 impl InstructionReader {
+    /// Initializes a reader with the given chunk
     pub fn new(chunk: Arc<Chunk>) -> Self {
         Self { chunk, ip: 0 }
     }
@@ -905,6 +938,14 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u8 {
             () => {{
+                #[cfg(not(debug_assertions))]
+                {
+                    let byte = unsafe { self.chunk.bytes.get_unchecked(self.ip) };
+                    self.ip += 1;
+                    *byte
+                }
+
+                #[cfg(debug_assertions)]
                 match self.chunk.bytes.get(self.ip) {
                     Some(byte) => {
                         self.ip += 1;
@@ -921,15 +962,25 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u16 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 2) {
-                    Some(u16_bytes) => {
-                        self.ip += 2;
-                        u16::from_le_bytes(u16_bytes.try_into().unwrap())
-                    }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 2 bytes at position {}", self.ip),
-                        });
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
+                    self.ip += 2;
+                    u16::from_le_bytes(bytes.try_into().unwrap())
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                        Some(u16_bytes) => {
+                            self.ip += 2;
+                            u16::from_le_bytes(u16_bytes.try_into().unwrap())
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 2 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
@@ -937,15 +988,81 @@ impl Iterator for InstructionReader {
 
         macro_rules! get_u32 {
             () => {{
-                match self.chunk.bytes.get(self.ip..self.ip + 4) {
-                    Some(u32_bytes) => {
-                        self.ip += 4;
-                        u32::from_le_bytes(u32_bytes.try_into().unwrap())
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 4) };
+                    self.ip += 4;
+                    u32::from_le_bytes(bytes.try_into().unwrap())
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 4) {
+                        Some(u32_bytes) => {
+                            self.ip += 4;
+                            u32::from_le_bytes(u32_bytes.try_into().unwrap())
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 4 bytes at position {}", self.ip),
+                            });
+                        }
                     }
-                    None => {
-                        return Some(Error {
-                            message: format!("Expected 4 bytes at position {}", self.ip),
-                        });
+                }
+            }};
+        }
+
+        macro_rules! get_u16_constant {
+            () => {{
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 2) };
+                    self.ip += 2;
+                    let bytes: [u8; 2] = bytes.try_into().unwrap();
+                    ConstantIndex::from(bytes)
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                        Some(bytes) => {
+                            self.ip += 2;
+                            let bytes: [u8; 2] = bytes.try_into().unwrap();
+                            ConstantIndex::from(bytes)
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 2 bytes at position {}", self.ip),
+                            });
+                        }
+                    }
+                }
+            }};
+        }
+
+        macro_rules! get_u24_constant {
+            () => {{
+                #[cfg(not(debug_assertions))]
+                {
+                    let bytes = unsafe { self.chunk.bytes.get_unchecked(self.ip..self.ip + 3) };
+                    self.ip += 3;
+                    let bytes: [u8; 3] = bytes.try_into().unwrap();
+                    ConstantIndex::from(bytes)
+                }
+
+                #[cfg(debug_assertions)]
+                {
+                    match self.chunk.bytes.get(self.ip..self.ip + 3) {
+                        Some(bytes) => {
+                            self.ip += 3;
+                            let bytes: [u8; 3] = bytes.try_into().unwrap();
+                            ConstantIndex::from(bytes)
+                        }
+                        None => {
+                            return Some(Error {
+                                message: format!("Expected 3 bytes at position {}", self.ip),
+                            });
+                        }
                     }
                 }
             }};
@@ -989,51 +1106,51 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadFloat16 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadFloat24 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadInt16 => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadInt24 => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadString16 => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadString24 => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadNonLocal16 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadNonLocal24 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -1057,13 +1174,13 @@ impl Iterator for InstructionReader {
             }),
             Op::MakeNum2 => Some(MakeNum2 {
                 register: get_u8!(),
-                count: get_u8!(),
                 element_register: get_u8!(),
+                count: get_u8!(),
             }),
             Op::MakeNum4 => Some(MakeNum4 {
                 register: get_u8!(),
-                count: get_u8!(),
                 element_register: get_u8!(),
+                count: get_u8!(),
             }),
             Op::SequenceStart => Some(SequenceStart {
                 register: get_u8!(),
@@ -1152,7 +1269,11 @@ impl Iterator for InstructionReader {
             }),
             Op::Negate => Some(Negate {
                 register: get_u8!(),
-                source: get_u8!(),
+                value: get_u8!(),
+            }),
+            Op::Not => Some(Not {
+                register: get_u8!(),
+                value: get_u8!(),
             }),
             Op::Add => Some(Add {
                 register: get_u8!(),
@@ -1225,23 +1346,18 @@ impl Iterator for InstructionReader {
             Op::JumpBack => Some(JumpBack {
                 offset: get_u16!() as usize,
             }),
-            Op::JumpBackFalse => Some(JumpBackIf {
-                register: get_u8!(),
-                offset: get_u16!() as usize,
-                jump_condition: false,
-            }),
             Op::Call => Some(Call {
                 result: get_u8!(),
                 function: get_u8!(),
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
             }),
-            Op::CallChild => Some(CallChild {
+            Op::CallInstance => Some(CallInstance {
                 result: get_u8!(),
                 function: get_u8!(),
                 frame_base: get_u8!(),
                 arg_count: get_u8!(),
-                parent: get_u8!(),
+                instance: get_u8!(),
             }),
             Op::Return => Some(Return {
                 register: get_u8!(),
@@ -1270,7 +1386,7 @@ impl Iterator for InstructionReader {
                 iterator: get_u8!(),
                 jump_offset: get_u16!() as usize,
             }),
-            Op::ValueIndex => Some(ValueIndex {
+            Op::TempIndex => Some(TempIndex {
                 register: get_u8!(),
                 value: get_u8!(),
                 index: get_u8!() as i8,
@@ -1380,6 +1496,21 @@ impl Iterator for InstructionReader {
             Op::Access => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
+                key: ConstantIndex::from(get_u8!()),
+            }),
+            Op::Access16 => Some(Access {
+                register: get_u8!(),
+                value: get_u8!(),
+                key: get_u16_constant!(),
+            }),
+            Op::Access24 => Some(Access {
+                register: get_u8!(),
+                value: get_u8!(),
+                key: get_u24_constant!(),
+            }),
+            Op::AccessString => Some(AccessString {
+                register: get_u8!(),
+                value: get_u8!(),
                 key: get_u8!(),
             }),
             Op::TryStart => Some(TryStart {
@@ -1389,7 +1520,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::CheckType => {
                 let register = get_u8!();
@@ -1406,6 +1537,11 @@ impl Iterator for InstructionReader {
             }),
             Op::StringStart => Some(StringStart {
                 register: get_u8!(),
+                size_hint: get_u8!() as usize,
+            }),
+            Op::StringStart32 => Some(StringStart {
+                register: get_u8!(),
+                size_hint: get_u32!() as usize,
             }),
             Op::StringPush => Some(StringPush {
                 register: get_u8!(),

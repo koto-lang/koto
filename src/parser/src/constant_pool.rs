@@ -32,9 +32,9 @@ pub enum Constant<'a> {
     Str(&'a str),
 }
 
-/// A constant pool produced by the [Parser] for a Koto script
+/// A constant pool produced by the [Parser](crate::Parser) for a Koto script
 ///
-/// A [ConstantPoolBuilder] is used to prepare the pool.
+/// A `ConstantPoolBuilder` is used to prepare the pool.
 #[derive(Clone, Debug)]
 pub struct ConstantPool {
     // The list of constants in the pool

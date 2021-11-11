@@ -357,6 +357,7 @@ impl Vm {
 
         match op {
             UnaryOp::Negate => self.run_negate(result_register, value_register)?,
+            UnaryOp::Not => self.run_not(result_register, value_register)?,
             UnaryOp::Display => self.run_display(result_register, value_register)?,
         }
 
@@ -589,7 +590,7 @@ impl Vm {
                 runtime_error!("{}", message)
             }
             Instruction::Copy { target, source } => {
-                self.run_copy(target, source);
+                self.set_register(target, self.clone_register(source));
                 Ok(())
             }
             Instruction::SetEmpty { register } => {
@@ -644,14 +645,14 @@ impl Vm {
             }
             Instruction::MakeNum2 {
                 register,
-                count,
                 element_register,
-            } => self.run_make_num2(register, count, element_register),
+                count,
+            } => self.run_make_num2(register, element_register, count),
             Instruction::MakeNum4 {
                 register,
-                count,
                 element_register,
-            } => self.run_make_num4(register, count, element_register),
+                count,
+            } => self.run_make_num4(register, element_register, count),
             Instruction::SequenceStart {
                 register,
                 size_hint,
@@ -674,8 +675,11 @@ impl Vm {
             }
             Instruction::SequenceToList { sequence } => self.run_sequence_to_list(sequence),
             Instruction::SequenceToTuple { sequence } => self.run_sequence_to_tuple(sequence),
-            Instruction::StringStart { register } => {
-                self.set_register(register, StringBuilder(String::new()));
+            Instruction::StringStart {
+                register,
+                size_hint,
+            } => {
+                self.set_register(register, StringBuilder(String::with_capacity(size_hint)));
                 Ok(())
             }
             Instruction::StringPush { register, value } => self.run_string_push(register, value),
@@ -726,7 +730,8 @@ impl Vm {
                 target,
                 source,
             } => self.run_capture_value(function, target, source),
-            Instruction::Negate { register, source } => self.run_negate(register, source),
+            Instruction::Negate { register, value } => self.run_negate(register, value),
+            Instruction::Not { register, value } => self.run_not(register, value),
             Instruction::Add { register, lhs, rhs } => self.run_add(register, lhs, rhs),
             Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
             Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
@@ -755,11 +760,6 @@ impl Vm {
                 self.jump_ip_back(offset);
                 Ok(())
             }
-            Instruction::JumpBackIf {
-                register,
-                offset,
-                jump_condition,
-            } => self.run_jump_back_if(register, offset, jump_condition),
             Instruction::Call {
                 result,
                 function,
@@ -772,18 +772,18 @@ impl Vm {
                 arg_count,
                 None,
             ),
-            Instruction::CallChild {
+            Instruction::CallInstance {
                 result,
                 function,
                 frame_base,
                 arg_count,
-                parent,
+                instance,
             } => self.call_callable(
                 result,
                 self.clone_register(function),
                 frame_base,
                 arg_count,
-                Some(parent),
+                Some(instance),
             ),
             Instruction::Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
@@ -845,11 +845,11 @@ impl Vm {
                 iterator,
                 jump_offset,
             } => self.run_iterator_next(None, iterator, jump_offset, false),
-            Instruction::ValueIndex {
+            Instruction::TempIndex {
                 register,
                 value,
                 index,
-            } => self.run_value_index(register, value, index),
+            } => self.run_temp_index(register, value, index),
             Instruction::SliceFrom {
                 register,
                 value,
@@ -894,7 +894,18 @@ impl Vm {
                 register,
                 value,
                 key,
-            } => self.run_access(register, value, key),
+            } => self.run_access(register, value, self.value_string_from_constant(key)),
+            Instruction::AccessString {
+                register,
+                value,
+                key,
+            } => {
+                let key_string = match self.clone_register(key) {
+                    Str(s) => s,
+                    other => return self.unexpected_type_error("Access: expected string", &other),
+                };
+                self.run_access(register, value, key_string)
+            }
             Instruction::TryStart {
                 arg_register,
                 catch_offset,
@@ -915,18 +926,6 @@ impl Vm {
         }?;
 
         Ok(control_flow)
-    }
-
-    fn run_copy(&mut self, target: u8, source: u8) {
-        let value = match self.clone_register(source) {
-            Value::TemporaryTuple(RegisterSlice { start, count }) => {
-                // A temporary tuple shouldn't make it into a named value,
-                // so here it gets converted into a regular tuple.
-                Value::Tuple(self.register_slice(start, count).into())
-            }
-            other => other,
-        };
-        self.set_register(target, value);
     }
 
     fn run_load_non_local(
@@ -1119,7 +1118,7 @@ impl Vm {
         Ok(())
     }
 
-    fn run_value_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
+    fn run_temp_index(&mut self, register: u8, value: u8, index: i8) -> InstructionResult {
         use Value::*;
 
         let result = match self.get_register(value) {
@@ -1285,7 +1284,6 @@ impl Vm {
         use {UnaryOp::Negate, Value::*};
 
         let result_value = match &self.get_register(value) {
-            Bool(b) => Bool(!b),
             Number(n) => Number(-n),
             Num2(v) => Num2(-v),
             Num4(v) => Num4(-v),
@@ -1295,6 +1293,28 @@ impl Vm {
             }
             ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Negate)) => {
                 let op = v.meta().get(&MetaKey::UnaryOp(Negate)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            unexpected => {
+                return self.unexpected_type_error("Negate: expected negatable value", unexpected);
+            }
+        };
+        self.set_register(result, result_value);
+
+        Ok(())
+    }
+
+    fn run_not(&mut self, result: u8, value: u8) -> InstructionResult {
+        use {UnaryOp::Not, Value::*};
+
+        let result_value = match &self.get_register(value) {
+            Bool(b) => Bool(!b),
+            Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Not)) => {
+                let op = map.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
+                return self.call_overloaded_unary_op(result, value, op);
+            }
+            ExternalValue(v) if v.meta().contains_key(&MetaKey::UnaryOp(Not)) => {
+                let op = v.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
                 return self.call_overloaded_unary_op(result, value, op);
             }
             unexpected => {
@@ -1848,25 +1868,6 @@ impl Vm {
         Ok(())
     }
 
-    fn run_jump_back_if(
-        &mut self,
-        register: u8,
-        offset: usize,
-        jump_condition: bool,
-    ) -> InstructionResult {
-        match self.get_register(register) {
-            Value::Bool(b) => {
-                if *b == jump_condition {
-                    self.jump_ip_back(offset);
-                }
-            }
-            unexpected => {
-                return self.unexpected_type_error("JumpIf: expected Bool", unexpected);
-            }
-        }
-        Ok(())
-    }
-
     fn run_size(&mut self, register: u8, value: u8) {
         let result = self.get_register(value).size();
         self.set_register(register, Value::Number(result.into()));
@@ -1995,8 +1996,8 @@ impl Vm {
     fn run_make_num2(
         &mut self,
         result_register: u8,
-        element_count: u8,
         element_register: u8,
+        element_count: u8,
     ) -> InstructionResult {
         use Value::*;
 
@@ -2045,8 +2046,8 @@ impl Vm {
     fn run_make_num4(
         &mut self,
         result_register: u8,
-        element_count: u8,
         element_register: u8,
+        element_count: u8,
     ) -> InstructionResult {
         use Value::*;
         let result = if element_count == 1 {
@@ -2543,15 +2544,11 @@ impl Vm {
         &mut self,
         result_register: u8,
         value_register: u8,
-        key_register: u8,
+        key_string: ValueString,
     ) -> InstructionResult {
         use Value::*;
 
         let accessed_value = self.clone_register(value_register);
-        let key_string = match self.clone_register(key_register) {
-            Str(s) => s,
-            other => return self.unexpected_type_error("Access: expected string", &other),
-        };
         let key = ValueKey::from(key_string.clone());
 
         macro_rules! core_op {

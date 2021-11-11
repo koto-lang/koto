@@ -49,8 +49,8 @@ pub enum Value {
 
     /// A function that produces an Iterator when called
     ///
-    /// A [Vm] gets spawned for the function to run in, which pauses each time a yield instruction
-    /// is encountered. See Vm::call_generator and Iterable::Generator.
+    /// A [Vm](crate::Vm) gets spawned for the function to run in, which pauses each time a yield
+    /// instruction is encountered. See Vm::call_generator and Iterable::Generator.
     Generator(FunctionInfo),
 
     /// The iterator type used in Koto
@@ -158,7 +158,7 @@ impl Value {
     /// x = [1, 2, 3] # x has size 3
     /// a, b, c = x
     ///
-    /// See [Op::Size] and [Op::CheckSize]
+    /// See [Op::Size](koto_bytecode::Op::Size) and [Op::CheckSize](koto_bytecode::Op::CheckSize).
     pub fn size(&self) -> usize {
         use Value::*;
 

@@ -3,9 +3,9 @@ use {
     std::{convert::TryFrom, fmt},
 };
 
-/// A parsed node that can be included in the [AST](ast).
+/// A parsed node that can be included in the [AST](crate::Ast).
 ///
-/// Nodes refer to each other via [AstIndex]s, see [AstNode].
+/// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     /// An Empty node, used for `()` empty expressions
@@ -157,7 +157,7 @@ pub enum Node {
 
     /// An assignment expression
     ///
-    /// Used for single-assignment, multiple-assignment is represented by [MultiAssign].
+    /// Used for single-assignment, multiple-assignment is represented by [Node::MultiAssign].
     Assign {
         /// The target of the assignment
         target: AssignTarget,
@@ -177,10 +177,18 @@ pub enum Node {
         expression: AstIndex,
     },
 
+    /// A unary operation
+    UnaryOp {
+        /// The operator to use
+        op: AstUnaryOp,
+        /// The value used in the operation
+        value: AstIndex,
+    },
+
     /// A binary operation
     BinaryOp {
         /// The operator to use
-        op: AstOp,
+        op: AstBinaryOp,
         /// The "left hand side" of the operation
         lhs: AstIndex,
         /// The "right hand side" of the operation
@@ -245,11 +253,6 @@ pub enum Node {
     /// A return expression, with optional return value
     Return(Option<AstIndex>),
 
-    /// A negation expression
-    ///
-    /// Used for both inverting the sign of a numerical value and for the `not` operator.
-    Negate(AstIndex),
-
     /// A try expression
     Try(AstTry),
 
@@ -302,12 +305,12 @@ impl fmt::Display for Node {
             Map(_) => write!(f, "Map"),
             MainBlock { .. } => write!(f, "MainBlock"),
             Block(_) => write!(f, "Block"),
-            Negate(_) => write!(f, "Negate"),
             Function(_) => write!(f, "Function"),
             NamedCall { .. } => write!(f, "NamedCall"),
             Import { .. } => write!(f, "Import"),
             Assign { .. } => write!(f, "Assign"),
             MultiAssign { .. } => write!(f, "MultiAssign"),
+            UnaryOp { .. } => write!(f, "UnaryOp"),
             BinaryOp { .. } => write!(f, "BinaryOp"),
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
@@ -401,10 +404,18 @@ pub struct AstIf {
     pub else_node: Option<AstIndex>,
 }
 
+/// An operation used in UnaryOp expressions
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(missing_docs)]
+pub enum AstUnaryOp {
+    Negate,
+    Not,
+}
+
 /// An operation used in BinaryOp expressions
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(missing_docs)]
-pub enum AstOp {
+pub enum AstBinaryOp {
     Add,
     Subtract,
     Multiply,
@@ -472,12 +483,12 @@ pub enum Scope {
 /// In other words, some series of operations involving indexing, `.` accesses, and function calls.
 ///
 /// e.g.
-/// foo.bar."baz"[0](42)
-/// |  |   |     |  ^ Call {args: 42, with_parens: true}
-/// |  |   |     ^ Index (0)
-/// |  |   ^ Str (baz)
-/// |  ^ Id (bar)
-/// ^ Root (foo)
+/// `foo.bar."baz"[0](42)`
+///  |  |   |     |  ^ Call {args: 42, with_parens: true}
+///  |  |   |     ^ Index (0)
+///  |  |   ^ Str (baz)
+///  |  ^ Id (bar)
+///  ^ Root (foo)
 #[derive(Clone, Debug, PartialEq)]
 pub enum LookupNode {
     /// The root of the lookup chain
@@ -500,7 +511,6 @@ pub enum LookupNode {
         ///   `99 >> foo.bar 42` is equivalent to `foo.bar(42, 99)`
         /// but:
         ///   `99 >> foo.bar(42)` is equivalent to `foo.bar(42)(99)`.
-        /// ```
         with_parens: bool,
     },
 }
@@ -573,19 +583,21 @@ pub enum MetaKeyId {
     Display,
     /// @negate
     Negate,
+    /// @not
+    Not,
     /// @type
     Type,
 
     /// @tests
     Tests,
-    /// @test [test_name]
+    /// @test test_name
     Test,
     /// @pre_test
     PreTest,
     /// @post_test
     PostTest,
 
-    /// @meta [name]
+    /// @meta name
     Named,
 
     /// Unused

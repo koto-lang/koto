@@ -5,7 +5,7 @@ mod parser {
         println!("{}", source);
 
         match Parser::parse(source) {
-            Ok((ast, constants)) => {
+            Ok(ast) => {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {
@@ -19,12 +19,12 @@ mod parser {
 
                 if let Some(expected_constants) = expected_constants {
                     for (constant, expected_constant) in
-                        constants.iter().zip(expected_constants.iter())
+                        ast.constants().iter().zip(expected_constants.iter())
                     {
                         assert_eq!(constant, *expected_constant);
                     }
                     assert_eq!(
-                        constants.size(),
+                        ast.constants().size(),
                         expected_constants.len(),
                         "Constant pool size mismatch"
                     );
@@ -237,7 +237,7 @@ a
                     Int(constant(0)),
                     Int(constant(1)),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -266,21 +266,30 @@ a
                 &[
                     Float(constant(0)),
                     Id(constant(1)),
-                    Negate(1),
+                    UnaryOp {
+                        op: AstUnaryOp::Negate,
+                        value: 1,
+                    },
                     Id(constant(2)),
                     Number0,
                     Lookup((LookupNode::Index(4), None)), // 5
                     Lookup((LookupNode::Root(3), Some(5))),
-                    Negate(6),
+                    UnaryOp {
+                        op: AstUnaryOp::Negate,
+                        value: 6,
+                    },
                     Number1,
                     Number1,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 8,
                         rhs: 9,
                     }, // 10
                     Nested(10),
-                    Negate(11),
+                    UnaryOp {
+                        op: AstUnaryOp::Negate,
+                        value: 11,
+                    },
                     MainBlock {
                         body: vec![0, 2, 7, 12],
                         local_count: 0,
@@ -711,14 +720,14 @@ export @tests =
                     Number0,
                     Number1,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 3,
                         rhs: 4,
                     }, // 5
@@ -1005,7 +1014,7 @@ num4(
                     Number1,
                     Number1,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 2,
                     },
@@ -1290,13 +1299,13 @@ x %= 4";
                     Number1,
                     Number0,
                     BinaryOp {
-                        op: AstOp::Subtract,
+                        op: AstBinaryOp::Subtract,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 2,
                         rhs: 3,
                     },
@@ -1319,18 +1328,18 @@ x %= 4";
                     Number0,
                     Number1,
                     BinaryOp {
-                        op: AstOp::Multiply,
+                        op: AstBinaryOp::Multiply,
                         lhs: 1,
                         rhs: 2,
                     },
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 3,
                     },
                     Number0, // 5
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 4,
                         rhs: 5,
                     },
@@ -1352,7 +1361,7 @@ x %= 4";
                     Number1,
                     Number0,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -1360,13 +1369,13 @@ x %= 4";
                     Number1,
                     Number0, // 5
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 4,
                         rhs: 5,
                     },
                     Nested(6),
                     BinaryOp {
-                        op: AstOp::Multiply,
+                        op: AstBinaryOp::Multiply,
                         lhs: 3,
                         rhs: 7,
                     },
@@ -1388,13 +1397,13 @@ x %= 4";
                     Int(constant(0)),
                     Int(constant(1)),
                     BinaryOp {
-                        op: AstOp::Divide,
+                        op: AstBinaryOp::Divide,
                         lhs: 0,
                         rhs: 1,
                     },
                     Int(constant(2)),
                     BinaryOp {
-                        op: AstOp::Modulo,
+                        op: AstBinaryOp::Modulo,
                         lhs: 2,
                         rhs: 3,
                     },
@@ -1416,7 +1425,7 @@ x %= 4";
                     string_literal(0, QuotationMark::Single),
                     Id(constant(1)),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -1443,7 +1452,7 @@ x %= 4";
                         args: vec![2],
                     },
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 3,
                     },
@@ -1479,12 +1488,12 @@ a = 1 +
                     Int(constant(1)),
                     Int(constant(2)),
                     BinaryOp {
-                        op: AstOp::Multiply,
+                        op: AstBinaryOp::Multiply,
                         lhs: 2,
                         rhs: 3,
                     },
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 4,
                     }, // 5
@@ -1520,12 +1529,12 @@ a = 1
                     Int(constant(1)),
                     Int(constant(2)),
                     BinaryOp {
-                        op: AstOp::Multiply,
+                        op: AstBinaryOp::Multiply,
                         lhs: 2,
                         rhs: 3,
                     },
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 4,
                     }, // 5
@@ -1559,25 +1568,25 @@ a = 1
                     Number0,
                     Number1,
                     BinaryOp {
-                        op: AstOp::Less,
+                        op: AstBinaryOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
                     Number1,
                     Number0,
                     BinaryOp {
-                        op: AstOp::Greater,
+                        op: AstBinaryOp::Greater,
                         lhs: 3,
                         rhs: 4,
                     },
                     BinaryOp {
-                        op: AstOp::And,
+                        op: AstBinaryOp::And,
                         lhs: 2,
                         rhs: 5,
                     },
                     BoolTrue,
                     BinaryOp {
-                        op: AstOp::Or,
+                        op: AstBinaryOp::Or,
                         lhs: 6,
                         rhs: 7,
                     },
@@ -1600,12 +1609,12 @@ a = 1
                     Number1,
                     Number1,
                     BinaryOp {
-                        op: AstOp::LessOrEqual,
+                        op: AstBinaryOp::LessOrEqual,
                         lhs: 1,
                         rhs: 2,
                     },
                     BinaryOp {
-                        op: AstOp::Less,
+                        op: AstBinaryOp::Less,
                         lhs: 0,
                         rhs: 3,
                     },
@@ -1639,7 +1648,7 @@ a = 1
                         else_node: Some(3),
                     }),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 0,
                         rhs: 4,
                     },
@@ -1825,7 +1834,7 @@ while x > y
                     Id(constant(0)), // x
                     Id(constant(1)), // y
                     BinaryOp {
-                        op: AstOp::Greater,
+                        op: AstBinaryOp::Greater,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -1858,7 +1867,7 @@ until x < y
                     Id(constant(0)), // x
                     Id(constant(1)), // y
                     BinaryOp {
-                        op: AstOp::Less,
+                        op: AstBinaryOp::Less,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -2008,7 +2017,7 @@ a()";
                     Id(constant(0)),
                     Id(constant(1)),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 2,
                         rhs: 3,
                     },
@@ -2050,7 +2059,7 @@ a()";
                     Lookup((LookupNode::Id(constant(2)), Some(4))), // 5
                     Lookup((LookupNode::Root(3), Some(5))),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 2,
                         rhs: 6,
                     },
@@ -2220,7 +2229,10 @@ f 42";
                 &[
                     Id(constant(1)),
                     Id(constant(1)),
-                    Negate(1),
+                    UnaryOp {
+                        op: AstUnaryOp::Negate,
+                        value: 1,
+                    },
                     NamedCall {
                         id: constant(0), // f
                         args: vec![0, 2],
@@ -2243,7 +2255,7 @@ f 42";
                     Id(constant(1)),
                     Number1,
                     BinaryOp {
-                        op: AstOp::Subtract,
+                        op: AstBinaryOp::Subtract,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -2269,7 +2281,10 @@ f 42";
                     Id(constant(0)),
                     Id(constant(1)),
                     Id(constant(1)),
-                    Negate(2),
+                    UnaryOp {
+                        op: AstUnaryOp::Negate,
+                        value: 2,
+                    },
                     Lookup((
                         LookupNode::Call {
                             args: vec![1, 3],
@@ -2454,13 +2469,13 @@ f x";
                     },
                     Id(constant(2)), // g
                     BinaryOp {
-                        op: AstOp::Pipe,
+                        op: AstBinaryOp::Pipe,
                         lhs: 1,
                         rhs: 2,
                     },
                     Id(constant(3)), // h
                     BinaryOp {
-                        op: AstOp::Pipe,
+                        op: AstBinaryOp::Pipe,
                         lhs: 3,
                         rhs: 4,
                     }, // 5
@@ -2501,13 +2516,13 @@ foo.bar x
                     Lookup((LookupNode::Root(0), Some(3))),
                     Id(constant(3)), // 5 - y
                     BinaryOp {
-                        op: AstOp::Pipe,
+                        op: AstBinaryOp::Pipe,
                         lhs: 4,
                         rhs: 5,
                     },
                     Id(constant(4)), // z
                     BinaryOp {
-                        op: AstOp::Pipe,
+                        op: AstBinaryOp::Pipe,
                         lhs: 6,
                         rhs: 7,
                     },
@@ -2784,7 +2799,7 @@ f = |n|
                     Id(constant(3)), // i
                     Id(constant(1)),
                     BinaryOp {
-                        op: AstOp::Equal,
+                        op: AstBinaryOp::Equal,
                         lhs: 7,
                         rhs: 8,
                     },
@@ -2865,7 +2880,7 @@ f = |n|
                     Id(constant(0)),
                     Number1,
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 1,
                         rhs: 2,
                     },
@@ -2954,7 +2969,7 @@ y z";
                     Id(constant(3)),
                     Number1,
                     BinaryOp {
-                        op: AstOp::Greater,
+                        op: AstBinaryOp::Greater,
                         lhs: 6,
                         rhs: 7,
                     },
@@ -3324,7 +3339,7 @@ y z";
                     Lookup((LookupNode::Root(0), Some(2))),
                     Number1,
                     BinaryOp {
-                        op: AstOp::Subtract,
+                        op: AstBinaryOp::Subtract,
                         lhs: 3,
                         rhs: 4,
                     }, // 5
@@ -3868,13 +3883,13 @@ foo.bar
                     Lookup((LookupNode::Id(constant(2)), None)),
                     Lookup((LookupNode::Root(3), Some(4))), // 5
                     BinaryOp {
-                        op: AstOp::Or,
+                        op: AstBinaryOp::Or,
                         lhs: 2,
                         rhs: 5,
                     },
                     BoolFalse,
                     BinaryOp {
-                        op: AstOp::Or,
+                        op: AstBinaryOp::Or,
                         lhs: 6,
                         rhs: 7,
                     },
@@ -3930,11 +3945,14 @@ assert_eq x, "hello"
                 source,
                 &[
                     BoolTrue,
-                    Negate(0),
+                    UnaryOp {
+                        op: AstUnaryOp::Not,
+                        value: 0,
+                    },
                     Id(constant(0)),
                     Id(constant(0)),
                     BinaryOp {
-                        op: AstOp::Add,
+                        op: AstBinaryOp::Add,
                         lhs: 2,
                         rhs: 3,
                     },
@@ -4573,7 +4591,7 @@ match x
                     Id(constant(1)),
                     Int(constant(2)),
                     BinaryOp {
-                        op: AstOp::Greater,
+                        op: AstBinaryOp::Greater,
                         lhs: 2,
                         rhs: 3,
                     },
@@ -4582,7 +4600,7 @@ match x
                     Id(constant(1)),
                     Int(constant(3)),
                     BinaryOp {
-                        op: AstOp::Less,
+                        op: AstBinaryOp::Less,
                         lhs: 7,
                         rhs: 8,
                     },
@@ -4820,7 +4838,7 @@ switch
                     Number1,
                     Number0,
                     BinaryOp {
-                        op: AstOp::Equal,
+                        op: AstBinaryOp::Equal,
                         lhs: 0,
                         rhs: 1,
                     },
@@ -4828,7 +4846,7 @@ switch
                     Id(constant(0)),
                     Id(constant(1)), // 5
                     BinaryOp {
-                        op: AstOp::Greater,
+                        op: AstBinaryOp::Greater,
                         lhs: 4,
                         rhs: 5,
                     },

@@ -22,6 +22,8 @@ The Koto project adheres to
       >> and_this 99
       >> then_that
     ```
+- Maps can now override the behaviour of the `not` operator using the `@not`
+  meta key.
 
 ### Changed
 
@@ -42,11 +44,14 @@ The Koto project adheres to
             # ^~~ Previously this indentation would have been disallowed.
           + 321
       ```
+- Internals
+  - The AST struct returned by the parser now includes its associated constant
+    pool as a member.
 
 ### Fixed
 
-- Inline control flow expressions no longer incorrectly produce temporary results when the
-  bodies are implicit tuples.
+- Inline control flow expressions no longer incorrectly produce temporary
+  results when the bodies are implicit tuples.
   - e.g.
     ```koto
     x = if foo then 1, 2, 3 else 4, 5, 6

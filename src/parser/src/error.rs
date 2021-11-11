@@ -162,7 +162,7 @@ impl fmt::Display for ErrorType {
     }
 }
 
-/// An error that can be produced by the [Parser]
+/// An error that can be produced by the [Parser](crate::Parser)
 #[derive(Clone, Debug)]
 pub struct ParserError {
     /// The error itself
