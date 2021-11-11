@@ -30,6 +30,18 @@ impl From<u8> for ConstantIndex {
     }
 }
 
+impl From<[u8; 2]> for ConstantIndex {
+    fn from(x: [u8; 2]) -> Self {
+        Self(x[0], x[1], 0)
+    }
+}
+
+impl From<[u8; 3]> for ConstantIndex {
+    fn from(x: [u8; 3]) -> Self {
+        Self(x[0], x[1], x[2])
+    }
+}
+
 impl TryFrom<usize> for ConstantIndex {
     type Error = ConstantIndexTryFromOutOfRange;
 

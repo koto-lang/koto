@@ -984,6 +984,40 @@ impl Iterator for InstructionReader {
             }};
         }
 
+        macro_rules! get_u16_constant {
+            () => {{
+                match self.chunk.bytes.get(self.ip..self.ip + 2) {
+                    Some(bytes) => {
+                        self.ip += 2;
+                        let bytes: [u8; 2] = bytes.try_into().unwrap();
+                        ConstantIndex::from(bytes)
+                    }
+                    None => {
+                        return Some(Error {
+                            message: format!("Expected 2 bytes at position {}", self.ip),
+                        });
+                    }
+                }
+            }};
+        }
+
+        macro_rules! get_u24_constant {
+            () => {{
+                match self.chunk.bytes.get(self.ip..self.ip + 3) {
+                    Some(bytes) => {
+                        self.ip += 3;
+                        let bytes: [u8; 3] = bytes.try_into().unwrap();
+                        ConstantIndex::from(bytes)
+                    }
+                    None => {
+                        return Some(Error {
+                            message: format!("Expected 3 bytes at position {}", self.ip),
+                        });
+                    }
+                }
+            }};
+        }
+
         let op = match self.chunk.bytes.get(self.ip) {
             Some(byte) => Op::from(*byte),
             None => return None,
@@ -1022,51 +1056,51 @@ impl Iterator for InstructionReader {
             }),
             Op::LoadFloat => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadFloat16 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadFloat24 => Some(LoadFloat {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadInt => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadInt16 => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadInt24 => Some(LoadInt {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadString => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadString16 => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadString24 => Some(LoadString {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::LoadNonLocal => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), 0, 0),
+                constant: ConstantIndex::from(get_u8!()),
             }),
             Op::LoadNonLocal16 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), 0),
+                constant: get_u16_constant!(),
             }),
             Op::LoadNonLocal24 => Some(LoadNonLocal {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::ValueExport => Some(ValueExport {
                 name: get_u8!(),
@@ -1412,19 +1446,17 @@ impl Iterator for InstructionReader {
             Op::Access => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
-                key: ConstantIndex(get_u8!(), 0, 0),
+                key: ConstantIndex::from(get_u8!()),
             }),
             Op::Access16 => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
-                // TODO get_u16_constant!()
-                key: ConstantIndex(get_u8!(), get_u8!(), 0),
+                key: get_u16_constant!(),
             }),
             Op::Access24 => Some(Access {
                 register: get_u8!(),
                 value: get_u8!(),
-                // TODO get_u24_constant!()
-                key: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                key: get_u24_constant!(),
             }),
             Op::AccessString => Some(AccessString {
                 register: get_u8!(),
@@ -1438,7 +1470,7 @@ impl Iterator for InstructionReader {
             Op::TryEnd => Some(TryEnd),
             Op::Debug => Some(Debug {
                 register: get_u8!(),
-                constant: ConstantIndex(get_u8!(), get_u8!(), get_u8!()),
+                constant: get_u24_constant!(),
             }),
             Op::CheckType => {
                 let register = get_u8!();
