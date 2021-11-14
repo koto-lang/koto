@@ -310,6 +310,12 @@ pub struct FunctionInfo {
     pub instance_function: bool,
     /// If the function is variadic, then extra args will be captured in a tuple.
     pub variadic: bool,
+    /// If the function has a single arg, and that arg is an unpacked tuple
+    ///
+    /// This is used to optimize external calls where the caller has a series of args that might be
+    /// unpacked by the function, and it would be wasteful to create a Tuple when it's going to be
+    /// immediately unpacked and discarded.
+    pub arg_is_unpacked_tuple: bool,
     /// The optional list of captures that should be copied into scope when the function is called.
     //
     // Q. Why use a ValueList?

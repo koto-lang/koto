@@ -283,7 +283,7 @@ impl Vm {
         }
     }
 
-    pub fn run_function(&mut self, function: Value, args: &[Value]) -> RuntimeResult {
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> RuntimeResult {
         self.call_and_run_function(None, function, args)
     }
 
@@ -291,7 +291,7 @@ impl Vm {
         &mut self,
         instance: Value,
         function: Value,
-        args: &[Value],
+        args: CallArgs,
     ) -> RuntimeResult {
         self.call_and_run_function(Some(instance), function, args)
     }
@@ -300,7 +300,7 @@ impl Vm {
         &mut self,
         instance: Option<Value>,
         function: Value,
-        args: &[Value],
+        args: CallArgs,
     ) -> RuntimeResult {
         if !function.is_callable() {
             return runtime_error!("run_function: the provided value isn't a function");
@@ -317,7 +317,58 @@ impl Vm {
 
         self.value_stack.push(Value::Empty); // result register
         self.value_stack.push(instance.unwrap_or_default()); // frame base
-        self.value_stack.extend_from_slice(args);
+        let (args_count, temp_tuple_values) = match args {
+            CallArgs::None => (0, None),
+            CallArgs::Single(arg) => {
+                self.value_stack.push(arg);
+                (1, None)
+            }
+            CallArgs::Separate(args) => {
+                self.value_stack.extend_from_slice(args);
+                (args.len() as u8, None)
+            }
+            CallArgs::AsTuple(args) => {
+                match &function {
+                    Value::Function(FunctionInfo {
+                        arg_is_unpacked_tuple,
+                        captures,
+                        ..
+                    }) if *arg_is_unpacked_tuple && (args.len() as u8) < u8::MAX => {
+                        // If the function has a single arg which is an unpacked tuple,
+                        // then the tuple contents can go into a temporary tuple.
+                        //
+                        // The temp tuple goes into the first arg register, the function's captures
+                        // follow, and then the temp tuple contents can be placed in the registers
+                        // following the captures. The captures and temp tuple contents are added
+                        // to the value stack in call_function/call_generator, here we only need to
+                        // add the temp tuple itself.
+                        //
+                        // At runtime the unpacking instructions will still be executed, resulting
+                        // in the tuple values being unpacked into the same registers that they're
+                        // already in. This is redundant work, but still more efficient than
+                        // allocating a non-temporary Tuple for the values.
+
+                        let capture_count =
+                            captures.as_ref().map_or(0, |captures| captures.len() as u8);
+
+                        let temp_tuple = Value::TemporaryTuple(RegisterSlice {
+                            // The unpacked tuple contents go into the registers after the
+                            // captures, which are placed after the temp tuple register
+                            start: capture_count + 1,
+                            count: args.len() as u8,
+                        });
+
+                        self.value_stack.push(temp_tuple);
+                        (1, Some(args))
+                    }
+                    _ => {
+                        let tuple_contents = Vec::from(args);
+                        self.value_stack.push(Value::Tuple(tuple_contents.into()));
+                        (1, None)
+                    }
+                }
+            }
+        };
 
         let old_frame_count = self.call_stack.len();
 
@@ -325,8 +376,9 @@ impl Vm {
             result_register,
             function,
             frame_base,
-            args.len() as u8,
+            args_count,
             instance_register,
+            temp_tuple_values,
         )?;
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -467,9 +519,13 @@ impl Vm {
                     if let Some(pre_test) = &pre_test {
                         if pre_test.is_callable() {
                             let pre_test_result = if pass_self_to_pre_test {
-                                self.run_instance_function(self_arg.clone(), pre_test.clone(), &[])
+                                self.run_instance_function(
+                                    self_arg.clone(),
+                                    pre_test.clone(),
+                                    CallArgs::None,
+                                )
                             } else {
-                                self.run_function(pre_test.clone(), &[])
+                                self.run_function(pre_test.clone(), CallArgs::None)
                             };
 
                             if let Err(error) = pre_test_result {
@@ -484,9 +540,9 @@ impl Vm {
                     };
 
                     let test_result = if pass_self_to_test {
-                        self.run_instance_function(self_arg.clone(), test, &[])
+                        self.run_instance_function(self_arg.clone(), test, CallArgs::None)
                     } else {
-                        self.run_function(test, &[])
+                        self.run_function(test, CallArgs::None)
                     };
 
                     if let Err(error) = test_result {
@@ -496,9 +552,13 @@ impl Vm {
                     if let Some(post_test) = &post_test {
                         if post_test.is_callable() {
                             let post_test_result = if pass_self_to_post_test {
-                                self.run_instance_function(self_arg.clone(), post_test.clone(), &[])
+                                self.run_instance_function(
+                                    self_arg.clone(),
+                                    post_test.clone(),
+                                    CallArgs::None,
+                                )
                             } else {
-                                self.run_function(post_test.clone(), &[])
+                                self.run_function(post_test.clone(), CallArgs::None)
                             };
 
                             if let Err(error) = post_test_result {
@@ -771,6 +831,7 @@ impl Vm {
                 frame_base,
                 arg_count,
                 None,
+                None,
             ),
             Instruction::CallInstance {
                 result,
@@ -784,6 +845,7 @@ impl Vm {
                 frame_base,
                 arg_count,
                 Some(instance),
+                None,
             ),
             Instruction::Return { register } => {
                 if let Some(return_value) = self.pop_frame(self.clone_register(register))? {
@@ -1223,6 +1285,7 @@ impl Vm {
                 instance_function,
                 variadic,
                 generator,
+                arg_is_unpacked_tuple,
                 size,
             } => {
                 // Initialize the function's captures with Empty
@@ -1241,6 +1304,7 @@ impl Vm {
                     instance_function,
                     variadic,
                     captures,
+                    arg_is_unpacked_tuple,
                 };
 
                 let value = if generator {
@@ -1825,6 +1889,7 @@ impl Vm {
             frame_base,
             0, // 0 args
             Some(value_register),
+            None,
         )
     }
 
@@ -1846,6 +1911,7 @@ impl Vm {
             frame_base,
             1, // 1 arg, the rhs value
             Some(lhs_register),
+            None,
         )
     }
 
@@ -1968,7 +2034,7 @@ impl Vm {
                         }
 
                         if let Some(main) = vm.get_exported_function("main") {
-                            if let Err(error) = vm.run_function(main, &[]) {
+                            if let Err(error) = vm.run_function(main, CallArgs::None) {
                                 self.context_mut().modules.remove(&module_path);
                                 return Err(error);
                             }
@@ -2651,6 +2717,7 @@ impl Vm {
                         instance_function: true,
                         variadic: false,
                         captures: None,
+                        arg_is_unpacked_tuple: false,
                     };
                     Function(f_as_instance_function)
                 }
@@ -2734,6 +2801,7 @@ impl Vm {
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
+        temp_tuple_values: Option<&[Value]>,
     ) -> InstructionResult {
         let FunctionInfo {
             chunk,
@@ -2742,6 +2810,7 @@ impl Vm {
             instance_function,
             variadic,
             captures,
+            arg_is_unpacked_tuple: _unused,
         } = function;
 
         // Spawn a VM for the generator
@@ -2812,6 +2881,13 @@ impl Vm {
                 .extend(captures.data().iter().cloned())
         }
 
+        // Place any temp tuple values in the registers following the args and captures
+        if let Some(temp_tuple_values) = temp_tuple_values {
+            generator_vm
+                .value_stack
+                .extend_from_slice(temp_tuple_values);
+        }
+
         // The args have been cloned into the generator vm, so at this point they can be removed
         self.truncate_registers(frame_base);
 
@@ -2828,6 +2904,7 @@ impl Vm {
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
+        temp_tuple_values: Option<&[Value]>,
     ) -> InstructionResult {
         let FunctionInfo {
             chunk,
@@ -2836,6 +2913,7 @@ impl Vm {
             instance_function,
             variadic,
             captures,
+            arg_is_unpacked_tuple: _unused,
         } = function;
 
         let expected_arg_count = match (instance_function, variadic) {
@@ -2884,6 +2962,11 @@ impl Vm {
             self.value_stack.extend(captures.data().iter().cloned());
         }
 
+        // Place any temp tuple values in the registers following the args and captures
+        if let Some(temp_tuple_values) = temp_tuple_values {
+            self.value_stack.extend_from_slice(temp_tuple_values);
+        }
+
         if !self.call_stack.is_empty() {
             // Set info for when the current frame is returned to
             self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
@@ -2902,6 +2985,7 @@ impl Vm {
         frame_base: u8,
         call_arg_count: u8,
         instance_register: Option<u8>,
+        temp_tuple_values: Option<&[Value]>,
     ) -> InstructionResult {
         use Value::*;
 
@@ -2936,6 +3020,7 @@ impl Vm {
                 frame_base,
                 call_arg_count,
                 instance_register,
+                temp_tuple_values,
             ),
             Generator(function_info) => self.call_generator(
                 result_register,
@@ -2943,6 +3028,7 @@ impl Vm {
                 frame_base,
                 call_arg_count,
                 instance_register,
+                temp_tuple_values,
             ),
             ExternalFunction(external_function) => self.call_external_function(
                 result_register,
@@ -2999,7 +3085,7 @@ impl Vm {
                 }
             }
             TypeId::Tuple => {
-                if !matches!(value, Value::Tuple(_)) {
+                if !matches!(value, Value::Tuple(_) | Value::TemporaryTuple(_)) {
                     return self.unexpected_type_error("Expected Tuple", value);
                 }
             }
@@ -3302,4 +3388,16 @@ pub(crate) fn clone_generator_vm(vm: &Vm) -> Vm {
         }
     }
     result
+}
+
+/// The ways in which a function's arguments will be treated when called externally
+pub enum CallArgs<'a> {
+    /// No args to be passed to the function
+    None,
+    /// The function will be called with a single argument
+    Single(Value),
+    /// The arguments will be passed to the function separately
+    Separate(&'a [Value]),
+    /// The arguments will be collected into a tuple before being passed to the function
+    AsTuple(&'a [Value]),
 }

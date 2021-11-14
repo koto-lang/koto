@@ -90,8 +90,14 @@ struct Frame {
 
 impl Frame {
     fn new(local_count: u8, args: &[Arg], captures: &[ConstantIndex]) -> Self {
-        let temporary_base = local_count
+        let temporary_base =
+            // Includes all named args (including unpacked args),
+            // and any locally assigned values.
+            local_count
+            // Captures get copied to local registers when the function is called.
             + captures.len() as u8
+            // To get the first temporary register, we also need to include 'unnamed' args, which
+            // are represented in the args list as Placeholders.
             + args
                 .iter()
                 .filter(|arg| matches!(arg, Arg::Placeholder))
@@ -797,14 +803,15 @@ impl Compiler {
         // Collect args for local assignment in the new frame
         // Top-level args need to match the arguments as they appear in the arg list, with
         // Placeholders for wildcards and containers that are being unpacked.
-        // Nested IDs that will be unpacked are assigned registers after the top-level IDs.
+        // Unpacked IDs have registers assigned for them after the top-level IDs.
         // e.g. Given:
         // f = |a, (b, (c, d)), _, e|
         // Args should then appear as:
         // [Local(a), Placeholder, Placeholder, Local(e), Unpacked(b), Unpacked(c), Unpacked(d)]
         //
         // Note that the value stack at runtime will have the function's captures loaded in after
-        // the top-level locals and placeholders, and before unpacked args.
+        // the top-level locals and placeholders, and before any unpacked args (e.g. in the example
+        // above, captures will be placed after Local(e) and before Unpacked(b)).
 
         let mut result = Vec::new();
         let mut nested_args = Vec::new();
@@ -2194,10 +2201,16 @@ impl Compiler {
             }
             let capture_count = captures.len() as u8;
 
+            let arg_is_unpacked_tuple = match function.args.as_slice() {
+                &[single_arg] if matches!(ast.node(single_arg).node, Node::Tuple(_)) => true,
+                _ => false,
+            };
+
             let flags_byte = FunctionFlags {
                 instance_function: function.is_instance_function,
                 variadic: function.is_variadic,
                 generator: function.is_generator,
+                arg_is_unpacked_tuple,
             }
             .as_byte();
 
@@ -2225,28 +2238,21 @@ impl Compiler {
 
             let allow_implicit_return = !function.is_generator;
 
-            match &ast.node(function.body).node {
-                Node::Block(expressions) => {
-                    self.compile_frame(
-                        local_count,
-                        expressions,
-                        &function.args,
-                        &captures,
-                        ast,
-                        allow_implicit_return,
-                    )?;
-                }
-                _ => {
-                    self.compile_frame(
-                        local_count,
-                        &[function.body],
-                        &function.args,
-                        &captures,
-                        ast,
-                        allow_implicit_return,
-                    )?;
-                }
+            let body_as_slice = [function.body];
+
+            let function_body = match &ast.node(function.body).node {
+                Node::Block(expressions) => expressions.as_slice(),
+                _ => &body_as_slice,
             };
+
+            self.compile_frame(
+                local_count,
+                function_body,
+                &function.args,
+                &captures,
+                ast,
+                allow_implicit_return,
+            )?;
 
             self.update_offset_placeholder(function_size_ip)?;
 

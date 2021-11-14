@@ -1,8 +1,8 @@
 use {
     super::iterator::adaptors,
     crate::{
-        runtime_error, value_sort::compare_values, DataMap, RuntimeResult, Value, ValueIterator,
-        ValueKey, ValueMap, Vm,
+        runtime_error, value_sort::compare_values, CallArgs, DataMap, RuntimeResult, Value,
+        ValueIterator, ValueKey, ValueMap, Vm,
     },
     std::{cmp::Ordering, ops::Deref},
 };
@@ -165,7 +165,10 @@ pub fn make_module() -> ValueMap {
 
             let get_sort_key =
                 |vm: &mut Vm, cache: &mut DataMap, key: &Value, value: &Value| -> RuntimeResult {
-                    let value = vm.run_function(f.clone(), &[key.clone(), value.clone()])?;
+                    let value = vm.run_function(
+                        f.clone(),
+                        CallArgs::Separate(&[key.clone(), value.clone()]),
+                    )?;
                     cache.insert(key.clone().into(), value.clone());
                     Ok(value)
                 };
@@ -255,7 +258,7 @@ fn do_map_update(
         map.data_mut().insert(key.clone(), default);
     }
     let value = map.data().get(&key).cloned().unwrap();
-    match vm.run_function(f, &[value]) {
+    match vm.run_function(f, CallArgs::Single(value)) {
         Ok(new_value) => {
             map.data_mut().insert(key, new_value.clone());
             Ok(new_value)

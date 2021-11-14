@@ -1,7 +1,7 @@
 use crate::{
     make_runtime_error,
     value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
-    Value, Vm,
+    CallArgs, Value, Vm,
 };
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -92,17 +92,20 @@ impl Iterator for Each {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next()
-            .map(collect_pair) // TODO Does collecting the pair for iterator.each still make sense?
-            .map(|output| match output {
-                Output::Value(value) => match self.vm.run_function(self.function.clone(), &[value])
-                {
-                    Ok(result) => Output::Value(result),
-                    Err(error) => Output::Error(error.with_prefix("iterator.each")),
-                },
-                other => other,
-            })
+        self.iter.next().map(|output| {
+            let function = self.function.clone();
+            let functor_result = match output {
+                Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
+                Output::ValuePair(a, b) => {
+                    self.vm.run_function(function, CallArgs::AsTuple(&[a, b]))
+                }
+                other => return other,
+            };
+            match functor_result {
+                Ok(result) => Output::Value(result),
+                Err(error) => Output::Error(error.with_prefix("iterator.each")),
+            }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -192,8 +195,9 @@ impl Iterator for Enumerate {
         let result = self
             .iter
             .next()
-            .map(collect_pair)
+            .map(collect_pair) // Collect pairs for the RHS of the enumeration
             .map(|output| match output {
+                // The output can be a ValuePair
                 Output::Value(value) => Output::ValuePair(self.index.into(), value),
                 other => other,
             });
@@ -311,7 +315,10 @@ impl Iterator for IntersperseWith {
                 let result = if self.next_is_separator {
                     self.peeked = output;
                     Some(
-                        match self.vm.run_function(self.separator_function.clone(), &[]) {
+                        match self
+                            .vm
+                            .run_function(self.separator_function.clone(), CallArgs::None)
+                        {
                             Ok(result) => Output::Value(result),
                             Err(error) => Output::Error(error),
                         },
@@ -374,23 +381,27 @@ impl Iterator for Keep {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(output) = self.iter.next().map(collect_pair) {
-            let result = match output {
-                Output::Value(value) => match self
+        while let Some(output) = self.iter.next() {
+            let predicate = self.predicate.clone();
+            let predicate_result = match &output {
+                Output::Value(value) => self
                     .vm
-                    .run_function(self.predicate.clone(), &[value.clone()])
-                {
-                    Ok(Value::Bool(false)) => continue,
-                    Ok(Value::Bool(true)) => Output::Value(value),
-                    Ok(unexpected) => Output::Error(make_runtime_error!(format!(
-                        "iterator.keep: Expected a Bool to be returned from the \
+                    .run_function(predicate, CallArgs::Single(value.clone())),
+                Output::ValuePair(a, b) => self
+                    .vm
+                    .run_function(predicate, CallArgs::AsTuple(&[a.clone(), b.clone()])),
+                error @ Output::Error(_) => return Some(error.clone()),
+            };
+
+            let result = match predicate_result {
+                Ok(Value::Bool(false)) => continue,
+                Ok(Value::Bool(true)) => output,
+                Ok(unexpected) => Output::Error(make_runtime_error!(format!(
+                    "iterator.keep: Expected a Bool to be returned from the \
                              predicate, found '{}'",
-                        unexpected.type_as_string(),
-                    ))),
-                    Err(error) => Output::Error(error.with_prefix("iterator.keep")),
-                },
-                error @ Output::Error(_) => error,
-                _ => unreachable!(), // ValuePairs have been collected in collect_pair
+                    unexpected.type_as_string(),
+                ))),
+                Err(error) => Output::Error(error.with_prefix("iterator.keep")),
             };
 
             return Some(result);

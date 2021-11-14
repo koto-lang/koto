@@ -2,7 +2,7 @@ use {
     crate::{
         runtime_error,
         value_sort::{compare_values, sort_values},
-        BinaryOp, Value, ValueIterator, ValueList, ValueMap,
+        BinaryOp, CallArgs, Value, ValueIterator, ValueList, ValueMap,
     },
     std::cmp::Ordering,
     std::ops::DerefMut,
@@ -177,7 +177,7 @@ pub fn make_module() -> ValueMap {
                 let mut write_index = 0;
                 for read_index in 0..l.len() {
                     let value = l.data()[read_index].clone();
-                    match vm.run_function(f.clone(), &[value.clone()]) {
+                    match vm.run_function(f.clone(), CallArgs::Single(value.clone())) {
                         Ok(Bool(result)) => {
                             if result {
                                 l.data_mut()[write_index] = value;
@@ -263,10 +263,12 @@ pub fn make_module() -> ValueMap {
             let mut pairs = l
                 .data()
                 .iter()
-                .map(|value| match vm.run_function(f.clone(), &[value.clone()]) {
-                    Ok(key) => Ok((key, value.clone())),
-                    Err(e) => Err(e),
-                })
+                .map(
+                    |value| match vm.run_function(f.clone(), CallArgs::Single(value.clone())) {
+                        Ok(key) => Ok((key, value.clone())),
+                        Err(e) => Err(e),
+                    },
+                )
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut error = None;
@@ -330,7 +332,7 @@ pub fn make_module() -> ValueMap {
             let f = f.clone();
 
             for value in l.data_mut().iter_mut() {
-                *value = match vm.run_function(f.clone(), &[value.clone()]) {
+                *value = match vm.run_function(f.clone(), CallArgs::Single(value.clone())) {
                     Ok(result) => result,
                     Err(error) => return Err(error.with_prefix("list.transform")),
                 }
