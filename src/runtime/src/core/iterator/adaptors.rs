@@ -110,6 +110,59 @@ impl Iterator for Each {
     }
 }
 
+/// An iterator that cycles through the adapted iterator infinitely
+pub struct Cycle {
+    stored: ValueIterator,
+    operated: ValueIterator,
+}
+
+impl Cycle {
+    pub fn new(iterator: ValueIterator) -> Self {
+        Self {
+            stored: iterator.make_copy(),
+            operated: iterator,
+        }
+    }
+}
+
+impl ExternalIterator for Cycle {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            stored: self.stored.make_copy(),
+            operated: self.operated.make_copy(),
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Cycle {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.operated.next() {
+            None => {
+                self.operated = self.stored.make_copy();
+                self.operated.next()
+            }
+            other => other,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self.stored.size_hint() {
+            // If the incoming iterator is empty, this iterator is empty
+            (0, Some(0)) => (0, Some(0)),
+            // Even if we know the size hint of the incoming iterator we can not know
+            // the upper bound of this iterator since it is infinite
+            (0, _) => (0, None),
+            // An infinite iterator has no upper bound
+            // and the maximum possible lower bound
+            // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.size_hint
+            _ => (usize::MAX, None),
+        }
+    }
+}
+
 /// An iterator that attaches an enumerated iteration position to each value
 pub struct Enumerate {
     iter: ValueIterator,

@@ -129,6 +129,15 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("iterator.each: Expected iterable and function as arguments"),
     });
 
+    result.add_fn("cycle", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let result = adaptors::Cycle::new(make_iterator(iterable).unwrap());
+
+            Ok(Iterator(ValueIterator::make_external(result)))
+        }
+        _ => runtime_error!("iterator.cycle: Expected iterable as argument"),
+    });
+
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let result = adaptors::Enumerate::new(make_iterator(iterable).unwrap());
