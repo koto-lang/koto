@@ -54,6 +54,22 @@ y.next()
         }
     }
 
+    mod cycle {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = (1..=3).cycle()
+y = x.copy()
+x.next() # 1
+x.next() # 2
+y.next()
+";
+            test_script(script, 1.into());
+        }
+    }
+
     mod enumerate {
         use super::*;
 
