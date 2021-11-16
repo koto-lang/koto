@@ -37,6 +37,23 @@ y.next()
         }
     }
 
+    mod cycle {
+        use super::*;
+
+        #[test]
+        fn make_copy() {
+            let script = "
+x = (1..=3).cycle()
+x.next() # 1
+y = x.copy()
+x.next() # 2
+x.next() # 3
+y.next()
+";
+            test_script(script, 2.into());
+        }
+    }
+
     mod each {
         use super::*;
 
@@ -51,22 +68,6 @@ x.next() # 25
 y.next()
 ";
             test_script(script, 16.into());
-        }
-    }
-
-    mod cycle {
-        use super::*;
-
-        #[test]
-        fn make_copy() {
-            let script = "
-x = (1..=3).cycle()
-y = x.copy()
-x.next() # 1
-x.next() # 2
-y.next()
-";
-            test_script(script, 1.into());
         }
     }
 

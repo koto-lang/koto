@@ -215,16 +215,16 @@ Counts the number of items yielded from the iterator.
 
 `|Iterable| -> Iterator`
 
-Takes an Iterable and returns a new iterator which provides the functionality of cycling through the previously taken iterator infinitely.
+Takes an Iterable and returns a new iterator that endlessly repeats the output
+of the iterable.
 
 ### Example
 
 ```koto
-(1..=3)
+(1, 2, 3)
   .cycle()
   .take(10)
   .to_list()
-
 # [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
 ```
 

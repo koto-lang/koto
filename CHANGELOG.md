@@ -10,7 +10,7 @@ The Koto project adheres to
 
 ### Added
 
-- A new iterator adapter called `cycle` is added.
+- `iterator.cycle` has been added to the core library.
   - e.g.
     ```koto
     (1, 2, 3).cycle().take(10).to_list()
