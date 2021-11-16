@@ -32,6 +32,8 @@ pub struct FunctionFlags {
     pub variadic: bool,
     /// True if the function is a generator
     pub generator: bool,
+    /// True if the function has a single argument which is an unpacked tuple
+    pub arg_is_unpacked_tuple: bool,
 }
 
 impl FunctionFlags {
@@ -41,13 +43,16 @@ impl FunctionFlags {
     pub const VARIADIC: u8 = 1 << 1;
     /// Corresponding to [FunctionFlags::generator]
     pub const GENERATOR: u8 = 1 << 2;
+    /// Corresponding to [FunctionFlags::arg_is_unpacked_tuple]
+    pub const ARG_IS_UNPACKED_TUPLE: u8 = 1 << 3;
 
     /// Initializes a flags struct from a byte
     pub fn from_byte(byte: u8) -> Self {
         Self {
-            instance_function: byte & Self::INSTANCE == Self::INSTANCE,
-            variadic: byte & Self::VARIADIC == Self::VARIADIC,
-            generator: byte & Self::GENERATOR == Self::GENERATOR,
+            instance_function: byte & Self::INSTANCE != 0,
+            variadic: byte & Self::VARIADIC != 0,
+            generator: byte & Self::GENERATOR != 0,
+            arg_is_unpacked_tuple: byte & Self::ARG_IS_UNPACKED_TUPLE != 0,
         }
     }
 
@@ -62,6 +67,9 @@ impl FunctionFlags {
         }
         if self.generator {
             result |= Self::GENERATOR;
+        }
+        if self.arg_is_unpacked_tuple {
+            result |= Self::ARG_IS_UNPACKED_TUPLE;
         }
         result
     }
@@ -192,6 +200,7 @@ pub enum Instruction {
         instance_function: bool,
         variadic: bool,
         generator: bool,
+        arg_is_unpacked_tuple: bool,
         size: usize,
     },
     Capture {
@@ -633,12 +642,21 @@ impl fmt::Debug for Instruction {
                 instance_function,
                 variadic,
                 generator,
+                arg_is_unpacked_tuple,
                 size,
             } => write!(
                 f,
                 "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}
-                 \t\t\tinstance: {}\tvariadic: {}\tgenerator: {}",
-                register, arg_count, capture_count, size, instance_function, variadic, generator,
+                 \t\t\tinstance: {}\tgenerator: {}
+                 \t\t\tvariadic: {}\targ_is_unpacked_tuple: {}",
+                register,
+                arg_count,
+                capture_count,
+                size,
+                instance_function,
+                generator,
+                variadic,
+                arg_is_unpacked_tuple,
             ),
             Capture {
                 function,
@@ -1259,6 +1277,7 @@ impl Iterator for InstructionReader {
                     instance_function: flags.instance_function,
                     variadic: flags.variadic,
                     generator: flags.generator,
+                    arg_is_unpacked_tuple: flags.arg_is_unpacked_tuple,
                     size,
                 })
             }

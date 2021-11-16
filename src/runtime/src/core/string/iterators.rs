@@ -2,7 +2,7 @@ use {
     crate::{
         make_runtime_error,
         value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
-        Value, ValueString, Vm,
+        CallArgs, Value, ValueString, Vm,
     },
     unicode_segmentation::UnicodeSegmentation,
 };
@@ -212,7 +212,10 @@ impl Iterator for SplitWith {
                     .input
                     .with_bounds(grapheme_start..grapheme_end)
                     .unwrap();
-                match self.vm.run_function(self.predicate.clone(), &[Str(x)]) {
+                match self
+                    .vm
+                    .run_function(self.predicate.clone(), CallArgs::Single(Str(x)))
+                {
                     Ok(Bool(split_match)) => {
                         if split_match {
                             end = Some(grapheme_start);

@@ -53,6 +53,12 @@ The Koto project adheres to
 - Internals
   - The AST struct returned by the parser now includes its associated constant
     pool as a member.
+  - Koto functions are now called from the outside with a `CallArgs` argument,
+    which provides more information to the runtime about how the function
+    should be called.
+    - `CallArgs::AsTuple` will pass the arguments into the function as a tuple,
+      using a non-allocating temporary tuple when possible (i.e. when the
+      function immediately unpacks the tuple's values).
 
 ### Fixed
 

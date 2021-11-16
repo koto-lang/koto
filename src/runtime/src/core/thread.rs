@@ -1,5 +1,7 @@
 use {
-    crate::{runtime_error, ExternalData, MetaMap, RuntimeError, RwLock, Value, ValueMap},
+    crate::{
+        runtime_error, CallArgs, ExternalData, MetaMap, RuntimeError, RwLock, Value, ValueMap,
+    },
     lazy_static::lazy_static,
     std::{fmt, sync::Arc, thread, thread::JoinHandle, time::Duration},
 };
@@ -15,7 +17,7 @@ pub fn make_module() -> ValueMap {
             let f = f.clone();
             let join_handle = thread::spawn({
                 let mut thread_vm = vm.spawn_shared_concurrent_vm();
-                move || match thread_vm.run_function(f, &[]) {
+                move || match thread_vm.run_function(f, CallArgs::None) {
                     Ok(result) => Ok(result),
                     Err(e) => Err(e.with_prefix("thread.create")),
                 }

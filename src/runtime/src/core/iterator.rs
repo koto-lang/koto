@@ -3,7 +3,8 @@ pub mod adaptors;
 use crate::{
     runtime_error,
     value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
-    BinaryOp, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueVec, Vm,
+    BinaryOp, CallArgs, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
+    Vm,
 };
 
 pub fn make_module() -> ValueMap {
@@ -12,28 +13,33 @@ pub fn make_module() -> ValueMap {
     let mut result = ValueMap::new();
 
     result.add_fn("all", |vm, args| match vm.get_args(args) {
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let f = f.clone();
+        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let predicate = predicate.clone();
 
-            for output in iter {
-                match output {
-                    Output::Value(value) => match vm.run_function(f.clone(), &[value]) {
-                        Ok(Bool(result)) => {
-                            if !result {
-                                return Ok(Bool(false));
-                            }
-                        }
-                        Ok(unexpected) => {
-                            return runtime_error!(
-                                "iterator.all: Predicate should return a bool, found '{}'",
-                                unexpected.type_as_string()
-                            )
-                        }
-                        Err(error) => return Err(error.with_prefix("iterator.all")),
-                    },
+            for output in make_iterator(iterable).unwrap() {
+                let predicate_result = match output {
+                    Output::Value(value) => {
+                        vm.run_function(predicate.clone(), CallArgs::Single(value))
+                    }
+                    Output::ValuePair(a, b) => {
+                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
+                    }
                     Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+                };
+
+                match predicate_result {
+                    Ok(Bool(result)) => {
+                        if !result {
+                            return Ok(Bool(false));
+                        }
+                    }
+                    Ok(unexpected) => {
+                        return runtime_error!(
+                            "iterator.all: Predicate should return a bool, found '{}'",
+                            unexpected.type_as_string()
+                        )
+                    }
+                    Err(error) => return Err(error.with_prefix("iterator.all")),
                 }
             }
 
@@ -43,28 +49,33 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("any", |vm, args| match vm.get_args(args) {
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let f = f.clone();
+        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let predicate = predicate.clone();
 
-            for output in iter {
-                match output {
-                    Output::Value(value) => match vm.run_function(f.clone(), &[value]) {
-                        Ok(Bool(result)) => {
-                            if result {
-                                return Ok(Bool(true));
-                            }
-                        }
-                        Ok(unexpected) => {
-                            return runtime_error!(
-                                "iterator.any: Predicate should return a bool, found '{}'",
-                                unexpected.type_as_string()
-                            )
-                        }
-                        Err(error) => return Err(error.with_prefix("iterator.any")),
-                    },
+            for output in make_iterator(iterable).unwrap() {
+                let predicate_result = match output {
+                    Output::Value(value) => {
+                        vm.run_function(predicate.clone(), CallArgs::Single(value))
+                    }
+                    Output::ValuePair(a, b) => {
+                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
+                    }
                     Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+                };
+
+                match predicate_result {
+                    Ok(Bool(result)) => {
+                        if result {
+                            return Ok(Bool(true));
+                        }
+                    }
+                    Ok(unexpected) => {
+                        return runtime_error!(
+                            "iterator.all: Predicate should return a bool, found '{}'",
+                            unexpected.type_as_string()
+                        )
+                    }
+                    Err(error) => return Err(error.with_prefix("iterator.all")),
                 }
             }
 
@@ -159,7 +170,10 @@ pub fn make_module() -> ValueMap {
                         for value in iterator.map(collect_pair) {
                             match value {
                                 Output::Value(value) => {
-                                    match vm.run_function(f.clone(), &[fold_result, value]) {
+                                    match vm.run_function(
+                                        f.clone(),
+                                        CallArgs::Separate(&[fold_result, value]),
+                                    ) {
                                         Ok(result) => fold_result = result,
                                         Err(error) => {
                                             return Some(Output::Error(
@@ -294,14 +308,14 @@ pub fn make_module() -> ValueMap {
             Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
         }
         [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
-            let iterable = iterable.clone();
             let key_fn = key_fn.clone();
             let mut result = None;
 
             for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Output::Value(value) => {
-                        let key = vm.run_function(key_fn.clone(), &[value.clone()])?;
+                        let key =
+                            vm.run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
                         let value_and_key = (value, key);
 
                         result = Some(match result {
@@ -325,7 +339,7 @@ pub fn make_module() -> ValueMap {
                         })
                     }
                     Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+                    _ => unreachable!(), // value pairs have been collected in collect_pair
                 }
             }
 
@@ -345,29 +359,34 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
-        [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let iter = make_iterator(iterable).unwrap().map(collect_pair);
-            let f = f.clone();
+        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let predicate = predicate.clone();
 
-            for (i, output) in iter.enumerate() {
-                match output {
-                    Output::Value(value) => match vm.run_function(f.clone(), &[value.clone()]) {
-                        Ok(Bool(result)) => {
-                            if result {
-                                return Ok(Number(i.into()));
-                            }
-                        }
-                        Ok(unexpected) => {
-                            return runtime_error!(
-                                "iterator.position expects a Bool to be returned from the \
-                                     predicate, found '{}'",
-                                unexpected.type_as_string(),
-                            )
-                        }
-                        Err(error) => return Err(error.with_prefix("iterator.position")),
-                    },
+            for (i, output) in make_iterator(iterable).unwrap().enumerate() {
+                let predicate_result = match output {
+                    Output::Value(value) => {
+                        vm.run_function(predicate.clone(), CallArgs::Single(value))
+                    }
+                    Output::ValuePair(a, b) => {
+                        vm.run_function(predicate.clone(), CallArgs::AsTuple(&[a, b]))
+                    }
                     Output::Error(error) => return Err(error),
-                    _ => unreachable!(),
+                };
+
+                match predicate_result {
+                    Ok(Bool(result)) => {
+                        if result {
+                            return Ok(Number(i.into()));
+                        }
+                    }
+                    Ok(unexpected) => {
+                        return runtime_error!(
+                            "iterator.position expects a Bool to be returned from the \
+                             predicate, found '{}'",
+                            unexpected.type_as_string(),
+                        )
+                    }
+                    Err(error) => return Err(error.with_prefix("iterator.position")),
                 }
             }
 
@@ -593,7 +612,7 @@ fn run_iterator_comparison_by_key(
     for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
         match iter_output {
             Output::Value(value) => {
-                let key = vm.run_function(key_fn.clone(), &[value.clone()])?;
+                let key = vm.run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;
                 let value_and_key = (value, key);
 
                 result_and_key = Some(match result_and_key {

@@ -40,5 +40,5 @@ pub use {
     value_number::ValueNumber,
     value_string::ValueString,
     value_tuple::ValueTuple,
-    vm::{Vm, VmSettings},
+    vm::{CallArgs, Vm, VmSettings},
 };

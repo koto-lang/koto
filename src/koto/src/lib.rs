@@ -31,7 +31,9 @@ pub use {koto_bytecode as bytecode, koto_parser as parser, koto_runtime as runti
 use {
     dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
-    koto_runtime::{KotoFile, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings},
+    koto_runtime::{
+        CallArgs, KotoFile, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings,
+    },
     std::{error::Error, fmt, path::PathBuf, sync::Arc},
 };
 
@@ -200,7 +202,9 @@ impl Koto {
             }
 
             if let Some(main) = self.runtime.get_exported_function("main") {
-                self.runtime.run_function(main, &[]).map_err(|e| e.into())
+                self.runtime
+                    .run_function(main, CallArgs::None)
+                    .map_err(|e| e.into())
             } else {
                 Ok(result)
             }
@@ -277,14 +281,14 @@ impl Koto {
         }
     }
 
-    pub fn call_function_by_name(&mut self, function_name: &str, args: &[Value]) -> KotoResult {
+    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
         match self.runtime.get_exported_function(function_name) {
-            Some(f) => self.call_function(f, args),
+            Some(f) => self.run_function(f, args),
             None => Err(KotoError::FunctionNotFound(function_name.into())),
         }
     }
 
-    pub fn call_function(&mut self, function: Value, args: &[Value]) -> KotoResult {
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
         self.runtime
             .run_function(function, args)
             .map_err(|e| e.into())
