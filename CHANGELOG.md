@@ -10,6 +10,12 @@ The Koto project adheres to
 
 ### Added
 
+- `iterator.cycle` has been added to the core library.
+  - e.g.
+    ```koto
+    (1, 2, 3).cycle().take(10).to_list()
+    # [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
+    ```
 - A pipe operator (`>>`) has been added to help with making long
   function call chains more readable.
   - e.g.

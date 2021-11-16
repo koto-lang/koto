@@ -52,6 +52,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [consume](#consume)
 - [copy](#copy)
 - [count](#count)
+- [cycle](#cycle)
 - [each](#each)
 - [enumerate](#enumerate)
 - [fold](#fold)
@@ -208,6 +209,23 @@ Counts the number of items yielded from the iterator.
   .keep |x| x % 2 == 0
   .count()
 # 50
+```
+
+## cycle
+
+`|Iterable| -> Iterator`
+
+Takes an Iterable and returns a new iterator that endlessly repeats the output
+of the iterable.
+
+### Example
+
+```koto
+(1, 2, 3)
+  .cycle()
+  .take(10)
+  .to_list()
+# [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
 ```
 
 ## each

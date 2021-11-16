@@ -89,6 +89,13 @@ export @tests =
       .count()
     assert_eq result, 5
 
+  @test cycle: ||
+    result = 1..=3
+      .cycle() 
+      .take(10)
+      .to_list()
+    assert_eq result, [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]
+
   @test each: ||
     assert_eq
       ("1", "2").each(|x| x.to_number()).to_tuple(),
