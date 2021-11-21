@@ -74,9 +74,10 @@ impl DataMap {
     }
 
     #[inline]
-    pub fn add_value(&mut self, id: &str, value: Value) -> Option<Value> {
+    pub fn add_value<V>(&mut self, id: &str, value: V) -> Option<Value>
+    where V: std::convert::Into<Value>{
         #[allow(clippy::useless_conversion)]
-        self.insert(id.into(), value)
+        self.insert(id.into(), value.into())
     }
 
     #[inline]
