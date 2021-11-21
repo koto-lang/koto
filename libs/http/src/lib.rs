@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 
-use koto_runtime::{DataMap, RuntimeError, Value, ValueKey, ValueMap, runtime_error};
-use ureq::{OrAnyStatus, Response};
-use ureq::Error;
+use std::io::{Error, ErrorKind};
+
+use koto_runtime::{DataMap, Value, ValueKey, ValueMap, runtime_error};
+use ureq::Response;
 
 pub fn make_module() -> koto_runtime::ValueMap {
     let mut module = koto_runtime::ValueMap::new();
@@ -16,30 +16,40 @@ pub fn make_module() -> koto_runtime::ValueMap {
     module
 }
 
-fn get_response_headers(response: &Response) -> ValueMap {
-    ValueMap::with_data(
+fn get_response_headers(response: &Response) -> Option<ValueMap> {
+    Some(ValueMap::with_data(
 	response.headers_names().iter()
-	    // .map(|name| (ValueKey::from(name.as_str()),
-	    .map(|name| (name.as_str().into(),
-			 response.header(&name).unwrap().into()))
-	    .collect())
+	    .map(|name|
+		 response.header(&name)
+		 .map(|header_content|
+		      (ValueKey::from(name.as_str()),
+		       Value::from(header_content))))
+	    .collect::<Option<DataMap>>()?))
 }
 
-fn koto_http_request(method: &str, url: &str) -> Result<Value, String>{
-    let response = ureq::request(method, url)
-        .set("Example-Header", "header value")
-        .call().unwrap();
 
+fn into_koto_response(response: ureq::Response) -> Result<DataMap, Error>{
     let mut koto_response = DataMap::new();
 
-    koto_response.insert("headers".into(),
-			 Value::Map(get_response_headers(&response)));
-    koto_response.insert("http_version".into(), response.http_version().into());
-    koto_response.insert("status".into(), response.status().into());
-    koto_response.insert("status_text".into(), response.status_text().into());
-    koto_response.insert("url".into(), response.get_url().into());
-    koto_response.insert("body".into(), response.into_string().unwrap().into());
-    Ok(Value::Map(ValueMap::with_data(koto_response)))
+    let headers = get_response_headers(&response)
+	.ok_or(Error::new(ErrorKind::Other, "failed to get headers (this should never happen)"))?;
+    koto_response.add_map("headers", headers);
+    koto_response.add_value("http_version", response.http_version());
+    koto_response.add_value("status", response.status());
+    koto_response.add_value("status_text", response.status_text());
+    koto_response.add_value("url", response.get_url());
+    koto_response.add_value("body", response.into_string()?);
+
+    Ok(koto_response)
+}
+fn koto_http_request(method: &str, url: &str) -> Result<Value, String>{
+    let response = ureq::request(method, url)
+        .call().or_else(|e|Err(e.to_string()))?;
+
+    into_koto_response(response)
+        .map(ValueMap::with_data)
+        .map(Value::Map)
+        .map_err(|e|e.to_string())
 }
 
 
