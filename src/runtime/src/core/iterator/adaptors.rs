@@ -381,7 +381,7 @@ impl Iterator for Keep {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(output) = self.iter.next() {
+        for output in &mut self.iter {
             let predicate = self.predicate.clone();
             let predicate_result = match &output {
                 Output::Value(value) => self
