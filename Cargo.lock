@@ -539,7 +539,6 @@ dependencies = [
  "koto_bytecode",
  "koto_lexer",
  "koto_parser",
- "num_cpus",
  "rustc-hash",
  "smallvec",
  "unicode-segmentation",

@@ -117,7 +117,6 @@ assert_near 1, 2, 0.1
     koto_test!(number_ops);
     koto_test!(numbers);
     koto_test!(num2_4);
-    koto_test!(os);
     koto_test!(primes);
     koto_test!(ranges);
     koto_test!(strings);
