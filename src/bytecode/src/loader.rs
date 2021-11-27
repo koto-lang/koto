@@ -2,7 +2,7 @@ use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
-    std::{collections::HashMap, error, fmt, path::PathBuf, sync::Arc},
+    std::{collections::HashMap, error, fmt, path::PathBuf, rc::Rc},
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -105,7 +105,7 @@ impl error::Error for LoaderError {}
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
 pub struct Loader {
-    chunks: HashMap<PathBuf, Arc<Chunk>>,
+    chunks: HashMap<PathBuf, Rc<Chunk>>,
 }
 
 impl Loader {
@@ -114,7 +114,7 @@ impl Loader {
         script: &str,
         script_path: Option<PathBuf>,
         compiler_settings: CompilerSettings,
-    ) -> Result<Arc<Chunk>, LoaderError> {
+    ) -> Result<Rc<Chunk>, LoaderError> {
         match Parser::parse(script) {
             Ok(ast) => {
                 let (bytes, mut debug_info) = match Compiler::compile(&ast, compiler_settings) {
@@ -124,7 +124,7 @@ impl Loader {
 
                 debug_info.source = script.to_string();
 
-                Ok(Arc::new(Chunk::new(
+                Ok(Rc::new(Chunk::new(
                     bytes,
                     ast.consume_constants(),
                     script_path,
@@ -136,7 +136,7 @@ impl Loader {
     }
 
     /// Compiles a script in REPL mode
-    pub fn compile_repl(&mut self, script: &str) -> Result<Arc<Chunk>, LoaderError> {
+    pub fn compile_repl(&mut self, script: &str) -> Result<Rc<Chunk>, LoaderError> {
         self.compile(script, None, CompilerSettings { repl_mode: true })
     }
 
@@ -145,7 +145,7 @@ impl Loader {
         &mut self,
         script: &str,
         script_path: &Option<PathBuf>,
-    ) -> Result<Arc<Chunk>, LoaderError> {
+    ) -> Result<Rc<Chunk>, LoaderError> {
         self.compile(script, script_path.clone(), CompilerSettings::default())
     }
 
@@ -154,7 +154,7 @@ impl Loader {
         &mut self,
         name: &str,
         load_from_path: Option<PathBuf>,
-    ) -> Result<(Arc<Chunk>, PathBuf), LoaderError> {
+    ) -> Result<(Rc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let path = match &load_from_path {
             Some(path) => match canonicalize(path) {

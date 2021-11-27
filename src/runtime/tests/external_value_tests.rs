@@ -4,11 +4,9 @@ mod external_values {
     use {
         crate::runtime_test_utils::{string, test_script_with_vm},
         koto_runtime::{
-            runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, RwLock, UnaryOp, Value,
-            Vm,
+            runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, UnaryOp, Value, Vm,
         },
-        lazy_static::lazy_static,
-        std::{fmt, sync::Arc},
+        std::{cell::RefCell, fmt, rc::Rc},
     };
 
     #[derive(Debug)]
@@ -24,8 +22,8 @@ mod external_values {
         }
     }
 
-    lazy_static! {
-        static ref EXTERNAL_META: Arc<RwLock<MetaMap>> = {
+    thread_local!(
+        static EXTERNAL_META: Rc<RefCell<MetaMap>> = {
             use Value::{Bool, Empty, Number};
 
             let mut meta = MetaMap::with_type_name("TestExternalData");
@@ -58,7 +56,7 @@ mod external_values {
                         }
                     }
                 },
-            );
+                );
 
             meta.add_named_instance_fn(
                 "get_data",
@@ -176,9 +174,9 @@ mod external_values {
                 },
             );
 
-            Arc::new(RwLock::new(meta))
-        };
-    }
+            Rc::new(RefCell::new(meta))
+        }
+    );
 
     fn test_script_with_external_value(script: &str, expected_output: Value) {
         let vm = Vm::default();
@@ -187,12 +185,12 @@ mod external_values {
         prelude.add_fn("make_external", |vm, args| match vm.get_args(args) {
             [Value::Number(x)] => Ok(ExternalValue::with_shared_meta_map(
                 TestExternalData { x: x.into() },
-                EXTERNAL_META.clone(),
+                EXTERNAL_META.with(|meta| meta.clone()),
             )
             .into()),
             [Value::ExternalData(data)] => Ok(ExternalValue {
                 data: data.clone(),
-                meta: EXTERNAL_META.clone(),
+                meta: EXTERNAL_META.with(|meta| meta.clone()),
             }
             .into()),
             _ => runtime_error!("make_external: Expected a Number or ExternalData as argument"),

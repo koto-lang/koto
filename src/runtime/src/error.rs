@@ -1,16 +1,17 @@
 use {
-    crate::{Mutex, UnaryOp, Value, Vm},
+    crate::{UnaryOp, Value, Vm},
     koto_bytecode::Chunk,
     koto_parser::format_error_with_excerpt,
     std::{
-        sync::Arc,
+        cell::RefCell,
+        rc::Rc,
         {error, fmt},
     },
 };
 
 #[derive(Clone, Debug)]
 pub struct ErrorFrame {
-    chunk: Arc<Chunk>,
+    chunk: Rc<Chunk>,
     instruction: usize,
 }
 
@@ -25,7 +26,7 @@ pub enum RuntimeErrorType {
     /// VM when displaying the error.
     KotoError {
         thrown_value: Value,
-        vm: Option<Arc<Mutex<Vm>>>,
+        vm: Option<Rc<RefCell<Vm>>>,
     },
 }
 
@@ -46,7 +47,7 @@ impl RuntimeError {
     pub fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
         Self::new(RuntimeErrorType::KotoError {
             thrown_value,
-            vm: Some(Arc::new(Mutex::new(vm))),
+            vm: Some(Rc::new(RefCell::new(vm))),
         })
     }
 
@@ -61,7 +62,7 @@ impl RuntimeError {
         self
     }
 
-    pub fn extend_trace(&mut self, chunk: Arc<Chunk>, instruction: usize) {
+    pub fn extend_trace(&mut self, chunk: Rc<Chunk>, instruction: usize) {
         self.trace.push(ErrorFrame { chunk, instruction });
     }
 }
@@ -87,7 +88,7 @@ impl fmt::Display for RuntimeError {
             KotoError { thrown_value, vm } => match (&thrown_value, vm) {
                 (Str(message), _) => message.to_string(),
                 (Map(_), Some(vm)) => match vm
-                    .lock()
+                    .borrow_mut()
                     .run_unary_op(UnaryOp::Display, thrown_value.clone())
                 {
                     Ok(Str(message)) => message.to_string(),

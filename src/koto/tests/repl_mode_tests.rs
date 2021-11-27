@@ -1,21 +1,21 @@
 use {
     koto::{
         bytecode::Chunk,
-        runtime::{KotoFile, KotoRead, KotoWrite, Mutex, RuntimeError},
+        runtime::{KotoFile, KotoRead, KotoWrite, RuntimeError},
         Koto, KotoSettings,
     },
-    std::{fmt, sync::Arc},
+    std::{cell::RefCell, fmt, rc::Rc},
 };
 
 fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
-    let output = Arc::new(Mutex::new(String::new()));
+    let output = Rc::new(RefCell::new(String::new()));
 
     let mut koto = Koto::with_settings(KotoSettings {
         repl_mode: true,
-        stdout: Arc::new(OutputCapture {
+        stdout: Rc::new(OutputCapture {
             output: output.clone(),
         }),
-        stderr: Arc::new(OutputCapture {
+        stderr: Rc::new(OutputCapture {
             output: output.clone(),
         }),
         ..Default::default()
@@ -42,16 +42,16 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
             panic!("{}", error);
         }
 
-        assert_eq!(&output.lock().trim(), &expected_output.trim());
+        assert_eq!(&output.borrow().trim(), &expected_output.trim());
 
-        output.lock().clear();
+        output.borrow_mut().clear();
     }
 }
 
 // Captures output from Koto in a String
 #[derive(Debug)]
 struct OutputCapture {
-    output: Arc<Mutex<String>>,
+    output: Rc<RefCell<String>>,
 }
 
 impl KotoFile for OutputCapture {}
@@ -63,12 +63,12 @@ impl KotoWrite for OutputCapture {
             Ok(s) => s,
             Err(e) => return Err(e.to_string().into()),
         };
-        self.output.lock().push_str(bytes_str);
+        self.output.borrow_mut().push_str(bytes_str);
         Ok(())
     }
 
     fn write_line(&self, output: &str) -> Result<(), RuntimeError> {
-        let mut unlocked = self.output.lock();
+        let mut unlocked = self.output.borrow_mut();
         unlocked.push_str(output);
         unlocked.push('\n');
         Ok(())

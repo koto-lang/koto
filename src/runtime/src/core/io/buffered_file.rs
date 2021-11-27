@@ -75,9 +75,6 @@ where
     }
 }
 
-// impl<T> Send for BufferedFile<T> where T: Send {}
-// impl<T> Sync for BufferedFile<T> where T: Sync {}
-
 #[derive(Debug)]
 struct BufWriterWrapper<T>(Writer<T>)
 where

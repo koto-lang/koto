@@ -1,27 +1,31 @@
 use {
-    crate::{RwLock, RwLockReadGuard, RwLockWriteGuard, Value},
-    std::{fmt, sync::Arc},
+    crate::Value,
+    std::{
+        cell::{Ref, RefCell, RefMut},
+        fmt,
+        rc::Rc,
+    },
 };
 
 pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 
 #[derive(Clone, Debug, Default)]
-pub struct ValueList(Arc<RwLock<ValueVec>>);
+pub struct ValueList(Rc<RefCell<ValueVec>>);
 
 impl ValueList {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Arc::new(RwLock::new(ValueVec::with_capacity(capacity))))
+        Self(Rc::new(RefCell::new(ValueVec::with_capacity(capacity))))
     }
 
     #[inline]
     pub fn with_data(data: ValueVec) -> Self {
-        Self(Arc::new(RwLock::new(data)))
+        Self(Rc::new(RefCell::new(data)))
     }
 
     #[inline]
     pub fn from_slice(data: &[Value]) -> Self {
-        Self(Arc::new(RwLock::new(
+        Self(Rc::new(RefCell::new(
             data.iter().cloned().collect::<ValueVec>(),
         )))
     }
@@ -37,13 +41,13 @@ impl ValueList {
     }
 
     #[inline]
-    pub fn data(&self) -> RwLockReadGuard<ValueVec> {
-        self.0.read()
+    pub fn data(&self) -> Ref<ValueVec> {
+        self.0.borrow()
     }
 
     #[inline]
-    pub fn data_mut(&self) -> RwLockWriteGuard<ValueVec> {
-        self.0.write()
+    pub fn data_mut(&self) -> RefMut<ValueVec> {
+        self.0.borrow_mut()
     }
 }
 

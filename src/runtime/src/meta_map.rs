@@ -47,11 +47,7 @@ impl MetaMap {
     }
 
     /// Adds a function to the map
-    pub fn add_fn(
-        &mut self,
-        key: MetaKey,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
-    ) {
+    pub fn add_fn(&mut self, key: MetaKey, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
         self.0.insert(
             key,
             Value::ExternalFunction(ExternalFunction::new(f, false)),
@@ -62,7 +58,7 @@ impl MetaMap {
     pub fn add_instance_fn(
         &mut self,
         key: MetaKey,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
     ) {
         self.0
             .insert(key, Value::ExternalFunction(ExternalFunction::new(f, true)));
@@ -91,7 +87,7 @@ impl MetaMap {
     pub fn add_named_instance_fn<T, F>(&mut self, fn_name: &str, f: F)
     where
         T: ExternalData,
-        F: Fn(&T, &ExternalValue, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        F: Fn(&T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.external_type_name();
         let fn_name = fn_name.to_string();
@@ -145,7 +141,7 @@ impl MetaMap {
     pub fn add_named_instance_fn_mut<T, F>(&mut self, fn_name: &str, f: F)
     where
         T: ExternalData,
-        F: Fn(&mut T, &ExternalValue, &[Value]) -> RuntimeResult + Send + Sync + 'static,
+        F: Fn(&mut T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.external_type_name();
         let fn_name = fn_name.to_string();
@@ -193,7 +189,7 @@ impl MetaMap {
     pub fn add_unary_op<T, F>(&mut self, op: UnaryOp, f: F)
     where
         T: ExternalData,
-        F: Fn(&T, &ExternalValue) -> RuntimeResult + Send + Sync + 'static,
+        F: Fn(&T, &ExternalValue) -> RuntimeResult + 'static,
     {
         let type_name = self.external_type_name();
 
@@ -245,7 +241,7 @@ impl MetaMap {
     pub fn add_binary_op<T, F>(&mut self, op: BinaryOp, f: F)
     where
         T: ExternalData,
-        F: Fn(&T, &T, &ExternalValue, &ExternalValue) -> RuntimeResult + Send + Sync + 'static,
+        F: Fn(&T, &T, &ExternalValue, &ExternalValue) -> RuntimeResult + 'static,
     {
         use Value::ExternalValue;
 
@@ -310,7 +306,7 @@ impl MetaMap {
     pub fn add_binary_op_with_any_rhs<T, F>(&mut self, op: BinaryOp, f: F)
     where
         T: ExternalData,
-        F: Fn(&T, &ExternalValue, &Value) -> RuntimeResult + Send + Sync + 'static,
+        F: Fn(&T, &ExternalValue, &Value) -> RuntimeResult + 'static,
     {
         use Value::ExternalValue;
 

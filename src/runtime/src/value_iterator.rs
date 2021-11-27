@@ -1,8 +1,6 @@
 use {
-    crate::{
-        Mutex, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
-    },
-    std::{fmt, sync::Arc},
+    crate::{Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm},
+    std::{cell::RefCell, fmt, rc::Rc},
     unicode_segmentation::GraphemeCursor,
 };
 
@@ -42,11 +40,11 @@ pub enum Iterable {
     Tuple(ValueTuple),
     Map(ValueMap),
     Str(ValueString),
-    Generator(Arc<Mutex<Vm>>),
-    External(Arc<Mutex<dyn ExternalIterator>>),
+    Generator(Rc<RefCell<Vm>>),
+    External(Rc<RefCell<dyn ExternalIterator>>),
 }
 
-pub trait ExternalIterator: Iterator<Item = ValueIteratorOutput> + Send + Sync {
+pub trait ExternalIterator: Iterator<Item = ValueIteratorOutput> {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> ValueIterator;
 }
@@ -146,7 +144,7 @@ impl Iterator for ValueIteratorInternals {
                     None => None,
                 }
             }
-            Iterable::Generator(vm) => match vm.lock().continue_running() {
+            Iterable::Generator(vm) => match vm.borrow_mut().continue_running() {
                 Ok(Value::Empty) => None,
                 Ok(Value::TemporaryTuple(_)) => {
                     unreachable!("Yield shouldn't produce temporary tuples")
@@ -154,17 +152,17 @@ impl Iterator for ValueIteratorInternals {
                 Ok(result) => Some(ValueIteratorOutput::Value(result)),
                 Err(error) => Some(ValueIteratorOutput::Error(error)),
             },
-            Iterable::External(external_iterator) => external_iterator.lock().next(),
+            Iterable::External(external_iterator) => external_iterator.borrow_mut().next(),
         }
     }
 }
 
 #[derive(Clone)]
-pub struct ValueIterator(Arc<Mutex<ValueIteratorInternals>>);
+pub struct ValueIterator(Rc<RefCell<ValueIteratorInternals>>);
 
 impl ValueIterator {
     pub fn new(iterable: Iterable) -> Self {
-        Self(Arc::new(Mutex::new(ValueIteratorInternals::new(iterable))))
+        Self(Rc::new(RefCell::new(ValueIteratorInternals::new(iterable))))
     }
 
     pub fn with_range(range: IntRange) -> Self {
@@ -196,31 +194,31 @@ impl ValueIterator {
     }
 
     pub fn with_vm(vm: Vm) -> Self {
-        Self::new(Iterable::Generator(Arc::new(Mutex::new(vm))))
+        Self::new(Iterable::Generator(Rc::new(RefCell::new(vm))))
     }
 
     pub fn make_copy(&self) -> Self {
-        let internals = self.0.lock();
+        let internals = self.0.borrow();
         match &internals.iterable {
             Iterable::Generator(generator_vm) => {
-                let new_vm = crate::vm::clone_generator_vm(&generator_vm.lock());
+                let new_vm = crate::vm::clone_generator_vm(&generator_vm.borrow());
                 Self::with_vm(new_vm)
             }
-            Iterable::External(external) => external.lock().make_copy(),
-            _ => Self(Arc::new(Mutex::new(internals.clone()))),
+            Iterable::External(external) => external.borrow().make_copy(),
+            _ => Self(Rc::new(RefCell::new(internals.clone()))),
         }
     }
 
     pub fn make_external(external: impl ExternalIterator + 'static) -> Self {
-        Self::new(Iterable::External(Arc::new(Mutex::new(external))))
+        Self::new(Iterable::External(Rc::new(RefCell::new(external))))
     }
 
-    // For internal functions that want to perform repeated iterations with a single lock
-    pub fn lock_internals(
+    // For internal functions that want to perform repeated iterations with a single borrow
+    pub fn borrow_internals(
         &mut self,
         mut f: impl FnMut(&mut ValueIteratorInternals) -> Option<ValueIteratorOutput>,
     ) -> Option<ValueIteratorOutput> {
-        f(&mut self.0.lock())
+        f(&mut self.0.borrow_mut())
     }
 }
 
@@ -228,13 +226,13 @@ impl Iterator for ValueIterator {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.lock().next()
+        self.0.borrow_mut().next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         use Iterable::*;
 
-        let internals = self.0.lock();
+        let internals = self.0.borrow();
         let index = internals.index;
 
         let iterable_size = match &internals.iterable {
@@ -250,7 +248,7 @@ impl Iterator for ValueIterator {
                 return (lower_bound, Some(upper_bound));
             }
             Generator(_) => 0,
-            External(external_iterator) => return external_iterator.lock().size_hint(),
+            External(external_iterator) => return external_iterator.borrow().size_hint(),
         };
 
         let remaining = iterable_size - index;

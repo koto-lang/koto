@@ -8,20 +8,17 @@ use {
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
-        RuntimeError, RuntimeErrorType, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard,
-        UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber, ValueString, ValueTuple,
-        ValueVec,
+        RuntimeError, RuntimeErrorType, RuntimeResult, UnaryOp, Value, ValueKey, ValueList,
+        ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
     std::{
+        cell::{Ref, RefCell, RefMut},
         collections::HashMap,
         fmt,
         path::PathBuf,
-        sync::{
-            atomic::{AtomicBool, Ordering},
-            Arc,
-        },
+        rc::Rc,
     },
 };
 
@@ -60,9 +57,9 @@ pub type InstructionResult = Result<(), RuntimeError>;
 struct SharedContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
-    stdin: Arc<dyn KotoFile>,
-    stdout: Arc<dyn KotoFile>,
-    stderr: Arc<dyn KotoFile>,
+    stdin: Rc<dyn KotoFile>,
+    stdout: Rc<dyn KotoFile>,
+    stderr: Rc<dyn KotoFile>,
     run_import_tests: bool,
 }
 
@@ -107,7 +104,6 @@ pub struct ModuleContext {
     pub exports: ValueMap,
     loader: Loader,
     modules: HashMap<PathBuf, Option<ValueMap>>,
-    spawned_stop_flags: Vec<Arc<AtomicBool>>,
 }
 
 impl ModuleContext {
@@ -116,42 +112,27 @@ impl ModuleContext {
             loader: self.loader.clone(),
             modules: self.modules.clone(),
             exports: Default::default(),
-            spawned_stop_flags: Default::default(),
         }
     }
 
     fn reset(&mut self) {
         self.loader = Default::default();
-        self.stop_spawned_vms();
-    }
-
-    fn stop_spawned_vms(&mut self) {
-        for stop_flag in self.spawned_stop_flags.iter() {
-            stop_flag.store(true, Ordering::Relaxed);
-        }
-        self.spawned_stop_flags.clear();
-    }
-}
-
-impl Drop for ModuleContext {
-    fn drop(&mut self) {
-        self.stop_spawned_vms();
     }
 }
 
 pub struct VmSettings {
-    pub stdin: Arc<dyn KotoFile>,
-    pub stdout: Arc<dyn KotoFile>,
-    pub stderr: Arc<dyn KotoFile>,
+    pub stdin: Rc<dyn KotoFile>,
+    pub stdout: Rc<dyn KotoFile>,
+    pub stderr: Rc<dyn KotoFile>,
     pub run_import_tests: bool,
 }
 
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
-            stdin: Arc::new(DefaultStdin::default()),
-            stdout: Arc::new(DefaultStdout::default()),
-            stderr: Arc::new(DefaultStderr::default()),
+            stdin: Rc::new(DefaultStdin::default()),
+            stdout: Rc::new(DefaultStdout::default()),
+            stderr: Rc::new(DefaultStderr::default()),
             run_import_tests: true,
         }
     }
@@ -159,12 +140,11 @@ impl Default for VmSettings {
 
 #[derive(Clone)]
 pub struct Vm {
-    context: Arc<RwLock<ModuleContext>>,
-    context_shared: Arc<SharedContext>,
+    context: Rc<RefCell<ModuleContext>>,
+    context_shared: Rc<SharedContext>,
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
-    stop_flag: Option<Arc<AtomicBool>>,
 }
 
 impl Default for Vm {
@@ -176,23 +156,21 @@ impl Default for Vm {
 impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
-            context: Arc::new(RwLock::new(ModuleContext::default())),
-            context_shared: Arc::new(SharedContext::with_settings(settings)),
+            context: Rc::new(RefCell::new(ModuleContext::default())),
+            context_shared: Rc::new(SharedContext::with_settings(settings)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
-            stop_flag: None,
         }
     }
 
     pub fn spawn_new_vm(&self) -> Self {
         Self {
-            context: Arc::new(RwLock::new(self.context().spawn_new_context())),
+            context: Rc::new(RefCell::new(self.context().spawn_new_context())),
             context_shared: self.context_shared.clone(),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
-            stop_flag: None,
         }
     }
 
@@ -203,23 +181,6 @@ impl Vm {
             reader: self.reader.clone(),
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
-            stop_flag: None,
-        }
-    }
-
-    pub fn spawn_shared_concurrent_vm(&mut self) -> Self {
-        let stop_flag = Arc::new(AtomicBool::new(false));
-        self.context_mut()
-            .spawned_stop_flags
-            .push(stop_flag.clone());
-
-        Self {
-            context: self.context.clone(),
-            context_shared: self.context_shared.clone(),
-            reader: self.reader.clone(),
-            value_stack: Vec::with_capacity(8),
-            call_stack: vec![],
-            stop_flag: Some(stop_flag),
         }
     }
 
@@ -228,27 +189,27 @@ impl Vm {
     }
 
     /// Access to the module's context
-    pub fn context(&self) -> RwLockReadGuard<ModuleContext> {
-        self.context.read()
+    pub fn context(&self) -> Ref<ModuleContext> {
+        self.context.borrow()
     }
 
     /// Mutable access to the module's context
-    pub fn context_mut(&mut self) -> RwLockWriteGuard<ModuleContext> {
-        self.context.write()
+    pub fn context_mut(&mut self) -> RefMut<ModuleContext> {
+        self.context.borrow_mut()
     }
 
     /// The stdin wrapper used by the VM
-    pub fn stdin(&self) -> &Arc<dyn KotoFile> {
+    pub fn stdin(&self) -> &Rc<dyn KotoFile> {
         &self.context_shared.stdin
     }
 
     /// The stdout wrapper used by the VM
-    pub fn stdout(&self) -> &Arc<dyn KotoFile> {
+    pub fn stdout(&self) -> &Rc<dyn KotoFile> {
         &self.context_shared.stdout
     }
 
     /// The stderr wrapper used by the VM
-    pub fn stderr(&self) -> &Arc<dyn KotoFile> {
+    pub fn stderr(&self) -> &Rc<dyn KotoFile> {
         &self.context_shared.stderr
     }
 
@@ -269,7 +230,7 @@ impl Vm {
         self.call_stack = Default::default();
     }
 
-    pub fn run(&mut self, chunk: Arc<Chunk>) -> RuntimeResult {
+    pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
         self.push_frame(chunk, 0, 0);
         self.execute_instructions()
     }
@@ -579,11 +540,6 @@ impl Vm {
         let mut instruction_ip = self.ip();
 
         while let Some(instruction) = self.reader.next() {
-            if let Some(stop_flag) = &self.stop_flag {
-                if stop_flag.load(Ordering::Relaxed) {
-                    break;
-                }
-            }
             match self.execute_instruction(instruction, instruction_ip) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
@@ -3186,11 +3142,11 @@ impl Vm {
         }
     }
 
-    pub fn chunk(&self) -> Arc<Chunk> {
+    pub fn chunk(&self) -> Rc<Chunk> {
         self.reader.chunk.clone()
     }
 
-    fn set_chunk_and_ip(&mut self, chunk: Arc<Chunk>, ip: usize) {
+    fn set_chunk_and_ip(&mut self, chunk: Rc<Chunk>, ip: usize) {
         self.reader = InstructionReader { chunk, ip };
     }
 
@@ -3218,7 +3174,7 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Arc<Chunk>, ip: usize, frame_base: u8) {
+    fn push_frame(&mut self, chunk: Rc<Chunk>, ip: usize, frame_base: u8) {
         let previous_frame_base = if let Some(frame) = self.call_stack.last() {
             frame.register_base
         } else {

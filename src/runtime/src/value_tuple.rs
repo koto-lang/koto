@@ -1,10 +1,10 @@
 use {
     crate::Value,
-    std::{fmt, sync::Arc},
+    std::{fmt, rc::Rc},
 };
 
 #[derive(Clone, Debug)]
-pub struct ValueTuple(Arc<[Value]>);
+pub struct ValueTuple(Rc<[Value]>);
 
 impl ValueTuple {
     #[inline]

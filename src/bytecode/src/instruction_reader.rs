@@ -1,7 +1,7 @@
 use {
     crate::{Chunk, Op},
     koto_parser::{ConstantIndex, MetaKeyId},
-    std::{convert::TryInto, fmt, sync::Arc},
+    std::{convert::TryInto, fmt, rc::Rc},
 };
 
 #[derive(Debug)]
@@ -936,14 +936,14 @@ impl fmt::Debug for Instruction {
 #[derive(Clone, Default)]
 pub struct InstructionReader {
     /// The chunk that the reader is reading from
-    pub chunk: Arc<Chunk>,
+    pub chunk: Rc<Chunk>,
     /// The reader's instruction pointer
     pub ip: usize,
 }
 
 impl InstructionReader {
     /// Initializes a reader with the given chunk
-    pub fn new(chunk: Arc<Chunk>) -> Self {
+    pub fn new(chunk: Rc<Chunk>) -> Self {
         Self { chunk, ip: 0 }
     }
 }

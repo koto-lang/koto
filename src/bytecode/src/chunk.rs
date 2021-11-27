@@ -1,7 +1,7 @@
 use {
     crate::InstructionReader,
     koto_parser::{ConstantPool, Span},
-    std::{path::PathBuf, sync::Arc},
+    std::{path::PathBuf, rc::Rc},
 };
 
 /// Debug information for a Koto program
@@ -87,7 +87,7 @@ impl Chunk {
     }
 
     /// Returns a [String] displaying the instructions contained in the compiled [Chunk]
-    pub fn bytes_as_string(chunk: Arc<Chunk>) -> String {
+    pub fn bytes_as_string(chunk: Rc<Chunk>) -> String {
         let mut iter = chunk.bytes.iter();
         let mut result = String::new();
 
@@ -112,7 +112,7 @@ impl Chunk {
     }
 
     /// Returns a [String] displaying the annotated instructions contained in the compiled [Chunk]
-    pub fn instructions_as_string(chunk: Arc<Chunk>, source_lines: &[&str]) -> String {
+    pub fn instructions_as_string(chunk: Rc<Chunk>, source_lines: &[&str]) -> String {
         let mut result = String::new();
         let mut reader = InstructionReader::new(chunk);
         let mut ip = reader.ip;

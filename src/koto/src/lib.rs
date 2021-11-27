@@ -34,7 +34,7 @@ use {
     koto_runtime::{
         CallArgs, KotoFile, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings,
     },
-    std::{error::Error, fmt, path::PathBuf, sync::Arc},
+    std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
 
 #[derive(Debug)]
@@ -91,9 +91,9 @@ pub struct KotoSettings {
     pub run_tests: bool,
     pub run_import_tests: bool,
     pub repl_mode: bool,
-    pub stdin: Arc<dyn KotoFile>,
-    pub stdout: Arc<dyn KotoFile>,
-    pub stderr: Arc<dyn KotoFile>,
+    pub stdin: Rc<dyn KotoFile>,
+    pub stdout: Rc<dyn KotoFile>,
+    pub stderr: Rc<dyn KotoFile>,
 }
 
 impl Default for KotoSettings {
@@ -118,7 +118,7 @@ pub struct Koto {
     pub settings: KotoSettings, // TODO make private, needs enable / disable tests methods
     script_path: Option<PathBuf>,
     loader: Loader,
-    chunk: Option<Arc<Chunk>>,
+    chunk: Option<Rc<Chunk>>,
 }
 
 impl Default for Koto {
@@ -147,7 +147,7 @@ impl Koto {
         }
     }
 
-    pub fn compile(&mut self, script: &str) -> Result<Arc<Chunk>, KotoError> {
+    pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
         let compile_result = if self.settings.repl_mode {
             self.loader.compile_repl(script)
         } else {
@@ -176,7 +176,7 @@ impl Koto {
         }
     }
 
-    pub fn run_chunk(&mut self, chunk: Arc<Chunk>) -> KotoResult {
+    pub fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
         if self.settings.repl_mode {

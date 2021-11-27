@@ -6,7 +6,7 @@ use {
         fmt,
         hash::{Hash, Hasher},
         ops::Range,
-        sync::Arc,
+        rc::Rc,
     },
 };
 
@@ -43,7 +43,7 @@ pub struct ConstantPool {
     // constant itself.
     constants: Vec<ConstantEntry>,
     // A series of constant strings concatenated into a single string
-    string_data: Arc<str>,
+    string_data: Rc<str>,
     // A hash of the pool contents, incrementally prepared by the builder
     hash: u64,
 }
@@ -77,7 +77,7 @@ impl ConstantPool {
     }
 
     /// Returns the concatenated string data stored in the pool
-    pub fn string_data(&self) -> &Arc<str> {
+    pub fn string_data(&self) -> &Rc<str> {
         &self.string_data
     }
 
