@@ -87,7 +87,6 @@ impl SharedContext {
         prelude.add_map("range", core_lib.range.clone());
         prelude.add_map("string", core_lib.string.clone());
         prelude.add_map("test", core_lib.test.clone());
-        prelude.add_map("thread", core_lib.thread.clone());
         prelude.add_map("tuple", core_lib.tuple.clone());
 
         Self {

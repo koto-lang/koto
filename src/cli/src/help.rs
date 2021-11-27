@@ -28,7 +28,6 @@ impl Help {
             include_str!("docs/reference/core_lib/range.md"),
             include_str!("docs/reference/core_lib/string.md"),
             include_str!("docs/reference/core_lib/test.md"),
-            include_str!("docs/reference/core_lib/thread.md"),
             include_str!("docs/reference/core_lib/tuple.md"),
         ];
 
