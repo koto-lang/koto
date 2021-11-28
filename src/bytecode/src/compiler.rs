@@ -2201,10 +2201,10 @@ impl Compiler {
             }
             let capture_count = captures.len() as u8;
 
-            let arg_is_unpacked_tuple = match function.args.as_slice() {
-                &[single_arg] if matches!(ast.node(single_arg).node, Node::Tuple(_)) => true,
-                _ => false,
-            };
+            let arg_is_unpacked_tuple = matches!(
+                function.args.as_slice(),
+                &[single_arg] if matches!(ast.node(single_arg).node, Node::Tuple(_))
+            );
 
             let flags_byte = FunctionFlags {
                 instance_function: function.is_instance_function,

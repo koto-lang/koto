@@ -1,31 +1,31 @@
 use {
-    lazy_static::lazy_static,
     std::{
         fmt,
         hash::{Hash, Hasher},
         ops::{Deref, Range},
-        sync::Arc,
+        rc::Rc,
     },
     unicode_segmentation::UnicodeSegmentation,
 };
 
 #[derive(Clone)]
 pub struct ValueString {
-    string: Arc<str>,
+    string: Rc<str>,
     bounds: Range<usize>,
 }
 
 impl ValueString {
-    fn new(string: Arc<str>) -> Self {
+    fn new(string: Rc<str>) -> Self {
         let bounds = 0..string.len();
         Self { string, bounds }
     }
 
+    /// Returns the empty string
     pub fn empty() -> Self {
-        Self::new(EMPTY_STRING.clone())
+        Self::new(EMPTY_STRING.with(|s| s.clone()))
     }
 
-    pub fn new_with_bounds(string: Arc<str>, bounds: Range<usize>) -> Option<Self> {
+    pub fn new_with_bounds(string: Rc<str>, bounds: Range<usize>) -> Option<Self> {
         if string.get(bounds.clone()).is_some() {
             Some(Self { string, bounds })
         } else {
@@ -158,6 +158,6 @@ impl fmt::Display for ValueString {
     }
 }
 
-lazy_static! {
-    static ref EMPTY_STRING: Arc<str> = Arc::from("");
-}
+thread_local!(
+    static EMPTY_STRING: Rc<str> = Rc::from("");
+);

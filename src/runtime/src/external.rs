@@ -1,10 +1,11 @@
 use {
-    crate::{RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, Vm},
+    crate::{RuntimeResult, Vm},
     downcast_rs::impl_downcast,
     std::{
+        cell::{Ref, RefCell, RefMut},
         fmt,
         hash::{Hash, Hasher},
-        sync::Arc,
+        rc::Rc,
     },
 };
 
@@ -13,7 +14,7 @@ pub use downcast_rs::Downcast;
 use crate::MetaMap;
 
 /// A trait for external data
-pub trait ExternalData: fmt::Debug + fmt::Display + Send + Sync + Downcast {
+pub trait ExternalData: fmt::Debug + fmt::Display + Downcast {
     fn value_type(&self) -> String {
         "External Data".to_string()
     }
@@ -24,42 +25,42 @@ impl_downcast!(ExternalData);
 /// A value with data and behaviour defined externally to the Koto runtime
 #[derive(Clone, Debug)]
 pub struct ExternalValue {
-    pub data: Arc<RwLock<dyn ExternalData>>,
-    pub meta: Arc<RwLock<MetaMap>>,
+    pub data: Rc<RefCell<dyn ExternalData>>,
+    pub meta: Rc<RefCell<MetaMap>>,
 }
 
 impl ExternalValue {
     pub fn new(data: impl ExternalData, meta: MetaMap) -> Self {
         Self {
-            data: Arc::new(RwLock::new(data)),
-            meta: Arc::new(RwLock::new(meta)),
+            data: Rc::new(RefCell::new(data)),
+            meta: Rc::new(RefCell::new(meta)),
         }
     }
 
-    pub fn with_shared_meta_map(data: impl ExternalData, meta: Arc<RwLock<MetaMap>>) -> Self {
+    pub fn with_shared_meta_map(data: impl ExternalData, meta: Rc<RefCell<MetaMap>>) -> Self {
         Self {
-            data: Arc::new(RwLock::new(data)),
+            data: Rc::new(RefCell::new(data)),
             meta,
         }
     }
 
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
-            data: Arc::new(RwLock::new(data)),
+            data: Rc::new(RefCell::new(data)),
             meta: self.meta.clone(),
         }
     }
 
-    pub fn data(&self) -> RwLockReadGuard<dyn ExternalData> {
-        self.data.read()
+    pub fn data(&self) -> Ref<dyn ExternalData> {
+        self.data.borrow()
     }
 
-    pub fn data_mut(&self) -> RwLockWriteGuard<dyn ExternalData> {
-        self.data.write()
+    pub fn data_mut(&self) -> RefMut<dyn ExternalData> {
+        self.data.borrow_mut()
     }
 
-    pub fn meta(&self) -> RwLockReadGuard<MetaMap> {
-        self.meta.read()
+    pub fn meta(&self) -> Ref<MetaMap> {
+        self.meta.borrow()
     }
 }
 
@@ -67,17 +68,17 @@ impl ExternalValue {
 // see: https://github.com/rust-lang/rust/issues/55628
 #[allow(clippy::type_complexity)]
 pub struct ExternalFunction {
-    pub function: Arc<dyn Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static>,
+    pub function: Rc<dyn Fn(&mut Vm, &Args) -> RuntimeResult + 'static>,
     pub is_instance_function: bool,
 }
 
 impl ExternalFunction {
     pub fn new(
-        function: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
+        function: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
         is_instance_function: bool,
     ) -> Self {
         Self {
-            function: Arc::new(function),
+            function: Rc::new(function),
             is_instance_function,
         }
     }
@@ -94,7 +95,7 @@ impl Clone for ExternalFunction {
 
 impl fmt::Debug for ExternalFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let raw = Arc::into_raw(self.function.clone());
+        let raw = Rc::into_raw(self.function.clone());
         write!(
             f,
             "external {}function: {:?}",
@@ -110,7 +111,7 @@ impl fmt::Debug for ExternalFunction {
 
 impl Hash for ExternalFunction {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(Arc::as_ptr(&self.function) as *const () as usize);
+        state.write_usize(Rc::as_ptr(&self.function) as *const () as usize);
     }
 }
 

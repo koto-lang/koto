@@ -5,16 +5,16 @@ pub use buffered_file::BufferedFile;
 use {
     super::string::format,
     crate::{
-        runtime_error, ExternalData, ExternalValue, KotoFile, KotoRead, KotoWrite, MetaMap, Mutex,
-        RuntimeError, RwLock, Value, ValueMap, Vm,
+        runtime_error, ExternalData, ExternalValue, KotoFile, KotoRead, KotoWrite, MetaMap,
+        RuntimeError, Value, ValueMap, Vm,
     },
-    lazy_static::lazy_static,
     std::{
+        cell::RefCell,
         fmt, fs,
         io::{self, BufRead, Read, Seek, SeekFrom, Write},
         ops::Deref,
         path::{Path, PathBuf},
-        sync::Arc,
+        rc::Rc,
     },
 };
 
@@ -149,8 +149,8 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-lazy_static! {
-    pub static ref FILE_META: Arc<RwLock<MetaMap>> = {
+thread_local!(
+    pub static FILE_META: Rc<RefCell<MetaMap>> = {
         use Value::{Empty, Number, Str};
 
         let mut meta = MetaMap::with_type_name("File");
@@ -222,15 +222,15 @@ lazy_static! {
             }
         });
 
-        Arc::new(RwLock::new(meta))
-    };
-}
+        Rc::new(RefCell::new(meta))
+    }
+);
 
 /// The File type used in the io module
-pub struct File(Arc<dyn KotoFile>);
+pub struct File(Rc<dyn KotoFile>);
 
 impl Deref for File {
-    type Target = Arc<dyn KotoFile>;
+    type Target = Rc<dyn KotoFile>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -241,31 +241,32 @@ impl File {
     /// Wraps a file that implements traits typical of a system file in a buffered reader/writer
     pub fn system_file<T>(file: T, path: PathBuf) -> Value
     where
-        T: Read + Write + Seek + Send + Sync + 'static,
+        T: Read + Write + Seek + 'static,
     {
         let result = ExternalValue::with_shared_meta_map(
-            File(Arc::new(BufferedSystemFile::new(file, path))),
-            FILE_META.clone(),
+            Self(Rc::new(BufferedSystemFile::new(file, path))),
+            Self::meta(),
         );
         Value::ExternalValue(result)
     }
 
     fn stderr(vm: &Vm) -> Value {
-        let result =
-            ExternalValue::with_shared_meta_map(File(vm.stderr().clone()), FILE_META.clone());
+        let result = ExternalValue::with_shared_meta_map(Self(vm.stderr().clone()), Self::meta());
         Value::ExternalValue(result)
     }
 
     fn stdin(vm: &Vm) -> Value {
-        let result =
-            ExternalValue::with_shared_meta_map(File(vm.stdin().clone()), FILE_META.clone());
+        let result = ExternalValue::with_shared_meta_map(Self(vm.stdin().clone()), Self::meta());
         Value::ExternalValue(result)
     }
 
     fn stdout(vm: &Vm) -> Value {
-        let result =
-            ExternalValue::with_shared_meta_map(File(vm.stdout().clone()), FILE_META.clone());
+        let result = ExternalValue::with_shared_meta_map(Self(vm.stdout().clone()), Self::meta());
         Value::ExternalValue(result)
+    }
+
+    fn meta() -> Rc<RefCell<MetaMap>> {
+        FILE_META.with(|meta| meta.clone())
     }
 }
 
@@ -291,17 +292,17 @@ struct BufferedSystemFile<T>
 where
     T: Write,
 {
-    file: Mutex<BufferedFile<T>>,
+    file: RefCell<BufferedFile<T>>,
     path: PathBuf,
 }
 
 impl<T> BufferedSystemFile<T>
 where
-    T: Read + Write + Seek + Send + Sync,
+    T: Read + Write + Seek,
 {
     pub fn new(file: T, path: PathBuf) -> Self {
         Self {
-            file: Mutex::new(BufferedFile::new(file)),
+            file: RefCell::new(BufferedFile::new(file)),
             path,
         }
     }
@@ -309,7 +310,7 @@ where
 
 impl<T> KotoFile for BufferedSystemFile<T>
 where
-    T: Read + Write + Seek + Send + Sync,
+    T: Read + Write + Seek,
 {
     fn path(&self) -> Result<String, RuntimeError> {
         Ok(self.path.to_string_lossy().into())
@@ -317,7 +318,7 @@ where
 
     fn seek(&self, position: u64) -> Result<(), RuntimeError> {
         self.file
-            .lock()
+            .borrow_mut()
             .seek(SeekFrom::Start(position))
             .map_err(map_io_err)?;
         Ok(())
@@ -332,7 +333,7 @@ where
         let mut buffer = String::new();
         match self
             .file
-            .lock()
+            .borrow_mut()
             .read_line(&mut buffer)
             .map_err(map_io_err)?
         {
@@ -344,7 +345,7 @@ where
     fn read_to_string(&self) -> Result<String, RuntimeError> {
         let mut buffer = String::new();
         self.file
-            .lock()
+            .borrow_mut()
             .read_to_string(&mut buffer)
             .map_err(map_io_err)?;
         Ok(buffer)
@@ -356,19 +357,19 @@ where
     T: Read + Write,
 {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
-        self.file.lock().write(bytes).map_err(map_io_err)?;
+        self.file.borrow_mut().write(bytes).map_err(map_io_err)?;
         Ok(())
     }
 
     fn write_line(&self, text: &str) -> Result<(), RuntimeError> {
-        let mut locked = self.file.lock();
-        locked.write(text.as_bytes()).map_err(map_io_err)?;
-        locked.write("\n".as_bytes()).map_err(map_io_err)?;
+        let mut borrowed = self.file.borrow_mut();
+        borrowed.write(text.as_bytes()).map_err(map_io_err)?;
+        borrowed.write("\n".as_bytes()).map_err(map_io_err)?;
         Ok(())
     }
 
     fn flush(&self) -> Result<(), RuntimeError> {
-        self.file.lock().flush().map_err(map_io_err)
+        self.file.borrow_mut().flush().map_err(map_io_err)
     }
 }
 

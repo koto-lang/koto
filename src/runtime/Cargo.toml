@@ -20,9 +20,6 @@ koto_parser = { path = "../parser", version = "^0.9.0"}
 
 downcast-rs = "1.1.1"
 indexmap = "1.4.0"
-lazy_static = "1.4.0"
-num_cpus = "1.13.0"
-parking_lot = "0.11.1"
 rustc-hash = "1.1.0"
 smallvec = "1.2.0"
 unicode-segmentation = "1.7.1"

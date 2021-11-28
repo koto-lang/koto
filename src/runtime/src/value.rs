@@ -1,11 +1,11 @@
 use {
     crate::{
         num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
-        ExternalValue, IntRange, MetaKey, RwLock, ValueIterator, ValueList, ValueNumber,
-        ValueString, ValueTuple, ValueVec,
+        ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString,
+        ValueTuple, ValueVec,
     },
     koto_bytecode::Chunk,
-    std::{fmt, sync::Arc},
+    std::{cell::RefCell, fmt, rc::Rc},
 };
 
 /// The core Value type for Koto
@@ -63,7 +63,7 @@ pub enum Value {
     ExternalValue(ExternalValue),
 
     /// A 'data-only' counterpart to ExternalValue
-    ExternalData(Arc<RwLock<dyn ExternalData>>),
+    ExternalData(Rc<RefCell<dyn ExternalData>>),
 
     /// The range type used as a temporary value in index expressions.
     ///
@@ -201,7 +201,7 @@ impl Value {
                 Some(_) => "Error: expected string for overloaded type".to_string(),
                 None => "ExternalValue".to_string(),
             },
-            ExternalData(data) => data.read().value_type(),
+            ExternalData(data) => data.borrow().value_type(),
             Iterator(_) => "Iterator".to_string(),
             TemporaryTuple { .. } => "TemporaryTuple".to_string(),
             SequenceBuilder(_) => "SequenceBuilder".to_string(),
@@ -247,7 +247,7 @@ impl fmt::Display for Value {
             Iterator(_) => write!(f, "Iterator"),
             ExternalFunction(_) => write!(f, "||"),
             ExternalValue(ref value) => write!(f, "{}", value.data()),
-            ExternalData(ref value) => write!(f, "{}", value.read()),
+            ExternalData(ref value) => write!(f, "{}", value.borrow()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
                 write!(f, "TemporaryTuple [{}..{}]", start, start + count)
@@ -291,7 +291,7 @@ impl From<ValueIterator> for Value {
 #[derive(Clone, Debug)]
 pub struct SimpleFunctionInfo {
     /// The [Chunk] in which the function can be found.
-    pub chunk: Arc<Chunk>,
+    pub chunk: Rc<Chunk>,
     /// The start ip of the function.
     pub ip: usize,
     /// The expected number of arguments for the function
@@ -301,7 +301,7 @@ pub struct SimpleFunctionInfo {
 #[derive(Clone, Debug)]
 pub struct FunctionInfo {
     /// The [Chunk] in which the function can be found.
-    pub chunk: Arc<Chunk>,
+    pub chunk: Rc<Chunk>,
     /// The start ip of the function.
     pub ip: usize,
     /// The expected number of arguments for the function.
@@ -326,10 +326,10 @@ pub struct FunctionInfo {
     //    and the assigned function need to share the same captures list. Currently the only way
     //    for this to work is to allow mutation of the shared list after the creation of the
     //    function, so a ValueList is a reasonable choice.
-    // Q. What about using Arc<[Value]> for non-recursive functions, or Option<Value> for
+    // Q. What about using Rc<[Value]> for non-recursive functions, or Option<Value> for
     //    non-recursive functions with a single capture?
     // A. These could be potential optimizations to investigate at some point, but would involve
-    //    placing FunctionInfo behind an Arc due to its increased size, so it's not clear if there
+    //    placing FunctionInfo behind an Rc due to its increased size, so it's not clear if there
     //    would be an overall performance win.
     pub captures: Option<ValueList>,
 }

@@ -4,7 +4,7 @@ use {
 };
 
 /// A trait used for file-like-things in Koto
-pub trait KotoFile: KotoRead + KotoWrite + Display + Debug + Send + Sync {
+pub trait KotoFile: KotoRead + KotoWrite + Display + Debug {
     /// Returns the path of the file
     fn path(&self) -> Result<String, RuntimeError> {
         runtime_error!("unsupported for this file type")

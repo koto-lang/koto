@@ -2,19 +2,18 @@
 
 use {
     koto_runtime::{
-        num2, num4, runtime_error, ExternalData, ExternalValue, MetaKey, MetaMap, RwLock, Value,
+        num2, num4, runtime_error, ExternalData, ExternalValue, MetaKey, MetaMap, Value,
     },
-    lazy_static::lazy_static,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
-    std::{fmt, sync::Arc},
+    std::{cell::RefCell, fmt, rc::Rc},
 };
 
 pub fn make_module() -> Value {
     // The random module contains a default generator, with the default RNG interface extended with
     // the `generator` function.
 
-    let mut module_meta = RNG_META.read().clone();
+    let mut module_meta = RNG_META.with(|meta| meta.borrow().clone());
 
     module_meta.add_fn(MetaKey::Named("generator".into()), |vm, args| {
         match vm.get_args(args) {
@@ -33,8 +32,8 @@ pub fn make_module() -> Value {
     Value::ExternalValue(ExternalValue::new(module_rng, module_meta))
 }
 
-lazy_static! {
-    static ref RNG_META: Arc<RwLock<MetaMap>> = {
+thread_local!(
+    static RNG_META: Rc<RefCell<MetaMap>> = {
         use Value::*;
 
         let mut meta = MetaMap::with_type_name("Rng");
@@ -88,16 +87,17 @@ lazy_static! {
             _ => runtime_error!("random.seed - expected number as argument"),
         });
 
-        Arc::new(RwLock::new(meta))
-    };
-}
+        Rc::new(RefCell::new(meta))
+    }
+);
 
 #[derive(Debug)]
 struct ChaChaRng(ChaCha20Rng);
 
 impl ChaChaRng {
     fn make_external_value(rng: ChaCha20Rng) -> Value {
-        let result = ExternalValue::with_shared_meta_map(ChaChaRng(rng), RNG_META.clone());
+        let result =
+            ExternalValue::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
 
         Value::ExternalValue(result)
     }

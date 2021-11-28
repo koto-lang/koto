@@ -51,6 +51,11 @@ The Koto project adheres to
           + 321
       ```
 - Internals
+  - The Koto runtime is now single-threaded.
+    - Many value types are now wrapped in `koto_runtime::RcCell<...>`
+      instead of `Arc<RwLock<...>>`.
+    - External value meta maps that are instantiated using `lazy_static` may
+      now use `thread_local!` instead.
   - The AST struct returned by the parser now includes its associated constant
     pool as a member.
   - Koto functions are now called from the outside with a `CallArgs` argument,
@@ -69,6 +74,11 @@ The Koto project adheres to
     x = if foo then 1, 2, 3 else 4, 5, 6
     assert_eq x[0], 1 # Previously this would result in an error
     ```
+
+### Removed
+
+- The `thread` core library module has been removed.
+- `os.cpu_count` and `os.physical_cpu_count` have been removed.
 
 ## [0.9.1] 2021.11.01
 

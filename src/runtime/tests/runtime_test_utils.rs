@@ -3,7 +3,7 @@
 use {
     koto_bytecode::Chunk,
     koto_runtime::{num2, num4, BinaryOp, Loader, Value, Value::*, ValueList, Vm},
-    std::sync::Arc,
+    std::rc::Rc,
 };
 
 pub fn test_script(script: &str, expected_output: Value) {
@@ -48,7 +48,7 @@ pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
     }
 }
 
-pub fn print_chunk(script: &str, chunk: Arc<Chunk>) {
+pub fn print_chunk(script: &str, chunk: Rc<Chunk>) {
     println!("{}\n", script);
     let script_lines = script.lines().collect::<Vec<_>>();
 

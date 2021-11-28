@@ -2,17 +2,17 @@ use {
     crate::{
         external::{Args, ExternalFunction},
         value_key::ValueKeyRef,
-        MetaMap, RuntimeResult, RwLock, RwLockReadGuard, RwLockWriteGuard, Value, ValueKey,
-        ValueList, Vm,
+        MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
     std::{
+        cell::{Ref, RefCell, RefMut},
         fmt,
         hash::BuildHasherDefault,
         iter::{FromIterator, IntoIterator},
         ops::{Deref, DerefMut},
-        sync::Arc,
+        rc::Rc,
     },
 };
 
@@ -39,11 +39,7 @@ impl DataMap {
     }
 
     #[inline]
-    pub fn add_fn(
-        &mut self,
-        id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
-    ) {
+    pub fn add_fn(&mut self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
         #[allow(clippy::useless_conversion)]
         self.add_value(
             id.into(),
@@ -55,7 +51,7 @@ impl DataMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
     ) {
         #[allow(clippy::useless_conversion)]
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
@@ -121,8 +117,8 @@ impl FromIterator<(ValueKey, Value)> for DataMap {
 /// The Map value type used in Koto
 #[derive(Clone, Debug, Default)]
 pub struct ValueMap {
-    data: Arc<RwLock<DataMap>>,
-    meta: Arc<RwLock<MetaMap>>,
+    data: Rc<RefCell<DataMap>>,
+    meta: Rc<RefCell<MetaMap>>,
 }
 
 impl ValueMap {
@@ -144,29 +140,29 @@ impl ValueMap {
     #[inline]
     pub fn with_contents(data: DataMap, meta: MetaMap) -> Self {
         Self {
-            data: Arc::new(RwLock::new(data)),
-            meta: Arc::new(RwLock::new(meta)),
+            data: Rc::new(RefCell::new(data)),
+            meta: Rc::new(RefCell::new(meta)),
         }
     }
 
     #[inline]
-    pub fn data(&self) -> RwLockReadGuard<DataMap> {
-        self.data.read()
+    pub fn data(&self) -> Ref<DataMap> {
+        self.data.borrow()
     }
 
     #[inline]
-    pub fn data_mut(&self) -> RwLockWriteGuard<DataMap> {
-        self.data.write()
+    pub fn data_mut(&self) -> RefMut<DataMap> {
+        self.data.borrow_mut()
     }
 
     #[inline]
-    pub fn meta(&self) -> RwLockReadGuard<MetaMap> {
-        self.meta.read()
+    pub fn meta(&self) -> Ref<MetaMap> {
+        self.meta.borrow()
     }
 
     #[inline]
-    pub fn meta_mut(&self) -> RwLockWriteGuard<MetaMap> {
-        self.meta.write()
+    pub fn meta_mut(&self) -> RefMut<MetaMap> {
+        self.meta.borrow_mut()
     }
 
     #[inline]
@@ -185,11 +181,7 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn add_fn(
-        &mut self,
-        id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
-    ) {
+    pub fn add_fn(&mut self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
@@ -197,7 +189,7 @@ impl ValueMap {
     pub fn add_instance_fn(
         &mut self,
         id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + Send + Sync + 'static,
+        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
     ) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }

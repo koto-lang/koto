@@ -30,7 +30,6 @@ pub use {
     meta_map::{BinaryOp, MetaKey, MetaMap, UnaryOp},
     num2::Num2,
     num4::Num4,
-    parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     stdio::{DefaultStderr, DefaultStdin, DefaultStdout},
     value::{FunctionInfo, Value},
     value_iterator::{ExternalIterator, IntRange, ValueIterator, ValueIteratorOutput},

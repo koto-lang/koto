@@ -12,7 +12,6 @@ pub mod os;
 pub mod range;
 pub mod string;
 pub mod test;
-pub mod thread;
 pub mod tuple;
 
 use crate::ValueMap;
@@ -31,7 +30,6 @@ pub struct CoreLib {
     pub range: ValueMap,
     pub string: ValueMap,
     pub test: ValueMap,
-    pub thread: ValueMap,
     pub tuple: ValueMap,
 }
 
@@ -50,7 +48,6 @@ impl Default for CoreLib {
             range: range::make_module(),
             string: string::make_module(),
             test: test::make_module(),
-            thread: thread::make_module(),
             tuple: tuple::make_module(),
         }
     }

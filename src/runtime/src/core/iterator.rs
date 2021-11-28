@@ -165,7 +165,7 @@ pub fn make_module() -> ValueMap {
                 let mut iter = make_iterator(iterable).unwrap();
 
                 match iter
-                    .lock_internals(|iterator| {
+                    .borrow_internals(|iterator| {
                         let mut fold_result = result.clone();
                         for value in iterator.map(collect_pair) {
                             match value {
@@ -311,7 +311,7 @@ pub fn make_module() -> ValueMap {
             let key_fn = key_fn.clone();
             let mut result = None;
 
-            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
                 match iter_output {
                     Output::Value(value) => {
                         let key =

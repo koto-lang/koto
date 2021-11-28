@@ -1,12 +1,12 @@
 use {
     koto_bytecode::Chunk,
-    koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, Mutex, RuntimeError, Vm, VmSettings},
-    std::{fmt, sync::Arc},
+    koto_runtime::{KotoFile, KotoRead, KotoWrite, Loader, RuntimeError, Vm, VmSettings},
+    std::{cell::RefCell, fmt, rc::Rc},
 };
 
 #[derive(Debug)]
 struct TestStdout {
-    output: Arc<Mutex<String>>,
+    output: Rc<RefCell<String>>,
 }
 
 impl KotoFile for TestStdout {}
@@ -15,14 +15,14 @@ impl KotoRead for TestStdout {}
 impl KotoWrite for TestStdout {
     fn write(&self, bytes: &[u8]) -> Result<(), RuntimeError> {
         self.output
-            .lock()
+            .borrow_mut()
             .push_str(std::str::from_utf8(bytes).unwrap());
         Ok(())
     }
 
     fn write_line(&self, s: &str) -> Result<(), RuntimeError> {
-        self.output.lock().push_str(s);
-        self.output.lock().push('\n');
+        self.output.borrow_mut().push_str(s);
+        self.output.borrow_mut().push('\n');
         Ok(())
     }
 
@@ -41,19 +41,19 @@ mod vm {
     use super::*;
 
     fn check_logged_output(script: &str, expected_output: &str) {
-        let output = Arc::new(Mutex::new(String::new()));
+        let output = Rc::new(RefCell::new(String::new()));
 
         let mut vm = Vm::with_settings(VmSettings {
-            stdout: Arc::new(TestStdout {
+            stdout: Rc::new(TestStdout {
                 output: output.clone(),
             }),
-            stderr: Arc::new(TestStdout {
+            stderr: Rc::new(TestStdout {
                 output: output.clone(),
             }),
             ..Default::default()
         });
 
-        let print_chunk = |script: &str, chunk: Arc<Chunk>| {
+        let print_chunk = |script: &str, chunk: Rc<Chunk>| {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
@@ -75,7 +75,7 @@ mod vm {
 
         match vm.run(chunk) {
             Ok(_) => {
-                assert_eq!(output.lock().as_str(), expected_output);
+                assert_eq!(output.borrow().as_str(), expected_output);
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
