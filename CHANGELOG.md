@@ -57,8 +57,8 @@ The Koto project adheres to
     `iterator.iter()` should be used instead.
 - Internals
   - The Koto runtime is now single-threaded.
-    - Many value types are now wrapped in `koto_runtime::RcCell<...>`
-      instead of `Arc<RwLock<...>>`.
+    - Reference counted value types are now wrapped in `Rc<...>`
+      instead of `Arc<...>`.
     - External value meta maps that are instantiated using `lazy_static` may
       now use `thread_local!` instead.
   - The AST struct returned by the parser now includes its associated constant
@@ -78,6 +78,14 @@ The Koto project adheres to
     ```koto
     x = if foo then 1, 2, 3 else 4, 5, 6
     assert_eq x[0], 1 # Previously this would result in an error
+    ```
+- Functions passed as arguments can now be broken onto a new line.
+  - e.g.
+    ```koto
+    foo
+      bar,
+      |x| x * x
+    # ^~~~ Previously this would have returned a parsing error
     ```
 
 ### Removed
