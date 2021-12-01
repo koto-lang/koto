@@ -1,6 +1,7 @@
 use {
     crate::{
         core::CoreLib,
+        error::unexpected_type_error,
         external::{self, Args, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
@@ -919,7 +920,7 @@ impl Vm {
             } => {
                 let key_string = match self.clone_register(key) {
                     Str(s) => s,
-                    other => return self.unexpected_type_error("Access: expected string", &other),
+                    other => return unexpected_type_error("String", &other),
                 };
                 self.run_access(register, value, key_string)
             }
@@ -1046,10 +1047,10 @@ impl Vm {
                 })
             }
             (Some(unexpected), _) => {
-                return self.unexpected_type_error("Expected Number for range start", unexpected);
+                return unexpected_type_error("Number for range start", unexpected);
             }
             (_, Some(unexpected)) => {
-                return self.unexpected_type_error("Expected Number for range end", unexpected);
+                return unexpected_type_error("Number for range end", unexpected);
             }
         };
 
@@ -1072,10 +1073,7 @@ impl Vm {
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),
                 unexpected => {
-                    return self.unexpected_type_error(
-                        "Expected iterable value while making iterator",
-                        &unexpected,
-                    );
+                    return unexpected_type_error("Iterable while making iterator", &unexpected);
                 }
             };
 
@@ -1096,12 +1094,7 @@ impl Vm {
 
         let result = match self.get_register_mut(iterator) {
             Iterator(iterator) => iterator.next(),
-            unexpected => {
-                return runtime_error!(
-                    "Expected Iterator, found '{}'",
-                    unexpected.type_as_string()
-                );
-            }
+            unexpected => return unexpected_type_error("Iterator", unexpected),
         };
 
         match (result, result_register) {
@@ -1172,10 +1165,7 @@ impl Vm {
                     Empty
                 }
             }
-            unexpected => {
-                return self
-                    .unexpected_type_error("ValueIndex: Expected indexable value", unexpected);
-            }
+            unexpected => return unexpected_type_error("indexable value", unexpected),
         };
 
         self.set_register(register, result);
@@ -1219,9 +1209,7 @@ impl Vm {
                         .map_or(Empty, |entries| Tuple(entries.into()))
                 }
             }
-            unexpected => {
-                return self.unexpected_type_error("SliceFrom: expected List or Tuple", unexpected);
-            }
+            unexpected => return unexpected_type_error("List or Tuple", unexpected),
         };
 
         self.set_register(register, result);
@@ -1284,16 +1272,14 @@ impl Vm {
         let capture_list = match self.get_register(function) {
             Value::Function(f) => &f.captures,
             Value::Generator(g) => &g.captures,
-            unexpected => {
-                return self.unexpected_type_error("Capture: expected Function", unexpected);
-            }
+            unexpected => return unexpected_type_error("Function", unexpected),
         };
 
         match capture_list {
             Some(capture_list) => {
                 capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
             }
-            None => return runtime_error!("Capture: missing capture list for function"),
+            None => return runtime_error!("Missing capture list for function"),
         }
 
         Ok(())
@@ -1314,9 +1300,7 @@ impl Vm {
                 let op = v.meta().get(&MetaKey::UnaryOp(Negate)).unwrap().clone();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            unexpected => {
-                return self.unexpected_type_error("Negate: expected negatable value", unexpected);
-            }
+            unexpected => return unexpected_type_error("negatable value", unexpected),
         };
         self.set_register(result, result_value);
 
@@ -1337,7 +1321,7 @@ impl Vm {
                 return self.call_overloaded_unary_op(result, value, op);
             }
             unexpected => {
-                return self.unexpected_type_error("Negate: expected negatable value", unexpected);
+                return unexpected_type_error("Bool (or value that implements @not)", unexpected)
             }
         };
         self.set_register(result, result_value);
@@ -1882,9 +1866,7 @@ impl Vm {
                     self.jump_ip(offset);
                 }
             }
-            unexpected => {
-                return self.unexpected_type_error("JumpIf: expected Bool", unexpected);
-            }
+            unexpected => return unexpected_type_error("Bool", unexpected),
         }
         Ok(())
     }
@@ -1898,12 +1880,7 @@ impl Vm {
         // The import name string will have been placed in the import register
         let import_name = match self.get_register(import_register) {
             Value::Str(s) => s.clone(),
-            other => {
-                return runtime_error!(
-                    "Expected import id or string, found '{}'",
-                    other.type_as_string()
-                )
-            }
+            other => return unexpected_type_error("import id or string", other),
         };
 
         // Is the import in the exports?
@@ -2031,18 +2008,12 @@ impl Vm {
                     for (i, value) in list.data().iter().take(2).enumerate() {
                         match value {
                             Number(n) => result[i] = n.into(),
-                            unexpected => {
-                                return self
-                                    .unexpected_type_error("num2: Expected Number", unexpected);
-                            }
+                            unexpected => return unexpected_type_error("Number", unexpected),
                         }
                     }
                     result
                 }
-                unexpected => {
-                    return self
-                        .unexpected_type_error("num2: Expected Number, Num2, or List", unexpected);
-                }
+                unexpected => return unexpected_type_error("Number, Num2, or List", unexpected),
             }
         } else {
             let mut result = num2::Num2::default();
@@ -2050,10 +2021,7 @@ impl Vm {
                 match self.get_register(element_register + i) {
                     Number(n) => result[i as usize] = n.into(),
                     unexpected => {
-                        return self.unexpected_type_error(
-                            "num2: Expected Number, Num2, or List",
-                            unexpected,
-                        );
+                        return unexpected_type_error("Number, Num2, or List", unexpected)
                     }
                 }
             }
@@ -2084,18 +2052,12 @@ impl Vm {
                     for (i, value) in list.data().iter().take(4).enumerate() {
                         match value {
                             Number(n) => result[i] = n.into(),
-                            unexpected => {
-                                return self
-                                    .unexpected_type_error("num4: Expected Number", unexpected);
-                            }
+                            unexpected => return unexpected_type_error("Number", unexpected),
                         }
                     }
                     result
                 }
-                unexpected => {
-                    return self
-                        .unexpected_type_error("num4: Expected Number, Num4, or List", unexpected);
-                }
+                unexpected => return unexpected_type_error("Number, Num4, or List", unexpected),
             }
         } else {
             let mut result = num4::Num4::default();
@@ -2103,10 +2065,7 @@ impl Vm {
                 match self.get_register(element_register + i) {
                     Number(n) => result[i as usize] = n.into(),
                     unexpected => {
-                        return self.unexpected_type_error(
-                            "num4: Expected Number, Num4, or List",
-                            unexpected,
-                        );
+                        return unexpected_type_error("Number, Num4, or List", unexpected)
                     }
                 }
             }
@@ -2158,19 +2117,14 @@ impl Vm {
                             list_data[i] = value.clone();
                         }
                     }
-                    unexpected => {
-                        return self.unexpected_type_error("Expected index", &unexpected);
-                    }
+                    unexpected => return unexpected_type_error("index", &unexpected),
                 }
             }
             Num2(mut num2) => {
                 let value = match value {
                     Number(n) => f64::from(n),
                     unexpected => {
-                        return self.unexpected_type_error(
-                            "Expected Number while assigning to Num2",
-                            &unexpected,
-                        );
+                        return unexpected_type_error("Number while assigning to Num2", &unexpected)
                     }
                 };
 
@@ -2198,9 +2152,7 @@ impl Vm {
                             num2[i] = value;
                         }
                     }
-                    unexpected => {
-                        return self.unexpected_type_error("Expected index", &unexpected);
-                    }
+                    unexpected => return unexpected_type_error("index", &unexpected),
                 }
 
                 self.set_register(indexable_register, Num2(num2));
@@ -2209,10 +2161,7 @@ impl Vm {
                 let value = match value {
                     Number(n) => f32::from(n),
                     unexpected => {
-                        return self.unexpected_type_error(
-                            "Expected Number while assigning to Num4",
-                            &unexpected,
-                        );
+                        return unexpected_type_error("Number while assigning to Num4", &unexpected)
                     }
                 };
 
@@ -2240,16 +2189,12 @@ impl Vm {
                             num4[i] = value;
                         }
                     }
-                    unexpected => {
-                        return self.unexpected_type_error("Expected index", &unexpected);
-                    }
+                    unexpected => return unexpected_type_error("index", &unexpected),
                 }
 
                 self.set_register(indexable_register, Num4(num4));
             }
-            unexpected => {
-                return self.unexpected_type_error("Expected indexable value", &unexpected);
-            }
+            unexpected => return unexpected_type_error("indexable value", &unexpected),
         };
 
         Ok(())
@@ -2464,10 +2409,7 @@ impl Vm {
                 map.data_mut().insert(key.into(), value);
                 Ok(())
             }
-            unexpected => runtime_error!(
-                "MapInsert: Expected Map, found '{}'",
-                unexpected.type_as_string()
-            ),
+            unexpected => unexpected_type_error("Map", unexpected),
         }
     }
 
@@ -2480,7 +2422,7 @@ impl Vm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("MetaInsert: {}", error),
+            Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
         };
 
         match self.get_register_mut(map_register) {
@@ -2488,10 +2430,7 @@ impl Vm {
                 map.meta_mut().insert(meta_key, value);
                 Ok(())
             }
-            unexpected => runtime_error!(
-                "MetaInsert: Expected Map, found '{}'",
-                unexpected.type_as_string()
-            ),
+            unexpected => unexpected_type_error("Map", unexpected),
         }
     }
 
@@ -2507,9 +2446,9 @@ impl Vm {
         let meta_key = match self.clone_register(name_register) {
             Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(e) => return runtime_error!("MetaInsertNamed: {}", e),
+                Err(e) => return runtime_error!("Error while preparing meta key: {}", e),
             },
-            other => return self.unexpected_type_error("MetaInsertNamed: expected string", &other),
+            other => return unexpected_type_error("String", &other),
         };
 
         match self.get_register_mut(map_register) {
@@ -2517,10 +2456,7 @@ impl Vm {
                 map.meta_mut().insert(meta_key, value);
                 Ok(())
             }
-            unexpected => runtime_error!(
-                "MetaInsert: Expected Map, found '{}'",
-                unexpected.type_as_string()
-            ),
+            unexpected => unexpected_type_error("Map", unexpected),
         }
     }
 
@@ -2528,7 +2464,7 @@ impl Vm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("MetaExport: {}", error),
+            Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
         };
 
         self.context_mut()
@@ -2549,9 +2485,9 @@ impl Vm {
         let meta_key = match self.clone_register(name_register) {
             Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(e) => return runtime_error!("MetaExportNamed: {}", e),
+                Err(e) => return runtime_error!("Error while preparing meta key: {}", e),
             },
-            other => return self.unexpected_type_error("MetaExportNamed: expected string", &other),
+            other => return unexpected_type_error("String", &other),
         };
 
         self.context_mut()
@@ -2616,10 +2552,7 @@ impl Vm {
                 }
             },
             unexpected => {
-                return self.unexpected_type_error(
-                    "RunAccess: Unable to perform '.' access on '{}'",
-                    unexpected,
-                )
+                return unexpected_type_error("Value that supports '.' access", unexpected)
             }
         }
 
@@ -2992,7 +2925,7 @@ impl Vm {
                 call_arg_count,
                 instance_register,
             ),
-            unexpected => self.unexpected_type_error("Expected callable function", &unexpected),
+            unexpected => unexpected_type_error("callable function", &unexpected),
         }
     }
 
@@ -3036,12 +2969,12 @@ impl Vm {
         match type_id {
             TypeId::List => {
                 if !matches!(value, Value::List(_)) {
-                    return self.unexpected_type_error("Expected List", value);
+                    return unexpected_type_error("List", value);
                 }
             }
             TypeId::Tuple => {
                 if !matches!(value, Value::Tuple(_) | Value::TemporaryTuple(_)) {
-                    return self.unexpected_type_error("Expected Tuple", value);
+                    return unexpected_type_error("Tuple", value);
                 }
             }
         }
@@ -3090,7 +3023,7 @@ impl Vm {
                 self.set_register(register, Value::List(list));
                 Ok(())
             }
-            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
+            other => unexpected_type_error("SequenceBuilder", &other),
         }
     }
 
@@ -3101,7 +3034,7 @@ impl Vm {
                 self.set_register(register, Value::Tuple(ValueTuple::from(result)));
                 Ok(())
             }
-            other => self.unexpected_type_error("SequenceToList: Expected SequenceBuilder", &other),
+            other => unexpected_type_error("SequenceBuilder", &other),
         }
     }
 
@@ -3111,22 +3044,14 @@ impl Vm {
 
         // Add the resulting string to the string builder
         match display_result {
-            Value::Str(string) => {
-                match self.get_register_mut(register) {
-                    Value::StringBuilder(builder) => {
-                        builder.push_str(&string);
-                        Ok(())
-                    }
-                    other => {
-                        // unexpected_type_error is unavailable here due to get_register_mut
-                        runtime_error!(
-                            "StringPush: Expected StringBuilder, found '{}'",
-                            other.type_as_string()
-                        )
-                    }
+            Value::Str(string) => match self.get_register_mut(register) {
+                Value::StringBuilder(builder) => {
+                    builder.push_str(&string);
+                    Ok(())
                 }
-            }
-            other => self.unexpected_type_error("StringPush: Expected String", &other),
+                other => unexpected_type_error("StringBuilder", other),
+            },
+            other => unexpected_type_error("String", &other),
         }
     }
 
@@ -3138,7 +3063,7 @@ impl Vm {
                 self.set_register(register, Value::Str(ValueString::from(result)));
                 Ok(())
             }
-            other => self.unexpected_type_error("StringFinish: Expected StringBuilder", &other),
+            other => unexpected_type_error("StringBuilder", &other),
         }
     }
 
@@ -3299,10 +3224,6 @@ impl Vm {
         ValueString::new_with_bounds(constants.string_data().clone(), bounds)
             // The bounds have been already checked in the constant pool
             .unwrap()
-    }
-
-    fn unexpected_type_error<T>(&self, message: &str, value: &Value) -> Result<T, RuntimeError> {
-        runtime_error!("{}, found '{}'", message, value.type_as_string())
     }
 
     fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {

@@ -1,4 +1,7 @@
-use crate::{runtime_error, value_sort::sort_values, BinaryOp, Value, ValueList, ValueMap};
+use crate::{
+    unexpected_type_error_with_slice, value_sort::sort_values, BinaryOp, RuntimeResult, Value,
+    ValueList, ValueMap,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -14,9 +17,10 @@ pub fn make_module() -> ValueMap {
                     Ok(Bool(false)) => {}
                     Ok(Bool(true)) => return Ok(true.into()),
                     Ok(unexpected) => {
-                        return runtime_error!(
-                            "tuple.contains: Expected Bool from comparison, found '{}'",
-                            unexpected.type_as_string()
+                        return unexpected_type_error_with_slice(
+                            "tuple.contains",
+                            "a Bool from the equality comparison",
+                            &[unexpected],
                         )
                     }
                     Err(e) => return Err(e.with_prefix("tuple.contains")),
@@ -24,32 +28,38 @@ pub fn make_module() -> ValueMap {
             }
             Ok(false.into())
         }
-        _ => runtime_error!("tuple.contains: Expected tuple and value as arguments"),
+        unexpected => unexpected_type_error_with_slice(
+            "tuple.contains",
+            "a Tuple and Value as arguments",
+            unexpected,
+        ),
     });
 
     result.add_fn("deep_copy", |vm, args| match vm.get_args(args) {
         [value @ Tuple(_)] => Ok(value.deep_copy()),
-        _ => runtime_error!("tuple.deep_copy: Expected tuple as argument"),
+        unexpected => expected_tuple_error("deep_copy", unexpected),
     });
 
     result.add_fn("first", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => match t.data().first() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Value::Empty),
+            None => Ok(Empty),
         },
-        _ => runtime_error!("tuple.first: Expected tuple as argument"),
+        unexpected => expected_tuple_error("first", unexpected),
     });
 
     result.add_fn("get", |vm, args| {
-        let (tuple, index, default) = match vm.get_args(args) {
-            [Tuple(tuple), Number(n)] => (tuple, n, &Empty),
-            [Tuple(tuple), Number(n), default] => (tuple, n, default),
-            _ => return runtime_error!("tuple.get: Expected tuple and number as arguments"),
-        };
+        let (tuple, index, default) =
+            match vm.get_args(args) {
+                [Tuple(tuple), Number(n)] if *n >= 0.0 => (tuple, n, &Empty),
+                [Tuple(tuple), Number(n), default] if *n >= 0.0 => (tuple, n, default),
+                unexpected => return unexpected_type_error_with_slice(
+                    "tuple.get",
+                    "a Tuple and non-negative Number (with optional default Value) as arguments",
+                    unexpected,
+                ),
+            };
 
-        if *index < 0.0 {
-            return runtime_error!("tuple.get: Negative indices aren't allowed");
-        }
         match tuple.data().get::<usize>(index.into()) {
             Some(value) => Ok(value.clone()),
             None => Ok(default.clone()),
@@ -59,14 +69,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => match t.data().last() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Value::Empty),
+            None => Ok(Empty),
         },
-        _ => runtime_error!("tuple.last: Expected tuple as argument"),
+        unexpected => expected_tuple_error("last", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(Number(t.data().len().into())),
-        _ => runtime_error!("tuple.size: Expected tuple as argument"),
+        unexpected => expected_tuple_error("size", unexpected),
     });
 
     result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
@@ -77,13 +87,21 @@ pub fn make_module() -> ValueMap {
 
             Ok(Tuple(result.into()))
         }
-        _ => runtime_error!("tuple.sort_copy: Expected tuple as argument"),
+        unexpected => expected_tuple_error("sort_copy", unexpected),
     });
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => Ok(List(ValueList::from_slice(t.data()))),
-        _ => runtime_error!("tuple.to_list: Expected tuple as argument"),
+        unexpected => expected_tuple_error("to_list", unexpected),
     });
 
     result
+}
+
+fn expected_tuple_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
+    unexpected_type_error_with_slice(
+        &format!("tuple.{}", name),
+        "a Tuple as argument",
+        unexpected,
+    )
 }

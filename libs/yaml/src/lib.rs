@@ -1,7 +1,9 @@
 //! A Koto language module for working with YAML data
 
 use {
-    koto_runtime::{runtime_error, Value, ValueList, ValueMap, ValueVec},
+    koto_runtime::{
+        runtime_error, unexpected_type_error_with_slice, Value, ValueList, ValueMap, ValueVec,
+    },
     koto_serialize::SerializableValue,
     serde_yaml::Value as YamlValue,
 };
@@ -63,7 +65,9 @@ pub fn make_module() -> ValueMap {
                 e.to_string()
             ),
         },
-        _ => runtime_error!("yaml.from_string expects a string as argument"),
+        unexpected => {
+            unexpected_type_error_with_slice("yaml.from_string", "a String as argument", unexpected)
+        }
     });
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
@@ -71,7 +75,9 @@ pub fn make_module() -> ValueMap {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => runtime_error!("yaml.to_string: {}", e),
         },
-        _ => runtime_error!("yaml.to_string expects a single argument"),
+        unexpected => {
+            unexpected_type_error_with_slice("yaml.to_string", "a Value as argument", unexpected)
+        }
     });
 
     result

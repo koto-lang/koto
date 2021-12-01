@@ -1,4 +1,6 @@
-use crate::{runtime_error, BinaryOp, Value, ValueMap, ValueNumber};
+use crate::{
+    runtime_error, unexpected_type_error_with_slice, BinaryOp, Value, ValueMap, ValueNumber,
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -14,9 +16,10 @@ pub fn make_module() -> ValueMap {
                     }
                 }
                 unexpected => {
-                    return runtime_error!(
-                        "assert expects booleans as arguments, found '{}'",
-                        unexpected.type_as_string(),
+                    return unexpected_type_error_with_slice(
+                        "test.assert",
+                        "Bool as argument",
+                        &[unexpected.clone()],
                     )
                 }
             }
@@ -34,14 +37,15 @@ pub fn make_module() -> ValueMap {
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{}' is not equal to '{}'", a, b)
                 }
-                Ok(unexpected) => runtime_error!(
-                    "assert_eq: expected Bool from comparison, found '{}'",
-                    unexpected.type_as_string()
+                Ok(unexpected) => unexpected_type_error_with_slice(
+                    "test.assert_eq",
+                    "Bool from equality comparison",
+                    &[unexpected],
                 ),
                 Err(e) => Err(e.with_prefix("assert_eq")),
             }
         }
-        _ => runtime_error!("assert_eq expects two arguments"),
+        unexpected => unexpected_type_error_with_slice("test.assert_eq", "two Values", unexpected),
     });
 
     result.add_fn("assert_ne", |vm, args| match vm.get_args(args) {
@@ -54,14 +58,15 @@ pub fn make_module() -> ValueMap {
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{}' should not be equal to '{}'", a, b)
                 }
-                Ok(unexpected) => runtime_error!(
-                    "assert_ne: expected Bool from comparison, found '{}'",
-                    unexpected.type_as_string()
+                Ok(unexpected) => unexpected_type_error_with_slice(
+                    "test.assert_ne",
+                    "Bool from equality comparison",
+                    &[unexpected],
                 ),
                 Err(e) => Err(e.with_prefix("assert_ne")),
             }
         }
-        _ => runtime_error!("assert_ne expects two arguments"),
+        unexpected => unexpected_type_error_with_slice("test.assert_ne", "two Values", unexpected),
     });
 
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
@@ -107,13 +112,12 @@ pub fn make_module() -> ValueMap {
                 )
             }
         }
-        [a, b, c] => runtime_error!(
-            "assert_near expects Numbers as arguments, found '{}', '{}', and '{}'",
-            a.type_as_string(),
-            b.type_as_string(),
-            c.type_as_string(),
+        unexpected => unexpected_type_error_with_slice(
+            "test.assert_near",
+            "two Numbers (or Num2s or Num4s) as arguments, \
+             followed by a Number that specifies the allowed difference",
+            unexpected,
         ),
-        _ => runtime_error!("assert_eq expects three arguments"),
     });
 
     result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
@@ -122,7 +126,9 @@ pub fn make_module() -> ValueMap {
             let mut vm = vm.spawn_shared_vm();
             vm.run_tests(tests)
         }
-        _ => runtime_error!("run_tests expects a map as argument"),
+        unexpected => {
+            unexpected_type_error_with_slice("test.run_tests", "a Map as argument", unexpected)
+        }
     });
 
     result

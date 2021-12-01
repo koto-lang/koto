@@ -2,7 +2,10 @@ pub mod format;
 pub mod iterators;
 
 use {
-    crate::{runtime_error, value_iterator::ValueIterator, Value, ValueMap},
+    crate::{
+        runtime_error, unexpected_type_error_with_slice, value_iterator::ValueIterator,
+        RuntimeResult, Value, ValueMap,
+    },
     unicode_segmentation::UnicodeSegmentation,
 };
 
@@ -16,17 +19,17 @@ pub fn make_module() -> ValueMap {
             let result = iterators::Bytes::new(s.clone());
             Ok(Iterator(ValueIterator::make_external(result)))
         }
-        _ => runtime_error!("string.bytes: Expected string as argument"),
+        unexpected => expected_string_error("bytes", unexpected),
     });
 
     result.add_fn("chars", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Iterator(ValueIterator::with_string(s.clone()))),
-        _ => runtime_error!("string.chars: Expected a string as argument"),
+        unexpected => expected_string_error("chars", unexpected),
     });
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Str(s1), Str(s2)] => Ok(Bool(s1.contains(s2.as_str()))),
-        _ => runtime_error!("string.contains: Expected two strings as arguments"),
+        unexpected => expected_string_error("contains", unexpected),
     });
 
     result.add_fn("ends_with", |vm, args| match vm.get_args(args) {
@@ -34,12 +37,12 @@ pub fn make_module() -> ValueMap {
             let result = s.as_str().ends_with(pattern.as_str());
             Ok(Bool(result))
         }
-        _ => runtime_error!("string.ends_with: Expected two strings as arguments"),
+        unexpected => expected_two_strings_error("ends_with", unexpected),
     });
 
     result.add_fn("escape", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Str(s.escape_default().to_string().into())),
-        _ => runtime_error!("string.escape: Expected string as argument"),
+        unexpected => expected_string_error("escape", unexpected),
     });
 
     result.add_fn("format", |vm, args| match vm.get_args(args) {
@@ -52,12 +55,16 @@ pub fn make_module() -> ValueMap {
                 Err(error) => Err(error.with_prefix("string.format")),
             }
         }
-        _ => runtime_error!("string.format: Expected a string as first argument"),
+        unexpected => unexpected_type_error_with_slice(
+            "string.format",
+            "a String as argument, followed by optional additional Values",
+            unexpected,
+        ),
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Bool(s.is_empty())),
-        _ => runtime_error!("string.is_empty: Expected string as argument"),
+        unexpected => expected_string_error("is_empty", unexpected),
     });
 
     result.add_fn("lines", |vm, args| match vm.get_args(args) {
@@ -65,12 +72,12 @@ pub fn make_module() -> ValueMap {
             let result = iterators::Lines::new(s.clone());
             Ok(Iterator(ValueIterator::make_external(result)))
         }
-        _ => runtime_error!("string.lines: Expected string as argument"),
+        unexpected => expected_string_error("lines", unexpected),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {
         [Str(s)] => Ok(Number(s.graphemes(true).count().into())),
-        _ => runtime_error!("string.size: Expected string as argument"),
+        unexpected => expected_string_error("size", unexpected),
     });
 
     result.add_fn("slice", |vm, args| match vm.get_args(args) {
@@ -90,7 +97,11 @@ pub fn make_module() -> ValueMap {
             };
             Ok(result)
         }
-        _ => runtime_error!("string.slice: Expected a string and slice index as arguments"),
+        unexpected => unexpected_type_error_with_slice(
+            "string.slice",
+            "a String and Number as arguments",
+            unexpected,
+        ),
     });
 
     result.add_fn("split", |vm, args| {
@@ -107,9 +118,11 @@ pub fn make_module() -> ValueMap {
                 );
                 ValueIterator::make_external(result)
             }
-            _ => {
-                return runtime_error!(
-                    "string.split: Expected a string and match pattern as arguments"
+            unexpected => {
+                return unexpected_type_error_with_slice(
+                    "string.split",
+                    "a String and either a String or predicate Function as arguments",
+                    unexpected,
                 )
             }
         };
@@ -122,7 +135,7 @@ pub fn make_module() -> ValueMap {
             let result = s.as_str().starts_with(pattern.as_str());
             Ok(Bool(result))
         }
-        _ => runtime_error!("string.starts_with: Expected two strings as arguments"),
+        unexpected => expected_two_strings_error("starts_with", unexpected),
     });
 
     result.add_fn("to_lowercase", |vm, args| match vm.get_args(args) {
@@ -130,7 +143,7 @@ pub fn make_module() -> ValueMap {
             let result = s.chars().flat_map(|c| c.to_lowercase()).collect::<String>();
             Ok(Str(result.into()))
         }
-        _ => runtime_error!("string.to_lowercase: Expected string as argument"),
+        unexpected => expected_string_error("to_lowercase", unexpected),
     });
 
     result.add_fn("to_number", |vm, args| match vm.get_args(args) {
@@ -143,7 +156,7 @@ pub fn make_module() -> ValueMap {
                 }
             },
         },
-        _ => runtime_error!("string.to_number: Expected string as argument"),
+        unexpected => expected_string_error("to_number", unexpected),
     });
 
     result.add_fn("to_uppercase", |vm, args| match vm.get_args(args) {
@@ -151,7 +164,7 @@ pub fn make_module() -> ValueMap {
             let result = s.chars().flat_map(|c| c.to_uppercase()).collect::<String>();
             Ok(Str(result.into()))
         }
-        _ => runtime_error!("string.to_uppercase: Expected string as argument"),
+        unexpected => expected_string_error("to_uppercase", unexpected),
     });
 
     result.add_fn("trim", |vm, args| match vm.get_args(args) {
@@ -166,8 +179,24 @@ pub fn make_module() -> ValueMap {
 
             Ok(Str(result))
         }
-        _ => runtime_error!("string.trim: Expected string as argument"),
+        unexpected => expected_string_error("trim", unexpected),
     });
 
     result
+}
+
+fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
+    unexpected_type_error_with_slice(
+        &format!("string.{}", name),
+        "a String as argument",
+        unexpected,
+    )
+}
+
+fn expected_two_strings_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
+    unexpected_type_error_with_slice(
+        &format!("string.{}", name),
+        "two Strings as arguments",
+        unexpected,
+    )
 }

@@ -158,3 +158,40 @@ macro_rules! runtime_error {
         Err($crate::make_runtime_error!(format!($error, $($y),+)))
     };
 }
+
+pub fn unexpected_type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
+    runtime_error!(
+        "Expected {}, found {}",
+        expected_str,
+        unexpected.type_as_string()
+    )
+}
+
+pub fn unexpected_type_error_with_slice<T>(
+    prefix: &str,
+    expected_str: &str,
+    unexpected: &[Value],
+) -> Result<T, RuntimeError> {
+    let message = match unexpected {
+        [] => "no args".to_string(),
+        _ => {
+            let mut types = String::from("'");
+            let mut first = true;
+            for value in unexpected {
+                if !first {
+                    types.push_str(", ");
+                }
+                first = false;
+                types.push_str(&value.type_as_string());
+            }
+            types.push('\'');
+            types
+        }
+    };
+    runtime_error!(
+        "{} - expected {}, but found {}",
+        prefix,
+        expected_str,
+        message
+    )
+}
