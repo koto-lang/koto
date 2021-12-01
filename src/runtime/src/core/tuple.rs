@@ -1,7 +1,4 @@
-use crate::{
-    runtime_error, value_iterator::ValueIterator, value_sort::sort_values, BinaryOp, Value,
-    ValueList, ValueMap,
-};
+use crate::{runtime_error, value_sort::sort_values, BinaryOp, Value, ValueList, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -57,11 +54,6 @@ pub fn make_module() -> ValueMap {
             Some(value) => Ok(value.clone()),
             None => Ok(default.clone()),
         }
-    });
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [Tuple(t)] => Ok(Iterator(ValueIterator::with_tuple(t.clone()))),
-        _ => runtime_error!("tuple.iter: Expected tuple as argument"),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {

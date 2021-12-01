@@ -50,7 +50,6 @@ x4.to_list()
 - [contains](#contains)
 - [end](#end)
 - [expanded](#expanded)
-- [iter](#iter)
 - [size](#size)
 - [start](#start)
 - [union](#union)
@@ -122,29 +121,6 @@ Negative amounts will cause the range to shrink rather than grow.
 
 (5..-5).expanded -10
 # -5..5
-```
-
-## iter
-
-`|Range| -> Iterator`
-
-Returns an iterator that iterates over the values contained in the range.
-
-Ranges are iterable, so it's not necessary to call `.iter()` to get access to
-iterator operations, but it can be useful sometimes to make a standalone
-iterator for manual iteration.
-
-### Example
-
-```koto
-x = 10..20
-i = x.iter()
-
-i.next()
-# 10
-
-i.next()
-# 11
 ```
 
 ## size

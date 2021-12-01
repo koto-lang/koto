@@ -2,7 +2,7 @@ use {
     crate::{
         runtime_error,
         value_sort::{compare_values, sort_values},
-        BinaryOp, CallArgs, Value, ValueIterator, ValueList, ValueMap,
+        BinaryOp, CallArgs, Value, ValueList, ValueMap,
     },
     std::cmp::Ordering,
     std::ops::DerefMut,
@@ -106,11 +106,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
         [List(l)] => Ok(Bool(l.data().is_empty())),
         _ => runtime_error!("list.is_empty: Expected list as argument"),
-    });
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [List(l)] => Ok(Iterator(ValueIterator::with_list(l.clone()))),
-        _ => runtime_error!("list.iter: Expected list as argument"),
     });
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {

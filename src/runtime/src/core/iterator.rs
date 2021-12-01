@@ -222,6 +222,11 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("iterator.intersperse: Expected iterable as argument"),
     });
 
+    result.add_fn("iter", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => Ok(Iterator(make_iterator(iterable).unwrap())),
+        _ => runtime_error!("iterator.iter: Expected iterable as argument"),
+    });
+
     result.add_fn("keep", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
             let result = adaptors::Keep::new(

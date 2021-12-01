@@ -188,7 +188,6 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 - [get_index](#get_index)
 - [insert](#insert)
 - [is_empty](#is_empty)
-- [iter](#iter)
 - [keys](#keys)
 - [remove](#remove)
 - [size](#size)
@@ -390,42 +389,6 @@ Returns `true` if the map contains no entries, otherwise `false`.
 
 - [`map.size`](#size)
 
-## iter
-
-`|Map| -> Iterator`
-
-Returns an iterator that iterates over the map's entries.
-
-Each key/value pair is provided in order as a tuple.
-
-Maps are iterable, so it's not necessary to call `.iter()` to get access to
-iterator operations, but it can be useful sometimes to make a standalone
-iterator for manual iteration.
-
-### Example
-
-```koto
-m =
-  hello: -1
-  goodbye: 99
-
-x = m.iter();
-
-x.next()
-# ("hello", -1)
-
-x.next()
-# ("goodbye", 99)
-
-x.next()
-# ()
-```
-
-### See also
-
-- [`map.keys`](#keys)
-- [`map.values`](#values)
-
 ## keys
 
 `|Map| -> Iterator`
@@ -453,7 +416,6 @@ x.next()
 
 ### See also
 
-- [`map.iter`](#iter)
 - [`map.values`](#values)
 
 ## remove
@@ -609,5 +571,4 @@ x.next()
 
 ### See also
 
-- [`map.iter`](#iter)
 - [`map.keys`](#keys)

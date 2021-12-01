@@ -1,4 +1,4 @@
-use crate::{runtime_error, IntRange, Value, ValueIterator, ValueMap};
+use crate::{runtime_error, IntRange, Value, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -31,11 +31,6 @@ pub fn make_module() -> ValueMap {
             }
         }
         _ => runtime_error!("range.expanded: Expected range and number as arguments"),
-    });
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [Range(r)] => Ok(Iterator(ValueIterator::with_range(*r))),
-        _ => runtime_error!("range.iter: Expected range as argument"),
     });
 
     result.add_fn("size", |vm, args| match vm.get_args(args) {

@@ -1,14 +1,9 @@
-use crate::{runtime_error, RuntimeResult, Value, ValueIterator, ValueMap};
+use crate::{runtime_error, RuntimeResult, Value, ValueMap};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
 
     let mut result = ValueMap::new();
-
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [Num4(n)] => Ok(Iterator(ValueIterator::with_num4(*n))),
-        _ => num4_error("iter"),
-    });
 
     result.add_fn("length", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.length().into())),

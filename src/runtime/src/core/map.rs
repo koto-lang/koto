@@ -108,15 +108,6 @@ pub fn make_module() -> ValueMap {
         _ => runtime_error!("map.is_empty: Expected map and key as arguments"),
     });
 
-    result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Iterator(ValueIterator::with_map(m.clone()))),
-        [other, ..] => runtime_error!(
-            "map.iter: Expected map as argument, found '{}'",
-            other.type_as_string(),
-        ),
-        _ => runtime_error!("map.iter: Expected map as argument"),
-    });
-
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));

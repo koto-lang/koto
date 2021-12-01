@@ -50,6 +50,11 @@ The Koto project adheres to
             # ^~~ Previously this indentation would have been disallowed.
           + 321
       ```
+- Individual `.iter()` functions on containers have been replaced with
+  `iterator.iter()`.
+  - Existing scripts will continue to work without issue, unless they explicitly
+    call or import one of the `iter()` functions from a module.
+    `iterator.iter()` should be used instead.
 - Internals
   - The Koto runtime is now single-threaded.
     - Many value types are now wrapped in `koto_runtime::RcCell<...>`

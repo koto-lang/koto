@@ -57,6 +57,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [enumerate](#enumerate)
 - [fold](#fold)
 - [intersperse](#intersperse)
+- [iter](#iter)
 - [keep](#keep)
 - [last](#last)
 - [max](#max)
@@ -311,6 +312,32 @@ separators = (1, 2, 3).iter()
   .to_tuple(),
 # ("a", 1, "b", 2, "c")
 ```
+
+## iter
+
+`|Iterable| -> Iterator`
+
+Returns an iterator that yields the provided iterable's values.
+
+Iterable values will be automatically accepted by most iterator operations,
+so it's usually not necessary to call `.iter()`, however it can be usefult
+sometimes to make a standalone iterator for manual iteration.
+
+Note that calling `.iter` with an `Iterator` will return the iterator without
+modification. If a copy of the iterator is needed then use `.copy()`.
+
+### Example
+
+```koto
+i = (1..10).iter()
+i.skip 5
+i.next()
+# 6
+```
+
+### See Also
+
+- [`iterator.copy`](#copy)
 
 ## keep
 
