@@ -30,6 +30,7 @@ The Koto project adheres to
     ```
 - Maps can now override the behaviour of the `not` operator using the `@not`
   meta key.
+- `random.pick` now supports picking values from Tuples and Maps.
 
 ### Changed
 

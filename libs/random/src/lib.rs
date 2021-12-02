@@ -3,7 +3,7 @@
 use {
     koto_runtime::{
         num2, num4, unexpected_type_error_with_slice, ExternalData, ExternalValue, MetaKey,
-        MetaMap, Value,
+        MetaMap, Value, ValueTuple,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -71,6 +71,16 @@ thread_local!(
                 let index = rng.0.gen_range(0, l.len());
                 Ok(l.data()[index].clone())
             }
+            [Map(m)] => {
+                let index = rng.0.gen_range(0, m.len());
+                match m.data().get_index(index) {
+                    Some((key, value)) => {
+                        let data = vec![key.value().clone(), value.clone()];
+                        Ok(Tuple(ValueTuple::from(data)))
+                    },
+                    None => unreachable!(), // The index is guaranteed to be within range
+                }
+            }
             [Range(r)] => {
                 let (start, end) = if r.end > r.start {
                     (r.start, r.end)
@@ -80,6 +90,10 @@ thread_local!(
                 let size = end - start;
                 let index = rng.0.gen_range(0, size);
                 Ok(Number((start + index).into()))
+            }
+            [Tuple(t)] => {
+                let index = rng.0.gen_range(0, t.data().len());
+                Ok(t.data()[index].clone())
             }
             unexpected => unexpected_type_error_with_slice(
                 "random.pick",
