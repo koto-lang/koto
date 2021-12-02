@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        make_runtime_error, runtime_error, ExternalData, ExternalIterator, ExternalValue, MetaMap,
-        Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalIterator,
+        ExternalValue, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::{cell::RefCell, fmt, rc::Rc},
 };
@@ -17,11 +17,9 @@ pub fn make_module() -> ValueMap {
                 poetry.add_source_material(text);
                 Ok(KotoPoetry::make_external_value(poetry))
             }
-            [unexpected] => runtime_error!(
-                "poetry.new: Expected a String as argument, found '{}'",
-                unexpected.type_as_string(),
-            ),
-            _ => runtime_error!("poetry.new: Expected a String as argument"),
+            unexpected => {
+                unexpected_type_error_with_slice("poetry.new", "a String as argument", unexpected)
+            }
         }
     });
 
@@ -41,7 +39,9 @@ static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = {
                 poetry.0.add_source_material(text);
                 Ok(Empty)
             }
-            _ => runtime_error!("poetry.add_source_material: Expected a String as argument"),
+            unexpected => {
+                unexpected_type_error_with_slice("poetry.add_source_material", "a String as argument", unexpected)
+            }
         },
     );
 

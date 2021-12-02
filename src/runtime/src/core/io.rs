@@ -5,8 +5,8 @@ pub use buffered_file::BufferedFile;
 use {
     super::string::format,
     crate::{
-        runtime_error, ExternalData, ExternalValue, KotoFile, KotoRead, KotoWrite, MetaMap,
-        RuntimeError, Value, ValueMap, Vm,
+        error::unexpected_type_error_with_slice, runtime_error, ExternalData, ExternalValue,
+        KotoFile, KotoRead, KotoWrite, MetaMap, RuntimeError, Value, ValueMap, Vm,
     },
     std::{
         cell::RefCell,
@@ -34,11 +34,11 @@ pub fn make_module() -> ValueMap {
                     }
                 }
             }
-            [unexpected] => runtime_error!(
-                "io.create: Expected a String as argument, found '{}'",
-                unexpected.type_as_string(),
+            unexpected => unexpected_type_error_with_slice(
+                "io.create",
+                "a path String as argument",
+                unexpected,
             ),
-            _ => runtime_error!("io.create: Expected a String as argument"),
         }
     });
 
@@ -52,7 +52,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("exists", |vm, args| match vm.get_args(args) {
         [Str(path)] => Ok(Bool(fs::canonicalize(path.as_str()).is_ok())),
-        _ => runtime_error!("io.exists: Expected path string as argument"),
+        unexpected => {
+            unexpected_type_error_with_slice("io.exists", "a path String as argument", unexpected)
+        }
     });
 
     result.add_fn("extend_path", |vm, args| match vm.get_args(args) {
@@ -66,11 +68,15 @@ pub fn make_module() -> ValueMap {
             }
             Ok(path.to_string_lossy().to_string().into())
         }
-        _ => runtime_error!("io.extend_path: Expected path string as first argument"),
+        unexpected => unexpected_type_error_with_slice(
+            "io.extend_path",
+            "a path String as argument, followed by some additional path nodes",
+            unexpected,
+        ),
     });
 
     result.add_fn("open", {
-        move |vm, args| match vm.get_args(args) {
+        |vm, args| match vm.get_args(args) {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
@@ -80,11 +86,9 @@ pub fn make_module() -> ValueMap {
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
             },
-            [unexpected] => runtime_error!(
-                "io.open: Expected a String as argument, found '{}'",
-                unexpected.type_as_string(),
-            ),
-            _ => runtime_error!("io.open: Expected a String as argument"),
+            unexpected => {
+                unexpected_type_error_with_slice("io.open", "a path String as argument", unexpected)
+            }
         }
     });
 
@@ -100,12 +104,18 @@ pub fn make_module() -> ValueMap {
                     Err(error) => Err(error),
                 }
             }
-            _ => return runtime_error!("io.print: Expected a string as format argument"),
+            unexpected => {
+                return unexpected_type_error_with_slice(
+                    "io.print",
+                    "a String as argument, followed by optional additional Values",
+                    unexpected,
+                )
+            }
         };
 
         match result {
             Ok(_) => Ok(Empty),
-            Err(e) => Err(e.with_prefix("string.print")),
+            Err(e) => Err(e.with_prefix("io.print")),
         }
     });
 
@@ -114,7 +124,11 @@ pub fn make_module() -> ValueMap {
             Ok(result) => Ok(Str(result.into())),
             Err(e) => runtime_error!("io.read_to_string: Unable to read file '{}': {}", path, e),
         },
-        _ => runtime_error!("io.read_to_string: Expected path string as argument"),
+        unexpected => unexpected_type_error_with_slice(
+            "io.read_to_string",
+            "a path String as argument",
+            unexpected,
+        ),
     });
 
     result.add_fn("remove_file", {
@@ -130,11 +144,11 @@ pub fn make_module() -> ValueMap {
                     ),
                 }
             }
-            [unexpected] => runtime_error!(
-                "io.remove_file: Expected a String as argument, found '{}'",
-                unexpected.type_as_string(),
+            unexpected => unexpected_type_error_with_slice(
+                "io.remove_file",
+                "a path String as argument",
+                unexpected,
             ),
-            _ => runtime_error!("io.remove_file: Expected a String as argument"),
         }
     });
 
@@ -193,11 +207,11 @@ thread_local!(
                     Err(e) => Err(e.with_prefix("File.seek")),
                 }
             }
-            [unexpected] => runtime_error!(
-                "File.seek: Expected Number for seek position, found '{}'",
-                unexpected.type_as_string(),
+            unexpected => unexpected_type_error_with_slice(
+                "File.seek",
+                "a non-negative Number as the seek position",
+                unexpected,
             ),
-            _ => runtime_error!("File.seek: Expected seek position as second argument"),
         });
 
         meta.add_named_instance_fn_mut("write", |file: &mut File, _, args| match args {
@@ -205,16 +219,22 @@ thread_local!(
                 Ok(_) => Ok(Value::Empty),
                 Err(e) => Err(e.with_prefix("File.write")),
             },
-            _ => runtime_error!("File.write: Expected single value to write as argument"),
+            unexpected => unexpected_type_error_with_slice(
+                "File.write",
+                "a single argument",
+                unexpected,
+            ),
         });
 
         meta.add_named_instance_fn_mut("write_line", |file: &mut File, _, args| {
             let line = match args {
                 [] => "\n".to_string(),
                 [value] => format!("{}\n", value),
-                _ => {
-                    return runtime_error!("File.write_line: Expected single value as argument");
-                }
+                unexpected => return unexpected_type_error_with_slice(
+                    "File.write_line",
+                    "a single argument",
+                    unexpected,
+                ),
             };
             match file.write(line.as_bytes()) {
                 Ok(_) => Ok(Value::Empty),

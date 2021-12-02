@@ -110,6 +110,11 @@ Returns an iterator that yields the string's characters as strings.
 A 'character' in Koto is defined as a grapheme, so `.chars()` iterates over the
 string's grapheme clusters.
 
+### Note
+
+Note that this is the default iteration behaviour for a string, so calling
+`.chars()` on a string is equivalent to calling `iterator.iter()`.
+
 ### Example
 
 ```koto

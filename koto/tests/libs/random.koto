@@ -17,10 +17,21 @@ export @tests =
     assert_near random.number2(), (num2 0.024, 0.982), 0.001
     assert_near random.number4(), (num4 0.006, 0.861, 0.823, 0.186), 0.001
 
-  @test pick: ||
+  @test pick_list: ||
     x = ["foo", "bar", "baz"]
     assert (x.contains (random.pick x))
+
+  @test pick_map: ||
+    x = {foo: 123, bar: 456, baz: 789}
+    key, value = random.pick x
+    assert_eq (x.get key), value
+
+  @test pick_range: ||
     x = 0..10
+    assert (x.contains (random.pick x))
+
+  @test pick_tuple: ||
+    x = ("foo", "bar", "baz")
     assert (x.contains (random.pick x))
 
   @test generator: ||

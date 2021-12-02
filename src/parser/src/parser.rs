@@ -365,7 +365,7 @@ impl<'source> Parser<'source> {
     ) -> Result<Option<AstIndex>, ParserError> {
         let start_indent = self.current_indent();
 
-        if self.consume_next_token_on_same_line() != Some(Token::Function) {
+        if self.consume_next_token(context) != Some(Token::Function) {
             return internal_error!(FunctionParseFailure, self);
         }
 

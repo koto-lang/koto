@@ -35,7 +35,6 @@ x # x remains unchanged after the modificaton of z
 - [get](#get)
 - [insert](#insert)
 - [is_empty](#is_empty)
-- [iter](#iter)
 - [last](#last)
 - [pop](#pop)
 - [push](#push)
@@ -233,25 +232,6 @@ Returns `true` if the list has a size of zero, and `false` otherwise.
 
 [1, 2, 3].is_empty()
 # false
-```
-
-## iter
-
-`|List| -> Iterator`
-
-Returns an iterator that iterates over the list's values.
-
-Lists are iterable, so it's not necessary to call `.iter()` to get access to
-iterator operations, but it can be useful sometimes to make a standalone
-iterator for manual iteration.
-
-### Example
-
-```koto
-x = [2, 3, 4].iter()
-x.skip(1)
-x.next()
-# 3
 ```
 
 ## last

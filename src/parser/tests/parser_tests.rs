@@ -2327,6 +2327,40 @@ foo
         }
 
         #[test]
+        fn call_with_indentated_function_arg() {
+            let source = "
+foo
+  x,
+  |y| y";
+            check_ast(
+                source,
+                &[
+                    Id(constant(1)),
+                    Id(constant(2)),
+                    Id(constant(2)),
+                    Function(koto_parser::Function {
+                        args: vec![1],
+                        local_count: 1,
+                        accessed_non_locals: vec![],
+                        body: 2,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    NamedCall {
+                        id: constant(0), // foo
+                        args: vec![0, 3],
+                    },
+                    MainBlock {
+                        body: vec![4],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("foo"), Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
         fn calls_with_comment_between() {
             let source = "
 f x

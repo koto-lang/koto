@@ -28,32 +28,12 @@ x
 
 # Reference
 
-- [iter](#iter)
 - [length](#length)
 - [max](#max)
 - [min](#min)
 - [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
-
-## iter
-
-`|Num2| -> Iterator`
-
-Returns an iterator that iterates over the list's values.
-
-Num2 values are iterable, so it's not necessary to call `.iter()` to get access
-to iterator operations, but it can be useful sometimes to make a standalone
-iterator for manual iteration.
-
-### Example
-
-```koto
-x = (num2 3, 4).iter()
-x.skip(1)
-x.next()
-# 4
-```
 
 ## length
 

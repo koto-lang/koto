@@ -2,7 +2,8 @@
 
 use {
     koto_runtime::{
-        num2, num4, runtime_error, ExternalData, ExternalValue, MetaKey, MetaMap, Value,
+        num2, num4, unexpected_type_error_with_slice, ExternalData, ExternalValue, MetaKey,
+        MetaMap, Value, ValueTuple,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -23,7 +24,11 @@ pub fn make_module() -> Value {
             [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha20Rng::seed_from_u64(
                 n.to_bits(),
             ))),
-            _ => runtime_error!("random.generator - expected no arguments, or seed number"),
+            unexpected => unexpected_type_error_with_slice(
+                "random.generator",
+                "an optional seed Number as argument",
+                unexpected,
+            ),
         }
     });
 
@@ -66,6 +71,16 @@ thread_local!(
                 let index = rng.0.gen_range(0, l.len());
                 Ok(l.data()[index].clone())
             }
+            [Map(m)] => {
+                let index = rng.0.gen_range(0, m.len());
+                match m.data().get_index(index) {
+                    Some((key, value)) => {
+                        let data = vec![key.value().clone(), value.clone()];
+                        Ok(Tuple(ValueTuple::from(data)))
+                    },
+                    None => unreachable!(), // The index is guaranteed to be within range
+                }
+            }
             [Range(r)] => {
                 let (start, end) = if r.end > r.start {
                     (r.start, r.end)
@@ -76,7 +91,15 @@ thread_local!(
                 let index = rng.0.gen_range(0, size);
                 Ok(Number((start + index).into()))
             }
-            _ => runtime_error!("random.pick - expected list or range as argument"),
+            [Tuple(t)] => {
+                let index = rng.0.gen_range(0, t.data().len());
+                Ok(t.data()[index].clone())
+            }
+            unexpected => unexpected_type_error_with_slice(
+                "random.pick",
+                "a List or Range as argument",
+                unexpected,
+            ),
         });
 
         meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| match args {
@@ -84,7 +107,11 @@ thread_local!(
                 *rng = ChaChaRng(ChaCha20Rng::seed_from_u64(n.to_bits()));
                 Ok(Empty)
             }
-            _ => runtime_error!("random.seed - expected number as argument"),
+            unexpected => unexpected_type_error_with_slice(
+                "random.seed",
+                "a Number as argument",
+                unexpected,
+            ),
         });
 
         Rc::new(RefCell::new(meta))

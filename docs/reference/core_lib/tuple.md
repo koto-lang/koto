@@ -39,7 +39,6 @@ x[1], y[2]
 - [deep_copy](#deep_copy)
 - [first](#first)
 - [get](#get)
-- [iter](#iter)
 - [last](#last)
 - [size](#size)
 - [sort_copy](#sort_copy)
@@ -99,25 +98,6 @@ value is returned. If no default value is provided then `()` is returned.
 
 (99, -1, 42).get 5
 # ()
-```
-
-## iter
-
-`|Tuple| -> Iterator`
-
-Returns an iterator that iterates over the tuple's values.
-
-Tuples are iterable, so it's not necessary to call `.iter()` to get access to
-iterator operations, but it can be useful sometimes to make a standalone
-iterator for manual iteration.
-
-### Example
-
-```koto
-x = (2, 3, 4).iter()
-x.skip(1)
-x.next()
-# 3
 ```
 
 ## last

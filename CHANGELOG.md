@@ -30,6 +30,7 @@ The Koto project adheres to
     ```
 - Maps can now override the behaviour of the `not` operator using the `@not`
   meta key.
+- `random.pick` now supports picking values from Tuples and Maps.
 
 ### Changed
 
@@ -50,10 +51,15 @@ The Koto project adheres to
             # ^~~ Previously this indentation would have been disallowed.
           + 321
       ```
+- Individual `.iter()` functions on containers have been replaced with
+  `iterator.iter()`.
+  - Existing scripts will continue to work without issue, unless they explicitly
+    call or import one of the `iter()` functions from a module.
+    `iterator.iter()` should be used instead.
 - Internals
   - The Koto runtime is now single-threaded.
-    - Many value types are now wrapped in `koto_runtime::RcCell<...>`
-      instead of `Arc<RwLock<...>>`.
+    - Reference counted value types are now wrapped in `Rc<...>`
+      instead of `Arc<...>`.
     - External value meta maps that are instantiated using `lazy_static` may
       now use `thread_local!` instead.
   - The AST struct returned by the parser now includes its associated constant
@@ -73,6 +79,14 @@ The Koto project adheres to
     ```koto
     x = if foo then 1, 2, 3 else 4, 5, 6
     assert_eq x[0], 1 # Previously this would result in an error
+    ```
+- Functions passed as arguments can now be broken onto a new line.
+  - e.g.
+    ```koto
+    foo
+      bar,
+      |x| x * x
+    # ^~~~ Previously this would have returned a parsing error
     ```
 
 ### Removed
