@@ -22,7 +22,7 @@ The Koto project adheres to
   function call chains more readable.
   - e.g.
     ```koto
-    x = then_that (and_this 99, do_this 123)
+    x = then_that and_this 99, do_this 123
     # can now be written as:
     x = do_this 123 >> and_this 99 >> then_that
     # or with indentation:
