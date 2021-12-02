@@ -2,7 +2,11 @@
 
 use {
     koto_bytecode::Chunk,
-    koto_runtime::{num2, num4, BinaryOp, Loader, Value, Value::*, ValueList, Vm},
+    koto_runtime::{
+        num2, num4, BinaryOp, Loader,
+        Value::{self, *},
+        ValueList, Vm,
+    },
     std::rc::Rc,
 };
 

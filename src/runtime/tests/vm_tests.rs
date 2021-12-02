@@ -7,7 +7,9 @@ mod vm {
             test_script_with_vm, value_tuple,
         },
         koto_runtime::{
-            runtime_error, DataMap, IntRange, Value, Value::*, ValueList, ValueMap, Vm,
+            runtime_error, DataMap, IntRange,
+            Value::{self, *},
+            ValueList, ValueMap, Vm,
         },
     };
 

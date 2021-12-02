@@ -2,11 +2,7 @@ use {
     crate::{UnaryOp, Value, Vm},
     koto_bytecode::Chunk,
     koto_parser::format_error_with_excerpt,
-    std::{
-        cell::RefCell,
-        rc::Rc,
-        {error, fmt},
-    },
+    std::{cell::RefCell, error, fmt, rc::Rc},
 };
 
 #[derive(Clone, Debug)]

@@ -9,8 +9,7 @@ use {
     std::{
         borrow::Borrow,
         fmt,
-        hash::Hasher,
-        hash::{BuildHasherDefault, Hash},
+        hash::{BuildHasherDefault, Hash, Hasher},
         ops::{Deref, DerefMut},
     },
 };

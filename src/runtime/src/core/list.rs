@@ -4,8 +4,7 @@ use {
         value_sort::{compare_values, sort_values},
         BinaryOp, CallArgs, Value, ValueList, ValueMap,
     },
-    std::cmp::Ordering,
-    std::ops::DerefMut,
+    std::{cmp::Ordering, ops::DerefMut},
 };
 
 pub fn make_module() -> ValueMap {

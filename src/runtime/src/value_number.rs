@@ -1,9 +1,11 @@
-use crate::Value;
-use std::{
-    cmp::Ordering,
-    fmt,
-    hash::{Hash, Hasher},
-    ops,
+use {
+    crate::Value,
+    std::{
+        cmp::Ordering,
+        fmt,
+        hash::{Hash, Hasher},
+        ops,
+    },
 };
 
 #[derive(Clone, Copy)]
