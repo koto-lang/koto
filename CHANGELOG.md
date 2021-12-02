@@ -8,6 +8,8 @@ The Koto project adheres to
 
 ## Unreleased
 
+## [0.10.0] 2021.12.02
+
 ### Added
 
 - `iterator.cycle` has been added to the core library.

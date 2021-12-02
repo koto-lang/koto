@@ -1,6 +1,6 @@
 [package]
 name = "koto_cli"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -18,12 +18,12 @@ default = []
 jemalloc = ["jemallocator"]
 
 [dependencies]
-koto = { path = "../koto", version = "^0.9.0"}
-koto_json = { path = "../../libs/json", version = "^0.9.0"}
-koto_random = { path = "../../libs/random", version = "^0.9.0"}
-koto_tempfile = { path = "../../libs/tempfile", version = "^0.9.0"}
-koto_toml = { path = "../../libs/toml", version = "^0.9.0"}
-koto_yaml = { path = "../../libs/yaml", version = "^0.9.0"}
+koto = { path = "../koto", version = "^0.10.0"}
+koto_json = { path = "../../libs/json", version = "^0.10.0"}
+koto_random = { path = "../../libs/random", version = "^0.10.0"}
+koto_tempfile = { path = "../../libs/tempfile", version = "^0.10.0"}
+koto_toml = { path = "../../libs/toml", version = "^0.10.0"}
+koto_yaml = { path = "../../libs/yaml", version = "^0.10.0"}
 
 crossterm = "0.22.1" # A crossplatform terminal library for manipulating terminals.
 indexmap = "1.4.0"
