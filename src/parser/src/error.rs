@@ -110,13 +110,13 @@ pub enum SyntaxError {
     UnexpectedElseIndentation,
     UnexpectedElseIfIndentation,
     UnexpectedEscapeInString,
+    UnexpectedExportAssignmentOp,
     UnexpectedMatchElse,
     UnexpectedMatchIf,
     UnexpectedMetaKey,
     UnexpectedSwitchElse,
     UnexpectedToken,
     UnexpectedTokenAfterDollarInString,
-    UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
     UnicodeEscapeCodeOutOfRange,
     UnterminatedNumericEscapeCode,
@@ -332,6 +332,9 @@ impl fmt::Display for SyntaxError {
             UnexpectedElseIndentation => f.write_str("Unexpected indentation for else block"),
             UnexpectedElseIfIndentation => f.write_str("Unexpected indentation for else if block"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
+            UnexpectedExportAssignmentOp => {
+                f.write_str("Unexpected assignment op for export expression (expected '=')")
+            }
             UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
             UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
             UnexpectedMetaKey => f.write_str("Unexpected meta key"),
@@ -340,7 +343,6 @@ impl fmt::Display for SyntaxError {
             UnexpectedTokenAfterDollarInString => {
                 f.write_str("Unexpected token after $ in string, expected $ID or ${expression}")
             }
-            UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {
                 f.write_str("Unexpected token in import expression")
             }

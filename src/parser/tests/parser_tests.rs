@@ -34,6 +34,16 @@ mod parser {
         }
     }
 
+    fn check_ast_for_equivalent_sources(
+        sources: &[&str],
+        expected_ast: &[Node],
+        expected_constants: Option<&[Constant]>,
+    ) {
+        for source in sources {
+            check_ast(source, expected_ast, expected_constants)
+        }
+    }
+
     fn constant(index: u8) -> ConstantIndex {
         ConstantIndex::from(index)
     }
@@ -1006,9 +1016,18 @@ num4(
 
         #[test]
         fn single_export() {
-            let source = "export a = 1 + 1";
-            check_ast(
-                source,
+            let sources = [
+                "export a = 1 + 1",
+                "
+export a
+  = 1 + 1",
+                "
+export a =
+  1 + 1",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Number1,
