@@ -114,7 +114,7 @@ run_nbody = |n|
   initial_energy, end_energy
 
 
-export main = ||
+@main = ||
   n = match koto.args.get 0
     () then 100
     arg then arg.to_number()

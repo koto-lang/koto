@@ -6,7 +6,7 @@ fib = |n|
     n == 1 then 1
     else (fib n - 1) + (fib n - 2)
 
-export main = ||
+@main = ||
   n = match koto.args.get 0
     () then 8
     arg then arg.to_number()

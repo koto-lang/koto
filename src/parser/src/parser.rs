@@ -843,6 +843,7 @@ impl<'source> Parser<'source> {
                     _ => return syntax_error!(ExpectedMetaId, self),
                 },
                 "type" => MetaKeyId::Type,
+                "main" => MetaKeyId::Main,
                 _ => return syntax_error!(UnexpectedMetaKey, self),
             },
             Some(Token::SquareOpen) => match self.consume_token() {

@@ -201,7 +201,14 @@ impl Koto {
                 }
             }
 
-            if let Some(main) = self.runtime.get_exported_function("main") {
+            let maybe_main = self
+                .runtime
+                .context()
+                .exports
+                .meta()
+                .get(&MetaKey::Main)
+                .cloned();
+            if let Some(main) = maybe_main {
                 self.runtime
                     .run_function(main, CallArgs::None)
                     .map_err(|e| e.into())

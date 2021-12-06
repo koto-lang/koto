@@ -1967,11 +1967,18 @@ impl Vm {
                             }
                         }
 
-                        if let Some(main) = vm.get_exported_function("main") {
-                            if let Err(error) = vm.run_function(main, CallArgs::None) {
-                                self.context_mut().modules.remove(&module_path);
-                                return Err(error);
+                        let maybe_main = vm.context().exports.meta().get(&MetaKey::Main).cloned();
+                        match maybe_main {
+                            Some(main) if main.is_callable() => {
+                                if let Err(error) = vm.run_function(main, CallArgs::None) {
+                                    self.context_mut().modules.remove(&module_path);
+                                    return Err(error);
+                                }
                             }
+                            Some(unexpected) => {
+                                return unexpected_type_error("callable function", &unexpected)
+                            }
+                            None => {}
                         }
                     }
                     Err(error) => {

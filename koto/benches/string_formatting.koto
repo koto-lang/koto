@@ -27,7 +27,7 @@ number_to_english = |n|
         "$x_string hundred and ${number_to_english y}"
     else "???"
 
-export main = ||
+@main = ||
   n = match koto.args.get 0
     () then 50
     arg then arg.to_number()

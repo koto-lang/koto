@@ -5,6 +5,6 @@ assert_eq pi, pi
 
 export qux = ()
 
-export main = ||
+@main = ||
   # Redefine qux to check that main has been called
   export qux = "O_o"
