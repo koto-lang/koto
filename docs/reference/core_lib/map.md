@@ -509,10 +509,10 @@ x
 `|Map, Key, |Value| -> Value| -> Value`
 
 Updates the value associated with a given key by calling a function with either
-the existing value, or `()` if it doesn't there isn't a matching entry.
+the existing value, or `()` if there isn't a matching entry.
 
 The result of the function will either replace an existing value, or if no value
-existed then an entry with the given key will be inserted into the map with the
+existed then an entry will be inserted into the map with the given key and the
 function's result.
 
 The function result is then returned from `update`.

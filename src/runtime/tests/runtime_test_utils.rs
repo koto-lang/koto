@@ -41,13 +41,13 @@ pub fn test_script_with_vm(mut vm: Vm, script: &str, expected_output: Value) {
                 }
                 Err(e) => {
                     print_chunk(script, vm.chunk());
-                    panic!("Error while comparing output value: {}", e.to_string());
+                    panic!("Error while comparing output value: {}", e);
                 }
             }
         }
         Err(e) => {
             print_chunk(script, vm.chunk());
-            panic!("Error while running script: {}", e.to_string());
+            panic!("Error while running script: {}", e);
         }
     }
 }
@@ -56,7 +56,7 @@ pub fn print_chunk(script: &str, chunk: Rc<Chunk>) {
     println!("{}\n", script);
     let script_lines = script.lines().collect::<Vec<_>>();
 
-    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+    println!("Constants\n---------\n{}\n", chunk.constants);
     println!(
         "Instructions\n------------\n{}",
         Chunk::instructions_as_string(chunk, &script_lines)

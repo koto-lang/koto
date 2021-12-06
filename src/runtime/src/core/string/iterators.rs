@@ -224,8 +224,8 @@ impl Iterator for SplitWith {
                     }
                     Ok(unexpected) => {
                         let error = make_runtime_error!(format!(
-                            "string.split: Expected a bool from match function, got '{}'",
-                            unexpected.to_string()
+                            "string.split: Expected a Bool from the match function, found '{}'",
+                            unexpected.type_as_string()
                         ));
                         return Some(Output::Error(error));
                     }

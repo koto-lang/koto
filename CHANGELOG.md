@@ -8,6 +8,21 @@ The Koto project adheres to
 
 ## Unreleased
 
+### Added
+
+- Tuples can now be used when creating Num2 or Num4 values
+  - e.g.
+    ```koto
+    x = 1, 2, 3
+    num4 x
+    # num4(1, 2, 3, 0)
+    ```
+
+### Fixed
+
+- Error traces have been made more reliable, with the correct positions being
+  displayed more consistently in calling functions.
+
 ## [0.10.0] 2021.12.02
 
 ### Added

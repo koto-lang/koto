@@ -23,7 +23,7 @@ pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, Stri
         YamlValue::Sequence(sequence) => {
             match sequence
                 .iter()
-                .map(|entry| yaml_value_to_koto_value(entry))
+                .map(yaml_value_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
                 Ok(result) => Value::List(ValueList::with_data(result)),
