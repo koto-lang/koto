@@ -55,6 +55,7 @@ pub enum SyntaxError {
     AsciiEscapeCodeOutOfRange,
     ExpectedArgsEnd,
     ExpectedAssignmentTarget,
+    ExpectedAssignmentAfterMetaKey,
     ExpectedCatchArgument,
     ExpectedCatch,
     ExpectedCloseParen,
@@ -119,6 +120,7 @@ pub enum SyntaxError {
     UnexpectedTokenAfterDollarInString,
     UnexpectedTokenInImportExpression,
     UnicodeEscapeCodeOutOfRange,
+    UnnecessaryExportKeywordForMetaKey,
     UnterminatedNumericEscapeCode,
     UnterminatedString,
 }
@@ -257,6 +259,7 @@ impl fmt::Display for SyntaxError {
             }
             ExpectedArgsEnd => f.write_str("Expected end of arguments ')'"),
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
+            ExpectedAssignmentAfterMetaKey => f.write_str("Expected '=' assignment after meta key"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedCatch => f.write_str("Expected catch expression after try"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
@@ -348,6 +351,9 @@ impl fmt::Display for SyntaxError {
             }
             UnicodeEscapeCodeOutOfRange => {
                 f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
+            }
+            UnnecessaryExportKeywordForMetaKey => {
+                f.write_str("'export' is unnecessary when assigning to a meta key")
             }
             UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
             UnterminatedString => f.write_str("Unterminated string"),

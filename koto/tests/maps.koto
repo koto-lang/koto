@@ -1,6 +1,6 @@
 from test import assert, assert_eq, assert_ne
 
-export @tests =
+@tests =
   @test access_by_key: ||
     m = key: "value", another_key: "another_value"
     assert_eq m.key, "value"

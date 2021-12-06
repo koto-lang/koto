@@ -961,7 +961,7 @@ impl Compiler {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
                 }
             },
-            Scope::Export => None,
+            _ => None,
         };
 
         Ok(result)

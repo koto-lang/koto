@@ -127,7 +127,7 @@ export main = ||
     print "{:.9}", initial_energy
     print "{:.9}", end_energy
 
-export @tests =
+@tests =
   @test nbody_100: ||
     initial_energy, end_energy = run_nbody 100
     assert_near initial_energy, -0.16907514, 1.0e-8

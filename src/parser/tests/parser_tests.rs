@@ -654,9 +654,9 @@ x =
         }
 
         #[test]
-        fn map_block_tests() {
+        fn assigning_map_to_meta_key() {
             let source = r#"
-export @tests =
+@tests =
   @pre_test: 0
   @post_test: 1
   @test foo: 0

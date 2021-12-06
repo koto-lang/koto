@@ -88,12 +88,9 @@ impl Frame {
         self.pending_accesses.insert(id);
     }
 
-    fn remove_id_access(&mut self, id: ConstantIndex) {
-        self.pending_accesses.remove(&id);
-    }
-
-    fn add_id_assignment(&mut self, id: ConstantIndex) {
+    fn add_local_id_assignment(&mut self, id: ConstantIndex) {
         self.pending_assignments.insert(id);
+        self.pending_accesses.remove(&id);
     }
 
     fn finish_expression(&mut self) {
@@ -505,6 +502,8 @@ impl<'source> Parser<'source> {
             Some(result)
         } else if let Some(result) = self.parse_export(context)? {
             Some(result)
+        } else if let Some(result) = self.parse_meta_export(context)? {
+            Some(result)
         } else {
             self.parse_expressions(context, TempResult::No)?
         };
@@ -703,15 +702,12 @@ impl<'source> Parser<'source> {
         let mut targets = Vec::new();
 
         for lhs_expression in lhs.iter() {
-            match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index) => {
-                    if !matches!(scope, Scope::Export) && matches!(assign_op, AssignOp::Equal) {
-                        self.frame_mut()?.add_id_assignment(id_index);
-                        self.frame_mut()?.remove_id_access(id_index);
-                    }
+            match (self.ast.node(*lhs_expression).node.clone(), scope) {
+                (Node::Id(id_index), Scope::Local) if matches!(assign_op, AssignOp::Equal) => {
+                    self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                Node::Lookup(_) | Node::Wildcard => {}
-                Node::Meta { .. } if matches!(scope, Scope::Export) => {}
+                (Node::Id(_) | Node::Lookup(_) | Node::Wildcard, _) => {}
+                (Node::Meta { .. }, Scope::Export) => {}
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
 
@@ -1267,8 +1263,8 @@ impl<'source> Parser<'source> {
 
         let export_id = if let Some(constant_index) = self.parse_id(context)? {
             self.push_node(Node::Id(constant_index))?
-        } else if let Some((meta_key_id, name)) = self.parse_meta_key()? {
-            self.push_node(Node::Meta(meta_key_id, name))?
+        } else if self.parse_meta_key()?.is_some() {
+            return syntax_error!(UnnecessaryExportKeywordForMetaKey, self);
         } else {
             return syntax_error!(ExpectedExportExpression, self);
         };
@@ -1279,6 +1275,22 @@ impl<'source> Parser<'source> {
         };
 
         Ok(Some(result))
+    }
+
+    fn parse_meta_export(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let meta_key = if let Some((meta_key_id, name)) = self.parse_meta_key()? {
+            self.push_node(Node::Meta(meta_key_id, name))?
+        } else {
+            return Ok(None);
+        };
+
+        match self.parse_assign_expression(&[meta_key], Scope::Export, context)? {
+            result @ Some(_) => Ok(result),
+            None => syntax_error!(ExpectedAssignmentAfterMetaKey, self),
+        }
     }
 
     fn parse_throw_expression(&mut self) -> Result<Option<AstIndex>, ParserError> {

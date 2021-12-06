@@ -73,7 +73,7 @@ export main = ||
     print sum
     print "Pfannkuchen($n) = $flips"
 
-export @tests =
+@tests =
   @test fannkuch_5: ||
     sum, flips = fannkuch 5
     assert_eq sum, 11

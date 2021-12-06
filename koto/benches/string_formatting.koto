@@ -39,7 +39,7 @@ export main = ||
   if not (koto.args.get 1) == "quiet"
     io.print result
 
-export @tests =
+@tests =
   @test number_to_english: ||
     import test.assert_eq
 

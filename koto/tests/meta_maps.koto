@@ -42,7 +42,7 @@ locals.foo_meta =
   @meta hello: "Hello"
   @meta say_hello: |self, name| "${self.hello}, $name!"
 
-export @tests =
+@tests =
   @test add: ||
     assert_eq (foo(10) + foo(20)), foo 30
 

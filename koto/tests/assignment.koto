@@ -1,6 +1,6 @@
 from test import assert_eq, assert_ne
 
-export @tests =
+@tests =
   @test basic_assignment: ||
     a = 1
     b = -a

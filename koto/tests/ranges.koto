@@ -1,6 +1,6 @@
 from test import assert, assert_eq
 
-export @tests =
+@tests =
   @test assignment: ||
     # Assigning a range to a value
     r = 0..2

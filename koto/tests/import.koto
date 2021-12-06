@@ -18,7 +18,7 @@ If a string is used for the imported name, then the imported module isn't automa
 brought into scope, and it needs to be assigned to a local value.
 -#
 
-export @tests =
+@tests =
   @test import_module: ||
     # The test_module module being imported here is defined in the neighbouring
     # test_module directory, with test_module/main.koto as its entry point.

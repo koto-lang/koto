@@ -6,7 +6,7 @@ make_foo = |x|
   @>: |self, other| self.x > other.x
   @==: |self, other| self.x == other.x
 
-export @tests =
+@tests =
   @test for_loop: ||
     a = 1, 2, 3
     z = []

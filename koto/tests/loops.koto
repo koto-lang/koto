@@ -1,6 +1,6 @@
 from test import assert, assert_eq
 
-export @tests =
+@tests =
   @test for_block: ||
     count = 0
     for x in 0..10

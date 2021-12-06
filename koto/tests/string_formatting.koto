@@ -1,6 +1,6 @@
 import number.pi, test.assert_eq
 
-export @tests =
+@tests =
   @test format: ||
     # A string is expected as first argument for string.format
     assert_eq (string.format "Hello, World!"), "Hello, World!"

@@ -1,6 +1,6 @@
 import koto.type, test.assert_eq
 
-export @tests =
+@tests =
   @test type_returns_type_name: ||
     assert_eq (type true), "Bool"
     assert_eq (type |x| x * x), "Function"
