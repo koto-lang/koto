@@ -1046,11 +1046,11 @@ impl Vm {
                     end: None,
                 })
             }
+            (Some(Number(_)), Some(unexpected)) | (None, Some(unexpected)) => {
+                return unexpected_type_error("Number for range end", unexpected);
+            }
             (Some(unexpected), _) => {
                 return unexpected_type_error("Number for range start", unexpected);
-            }
-            (_, Some(unexpected)) => {
-                return unexpected_type_error("Number for range end", unexpected);
             }
         };
 
