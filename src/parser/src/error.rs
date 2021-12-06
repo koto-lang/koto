@@ -385,13 +385,10 @@ pub fn format_error_with_excerpt(
             );
 
             excerpt += &format!(
-                "{}|{}",
+                "{}|{}{}",
                 padding,
-                format!(
-                    "{}{}",
-                    " ".repeat(start_pos.column as usize),
-                    "^".repeat((end_pos.column - start_pos.column) as usize)
-                ),
+                " ".repeat(start_pos.column as usize),
+                "^".repeat((end_pos.column - start_pos.column) as usize)
             );
 
             (excerpt, padding)

@@ -17,7 +17,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
         Toml::Array(a) => {
             match a
                 .iter()
-                .map(|entry| toml_to_koto_value(entry))
+                .map(toml_to_koto_value)
                 .collect::<Result<ValueVec, String>>()
             {
                 Ok(result) => Value::List(ValueList::with_data(result)),

@@ -32,7 +32,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
         if let Err(error) = koto.run() {
             for (input, chunk) in chunks.iter() {
                 println!("\n--------\n{}\n--------\n", input);
-                println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+                println!("Constants\n---------\n{}\n", chunk.constants);
                 println!(
                     "Instructions\n------------\n{}",
                     Chunk::instructions_as_string(chunk.clone(), &[input])

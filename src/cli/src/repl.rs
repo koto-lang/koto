@@ -245,7 +245,7 @@ impl Repl {
                         println!("{}\n", &Chunk::bytes_as_string(chunk.clone()));
                     }
                     if self.settings.show_instructions {
-                        println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+                        println!("Constants\n---------\n{}\n", chunk.constants);
 
                         let script_lines = input.lines().collect::<Vec<_>>();
                         println!(
@@ -326,9 +326,8 @@ impl Repl {
             Some(self.get_help(None))
         } else if input.starts_with("help") {
             input
-                .splitn(2, char::is_whitespace)
-                .nth(1)
-                .map(|search_string| format!("\n{}", self.get_help(Some(search_string))))
+                .split_once(char::is_whitespace)
+                .map(|(_, search_string)| format!("\n{}", self.get_help(Some(search_string))))
         } else {
             None
         }

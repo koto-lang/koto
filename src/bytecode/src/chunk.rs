@@ -47,7 +47,7 @@ impl DebugInfo {
 }
 
 /// A compiled chunk of bytecode, along with its associated constants and metadata
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Chunk {
     /// The bytes representing the chunk's bytecode
     pub bytes: Vec<u8>,
@@ -57,17 +57,6 @@ pub struct Chunk {
     pub source_path: Option<PathBuf>,
     /// Debug information associated with the chunk's bytecode
     pub debug_info: DebugInfo,
-}
-
-impl Default for Chunk {
-    fn default() -> Self {
-        Self {
-            bytes: vec![],
-            constants: ConstantPool::default(),
-            source_path: None,
-            debug_info: DebugInfo::default(),
-        }
-    }
 }
 
 impl Chunk {
@@ -143,7 +132,7 @@ impl Chunk {
                     .line
                     .min(source_lines.len() as u32)
                     .max(1) as usize;
-                result += &format!("|{}| {}\n", line.to_string(), source_lines[line - 1]);
+                result += &format!("|{}| {}\n", line, source_lines[line - 1]);
                 span = Some(instruction_span);
             }
 

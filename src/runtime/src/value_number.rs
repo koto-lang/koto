@@ -77,8 +77,8 @@ impl ValueNumber {
 impl fmt::Debug for ValueNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValueNumber::F64(n) => write!(f, "Float({})", n.to_string()),
-            ValueNumber::I64(n) => write!(f, "Int({})", n.to_string()),
+            ValueNumber::F64(n) => write!(f, "Float({})", n),
+            ValueNumber::I64(n) => write!(f, "Int({})", n),
         }
     }
 }

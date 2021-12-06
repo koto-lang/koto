@@ -171,7 +171,7 @@ fn run() -> Result<(), ()> {
                     println!("{}\n", &Chunk::bytes_as_string(chunk.clone()));
                 }
                 if args.show_instructions {
-                    println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+                    println!("Constants\n---------\n{}\n", chunk.constants);
 
                     let script_lines = script.lines().collect::<Vec<_>>();
                     println!(

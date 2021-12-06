@@ -57,7 +57,7 @@ mod vm {
             println!("{}\n", script);
             let script_lines = script.lines().collect::<Vec<_>>();
 
-            println!("Constants\n---------\n{}\n", chunk.constants.to_string());
+            println!("Constants\n---------\n{}\n", chunk.constants);
             println!(
                 "Instructions\n------------\n{}",
                 Chunk::instructions_as_string(chunk, &script_lines)
@@ -79,7 +79,7 @@ mod vm {
             }
             Err(e) => {
                 print_chunk(script, vm.chunk());
-                panic!("Error while running script: {}", e.to_string());
+                panic!("Error while running script: {}", e);
             }
         }
     }
