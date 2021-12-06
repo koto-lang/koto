@@ -2013,6 +2013,16 @@ impl Vm {
                     }
                     result
                 }
+                Tuple(tuple) => {
+                    let mut result = num2::Num2::default();
+                    for (i, value) in tuple.data().iter().take(2).enumerate() {
+                        match value {
+                            Number(n) => result[i] = n.into(),
+                            unexpected => return unexpected_type_error("Number", unexpected),
+                        }
+                    }
+                    result
+                }
                 unexpected => return unexpected_type_error("Number, Num2, or List", unexpected),
             }
         } else {
@@ -2050,6 +2060,16 @@ impl Vm {
                 List(list) => {
                     let mut result = num4::Num4::default();
                     for (i, value) in list.data().iter().take(4).enumerate() {
+                        match value {
+                            Number(n) => result[i] = n.into(),
+                            unexpected => return unexpected_type_error("Number", unexpected),
+                        }
+                    }
+                    result
+                }
+                Tuple(tuple) => {
+                    let mut result = num4::Num4::default();
+                    for (i, value) in tuple.data().iter().take(4).enumerate() {
                         match value {
                             Number(n) => result[i] = n.into(),
                             unexpected => return unexpected_type_error("Number", unexpected),
