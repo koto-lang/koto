@@ -146,6 +146,8 @@ pub struct Vm {
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
+    // The ip that produced the most recently read instruction, used for debug and error traces
+    instruction_ip: usize,
 }
 
 impl Default for Vm {
@@ -162,6 +164,7 @@ impl Vm {
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
+            instruction_ip: 0,
         }
     }
 
@@ -172,6 +175,7 @@ impl Vm {
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
+            instruction_ip: 0,
         }
     }
 
@@ -182,6 +186,7 @@ impl Vm {
             reader: self.reader.clone(),
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
+            instruction_ip: 0,
         }
     }
 
@@ -232,7 +237,7 @@ impl Vm {
     }
 
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
-        self.push_frame(chunk, 0, 0);
+        self.push_frame(chunk, 0, 0, 0);
         self.execute_instructions()
     }
 
@@ -538,10 +543,10 @@ impl Vm {
     fn execute_instructions(&mut self) -> RuntimeResult {
         let mut result = Value::Empty;
 
-        let mut instruction_ip = self.ip();
+        self.instruction_ip = self.ip();
 
         while let Some(instruction) = self.reader.next() {
-            match self.execute_instruction(instruction, instruction_ip) {
+            match self.execute_instruction(instruction) {
                 Ok(ControlFlow::Continue) => {}
                 Ok(ControlFlow::Return(value)) => {
                     result = value;
@@ -554,7 +559,7 @@ impl Vm {
                 Err(mut error) => {
                     let mut recover_register_and_ip = None;
 
-                    error.extend_trace(self.chunk(), instruction_ip);
+                    error.extend_trace(self.chunk(), self.instruction_ip);
 
                     while let Some(frame) = self.call_stack.last() {
                         if let Some((error_register, catch_ip)) = frame.catch_stack.last() {
@@ -568,7 +573,7 @@ impl Vm {
                             self.pop_frame(Value::Empty)?;
 
                             if !self.call_stack.is_empty() {
-                                error.extend_trace(self.chunk(), self.ip());
+                                error.extend_trace(self.chunk(), self.instruction_ip);
                             }
                         }
                     }
@@ -586,7 +591,7 @@ impl Vm {
                 }
             }
 
-            instruction_ip = self.ip();
+            self.instruction_ip = self.ip();
         }
 
         Ok(result)
@@ -595,7 +600,6 @@ impl Vm {
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        instruction_ip: usize,
     ) -> Result<ControlFlow, RuntimeError> {
         use Value::*;
 
@@ -936,9 +940,7 @@ impl Vm {
                 self.frame_mut().catch_stack.pop();
                 Ok(())
             }
-            Instruction::Debug { register, constant } => {
-                self.run_debug(register, constant, instruction_ip)
-            }
+            Instruction::Debug { register, constant } => self.run_debug(register, constant),
             Instruction::CheckType { register, type_id } => self.run_check_type(register, type_id),
             Instruction::CheckSize { register, size } => self.run_check_size(register, size),
         }?;
@@ -2728,6 +2730,7 @@ impl Vm {
             chunk,
             function_ip,
             0, // arguments will be copied starting in register 0
+            0,
         );
 
         let expected_arg_count = match (instance_function, variadic) {
@@ -2875,13 +2878,8 @@ impl Vm {
             self.value_stack.extend_from_slice(temp_tuple_values);
         }
 
-        if !self.call_stack.is_empty() {
-            // Set info for when the current frame is returned to
-            self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
-        }
-
         // Set up a new frame for the called function
-        self.push_frame(chunk, function_ip, adjusted_frame_base);
+        self.push_frame(chunk, function_ip, adjusted_frame_base, result_register);
 
         Ok(())
     }
@@ -2912,13 +2910,8 @@ impl Vm {
                 let args_end = self.register_index(frame_base + arg_count);
                 self.value_stack.resize(args_end, Value::Empty);
 
-                if !self.call_stack.is_empty() {
-                    // Set info for when the current frame is returned to
-                    self.frame_mut().return_register_and_ip = Some((result_register, self.ip()));
-                }
-
                 // Set up a new frame for the called function
-                self.push_frame(chunk, function_ip, frame_base);
+                self.push_frame(chunk, function_ip, frame_base, result_register);
 
                 Ok(())
             }
@@ -2949,12 +2942,7 @@ impl Vm {
         }
     }
 
-    fn run_debug(
-        &mut self,
-        register: u8,
-        expression_constant: ConstantIndex,
-        instruction_ip: usize,
-    ) -> InstructionResult {
+    fn run_debug(&mut self, register: u8, expression_constant: ConstantIndex) -> InstructionResult {
         let value = self.clone_register(register);
         let value_string = match self.run_unary_op(UnaryOp::Display, value)? {
             result @ Value::Str(_) => result,
@@ -2967,7 +2955,10 @@ impl Vm {
         };
 
         let prefix = match (
-            self.reader.chunk.debug_info.get_source_span(instruction_ip),
+            self.reader
+                .chunk
+                .debug_info
+                .get_source_span(self.instruction_ip),
             self.reader.chunk.source_path.as_ref(),
         ) {
             (Some(span), Some(path)) => format!("[{}: {}] ", path.display(), span.start.line),
@@ -3119,8 +3110,11 @@ impl Vm {
         self.call_stack.last_mut().expect("Empty call stack")
     }
 
-    fn push_frame(&mut self, chunk: Rc<Chunk>, ip: usize, frame_base: u8) {
-        let previous_frame_base = if let Some(frame) = self.call_stack.last() {
+    fn push_frame(&mut self, chunk: Rc<Chunk>, ip: usize, frame_base: u8, return_register: u8) {
+        let return_ip = self.ip();
+        let previous_frame_base = if let Some(frame) = self.call_stack.last_mut() {
+            frame.return_register_and_ip = Some((return_register, return_ip));
+            frame.return_instruction_ip = self.instruction_ip;
             frame.register_base
         } else {
             0
@@ -3144,6 +3138,7 @@ impl Vm {
 
                     self.set_register(return_register, return_value.clone());
                     self.set_chunk_and_ip(self.frame().chunk.clone(), return_ip);
+                    self.instruction_ip = self.frame().return_instruction_ip;
 
                     if popped_frame.execution_barrier {
                         Ok(Some(return_value))

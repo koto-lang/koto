@@ -7,6 +7,8 @@ pub(crate) struct Frame {
     // The index in the VM value stack of the first argument register,
     // or the first local register if there are no arguments.
     pub register_base: usize,
+    // When returning to this frame, the ip that produced the most recently read instruction
+    pub return_instruction_ip: usize,
     // When returning to this frame, the register for the return value and the ip to resume from.
     pub return_register_and_ip: Option<(u8, usize)>,
     // A stack of catch points for handling errors
@@ -23,6 +25,7 @@ impl Frame {
             chunk,
             register_base,
             return_register_and_ip: None,
+            return_instruction_ip: 0,
             catch_stack: vec![],
             execution_barrier: false,
         }

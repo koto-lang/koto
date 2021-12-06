@@ -18,6 +18,11 @@ The Koto project adheres to
     # num4(1, 2, 3, 0)
     ```
 
+### Fixed
+
+- Error traces have been made more reliable, with the correct positions being
+  displayed more consistently in calling functions.
+
 ## [0.10.0] 2021.12.02
 
 ### Added
