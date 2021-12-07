@@ -148,6 +148,7 @@ pub fn make_module() -> ValueMap {
 
     number_f64_fn!("radians", to_radians);
     number_f64_fn!(recip);
+    number_fn!(round);
 
     bitwise_fn_positive_arg!(shift_left, <<);
     bitwise_fn_positive_arg!(shift_right, >>);

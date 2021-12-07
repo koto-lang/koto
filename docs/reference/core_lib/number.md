@@ -43,6 +43,7 @@ x += 0.99    # x is now a float
 - [pow](#pow)
 - [radians](#radians)
 - [recip](#recip)
+- [round](#round)
 - [shift_left](#shift_left)
 - [shift_right](#shift_right)
 - [sin](#sin)
@@ -151,6 +152,12 @@ Returns the smallest integer that's greater than or equal to the input.
 -0.5.ceil()
 # 0
 ```
+
+### See Also
+
+- [`number.floor`](#floor)
+- [`number.round`](#round)
+- [`number.to_int`](#to_int)
 
 ## clamp
 
@@ -292,6 +299,12 @@ Returns the smallest integer that's less than or equal to the input.
 -0.5.floor()
 # -1
 ```
+
+### See Also
+
+- [`number.ceil`](#ceil)
+- [`number.round`](#round)
+- [`number.to_int`](#to_int)
 
 ## infinity
 
@@ -471,6 +484,32 @@ Returns the reciprocal of the number, i.e. `1 / x`.
 # 0.5
 ```
 
+## round
+
+`|Number| -> Integer`
+
+Returns the nearest integer to the input number.
+Half-way values round away from zero.
+
+### Example
+
+```koto
+0.5.round()
+# 1
+
+2.round()
+# 2
+
+-0.5.round()
+# -1
+```
+
+### See Also
+
+- [`number.ceil`](#ceil)
+- [`number.floor`](#floor)
+- [`number.to_int`](#to_int)
+
 ## shift_left
 
 `|Integer, Integer| -> Integer`
@@ -611,6 +650,12 @@ Returns the number as an `Integer`. This is equivalent to calling `ceil`.
 -0.5.to_int()
 # 0
 ```
+
+### See Also
+
+- [`number.ceil`](#ceil)
+- [`number.floor`](#floor)
+- [`number.round`](#round)
 
 ## xor
 

@@ -10,6 +10,17 @@ The Koto project adheres to
 
 ### Added
 
+- Core Library
+  - `number.round` has been added.
+  - `iterator.consume` now accepts an optional function that will be called
+    for each iterator output value.
+    - e.g.
+      ```koto
+      (1, 2, 3).consume |n| io.print n
+      # 1
+      # 2
+      # 3
+      ```
 - Tuples can now be used when creating Num2 or Num4 values
   - e.g.
     ```koto
