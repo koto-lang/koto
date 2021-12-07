@@ -36,6 +36,13 @@ impl ValueNumber {
         }
     }
 
+    pub fn round(self) -> Self {
+        match self {
+            Self::F64(n) => Self::I64(n.round() as i64),
+            Self::I64(n) => Self::I64(n),
+        }
+    }
+
     pub fn is_f64(self) -> bool {
         matches!(self, Self::F64(_))
     }
