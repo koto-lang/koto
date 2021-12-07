@@ -144,8 +144,12 @@ followed by the output of the second iterator.
 
 `|Iterable| -> ()`
 
-Consumes the output of the iterator. This is useful when the side-effects of
-the iterator chain are important, but the output values aren't required.
+Consumes the output of the iterator.
+
+`|Iterable, Function| -> ()`
+
+Consumes the output of the iterator, calling the provided function with each
+iterator output value.
 
 ### Example
 
@@ -157,6 +161,15 @@ result = []
   .consume()
 result
 # [2, 4, 6, 8, 10]
+
+# Alternatively, calling consume with a function is equivalent to having an
+# `each` / `consume` chain
+result = []
+(1..=10)
+  .keep |n| n % 2 == 1
+  .consume |n| result.push n
+result
+# [1, 3, 5, 7, 9]
 ```
 
 ## copy

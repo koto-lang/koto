@@ -72,6 +72,11 @@ make_foo = |x|
     (1..=5).each(|n| x.push n).consume()
     assert_eq x, [1, 2, 3, 4, 5]
 
+    # iter.each(f).consume() is equivalent to iter.consume(f)
+    x = []
+    (6..=10).consume |n| x.push n
+    assert_eq x, [6, 7, 8, 9, 10]
+
   @test copy: ||
     x = (1..10).iter()
     y = x # x and y share the same iteration count
