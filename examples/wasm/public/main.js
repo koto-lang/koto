@@ -8,8 +8,6 @@ var editorDiv = document.getElementById("editor");
 editorDiv.innerHTML = `\
 # Fizz buzz in Koto
 
-import io.print
-
 fizz_buzz = |n|
   match n % 3, n % 5
     0, 0 then "Fizz Buzz"
@@ -25,6 +23,7 @@ var editor = ace.edit("editor");
 editor.setTheme("ace/theme/solarized_dark");
 editor.session.on("change", compile_and_run);
 editor.setShowPrintMargin(false);
+editor.setBehavioursEnabled(false);
 
 function compile_and_run() {
   const result = koto.compile_and_run(editor.session.getValue());

@@ -14,6 +14,11 @@ The Koto project adheres to
   - New additions:
     - `iterator.find`
     - `number.round`
+    - `os.time`
+      - Provides information about the current date and time.
+    - `os.start_timer`
+      - Provides a timer that can be used for measuring the duration between
+        moments in time.
   - The following items are now imported by default into the top level of the
     prelude:
     - `io.print`, `koto.type`, `test.assert`, `test.assert_eq`,

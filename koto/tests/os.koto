@@ -1,0 +1,37 @@
+@tests =
+  @test name:
+    assert not os.name().is_empty()
+
+  @test start_timer:
+    t1 = os.start_timer()
+    elapsed1 = t1.elapsed()
+    assert elapsed1 > 0
+    elapsed2 = t1.elapsed()
+    assert elapsed2 > elapsed1
+
+    t2 = os.start_timer()
+    # t2 was started later than t1, so the time difference is positive
+    assert (t2 - t1) > 0
+    # t1 was started earlier than t2, so the time difference is negative
+    assert (t1 - t2) < 0
+
+  @test time:
+    # Calling os.time() without args returns the current time
+    now1 = os.time()
+    assert now1.timestamp() > 0
+    now2 = os.time()
+    assert now2.timestamp() > now1.timestamp()
+
+    # os.time() takes an optional timestamp in seconds which will return a time
+    # value at that timestamp. An optional time offset in seconds can be
+    # provided to set the timezone, otherwise the local timezone will be used.
+    sometime = os.time 1234567890, 3600
+    assert_eq sometime.year(), 2009
+    assert_eq sometime.month(), 2
+    assert_eq sometime.day(), 14
+    assert_eq sometime.hour(), 0
+    assert_eq sometime.minute(), 31
+    assert_eq sometime.second(), 30
+    assert_eq sometime.nanosecond(), 0
+    assert_eq sometime.timezone_offset(), 3600
+    assert_eq sometime.timezone_string(), "+0100"

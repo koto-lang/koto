@@ -23,3 +23,11 @@ indexmap = "1.4.0"
 rustc-hash = "1.1.0"
 smallvec = "1.2.0"
 unicode-segmentation = "1.7.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = "0.4.19"
+instant = "0.1.12"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+chrono = {version = "0.4.19", features = ["wasmbind"]}
+instant = {version = "0.1.12", features = ["wasm-bindgen"]}
