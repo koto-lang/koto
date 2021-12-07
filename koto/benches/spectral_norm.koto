@@ -46,8 +46,7 @@ spectral_norm = |n|
     vv = vv + vi * vi
   (vBv / vv).sqrt()
 
-
-export main = ||
+@main = ||
   n = match koto.args.get 0
     () then 4
     arg then arg.to_number()
@@ -57,7 +56,6 @@ export main = ||
   if (koto.args.get 1) != "quiet"
     io.print result
 
-
-export @tests =
+@tests =
   @test spectral_norm_5: ||
     assert_near (spectral_norm 5), 1.261218, 1e-6

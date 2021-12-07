@@ -6,7 +6,7 @@ make_foo = |x|
   @>: |self, other| self.x > other.x
   @==: |self, other| self.x == other.x
 
-export @tests =
+@tests =
   @test next: ||
     i = (1..=3).iter()
     assert_eq i.next(), 1
@@ -91,7 +91,7 @@ export @tests =
 
   @test cycle: ||
     result = 1..=3
-      .cycle() 
+      .cycle()
       .take(10)
       .to_list()
     assert_eq result, [1, 2, 3, 1, 2, 3, 1, 2, 3, 1]

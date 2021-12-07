@@ -18,6 +18,33 @@ The Koto project adheres to
     # num4(1, 2, 3, 0)
     ```
 
+### Changed
+
+- Assigning to a module's meta map has been reworked
+  - The `export` keyword is no longer needed to assign to a meta key, as meta
+    keys can never be assigned locally.
+    - e.g.
+      ```koto
+      # Before
+      export @tests =
+        ...
+      # After
+      @tests =
+        ...
+      ```
+  - `main` functions are now defined using the `@main` meta key.
+    - This is so that modules don't have to pollute their public exported API to
+      take advantage of having a main funciton.
+    - e.g.
+      ```koto
+      # Before
+      export main = ||
+        ...
+      # After
+      @main = ||
+        ...
+      ```
+
 ### Fixed
 
 - Error traces have been made more reliable, with the correct positions being

@@ -597,6 +597,9 @@ pub enum MetaKeyId {
     /// @post_test
     PostTest,
 
+    /// @main
+    Main,
+
     /// @meta name
     Named,
 

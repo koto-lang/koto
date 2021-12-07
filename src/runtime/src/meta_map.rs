@@ -360,6 +360,7 @@ pub enum MetaKey {
     Tests,
     PreTest,
     PostTest,
+    Main,
     Type,
 }
 
@@ -373,6 +374,7 @@ impl MetaKey {
             MetaKey::Tests => MetaKeyRef::Tests,
             MetaKey::PreTest => MetaKeyRef::PreTest,
             MetaKey::PostTest => MetaKeyRef::PostTest,
+            MetaKey::Main => MetaKeyRef::Main,
             MetaKey::Type => MetaKeyRef::Type,
         }
     }
@@ -480,6 +482,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Test => MetaKey::Test(name.ok_or_else(|| "Missing name for test".to_string())?),
         MetaKeyId::PreTest => MetaKey::PreTest,
         MetaKeyId::PostTest => MetaKey::PostTest,
+        MetaKeyId::Main => MetaKey::Main,
         MetaKeyId::Type => MetaKey::Type,
         MetaKeyId::Invalid => return Err("Invalid MetaKeyId".to_string()),
     };
@@ -497,6 +500,7 @@ enum MetaKeyRef<'a> {
     Tests,
     PreTest,
     PostTest,
+    Main,
     Type,
 }
 

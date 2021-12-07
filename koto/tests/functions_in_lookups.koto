@@ -9,7 +9,7 @@ test_map = ||
 # Make a list of two test maps
 maps = [test_map(), test_map()]
 
-export @tests =
+@tests =
   @test call_setter_in_child_map_in_list: ||
     # set the first map's child foo
     assert_eq maps[0].get_child_map().foo, 42

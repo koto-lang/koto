@@ -88,12 +88,9 @@ impl Frame {
         self.pending_accesses.insert(id);
     }
 
-    fn remove_id_access(&mut self, id: ConstantIndex) {
-        self.pending_accesses.remove(&id);
-    }
-
-    fn add_id_assignment(&mut self, id: ConstantIndex) {
+    fn add_local_id_assignment(&mut self, id: ConstantIndex) {
         self.pending_assignments.insert(id);
+        self.pending_accesses.remove(&id);
     }
 
     fn finish_expression(&mut self) {
@@ -505,6 +502,8 @@ impl<'source> Parser<'source> {
             Some(result)
         } else if let Some(result) = self.parse_export(context)? {
             Some(result)
+        } else if let Some(result) = self.parse_meta_export(context)? {
+            Some(result)
         } else {
             self.parse_expressions(context, TempResult::No)?
         };
@@ -636,8 +635,6 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        use Token::*;
-
         let last_lhs = match lhs.last() {
             Some(last) => *last,
             None => return internal_error!(MissingContinuedExpressionLhs, self),
@@ -648,49 +645,31 @@ impl<'source> Parser<'source> {
             ..*context
         };
 
-        if let Some(next) = self.peek_next_token(&context) {
-            match next.token {
-                Assign => return self.parse_assign_expression(lhs, AssignOp::Equal, &mut context),
-                AssignAdd => return self.parse_assign_expression(lhs, AssignOp::Add, &mut context),
-                AssignSubtract => {
-                    return self.parse_assign_expression(lhs, AssignOp::Subtract, &mut context)
-                }
-                AssignMultiply => {
-                    return self.parse_assign_expression(lhs, AssignOp::Multiply, &mut context)
-                }
-                AssignDivide => {
-                    return self.parse_assign_expression(lhs, AssignOp::Divide, &mut context)
-                }
-                AssignModulo => {
-                    return self.parse_assign_expression(lhs, AssignOp::Modulo, &mut context)
-                }
-                _ => {
-                    if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
-                        if left_priority >= min_precedence {
-                            let op = self.consume_next_token(&mut context).unwrap();
+        if let Some(assignment_expression) =
+            self.parse_assign_expression(lhs, Scope::Local, &mut context)?
+        {
+            return Ok(Some(assignment_expression));
+        } else if let Some(next) = self.peek_next_token(&context) {
+            if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
+                if left_priority >= min_precedence {
+                    let op = self.consume_next_token(&mut context).unwrap();
 
-                            // Move on to the token after the operator
-                            if self.peek_next_token(&context).is_none() {
-                                return indentation_error!(RhsExpression, self);
-                            }
-                            self.consume_until_next_token(&mut context);
-
-                            let rhs = if let Some(rhs_expression) =
-                                self.parse_expression_start(None, right_priority, &mut context)?
-                            {
-                                rhs_expression
-                            } else {
-                                return indentation_error!(RhsExpression, self);
-                            };
-
-                            let op_node = self.push_ast_op(op, last_lhs, rhs)?;
-                            return self.parse_expression_continued(
-                                &[op_node],
-                                min_precedence,
-                                &context,
-                            );
-                        }
+                    // Move on to the token after the operator
+                    if self.peek_next_token(&context).is_none() {
+                        return indentation_error!(RhsExpression, self);
                     }
+                    self.consume_until_next_token(&mut context);
+
+                    let rhs = if let Some(rhs_expression) =
+                        self.parse_expression_start(None, right_priority, &mut context)?
+                    {
+                        rhs_expression
+                    } else {
+                        return indentation_error!(RhsExpression, self);
+                    };
+
+                    let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                    return self.parse_expression_continued(&[op_node], min_precedence, &context);
                 }
             }
         }
@@ -701,28 +680,40 @@ impl<'source> Parser<'source> {
     fn parse_assign_expression(
         &mut self,
         lhs: &[AstIndex],
-        assign_op: AssignOp,
+        scope: Scope,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        self.consume_next_token(context); // The assign op has already been matched
+        let assign_op = match self.peek_next_token(context).map(|token| token.token) {
+            Some(Token::Assign) => AssignOp::Equal,
+            Some(Token::AssignAdd) => AssignOp::Add,
+            Some(Token::AssignSubtract) => AssignOp::Subtract,
+            Some(Token::AssignMultiply) => AssignOp::Multiply,
+            Some(Token::AssignDivide) => AssignOp::Divide,
+            Some(Token::AssignModulo) => AssignOp::Modulo,
+            _ => return Ok(None),
+        };
+
+        if matches!(scope, Scope::Export) && !matches!(assign_op, AssignOp::Equal) {
+            return syntax_error!(UnexpectedExportAssignmentOp, self);
+        }
+
+        self.consume_next_token(context);
 
         let mut targets = Vec::new();
 
         for lhs_expression in lhs.iter() {
-            match self.ast.node(*lhs_expression).node.clone() {
-                Node::Id(id_index) => {
-                    if matches!(assign_op, AssignOp::Equal) {
-                        self.frame_mut()?.add_id_assignment(id_index);
-                        self.frame_mut()?.remove_id_access(id_index);
-                    }
+            match (self.ast.node(*lhs_expression).node.clone(), scope) {
+                (Node::Id(id_index), Scope::Local) if matches!(assign_op, AssignOp::Equal) => {
+                    self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                Node::Lookup(_) | Node::Wildcard => {}
+                (Node::Id(_) | Node::Lookup(_) | Node::Wildcard, _) => {}
+                (Node::Meta { .. }, Scope::Export) => {}
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
 
             targets.push(AssignTarget {
                 target_index: *lhs_expression,
-                scope: Scope::Local,
+                scope,
             });
         }
 
@@ -852,6 +843,7 @@ impl<'source> Parser<'source> {
                     _ => return syntax_error!(ExpectedMetaId, self),
                 },
                 "type" => MetaKeyId::Type,
+                "main" => MetaKeyId::Main,
                 _ => return syntax_error!(UnexpectedMetaKey, self),
             },
             Some(Token::SquareOpen) => match self.consume_token() {
@@ -1272,35 +1264,33 @@ impl<'source> Parser<'source> {
 
         let export_id = if let Some(constant_index) = self.parse_id(context)? {
             self.push_node(Node::Id(constant_index))?
-        } else if let Some((meta_key_id, name)) = self.parse_meta_key()? {
-            self.push_node(Node::Meta(meta_key_id, name))?
+        } else if self.parse_meta_key()?.is_some() {
+            return syntax_error!(UnnecessaryExportKeywordForMetaKey, self);
         } else {
             return syntax_error!(ExpectedExportExpression, self);
         };
 
-        match self.peek_next_token_on_same_line() {
-            Some(Token::Assign) => {
-                self.consume_next_token_on_same_line();
+        let result = match self.parse_assign_expression(&[export_id], Scope::Export, context)? {
+            Some(result) => result,
+            None => export_id,
+        };
 
-                if let Some(rhs) =
-                    self.parse_expressions(&mut ExpressionContext::permissive(), TempResult::No)?
-                {
-                    let node = Node::Assign {
-                        target: AssignTarget {
-                            target_index: export_id,
-                            scope: Scope::Export,
-                        },
-                        op: AssignOp::Equal,
-                        expression: rhs,
-                    };
+        Ok(Some(result))
+    }
 
-                    Ok(Some(self.push_node(node)?))
-                } else {
-                    indentation_error!(RhsExpression, self)
-                }
-            }
-            Some(Token::NewLine) | Some(Token::NewLineIndented) => Ok(Some(export_id)),
-            _ => syntax_error!(UnexpectedTokenAfterExportId, self),
+    fn parse_meta_export(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        let meta_key = if let Some((meta_key_id, name)) = self.parse_meta_key()? {
+            self.push_node(Node::Meta(meta_key_id, name))?
+        } else {
+            return Ok(None);
+        };
+
+        match self.parse_assign_expression(&[meta_key], Scope::Export, context)? {
+            result @ Some(_) => Ok(result),
+            None => syntax_error!(ExpectedAssignmentAfterMetaKey, self),
         }
     }
 

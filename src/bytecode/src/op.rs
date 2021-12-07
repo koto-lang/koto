@@ -441,14 +441,14 @@ pub enum Op {
 
     /// Adds a key/value entry into the module's exported metamap
     ///
-    /// Used for expressions like `export @tests = ...`
+    /// Used for expressions like `@tests = ...`
     ///
     /// `[*key, *value]`
     MetaExport,
 
     /// Adds a named key/value entry into the module's exported metamap
     ///
-    /// Used for expressions like `export @tests = ...`
+    /// Used for expressions like `@tests = ...`
     ///
     /// `[*key, *name, *value]`
     MetaExportNamed,

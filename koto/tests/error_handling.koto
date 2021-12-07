@@ -1,7 +1,7 @@
 import error_handling_module
 from test import assert, assert_eq
 
-export @tests =
+@tests =
   @test try_expression: ||
     x = try
       42

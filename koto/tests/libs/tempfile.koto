@@ -1,6 +1,6 @@
 from test import assert, assert_eq
 
-export @tests =
+@tests =
   @test temp_file: ||
     temp = tempfile.temp_file()
     temp.write_line "hello"

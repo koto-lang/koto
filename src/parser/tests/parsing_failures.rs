@@ -43,6 +43,11 @@ mod parser {
             check_parsing_fails("import foo bar");
         }
 
+        #[test]
+        fn unnecessary_export_with_meta_key() {
+            check_parsing_fails("export @tests = 42");
+        }
+
         mod indentation {
             use super::*;
 

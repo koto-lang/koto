@@ -8,7 +8,7 @@ bbb
 ccc
 "
 
-export @tests =
+@tests =
   @test current_dir: ||
     assert_ne io.current_dir(), ""
 

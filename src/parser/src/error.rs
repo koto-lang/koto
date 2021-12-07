@@ -55,6 +55,7 @@ pub enum SyntaxError {
     AsciiEscapeCodeOutOfRange,
     ExpectedArgsEnd,
     ExpectedAssignmentTarget,
+    ExpectedAssignmentAfterMetaKey,
     ExpectedCatchArgument,
     ExpectedCatch,
     ExpectedCloseParen,
@@ -110,15 +111,16 @@ pub enum SyntaxError {
     UnexpectedElseIndentation,
     UnexpectedElseIfIndentation,
     UnexpectedEscapeInString,
+    UnexpectedExportAssignmentOp,
     UnexpectedMatchElse,
     UnexpectedMatchIf,
     UnexpectedMetaKey,
     UnexpectedSwitchElse,
     UnexpectedToken,
     UnexpectedTokenAfterDollarInString,
-    UnexpectedTokenAfterExportId,
     UnexpectedTokenInImportExpression,
     UnicodeEscapeCodeOutOfRange,
+    UnnecessaryExportKeywordForMetaKey,
     UnterminatedNumericEscapeCode,
     UnterminatedString,
 }
@@ -257,6 +259,7 @@ impl fmt::Display for SyntaxError {
             }
             ExpectedArgsEnd => f.write_str("Expected end of arguments ')'"),
             ExpectedAssignmentTarget => f.write_str("Expected target for assignment"),
+            ExpectedAssignmentAfterMetaKey => f.write_str("Expected '=' assignment after meta key"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedCatch => f.write_str("Expected catch expression after try"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
@@ -332,6 +335,9 @@ impl fmt::Display for SyntaxError {
             UnexpectedElseIndentation => f.write_str("Unexpected indentation for else block"),
             UnexpectedElseIfIndentation => f.write_str("Unexpected indentation for else if block"),
             UnexpectedEscapeInString => f.write_str("Unexpected escape pattern in string"),
+            UnexpectedExportAssignmentOp => {
+                f.write_str("Unexpected assignment op for export expression (expected '=')")
+            }
             UnexpectedMatchElse => f.write_str("Unexpected else in match arm"),
             UnexpectedMatchIf => f.write_str("Unexpected if condition in match arm"),
             UnexpectedMetaKey => f.write_str("Unexpected meta key"),
@@ -340,12 +346,14 @@ impl fmt::Display for SyntaxError {
             UnexpectedTokenAfterDollarInString => {
                 f.write_str("Unexpected token after $ in string, expected $ID or ${expression}")
             }
-            UnexpectedTokenAfterExportId => f.write_str("Unexpected token after export ID"),
             UnexpectedTokenInImportExpression => {
                 f.write_str("Unexpected token in import expression")
             }
             UnicodeEscapeCodeOutOfRange => {
                 f.write_str("Unicode value out of range, the maximum is \\u{10ffff}")
+            }
+            UnnecessaryExportKeywordForMetaKey => {
+                f.write_str("'export' is unnecessary when assigning to a meta key")
             }
             UnterminatedNumericEscapeCode => f.write_str("Unterminated numeric escape code"),
             UnterminatedString => f.write_str("Unterminated string"),

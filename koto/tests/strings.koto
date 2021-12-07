@@ -1,7 +1,7 @@
 import koto.type
 from test import assert, assert_eq, assert_ne
 
-export @tests =
+@tests =
   @test comparisons: ||
     assert_eq "Hello", "Hello"
     assert_ne "Hello", "Héllö"

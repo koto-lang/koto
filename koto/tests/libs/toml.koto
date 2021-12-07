@@ -1,6 +1,6 @@
 import test.assert_eq
 
-export @tests =
+@tests =
   @test serialize_and_deserialize_toml: ||
     path = io.extend_path koto.script_dir, "data", "test.toml"
     file_data = io.read_to_string path
