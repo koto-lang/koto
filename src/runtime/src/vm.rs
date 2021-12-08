@@ -1271,19 +1271,28 @@ impl Vm {
         capture_index: u8,
         value: u8,
     ) -> InstructionResult {
-        let capture_list = match self.get_register(function) {
-            Value::Function(f) => &f.captures,
-            Value::Generator(g) => &g.captures,
-            unexpected => return unexpected_type_error("Function", unexpected),
-        };
+        if let Some(function) = self.get_register_safe(function) {
+            let capture_list = match function {
+                Value::Function(f) => &f.captures,
+                Value::Generator(g) => &g.captures,
+                unexpected => return unexpected_type_error("Function", unexpected),
+            };
 
-        match capture_list {
-            Some(capture_list) => {
-                capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
+            match capture_list {
+                Some(capture_list) => {
+                    capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
+                }
+                None => return runtime_error!("Missing capture list for function"),
             }
-            None => return runtime_error!("Missing capture list for function"),
+        } else {
+            // e.g. x = (1..10).find |n| n == x
+            // The function was temporary and has been removed from the value stack,
+            // but the capture of `x` is still attempted. It would be cleaner for the compiler to
+            // detect this case but for now a runtime error will have to do.
+            return runtime_error!(
+                "Attempting to capture a reserved value in a temporary function"
+            );
         }
-
         Ok(())
     }
 
@@ -3205,12 +3214,15 @@ impl Vm {
             None => {
                 panic!(
                     "Out of bounds access, index: {}, register: {}, ip: {}",
-                    index,
-                    register,
-                    self.ip()
+                    index, register, self.instruction_ip
                 );
             }
         }
+    }
+
+    fn get_register_safe(&self, register: u8) -> Option<&Value> {
+        let index = self.register_index(register);
+        self.value_stack.get(index)
     }
 
     fn get_register_mut(&mut self, register: u8) -> &mut Value {

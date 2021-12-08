@@ -69,13 +69,19 @@ enum Arg {
 enum LocalRegister {
     // The register is assigned to a specific id.
     Assigned(ConstantIndex),
-    // The register is currently being assigned to,
-    // it will become assigned at the end of the assignment expression.
+    // The register is reserved at the start of an assignment expression,
+    // and it will become assigned at the end of the assignment.
     // Instructions can be deferred until the register is committed,
-    // e.g. for functions that need to capture themselves after they've been fully assigned
-    Reserved(ConstantIndex, Vec<u8>),
+    // e.g. for functions that need to capture themselves after they've been fully assigned.
+    Reserved(ConstantIndex, Vec<DeferredOp>),
     // The register contains a value not associated with an id, e.g. a wildcard function arg
     Allocated,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct DeferredOp {
+    bytes: Vec<u8>,
+    span: Span,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -184,10 +190,11 @@ impl Frame {
         &mut self,
         reserved_register: u8,
         bytes: Vec<u8>,
+        span: Span,
     ) -> Result<(), String> {
         match self.local_registers.get_mut(reserved_register as usize) {
             Some(LocalRegister::Reserved(_, deferred_ops)) => {
-                deferred_ops.extend_from_slice(&bytes);
+                deferred_ops.push(DeferredOp { bytes, span });
                 Ok(())
             }
             _ => Err(format!(
@@ -197,13 +204,13 @@ impl Frame {
         }
     }
 
-    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<u8>, String> {
+    fn commit_local_register(&mut self, local_register: u8) -> Result<Vec<DeferredOp>, String> {
         let local_register = local_register as usize;
         let (index, deferred_ops) = match self.local_registers.get(local_register) {
             Some(LocalRegister::Assigned(_)) => {
                 return Ok(vec![]);
             }
-            Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.clone()),
+            Some(LocalRegister::Reserved(index, deferred_ops)) => (*index, deferred_ops.to_vec()),
             _ => {
                 return Err(format!(
                     "commit_local_register: register {} hasn't been reserved",
@@ -2258,10 +2265,12 @@ impl Compiler {
 
             for (i, capture) in captures.iter().enumerate() {
                 if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
+                    let capture_span = self.span();
                     self.frame_mut()
                         .defer_op_until_register_is_committed(
                             local_register,
                             vec![Capture as u8, result.register, i as u8, local_register],
+                            capture_span,
                         )
                         .map_err(|e| self.make_error(e))?;
                 } else if let Some(local_register) =
@@ -3708,6 +3717,11 @@ impl Compiler {
         self.bytes.extend_from_slice(bytes);
     }
 
+    fn push_bytes_with_span(&mut self, bytes: &[u8], span: Span) {
+        self.debug_info.push(self.bytes.len(), span);
+        self.bytes.extend_from_slice(bytes);
+    }
+
     fn frame(&self) -> &Frame {
         self.frame_stack.last().expect("Frame stack is empty")
     }
@@ -3753,12 +3767,13 @@ impl Compiler {
     }
 
     fn commit_local_register(&mut self, register: u8) -> Result<u8, CompilerError> {
-        let deferred_ops = self
+        for deferred_op in self
             .frame_mut()
             .commit_local_register(register)
-            .map_err(|e| self.make_error(e))?;
-
-        self.push_bytes(&deferred_ops);
+            .map_err(|e| self.make_error(e))?
+        {
+            self.push_bytes_with_span(&deferred_op.bytes, deferred_op.span);
+        }
 
         Ok(register)
     }
