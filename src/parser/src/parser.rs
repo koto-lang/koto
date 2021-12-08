@@ -1089,14 +1089,17 @@ impl<'source> Parser<'source> {
                         self.peek_token(),
                         Some(Token::Id | Token::SingleQuote | Token::DoubleQuote)
                     ) {
+                        // This check prevents detached dot accesses, e.g. `x. foo`
                         return syntax_error!(ExpectedMapKey, self);
                     } else if let Some(id_index) =
                         self.parse_id(&mut ExpressionContext::restricted())?
                     {
-                        lookup.push((LookupNode::Id(id_index), self.current_span()));
+                        node_start_span = self.current_span();
+                        lookup.push((LookupNode::Id(id_index), node_start_span));
                     } else if let Some((lookup_string, span)) =
                         self.parse_string(&mut ExpressionContext::restricted())?
                     {
+                        node_start_span = span;
                         lookup.push((LookupNode::Str(lookup_string), span));
                     } else {
                         return syntax_error!(ExpectedMapKey, self);
