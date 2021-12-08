@@ -1795,19 +1795,20 @@ impl Vm {
             return Ok(false);
         }
 
-        for ((key_a, value_a), (key_b, value_b)) in map_a.data().iter().zip(map_b.data().iter()) {
-            if key_a != key_b {
-                return Ok(false);
-            }
-            match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
-                Value::Bool(true) => {}
-                Value::Bool(false) => return Ok(false),
-                other => {
-                    return runtime_error!(
-                        "Expected Bool from equality comparison, found '{}'",
-                        other.type_as_string()
-                    );
+        for (key_a, value_a) in map_a.data().iter() {
+            if let Some(value_b) = map_b.data().get(key_a) {
+                match self.run_binary_op(BinaryOp::Equal, value_a.clone(), value_b.clone())? {
+                    Value::Bool(true) => {}
+                    Value::Bool(false) => return Ok(false),
+                    other => {
+                        return runtime_error!(
+                            "Expected Bool from equality comparison, found '{}'",
+                            other.type_as_string()
+                        );
+                    }
                 }
+            } else {
+                return Ok(false);
             }
         }
 
