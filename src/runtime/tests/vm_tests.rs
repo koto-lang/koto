@@ -1505,8 +1505,17 @@ m = {foo: -1, bar: 42} + {foo: 99}
         #[test]
         fn equality() {
             let script = "
-m = {foo: 42, bar: || 99}
-m2 = m
+m = foo: 42, bar: 'abc'
+m2 = m.copy()
+m == m2";
+            test_script(script, true.into());
+        }
+
+        #[test]
+        fn equality_different_key_order() {
+            let script = "
+m = foo: 42, bar: 'abc'
+m2 = bar: 'abc', foo: 42
 m == m2";
             test_script(script, true.into());
         }
@@ -1514,9 +1523,8 @@ m == m2";
         #[test]
         fn inequality() {
             let script = "
-m = {foo: 42, bar: || 99}
-m2 = m.copy()
-m2.foo = 99
+m = foo: 42, bar: 'xyz'
+m2 = foo: 42, bar: 'abc'
 m != m2";
             test_script(script, true.into());
         }

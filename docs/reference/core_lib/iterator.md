@@ -55,6 +55,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [cycle](#cycle)
 - [each](#each)
 - [enumerate](#enumerate)
+- [find](#find)
 - [fold](#fold)
 - [intersperse](#intersperse)
 - [iter](#iter)
@@ -271,6 +272,32 @@ Returns an iterator that provides each value along with an associated index.
 # [(0, "a"), (1, "b"), (2, "c")]
 ```
 
+## find
+
+`|Iterable, |Value| -> Bool| -> Value`
+
+Returns the first value in the iterable that passes the test function.
+
+The function is called for each value in the iterator, and returns either `true`
+if the value is a match, or `false` if it's not.
+
+The first matching value will cause iteration to stop.
+
+If no match is found then `()` is returned.
+
+### Example
+
+```koto
+(10..20).find |x| x > 14 and x < 16
+# 15
+
+(10..20).find |x| x > 100
+# ()
+```
+
+### See Also
+
+- [`iterator.find`](#find)
 ## fold
 
 `|Iterable, Value, |Value, Value| -> Value| -> Value`
@@ -507,6 +534,10 @@ If no match is found then `()` is returned.
 (10..20).position |x| x == 99
 # ()
 ```
+
+### See Also
+
+- [`iterator.find`](#find)
 
 ## product
 

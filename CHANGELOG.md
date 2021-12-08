@@ -11,7 +11,23 @@ The Koto project adheres to
 ### Added
 
 - Core Library
-  - `number.round` has been added.
+  - New additions:
+    - `iterator.find`
+    - `number.round`
+  - List operations that modify the list but previously returned Empty,
+    now return the modified list.
+    - e.g.
+      ```koto
+      x = [1, 2, 3]
+
+      # Before
+      x.push 4
+      # ()
+
+      # After
+      x.push 4
+      # [1, 2, 3, 4]
+      ```
   - `iterator.consume` now accepts an optional function that will be called
     for each iterator output value.
     - e.g.
@@ -55,6 +71,16 @@ The Koto project adheres to
       @main = ||
         ...
       ```
+- Map equality comparisons now don't rely on maps having keys in the same order.
+  - e.g.
+    ```koto
+    x = foo: 42, bar: 99
+    y = bar: 99, foo: 42
+    # Before
+    assert_eq x != y, true
+    # After
+    assert_eq x == y, true
+    ```
 
 ### Fixed
 

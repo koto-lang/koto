@@ -96,6 +96,14 @@ f [1, 2, 3]
 "#;
                 check_script_fails(script);
             }
+
+            #[test]
+            fn capturing_a_reserved_value_in_a_temporary_function() {
+                let script = "
+x = (1..10).find |n| n == x
+";
+                check_script_fails(script);
+            }
         }
     }
 }

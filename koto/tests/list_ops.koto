@@ -150,8 +150,9 @@ make_foo = |x|
     z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
     z.sort |n| -n.x # reverse sorting
 
+    a_last = a.size() - 1
     for n in 0..z.size()
-      assert_eq z[n].x, a[a.size() - 1 - n].x
+      assert_eq z[n].x, a[a_last - n].x
 
   @test sort_copy: ||
     assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]

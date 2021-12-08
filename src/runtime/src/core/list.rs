@@ -67,7 +67,7 @@ pub fn make_module() -> ValueMap {
             for v in l.data_mut().iter_mut() {
                 *v = value.clone();
             }
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.fill",
@@ -112,7 +112,7 @@ pub fn make_module() -> ValueMap {
             }
 
             l.data_mut().insert(index, value.clone());
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.insert",
@@ -151,7 +151,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("push", |vm, args| match vm.get_args(args) {
         [List(l), value] => {
             l.data_mut().push(value.clone());
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.push",
@@ -194,7 +194,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("retain", |vm, args| {
-        match vm.get_args(args) {
+        let result = match vm.get_args(args) {
             [List(l), f] if f.is_callable() => {
                 let l = l.clone();
                 let f = f.clone();
@@ -220,6 +220,7 @@ pub fn make_module() -> ValueMap {
                     }
                 }
                 l.data_mut().resize(write_index, Empty);
+                l
             }
             [List(l), value] => {
                 let l = l.clone();
@@ -250,6 +251,7 @@ pub fn make_module() -> ValueMap {
                 if let Some(error) = error {
                     return error;
                 }
+                l
             }
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -258,15 +260,15 @@ pub fn make_module() -> ValueMap {
                     unexpected,
                 )
             }
-        }
+        };
 
-        Ok(Empty)
+        Ok(List(result))
     });
 
     result.add_fn("reverse", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             l.data_mut().reverse();
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         unexpected => {
             unexpected_type_error_with_slice("list.reverse", "a List as argument", unexpected)
@@ -285,7 +287,7 @@ pub fn make_module() -> ValueMap {
             let l = l.clone();
             let mut data = l.data_mut();
             sort_values(vm, &mut data)?;
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         [List(l), f] if f.is_callable() => {
             let l = l.clone();
@@ -330,7 +332,7 @@ pub fn make_module() -> ValueMap {
                 .map(|(_key, value)| value.clone())
                 .collect::<_>();
 
-            Ok(Empty)
+            Ok(List(l))
         }
         unexpected => {
             unexpected_type_error_with_slice("list.sort", "a List as argument", unexpected)
@@ -351,7 +353,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("swap", |vm, args| match vm.get_args(args) {
         [List(a), List(b)] => {
             std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
-
             Ok(Empty)
         }
         unexpected => {
@@ -378,7 +379,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(Empty)
+            Ok(List(l))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.transform",
