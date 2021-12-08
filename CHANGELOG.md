@@ -11,6 +11,9 @@ The Koto project adheres to
 ### Added
 
 - Core Library
+  - New additions:
+    - `iterator.find`
+    - `number.round`
   - List operations that modify the list but previously returned Empty,
     now return the modified list.
     - e.g.
@@ -25,7 +28,6 @@ The Koto project adheres to
       x.push 4
       # [1, 2, 3, 4]
       ```
-  - `number.round` has been added.
   - `iterator.consume` now accepts an optional function that will be called
     for each iterator output value.
     - e.g.

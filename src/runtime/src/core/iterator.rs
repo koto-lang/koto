@@ -210,6 +210,43 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
+    result.add_fn("find", |vm, args| match vm.get_args(args) {
+        [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let predicate = predicate.clone();
+
+            for output in make_iterator(iterable).unwrap().map(collect_pair) {
+                match output {
+                    Output::Value(value) => {
+                        match vm.run_function(predicate.clone(), CallArgs::Single(value.clone())) {
+                            Ok(Bool(result)) => {
+                                if result {
+                                    return Ok(value);
+                                }
+                            }
+                            Ok(unexpected) => {
+                                return unexpected_type_error_with_slice(
+                                    "iterator.find",
+                                    "a Bool to be returned from the predicate",
+                                    &[unexpected],
+                                )
+                            }
+                            Err(error) => return Err(error.with_prefix("iterator.find")),
+                        }
+                    }
+                    Output::Error(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(Empty)
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.find",
+            "an iterable value and a predicate Function as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("fold", |vm, args| {
         match vm.get_args(args) {
             [iterable, result, f] if iterable.is_iterable() && f.is_callable() => {
