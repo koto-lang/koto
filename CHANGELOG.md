@@ -11,6 +11,20 @@ The Koto project adheres to
 ### Added
 
 - Core Library
+  - List operations that modify the list but previously returned Empty,
+    now return the modified list.
+    - e.g.
+      ```koto
+      x = [1, 2, 3]
+
+      # Before
+      x.push 4
+      # ()
+
+      # After
+      x.push 4
+      # [1, 2, 3, 4]
+      ```
   - `number.round` has been added.
   - `iterator.consume` now accepts an optional function that will be called
     for each iterator output value.

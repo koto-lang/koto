@@ -137,15 +137,16 @@ x # a deep copy has been made, so x is unaffected by the assignment to y
 
 ## fill
 
-`|List, Value| -> ()`
+`|List, Value| -> List`
 
-Fills the list with copies of the provided value.
+Fills the list with copies of the provided value, and returns the list.
 
 ### Example
 
 ```koto
 x = [1, 2, 3]
 x.fill 99
+# [99, 99, 99]
 x
 # [99, 99, 99]
 ```
@@ -200,9 +201,9 @@ value is returned. If no default value is provided then `()` is returned.
 
 ## insert
 
-`|List, Number, Value| -> ()`
+`|List, Number, Value| -> List`
 
-Inserts the value into the Nth position in the list.
+Inserts the value into the Nth position in the list, and returns the list.
 
 An error is thrown if the position is negative or greater than the size of the
 list.
@@ -210,7 +211,10 @@ list.
 ### Example
 
 ```koto
-[99, -1, 42].insert 2, "hello"
+x = [99, -1, 42]
+x.insert 2, "hello"
+# [99, -1, "hello", 42]
+x
 # [99, -1, "hello", 42]
 ```
 
@@ -283,14 +287,17 @@ x
 
 ## push
 
-`|List, Value| -> ()`
+`|List, Value| -> Value`
 
-Adds the value to the end of the list.
+Adds the value to the end of the list, and returns the list.
 
 ### Example
 
 ```koto
-[99, -1].push "hello"
+x = [99, -1]
+x.push "hello"
+# [99, -1, "hello"]
+x
 # [99, -1, "hello"]
 ```
 
@@ -340,9 +347,10 @@ x
 
 ## retain
 
-`|List, Value| -> ()`
+`|List, Value| -> List`
 
-Retains matching values in the list, discarding values that don't match.
+Retains matching values in the list (discarding values that don't match), and
+returns the list.
 
 If the test value is a function, then the function will be called with each of
 the list's values, and if the function returns `true` then the value will be
@@ -357,26 +365,29 @@ using the `==` equality operator, and then retained if they match.
 ```koto
 x = [1..10]
 x.retain |n| n < 5
+# [1, 2, 3, 4]
 x
 # [1, 2, 3, 4]
 
 x = [1, 3, 8, 3, 9, -1]
 x.retain 3
+# [3, 3]
 x
 # [3, 3]
 ```
 
 ## reverse
 
-`|List| -> ()`
+`|List| -> List`
 
-Reverses the order of the list's contents.
+Reverses the order of the list's contents, and returns the list.
 
 ### Example
 
 ```koto
 x = ["hello", -1, 99, "world"]
 x.reverse()
+# ["world", 99, -1, "hello"]
 x
 # ["world", 99, -1, "hello"]
 ```
@@ -400,14 +411,15 @@ x.size()
 
 ## sort
 
-`|List| -> ()`
+`|List| -> List`
 
-Sorts the list in place.
+Sorts the list in place, and returns the list.
 
-`|List, |Value| -> Value| -> ()`
+`|List, |Value| -> Value| -> List`
 
 Sorts the list in place, based on the output of calling a 'key' function for
-each value. The function result is cached, so it's only called once per value.
+each value, and returns the list. The function result is cached, so it's only
+called once per value.
 
 ### Example
 
@@ -481,20 +493,22 @@ Returns a copy of the list data as a tuple.
 
 ## transform
 
-`|List, |Value| -> Value| -> ()`
+`|List, |Value| -> Value| -> List`
 
-Transforms the list data by calling a function with each value and then
-replacing the value with the function result.
+Transforms the list data by replacing each value with the result of calling the
+provided function, and then returns the list.
 
 ### Example
 
 ```koto
 x = ["aaa", "bb", "c"]
 x.transform string.size
+# [3, 2, 1]
 x
 # [3, 2, 1]
 
 x.transform |n| "{}".format n
+# ["3", "2", "1"]
 x
 # ["3", "2", "1"]
 ```
