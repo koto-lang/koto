@@ -290,23 +290,7 @@ impl File {
     }
 }
 
-impl ExternalData for File {
-    fn value_type(&self) -> String {
-        "File".to_string()
-    }
-}
-
-impl fmt::Display for File {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.deref())
-    }
-}
-
-impl fmt::Debug for File {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
-    }
-}
+impl ExternalData for File {}
 
 struct BufferedSystemFile<T>
 where

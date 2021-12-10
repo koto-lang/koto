@@ -6,7 +6,7 @@ mod external_values {
         koto_runtime::{
             runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, UnaryOp, Value, Vm,
         },
-        std::{cell::RefCell, fmt, rc::Rc},
+        std::{cell::RefCell, rc::Rc},
     };
 
     #[derive(Debug)]
@@ -15,12 +15,6 @@ mod external_values {
     }
 
     impl ExternalData for TestExternalData {}
-
-    impl fmt::Display for TestExternalData {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "TestExternalData: {}", self.x)
-        }
-    }
 
     thread_local!(
         static EXTERNAL_META: Rc<RefCell<MetaMap>> = {
