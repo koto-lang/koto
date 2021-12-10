@@ -6,9 +6,6 @@ Based on the Ruby implementation:
 https://benchmarksgame-team.pages.debian.net/benchmarksgame/program/fannkuchredux-yarv-1.html
 -#
 
-import io.print
-from test import assert, assert_eq
-
 fannkuch = |n|
   assert n >= 4
   p = (0..=n).to_list()

@@ -1,5 +1,3 @@
-from test import assert, assert_eq
-
 @tests =
   @test inline_if: ||
     x = if true then 10 else 20

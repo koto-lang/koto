@@ -1,5 +1,3 @@
-import test.assert_eq
-
 @main = ||
   n = match koto.args.get 0
     () then 10

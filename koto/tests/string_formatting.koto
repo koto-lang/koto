@@ -1,4 +1,4 @@
-import number.pi, test.assert_eq
+import number.pi
 
 @tests =
   @test format: ||

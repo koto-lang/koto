@@ -1,5 +1,3 @@
-from test import assert, assert_eq
-
 @tests =
   @test and_not_or: ||
     assert true and true

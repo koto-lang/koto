@@ -1,5 +1,3 @@
-from test import assert, assert_eq, assert_ne
-
 test_path = io.extend_path koto.script_dir, "data", "test.txt"
 
 test_contents = "\

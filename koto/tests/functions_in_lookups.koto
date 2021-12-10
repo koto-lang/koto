@@ -1,5 +1,3 @@
-import test.assert_eq
-
 test_map = ||
   child_map:
     foo: 42

@@ -1,6 +1,4 @@
-import koto.type
 from number import e, infinity, negative_infinity, pi, tau,
-from test import assert, assert_eq, assert_near
 
 epsilon = 1.0e-15
 

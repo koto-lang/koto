@@ -1,5 +1,3 @@
-import koto.type, test.assert_eq
-
 @tests =
   @test type_returns_type_name: ||
     assert_eq (type true), "Bool"

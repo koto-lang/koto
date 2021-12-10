@@ -1,5 +1,3 @@
-import test.assert_eq
-
 a = num4
   0, 1, 2, 3
 b = num4
