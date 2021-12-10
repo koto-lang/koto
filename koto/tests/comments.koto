@@ -1,5 +1,3 @@
-import test.assert
-
 # This is a comment
 assert true # This is a trailing comment
 a = 1 # Another trailing comment

@@ -1,5 +1,4 @@
 import error_handling_module
-from test import assert, assert_eq
 
 @tests =
   @test try_expression: ||

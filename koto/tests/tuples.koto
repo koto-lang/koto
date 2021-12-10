@@ -1,5 +1,3 @@
-from test import assert, assert_ne, assert_eq
-
 make_foo = |x|
   x: x
   @<: |self, other| self.x < other.x

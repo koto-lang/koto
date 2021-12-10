@@ -14,6 +14,10 @@ The Koto project adheres to
   - New additions:
     - `iterator.find`
     - `number.round`
+  - The following items are now imported by default into the top level of the
+    prelude:
+    - `io.print`, `koto.type`, `test.assert`, `test.assert_eq`,
+      `test.assert_ne`, `test.assert_near`
   - List operations that modify the list but previously returned Empty,
     now return the modified list.
     - e.g.

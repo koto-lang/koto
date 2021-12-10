@@ -54,6 +54,46 @@ pub enum ControlFlow {
 // Instructions will place their results in registers, there's no Ok type
 pub type InstructionResult = Result<(), RuntimeError>;
 
+fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
+    let core_lib = CoreLib::default();
+
+    let mut prelude = ValueMap::default();
+    prelude.add_map("io", core_lib.io.clone());
+    prelude.add_map("iterator", core_lib.iterator.clone());
+    prelude.add_map("koto", core_lib.koto.clone());
+    prelude.add_map("list", core_lib.list.clone());
+    prelude.add_map("map", core_lib.map.clone());
+    prelude.add_map("os", core_lib.os.clone());
+    prelude.add_map("number", core_lib.number.clone());
+    prelude.add_map("range", core_lib.range.clone());
+    prelude.add_map("string", core_lib.string.clone());
+    prelude.add_map("test", core_lib.test.clone());
+    prelude.add_map("tuple", core_lib.tuple.clone());
+
+    macro_rules! default_import {
+        ($name:expr, $module:ident) => {{
+            prelude.add_value(
+                $name,
+                core_lib
+                    .$module
+                    .data()
+                    .get_with_string($name)
+                    .unwrap()
+                    .clone(),
+            );
+        }};
+    }
+
+    default_import!("assert", test);
+    default_import!("assert_eq", test);
+    default_import!("assert_ne", test);
+    default_import!("assert_near", test);
+    default_import!("print", io);
+    default_import!("type", koto);
+
+    (core_lib, prelude)
+}
+
 /// Context shared by all VMs across modules
 struct SharedContext {
     pub prelude: ValueMap,
@@ -72,20 +112,7 @@ impl Default for SharedContext {
 
 impl SharedContext {
     fn with_settings(settings: VmSettings) -> Self {
-        let core_lib = CoreLib::default();
-
-        let mut prelude = ValueMap::default();
-        prelude.add_map("io", core_lib.io.clone());
-        prelude.add_map("iterator", core_lib.iterator.clone());
-        prelude.add_map("koto", core_lib.koto.clone());
-        prelude.add_map("list", core_lib.list.clone());
-        prelude.add_map("map", core_lib.map.clone());
-        prelude.add_map("os", core_lib.os.clone());
-        prelude.add_map("number", core_lib.number.clone());
-        prelude.add_map("range", core_lib.range.clone());
-        prelude.add_map("string", core_lib.string.clone());
-        prelude.add_map("test", core_lib.test.clone());
-        prelude.add_map("tuple", core_lib.tuple.clone());
+        let (core_lib, prelude) = setup_core_lib_and_prelude();
 
         Self {
             prelude,

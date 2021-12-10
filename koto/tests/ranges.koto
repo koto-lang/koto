@@ -1,5 +1,3 @@
-from test import assert, assert_eq
-
 @tests =
   @test assignment: ||
     # Assigning a range to a value

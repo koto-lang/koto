@@ -1,5 +1,3 @@
-from test import assert, assert_eq
-
 #-
 An import expression will attempt to import a module matching the requested name from the
 following locations, in order:

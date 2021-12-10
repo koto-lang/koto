@@ -1,5 +1,3 @@
-import io.print
-
 @main = ||
   input_file = io.extend_path koto.script_dir, "..", "..", "..",
     "docs", "reference", "core_lib", "string.md"

@@ -38,8 +38,6 @@ a try, your early feedback will be invaluable.
 ### A Quick Tour
 
 ```coffee
-import io.print, test.assert_eq
-
 # Numbers
 x = 1 + 2.5 + 100.sqrt()
 assert_eq x, 13.5

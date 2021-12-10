@@ -41,8 +41,6 @@ number_to_english = |n|
 
 @tests =
   @test number_to_english: ||
-    import test.assert_eq
-
     assert_eq (number_to_english 0), "zero"
     assert_eq (number_to_english -42), "minus forty-two"
     assert_eq (number_to_english 217), "two hundred and seventeen"

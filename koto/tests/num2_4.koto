@@ -1,5 +1,3 @@
-import test.assert_eq
-
 @tests =
   @test creating: ||
     assert_eq (num4 0), (num4 0, 0, 0, 0)
