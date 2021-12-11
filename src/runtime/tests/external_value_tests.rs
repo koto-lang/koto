@@ -329,4 +329,27 @@ x[23]
             test_script_with_external_value(script, 123.into());
         }
     }
+
+    mod temporaries {
+        use super::*;
+
+        #[test]
+        fn overloaded_unary_op_as_lookup_root() {
+            let script = "
+x = make_external -100
+(-x).to_number()
+    ";
+            test_script_with_external_value(script, 100.into());
+        }
+
+        #[test]
+        fn overloaded_binary_op_as_lookup_root() {
+            let script = "
+x = make_external 100
+y = make_external 100
+(x - y).to_number()
+    ";
+            test_script_with_external_value(script, 0.into());
+        }
+    }
 }

@@ -1857,6 +1857,12 @@ impl Vm {
         value_register: u8,
         op: Value,
     ) -> InstructionResult {
+        // Ensure that the result register is present in the stack, otherwise it might be lost after
+        // the call to the op, which expects a frame base at or after the result register.
+        if self.register_index(result_register) >= self.value_stack.len() {
+            self.set_register(result_register, Value::Empty);
+        }
+
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
@@ -1878,6 +1884,12 @@ impl Vm {
         rhs: Value,
         op: Value,
     ) -> InstructionResult {
+        // Ensure that the result register is present in the stack, otherwise it might be lost after
+        // the call to the op, which expects a frame base at or after the result register.
+        if self.register_index(result_register) >= self.value_stack.len() {
+            self.set_register(result_register, Value::Empty);
+        }
+
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
