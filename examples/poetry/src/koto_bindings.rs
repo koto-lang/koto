@@ -4,7 +4,7 @@ use {
         make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalIterator,
         ExternalValue, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
-    std::{cell::RefCell, fmt, rc::Rc},
+    std::{cell::RefCell, rc::Rc},
 };
 
 pub fn make_module() -> ValueMap {
@@ -109,14 +109,4 @@ impl KotoPoetry {
     }
 }
 
-impl ExternalData for KotoPoetry {
-    fn value_type(&self) -> String {
-        "Poetry".to_string()
-    }
-}
-
-impl fmt::Display for KotoPoetry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Poetry")
-    }
-}
+impl ExternalData for KotoPoetry {}

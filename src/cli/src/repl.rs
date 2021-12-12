@@ -254,7 +254,17 @@ impl Repl {
                         );
                     }
                     match self.koto.run() {
-                        Ok(result) => writeln!(stdout, "{}\n", result).unwrap(),
+                        Ok(result) => match self.koto.value_to_string(result.clone()) {
+                            Ok(result_string) => writeln!(stdout, "{}\n", result_string).unwrap(),
+                            Err(e) => {
+                                writeln!(
+                                    stdout,
+                                    "Error while getting display string for value '{}' - {}",
+                                    result, e
+                                )
+                                .unwrap();
+                            }
+                        },
                         Err(error) => {
                             if let Some(help) = self.run_help(&input) {
                                 writeln!(stdout, "{}\n", help).unwrap()

@@ -32,7 +32,7 @@ use {
     dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        CallArgs, KotoFile, Loader, MetaKey, RuntimeError, Value, ValueMap, Vm, VmSettings,
+        CallArgs, KotoFile, Loader, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
     },
     std::{error::Error, fmt, path::PathBuf, rc::Rc},
 };
@@ -218,6 +218,25 @@ impl Koto {
         }
     }
 
+    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
+        match self.runtime.get_exported_function(function_name) {
+            Some(f) => self.run_function(f, args),
+            None => Err(KotoError::FunctionNotFound(function_name.into())),
+        }
+    }
+
+    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
+        self.runtime
+            .run_function(function, args)
+            .map_err(|e| e.into())
+    }
+
+    pub fn value_to_string(&mut self, value: Value) -> KotoResult {
+        self.runtime
+            .run_unary_op(UnaryOp::Display, value)
+            .map_err(|e| e.into())
+    }
+
     pub fn prelude(&self) -> ValueMap {
         self.runtime.prelude()
     }
@@ -286,18 +305,5 @@ impl Koto {
             }
             _ => unreachable!(),
         }
-    }
-
-    pub fn run_function_by_name(&mut self, function_name: &str, args: CallArgs) -> KotoResult {
-        match self.runtime.get_exported_function(function_name) {
-            Some(f) => self.run_function(f, args),
-            None => Err(KotoError::FunctionNotFound(function_name.into())),
-        }
-    }
-
-    pub fn run_function(&mut self, function: Value, args: CallArgs) -> KotoResult {
-        self.runtime
-            .run_function(function, args)
-            .map_err(|e| e.into())
     }
 }

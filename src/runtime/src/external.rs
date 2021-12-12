@@ -14,9 +14,21 @@ pub use downcast_rs::Downcast;
 use crate::MetaMap;
 
 /// A trait for external data
-pub trait ExternalData: fmt::Debug + fmt::Display + Downcast {
+pub trait ExternalData: Downcast {
     fn value_type(&self) -> String {
         "External Data".to_string()
+    }
+}
+
+impl fmt::Display for dyn ExternalData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.value_type())
+    }
+}
+
+impl fmt::Debug for dyn ExternalData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.value_type())
     }
 }
 

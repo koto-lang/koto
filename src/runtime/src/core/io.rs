@@ -95,7 +95,19 @@ pub fn make_module() -> ValueMap {
     result.add_fn("print", |vm, args| {
         let result = match vm.get_args(args) {
             [Str(s)] => vm.stdout().write_line(s.as_str()),
-            [value] => vm.stdout().write_line(&value.to_string()),
+            [value] => {
+                let value = value.clone();
+                match vm.run_unary_op(crate::UnaryOp::Display, value)? {
+                    Str(s) => vm.stdout().write_line(s.as_str()),
+                    unexpected => {
+                        return unexpected_type_error_with_slice(
+                            "io.print",
+                            "string from @display",
+                            &[unexpected],
+                        )
+                    }
+                }
+            }
             [Str(format), format_args @ ..] => {
                 let format = format.clone();
                 let format_args = format_args.to_vec();
@@ -290,23 +302,7 @@ impl File {
     }
 }
 
-impl ExternalData for File {
-    fn value_type(&self) -> String {
-        "File".to_string()
-    }
-}
-
-impl fmt::Display for File {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.deref())
-    }
-}
-
-impl fmt::Debug for File {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
-    }
-}
+impl ExternalData for File {}
 
 struct BufferedSystemFile<T>
 where

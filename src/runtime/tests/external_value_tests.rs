@@ -6,7 +6,7 @@ mod external_values {
         koto_runtime::{
             runtime_error, BinaryOp, ExternalData, ExternalValue, MetaMap, UnaryOp, Value, Vm,
         },
-        std::{cell::RefCell, fmt, rc::Rc},
+        std::{cell::RefCell, rc::Rc},
     };
 
     #[derive(Debug)]
@@ -15,12 +15,6 @@ mod external_values {
     }
 
     impl ExternalData for TestExternalData {}
-
-    impl fmt::Display for TestExternalData {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "TestExternalData: {}", self.x)
-        }
-    }
 
     thread_local!(
         static EXTERNAL_META: Rc<RefCell<MetaMap>> = {
@@ -333,6 +327,29 @@ x = make_external 100
 x[23]
 ";
             test_script_with_external_value(script, 123.into());
+        }
+    }
+
+    mod temporaries {
+        use super::*;
+
+        #[test]
+        fn overloaded_unary_op_as_lookup_root() {
+            let script = "
+x = make_external -100
+(-x).to_number()
+    ";
+            test_script_with_external_value(script, 100.into());
+        }
+
+        #[test]
+        fn overloaded_binary_op_as_lookup_root() {
+            let script = "
+x = make_external 100
+y = make_external 100
+(x - y).to_number()
+    ";
+            test_script_with_external_value(script, 0.into());
         }
     }
 }
