@@ -87,7 +87,6 @@ mod vm {
     #[test]
     fn print_loop() {
         let script = "
-import io.print
 for i in 0..5
   print 'foo {}', i
 ";
@@ -99,6 +98,22 @@ foo 1
 foo 2
 foo 3
 foo 4
+",
+        );
+    }
+
+    #[test]
+    fn print_value_with_overridden_display() {
+        let script = "
+foo =
+  @display: |self| 'Hello from @display'
+  @type: 'Foo'
+print foo
+";
+        check_logged_output(
+            script,
+            "\
+Hello from @display
 ",
         );
     }

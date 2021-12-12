@@ -366,7 +366,7 @@ fn value_to_string(
             }
             other => {
                 return runtime_error!(
-                    "Expected string from value display, found '{}'",
+                    "Expected string from @display, found '{}'",
                     other.type_as_string()
                 )
             }

@@ -90,6 +90,8 @@ The Koto project adheres to
 
 - Error traces have been made more reliable, with the correct positions being
   displayed more consistently in calling functions.
+- `io.print` now correctly prints values that are printed without a format
+  string and that override @display.
 
 ## [0.10.0] 2021.12.02
 
