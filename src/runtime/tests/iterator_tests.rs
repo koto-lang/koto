@@ -136,6 +136,18 @@ y.next()
         }
     }
 
+    mod skip {
+        use super::*;
+
+        #[test]
+        fn skip_past_end_then_collect_shouldnt_panic() {
+            let script = "
+[].skip(1).to_tuple()
+";
+            test_script(script, value_tuple(&[]));
+        }
+    }
+
     mod take {
         use super::*;
 

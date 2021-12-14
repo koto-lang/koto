@@ -97,6 +97,8 @@ The Koto project adheres to
   displayed more consistently in calling functions.
 - `io.print` now correctly prints values that are printed without a format
   string and that override @display.
+- Fixed a panic that could occur when skipping past the end of an iterator and
+  then calling a 'to X' function.
 
 ## [0.10.0] 2021.12.02
 

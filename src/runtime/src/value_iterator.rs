@@ -251,7 +251,7 @@ impl Iterator for ValueIterator {
             External(external_iterator) => return external_iterator.borrow().size_hint(),
         };
 
-        let remaining = iterable_size - index;
+        let remaining = iterable_size.saturating_sub(index);
 
         (remaining, Some(remaining))
     }
