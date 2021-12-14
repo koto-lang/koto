@@ -2,10 +2,13 @@ pub mod format;
 pub mod iterators;
 
 use {
+    super::iterator::collect_pair,
     crate::{
-        runtime_error, unexpected_type_error_with_slice, value_iterator::ValueIterator,
+        runtime_error, unexpected_type_error_with_slice,
+        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
         RuntimeResult, Value, ValueMap,
     },
+    std::convert::TryFrom,
     unicode_segmentation::UnicodeSegmentation,
 };
 
@@ -58,6 +61,47 @@ pub fn make_module() -> ValueMap {
         unexpected => unexpected_type_error_with_slice(
             "string.format",
             "a String as argument, followed by optional additional Values",
+            unexpected,
+        ),
+    });
+
+    result.add_fn("from_bytes", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterator = make_iterator(iterable).unwrap();
+            let (size_hint, _) = iterator.size_hint();
+            let mut bytes = Vec::<u8>::with_capacity(size_hint);
+
+            for output in iterator.map(collect_pair) {
+                match output {
+                    Output::Value(Number(n)) => match u8::try_from(n.as_i64()) {
+                        Ok(byte) => bytes.push(byte),
+                        Err(_) => {
+                            return runtime_error!(
+                                "string.from_bytes: '{}' is out of the valid byte range",
+                                n
+                            )
+                        }
+                    },
+                    Output::Value(unexpected) => {
+                        return unexpected_type_error_with_slice(
+                            "string.from_bytes",
+                            "a number",
+                            &[unexpected],
+                        )
+                    }
+                    Output::Error(error) => return Err(error),
+                    _ => unreachable!(),
+                }
+            }
+
+            match String::from_utf8(bytes) {
+                Ok(result) => Ok(Str(result.into())),
+                Err(_) => runtime_error!("string.from_bytes: input failed UTF-8 validation"),
+            }
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "string.from_bytes",
+            "an iterable value as argument",
             unexpected,
         ),
     });

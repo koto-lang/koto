@@ -74,6 +74,7 @@ escape code, then it can be escaped with an additional `\`.
 - [ends_with](#ends_with)
 - [escape](#escape)
 - [format](#format)
+- [from_bytes](#from_bytes)
 - [is_empty](#is_empty)
 - [lines](#lines)
 - [size](#size)
@@ -95,9 +96,13 @@ contained in the string data.
 ### Example
 
 ```koto
-"Hëy".bytes().to_tuple()
-# (72, 195, 171, 121)
+"Hëy!".bytes().to_tuple()
+# (72, 195, 171, 121, 33)
 ```
+
+### See Also
+
+- [`string.from_bytes`](#from_bytes)
 
 ## chars
 
@@ -275,6 +280,25 @@ Returns `true` if the string contains no characters.
 "".is_empty()
 # true
 ```
+
+## from_bytes
+
+`|Iterable| -> String`
+
+Returns a string containing the bytes that are produced by the input iterable.
+The iterable output must contain only Numbers in the `0..=255` range.
+The resulting sequence of bytes must contain UTF-8 data.
+
+### Example
+
+```koto
+string.from_bytes (72, 195, 171, 121, 33)
+# Hëy!
+```
+
+### See Also
+
+- [`string.bytes`](#bytes)
 
 ## lines
 

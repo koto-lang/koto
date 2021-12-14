@@ -6,7 +6,7 @@ use {
         MetaKeyId, Node, Scope, Span, StringNode, SwitchArm,
     },
     smallvec::SmallVec,
-    std::{convert::TryFrom, error, fmt},
+    std::{collections::HashSet, convert::TryFrom, error, fmt},
 };
 
 /// The error type used to report errors during compilation
@@ -89,6 +89,7 @@ struct Frame {
     loop_stack: Vec<Loop>,
     register_stack: Vec<u8>,
     local_registers: Vec<LocalRegister>,
+    exported_ids: HashSet<ConstantIndex>,
     temporary_base: u8,
     temporary_count: u8,
     last_op: Option<Op>, // used to decide if an additional return instruction is needed
@@ -184,6 +185,10 @@ impl Frame {
                 Ok(new_local_register as u8)
             }
         }
+    }
+
+    fn add_to_exported_ids(&mut self, id: ConstantIndex) {
+        self.exported_ids.insert(id);
     }
 
     fn defer_op_until_register_is_committed(
@@ -301,15 +306,15 @@ impl Frame {
         accessed_non_locals: &[ConstantIndex],
     ) -> Vec<ConstantIndex> {
         // The non-locals accessed in the nested frame should be captured if they're in the current
-        // frame's local scope.
+        // frame's local scope, or if they were exported prior to the nested frame being created.
         accessed_non_locals
             .iter()
             .filter(|&non_local| {
-                self.local_registers
-                    .contains(&LocalRegister::Assigned(*non_local))
-                    || self
-                        .local_registers
-                        .contains(&LocalRegister::Reserved(*non_local, vec![]))
+                self.local_registers.iter().any(|register| match register {
+                    LocalRegister::Assigned(assigned) if assigned == non_local => true,
+                    LocalRegister::Reserved(reserved, _) if reserved == non_local => true,
+                    _ => false,
+                }) || self.exported_ids.contains(non_local)
             })
             .cloned()
             .collect()
@@ -1206,6 +1211,7 @@ impl Compiler {
         self.compile_load_string_constant(id_register, id);
         self.push_op(Op::ValueExport, &[id_register, value_register]);
         self.pop_register()?;
+        self.frame_mut().add_to_exported_ids(id);
         Ok(())
     }
 

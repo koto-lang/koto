@@ -43,6 +43,12 @@
     # Unicode characters
     assert_eq '\u{1f98b}', '🦋'
 
+  @test escaped_newlines: ||
+    x = "foo \
+         bar \
+         baz"
+    assert_eq x, "foo bar baz"
+
   @test bytes: ||
     assert_eq "Hëy".bytes().to_tuple(), (72, 195, 171, 121)
 
@@ -78,6 +84,9 @@
 
     assert_eq "👋".escape(), "\\u{1f44b}"
 
+  @test from_bytes: ||
+    assert_eq (string.from_bytes (72, 195, 171, 121)), "Hëy"
+
   @test is_empty: ||
     assert "".is_empty()
     assert not "abc".is_empty()
@@ -98,12 +107,6 @@ zzz
 
     x3 = "foo\nbar\nbaz"
     assert_eq x3.lines().to_tuple(), ("foo", "bar", "baz")
-
-  @test escaped_newlines: ||
-    x = "foo \
-         bar \
-         baz"
-    assert_eq x, "foo bar baz"
 
   @test size: ||
     # size returns the number of unicode graphemes in the string,

@@ -30,10 +30,7 @@ impl ValueNumber {
     }
 
     pub fn floor(self) -> Self {
-        match self {
-            Self::F64(n) => Self::I64(n.floor() as i64),
-            Self::I64(n) => Self::I64(n),
-        }
+        Self::I64(self.as_i64())
     }
 
     pub fn round(self) -> Self {
@@ -77,6 +74,13 @@ impl ValueNumber {
         match self {
             Self::F64(n) => n.to_bits(),
             Self::I64(n) => n as u64,
+        }
+    }
+
+    pub fn as_i64(self) -> i64 {
+        match self {
+            Self::F64(n) => n.floor() as i64,
+            Self::I64(n) => n,
         }
     }
 }

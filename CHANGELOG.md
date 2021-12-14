@@ -19,6 +19,7 @@ The Koto project adheres to
     - `os.start_timer`
       - Provides a timer that can be used for measuring the duration between
         moments in time.
+    - `string.from_bytes`
   - The following items are now imported by default into the top level of the
     prelude:
     - `io.print`, `koto.type`, `test.assert`, `test.assert_eq`,
@@ -90,6 +91,16 @@ The Koto project adheres to
     # After
     assert_eq x == y, true
     ```
+- Functions that access a value that was exported prior to the function being
+  created, will capture the value rather than access it from exports.
+  - e.g.
+    ```koto
+    export x = 123
+    f = || x
+    # Re-exporting x doesn't affect the value of x captured when f was created
+    export x = 99
+    f()
+    ```
 
 ### Fixed
 
@@ -97,6 +108,8 @@ The Koto project adheres to
   displayed more consistently in calling functions.
 - `io.print` now correctly prints values that are printed without a format
   string and that override @display.
+- Fixed a panic that could occur when skipping past the end of an iterator and
+  then calling a 'to X' function.
 
 ## [0.10.0] 2021.12.02
 

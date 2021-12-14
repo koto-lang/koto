@@ -298,6 +298,7 @@ If no match is found then `()` is returned.
 ### See Also
 
 - [`iterator.find`](#find)
+
 ## fold
 
 `|Iterable, Value, |Value, Value| -> Value| -> Value`
