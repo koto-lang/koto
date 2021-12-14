@@ -106,7 +106,7 @@ impl Iterator for Each {
             };
             match functor_result {
                 Ok(result) => Output::Value(result),
-                Err(error) => Output::Error(error.with_prefix("iterator.each")),
+                Err(error) => Output::Error(error),
             }
         })
     }
@@ -404,7 +404,7 @@ impl Iterator for Keep {
                              predicate, found '{}'",
                     unexpected.type_as_string(),
                 ))),
-                Err(error) => Output::Error(error.with_prefix("iterator.keep")),
+                Err(error) => Output::Error(error),
             };
 
             return Some(result);
