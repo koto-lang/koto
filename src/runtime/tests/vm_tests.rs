@@ -1124,16 +1124,6 @@ f [1, 2]";
         }
 
         #[test]
-        fn export_assignment() {
-            let script = "
-f = ||
-  export x = 42
-f()
-x";
-            test_script(script, 42.into());
-        }
-
-        #[test]
         fn multi_assignment_of_function_results() {
             let script = "
 f = |n| n
@@ -2616,6 +2606,39 @@ a = foo 10
 a.x + a.y # The meta map's y entry is hidden by the data entry
 ";
             test_script(script, 110.into());
+        }
+    }
+
+    mod export {
+        use super::*;
+
+        #[test]
+        fn export_in_function() {
+            let script = "
+f = || export x = 42
+f()
+x";
+            test_script(script, 42.into());
+        }
+
+        #[test]
+        fn accessing_value_exported_after_function_creation() {
+            let script = "
+f = || x
+export x = 99
+f()";
+            test_script(script, 99.into());
+        }
+
+        #[test]
+        fn capture_of_value_exported_before_function_creation() {
+            let script = "
+export x = 123
+f = || x
+# Re-exporting x doesn't affect the value captured when f was created
+export x = 99
+f()";
+            test_script(script, 123.into());
         }
     }
 }

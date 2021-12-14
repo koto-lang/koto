@@ -91,6 +91,16 @@ The Koto project adheres to
     # After
     assert_eq x == y, true
     ```
+- Functions that access a value that was exported prior to the function being
+  created, will capture the value rather than access it from exports.
+  - e.g.
+    ```koto
+    export x = 123
+    f = || x
+    # Re-exporting x doesn't affect the value of x captured when f was created
+    export x = 99
+    f()
+    ```
 
 ### Fixed
 
