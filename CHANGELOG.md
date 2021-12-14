@@ -19,6 +19,7 @@ The Koto project adheres to
     - `os.start_timer`
       - Provides a timer that can be used for measuring the duration between
         moments in time.
+    - `string.from_bytes`
   - The following items are now imported by default into the top level of the
     prelude:
     - `io.print`, `koto.type`, `test.assert`, `test.assert_eq`,

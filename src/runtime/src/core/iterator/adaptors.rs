@@ -1,7 +1,10 @@
-use crate::{
-    make_runtime_error,
-    value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
-    CallArgs, Value, Vm,
+use {
+    super::collect_pair,
+    crate::{
+        make_runtime_error,
+        value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
+        CallArgs, Value, Vm,
+    },
 };
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -580,13 +583,6 @@ impl Iterator for PairSecond {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
-    }
-}
-
-fn collect_pair(iterator_output: Output) -> Output {
-    match iterator_output {
-        Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),
-        _ => iterator_output,
     }
 }
 

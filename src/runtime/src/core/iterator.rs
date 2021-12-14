@@ -715,7 +715,7 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-fn collect_pair(iterator_output: Output) -> Output {
+pub(crate) fn collect_pair(iterator_output: Output) -> Output {
     match iterator_output {
         Output::ValuePair(first, second) => Output::Value(Value::Tuple(vec![first, second].into())),
         _ => iterator_output,
