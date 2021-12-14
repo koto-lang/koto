@@ -876,61 +876,6 @@ min..max
         }
 
         #[test]
-        fn num2() {
-            let source = "\
-num2 0
-num2
-  1,
-  x";
-            check_ast(
-                source,
-                &[
-                    Number0,
-                    Num2(vec![0]),
-                    Number1,
-                    Id(constant(0)),
-                    Num2(vec![2, 3]),
-                    MainBlock {
-                        body: vec![1, 4],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
-        fn num4() {
-            let source = "\
-num4 0
-num4 1, x
-num4(
-  x, 0,
-  1, x,
-)";
-            check_ast(
-                source,
-                &[
-                    Number0,
-                    Num4(vec![0]),
-                    Number1,
-                    Id(constant(0)),
-                    Num4(vec![2, 3]),
-                    Id(constant(0)), // 5
-                    Number0,
-                    Number1,
-                    Id(constant(0)),
-                    Num4(vec![5, 6, 7, 8]),
-                    MainBlock {
-                        body: vec![1, 4, 9],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("x")]),
-            )
-        }
-
-        #[test]
         fn tuple() {
             let source = "0, 1, 0";
             check_ast(
@@ -3715,58 +3660,6 @@ x.foo
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("values")]),
-            )
-        }
-
-        #[test]
-        fn lookup_on_num2_with_parens() {
-            let source = "num2(1).sum()";
-            check_ast(
-                source,
-                &[
-                    Number1,
-                    Num2(vec![0]),
-                    Lookup((
-                        LookupNode::Call {
-                            args: vec![],
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    Lookup((LookupNode::Id(constant(0)), Some(2))),
-                    Lookup((LookupNode::Root(1), Some(3))),
-                    MainBlock {
-                        body: vec![4],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("sum")]),
-            )
-        }
-
-        #[test]
-        fn lookup_on_num4_with_parens() {
-            let source = "num4(1).sum()";
-            check_ast(
-                source,
-                &[
-                    Number1,
-                    Num4(vec![0]),
-                    Lookup((
-                        LookupNode::Call {
-                            args: vec![],
-                            with_parens: true,
-                        },
-                        None,
-                    )),
-                    Lookup((LookupNode::Id(constant(0)), Some(2))),
-                    Lookup((LookupNode::Root(1), Some(3))),
-                    MainBlock {
-                        body: vec![4],
-                        local_count: 0,
-                    },
-                ],
-                Some(&[Constant::Str("sum")]),
             )
         }
 

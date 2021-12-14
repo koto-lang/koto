@@ -192,7 +192,7 @@ make_foo = |x|
   @test product: ||
     assert_eq (1..=5).product(), 120
     # An initial value can be provided to override the default initial value of 0
-    assert_eq (2, 3, 4).product(num2 1, 2), (num2 24, 48)
+    assert_eq (2, 3, 4).product(make_num2 1, 2), (make_num2 24, 48)
 
   @test product_with_overloaded_multiply_operator: ||
     foo = |x|

@@ -472,8 +472,6 @@ impl Compiler {
                 result
             }
             Node::Str(string) => self.compile_string(result_register, &string.nodes, ast)?,
-            Node::Num2(elements) => self.compile_make_num2(result_register, elements, ast)?,
-            Node::Num4(elements) => self.compile_make_num4(result_register, elements, ast)?,
             Node::List(elements) => {
                 self.compile_make_sequence(result_register, elements, Op::SequenceToList, ast)?
             }
@@ -1872,112 +1870,6 @@ impl Compiler {
                 }
             }
         }
-
-        Ok(result)
-    }
-
-    fn compile_make_num2(
-        &mut self,
-        result_register: ResultRegister,
-        elements: &[AstIndex],
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        if elements.is_empty() || elements.len() > 2 {
-            return compiler_error!(
-                self,
-                "compile_make_num2: unexpected number of elements: {}",
-                elements.len()
-            );
-        }
-
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                let stack_count = self.frame().register_stack.len();
-
-                for element_node in elements.iter() {
-                    let element_register = self.push_register()?;
-                    self.compile_node(
-                        ResultRegister::Fixed(element_register),
-                        ast.node(*element_node),
-                        ast,
-                    )?;
-                }
-
-                let first_element_register = self.peek_register(elements.len() - 1)?;
-                self.push_op(
-                    Op::MakeNum2,
-                    &[
-                        result.register,
-                        first_element_register,
-                        elements.len() as u8,
-                    ],
-                );
-
-                self.truncate_register_stack(stack_count)?;
-                Some(result)
-            }
-            None => {
-                // Compile the element nodes for side-effects
-                for element_node in elements.iter() {
-                    self.compile_node(ResultRegister::None, ast.node(*element_node), ast)?;
-                }
-                None
-            }
-        };
-
-        Ok(result)
-    }
-
-    fn compile_make_num4(
-        &mut self,
-        result_register: ResultRegister,
-        elements: &[AstIndex],
-        ast: &Ast,
-    ) -> CompileNodeResult {
-        if elements.is_empty() || elements.len() > 4 {
-            return compiler_error!(
-                self,
-                "compile_make_num4: unexpected number of elements: {}",
-                elements.len()
-            );
-        }
-
-        let result = match self.get_result_register(result_register)? {
-            Some(result) => {
-                let stack_count = self.frame().register_stack.len();
-
-                for element_node in elements.iter() {
-                    let element_register = self.push_register()?;
-                    self.compile_node(
-                        ResultRegister::Fixed(element_register),
-                        ast.node(*element_node),
-                        ast,
-                    )?;
-                }
-
-                let first_element_register = self.peek_register(elements.len() - 1)?;
-                self.push_op(
-                    Op::MakeNum4,
-                    &[
-                        result.register,
-                        first_element_register,
-                        elements.len() as u8,
-                    ],
-                );
-
-                self.truncate_register_stack(stack_count)?;
-
-                Some(result)
-            }
-            None => {
-                // Compile the element nodes for side-effects
-                for element_node in elements.iter() {
-                    self.compile_node(ResultRegister::None, ast.node(*element_node), ast)?;
-                }
-
-                None
-            }
-        };
 
         Ok(result)
     }

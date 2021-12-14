@@ -1399,44 +1399,6 @@ impl<'source> Parser<'source> {
                 }
                 Token::SquareOpen => self.parse_list(context)?,
                 Token::CurlyOpen => self.parse_map_inline(context)?,
-                Token::Num2 => {
-                    self.consume_next_token(context);
-                    let start_span = self.current_span();
-
-                    let args = if self.peek_token() == Some(Token::RoundOpen) {
-                        self.parse_parenthesized_args()?
-                    } else {
-                        self.parse_call_args(&mut ExpressionContext::permissive())?
-                    };
-
-                    if args.is_empty() {
-                        return syntax_error!(ExpectedExpression, self);
-                    } else if args.len() > 2 {
-                        return syntax_error!(TooManyNum2Terms, self);
-                    }
-
-                    let node = self.push_node_with_start_span(Num2(args), start_span)?;
-                    Some(self.check_for_lookup_after_node(node, context)?)
-                }
-                Token::Num4 => {
-                    self.consume_next_token(context);
-                    let start_span = self.current_span();
-
-                    let args = if self.peek_token() == Some(Token::RoundOpen) {
-                        self.parse_parenthesized_args()?
-                    } else {
-                        self.parse_call_args(&mut ExpressionContext::permissive())?
-                    };
-
-                    if args.is_empty() {
-                        return syntax_error!(ExpectedExpression, self);
-                    } else if args.len() > 4 {
-                        return syntax_error!(TooManyNum4Terms, self);
-                    }
-
-                    let node = self.push_node_with_start_span(Num4(args), start_span)?;
-                    Some(self.check_for_lookup_after_node(node, context)?)
-                }
                 Token::If => self.parse_if_expression(context)?,
                 Token::Match => self.parse_match_expression(context)?,
                 Token::Switch => self.parse_switch_expression(context)?,

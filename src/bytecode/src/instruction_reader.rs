@@ -130,16 +130,6 @@ pub enum Instruction {
         register: u8,
         size_hint: usize,
     },
-    MakeNum2 {
-        register: u8,
-        element_register: u8,
-        count: u8,
-    },
-    MakeNum4 {
-        register: u8,
-        element_register: u8,
-        count: u8,
-    },
     SequenceStart {
         register: u8,
         size_hint: usize,
@@ -437,8 +427,6 @@ impl fmt::Display for Instruction {
             Import { .. } => write!(f, "Import"),
             MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
             MakeMap { .. } => write!(f, "MakeMap"),
-            MakeNum2 { .. } => write!(f, "MakeNum2"),
-            MakeNum4 { .. } => write!(f, "MakeNum4"),
             SequenceStart { .. } => write!(f, "SequenceStart"),
             SequencePush { .. } => write!(f, "SequencePush"),
             SequencePushN { .. } => write!(f, "SequencePushN"),
@@ -554,24 +542,6 @@ impl fmt::Debug for Instruction {
                 f,
                 "MakeMap\t\tresult: {}\tsize_hint: {}",
                 register, size_hint
-            ),
-            MakeNum2 {
-                register,
-                count,
-                element_register,
-            } => write!(
-                f,
-                "MakeNum2\tresult: {}\tcount: {}\telement reg: {}",
-                register, count, element_register
-            ),
-            MakeNum4 {
-                register,
-                count,
-                element_register,
-            } => write!(
-                f,
-                "MakeNum4\tresult: {}\tcount: {}\telement reg: {}",
-                register, count, element_register
             ),
             SequenceStart {
                 register,
@@ -1189,16 +1159,6 @@ impl Iterator for InstructionReader {
             Op::MakeMap32 => Some(MakeMap {
                 register: get_u8!(),
                 size_hint: get_u32!() as usize,
-            }),
-            Op::MakeNum2 => Some(MakeNum2 {
-                register: get_u8!(),
-                element_register: get_u8!(),
-                count: get_u8!(),
-            }),
-            Op::MakeNum4 => Some(MakeNum4 {
-                register: get_u8!(),
-                element_register: get_u8!(),
-                count: get_u8!(),
             }),
             Op::SequenceStart => Some(SequenceStart {
                 register: get_u8!(),

@@ -82,8 +82,6 @@ pub enum Token {
     Loop,
     Match,
     Not,
-    Num2,
-    Num4,
     Or,
     Return,
     Switch,
@@ -482,8 +480,6 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("loop", Loop);
             check_keyword!("match", Match);
             check_keyword!("not", Not);
-            check_keyword!("num2", Num2);
-            check_keyword!("num4", Num4);
             check_keyword!("or", Or);
             check_keyword!("return", Return);
             check_keyword!("switch", Switch);
@@ -949,9 +945,9 @@ mod tests {
     fn indent() {
         let input = "\
 if true then
-  num4 1
+  make_num4 1
 
-num2 2
+make_num2 2
 x
 y";
         check_lexer_output_indented(
@@ -961,11 +957,11 @@ y";
                 (True, None, 1, 0),
                 (Then, None, 1, 0),
                 (NewLineIndented, None, 2, 2),
-                (Num4, None, 2, 2),
+                (Id, Some("make_num4"), 2, 2),
                 (Number, Some("1"), 2, 2),
                 (NewLine, None, 3, 0),
                 (NewLine, None, 4, 0),
-                (Num2, None, 4, 0),
+                (Id, Some("make_num2"), 4, 0),
                 (Number, Some("2"), 4, 0),
                 (NewLine, None, 5, 0),
                 (Id, Some("x"), 5, 0),

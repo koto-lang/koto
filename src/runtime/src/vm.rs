@@ -5,7 +5,7 @@ use {
         external::{self, Args, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
-        num2, num4, runtime_error,
+        runtime_error,
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{IntRange, ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, KotoFile, Loader, MetaKey,
@@ -88,6 +88,8 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     default_import!("assert_eq", test);
     default_import!("assert_ne", test);
     default_import!("assert_near", test);
+    default_import!("make_num2", num2);
+    default_import!("make_num4", num4);
     default_import!("print", io);
     default_import!("type", koto);
 
@@ -690,16 +692,6 @@ impl Vm {
                 self.set_register(register, Map(ValueMap::with_capacity(size_hint)));
                 Ok(())
             }
-            Instruction::MakeNum2 {
-                register,
-                element_register,
-                count,
-            } => self.run_make_num2(register, element_register, count),
-            Instruction::MakeNum4 {
-                register,
-                element_register,
-                count,
-            } => self.run_make_num4(register, element_register, count),
             Instruction::SequenceStart {
                 register,
                 size_hint,
@@ -2046,111 +2038,6 @@ impl Vm {
             }
         }
 
-        Ok(())
-    }
-
-    fn run_make_num2(
-        &mut self,
-        result_register: u8,
-        element_register: u8,
-        element_count: u8,
-    ) -> InstructionResult {
-        use Value::*;
-
-        let result = if element_count == 1 {
-            match self.get_register(element_register) {
-                Number(n) => num2::Num2(n.into(), n.into()),
-                Num2(n) => *n,
-                List(list) => {
-                    let mut result = num2::Num2::default();
-                    for (i, value) in list.data().iter().take(2).enumerate() {
-                        match value {
-                            Number(n) => result[i] = n.into(),
-                            unexpected => return unexpected_type_error("Number", unexpected),
-                        }
-                    }
-                    result
-                }
-                Tuple(tuple) => {
-                    let mut result = num2::Num2::default();
-                    for (i, value) in tuple.data().iter().take(2).enumerate() {
-                        match value {
-                            Number(n) => result[i] = n.into(),
-                            unexpected => return unexpected_type_error("Number", unexpected),
-                        }
-                    }
-                    result
-                }
-                unexpected => return unexpected_type_error("Number, Num2, or List", unexpected),
-            }
-        } else {
-            let mut result = num2::Num2::default();
-            for i in 0..element_count {
-                match self.get_register(element_register + i) {
-                    Number(n) => result[i as usize] = n.into(),
-                    unexpected => {
-                        return unexpected_type_error("Number, Num2, or List", unexpected)
-                    }
-                }
-            }
-            result
-        };
-
-        self.set_register(result_register, Num2(result));
-        Ok(())
-    }
-
-    fn run_make_num4(
-        &mut self,
-        result_register: u8,
-        element_register: u8,
-        element_count: u8,
-    ) -> InstructionResult {
-        use Value::*;
-        let result = if element_count == 1 {
-            match self.get_register(element_register) {
-                Number(n) => {
-                    let n = n.into();
-                    num4::Num4(n, n, n, n)
-                }
-                Num2(n) => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
-                Num4(n) => *n,
-                List(list) => {
-                    let mut result = num4::Num4::default();
-                    for (i, value) in list.data().iter().take(4).enumerate() {
-                        match value {
-                            Number(n) => result[i] = n.into(),
-                            unexpected => return unexpected_type_error("Number", unexpected),
-                        }
-                    }
-                    result
-                }
-                Tuple(tuple) => {
-                    let mut result = num4::Num4::default();
-                    for (i, value) in tuple.data().iter().take(4).enumerate() {
-                        match value {
-                            Number(n) => result[i] = n.into(),
-                            unexpected => return unexpected_type_error("Number", unexpected),
-                        }
-                    }
-                    result
-                }
-                unexpected => return unexpected_type_error("Number, Num4, or List", unexpected),
-            }
-        } else {
-            let mut result = num4::Num4::default();
-            for i in 0..element_count {
-                match self.get_register(element_register + i) {
-                    Number(n) => result[i as usize] = n.into(),
-                    unexpected => {
-                        return unexpected_type_error("Number, Num4, or List", unexpected)
-                    }
-                }
-            }
-            result
-        };
-
-        self.set_register(result_register, Num4(result));
         Ok(())
     }
 

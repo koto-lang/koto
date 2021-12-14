@@ -63,7 +63,7 @@ make_foo = |x|
     m = {}
     m.insert 1, "O_o"
     assert_eq (m.get 1), "O_o"
-    assert_eq (m.get num2 1, 2), ()
+    assert_eq (m.get make_num2 1, 2), ()
 
   @test get_index: ||
     m = foo: 42, bar: 99, baz: 123

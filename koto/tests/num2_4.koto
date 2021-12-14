@@ -1,90 +1,90 @@
 @tests =
   @test creating: ||
-    assert_eq (num4 0), (num4 0, 0, 0, 0)
-    assert_eq (num2 1), (num2 1, 1)
-    assert_eq (num4 (num2 1)), (num4 1, 1, 0, 0)
+    assert_eq (make_num4 0), (make_num4 0, 0, 0, 0)
+    assert_eq (make_num2 1), (make_num2 1, 1)
+    assert_eq (make_num4 (make_num2 1)), (make_num4 1, 1, 0, 0)
 
   @test mutation_num2: ||
-    x = num2 10, 11
+    x = make_num2 10, 11
     x *= 2
-    assert_eq x, (num2 20, 22)
+    assert_eq x, (make_num2 20, 22)
     x %= 5
-    assert_eq x, (num2 0, 2)
-    x += num2 10
-    assert_eq x, (num2 10, 12)
+    assert_eq x, (make_num2 0, 2)
+    x += make_num2 10
+    assert_eq x, (make_num2 10, 12)
 
   @test mutation_num4: ||
-    x = num4 5, 6, 7, 8
+    x = make_num4 5, 6, 7, 8
     x *= 2
-    assert_eq x, (num4 10, 12, 14, 16)
+    assert_eq x, (make_num4 10, 12, 14, 16)
     x %= 5
-    assert_eq x, (num4 0, 2, 4, 1)
-    x += num4 10
-    assert_eq x, (num4 10, 12, 14, 11)
+    assert_eq x, (make_num4 0, 2, 4, 1)
+    x += make_num4 10
+    assert_eq x, (make_num4 10, 12, 14, 11)
 
   @test length: ||
-    assert_eq (num2 3, 4).length(), 5
-    assert_eq (num2 -3, -4).length(), 5
-    assert_eq (num4 2, -2, 2, -2).length(), 4
+    assert_eq (make_num2 3, 4).length(), 5
+    assert_eq (make_num2 -3, -4).length(), 5
+    assert_eq (make_num4 2, -2, 2, -2).length(), 4
 
   @test max: ||
-    assert_eq (num2 1, -1).max(), 1
-    assert_eq (num4 3, 4, 5, -123).max(), 5
+    assert_eq (make_num2 1, -1).max(), 1
+    assert_eq (make_num4 3, 4, 5, -123).max(), 5
 
   @test min: ||
-    assert_eq (num2 1, -1).min(), -1
-    assert_eq (num4 3, 4, 5, -123).min(), -123
+    assert_eq (make_num2 1, -1).min(), -1
+    assert_eq (make_num4 3, 4, 5, -123).min(), -123
 
   @test normalize: ||
-    assert_eq (num2 0, 1).normalize(), num2 0, 1
-    assert_eq (num2 3, 4).normalize(), num2 0.6, 0.8
-    assert_eq (num4 2, -2, 2, -2).normalize(), num4 0.5, -0.5, 0.5, -0.5
+    assert_eq (make_num2 0, 1).normalize(), make_num2 0, 1
+    assert_eq (make_num2 3, 4).normalize(), make_num2 0.6, 0.8
+    assert_eq (make_num4 2, -2, 2, -2).normalize(), make_num4 0.5, -0.5, 0.5, -0.5
 
   @test product: ||
-    assert_eq (num2 3, 4).product(), 12
-    assert_eq (num4 3, 4, 5, 6).product(), 360
+    assert_eq (make_num2 3, 4).product(), 12
+    assert_eq (make_num4 3, 4, 5, 6).product(), 360
 
   @test sum: ||
-    assert_eq (num2 1, 2).sum(), 3
-    assert_eq (num4 1, 2, 3, 4).sum(), 10
+    assert_eq (make_num2 1, 2).sum(), 3
+    assert_eq (make_num4 1, 2, 3, 4).sum(), 10
 
   @test element_access_num2: ||
-    x = num2 10, 20
+    x = make_num2 10, 20
     assert_eq x[0], 10
     assert_eq x[1], 20
 
   @test element_access_num4: ||
-    x = num4 2, 3, 4, 5
+    x = make_num4 2, 3, 4, 5
     assert_eq x[0], 2
     assert_eq x[3], 5
 
   @test element_mutation_num2: ||
-    x = num2 1, 2
+    x = make_num2 1, 2
 
     x[0] = 99
-    assert_eq x, (num2 99, 2)
+    assert_eq x, (make_num2 99, 2)
 
     x[..] = -1
-    assert_eq x, (num2 -1, -1)
+    assert_eq x, (make_num2 -1, -1)
 
   @test element_mutation_num4: ||
-    x = num4 1, 2, 3, 4
+    x = make_num4 1, 2, 3, 4
     x[0] = -1
     x[3] = 123
-    assert_eq x, (num4 -1, 2, 3, 123)
+    assert_eq x, (make_num4 -1, 2, 3, 123)
 
     x[2..] = 99
-    assert_eq x, (num4 -1, 2, 99, 99)
+    assert_eq x, (make_num4 -1, 2, 99, 99)
 
   @test element_unpacking_num2: ||
-    x = num2 1, 2
+    x = make_num2 1, 2
     a, b, c = x
     assert_eq a, 1
     assert_eq b, 2
     assert_eq c, ()
 
   @test element_unpacking_num4: ||
-    x = num4 5, 6, 7, 8
+    x = make_num4 5, 6, 7, 8
     a, b, c, d, e = x
     assert_eq a, 5
     assert_eq b, 6
@@ -93,7 +93,7 @@
     assert_eq e, ()
 
   @test iterator_ops_num2: ||
-    x = num2 1, 2
+    x = make_num2 1, 2
     assert_eq x.to_list(), [1, 2]
 
     i = x.iter()
@@ -102,7 +102,7 @@
     assert_eq i.next(), ()
 
   @test iterator_ops_num4: ||
-    x = num4 5, 6, 7, 8
+    x = make_num4 5, 6, 7, 8
     assert_eq x.to_tuple(), (5, 6, 7, 8)
 
     i = x.iter()

@@ -10,8 +10,8 @@ while operations with Numbers apply the number to each element.
 ## Example
 
 ```koto
-x = num2 1, 2
-y = num2 3, 4
+x = make_num2 1, 2
+y = make_num2 3, 4
 x + y
 # num2(4, 6)
 
@@ -29,6 +29,7 @@ x
 # Reference
 
 - [length](#length)
+- [make_num2](#make_num2)
 - [max](#max)
 - [min](#min)
 - [normalize](#normalize)
@@ -44,9 +45,31 @@ Returns the length of the vector represented by the Num2's elements.
 ### Example
 
 ```koto
-x = num2(3, 4)
+x = make_num2 3, 4
 x.length()
 # 5
+```
+
+## make_num2
+
+`|Number| -> Num2`
+`|Number, Number| -> Num2`
+`|Num2| -> Num2`
+`|Iterable| -> Num2`
+
+Makes a Num2 from the provided values.
+
+### Example
+
+```koto
+make_num2 1
+# num2(1, 1)
+
+make_num2 3, 4
+# num2(3, 4)
+
+make_num2 [11, 12]
+# num2(11, 12)
 ```
 
 ## max
@@ -58,7 +81,7 @@ Returns the value of the largest element in the Num2.
 ### Example
 
 ```koto
-x = num2(10, 20)
+x = make_num2(10, 20)
 x.max()
 # 20
 ```
@@ -72,7 +95,7 @@ Returns the value of the smallest element in the Num2.
 ### Example
 
 ```koto
-x = num2(10, 20)
+x = make_num2(10, 20)
 x.min()
 # 10
 ```
@@ -87,7 +110,7 @@ with its length normalized to 1.
 ### Example
 
 ```koto
-x = num2(3, 4)
+x = make_num2(3, 4)
 x.normalize()
 # num2(0.6, 0.8)
 ```
@@ -101,7 +124,7 @@ Returns the result of multiplying the Num2's elements together.
 ### Example
 
 ```koto
-x = num2(10, 20)
+x = make_num2(10, 20)
 x.product()
 # 300
 ```
@@ -115,7 +138,7 @@ Returns the result of adding the Num2's elements together.
 ### Example
 
 ```koto
-x = num2(10, 20)
+x = make_num2(10, 20)
 x.sum()
 # 30
 ```

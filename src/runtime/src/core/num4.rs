@@ -1,4 +1,11 @@
-use crate::{unexpected_type_error_with_slice, RuntimeResult, Value, ValueMap};
+use {
+    super::iterator::collect_pair,
+    crate::{
+        num4, unexpected_type_error_with_slice,
+        value_iterator::{make_iterator, ValueIteratorOutput as Output},
+        RuntimeResult, Value, ValueMap,
+    },
+};
 
 pub fn make_module() -> ValueMap {
     use Value::*;
@@ -8,6 +15,48 @@ pub fn make_module() -> ValueMap {
     result.add_fn("length", |vm, args| match vm.get_args(args) {
         [Num4(n)] => Ok(Number(n.length().into())),
         unexpected => num4_error("length", unexpected),
+    });
+
+    result.add_fn("make_num4", |vm, args| {
+        let result = match vm.get_args(args) {
+            [Number(n)] => num4::Num4(n.into(), n.into(), n.into(), n.into()),
+            [Number(n1), Number(n2)] => num4::Num4(n1.into(), n2.into(), 0.0, 0.0),
+            [Number(n1), Number(n2), Number(n3)] => {
+                num4::Num4(n1.into(), n2.into(), n3.into(), 0.0)
+            }
+            [Number(n1), Number(n2), Number(n3), Number(n4)] => {
+                num4::Num4(n1.into(), n2.into(), n3.into(), n4.into())
+            }
+            [Num2(n)] => num4::Num4(n[0] as f32, n[1] as f32, 0.0, 0.0),
+            [Num4(n)] => *n,
+            [iterable] if iterable.is_iterable() => {
+                let iterator = make_iterator(iterable).unwrap();
+                let mut result = num4::Num4::default();
+                for (i, value) in iterator.take(2).map(collect_pair).enumerate() {
+                    match value {
+                        Output::Value(Number(n)) => result[i] = n.into(),
+                        Output::Value(unexpected) => {
+                            return unexpected_type_error_with_slice(
+                                "num4.make_num4",
+                                "a Number",
+                                &[unexpected],
+                            )
+                        }
+                        Output::Error(e) => return Err(e),
+                        _ => unreachable!(), // ValuePairs collected in collect_pair
+                    }
+                }
+                result
+            }
+            unexpected => {
+                return unexpected_type_error_with_slice(
+                    "num4.make_num4",
+                    "Numbers or an iterable as arguments",
+                    unexpected,
+                )
+            }
+        };
+        Ok(Num4(result))
     });
 
     result.add_fn("max", |vm, args| match vm.get_args(args) {
