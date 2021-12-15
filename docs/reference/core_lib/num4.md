@@ -35,6 +35,14 @@ x
 - [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
+- [r](#r)
+- [g](#g)
+- [b](#b)
+- [a](#a)
+- [x](#x)
+- [y](#y)
+- [z](#z)
+- [w](#w)
 
 ## length
 
@@ -147,4 +155,140 @@ Returns the result of adding the Num4's elements together.
 x = make_num4(10, 20, 30, 40)
 x.sum()
 # 100
+```
+
+## r
+
+`|Num4| -> Float`
+
+Returns the first element of the Num4.
+
+This can be useful when using a Num4 as a colour value, and want to access its
+'red' component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.r()
+# 10
+```
+
+## g
+
+`|Num4| -> Float`
+
+Returns the second element of the Num4.
+
+This can be useful when using a Num4 as a colour value, and want to access its
+'green' component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.g()
+# 20
+```
+
+## b
+
+`|Num4| -> Float`
+
+Returns the third element of the Num4.
+
+This can be useful when using a Num4 as a colour value, and want to access its
+'blue' component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.b()
+# 30
+```
+
+## a
+
+`|Num4| -> Float`
+
+Returns the fourth element of the Num4.
+
+This can be useful when using a Num4 as a colour value, and want to access its
+'alpha' component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.w()
+# 40
+```
+
+## x
+
+`|Num4| -> Float`
+
+Returns the first element of the Num4.
+
+This can be useful when using a Num4 as a 3D or 4D vector, and want to access
+its `x` component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.x()
+# 10
+```
+
+## y
+
+`|Num4| -> Float`
+
+Returns the second element of the Num4.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.y()
+# 20
+```
+
+This can be useful when using a Num4 as a 3D or 4D vector, and want to access
+its `y` component.
+
+## z
+
+`|Num4| -> Float`
+
+Returns the third element of the Num4.
+
+This can be useful when using a Num4 as a 3D or 4D vector, and want to access
+its `z` component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.z()
+# 30
+```
+
+## w
+
+`|Num4| -> Float`
+
+Returns the fourth element of the Num4.
+
+This can be useful when using a Num4 as a 4D vector, and want to access its `w`
+component.
+
+### Example
+
+```koto
+n = make_num4 10, 20, 30, 40
+n.w()
+# 40
 ```

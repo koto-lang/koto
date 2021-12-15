@@ -35,6 +35,8 @@ x
 - [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
+- [x](#x)
+- [y](#y)
 
 ## length
 
@@ -141,4 +143,32 @@ Returns the result of adding the Num2's elements together.
 x = make_num2(10, 20)
 x.sum()
 # 30
+```
+
+## x
+
+`|Num2| -> Float`
+
+Returns the first element of the Num2.
+
+### Example
+
+```koto
+n = make_num2 10, 20
+n.x()
+# 10
+```
+
+## y
+
+`|Num2| -> Float`
+
+Returns the second element of the Num2.
+
+### Example
+
+```koto
+n = make_num2 10, 20
+n.y()
+# 20
 ```

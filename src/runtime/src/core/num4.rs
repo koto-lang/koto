@@ -73,6 +73,46 @@ pub fn make_module() -> ValueMap {
         unexpected => num4_error("sum", unexpected),
     });
 
+    result.add_fn("r", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.0.into())),
+        unexpected => num4_error("r", unexpected),
+    });
+
+    result.add_fn("g", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.1.into())),
+        unexpected => num4_error("g", unexpected),
+    });
+
+    result.add_fn("b", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.2.into())),
+        unexpected => num4_error("b", unexpected),
+    });
+
+    result.add_fn("a", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.3.into())),
+        unexpected => num4_error("a", unexpected),
+    });
+
+    result.add_fn("x", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.0.into())),
+        unexpected => num4_error("x", unexpected),
+    });
+
+    result.add_fn("y", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.1.into())),
+        unexpected => num4_error("y", unexpected),
+    });
+
+    result.add_fn("z", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.2.into())),
+        unexpected => num4_error("z", unexpected),
+    });
+
+    result.add_fn("w", |vm, args| match vm.get_args(args) {
+        [Num4(n)] => Ok(Number(n.3.into())),
+        unexpected => num4_error("w", unexpected),
+    });
+
     result
 }
 

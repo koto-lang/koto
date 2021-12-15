@@ -65,6 +65,8 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     prelude.add_map("map", core_lib.map.clone());
     prelude.add_map("os", core_lib.os.clone());
     prelude.add_map("number", core_lib.number.clone());
+    prelude.add_map("num2", core_lib.num2.clone());
+    prelude.add_map("num4", core_lib.num4.clone());
     prelude.add_map("range", core_lib.range.clone());
     prelude.add_map("string", core_lib.string.clone());
     prelude.add_map("test", core_lib.test.clone());

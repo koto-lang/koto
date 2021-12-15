@@ -61,6 +61,16 @@ pub fn make_module() -> ValueMap {
         unexpected => num2_error("sum", unexpected),
     });
 
+    result.add_fn("x", |vm, args| match vm.get_args(args) {
+        [Num2(n)] => Ok(Number(n.0.into())),
+        unexpected => num2_error("x", unexpected),
+    });
+
+    result.add_fn("y", |vm, args| match vm.get_args(args) {
+        [Num2(n)] => Ok(Number(n.1.into())),
+        unexpected => num2_error("y", unexpected),
+    });
+
     result
 }
 
