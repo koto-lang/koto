@@ -1,10 +1,13 @@
 pub mod adaptors;
 
-use crate::{
-    runtime_error, unexpected_type_error_with_slice,
-    value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
-    BinaryOp, CallArgs, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap, ValueVec,
-    Vm,
+use {
+    super::{num2::num2_from_iterator, num4::num4_from_iterator},
+    crate::{
+        runtime_error, unexpected_type_error_with_slice,
+        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
+        BinaryOp, CallArgs, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap,
+        ValueVec, Vm,
+    },
 };
 
 pub fn make_module() -> ValueMap {
@@ -645,6 +648,30 @@ pub fn make_module() -> ValueMap {
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.to_map",
+            "an iterable value as argument",
+            unexpected,
+        ),
+    });
+
+    result.add_fn("to_num2", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterator = make_iterator(iterable).unwrap();
+            Ok(Num2(num2_from_iterator(iterator, "iterator.to_num2")?))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.to_num2",
+            "an iterable value as argument",
+            unexpected,
+        ),
+    });
+
+    result.add_fn("to_num4", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterator = make_iterator(iterable).unwrap();
+            Ok(Num4(num4_from_iterator(iterator, "iterator.to_num4")?))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.to_num4",
             "an iterable value as argument",
             unexpected,
         ),

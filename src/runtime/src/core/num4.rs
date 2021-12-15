@@ -2,8 +2,8 @@ use {
     super::iterator::collect_pair,
     crate::{
         num4, unexpected_type_error_with_slice,
-        value_iterator::{make_iterator, ValueIteratorOutput as Output},
-        RuntimeResult, Value, ValueMap,
+        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
+        RuntimeError, RuntimeResult, Value, ValueMap,
     },
 };
 
@@ -31,22 +31,7 @@ pub fn make_module() -> ValueMap {
             [Num4(n)] => *n,
             [iterable] if iterable.is_iterable() => {
                 let iterator = make_iterator(iterable).unwrap();
-                let mut result = num4::Num4::default();
-                for (i, value) in iterator.take(2).map(collect_pair).enumerate() {
-                    match value {
-                        Output::Value(Number(n)) => result[i] = n.into(),
-                        Output::Value(unexpected) => {
-                            return unexpected_type_error_with_slice(
-                                "num4.make_num4",
-                                "a Number",
-                                &[unexpected],
-                            )
-                        }
-                        Output::Error(e) => return Err(e),
-                        _ => unreachable!(), // ValuePairs collected in collect_pair
-                    }
-                }
-                result
+                num4_from_iterator(iterator, "num4.make_num4")?
             }
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -93,4 +78,22 @@ pub fn make_module() -> ValueMap {
 
 fn num4_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
     unexpected_type_error_with_slice(&format!("num4.{}", name), "a Num4 as argument", unexpected)
+}
+
+pub(crate) fn num4_from_iterator(
+    iterator: ValueIterator,
+    error_prefix: &str,
+) -> Result<num4::Num4, RuntimeError> {
+    let mut result = num4::Num4::default();
+    for (i, value) in iterator.take(4).map(collect_pair).enumerate() {
+        match value {
+            Output::Value(Value::Number(n)) => result[i] = n.into(),
+            Output::Value(unexpected) => {
+                return unexpected_type_error_with_slice(error_prefix, "a Number", &[unexpected])
+            }
+            Output::Error(e) => return Err(e),
+            _ => unreachable!(), // ValuePairs collected in collect_pair
+        }
+    }
+    Ok(result)
 }
