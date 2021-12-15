@@ -1713,6 +1713,59 @@ foo min..max, 20
 ";
             test_script(script, 30.into());
         }
+
+        #[test]
+        fn missing_arg_set_to_empty() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    99
+  else
+    -1
+foo 42
+";
+            test_script(script, 99.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    99
+  else
+    -1
+foo [42]
+";
+            test_script(script, 99.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg_and_capture() {
+            let script = "
+x = 123
+foo = |a, b|
+  if b == ()
+    x
+  else
+    -1
+foo [42]
+";
+            test_script(script, 123.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg_for_generator() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    yield 123
+  else
+    yield -1
+foo([42]).next()
+";
+            test_script(script, 123.into());
+        }
     }
 
     mod placeholders {
