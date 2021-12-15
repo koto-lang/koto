@@ -12,18 +12,28 @@ The Koto project adheres to
 
 - Core Library
   - New additions:
-    - `iterator.find`
+    - `iterator`
+      - `find`
+      - `to_num2`
+      - `to_num4`
     - `number.round`
-    - `os.time`
-      - Provides information about the current date and time.
-    - `os.start_timer`
-      - Provides a timer that can be used for measuring the duration between
-        moments in time.
+    - `num2`
+      - `make_num2`,
+      - `x`, `y`
+    - `num4`
+      - `make_num4`,
+      - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
+    - `os`
+      - `time`
+        - Provides information about the current date and time.
+      - `start_timer`
+        - Provides a timer that can be used for measuring the duration between
+          moments in time.
     - `string.from_bytes`
   - The following items are now imported by default into the top level of the
     prelude:
-    - `io.print`, `koto.type`, `test.assert`, `test.assert_eq`,
-      `test.assert_ne`, `test.assert_near`
+    - `io.print`, `koto.type`, `num2.make_num2`, `num4.make_num4`,
+      `test.assert`, `test.assert_eq`, `test.assert_ne`, `test.assert_near`
   - List operations that modify the list but previously returned Empty,
     now return the modified list.
     - e.g.
@@ -81,6 +91,9 @@ The Koto project adheres to
       @main = ||
         ...
       ```
+- The `num2` and `num4` keywords have been removed in favour of the new
+  `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
+  functions.
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto
@@ -102,6 +115,10 @@ The Koto project adheres to
     f()
     ```
 
+### Removed
+
+- The `num2` and `num4` keywords have been removed, see above.
+
 ### Fixed
 
 - Error traces have been made more reliable, with the correct positions being
@@ -110,6 +127,7 @@ The Koto project adheres to
   string and that override @display.
 - Fixed a panic that could occur when skipping past the end of an iterator and
   then calling a 'to X' function.
+
 
 ## [0.10.0] 2021.12.02
 
