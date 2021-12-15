@@ -509,7 +509,7 @@ match x
   "goodbye" then 1
   () then 99
   y if y == "O_o" then -1
-  y if y == "hello"
+  y if y == "hello" then
     42
 "#;
             test_script(script, 42.into());
@@ -683,13 +683,13 @@ f()
         fn match_map_result() {
             let script = r#"
 m = match "hello"
-  "foo"
+  "foo" then
     value_1: -1
     value_2: 99
-  "hello"
+  "hello" then
     value_1: 4
     value_2: 20
-  _ # alternative to else
+  _ then # alternative to else
     value_1: 10
     value_2: 7
 m.value_1 + m.value_2

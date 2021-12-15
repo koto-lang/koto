@@ -2014,28 +2014,26 @@ impl<'source> Parser<'source> {
                         self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
                         expression
-                    } else if let Some(indented_expression) = self.parse_indented_block()? {
-                        indented_expression
+                    } else if let Some(indented_block) = self.parse_indented_block()? {
+                        indented_block
                     } else {
                         return syntax_error!(ExpectedSwitchArmExpression, self);
                     }
                 }
                 Some(Token::Then) => {
                     self.consume_next_token_on_same_line();
-                    match self
-                        .parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
+
+                    if let Some(expression) =
+                        self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
-                        Some(expression) => expression,
-                        None => return syntax_error!(ExpectedSwitchArmExpressionAfterThen, self),
-                    }
-                }
-                _ => {
-                    if let Some(indented_expression) = self.parse_indented_block()? {
-                        indented_expression
+                        expression
+                    } else if let Some(indented_block) = self.parse_indented_block()? {
+                        indented_block
                     } else {
-                        return syntax_error!(ExpectedSwitchArmExpression, self);
+                        return syntax_error!(ExpectedSwitchArmExpressionAfterThen, self);
                     }
                 }
+                _ => return syntax_error!(ExpectedSwitchArmExpression, self),
             };
 
             arms.push(SwitchArm {
@@ -2153,8 +2151,8 @@ impl<'source> Parser<'source> {
                         self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
                         expression
-                    } else if let Some(indented_expression) = self.parse_indented_block()? {
-                        indented_expression
+                    } else if let Some(indented_block) = self.parse_indented_block()? {
+                        indented_block
                     } else {
                         return syntax_error!(ExpectedMatchArmExpression, self);
                     }
@@ -2165,25 +2163,19 @@ impl<'source> Parser<'source> {
                     }
 
                     self.consume_next_token_on_same_line();
-                    match self
-                        .parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
+
+                    if let Some(expression) =
+                        self.parse_expressions(&mut ExpressionContext::inline(), TempResult::No)?
                     {
-                        Some(expression) => expression,
-                        None => return syntax_error!(ExpectedMatchArmExpressionAfterThen, self),
+                        expression
+                    } else if let Some(indented_block) = self.parse_indented_block()? {
+                        indented_block
+                    } else {
+                        return syntax_error!(ExpectedMatchArmExpressionAfterThen, self);
                     }
                 }
                 Some(Token::If) => return syntax_error!(UnexpectedMatchIf, self),
-                _ => {
-                    if arm_patterns.len() != expected_arm_count {
-                        return syntax_error!(ExpectedMatchPattern, self);
-                    }
-
-                    if let Some(indented_expression) = self.parse_indented_block()? {
-                        indented_expression
-                    } else {
-                        return syntax_error!(ExpectedMatchArmExpression, self);
-                    }
-                }
+                _ => return syntax_error!(ExpectedMatchArmExpression, self),
             };
 
             arms.push(MatchArm {
