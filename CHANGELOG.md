@@ -114,6 +114,10 @@ The Koto project adheres to
     export x = 99
     f()
     ```
+- Arms in `match` and `switch` expressions that have indented blocks as their
+  bodies need to use `then`.
+  - This reverts a change made in `0.9.0`, in practice it's less distracting to
+    have `then` required in all arms.
 
 ### Removed
 

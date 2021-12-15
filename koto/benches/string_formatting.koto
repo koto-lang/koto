@@ -10,14 +10,14 @@ number_to_english = |n|
   switch
     n < 0 then "minus ${number_to_english n.abs()}"
     n < 20 then digits[n]
-    n < 100
+    n < 100 then
       x = (n / 10).floor()
       y = n % 10
       if y == 0
         tens[x]
       else
         "${tens[x]}-${digits[y]}"
-    n < 1000
+    n < 1000 then
       x = (n / 100).floor()
       x_string = number_to_english x
       y = n % 100

@@ -265,10 +265,10 @@ match x
             }
 
             #[test]
-            fn then_followed_by_indented_block() {
+            fn indented_block_missing_then() {
                 let source = "
 match x
-  0 then
+  0
     1
 ";
                 check_parsing_fails(source);
@@ -289,10 +289,10 @@ match
             use super::*;
 
             #[test]
-            fn then_followed_by_indented_block() {
+            fn indented_block_missing_then() {
                 let source = "
 switch
-  true then
+  true
     1
 ";
                 check_parsing_fails(source);

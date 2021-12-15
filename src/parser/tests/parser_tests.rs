@@ -4524,9 +4524,9 @@ match y
             let source = r#"
 match x
   z if z > 5 then 0
-  z if z < 10
+  z if z < 10 then
     1
-  z
+  z then
     -1
 "#;
             check_ast(
@@ -4593,7 +4593,7 @@ match x
             let source = "
 match x, y
   0, 1 or 2, 3 if z then 0
-  a, ()
+  a, () then
     a
   else 0
 ";

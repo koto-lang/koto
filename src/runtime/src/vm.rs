@@ -2807,11 +2807,19 @@ impl Vm {
             self.truncate_registers(varargs_start + 1);
         }
 
+        let frame_base_index = self.register_index(adjusted_frame_base);
+        if expected_arg_count > call_arg_count {
+            // Ensure that temporary registers used to prepare the call args have been removed from
+            // the value stack.
+            let missing_args = expected_arg_count - call_arg_count;
+            self.value_stack
+                .truncate(frame_base_index + missing_args as usize);
+        }
         // Ensure that registers have been filled with Empty for any missing args.
-        // If there are extra args, truncating is OK at this point. Extra args have either
+        // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
-        let args_end = self.register_index(adjusted_frame_base + function_arg_count);
-        self.value_stack.resize(args_end, Value::Empty);
+        self.value_stack
+            .resize(frame_base_index + function_arg_count as usize, Value::Empty);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2844,16 +2852,20 @@ impl Vm {
             SimpleFunction(SimpleFunctionInfo {
                 chunk,
                 ip: function_ip,
-                arg_count,
+                arg_count: function_arg_count,
             }) => {
                 // The frame base is offset by one since the frame's instance register is unused.
                 let frame_base = frame_base + 1;
 
+                let frame_base_index = self.register_index(frame_base);
+                // Remove any temporary registers used to prepare the call args
+                self.value_stack
+                    .truncate(frame_base_index + call_arg_count as usize);
                 // Ensure that registers have been filled with Empty for any missing args.
                 // If there are extra args, truncating is OK at this point (variadic calls aren't
                 // available for SimpleFunction).
-                let args_end = self.register_index(frame_base + arg_count);
-                self.value_stack.resize(args_end, Value::Empty);
+                self.value_stack
+                    .resize(frame_base_index + function_arg_count as usize, Value::Empty);
 
                 // Set up a new frame for the called function
                 self.push_frame(chunk, function_ip, frame_base, result_register);

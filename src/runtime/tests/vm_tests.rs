@@ -509,7 +509,7 @@ match x
   "goodbye" then 1
   () then 99
   y if y == "O_o" then -1
-  y if y == "hello"
+  y if y == "hello" then
     42
 "#;
             test_script(script, 42.into());
@@ -683,13 +683,13 @@ f()
         fn match_map_result() {
             let script = r#"
 m = match "hello"
-  "foo"
+  "foo" then
     value_1: -1
     value_2: 99
-  "hello"
+  "hello" then
     value_1: 4
     value_2: 20
-  _ # alternative to else
+  _ then # alternative to else
     value_1: 10
     value_2: 7
 m.value_1 + m.value_2
@@ -1712,6 +1712,59 @@ min, max = 0, 10
 foo min..max, 20
 ";
             test_script(script, 30.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    99
+  else
+    -1
+foo 42
+";
+            test_script(script, 99.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    99
+  else
+    -1
+foo [42]
+";
+            test_script(script, 99.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg_and_capture() {
+            let script = "
+x = 123
+foo = |a, b|
+  if b == ()
+    x
+  else
+    -1
+foo [42]
+";
+            test_script(script, 123.into());
+        }
+
+        #[test]
+        fn missing_arg_set_to_empty_with_list_as_first_arg_for_generator() {
+            let script = "
+foo = |a, b|
+  if b == ()
+    yield 123
+  else
+    yield -1
+foo([42]).next()
+";
+            test_script(script, 123.into());
         }
     }
 
