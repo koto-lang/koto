@@ -1838,48 +1838,48 @@ gen().to_tuple()
 
         #[test]
         fn with_1_arg_1() {
-            test_script("num2 1", num2(1.0, 1.0));
+            test_script("make_num2 1", num2(1.0, 1.0));
         }
 
         #[test]
         fn with_1_arg_2() {
-            test_script("num2 2", num2(2.0, 2.0));
+            test_script("make_num2 2", num2(2.0, 2.0));
         }
 
         #[test]
         fn with_2_args() {
-            test_script("num2 1, 2", num2(1.0, 2.0));
+            test_script("make_num2 1, 2", num2(1.0, 2.0));
         }
 
         #[test]
         fn from_list() {
-            test_script("num2 [-1]", num2(-1.0, 0.0));
+            test_script("make_num2 [-1]", num2(-1.0, 0.0));
         }
 
         #[test]
         fn from_num2() {
-            test_script("num2 (num2 1, 2)", num2(1.0, 2.0));
+            test_script("make_num2 (make_num2 1, 2)", num2(1.0, 2.0));
         }
 
         #[test]
         fn add_multiply() {
-            test_script("(num2 1) + (num2 0.5) * 3.0", num2(2.5, 2.5));
+            test_script("(make_num2 1) + (make_num2 0.5) * 3.0", num2(2.5, 2.5));
         }
 
         #[test]
         fn subtract_divide() {
-            test_script("((num2 10, 20) - (num2 2)) / 2.0", num2(4.0, 9.0));
+            test_script("((make_num2 10, 20) - (make_num2 2)) / 2.0", num2(4.0, 9.0));
         }
 
         #[test]
         fn modulo() {
-            test_script("(num2 15, 25) % (num2 10) % 4", num2(1.0, 1.0));
+            test_script("(make_num2 15, 25) % (make_num2 10) % 4", num2(1.0, 1.0));
         }
 
         #[test]
         fn negation() {
             let script = "
-x = num2 1, -2
+x = make_num2 1, -2
 -x";
             test_script(script, num2(-1.0, 2.0));
         }
@@ -1887,7 +1887,7 @@ x = num2 1, -2
         #[test]
         fn index() {
             let script = "
-x = num2 4, 5
+x = make_num2 4, 5
 x[1]";
             test_script(script, 5.into());
         }
@@ -1895,7 +1895,7 @@ x[1]";
         #[test]
         fn index_element_mutation() {
             let script = "
-x = num2 4, 5
+x = make_num2 4, 5
 x[1] = 99
 x[1]";
             test_script(script, 99.into());
@@ -1904,7 +1904,7 @@ x[1]";
         #[test]
         fn index_range_mutation() {
             let script = "
-x = num2 4, 5
+x = make_num2 4, 5
 x[0..2] = 1
 x[0] + x[1]";
             test_script(script, 2.into());
@@ -1913,7 +1913,7 @@ x[0] + x[1]";
         #[test]
         fn index_full_range_mutation() {
             let script = "
-x = num2 4, 5
+x = make_num2 4, 5
 x[..] = 2
 x";
             test_script(script, num2(2.0, 2.0));
@@ -1922,7 +1922,7 @@ x";
         #[test]
         fn iterator_ops() {
             let script = "
-num2(1, -1).keep(|n| n < 0).count()
+make_num2(1, -1).keep(|n| n < 0).count()
 ";
             test_script(script, 1.into());
         }
@@ -1933,53 +1933,56 @@ num2(1, -1).keep(|n| n < 0).count()
 
         #[test]
         fn with_1_arg_1() {
-            test_script("num4 1", num4(1.0, 1.0, 1.0, 1.0));
+            test_script("make_num4 1", num4(1.0, 1.0, 1.0, 1.0));
         }
 
         #[test]
         fn with_1_arg_2() {
-            test_script("num4 2", num4(2.0, 2.0, 2.0, 2.0));
+            test_script("make_num4 2", num4(2.0, 2.0, 2.0, 2.0));
         }
 
         #[test]
         fn with_2_args() {
-            test_script("num4 1, 2", num4(1.0, 2.0, 0.0, 0.0));
+            test_script("make_num4 1, 2", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn with_3_args() {
-            test_script("num4 3, 2, 1", num4(3.0, 2.0, 1.0, 0.0));
+            test_script("make_num4 3, 2, 1", num4(3.0, 2.0, 1.0, 0.0));
         }
 
         #[test]
         fn with_4_args() {
-            test_script("num4 -1, 1, -2, 2", num4(-1.0, 1.0, -2.0, 2.0));
+            test_script("make_num4 -1, 1, -2, 2", num4(-1.0, 1.0, -2.0, 2.0));
         }
 
         #[test]
         fn from_list() {
-            test_script("num4 [-1, 1]", num4(-1.0, 1.0, 0.0, 0.0));
+            test_script("make_num4 [-1, 1]", num4(-1.0, 1.0, 0.0, 0.0));
         }
 
         #[test]
         fn from_num2() {
-            test_script("num4 (num2 1, 2)", num4(1.0, 2.0, 0.0, 0.0));
+            test_script("make_num4 (make_num2 1, 2)", num4(1.0, 2.0, 0.0, 0.0));
         }
 
         #[test]
         fn from_num4() {
-            test_script("num4 (num4 3, 4)", num4(3.0, 4.0, 0.0, 0.0));
+            test_script("make_num4 (make_num4 3, 4)", num4(3.0, 4.0, 0.0, 0.0));
         }
 
         #[test]
         fn add_multiply() {
-            test_script("(num4 1) + (num4 0.5) * 3.0", num4(2.5, 2.5, 2.5, 2.5));
+            test_script(
+                "(make_num4 1) + (make_num4 0.5) * 3.0",
+                num4(2.5, 2.5, 2.5, 2.5),
+            );
         }
 
         #[test]
         fn subtract_divide() {
             test_script(
-                "((num4 10, 20, 30, 40) - (num4 2)) / 2.0",
+                "((make_num4 10, 20, 30, 40) - (make_num4 2)) / 2.0",
                 num4(4.0, 9.0, 14.0, 19.0),
             );
         }
@@ -1987,7 +1990,7 @@ num2(1, -1).keep(|n| n < 0).count()
         #[test]
         fn modulo() {
             test_script(
-                "(num4 15, 25, 35, 45) % (num4 10) % 4",
+                "(make_num4 15, 25, 35, 45) % (make_num4 10) % 4",
                 num4(1.0, 1.0, 1.0, 1.0),
             );
         }
@@ -1995,7 +1998,7 @@ num2(1, -1).keep(|n| n < 0).count()
         #[test]
         fn negation() {
             let script = "
-x = num4 1, -2, 3, -4
+x = make_num4 1, -2, 3, -4
 -x";
             test_script(script, num4(-1.0, 2.0, -3.0, 4.0));
         }
@@ -2003,7 +2006,7 @@ x = num4 1, -2, 3, -4
         #[test]
         fn index() {
             let script = "
-x = num4 9, 8, 7, 6
+x = make_num4 9, 8, 7, 6
 x[3]";
             test_script(script, 6.into());
         }
@@ -2011,7 +2014,7 @@ x[3]";
         #[test]
         fn index_element_mutation() {
             let script = "
-x = num4 4, 5, 6, 7
+x = make_num4 4, 5, 6, 7
 x[2] = 99
 x[2]";
             test_script(script, 99.into());
@@ -2020,7 +2023,7 @@ x[2]";
         #[test]
         fn index_range_mutation() {
             let script = "
-x = num4 4, 5, 6, 7
+x = make_num4 4, 5, 6, 7
 x[1..=2] = 1
 x";
             test_script(script, num4(4.0, 1.0, 1.0, 7.0));
@@ -2029,7 +2032,7 @@ x";
         #[test]
         fn index_full_range_mutation() {
             let script = "
-x = num4 4, 5, 6, 7
+x = make_num4 4, 5, 6, 7
 x[..] = 2
 x.sum()";
             test_script(script, 8.into());
@@ -2038,7 +2041,7 @@ x.sum()";
         #[test]
         fn iterator_ops() {
             let script = "
-num4(1, -1, 2, -2).keep(|n| n > 0).count()
+make_num4(1, -1, 2, -2).keep(|n| n > 0).count()
 ";
             test_script(script, 2.into());
         }

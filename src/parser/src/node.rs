@@ -54,16 +54,6 @@ pub enum Node {
     /// A string literal
     Str(AstString),
 
-    /// A `num2` expression
-    ///
-    /// e.g. `num2 1` or `num2 3, 4`
-    Num2(Vec<AstIndex>),
-
-    /// A `num4` expression
-    ///
-    /// e.g. `num4 1`, `num4 1, 2, 3, 4`, etc.
-    Num4(Vec<AstIndex>),
-
     /// A list literal
     ///
     /// e.g. `[foo, bar, 42]`
@@ -293,8 +283,6 @@ impl fmt::Display for Node {
             Number0 => write!(f, "Number0"),
             Number1 => write!(f, "Number1"),
             Str(_) => write!(f, "Str"),
-            Num2(_) => write!(f, "Num2"),
-            Num4(_) => write!(f, "Num4"),
             List(_) => write!(f, "List"),
             Tuple(_) => write!(f, "Tuple"),
             TempTuple(_) => write!(f, "TempTuple"),

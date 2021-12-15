@@ -131,16 +131,6 @@ pub enum Op {
     /// `[*target, size hint[4]]`
     MakeMap32,
 
-    /// Makes a Num2 in the target register
-    ///
-    /// `[*target, *start, value count]`
-    MakeNum2,
-
-    /// Makes a Num4 in the target register
-    ///
-    /// `[*target, *start, value count]`
-    MakeNum4,
-
     /// Makes an Iterator out of an iterable value
     ///
     /// `[*target, *iterable]`
@@ -533,6 +523,8 @@ pub enum Op {
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
+    Unused91,
+    Unused92,
     Unused93,
     Unused94,
     Unused95,

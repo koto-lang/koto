@@ -96,7 +96,7 @@ make_foo = |x|
     assert_eq z, [42, 99]
 
   @test retain_value: ||
-    z = ["hello", 42, (num4 0), "hello"]
+    z = ["hello", 42, (make_num4 0), "hello"]
     z.retain "hello"
     assert_eq z, ["hello", "hello"]
 

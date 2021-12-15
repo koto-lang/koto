@@ -72,6 +72,8 @@ for x in (2, 3, 4).each |n| n * 2
 - [take](#take)
 - [to_list](#to_list)
 - [to_map](#to_map)
+- [to_num2](#to_num2)
+- [to_num4](#to_num4)
 - [to_string](#to_string)
 - [to_tuple](#to_tuple)
 - [zip](#zip)
@@ -659,6 +661,44 @@ key, with `()` as the entry's value.
 - [`iterator.to_list`](#to_list)
 - [`iterator.to_string`](#to_string)
 - [`iterator.to_tuple`](#to_tuple)
+
+## to_num2
+
+`|Iterable| -> Num2`
+
+Consumes up to 2 values from the iterator and places them in a Num2.
+
+### Example
+
+```koto
+[1].to_num2()
+# num2(1, 0)
+(1..10).keep(|n| n % 2 == 0).to_num2()
+# num2(2, 4)
+```
+
+### See also
+
+- [`iterator.to_num4`](#to_num4)
+
+## to_num4
+
+`|Iterable| -> Num4`
+
+Consumes up to 4 values from the iterator and places them in a Num2.
+
+### Example
+
+```koto
+[1].to_num4()
+# num2(1, 0, 0, 0)
+(1..10).keep(|n| n % 2 == 0).to_num4()
+# num2(2, 4, 6, 8)
+```
+
+### See also
+
+- [`iterator.to_num4`](#to_num4)
 
 ## to_string
 

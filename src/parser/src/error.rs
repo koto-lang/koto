@@ -105,8 +105,6 @@ pub enum SyntaxError {
     MatchElseNotInLastArm,
     SelfArgNotInFirstPosition,
     SwitchElseNotInLastArm,
-    TooManyNum2Terms,
-    TooManyNum4Terms,
     UnexpectedCharInNumericEscapeCode,
     UnexpectedElseIndentation,
     UnexpectedElseIfIndentation,
@@ -327,8 +325,6 @@ impl fmt::Display for SyntaxError {
                 f.write_str("else can only be used in the last arm in a switch expression")
             }
             SelfArgNotInFirstPosition => f.write_str("self is only allowed as the first argument"),
-            TooManyNum2Terms => f.write_str("num2 only supports up to 2 terms"),
-            TooManyNum4Terms => f.write_str("num4 only supports up to 4 terms"),
             UnexpectedCharInNumericEscapeCode => {
                 f.write_str("Unexpected character in numeric escape code")
             }

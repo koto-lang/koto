@@ -6,8 +6,8 @@
     assert_eq (type {foo: 42}), "Map"
     assert_eq (type 0), "Int"
     assert_eq (type 0.0), "Float"
-    assert_eq (type (num2 0)), "Num2"
-    assert_eq (type (num4 0)), "Num4"
+    assert_eq (type (make_num2 0)), "Num2"
+    assert_eq (type (make_num4 0)), "Num4"
     assert_eq (type 0..10), "Range"
     assert_eq (type "foo"), "String"
 
