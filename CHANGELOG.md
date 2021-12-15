@@ -57,13 +57,6 @@ The Koto project adheres to
       # 2
       # 3
       ```
-- Tuples can now be used when creating Num2 or Num4 values
-  - e.g.
-    ```koto
-    x = 1, 2, 3
-    num4 x
-    # num4(1, 2, 3, 0)
-    ```
 
 ### Changed
 
