@@ -67,6 +67,7 @@ The Koto project adheres to
     foo(3).to_tuple()
     # (1, 2, 3)
     ```
+- Num2 and Num4 values can now be iterated over in a for loop.
 
 ### Changed
 

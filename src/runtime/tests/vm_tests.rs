@@ -1979,6 +1979,17 @@ make_num2(1, -1).keep(|n| n < 0).count()
 ";
             test_script(script, 1.into());
         }
+
+        #[test]
+        fn for_loop() {
+            let script = "
+x = 0
+for n in make_num2 4, 5
+  x += n
+x
+";
+            test_script(script, 9.into());
+        }
     }
 
     mod num4 {
@@ -2097,6 +2108,17 @@ x.sum()";
 make_num4(1, -1, 2, -2).keep(|n| n > 0).count()
 ";
             test_script(script, 2.into());
+        }
+
+        #[test]
+        fn for_loop() {
+            let script = "
+x = 0
+for n in make_num4 4, 5, 6, 7
+  x += n
+x
+";
+            test_script(script, 22.into());
         }
     }
 

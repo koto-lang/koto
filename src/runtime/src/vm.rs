@@ -1128,6 +1128,8 @@ impl Vm {
                 List(list) => ValueIterator::with_list(list),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),
+                Num2(n) => ValueIterator::with_num2(n),
+                Num4(n) => ValueIterator::with_num4(n),
                 Map(map)
                     if map
                         .meta()
