@@ -405,9 +405,10 @@ impl Vm {
         self.value_stack.push(value); // value_register
 
         match op {
+            UnaryOp::Display => self.run_display(result_register, value_register)?,
+            UnaryOp::Iterator => self.run_make_iterator(result_register, value_register)?,
             UnaryOp::Negate => self.run_negate(result_register, value_register)?,
             UnaryOp::Not => self.run_not(result_register, value_register)?,
-            UnaryOp::Display => self.run_display(result_register, value_register)?,
         }
 
         let result = if self.call_stack.len() == old_frame_count {
@@ -473,6 +474,35 @@ impl Vm {
 
         self.truncate_registers(result_register);
         result
+    }
+
+    /// Makes a ValueIterator that iterates over the provided value's contents
+    pub fn make_iterator(&mut self, value: Value) -> Result<ValueIterator, RuntimeError> {
+        use Value::*;
+        let value = match value {
+            Map(m) if m.meta().contains_key(&MetaKey::UnaryOp(UnaryOp::Iterator)) => {
+                self.run_unary_op(UnaryOp::Iterator, Map(m))?
+            }
+            _ => value,
+        };
+
+        let result = match value {
+            Range(r) => ValueIterator::with_range(r),
+            Num2(n) => ValueIterator::with_num2(n),
+            Num4(n) => ValueIterator::with_num4(n),
+            List(l) => ValueIterator::with_list(l),
+            Tuple(t) => ValueIterator::with_tuple(t),
+            Str(s) => ValueIterator::with_string(s),
+            Map(m) => ValueIterator::with_map(m),
+            Iterator(i) => i,
+            unexpected => {
+                return runtime_error!(
+                    "expected iterable value, found '{}'",
+                    unexpected.type_as_string()
+                )
+            }
+        };
+        Ok(result)
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
@@ -1081,26 +1111,42 @@ impl Vm {
         Ok(())
     }
 
-    fn run_make_iterator(&mut self, register: u8, iterable_register: u8) -> InstructionResult {
+    // Runs the MakeIterator instruction
+    //
+    // Distinct from the public `make_iterator` function, which will defer to this function when
+    // the input value is a map that overloads @iterator.
+    fn run_make_iterator(&mut self, result: u8, iterable_register: u8) -> InstructionResult {
         use Value::*;
 
         let iterable = self.clone_register(iterable_register);
 
         if matches!(iterable, Iterator(_)) {
-            self.set_register(register, iterable);
+            self.set_register(result, iterable);
         } else {
             let iterator = match iterable {
                 Range(int_range) => ValueIterator::with_range(int_range),
                 List(list) => ValueIterator::with_list(list),
-                Map(map) => ValueIterator::with_map(map),
                 Tuple(tuple) => ValueIterator::with_tuple(tuple),
                 Str(s) => ValueIterator::with_string(s),
+                Map(map)
+                    if map
+                        .meta()
+                        .contains_key(&MetaKey::UnaryOp(UnaryOp::Iterator)) =>
+                {
+                    let op = map
+                        .meta()
+                        .get(&MetaKey::UnaryOp(UnaryOp::Iterator))
+                        .unwrap()
+                        .clone();
+                    return self.call_overloaded_unary_op(result, iterable_register, op);
+                }
+                Map(map) => ValueIterator::with_map(map),
                 unexpected => {
                     return unexpected_type_error("Iterable while making iterator", &unexpected);
                 }
             };
 
-            self.set_register(register, iterator.into());
+            self.set_register(result, iterator.into());
         }
 
         Ok(())

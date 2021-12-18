@@ -4,7 +4,7 @@ use {
     super::{num2::num2_from_iterator, num4::num4_from_iterator},
     crate::{
         runtime_error, unexpected_type_error_with_slice,
-        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         BinaryOp, CallArgs, DataMap, RuntimeError, RuntimeResult, Value, ValueList, ValueMap,
         ValueVec, Vm,
     },
@@ -17,9 +17,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("all", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let iterable = iterable.clone();
             let predicate = predicate.clone();
 
-            for output in make_iterator(iterable).unwrap() {
+            for output in vm.make_iterator(iterable)? {
                 let predicate_result = match output {
                     Output::Value(value) => {
                         vm.run_function(predicate.clone(), CallArgs::Single(value))
@@ -58,9 +59,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("any", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let iterable = iterable.clone();
             let predicate = predicate.clone();
 
-            for output in make_iterator(iterable).unwrap() {
+            for output in vm.make_iterator(iterable)? {
                 let predicate_result = match output {
                     Output::Value(value) => {
                         vm.run_function(predicate.clone(), CallArgs::Single(value))
@@ -99,9 +101,11 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("chain", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
+            let iterable_a = iterable_a.clone();
+            let iterable_b = iterable_b.clone();
             let result = ValueIterator::make_external(adaptors::Chain::new(
-                make_iterator(iterable_a).unwrap(),
-                make_iterator(iterable_b).unwrap(),
+                vm.make_iterator(iterable_a)?,
+                vm.make_iterator(iterable_b)?,
             ));
 
             Ok(Iterator(result))
@@ -115,7 +119,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            for output in make_iterator(iterable).unwrap() {
+            let iterable = iterable.clone();
+            for output in vm.make_iterator(iterable)? {
                 if let Output::Error(error) = output {
                     return Err(error);
                 }
@@ -123,8 +128,9 @@ pub fn make_module() -> ValueMap {
             Ok(Empty)
         }
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
+            let iterable = iterable.clone();
             let f = f.clone();
-            for output in make_iterator(iterable).unwrap() {
+            for output in vm.make_iterator(iterable)? {
                 let run_result = match output {
                     Output::Value(value) => vm.run_function(f.clone(), CallArgs::Single(value)),
                     Output::ValuePair(a, b) => {
@@ -155,8 +161,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("count", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
             let mut result = 0;
-            for output in make_iterator(iterable).unwrap() {
+            for output in vm.make_iterator(iterable)? {
                 if let Output::Error(error) = output {
                     return Err(error);
                 }
@@ -173,11 +180,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("each", |vm, args| match vm.get_args(args) {
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
-            let result = adaptors::Each::new(
-                make_iterator(iterable).unwrap(),
-                f.clone(),
-                vm.spawn_shared_vm(),
-            );
+            let iterable = iterable.clone();
+            let f = f.clone();
+            let result = adaptors::Each::new(vm.make_iterator(iterable)?, f, vm.spawn_shared_vm());
 
             Ok(Iterator(ValueIterator::make_external(result)))
         }
@@ -190,7 +195,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("cycle", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let result = adaptors::Cycle::new(make_iterator(iterable).unwrap());
+            let iterable = iterable.clone();
+            let result = adaptors::Cycle::new(vm.make_iterator(iterable)?);
 
             Ok(Iterator(ValueIterator::make_external(result)))
         }
@@ -203,7 +209,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("enumerate", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let result = adaptors::Enumerate::new(make_iterator(iterable).unwrap());
+            let iterable = iterable.clone();
+            let result = adaptors::Enumerate::new(vm.make_iterator(iterable)?);
             Ok(Iterator(ValueIterator::make_external(result)))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -215,9 +222,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("find", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let iterable = iterable.clone();
             let predicate = predicate.clone();
 
-            for output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for output in vm.make_iterator(iterable)?.map(collect_pair) {
                 match output {
                     Output::Value(value) => {
                         match vm.run_function(predicate.clone(), CallArgs::Single(value.clone())) {
@@ -253,9 +261,10 @@ pub fn make_module() -> ValueMap {
     result.add_fn("fold", |vm, args| {
         match vm.get_args(args) {
             [iterable, result, f] if iterable.is_iterable() && f.is_callable() => {
+                let iterable = iterable.clone();
                 let result = result.clone();
                 let f = f.clone();
-                let mut iter = make_iterator(iterable).unwrap();
+                let mut iter = vm.make_iterator(iterable)?;
 
                 match iter
                     .borrow_internals(|iterator| {
@@ -300,17 +309,20 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("intersperse", |vm, args| match vm.get_args(args) {
         [iterable, separator_fn] if iterable.is_iterable() && separator_fn.is_callable() => {
+            let iterable = iterable.clone();
+            let separator_fn = separator_fn.clone();
             let result = adaptors::IntersperseWith::new(
-                make_iterator(iterable).unwrap(),
-                separator_fn.clone(),
+                vm.make_iterator(iterable)?,
+                separator_fn,
                 vm.spawn_shared_vm(),
             );
 
             Ok(Iterator(ValueIterator::make_external(result)))
         }
         [iterable, separator] if iterable.is_iterable() => {
-            let result =
-                adaptors::Intersperse::new(make_iterator(iterable).unwrap(), separator.clone());
+            let iterable = iterable.clone();
+            let separator = separator.clone();
+            let result = adaptors::Intersperse::new(vm.make_iterator(iterable)?, separator);
 
             Ok(Iterator(ValueIterator::make_external(result)))
         }
@@ -322,7 +334,10 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("iter", |vm, args| match vm.get_args(args) {
-        [iterable] if iterable.is_iterable() => Ok(Iterator(make_iterator(iterable).unwrap())),
+        [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
+            Ok(Iterator(vm.make_iterator(iterable)?))
+        }
         unexpected => unexpected_type_error_with_slice(
             "iterator.iter",
             "an iterable value as argument",
@@ -332,11 +347,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("keep", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
-            let result = adaptors::Keep::new(
-                make_iterator(iterable).unwrap(),
-                predicate.clone(),
-                vm.spawn_shared_vm(),
-            );
+            let iterable = iterable.clone();
+            let predicate = predicate.clone();
+            let result =
+                adaptors::Keep::new(vm.make_iterator(iterable)?, predicate, vm.spawn_shared_vm());
             Ok(Iterator(ValueIterator::make_external(result)))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -348,9 +362,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
             let mut result = Empty;
 
-            let mut iter = make_iterator(iterable).unwrap().map(collect_pair);
+            let mut iter = vm.make_iterator(iterable)?.map(collect_pair);
             for output in &mut iter {
                 match output {
                     Output::Value(value) => result = value,
@@ -411,7 +426,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let mut result = None;
 
-            for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+            for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
                 match iter_output {
                     Output::Value(value) => {
                         result = Some(match result {
@@ -432,10 +447,11 @@ pub fn make_module() -> ValueMap {
             Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
         }
         [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
+            let iterable = iterable.clone();
             let key_fn = key_fn.clone();
             let mut result = None;
 
-            for iter_output in make_iterator(iterable).unwrap().map(collect_pair) {
+            for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
                 match iter_output {
                     Output::Value(value) => {
                         let key =
@@ -490,9 +506,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("position", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {
+            let iterable = iterable.clone();
             let predicate = predicate.clone();
 
-            for (i, output) in make_iterator(iterable).unwrap().enumerate() {
+            for (i, output) in vm.make_iterator(iterable)?.enumerate() {
                 let predicate_result = match output {
                     Output::Value(value) => {
                         vm.run_function(predicate.clone(), CallArgs::Single(value))
@@ -550,7 +567,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("skip", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
-            let mut iter = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let n = *n;
+            let mut iter = vm.make_iterator(iterable)?;
 
             for _ in 0..n.into() {
                 if let Some(Output::Error(error)) = iter.next() {
@@ -588,7 +607,9 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("take", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
-            let result = adaptors::Take::new(make_iterator(iterable).unwrap(), n.into());
+            let iterable = iterable.clone();
+            let n = *n;
+            let result = adaptors::Take::new(vm.make_iterator(iterable)?, n.into());
             Ok(Iterator(ValueIterator::make_external(result)))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -600,7 +621,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_list", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut result = ValueVec::with_capacity(size_hint);
 
@@ -623,7 +645,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_map", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut result = DataMap::with_capacity(size_hint);
 
@@ -655,7 +678,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_num2", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             Ok(Num2(num2_from_iterator(iterator, "iterator.to_num2")?))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -667,7 +691,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_num4", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             Ok(Num4(num4_from_iterator(iterator, "iterator.to_num4")?))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -679,7 +704,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_string", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut result = String::with_capacity(size_hint);
 
@@ -703,7 +729,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("to_tuple", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut result = Vec::with_capacity(size_hint);
 
@@ -726,10 +753,10 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("zip", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
-            let result = adaptors::Zip::new(
-                make_iterator(iterable_a).unwrap(),
-                make_iterator(iterable_b).unwrap(),
-            );
+            let iterable_a = iterable_a.clone();
+            let iterable_b = iterable_b.clone();
+            let result =
+                adaptors::Zip::new(vm.make_iterator(iterable_a)?, vm.make_iterator(iterable_b)?);
             Ok(Iterator(ValueIterator::make_external(result)))
         }
         unexpected => unexpected_type_error_with_slice(
@@ -757,7 +784,7 @@ fn fold_with_operator(
 ) -> RuntimeResult {
     let mut result = initial_value;
 
-    for output in make_iterator(&iterable).unwrap().map(collect_pair) {
+    for output in vm.make_iterator(iterable)?.map(collect_pair) {
         match output {
             Output::Value(rhs_value) => {
                 result = vm.run_binary_op(operator, result, rhs_value)?;
@@ -777,7 +804,7 @@ fn run_iterator_comparison(
 ) -> RuntimeResult {
     let mut result: Option<Value> = None;
 
-    for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+    for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
         match iter_output {
             Output::Value(value) => {
                 result = Some(match result {
@@ -803,7 +830,7 @@ fn run_iterator_comparison_by_key(
 ) -> RuntimeResult {
     let mut result_and_key: Option<(Value, Value)> = None;
 
-    for iter_output in make_iterator(&iterable).unwrap().map(collect_pair) {
+    for iter_output in vm.make_iterator(iterable)?.map(collect_pair) {
         match iter_output {
             Output::Value(value) => {
                 let key = vm.run_function(key_fn.clone(), CallArgs::Single(value.clone()))?;

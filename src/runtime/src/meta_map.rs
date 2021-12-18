@@ -435,9 +435,10 @@ impl fmt::Display for BinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
+    Display,
+    Iterator,
     Negate,
     Not,
-    Display,
 }
 
 impl fmt::Display for UnaryOp {
@@ -448,9 +449,10 @@ impl fmt::Display for UnaryOp {
             f,
             "{}",
             match self {
+                Display => "display",
+                Iterator => "iterator",
                 Negate => "negate",
                 Not => "not",
-                Display => "display",
             }
         )
     }
@@ -472,6 +474,7 @@ pub fn meta_id_to_key(id: MetaKeyId, name: Option<ValueString>) -> Result<MetaKe
         MetaKeyId::Equal => MetaKey::BinaryOp(Equal),
         MetaKeyId::NotEqual => MetaKey::BinaryOp(NotEqual),
         MetaKeyId::Index => MetaKey::BinaryOp(Index),
+        MetaKeyId::Iterator => MetaKey::UnaryOp(Iterator),
         MetaKeyId::Negate => MetaKey::UnaryOp(Negate),
         MetaKeyId::Not => MetaKey::UnaryOp(Not),
         MetaKeyId::Display => MetaKey::UnaryOp(Display),

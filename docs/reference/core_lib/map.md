@@ -148,6 +148,10 @@ Additionally, the following meta functions can customize object behaviour:
 - `@index`
   - Overloads `[]` indexing:
     - `@index: |self, index| self.data + index`
+- `@iterator`
+  - Customizes how iterators will be made from the map. The function returns an
+    iterator that will be used in place of the default iteration behaviour.
+    - `@iterator: |self| 0..self.data`
 - `@display`
   - Customizes how the map will be displayed when formatted as a string:
     - `@display: |self| "X: {}".format self.data`

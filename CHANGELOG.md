@@ -57,6 +57,16 @@ The Koto project adheres to
       # 2
       # 3
       ```
+- Maps can now implement `@iterator`, which allows you to define custom
+  iteration behaviour.
+  - e.g.
+    ```koto
+    foo = |n|
+      n: n
+      @iterator: |self| 1..=self.n
+    foo(3).to_tuple()
+    # (1, 2, 3)
+    ```
 
 ### Changed
 
