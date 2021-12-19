@@ -13,6 +13,7 @@ The Koto project adheres to
 - Core Library
   - New additions:
     - `iterator`
+      - `chunks`
       - `find`
       - `to_num2`
       - `to_num4`

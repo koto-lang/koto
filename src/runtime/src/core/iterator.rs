@@ -117,6 +117,21 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
+    result.add_fn("chunks", |vm, args| match vm.get_args(args) {
+        [iterable, Number(n)] if iterable.is_sequence() && *n >= 1 => {
+            let iterable = iterable.clone();
+            let n = *n;
+            let result = adaptors::Chunks::new(vm.make_iterator(iterable)?, n.into());
+            Ok(Iterator(ValueIterator::make_external(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.chunks",
+            "a value with a range (like a List or String), \
+             and a chunk size greater than zero as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("consume", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();

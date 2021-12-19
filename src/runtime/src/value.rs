@@ -144,10 +144,14 @@ impl Value {
     }
 
     pub fn is_iterable(&self) -> bool {
+        self.is_sequence() || matches!(self, Value::Iterator(_))
+    }
+
+    pub fn is_sequence(&self) -> bool {
         use Value::*;
         matches!(
             self,
-            Num2(_) | Num4(_) | Range(_) | List(_) | Tuple(_) | Map(_) | Str(_) | Iterator(_)
+            Num2(_) | Num4(_) | Range(_) | List(_) | Tuple(_) | Map(_) | Str(_)
         )
     }
 

@@ -75,6 +75,12 @@ make_foo = |x|
       (1..10).chain(10..15).chain(15..20).to_tuple(),
       (1..20).to_tuple()
 
+  @test chunks: ||
+    assert_eq
+      (0..=10).chunks(3).each(iterator.to_tuple).to_tuple(),
+      ((0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10))
+    assert_eq (0..0).chunks(5).count(), 0
+
   @test consume: ||
     x = []
     (1..=5).each(|n| x.push n).consume()

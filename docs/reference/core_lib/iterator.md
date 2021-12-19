@@ -49,6 +49,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [all](#all)
 - [any](#any)
 - [chain](#chain)
+- [chunks](#chunks)
 - [consume](#consume)
 - [copy](#copy)
 - [count](#count)
@@ -141,6 +142,27 @@ followed by the output of the second iterator.
 ```koto
 [1, 2].chain([3, 4, 5]).to_tuple()
 # (1, 2, 3, 4, 5)
+```
+
+## chunks
+
+`|Iterable, Number| -> Iterator`
+
+Returns an iterator that splits up the input data into chunks of size `N`,
+where each chunk is provided as an iterator over the chunk's elements.
+The final chunk may have fewer than `N` elements.
+
+Note that the input value should be an iterable value that has a defined range,
+e.g. a List or a String (i.e. not an adapted iterator or a generator).
+
+### Example
+
+```koto
+(1..=10)
+  .chunks 3
+  .each |chunk| chunk.to_list()
+  .to_list()
+# [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
 ```
 
 ## consume

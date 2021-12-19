@@ -67,6 +67,76 @@ impl Iterator for Chain {
     }
 }
 
+/// An iterator that splits the incoming iterator into iterators of size N
+pub struct Chunks {
+    iter: ValueIterator,
+    chunk_size: usize,
+}
+
+impl Chunks {
+    pub fn new(iter: ValueIterator, chunk_size: usize) -> Self {
+        debug_assert!(chunk_size >= 1);
+        Self { iter, chunk_size }
+    }
+}
+
+impl ExternalIterator for Chunks {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            chunk_size: self.chunk_size,
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Chunks {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Make a copy of the iterator, positioned at the start of the next chunk
+        let result_iter = self.iter.make_copy();
+        // Is there at least one element in the chunk?
+        if self.iter.next().is_some() {
+            // Skip the input iterator to the end of the chunk
+            // (one element from the chunk has already been consumed).
+            if self.chunk_size > 1 {
+                self.iter.nth(self.chunk_size - 2);
+            }
+
+            // Make the chunk iterator by using a Take adaptor.
+            let chunk_iter = Take::new(result_iter, self.chunk_size);
+            Some(Output::Value(Value::Iterator(
+                ValueIterator::make_external(chunk_iter),
+            )))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iter.size_hint();
+
+        let lower = {
+            let mut chunk_count = lower / self.chunk_size;
+            if lower % self.chunk_size > 0 {
+                chunk_count += 1;
+            }
+            chunk_count
+        };
+
+        let upper = upper.map(|upper| {
+            let mut chunk_count = upper / self.chunk_size;
+            if upper % self.chunk_size > 0 {
+                chunk_count += 1;
+            }
+            chunk_count
+        });
+
+        (lower, upper)
+    }
+}
+
 /// An iterator that runs a function on each output value from the adapted iterator
 pub struct Each {
     iter: ValueIterator,
