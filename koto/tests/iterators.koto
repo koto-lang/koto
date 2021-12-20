@@ -246,6 +246,13 @@ make_foo = |x|
       ones().take(3).to_tuple(),
       (1, 1, 1)
 
+  @test windows: ||
+    assert_eq
+      (1..=5).windows(3).each(iterator.to_tuple).to_tuple(),
+      ((1, 2, 3), (2, 3, 4), (3, 4, 5))
+    # If there aren't enough values in the input, then no windows are produced.
+    assert_eq (1, 2).windows(3).count(), 0
+
   @test zip: ||
     assert_eq
       1..=3

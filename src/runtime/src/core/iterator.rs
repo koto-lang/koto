@@ -766,6 +766,21 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
+    result.add_fn("windows", |vm, args| match vm.get_args(args) {
+        [iterable, Number(n)] if iterable.is_sequence() && *n >= 1 => {
+            let iterable = iterable.clone();
+            let n = *n;
+            let result = adaptors::Windows::new(vm.make_iterator(iterable)?, n.into());
+            Ok(Iterator(ValueIterator::make_external(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.windows",
+            "a value with a range (like a List or String), \
+             and a chunk size greater than zero as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("zip", |vm, args| match vm.get_args(args) {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
             let iterable_a = iterable_a.clone();

@@ -17,6 +17,7 @@ The Koto project adheres to
       - `find`
       - `to_num2`
       - `to_num4`
+      - `windows`
     - `number.round`
     - `num2`
       - `make_num2`,

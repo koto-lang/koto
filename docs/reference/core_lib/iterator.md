@@ -77,6 +77,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [to_num4](#to_num4)
 - [to_string](#to_string)
 - [to_tuple](#to_tuple)
+- [windows](#windows)
 - [zip](#zip)
 
 ## all
@@ -763,6 +764,26 @@ Consumes all values coming from the iterator and places them in a tuple.
 - [`iterator.to_list`](#to_list)
 - [`iterator.to_map`](#to_map)
 - [`iterator.to_string`](#to_string)
+
+## windows
+
+`|Iterable, Number| -> Iterator`
+
+Returns an iterator that splits up the input data into overlapping windows of
+size `N`, where each window is provided as an iterator over the chunk's
+elements.
+
+If the input has fewer than `N` elements then no windows will be produced.
+
+Note that the input value should be an iterable value that has a defined range,
+e.g. a List or a String (i.e. not an adapted iterator or a generator).
+
+### Example
+
+```koto
+(1..=5).windows(3).each(iterator.to_list).to_list(),
+# [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
+```
 
 ## zip
 

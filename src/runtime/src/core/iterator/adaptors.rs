@@ -656,4 +656,69 @@ impl Iterator for PairSecond {
     }
 }
 
+/// An iterator that splits the incoming iterator into overlapping iterators of size N
+pub struct Windows {
+    iter: ValueIterator,
+    end_iter: ValueIterator,
+    window_size: usize,
+}
+
+impl Windows {
+    pub fn new(iter: ValueIterator, window_size: usize) -> Self {
+        debug_assert!(window_size >= 1);
+
+        let mut end_iter = iter.make_copy();
+        // Skip the end iterator to 'one before the last' of the first window
+        if window_size > 1 {
+            end_iter.nth(window_size - 2);
+        }
+
+        Self {
+            iter,
+            end_iter,
+            window_size,
+        }
+    }
+}
+
+impl ExternalIterator for Windows {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            end_iter: self.end_iter.make_copy(),
+            window_size: self.window_size,
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Windows {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // The end iterator is positioned just before the end of the window,
+        // if next() outputs a value then there's at least one more window.
+        if self.end_iter.next().is_some() {
+            // Make the next window by using a Take adaptor.
+            let window_iter = Take::new(self.iter.make_copy(), self.window_size);
+
+            // Move the input iterator to the start of the next window
+            self.iter.next();
+
+            Some(Output::Value(Value::Iterator(
+                ValueIterator::make_external(window_iter),
+            )))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iter.size_hint();
+        let lower = lower.saturating_sub(self.window_size) + 1;
+        let upper = upper.map(|upper| upper.saturating_sub(self.window_size) + 1);
+        (lower, upper)
+    }
+}
+
 // See runtime/tests/iterator_adaptor_tests.rs for tests
