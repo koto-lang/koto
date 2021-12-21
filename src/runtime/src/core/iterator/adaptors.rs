@@ -137,55 +137,6 @@ impl Iterator for Chunks {
     }
 }
 
-/// An iterator that runs a function on each output value from the adapted iterator
-pub struct Each {
-    iter: ValueIterator,
-    function: Value,
-    vm: Vm,
-}
-
-impl Each {
-    pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
-        Self { iter, function, vm }
-    }
-}
-
-impl ExternalIterator for Each {
-    fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            iter: self.iter.make_copy(),
-            function: self.function.clone(),
-            vm: self.vm.spawn_shared_vm(),
-        };
-        ValueIterator::make_external(result)
-    }
-}
-
-impl Iterator for Each {
-    type Item = Output;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|output| {
-            let function = self.function.clone();
-            let functor_result = match output {
-                Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
-                Output::ValuePair(a, b) => {
-                    self.vm.run_function(function, CallArgs::AsTuple(&[a, b]))
-                }
-                other => return other,
-            };
-            match functor_result {
-                Ok(result) => Output::Value(result),
-                Err(error) => Output::Error(error),
-            }
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
     stored: ValueIterator,
@@ -236,6 +187,55 @@ impl Iterator for Cycle {
             // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.size_hint
             _ => (usize::MAX, None),
         }
+    }
+}
+
+/// An iterator that runs a function on each output value from the adapted iterator
+pub struct Each {
+    iter: ValueIterator,
+    function: Value,
+    vm: Vm,
+}
+
+impl Each {
+    pub fn new(iter: ValueIterator, function: Value, vm: Vm) -> Self {
+        Self { iter, function, vm }
+    }
+}
+
+impl ExternalIterator for Each {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            function: self.function.clone(),
+            vm: self.vm.spawn_shared_vm(),
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Each {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|output| {
+            let function = self.function.clone();
+            let functor_result = match output {
+                Output::Value(value) => self.vm.run_function(function, CallArgs::Single(value)),
+                Output::ValuePair(a, b) => {
+                    self.vm.run_function(function, CallArgs::AsTuple(&[a, b]))
+                }
+                other => return other,
+            };
+            match functor_result {
+                Ok(result) => Output::Value(result),
+                Err(error) => Output::Error(error),
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
 }
 
@@ -544,103 +544,6 @@ impl Iterator for Keep {
     }
 }
 
-/// An iterator that takes up to N values from the adapted iterator, and then stops
-pub struct Take {
-    iter: ValueIterator,
-    remaining: usize,
-}
-
-impl Take {
-    pub fn new(iter: ValueIterator, count: usize) -> Self {
-        Self {
-            iter,
-            remaining: count,
-        }
-    }
-}
-
-impl ExternalIterator for Take {
-    fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            iter: self.iter.make_copy(),
-            remaining: self.remaining,
-        };
-        ValueIterator::make_external(result)
-    }
-}
-
-impl Iterator for Take {
-    type Item = Output;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining > 0 {
-            self.remaining -= 1;
-            self.iter.next()
-        } else {
-            None
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (lower, upper) = self.iter.size_hint();
-        (
-            lower.min(self.remaining),
-            upper.map(|upper| upper.min(self.remaining)),
-        )
-    }
-}
-
-/// An iterator that combines the output of two iterators, 'zipping' output pairs together
-pub struct Zip {
-    iter_a: ValueIterator,
-    iter_b: ValueIterator,
-}
-
-impl Zip {
-    pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
-        Self { iter_a, iter_b }
-    }
-}
-
-impl ExternalIterator for Zip {
-    fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            iter_a: self.iter_a.make_copy(),
-            iter_b: self.iter_b.make_copy(),
-        };
-        ValueIterator::make_external(result)
-    }
-}
-
-impl Iterator for Zip {
-    type Item = Output;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.iter_a.next().map(collect_pair) {
-            Some(Output::Value(value_a)) => match self.iter_b.next().map(collect_pair) {
-                Some(Output::Value(value_b)) => Some(Output::ValuePair(value_a, value_b)),
-                error @ Some(Output::Error(_)) => error,
-                _ => None,
-            },
-            error @ Some(Output::Error(_)) => error,
-            _ => None,
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (lower_a, upper_a) = self.iter_a.size_hint();
-        let (lower_b, upper_b) = self.iter_b.size_hint();
-
-        let lower = lower_a.min(lower_b);
-        let upper = match (upper_a, upper_b) {
-            (Some(upper_a), Some(upper_b)) => Some(upper_a.min(upper_b)),
-            _ => None,
-        };
-
-        (lower, upper)
-    }
-}
-
 /// An iterator that outputs the first element from any ValuePairs
 pub struct PairFirst {
     iter: ValueIterator,
@@ -711,6 +614,52 @@ impl Iterator for PairSecond {
     }
 }
 
+/// An iterator that takes up to N values from the adapted iterator, and then stops
+pub struct Take {
+    iter: ValueIterator,
+    remaining: usize,
+}
+
+impl Take {
+    pub fn new(iter: ValueIterator, count: usize) -> Self {
+        Self {
+            iter,
+            remaining: count,
+        }
+    }
+}
+
+impl ExternalIterator for Take {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+            remaining: self.remaining,
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Take {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining > 0 {
+            self.remaining -= 1;
+            self.iter.next()
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iter.size_hint();
+        (
+            lower.min(self.remaining),
+            upper.map(|upper| upper.min(self.remaining)),
+        )
+    }
+}
+
 /// An iterator that splits the incoming iterator into overlapping iterators of size N
 pub struct Windows {
     iter: ValueIterator,
@@ -772,6 +721,57 @@ impl Iterator for Windows {
         let (lower, upper) = self.iter.size_hint();
         let lower = lower.saturating_sub(self.window_size) + 1;
         let upper = upper.map(|upper| upper.saturating_sub(self.window_size) + 1);
+        (lower, upper)
+    }
+}
+
+/// An iterator that combines the output of two iterators, 'zipping' output pairs together
+pub struct Zip {
+    iter_a: ValueIterator,
+    iter_b: ValueIterator,
+}
+
+impl Zip {
+    pub fn new(iter_a: ValueIterator, iter_b: ValueIterator) -> Self {
+        Self { iter_a, iter_b }
+    }
+}
+
+impl ExternalIterator for Zip {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter_a: self.iter_a.make_copy(),
+            iter_b: self.iter_b.make_copy(),
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Zip {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter_a.next().map(collect_pair) {
+            Some(Output::Value(value_a)) => match self.iter_b.next().map(collect_pair) {
+                Some(Output::Value(value_b)) => Some(Output::ValuePair(value_a, value_b)),
+                error @ Some(Output::Error(_)) => error,
+                _ => None,
+            },
+            error @ Some(Output::Error(_)) => error,
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower_a, upper_a) = self.iter_a.size_hint();
+        let (lower_b, upper_b) = self.iter_b.size_hint();
+
+        let lower = lower_a.min(lower_b);
+        let upper = match (upper_a, upper_b) {
+            (Some(upper_a), Some(upper_b)) => Some(upper_a.min(upper_b)),
+            _ => None,
+        };
+
         (lower, upper)
     }
 }
