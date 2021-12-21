@@ -283,6 +283,61 @@ impl Iterator for Enumerate {
     }
 }
 
+/// An iterator that flattens the output of nested iterators
+pub struct Flatten {
+    vm: Vm,
+    iter: ValueIterator,
+    nested: Option<ValueIterator>,
+}
+
+impl Flatten {
+    pub fn new(iter: ValueIterator, vm: Vm) -> Self {
+        Self {
+            vm,
+            iter,
+            nested: None,
+        }
+    }
+}
+
+impl ExternalIterator for Flatten {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            vm: self.vm.spawn_shared_vm(),
+            iter: self.iter.make_copy(),
+            nested: self.nested.as_ref().map(|nested| nested.make_copy()),
+        };
+        ValueIterator::make_external(result)
+    }
+}
+
+impl Iterator for Flatten {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(nested) = &mut self.nested {
+                if let result @ Some(_) = nested.next() {
+                    return result;
+                }
+            }
+
+            match self.iter.next().map(collect_pair) {
+                Some(Output::Value(iterable)) if iterable.is_iterable() => {
+                    match self.vm.make_iterator(iterable) {
+                        Ok(nested) => {
+                            self.nested = Some(nested);
+                            continue;
+                        }
+                        Err(error) => return Some(Output::Error(error)),
+                    }
+                }
+                other => return other,
+            }
+        }
+    }
+}
+
 /// An iterator that inserts a separator value between each output value from the adapted iterator
 pub struct Intersperse {
     iter: ValueIterator,

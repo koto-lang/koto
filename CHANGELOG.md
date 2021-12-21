@@ -15,6 +15,7 @@ The Koto project adheres to
     - `iterator`
       - `chunks`
       - `find`
+      - `flatten`
       - `to_num2`
       - `to_num4`
       - `windows`

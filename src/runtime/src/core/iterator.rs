@@ -273,6 +273,20 @@ pub fn make_module() -> ValueMap {
         ),
     });
 
+    result.add_fn("flatten", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
+            let result = adaptors::Flatten::new(vm.make_iterator(iterable)?, vm.spawn_shared_vm());
+
+            Ok(Iterator(ValueIterator::make_external(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.cycle",
+            "an iterable value as argument",
+            unexpected,
+        ),
+    });
+
     result.add_fn("fold", |vm, args| {
         match vm.get_args(args) {
             [iterable, result, f] if iterable.is_iterable() && f.is_callable() => {

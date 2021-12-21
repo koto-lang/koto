@@ -57,6 +57,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [each](#each)
 - [enumerate](#enumerate)
 - [find](#find)
+- [flatten](#flatten)
 - [fold](#fold)
 - [intersperse](#intersperse)
 - [iter](#iter)
@@ -318,6 +319,23 @@ If no match is found then `()` is returned.
 
 (10..20).find |x| x > 100
 # ()
+```
+
+## flatten
+
+`|Iterable| -> Value`
+
+Returns the output of the input iterator, with any nested iterable values
+flattened out.
+
+Note that only one level of flattening is performed, so any double-nested
+containers will still be present in the output.
+
+### Example
+
+```koto
+[(2, 4), [6, 8, (10, 12)]].flatten().to_list()
+# [2, 4, 6, 8, (10, 12)]
 ```
 
 ### See Also

@@ -135,6 +135,10 @@ make_foo = |x|
     assert_eq (1..10).find(|n| n > 4 and n < 6), 5
     assert_eq "heyNow".find(|c| c.to_uppercase() == c), "N"
 
+  @test flatten: ||
+    assert_eq [[1, 2, 3], {}, (4, [5, 6])].flatten().to_tuple(), (1, 2, 3, 4, [5, 6])
+    assert_eq (("a", "b", "c"), [], ("x", "y", "z")).flatten().to_string(), "abcxyz"
+
   @test fold: ||
     assert_eq (1..=5).fold(0, |sum, x| sum + x), 15
 
