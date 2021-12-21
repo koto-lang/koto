@@ -49,6 +49,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [all](#all)
 - [any](#any)
 - [chain](#chain)
+- [chunks](#chunks)
 - [consume](#consume)
 - [copy](#copy)
 - [count](#count)
@@ -56,6 +57,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [each](#each)
 - [enumerate](#enumerate)
 - [find](#find)
+- [flatten](#flatten)
 - [fold](#fold)
 - [intersperse](#intersperse)
 - [iter](#iter)
@@ -76,6 +78,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [to_num4](#to_num4)
 - [to_string](#to_string)
 - [to_tuple](#to_tuple)
+- [windows](#windows)
 - [zip](#zip)
 
 ## all
@@ -141,6 +144,27 @@ followed by the output of the second iterator.
 ```koto
 [1, 2].chain([3, 4, 5]).to_tuple()
 # (1, 2, 3, 4, 5)
+```
+
+## chunks
+
+`|Iterable, Number| -> Iterator`
+
+Returns an iterator that splits up the input data into chunks of size `N`,
+where each chunk is provided as an iterator over the chunk's elements.
+The final chunk may have fewer than `N` elements.
+
+Note that the input value should be an iterable value that has a defined range,
+e.g. a List or a String (i.e. not an adapted iterator or a generator).
+
+### Example
+
+```koto
+(1..=10)
+  .chunks 3
+  .each |chunk| chunk.to_list()
+  .to_list()
+# [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
 ```
 
 ## consume
@@ -295,6 +319,23 @@ If no match is found then `()` is returned.
 
 (10..20).find |x| x > 100
 # ()
+```
+
+## flatten
+
+`|Iterable| -> Value`
+
+Returns the output of the input iterator, with any nested iterable values
+flattened out.
+
+Note that only one level of flattening is performed, so any double-nested
+containers will still be present in the output.
+
+### Example
+
+```koto
+[(2, 4), [6, 8, (10, 12)]].flatten().to_list()
+# [2, 4, 6, 8, (10, 12)]
 ```
 
 ### See Also
@@ -741,6 +782,26 @@ Consumes all values coming from the iterator and places them in a tuple.
 - [`iterator.to_list`](#to_list)
 - [`iterator.to_map`](#to_map)
 - [`iterator.to_string`](#to_string)
+
+## windows
+
+`|Iterable, Number| -> Iterator`
+
+Returns an iterator that splits up the input data into overlapping windows of
+size `N`, where each window is provided as an iterator over the chunk's
+elements.
+
+If the input has fewer than `N` elements then no windows will be produced.
+
+Note that the input value should be an iterable value that has a defined range,
+e.g. a List or a String (i.e. not an adapted iterator or a generator).
+
+### Example
+
+```koto
+(1..=5).windows(3).each(iterator.to_list).to_list(),
+# [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
+```
 
 ## zip
 

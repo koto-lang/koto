@@ -157,7 +157,7 @@ macro_rules! runtime_error {
 
 pub fn unexpected_type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
     runtime_error!(
-        "Expected {}, found {}",
+        "Expected {}, found {}.",
         expected_str,
         unexpected.type_as_string()
     )
@@ -185,7 +185,7 @@ pub fn unexpected_type_error_with_slice<T>(
         }
     };
     runtime_error!(
-        "{} - expected {}, but found {}",
+        "{} - expected {}, but found {}.",
         prefix,
         expected_str,
         message

@@ -822,6 +822,7 @@ impl<'source> Parser<'source> {
             Some(Token::Not) => MetaKeyId::Not,
             Some(Token::Id) => match self.lexer.slice() {
                 "display" => MetaKeyId::Display,
+                "iterator" => MetaKeyId::Iterator,
                 "negate" => MetaKeyId::Negate,
                 "tests" => MetaKeyId::Tests,
                 "pre_test" => MetaKeyId::PreTest,

@@ -569,6 +569,8 @@ pub enum MetaKeyId {
 
     /// @display
     Display,
+    /// @iterator
+    Iterator,
     /// @negate
     Negate,
     /// @not

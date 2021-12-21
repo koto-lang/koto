@@ -5,7 +5,7 @@ use {
     super::iterator::collect_pair,
     crate::{
         runtime_error, unexpected_type_error_with_slice,
-        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeResult, Value, ValueMap,
     },
     std::convert::TryFrom,
@@ -67,7 +67,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("from_bytes", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
-            let iterator = make_iterator(iterable).unwrap();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
             let (size_hint, _) = iterator.size_hint();
             let mut bytes = Vec::<u8>::with_capacity(size_hint);
 

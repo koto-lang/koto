@@ -13,9 +13,12 @@ The Koto project adheres to
 - Core Library
   - New additions:
     - `iterator`
+      - `chunks`
       - `find`
+      - `flatten`
       - `to_num2`
       - `to_num4`
+      - `windows`
     - `number.round`
     - `num2`
       - `make_num2`,
@@ -57,6 +60,17 @@ The Koto project adheres to
       # 2
       # 3
       ```
+- Maps can now implement `@iterator`, which allows you to define custom
+  iteration behaviour.
+  - e.g.
+    ```koto
+    foo = |n|
+      n: n
+      @iterator: |self| 1..=self.n
+    foo(3).to_tuple()
+    # (1, 2, 3)
+    ```
+- Num2 and Num4 values can now be iterated over in a for loop.
 
 ### Changed
 

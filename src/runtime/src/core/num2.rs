@@ -2,7 +2,7 @@ use {
     super::iterator::collect_pair,
     crate::{
         num2, unexpected_type_error_with_slice,
-        value_iterator::{make_iterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeError, RuntimeResult, Value, ValueMap,
     },
 };
@@ -23,7 +23,8 @@ pub fn make_module() -> ValueMap {
             [Number(n1), Number(n2)] => num2::Num2(n1.into(), n2.into()),
             [Num2(n)] => *n,
             [iterable] if iterable.is_iterable() => {
-                num2_from_iterator(make_iterator(iterable).unwrap(), "num2.make_num2")?
+                let iterable = iterable.clone();
+                num2_from_iterator(vm.make_iterator(iterable)?, "num2.make_num2")?
             }
             unexpected => {
                 return unexpected_type_error_with_slice(

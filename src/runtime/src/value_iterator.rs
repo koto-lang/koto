@@ -24,7 +24,7 @@ impl IntRange {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ValueIteratorOutput {
     Value(Value),
     ValuePair(Value, Value),
@@ -261,20 +261,4 @@ impl fmt::Debug for ValueIterator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ValueIterator")
     }
-}
-
-pub fn make_iterator(value: &Value) -> Result<ValueIterator, ()> {
-    use Value::*;
-    let result = match value {
-        Range(r) => ValueIterator::with_range(*r),
-        Num2(n) => ValueIterator::with_num2(*n),
-        Num4(n) => ValueIterator::with_num4(*n),
-        List(l) => ValueIterator::with_list(l.clone()),
-        Tuple(t) => ValueIterator::with_tuple(t.clone()),
-        Map(m) => ValueIterator::with_map(m.clone()),
-        Str(s) => ValueIterator::with_string(s.clone()),
-        Iterator(i) => i.clone(),
-        _ => return Err(()),
-    };
-    Ok(result)
 }
