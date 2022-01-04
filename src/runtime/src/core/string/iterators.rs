@@ -1,13 +1,14 @@
 use {
     crate::{
         make_runtime_error,
-        value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
         CallArgs, Value, ValueString, Vm,
     },
     unicode_segmentation::UnicodeSegmentation,
 };
 
 /// An iterator that outputs the individual bytes contained in a string
+#[derive(Clone)]
 pub struct Bytes {
     input: ValueString,
     index: usize,
@@ -19,13 +20,9 @@ impl Bytes {
     }
 }
 
-impl ExternalIterator for Bytes {
+impl KotoIterator for Bytes {
     fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            input: self.input.clone(),
-            index: self.index,
-        };
-        ValueIterator::make_external(result)
+        ValueIterator::make_external(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -57,6 +54,7 @@ impl Iterator for Bytes {
 /// - Lines end with either `\r\n` or `\n`.
 /// - Line end characters aren't included in the resulting output.
 /// - Empty lines are yielded as empty strings.
+#[derive(Clone)]
 pub struct Lines {
     input: ValueString,
     start: usize,
@@ -68,13 +66,9 @@ impl Lines {
     }
 }
 
-impl ExternalIterator for Lines {
+impl KotoIterator for Lines {
     fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            input: self.input.clone(),
-            start: self.start,
-        };
-        ValueIterator::make_external(result)
+        ValueIterator::make_external(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -118,6 +112,7 @@ impl Iterator for Lines {
 }
 
 /// An iterator that splits up a string into parts, separated by a provided pattern
+#[derive(Clone)]
 pub struct Split {
     input: ValueString,
     pattern: ValueString,
@@ -134,14 +129,9 @@ impl Split {
     }
 }
 
-impl ExternalIterator for Split {
+impl KotoIterator for Split {
     fn make_copy(&self) -> ValueIterator {
-        let result = Self {
-            input: self.input.clone(),
-            pattern: self.pattern.clone(),
-            start: self.start,
-        };
-        ValueIterator::make_external(result)
+        ValueIterator::make_external(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -193,7 +183,7 @@ impl SplitWith {
     }
 }
 
-impl ExternalIterator for SplitWith {
+impl KotoIterator for SplitWith {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             input: self.input.clone(),

@@ -2,7 +2,7 @@ use {
     super::collect_pair,
     crate::{
         make_runtime_error,
-        value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
         CallArgs, Value, Vm,
     },
     std::{error, fmt},
@@ -23,7 +23,7 @@ impl Chain {
     }
 }
 
-impl ExternalIterator for Chain {
+impl KotoIterator for Chain {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.as_ref().map(|iter| iter.make_copy()),
@@ -95,7 +95,7 @@ impl Chunks {
     }
 }
 
-impl ExternalIterator for Chunks {
+impl KotoIterator for Chunks {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -197,7 +197,7 @@ impl Cycle {
     }
 }
 
-impl ExternalIterator for Cycle {
+impl KotoIterator for Cycle {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -252,7 +252,7 @@ impl Each {
     }
 }
 
-impl ExternalIterator for Each {
+impl KotoIterator for Each {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -304,7 +304,7 @@ impl Enumerate {
     }
 }
 
-impl ExternalIterator for Enumerate {
+impl KotoIterator for Enumerate {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -357,7 +357,7 @@ impl Flatten {
     }
 }
 
-impl ExternalIterator for Flatten {
+impl KotoIterator for Flatten {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             vm: self.vm.spawn_shared_vm(),
@@ -418,7 +418,7 @@ impl Intersperse {
     }
 }
 
-impl ExternalIterator for Intersperse {
+impl KotoIterator for Intersperse {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -484,7 +484,7 @@ impl IntersperseWith {
     }
 }
 
-impl ExternalIterator for IntersperseWith {
+impl KotoIterator for IntersperseWith {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -563,7 +563,7 @@ impl Keep {
     }
 }
 
-impl ExternalIterator for Keep {
+impl KotoIterator for Keep {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -628,7 +628,7 @@ impl PairFirst {
     }
 }
 
-impl ExternalIterator for PairFirst {
+impl KotoIterator for PairFirst {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -667,7 +667,7 @@ impl PairSecond {
     }
 }
 
-impl ExternalIterator for PairSecond {
+impl KotoIterator for PairSecond {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -710,7 +710,7 @@ impl Take {
     }
 }
 
-impl ExternalIterator for Take {
+impl KotoIterator for Take {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -774,7 +774,7 @@ impl Windows {
     }
 }
 
-impl ExternalIterator for Windows {
+impl KotoIterator for Windows {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -856,7 +856,7 @@ impl Zip {
     }
 }
 
-impl ExternalIterator for Zip {
+impl KotoIterator for Zip {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.make_copy(),

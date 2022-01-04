@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalIterator,
-        ExternalValue, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue,
+        KotoIterator, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::{cell::RefCell, rc::Rc},
 };
@@ -68,7 +68,7 @@ struct PoetryIter {
     poetry: ExternalValue,
 }
 
-impl ExternalIterator for PoetryIter {
+impl KotoIterator for PoetryIter {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::make_external(self.clone())
     }

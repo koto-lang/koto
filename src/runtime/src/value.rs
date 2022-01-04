@@ -1,8 +1,8 @@
 use {
     crate::{
         num2, num4, value_key::ValueRef, value_map::ValueMap, ExternalData, ExternalFunction,
-        ExternalValue, IntRange, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString,
-        ValueTuple, ValueVec,
+        ExternalValue, MetaKey, ValueIterator, ValueList, ValueNumber, ValueString, ValueTuple,
+        ValueVec,
     },
     koto_bytecode::Chunk,
     std::{cell::RefCell, fmt, rc::Rc},
@@ -332,6 +332,30 @@ pub struct FunctionInfo {
     //    placing FunctionInfo behind an Rc due to its increased size, so it's not clear if there
     //    would be an overall performance win.
     pub captures: Option<ValueList>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct IntRange {
+    pub start: isize,
+    pub end: isize,
+}
+
+impl IntRange {
+    pub fn is_ascending(&self) -> bool {
+        self.start <= self.end
+    }
+
+    pub fn len(&self) -> usize {
+        if self.is_ascending() {
+            (self.end - self.start) as usize
+        } else {
+            (self.start - self.end) as usize
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
