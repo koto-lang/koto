@@ -118,11 +118,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("chunks", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_sequence() && *n >= 1 => {
+        [iterable, Number(n)] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let n = *n;
-            let result = adaptors::Chunks::new(vm.make_iterator(iterable)?, n.into());
-            Ok(Iterator(ValueIterator::make_external(result)))
+            match adaptors::Chunks::new(vm.make_iterator(iterable)?, n.into()) {
+                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Err(e) => runtime_error!("iterator.chunks: {}", e),
+            }
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.chunks",
@@ -781,11 +783,13 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("windows", |vm, args| match vm.get_args(args) {
-        [iterable, Number(n)] if iterable.is_sequence() && *n >= 1 => {
+        [iterable, Number(n)] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let n = *n;
-            let result = adaptors::Windows::new(vm.make_iterator(iterable)?, n.into());
-            Ok(Iterator(ValueIterator::make_external(result)))
+            match adaptors::Windows::new(vm.make_iterator(iterable)?, n.into()) {
+                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Err(e) => runtime_error!("iterator.windows: {}", e),
+            }
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.windows",

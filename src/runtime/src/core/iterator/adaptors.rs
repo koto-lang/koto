@@ -5,6 +5,7 @@ use {
         value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
         CallArgs, Value, Vm,
     },
+    std::{error, fmt},
 };
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -29,6 +30,15 @@ impl ExternalIterator for Chain {
             iter_b: self.iter_b.make_copy(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        if let Some(iter_a) = &self.iter_a {
+            if iter_a.might_have_side_effects() {
+                return true;
+            }
+        }
+        self.iter_b.might_have_side_effects()
     }
 }
 
@@ -74,9 +84,14 @@ pub struct Chunks {
 }
 
 impl Chunks {
-    pub fn new(iter: ValueIterator, chunk_size: usize) -> Self {
-        debug_assert!(chunk_size >= 1);
-        Self { iter, chunk_size }
+    pub fn new(iter: ValueIterator, chunk_size: usize) -> Result<Self, ChunksError> {
+        if chunk_size < 1 {
+            Err(ChunksError::ChunkSizeMustBeAtLeastOne)
+        } else if iter.might_have_side_effects() {
+            Err(ChunksError::IteratorMightHaveSideEffects)
+        } else {
+            Ok(Self { iter, chunk_size })
+        }
     }
 }
 
@@ -87,6 +102,10 @@ impl ExternalIterator for Chunks {
             chunk_size: self.chunk_size,
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -137,17 +156,43 @@ impl Iterator for Chunks {
     }
 }
 
+pub enum ChunksError {
+    IteratorMightHaveSideEffects,
+    ChunkSizeMustBeAtLeastOne,
+}
+
+impl fmt::Display for ChunksError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ChunksError::IteratorMightHaveSideEffects => {
+                write!(f, "the iterator to be chunked should not run any functions")
+            }
+            ChunksError::ChunkSizeMustBeAtLeastOne => {
+                write!(f, "the chunk size must be at least 1")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for ChunksError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for ChunksError {}
+
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
-    stored: ValueIterator,
-    operated: ValueIterator,
+    iter: ValueIterator,
+    current_cycle: ValueIterator,
 }
 
 impl Cycle {
     pub fn new(iterator: ValueIterator) -> Self {
         Self {
-            stored: iterator.make_copy(),
-            operated: iterator,
+            iter: iterator.make_copy(),
+            current_cycle: iterator,
         }
     }
 }
@@ -155,10 +200,14 @@ impl Cycle {
 impl ExternalIterator for Cycle {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
-            stored: self.stored.make_copy(),
-            operated: self.operated.make_copy(),
+            iter: self.iter.make_copy(),
+            current_cycle: self.current_cycle.make_copy(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -166,17 +215,17 @@ impl Iterator for Cycle {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.operated.next() {
+        match self.current_cycle.next() {
             None => {
-                self.operated = self.stored.make_copy();
-                self.operated.next()
+                self.current_cycle = self.iter.make_copy();
+                self.current_cycle.next()
             }
             other => other,
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        match self.stored.size_hint() {
+        match self.iter.size_hint() {
             // If the incoming iterator is empty, this iterator is empty
             (0, Some(0)) => (0, Some(0)),
             // Even if we know the size hint of the incoming iterator we can not know
@@ -211,6 +260,10 @@ impl ExternalIterator for Each {
             vm: self.vm.spawn_shared_vm(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -258,6 +311,10 @@ impl ExternalIterator for Enumerate {
             index: self.index,
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -308,6 +365,10 @@ impl ExternalIterator for Flatten {
             nested: self.nested.as_ref().map(|nested| nested.make_copy()),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -366,6 +427,10 @@ impl ExternalIterator for Intersperse {
             separator: self.separator.clone(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -429,6 +494,10 @@ impl ExternalIterator for IntersperseWith {
             vm: self.vm.spawn_shared_vm(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -503,6 +572,10 @@ impl ExternalIterator for Keep {
         };
         ValueIterator::make_external(result)
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
+    }
 }
 
 impl Iterator for Keep {
@@ -562,6 +635,10 @@ impl ExternalIterator for PairFirst {
         };
         ValueIterator::make_external(result)
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
+    }
 }
 
 impl Iterator for PairFirst {
@@ -596,6 +673,10 @@ impl ExternalIterator for PairSecond {
             iter: self.iter.make_copy(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -637,6 +718,10 @@ impl ExternalIterator for Take {
         };
         ValueIterator::make_external(result)
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
+    }
 }
 
 impl Iterator for Take {
@@ -668,19 +753,23 @@ pub struct Windows {
 }
 
 impl Windows {
-    pub fn new(iter: ValueIterator, window_size: usize) -> Self {
-        debug_assert!(window_size >= 1);
+    pub fn new(iter: ValueIterator, window_size: usize) -> Result<Self, WindowsError> {
+        if window_size < 1 {
+            Err(WindowsError::WindowSizeMustBeAtLeastOne)
+        } else if iter.might_have_side_effects() {
+            Err(WindowsError::IteratorMightHaveSideEffects)
+        } else {
+            let mut end_iter = iter.make_copy();
+            // Skip the end iterator to 'one before the last' of the first window
+            if window_size > 1 {
+                end_iter.nth(window_size - 2);
+            }
 
-        let mut end_iter = iter.make_copy();
-        // Skip the end iterator to 'one before the last' of the first window
-        if window_size > 1 {
-            end_iter.nth(window_size - 2);
-        }
-
-        Self {
-            iter,
-            end_iter,
-            window_size,
+            Ok(Self {
+                iter,
+                end_iter,
+                window_size,
+            })
         }
     }
 }
@@ -693,6 +782,10 @@ impl ExternalIterator for Windows {
             window_size: self.window_size,
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -725,6 +818,32 @@ impl Iterator for Windows {
     }
 }
 
+pub enum WindowsError {
+    IteratorMightHaveSideEffects,
+    WindowSizeMustBeAtLeastOne,
+}
+
+impl fmt::Display for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WindowsError::IteratorMightHaveSideEffects => {
+                write!(f, "the iterator to be chunked should not run any functions")
+            }
+            WindowsError::WindowSizeMustBeAtLeastOne => {
+                write!(f, "the window size must be at least 1")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for WindowsError {}
+
 /// An iterator that combines the output of two iterators, 'zipping' output pairs together
 pub struct Zip {
     iter_a: ValueIterator,
@@ -744,6 +863,10 @@ impl ExternalIterator for Zip {
             iter_b: self.iter_b.make_copy(),
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter_a.might_have_side_effects() || self.iter_b.might_have_side_effects()
     }
 }
 

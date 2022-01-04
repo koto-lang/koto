@@ -27,6 +27,10 @@ impl ExternalIterator for Bytes {
         };
         ValueIterator::make_external(result)
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
+    }
 }
 
 impl Iterator for Bytes {
@@ -71,6 +75,10 @@ impl ExternalIterator for Lines {
             start: self.start,
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
     }
 }
 
@@ -135,6 +143,10 @@ impl ExternalIterator for Split {
         };
         ValueIterator::make_external(result)
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
+    }
 }
 
 impl Iterator for Split {
@@ -190,6 +202,10 @@ impl ExternalIterator for SplitWith {
             start: self.start,
         };
         ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 

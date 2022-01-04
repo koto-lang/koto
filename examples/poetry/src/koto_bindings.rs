@@ -72,6 +72,10 @@ impl ExternalIterator for PoetryIter {
     fn make_copy(&self) -> ValueIterator {
         ValueIterator::make_external(self.clone())
     }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
+    }
 }
 
 impl Iterator for PoetryIter {

@@ -47,6 +47,12 @@ pub enum Iterable {
 pub trait ExternalIterator: Iterator<Item = ValueIteratorOutput> {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> ValueIterator;
+
+    /// Returns true when the iterator executes functions that may cause side effects
+    ///
+    /// This is used to determine whether or not the iterator is repeatable, which is used in
+    /// iterator adaptors like chunks() or windows().
+    fn might_have_side_effects(&self) -> bool;
 }
 
 #[derive(Clone)]
@@ -211,6 +217,16 @@ impl ValueIterator {
 
     pub fn make_external(external: impl ExternalIterator + 'static) -> Self {
         Self::new(Iterable::External(Rc::new(RefCell::new(external))))
+    }
+
+    pub fn might_have_side_effects(&self) -> bool {
+        use Iterable::*;
+
+        match &self.0.borrow().iterable {
+            External(external_iterator) => external_iterator.borrow().might_have_side_effects(),
+            Generator(_) => true,
+            _ => false,
+        }
     }
 
     // For internal functions that want to perform repeated iterations with a single borrow
