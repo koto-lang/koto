@@ -440,19 +440,18 @@ impl Iterator for Intersperse {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.peeked.take().or_else(|| self.iter.next());
 
-        match next {
-            output @ Some(_) => {
-                let result = if self.next_is_separator {
-                    self.peeked = output;
-                    Some(Output::Value(self.separator.clone()))
-                } else {
-                    output
-                };
+        if next.is_some() {
+            let result = if self.next_is_separator {
+                self.peeked = next;
+                Some(Output::Value(self.separator.clone()))
+            } else {
+                next
+            };
 
-                self.next_is_separator = !self.next_is_separator;
-                result
-            }
-            None => None,
+            self.next_is_separator = !self.next_is_separator;
+            result
+        } else {
+            None
         }
     }
 
@@ -507,27 +506,26 @@ impl Iterator for IntersperseWith {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.peeked.take().or_else(|| self.iter.next());
 
-        match next {
-            output @ Some(_) => {
-                let result = if self.next_is_separator {
-                    self.peeked = output;
-                    Some(
-                        match self
-                            .vm
-                            .run_function(self.separator_function.clone(), CallArgs::None)
-                        {
-                            Ok(result) => Output::Value(result),
-                            Err(error) => Output::Error(error),
-                        },
-                    )
-                } else {
-                    output
-                };
+        if next.is_some() {
+            let result = if self.next_is_separator {
+                self.peeked = next;
+                Some(
+                    match self
+                        .vm
+                        .run_function(self.separator_function.clone(), CallArgs::None)
+                    {
+                        Ok(result) => Output::Value(result),
+                        Err(error) => Output::Error(error),
+                    },
+                )
+            } else {
+                next
+            };
 
-                self.next_is_separator = !self.next_is_separator;
-                result
-            }
-            None => None,
+            self.next_is_separator = !self.next_is_separator;
+            result
+        } else {
+            None
         }
     }
 
