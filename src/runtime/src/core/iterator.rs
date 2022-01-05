@@ -596,6 +596,21 @@ pub fn make_module() -> ValueMap {
             .map_err(|e| e.with_prefix("iterator.product"))
     });
 
+    result.add_fn("reversed", |vm, args| match vm.get_args(args) {
+        [iterable] if iterable.is_iterable() => {
+            let iterable = iterable.clone();
+            match adaptors::Reversed::new(vm.make_iterator(iterable)?) {
+                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Err(e) => runtime_error!("iterator.reversed: {}", e),
+            }
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.take",
+            "an iterable value and non-negative number as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("skip", |vm, args| match vm.get_args(args) {
         [iterable, Number(n)] if iterable.is_iterable() && *n >= 0.0 => {
             let iterable = iterable.clone();

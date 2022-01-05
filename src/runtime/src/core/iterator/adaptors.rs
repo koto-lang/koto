@@ -693,6 +693,70 @@ impl Iterator for PairSecond {
     }
 }
 
+/// An iterator adaptor that reverses the output of the input iterator
+pub struct Reversed {
+    iter: ValueIterator,
+}
+
+impl Reversed {
+    pub fn new(iter: ValueIterator) -> Result<Self, ReversedError> {
+        if iter.is_bidirectional() {
+            Ok(Self {
+                iter: iter.make_copy(),
+            })
+        } else {
+            Err(ReversedError::IteratorIsntReversible)
+        }
+    }
+}
+
+impl KotoIterator for Reversed {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+        };
+        ValueIterator::make_external(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
+    }
+}
+
+impl Iterator for Reversed {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+pub enum ReversedError {
+    IteratorIsntReversible,
+}
+
+impl fmt::Display for ReversedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ReversedError::IteratorIsntReversible => {
+                write!(f, "the input iterator isn't bidirectional")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for ReversedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for ReversedError {}
+
 /// An iterator that takes up to N values from the adapted iterator, and then stops
 pub struct Take {
     iter: ValueIterator,
