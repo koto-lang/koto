@@ -1,8 +1,8 @@
 use {
     crate::Poetry,
     koto::runtime::{
-        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalIterator,
-        ExternalValue, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
+        make_runtime_error, unexpected_type_error_with_slice, ExternalData, ExternalValue,
+        KotoIterator, MetaMap, Value, ValueIterator, ValueIteratorOutput, ValueMap,
     },
     std::{cell::RefCell, rc::Rc},
 };
@@ -49,7 +49,7 @@ static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = {
         let iter = PoetryIter {
             poetry: external_value.clone(),
         };
-        Ok(Iterator(ValueIterator::make_external(iter)))
+        Ok(Iterator(ValueIterator::new(iter)))
     });
 
     bindings.add_named_instance_fn_mut("next_word", |poetry: &mut KotoPoetry, _, _| {
@@ -68,9 +68,13 @@ struct PoetryIter {
     poetry: ExternalValue,
 }
 
-impl ExternalIterator for PoetryIter {
+impl KotoIterator for PoetryIter {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        false
     }
 }
 

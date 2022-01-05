@@ -16,6 +16,7 @@ The Koto project adheres to
       - `chunks`
       - `find`
       - `flatten`
+      - `reversed`
       - `to_num2`
       - `to_num4`
       - `windows`
@@ -125,6 +126,9 @@ The Koto project adheres to
   bodies need to use `then`.
   - This reverts a change made in `0.9.0`, in practice it's less distracting to
     have `then` required in all arms.
+- Internals
+  - `ExternalIterator` has been renamed to `KotoIterator`.
+  - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
 
 ### Removed
 

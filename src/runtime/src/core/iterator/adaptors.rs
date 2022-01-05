@@ -2,9 +2,10 @@ use {
     super::collect_pair,
     crate::{
         make_runtime_error,
-        value_iterator::{ExternalIterator, ValueIterator, ValueIteratorOutput as Output},
+        value_iterator::{KotoIterator, ValueIterator, ValueIteratorOutput as Output},
         CallArgs, Value, Vm,
     },
+    std::{error, fmt},
 };
 
 /// An iterator that links the output of two iterators together in a chained sequence
@@ -22,13 +23,22 @@ impl Chain {
     }
 }
 
-impl ExternalIterator for Chain {
+impl KotoIterator for Chain {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.as_ref().map(|iter| iter.make_copy()),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        if let Some(iter_a) = &self.iter_a {
+            if iter_a.might_have_side_effects() {
+                return true;
+            }
+        }
+        self.iter_b.might_have_side_effects()
     }
 }
 
@@ -74,19 +84,28 @@ pub struct Chunks {
 }
 
 impl Chunks {
-    pub fn new(iter: ValueIterator, chunk_size: usize) -> Self {
-        debug_assert!(chunk_size >= 1);
-        Self { iter, chunk_size }
+    pub fn new(iter: ValueIterator, chunk_size: usize) -> Result<Self, ChunksError> {
+        if chunk_size < 1 {
+            Err(ChunksError::ChunkSizeMustBeAtLeastOne)
+        } else if iter.might_have_side_effects() {
+            Err(ChunksError::IteratorMightHaveSideEffects)
+        } else {
+            Ok(Self { iter, chunk_size })
+        }
     }
 }
 
-impl ExternalIterator for Chunks {
+impl KotoIterator for Chunks {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             chunk_size: self.chunk_size,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -106,9 +125,9 @@ impl Iterator for Chunks {
 
             // Make the chunk iterator by using a Take adaptor.
             let chunk_iter = Take::new(result_iter, self.chunk_size);
-            Some(Output::Value(Value::Iterator(
-                ValueIterator::make_external(chunk_iter),
-            )))
+            Some(Output::Value(Value::Iterator(ValueIterator::new(
+                chunk_iter,
+            ))))
         } else {
             None
         }
@@ -137,28 +156,58 @@ impl Iterator for Chunks {
     }
 }
 
+pub enum ChunksError {
+    IteratorMightHaveSideEffects,
+    ChunkSizeMustBeAtLeastOne,
+}
+
+impl fmt::Display for ChunksError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ChunksError::IteratorMightHaveSideEffects => {
+                write!(f, "the iterator to be chunked should not run any functions")
+            }
+            ChunksError::ChunkSizeMustBeAtLeastOne => {
+                write!(f, "the chunk size must be at least 1")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for ChunksError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for ChunksError {}
+
 /// An iterator that cycles through the adapted iterator infinitely
 pub struct Cycle {
-    stored: ValueIterator,
-    operated: ValueIterator,
+    iter: ValueIterator,
+    current_cycle: ValueIterator,
 }
 
 impl Cycle {
     pub fn new(iterator: ValueIterator) -> Self {
         Self {
-            stored: iterator.make_copy(),
-            operated: iterator,
+            iter: iterator.make_copy(),
+            current_cycle: iterator,
         }
     }
 }
 
-impl ExternalIterator for Cycle {
+impl KotoIterator for Cycle {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
-            stored: self.stored.make_copy(),
-            operated: self.operated.make_copy(),
+            iter: self.iter.make_copy(),
+            current_cycle: self.current_cycle.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -166,17 +215,17 @@ impl Iterator for Cycle {
     type Item = Output;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.operated.next() {
+        match self.current_cycle.next() {
             None => {
-                self.operated = self.stored.make_copy();
-                self.operated.next()
+                self.current_cycle = self.iter.make_copy();
+                self.current_cycle.next()
             }
             other => other,
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        match self.stored.size_hint() {
+        match self.iter.size_hint() {
             // If the incoming iterator is empty, this iterator is empty
             (0, Some(0)) => (0, Some(0)),
             // Even if we know the size hint of the incoming iterator we can not know
@@ -203,14 +252,18 @@ impl Each {
     }
 }
 
-impl ExternalIterator for Each {
+impl KotoIterator for Each {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -251,13 +304,17 @@ impl Enumerate {
     }
 }
 
-impl ExternalIterator for Enumerate {
+impl KotoIterator for Enumerate {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             index: self.index,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -300,14 +357,18 @@ impl Flatten {
     }
 }
 
-impl ExternalIterator for Flatten {
+impl KotoIterator for Flatten {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             vm: self.vm.spawn_shared_vm(),
             iter: self.iter.make_copy(),
             nested: self.nested.as_ref().map(|nested| nested.make_copy()),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -357,7 +418,7 @@ impl Intersperse {
     }
 }
 
-impl ExternalIterator for Intersperse {
+impl KotoIterator for Intersperse {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -365,7 +426,11 @@ impl ExternalIterator for Intersperse {
             next_is_separator: self.next_is_separator,
             separator: self.separator.clone(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -375,19 +440,18 @@ impl Iterator for Intersperse {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.peeked.take().or_else(|| self.iter.next());
 
-        match next {
-            output @ Some(_) => {
-                let result = if self.next_is_separator {
-                    self.peeked = output;
-                    Some(Output::Value(self.separator.clone()))
-                } else {
-                    output
-                };
+        if next.is_some() {
+            let result = if self.next_is_separator {
+                self.peeked = next;
+                Some(Output::Value(self.separator.clone()))
+            } else {
+                next
+            };
 
-                self.next_is_separator = !self.next_is_separator;
-                result
-            }
-            None => None,
+            self.next_is_separator = !self.next_is_separator;
+            result
+        } else {
+            None
         }
     }
 
@@ -419,7 +483,7 @@ impl IntersperseWith {
     }
 }
 
-impl ExternalIterator for IntersperseWith {
+impl KotoIterator for IntersperseWith {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
@@ -428,7 +492,11 @@ impl ExternalIterator for IntersperseWith {
             separator_function: self.separator_function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -438,27 +506,26 @@ impl Iterator for IntersperseWith {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.peeked.take().or_else(|| self.iter.next());
 
-        match next {
-            output @ Some(_) => {
-                let result = if self.next_is_separator {
-                    self.peeked = output;
-                    Some(
-                        match self
-                            .vm
-                            .run_function(self.separator_function.clone(), CallArgs::None)
-                        {
-                            Ok(result) => Output::Value(result),
-                            Err(error) => Output::Error(error),
-                        },
-                    )
-                } else {
-                    output
-                };
+        if next.is_some() {
+            let result = if self.next_is_separator {
+                self.peeked = next;
+                Some(
+                    match self
+                        .vm
+                        .run_function(self.separator_function.clone(), CallArgs::None)
+                    {
+                        Ok(result) => Output::Value(result),
+                        Err(error) => Output::Error(error),
+                    },
+                )
+            } else {
+                next
+            };
 
-                self.next_is_separator = !self.next_is_separator;
-                result
-            }
-            None => None,
+            self.next_is_separator = !self.next_is_separator;
+            result
+        } else {
+            None
         }
     }
 
@@ -494,14 +561,18 @@ impl Keep {
     }
 }
 
-impl ExternalIterator for Keep {
+impl KotoIterator for Keep {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        true
     }
 }
 
@@ -555,12 +626,16 @@ impl PairFirst {
     }
 }
 
-impl ExternalIterator for PairFirst {
+impl KotoIterator for PairFirst {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -590,12 +665,16 @@ impl PairSecond {
     }
 }
 
-impl ExternalIterator for PairSecond {
+impl KotoIterator for PairSecond {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -614,6 +693,70 @@ impl Iterator for PairSecond {
     }
 }
 
+/// An iterator adaptor that reverses the output of the input iterator
+pub struct Reversed {
+    iter: ValueIterator,
+}
+
+impl Reversed {
+    pub fn new(iter: ValueIterator) -> Result<Self, ReversedError> {
+        if iter.is_bidirectional() {
+            Ok(Self {
+                iter: iter.make_copy(),
+            })
+        } else {
+            Err(ReversedError::IteratorIsntReversible)
+        }
+    }
+}
+
+impl KotoIterator for Reversed {
+    fn make_copy(&self) -> ValueIterator {
+        let result = Self {
+            iter: self.iter.make_copy(),
+        };
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
+    }
+}
+
+impl Iterator for Reversed {
+    type Item = Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+pub enum ReversedError {
+    IteratorIsntReversible,
+}
+
+impl fmt::Display for ReversedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ReversedError::IteratorIsntReversible => {
+                write!(f, "the input iterator isn't bidirectional")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for ReversedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for ReversedError {}
+
 /// An iterator that takes up to N values from the adapted iterator, and then stops
 pub struct Take {
     iter: ValueIterator,
@@ -629,13 +772,17 @@ impl Take {
     }
 }
 
-impl ExternalIterator for Take {
+impl KotoIterator for Take {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             remaining: self.remaining,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -668,31 +815,39 @@ pub struct Windows {
 }
 
 impl Windows {
-    pub fn new(iter: ValueIterator, window_size: usize) -> Self {
-        debug_assert!(window_size >= 1);
+    pub fn new(iter: ValueIterator, window_size: usize) -> Result<Self, WindowsError> {
+        if window_size < 1 {
+            Err(WindowsError::WindowSizeMustBeAtLeastOne)
+        } else if iter.might_have_side_effects() {
+            Err(WindowsError::IteratorMightHaveSideEffects)
+        } else {
+            let mut end_iter = iter.make_copy();
+            // Skip the end iterator to 'one before the last' of the first window
+            if window_size > 1 {
+                end_iter.nth(window_size - 2);
+            }
 
-        let mut end_iter = iter.make_copy();
-        // Skip the end iterator to 'one before the last' of the first window
-        if window_size > 1 {
-            end_iter.nth(window_size - 2);
-        }
-
-        Self {
-            iter,
-            end_iter,
-            window_size,
+            Ok(Self {
+                iter,
+                end_iter,
+                window_size,
+            })
         }
     }
 }
 
-impl ExternalIterator for Windows {
+impl KotoIterator for Windows {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter: self.iter.make_copy(),
             end_iter: self.end_iter.make_copy(),
             window_size: self.window_size,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter.might_have_side_effects()
     }
 }
 
@@ -709,9 +864,9 @@ impl Iterator for Windows {
             // Move the input iterator to the start of the next window
             self.iter.next();
 
-            Some(Output::Value(Value::Iterator(
-                ValueIterator::make_external(window_iter),
-            )))
+            Some(Output::Value(Value::Iterator(ValueIterator::new(
+                window_iter,
+            ))))
         } else {
             None
         }
@@ -725,6 +880,32 @@ impl Iterator for Windows {
     }
 }
 
+pub enum WindowsError {
+    IteratorMightHaveSideEffects,
+    WindowSizeMustBeAtLeastOne,
+}
+
+impl fmt::Display for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WindowsError::IteratorMightHaveSideEffects => {
+                write!(f, "the iterator to be chunked should not run any functions")
+            }
+            WindowsError::WindowSizeMustBeAtLeastOne => {
+                write!(f, "the window size must be at least 1")
+            }
+        }
+    }
+}
+
+impl fmt::Debug for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl error::Error for WindowsError {}
+
 /// An iterator that combines the output of two iterators, 'zipping' output pairs together
 pub struct Zip {
     iter_a: ValueIterator,
@@ -737,13 +918,17 @@ impl Zip {
     }
 }
 
-impl ExternalIterator for Zip {
+impl KotoIterator for Zip {
     fn make_copy(&self) -> ValueIterator {
         let result = Self {
             iter_a: self.iter_a.make_copy(),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
+    }
+
+    fn might_have_side_effects(&self) -> bool {
+        self.iter_a.might_have_side_effects() || self.iter_b.might_have_side_effects()
     }
 }
 
