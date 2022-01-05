@@ -103,7 +103,7 @@ pub fn make_module() -> ValueMap {
         [iterable_a, iterable_b] if iterable_a.is_iterable() && iterable_b.is_iterable() => {
             let iterable_a = iterable_a.clone();
             let iterable_b = iterable_b.clone();
-            let result = ValueIterator::make_external(adaptors::Chain::new(
+            let result = ValueIterator::new(adaptors::Chain::new(
                 vm.make_iterator(iterable_a)?,
                 vm.make_iterator(iterable_b)?,
             ));
@@ -122,7 +122,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let n = *n;
             match adaptors::Chunks::new(vm.make_iterator(iterable)?, n.into()) {
-                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Ok(result) => Ok(Iterator(ValueIterator::new(result))),
                 Err(e) => runtime_error!("iterator.chunks: {}", e),
             }
         }
@@ -201,7 +201,7 @@ pub fn make_module() -> ValueMap {
             let f = f.clone();
             let result = adaptors::Each::new(vm.make_iterator(iterable)?, f, vm.spawn_shared_vm());
 
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.each",
@@ -215,7 +215,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let result = adaptors::Cycle::new(vm.make_iterator(iterable)?);
 
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.cycle",
@@ -228,7 +228,7 @@ pub fn make_module() -> ValueMap {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let result = adaptors::Enumerate::new(vm.make_iterator(iterable)?);
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.enumerate",
@@ -280,7 +280,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let result = adaptors::Flatten::new(vm.make_iterator(iterable)?, vm.spawn_shared_vm());
 
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.cycle",
@@ -348,14 +348,14 @@ pub fn make_module() -> ValueMap {
                 vm.spawn_shared_vm(),
             );
 
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         [iterable, separator] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             let separator = separator.clone();
             let result = adaptors::Intersperse::new(vm.make_iterator(iterable)?, separator);
 
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.intersperse",
@@ -382,7 +382,7 @@ pub fn make_module() -> ValueMap {
             let predicate = predicate.clone();
             let result =
                 adaptors::Keep::new(vm.make_iterator(iterable)?, predicate, vm.spawn_shared_vm());
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.keep",
@@ -600,7 +600,7 @@ pub fn make_module() -> ValueMap {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
             match adaptors::Reversed::new(vm.make_iterator(iterable)?) {
-                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Ok(result) => Ok(Iterator(ValueIterator::new(result))),
                 Err(e) => runtime_error!("iterator.reversed: {}", e),
             }
         }
@@ -656,7 +656,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let n = *n;
             let result = adaptors::Take::new(vm.make_iterator(iterable)?, n.into());
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.take",
@@ -802,7 +802,7 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let n = *n;
             match adaptors::Windows::new(vm.make_iterator(iterable)?, n.into()) {
-                Ok(result) => Ok(Iterator(ValueIterator::make_external(result))),
+                Ok(result) => Ok(Iterator(ValueIterator::new(result))),
                 Err(e) => runtime_error!("iterator.windows: {}", e),
             }
         }
@@ -820,7 +820,7 @@ pub fn make_module() -> ValueMap {
             let iterable_b = iterable_b.clone();
             let result =
                 adaptors::Zip::new(vm.make_iterator(iterable_a)?, vm.make_iterator(iterable_b)?);
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.zip",

@@ -22,7 +22,7 @@ impl Bytes {
 
 impl KotoIterator for Bytes {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -68,7 +68,7 @@ impl Lines {
 
 impl KotoIterator for Lines {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -131,7 +131,7 @@ impl Split {
 
 impl KotoIterator for Split {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -191,7 +191,7 @@ impl KotoIterator for SplitWith {
             vm: self.vm.spawn_shared_vm(),
             start: self.start,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {

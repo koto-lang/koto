@@ -2,10 +2,13 @@ use {
     crate::{
         IntRange, Num2, Num4, RuntimeError, Value, ValueList, ValueMap, ValueString, ValueTuple, Vm,
     },
-    std::{cell::RefCell, fmt, ops::DerefMut, rc::Rc},
+    std::{cell::RefCell, cmp::Ordering, fmt, ops::DerefMut, rc::Rc},
     unicode_segmentation::GraphemeCursor,
 };
 
+/// The trait used to implement iterators in Koto
+///
+/// See `ValueIterator`.
 pub trait KotoIterator: Iterator<Item = ValueIteratorOutput> {
     /// Returns a copy of the iterator that (when possible), will produce the same output
     fn make_copy(&self) -> ValueIterator;
@@ -29,51 +32,61 @@ pub trait KotoIterator: Iterator<Item = ValueIteratorOutput> {
     }
 }
 
+/// The output type for iterators in Koto
 #[derive(Clone, Debug)]
 pub enum ValueIteratorOutput {
+    /// A single value
     Value(Value),
+    /// A pair of values
+    ///
+    /// This is used as an optimization for iterators that output pairs, like a map iterator that
+    /// outputs key/value pairs, or `enumerate`.
     ValuePair(Value, Value),
+    /// An error that occurred during iteration
+    ///
+    /// Iterators that run functions should check for errors and pass them along to the caller.
     Error(RuntimeError),
 }
 
+/// The iterator value type used in Koto
 #[derive(Clone)]
 pub struct ValueIterator(Rc<RefCell<dyn KotoIterator>>);
 
 impl ValueIterator {
-    pub fn make_external(external: impl KotoIterator + 'static) -> Self {
+    pub fn new(external: impl KotoIterator + 'static) -> Self {
         Self(Rc::new(RefCell::new(external)))
     }
 
     pub fn with_range(range: IntRange) -> Self {
-        Self::make_external(RangeIterator::new(range))
+        Self::new(RangeIterator::new(range))
     }
 
     pub fn with_num2(n: Num2) -> Self {
-        Self::make_external(Num2Iterator::new(n))
+        Self::new(Num2Iterator::new(n))
     }
 
     pub fn with_num4(n: Num4) -> Self {
-        Self::make_external(Num4Iterator::new(n))
+        Self::new(Num4Iterator::new(n))
     }
 
     pub fn with_list(list: ValueList) -> Self {
-        Self::make_external(ListIterator::new(list))
+        Self::new(ListIterator::new(list))
     }
 
     pub fn with_tuple(tuple: ValueTuple) -> Self {
-        Self::make_external(TupleIterator::new(tuple))
+        Self::new(TupleIterator::new(tuple))
     }
 
     pub fn with_map(map: ValueMap) -> Self {
-        Self::make_external(MapIterator::new(map))
+        Self::new(MapIterator::new(map))
     }
 
     pub fn with_string(s: ValueString) -> Self {
-        Self::make_external(StringIterator::new(s))
+        Self::new(StringIterator::new(s))
     }
 
     pub fn with_vm(vm: Vm) -> Self {
-        Self::make_external(GeneratorIterator::new(vm))
+        Self::new(GeneratorIterator::new(vm))
     }
 
     pub fn make_copy(&self) -> Self {
@@ -145,7 +158,7 @@ impl Num2Iterator {
 
 impl KotoIterator for Num2Iterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -208,7 +221,7 @@ impl Num4Iterator {
 
 impl KotoIterator for Num4Iterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -261,7 +274,7 @@ impl RangeIterator {
 
 impl KotoIterator for RangeIterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -340,7 +353,7 @@ impl ListIterator {
 
 impl KotoIterator for ListIterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -407,7 +420,7 @@ impl TupleIterator {
 
 impl KotoIterator for TupleIterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -474,7 +487,7 @@ impl MapIterator {
 
 impl KotoIterator for MapIterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -539,7 +552,7 @@ impl StringIterator {
 
 impl KotoIterator for StringIterator {
     fn make_copy(&self) -> ValueIterator {
-        ValueIterator::make_external(self.clone())
+        ValueIterator::new(self.clone())
     }
 
     fn might_have_side_effects(&self) -> bool {

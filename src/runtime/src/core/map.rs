@@ -113,7 +113,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("keys", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairFirst::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice("map.keys", "a Map as argument", unexpected),
     });
@@ -225,7 +225,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("values", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             let result = adaptors::PairSecond::new(ValueIterator::with_map(m.clone()));
-            Ok(Iterator(ValueIterator::make_external(result)))
+            Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => {
             unexpected_type_error_with_slice("map.values", "a Map as argument", unexpected)

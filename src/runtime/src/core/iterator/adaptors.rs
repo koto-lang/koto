@@ -29,7 +29,7 @@ impl KotoIterator for Chain {
             iter_a: self.iter_a.as_ref().map(|iter| iter.make_copy()),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -101,7 +101,7 @@ impl KotoIterator for Chunks {
             iter: self.iter.make_copy(),
             chunk_size: self.chunk_size,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -125,9 +125,9 @@ impl Iterator for Chunks {
 
             // Make the chunk iterator by using a Take adaptor.
             let chunk_iter = Take::new(result_iter, self.chunk_size);
-            Some(Output::Value(Value::Iterator(
-                ValueIterator::make_external(chunk_iter),
-            )))
+            Some(Output::Value(Value::Iterator(ValueIterator::new(
+                chunk_iter,
+            ))))
         } else {
             None
         }
@@ -203,7 +203,7 @@ impl KotoIterator for Cycle {
             iter: self.iter.make_copy(),
             current_cycle: self.current_cycle.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -259,7 +259,7 @@ impl KotoIterator for Each {
             function: self.function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -310,7 +310,7 @@ impl KotoIterator for Enumerate {
             iter: self.iter.make_copy(),
             index: self.index,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -364,7 +364,7 @@ impl KotoIterator for Flatten {
             iter: self.iter.make_copy(),
             nested: self.nested.as_ref().map(|nested| nested.make_copy()),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -426,7 +426,7 @@ impl KotoIterator for Intersperse {
             next_is_separator: self.next_is_separator,
             separator: self.separator.clone(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -492,7 +492,7 @@ impl KotoIterator for IntersperseWith {
             separator_function: self.separator_function.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -568,7 +568,7 @@ impl KotoIterator for Keep {
             predicate: self.predicate.clone(),
             vm: self.vm.spawn_shared_vm(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -631,7 +631,7 @@ impl KotoIterator for PairFirst {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -670,7 +670,7 @@ impl KotoIterator for PairSecond {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -715,7 +715,7 @@ impl KotoIterator for Reversed {
         let result = Self {
             iter: self.iter.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -778,7 +778,7 @@ impl KotoIterator for Take {
             iter: self.iter.make_copy(),
             remaining: self.remaining,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -843,7 +843,7 @@ impl KotoIterator for Windows {
             end_iter: self.end_iter.make_copy(),
             window_size: self.window_size,
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {
@@ -864,9 +864,9 @@ impl Iterator for Windows {
             // Move the input iterator to the start of the next window
             self.iter.next();
 
-            Some(Output::Value(Value::Iterator(
-                ValueIterator::make_external(window_iter),
-            )))
+            Some(Output::Value(Value::Iterator(ValueIterator::new(
+                window_iter,
+            ))))
         } else {
             None
         }
@@ -924,7 +924,7 @@ impl KotoIterator for Zip {
             iter_a: self.iter_a.make_copy(),
             iter_b: self.iter_b.make_copy(),
         };
-        ValueIterator::make_external(result)
+        ValueIterator::new(result)
     }
 
     fn might_have_side_effects(&self) -> bool {

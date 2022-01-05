@@ -128,6 +128,7 @@ The Koto project adheres to
     have `then` required in all arms.
 - Internals
   - `ExternalIterator` has been renamed to `KotoIterator`.
+  - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
 
 ### Removed
 
