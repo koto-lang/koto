@@ -20,6 +20,7 @@ The Koto project adheres to
       - `to_num2`
       - `to_num4`
       - `windows`
+    - `list.resize_with`
     - `number.round`
     - `num2`
       - `make_num2`,

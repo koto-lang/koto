@@ -40,6 +40,7 @@ x # x remains unchanged after the modificaton of z
 - [push](#push)
 - [remove](#remove)
 - [resize](#resize)
+- [resize_with](#resize_with)
 - [retain](#retain)
 - [reverse](#reverse)
 - [size](#size)
@@ -348,6 +349,29 @@ x
 x.resize 4
 x
 # [1, 2, "x", ()]
+```
+
+## resize_with
+
+`|List, Number, || -> Value| -> ()`
+
+Grows or shrinks the list to the specified size.
+If the new size is larger, then the provided function will be called repeatedly
+to fill the remaining space, with the result of the function being added to the
+end of the list.
+
+### Example
+
+```koto
+new_entries = (5, 6, 7, 8).iter()
+x = [1, 2]
+x.resize_with 4, || new_entries.next()
+x
+# [1, 2, 5, 6]
+
+x.resize_with 2, || new_entries.next()
+x
+# [1, 2]
 ```
 
 ## retain
