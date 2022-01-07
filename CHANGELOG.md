@@ -99,9 +99,12 @@ The Koto project adheres to
       @main = ||
         ...
       ```
-- The `num2` and `num4` keywords have been removed in favour of the new
-  `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
-  functions.
+- Core Library
+  - The `num2` and `num4` keywords have been removed in favour of the new
+    `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
+    functions.
+  - The value provided to `list.resize` is now optional, with `()` being
+    inserted when growing the list.
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto

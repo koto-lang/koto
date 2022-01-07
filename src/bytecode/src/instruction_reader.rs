@@ -809,7 +809,7 @@ impl fmt::Debug for Instruction {
                 value,
             } => write!(
                 f,
-                "SetIndex\tregister: {}\t\tindex: {}\tvalue: {}",
+                "SetIndex\tregister: {}\tindex: {}\tvalue: {}",
                 register, index, value
             ),
             MapInsert {

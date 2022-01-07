@@ -326,11 +326,12 @@ Throws an error if the position isn't a valid index in the list.
 
 ## resize
 
+`|List, Number| -> ()`
 `|List, Number, Value| -> ()`
 
 Grows or shrinks the list to the specified size.
-If the new size is larger, then copies of the provided value are used to fill
-the new space.
+If the new size is larger, then copies of the provided value (or `()` if no
+value is provided) are used to fill the new space.
 
 ### Example
 
@@ -340,9 +341,13 @@ x.resize 4, "x"
 x
 # [1, 2, "x", "x"]
 
-x.resize 3, ()
+x.resize 3
 x
 # [1, 2, "x"]
+
+x.resize 4
+x
+# [1, 2, "x", ()]
 ```
 
 ## retain

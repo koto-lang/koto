@@ -182,13 +182,17 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n)] if *n >= 0.0 => {
+            l.data_mut().resize(n.into(), Empty);
+            Ok(Empty)
+        }
         [List(l), Number(n), value] if *n >= 0.0 => {
             l.data_mut().resize(n.into(), value.clone());
             Ok(Empty)
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize",
-            "a List, a non-negative Number, and Value as arguments",
+            "a List, a non-negative Number, and optional Value as arguments",
             unexpected,
         ),
     });
