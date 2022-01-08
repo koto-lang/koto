@@ -48,6 +48,10 @@
     assert_eq (make_num2 1, 2).sum(), 3
     assert_eq (make_num4 1, 2, 3, 4).sum(), 10
 
+  @test with: ||
+    assert_eq (make_num2 1, 2).with(0, 99), (make_num2 99, 2)
+    assert_eq (make_num4 1, 2, 3, 4).with(2, -1), (make_num4 1, 2, -1, 4)
+
   @test element_access_num2: ||
     x = make_num2 10, 20
     assert_eq x[0], 10

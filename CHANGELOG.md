@@ -23,10 +23,10 @@ The Koto project adheres to
     - `list.resize_with`
     - `number.round`
     - `num2`
-      - `make_num2`,
+      - `make_num2`, `with`
       - `x`, `y`
     - `num4`
-      - `make_num4`,
+      - `make_num4`, `with`
       - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
     - `os`
       - `time`

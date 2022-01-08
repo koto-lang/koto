@@ -35,6 +35,7 @@ x
 - [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
+- [with](#with)
 - [x](#x)
 - [y](#y)
 
@@ -143,6 +144,22 @@ Returns the result of adding the Num2's elements together.
 x = make_num2(10, 20)
 x.sum()
 # 30
+```
+
+## with
+
+`|Num2, index: Number, value: Number| -> Num2`
+
+Returns a Num2 with the element at `index` replaced with `value`.
+
+### Example
+
+```koto
+x = make_num2(10, 20)
+x.with 0, 99
+# num2(99, 20)
+x.with 1, -1
+# num2(10, -1)
 ```
 
 ## x

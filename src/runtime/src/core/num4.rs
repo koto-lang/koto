@@ -1,7 +1,7 @@
 use {
     super::iterator::collect_pair,
     crate::{
-        num4, unexpected_type_error_with_slice,
+        num4, runtime_error, unexpected_type_error_with_slice,
         value_iterator::{ValueIterator, ValueIteratorOutput as Output},
         RuntimeError, RuntimeResult, Value, ValueMap,
     },
@@ -72,6 +72,21 @@ pub fn make_module() -> ValueMap {
             (n.0 as f64 + n.1 as f64 + n.2 as f64 + n.3 as f64).into(),
         )),
         unexpected => num4_error("sum", unexpected),
+    });
+
+    result.add_fn("with", |vm, args| match vm.get_args(args) {
+        [Num4(n), Number(i), Number(value)] => {
+            let mut result = *n;
+            match usize::from(i) {
+                0 => result.0 = value.into(),
+                1 => result.1 = value.into(),
+                2 => result.2 = value.into(),
+                3 => result.3 = value.into(),
+                other => return runtime_error!("num4.with: invalid index '{}'", other),
+            }
+            Ok(Num4(result))
+        }
+        unexpected => num4_error("with", unexpected),
     });
 
     result.add_fn("r", |vm, args| match vm.get_args(args) {
