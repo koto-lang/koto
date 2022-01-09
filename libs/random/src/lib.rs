@@ -6,7 +6,7 @@ use {
         RuntimeResult, Value, ValueMap, ValueTuple,
     },
     rand::{Rng, SeedableRng},
-    rand_chacha::ChaCha20Rng,
+    rand_chacha::ChaCha8Rng,
     std::{cell::RefCell, rc::Rc},
 };
 
@@ -20,9 +20,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("generator", |vm, args| {
         match vm.get_args(args) {
             // No seed, make RNG from entropy
-            [] => Ok(ChaChaRng::make_external_value(ChaCha20Rng::from_entropy())),
+            [] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::from_entropy())),
             // RNG from seed
-            [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha20Rng::seed_from_u64(
+            [Value::Number(n)] => Ok(ChaChaRng::make_external_value(ChaCha8Rng::seed_from_u64(
                 n.to_bits(),
             ))),
             unexpected => unexpected_type_error_with_slice(
@@ -70,14 +70,14 @@ thread_local! {
         Rc::new(RefCell::new(meta))
     };
 
-    static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha20Rng::from_entropy()));
+    static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
 }
 
 #[derive(Debug)]
-struct ChaChaRng(ChaCha20Rng);
+struct ChaChaRng(ChaCha8Rng);
 
 impl ChaChaRng {
-    fn make_external_value(rng: ChaCha20Rng) -> Value {
+    fn make_external_value(rng: ChaCha8Rng) -> Value {
         let result =
             ExternalValue::with_shared_meta_map(ChaChaRng(rng), RNG_META.with(|meta| meta.clone()));
 
@@ -151,7 +151,7 @@ impl ChaChaRng {
         use Value::*;
         match args {
             [Number(n)] => {
-                self.0 = ChaCha20Rng::seed_from_u64(n.to_bits());
+                self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());
                 Ok(Empty)
             }
             unexpected => {

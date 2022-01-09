@@ -119,6 +119,8 @@ The Koto project adheres to
       ```
   - The `number2` and `number4` functions have been renamed to
     `num2` and `num4`.
+  - The number of rounds used by the generator (ChaCha) has been reduced from
+    20 to 8.
   - The random module is provided as a `ValueMap` rather than a `Value`,
     meaning that its now added to the prelude via `add_map` like other modules.
 - Map equality comparisons now don't rely on maps having keys in the same order.
