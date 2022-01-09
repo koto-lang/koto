@@ -62,24 +62,6 @@
     assert_eq x[0], 2
     assert_eq x[3], 5
 
-  @test element_mutation_num2: ||
-    x = make_num2 1, 2
-
-    x[0] = 99
-    assert_eq x, (make_num2 99, 2)
-
-    x[..] = -1
-    assert_eq x, (make_num2 -1, -1)
-
-  @test element_mutation_num4: ||
-    x = make_num4 1, 2, 3, 4
-    x[0] = -1
-    x[3] = 123
-    assert_eq x, (make_num4 -1, 2, 3, 123)
-
-    x[2..] = 99
-    assert_eq x, (make_num4 -1, 2, 99, 99)
-
   @test element_unpacking_num2: ||
     x = make_num2 1, 2
     a, b, c = x

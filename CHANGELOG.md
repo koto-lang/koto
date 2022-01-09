@@ -137,6 +137,9 @@ The Koto project adheres to
 ### Removed
 
 - The `num2` and `num4` keywords have been removed, see above.
+- Support for setting `Num2`/`Num4` elements by index (added in `0.9.0`) has
+  been removed. These value types should be treated as immutable; the `with`
+  functions can be used to create new values with modified elements.
 
 ### Fixed
 

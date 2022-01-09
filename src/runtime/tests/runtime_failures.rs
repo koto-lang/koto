@@ -38,7 +38,6 @@ mod runtime {
             #[test]
             fn iterator_consume_should_propagate_error() {
                 let script = "
-import test.assert
 (1..5)
   .each |_| assert false
   .consume()
@@ -49,7 +48,6 @@ import test.assert
             #[test]
             fn iterator_count_should_propagate_error() {
                 let script = "
-import test.assert
 (1..5)
   .each |_| assert false
   .count()
@@ -101,6 +99,28 @@ f [1, 2, 3]
             fn capturing_a_reserved_value_in_a_temporary_function() {
                 let script = "
 x = (1..10).find |n| n == x
+";
+                check_script_fails(script);
+            }
+        }
+
+        mod indexing {
+            use super::*;
+
+            #[test]
+            fn num2_mutation_via_index() {
+                let script = "
+x = make_num2 1, 2
+x[0] = -1
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn num4_mutation_via_index() {
+                let script = "
+x = make_num4 1, 2, 3, 4
+x[0] = -1
 ";
                 check_script_fails(script);
             }
