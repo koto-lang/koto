@@ -106,6 +106,19 @@ The Koto project adheres to
     functions.
   - The value provided to `list.resize` is now optional, with `()` being
     inserted when growing the list.
+- Random Library
+  - The default generator functions can now be used directly.
+    Previously they had to be used as instance functions.
+    - e.g.
+      ```koto
+      # Before
+      if random.bool() then do_x()
+      # After
+      rng_bool = import random.bool
+      if rng_bool() then do_x()
+      ```
+  - The random module is provided as a `ValueMap` rather than a `Value`,
+    meaning that its now added to the prelude via `add_map` like other modules.
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto

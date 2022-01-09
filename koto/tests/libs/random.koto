@@ -6,8 +6,9 @@ from test import assert, assert_eq, assert_ne, assert_near
     random.seed 0
 
   @test bool: ||
-    assert random.bool()
-    assert not random.bool()
+    rng_bool = import random.bool
+    assert rng_bool()
+    assert not rng_bool()
 
   @test number: ||
     assert_near random.number(), 0.024, 0.001
