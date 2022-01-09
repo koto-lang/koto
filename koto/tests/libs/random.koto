@@ -15,8 +15,8 @@ from test import assert, assert_eq, assert_ne, assert_near
     assert_near random.number(), 0.982, 0.001
 
   @test num2_num4: ||
-    assert_near random.number2(), (make_num2 0.024, 0.982), 0.001
-    assert_near random.number4(), (make_num4 0.006, 0.861, 0.823, 0.186), 0.001
+    assert_near random.num2(), (make_num2 0.024, 0.982), 0.001
+    assert_near random.num4(), (make_num4 0.006, 0.861, 0.823, 0.186), 0.001
 
   @test pick_list: ||
     x = ["foo", "bar", "baz"]

@@ -37,12 +37,12 @@ pub fn make_module() -> ValueMap {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_number())
     });
 
-    result.add_fn("number2", |_, _| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_number2())
+    result.add_fn("num2", |_, _| {
+        THREAD_RNG.with(|rng| rng.borrow_mut().gen_num2())
     });
 
-    result.add_fn("number4", |_, _| {
-        THREAD_RNG.with(|rng| rng.borrow_mut().gen_number4())
+    result.add_fn("num4", |_, _| {
+        THREAD_RNG.with(|rng| rng.borrow_mut().gen_num4())
     });
 
     result.add_fn("pick", |vm, args| {
@@ -62,8 +62,8 @@ thread_local! {
 
         meta.add_named_instance_fn_mut("bool", |rng: &mut ChaChaRng, _, _| rng.gen_bool());
         meta.add_named_instance_fn_mut("number", |rng: &mut ChaChaRng, _, _| rng.gen_number());
-        meta.add_named_instance_fn_mut("number2", |rng: &mut ChaChaRng, _, _| rng.gen_number2());
-        meta.add_named_instance_fn_mut("number4", |rng: &mut ChaChaRng, _, _| rng.gen_number4());
+        meta.add_named_instance_fn_mut("num2", |rng: &mut ChaChaRng, _, _| rng.gen_num2());
+        meta.add_named_instance_fn_mut("num4", |rng: &mut ChaChaRng, _, _| rng.gen_num4());
         meta.add_named_instance_fn_mut("pick", |rng: &mut ChaChaRng, _, args| rng.pick(args));
         meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| rng.seed(args));
 
@@ -92,12 +92,12 @@ impl ChaChaRng {
         Ok(self.0.gen::<f64>().into())
     }
 
-    fn gen_number2(&mut self) -> RuntimeResult {
+    fn gen_num2(&mut self) -> RuntimeResult {
         let result = num2::Num2(self.0.gen::<f64>(), self.0.gen::<f64>());
         Ok(Value::Num2(result))
     }
 
-    fn gen_number4(&mut self) -> RuntimeResult {
+    fn gen_num4(&mut self) -> RuntimeResult {
         let result = num4::Num4(
             self.0.gen::<f32>(),
             self.0.gen::<f32>(),
