@@ -35,6 +35,7 @@ x
 - [normalize](#normalize)
 - [product](#product)
 - [sum](#sum)
+- [with](#with)
 - [r](#r)
 - [g](#g)
 - [b](#b)
@@ -155,6 +156,22 @@ Returns the result of adding the Num4's elements together.
 x = make_num4(10, 20, 30, 40)
 x.sum()
 # 100
+```
+
+## with
+
+`|Num4, index: Number, value: Number| -> Num4`
+
+Returns a Num4 with the element at `index` replaced with `value`.
+
+### Example
+
+```koto
+x = make_num4 10, 20, 30, 40
+x.with 0, 99
+# num4(99, 20, 30, 40)
+x.with 3, -1
+# num4(10, 20, 30, -1)
 ```
 
 ## r

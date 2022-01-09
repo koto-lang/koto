@@ -182,13 +182,45 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n)] if *n >= 0.0 => {
+            l.data_mut().resize(n.into(), Empty);
+            Ok(Empty)
+        }
         [List(l), Number(n), value] if *n >= 0.0 => {
             l.data_mut().resize(n.into(), value.clone());
             Ok(Empty)
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize",
-            "a List, a non-negative Number, and Value as arguments",
+            "a List, a non-negative Number, and optional Value as arguments",
+            unexpected,
+        ),
+    });
+
+    result.add_fn("resize_with", |vm, args| match vm.get_args(args) {
+        [List(l), Number(n), f] if *n >= 0.0 && f.is_callable() => {
+            let new_size = usize::from(n);
+            let len = l.len();
+            let l = l.clone();
+            let f = f.clone();
+
+            match len.cmp(&new_size) {
+                Ordering::Greater => l.data_mut().truncate(new_size),
+                Ordering::Less => {
+                    l.data_mut().reserve(new_size);
+                    for _ in 0..new_size - len {
+                        let new_value = vm.run_function(f.clone(), CallArgs::None)?;
+                        l.data_mut().push(new_value);
+                    }
+                }
+                Ordering::Equal => {}
+            }
+
+            Ok(Empty)
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "list.resize_with",
+            "a List, a non-negative Number, and Function as arguments",
             unexpected,
         ),
     });

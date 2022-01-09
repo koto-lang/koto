@@ -20,12 +20,13 @@ The Koto project adheres to
       - `to_num2`
       - `to_num4`
       - `windows`
+    - `list.resize_with`
     - `number.round`
     - `num2`
-      - `make_num2`,
+      - `make_num2`, `with`
       - `x`, `y`
     - `num4`
-      - `make_num4`,
+      - `make_num4`, `with`
       - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
     - `os`
       - `time`
@@ -99,9 +100,29 @@ The Koto project adheres to
       @main = ||
         ...
       ```
-- The `num2` and `num4` keywords have been removed in favour of the new
-  `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
-  functions.
+- Core Library
+  - The `num2` and `num4` keywords have been removed in favour of the new
+    `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
+    functions.
+  - The value provided to `list.resize` is now optional, with `()` being
+    inserted when growing the list.
+- Random Library
+  - The default generator functions can now be used directly.
+    Previously they had to be used as instance functions.
+    - e.g.
+      ```koto
+      # Before
+      if random.bool() then do_x()
+      # After
+      rng_bool = import random.bool
+      if rng_bool() then do_x()
+      ```
+  - The `number2` and `number4` functions have been renamed to
+    `num2` and `num4`.
+  - The number of rounds used by the generator (ChaCha) has been reduced from
+    20 to 8.
+  - The random module is provided as a `ValueMap` rather than a `Value`,
+    meaning that its now added to the prelude via `add_map` like other modules.
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto
@@ -133,6 +154,9 @@ The Koto project adheres to
 ### Removed
 
 - The `num2` and `num4` keywords have been removed, see above.
+- Support for setting `Num2`/`Num4` elements by index (added in `0.9.0`) has
+  been removed. These value types should be treated as immutable; the `with`
+  functions can be used to create new values with modified elements.
 
 ### Fixed
 
