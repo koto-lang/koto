@@ -260,7 +260,7 @@ impl fmt::Display for SyntaxError {
             ExpectedAssignmentAfterMetaKey => f.write_str("Expected '=' assignment after meta key"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedCatch => f.write_str("Expected catch expression after try"),
-            ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
+            ExpectedCloseParen => f.write_str("Expected closing parenthesis ')'"),
             ExpectedElseExpression => f.write_str("Expected 'else' expression."),
             ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
             ExpectedEndOfLine => f.write_str("Expected end of line"),

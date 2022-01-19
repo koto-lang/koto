@@ -969,9 +969,24 @@ min..max
 
         #[test]
         fn tuple_in_parens() {
-            let source = "(0, 1, 0)";
-            check_ast(
-                source,
+            let sources = [
+                "(0, 1, 0)",
+                "
+( 0,
+  1,
+  0
+)
+",
+                "
+( 0
+  , 1
+  , 0
+  )
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Number0,
                     Number1,
