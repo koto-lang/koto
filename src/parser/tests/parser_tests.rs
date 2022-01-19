@@ -363,14 +363,42 @@ a
 
         #[test]
         fn list_with_line_breaks() {
-            let source = "\
+            let sources = [
+                "
 x = [
   0,
-  1, 0, 1,
+  1,
+  0,
+  1,
   0
-]";
-            check_ast(
-                source,
+]
+",
+                "
+x = [
+  0, 1,
+  0, 1,
+  0
+]
+",
+                "
+x = [ 0
+    , 1
+    , 0
+    , 1
+    , 0
+    ]
+",
+                "
+x = [
+  0 ,
+  1
+  , 0 , 1
+  , 0]
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Number0,

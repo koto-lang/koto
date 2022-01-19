@@ -67,6 +67,11 @@ x = [
 ]
 assert_eq x[1], 99
 
+y = [ 42
+    , 99
+    ]
+assert_eq x, y
+
 # Linebreaks before operators
 a = 1
   + 2 + #- inline comment -# 3

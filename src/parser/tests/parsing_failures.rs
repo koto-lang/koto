@@ -60,34 +60,12 @@ mod parser {
             }
 
             #[test]
-            fn list_end_with_incorrect_indentation() {
-                let source = "
-x = [
-  1,
-  2,
-    ]
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn map_end_with_incorrect_indentation() {
                 let source = "
 x = {
   foo: 42,
   bar: 99
     }
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
-            fn function_end_with_incorrect_indentation() {
-                let source = "
-x = |
-  x
-  y
-    | x + y
 ";
                 check_parsing_fails(source);
             }

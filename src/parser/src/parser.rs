@@ -157,17 +157,6 @@ enum Indentation {
     Equal(usize),
 }
 
-impl Indentation {
-    // Converts fixed 'equal' indentation into 'greater or equal' indentation
-    fn greater_or_equal(&self) -> Self {
-        use Indentation::*;
-        match *self {
-            Equal(indent) => GreaterOrEqual(indent),
-            other => other,
-        }
-    }
-}
-
 impl ExpressionContext {
     fn permissive() -> Self {
         Self {
@@ -202,6 +191,17 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+        }
+    }
+
+    fn with_greater_or_equal_indentation(&self) -> Self {
+        let expected_indentation = match self.expected_indentation {
+            Indentation::Equal(indent) => Indentation::GreaterOrEqual(indent),
+            other => other,
+        };
+        Self {
+            expected_indentation,
+            ..*self
         }
     }
 }
@@ -640,10 +640,7 @@ impl<'source> Parser<'source> {
             None => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        let mut context = ExpressionContext {
-            expected_indentation: context.expected_indentation.greater_or_equal(),
-            ..*context
-        };
+        let mut context = context.with_greater_or_equal_indentation();
 
         if let Some(assignment_expression) =
             self.parse_assign_expression(lhs, Scope::Local, &mut context)?
@@ -1561,9 +1558,9 @@ impl<'source> Parser<'source> {
             return internal_error!(UnexpectedToken, self);
         }
 
-        // The end brace should have the same indentation as the start brace.
+        // The end brace should have at least the same indentation as the start brace.
         if matches!(list_context.expected_indentation, Indentation::Greater) {
-            list_context.expected_indentation = Indentation::Equal(start_indent);
+            list_context.expected_indentation = Indentation::GreaterOrEqual(start_indent);
         }
 
         let mut entries = Vec::new();
@@ -1582,8 +1579,14 @@ impl<'source> Parser<'source> {
                 entries.push(entry);
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                self.consume_next_token_on_same_line();
+            if matches!(
+                self.peek_next_token(&entry_context),
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                })
+            ) {
+                self.consume_next_token(&mut entry_context);
             } else {
                 break;
             }
@@ -1591,15 +1594,11 @@ impl<'source> Parser<'source> {
 
         // Consume the list end
         if !matches!(
-            self.peek_next_token(&list_context),
-            Some(PeekInfo {
-                token: Token::SquareClose,
-                ..
-            })
+            self.consume_next_token(&mut list_context),
+            Some(Token::SquareClose)
         ) {
             return syntax_error!(ExpectedListEnd, self);
         }
-        self.consume_next_token(&mut list_context);
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
         let result = self.check_for_lookup_after_node(list_node, &list_context)?;

@@ -279,9 +279,9 @@ impl fmt::Display for SyntaxError {
             ExpectedIndentedLookupContinuation => {
                 f.write_str("Expected indented lookup continuation")
             }
-            ExpectedIndexEnd => f.write_str("Unexpected token while indexing a List, expected ']'"),
+            ExpectedIndexEnd => f.write_str("Expected index end ']'"),
             ExpectedIndexExpression => f.write_str("Expected index expression"),
-            ExpectedListEnd => f.write_str("Unexpected token while in List, expected ']'"),
+            ExpectedListEnd => f.write_str("Expected List end ']'"),
             ExpectedMapColon => f.write_str("Expected ':' after map key"),
             ExpectedMapEnd => f.write_str("Unexpected token in Map, expected '}'"),
             ExpectedMapEntry => f.write_str("Expected map entry"),
