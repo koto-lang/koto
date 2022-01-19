@@ -198,6 +198,28 @@ x =
             }
         }
 
+        mod lists {
+            use super::*;
+
+            #[test]
+            fn double_comma() {
+                let source = "x = [1, 2, , 3]";
+
+                check_parsing_fails(source);
+            }
+        }
+
+        mod tuples {
+            use super::*;
+
+            #[test]
+            fn double_comma() {
+                let source = "x = (1, 2, , 3)";
+
+                check_parsing_fails(source);
+            }
+        }
+
         mod match_expressions {
             use super::*;
 

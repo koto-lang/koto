@@ -1565,8 +1565,9 @@ impl<'source> Parser<'source> {
         }
 
         let mut entries = Vec::new();
-
         let mut entry_context = ExpressionContext::permissive();
+        let mut last_token_was_a_comma = false;
+
         while !matches!(
             self.peek_next_token(&entry_context),
             Some(PeekInfo {
@@ -1578,6 +1579,7 @@ impl<'source> Parser<'source> {
 
             if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
                 entries.push(entry);
+                last_token_was_a_comma = false;
             }
 
             if matches!(
@@ -1588,6 +1590,12 @@ impl<'source> Parser<'source> {
                 })
             ) {
                 self.consume_next_token(&mut entry_context);
+
+                if last_token_was_a_comma {
+                    return syntax_error!(UnexpectedToken, self);
+                }
+
+                last_token_was_a_comma = true;
             } else {
                 break;
             }
@@ -2554,7 +2562,7 @@ impl<'source> Parser<'source> {
         let mut tuple_context = context.with_greater_or_equal_indentation(start_indent);
 
         let mut expressions = vec![];
-        let mut encountered_comma = false;
+        let mut last_token_was_a_comma = false;
         while !matches!(
             self.peek_next_token(&tuple_context),
             Some(PeekInfo {
@@ -2566,6 +2574,7 @@ impl<'source> Parser<'source> {
 
             if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
                 expressions.push(entry);
+                last_token_was_a_comma = false;
             }
 
             if matches!(
@@ -2576,15 +2585,19 @@ impl<'source> Parser<'source> {
                 })
             ) {
                 self.consume_next_token(&mut tuple_context);
-                encountered_comma = true;
+
+                if last_token_was_a_comma {
+                    return syntax_error!(UnexpectedToken, self);
+                }
+                last_token_was_a_comma = true;
             } else {
                 break;
             }
         }
 
         let expressions_node = match expressions.as_slice() {
-            [] if !encountered_comma => self.push_node(Node::Empty)?,
-            [single_expression] if !encountered_comma => {
+            [] if !last_token_was_a_comma => self.push_node(Node::Empty)?,
+            [single_expression] if !last_token_was_a_comma => {
                 self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
             _ => self.push_node_with_start_span(Node::Tuple(expressions), start_span)?,
