@@ -17,6 +17,7 @@ pub enum Token {
     CommentMulti,
     Number,
     Id,
+    Wildcard,
 
     SingleQuote,
     DoubleQuote,
@@ -36,7 +37,6 @@ pub enum Token {
     SquareClose,
     CurlyOpen,
     CurlyClose,
-    Wildcard,
     Range,
     RangeInclusive,
 
@@ -497,6 +497,18 @@ impl<'a> TokenLexer<'a> {
         Token::Id
     }
 
+    fn consume_wildcard(&mut self, mut chars: Peekable<Chars>) -> Token {
+        // The _ has already been matched
+        let c = chars.next().unwrap();
+
+        let (char_bytes, char_count) = consume_and_count_utf8(&mut chars, is_id_continue);
+        let char_bytes = c.len_utf8() + char_bytes;
+        let char_count = 1 + char_count;
+
+        self.advance_line_utf8(char_bytes, char_count);
+        Token::Wildcard
+    }
+
     fn consume_symbol(&mut self, remaining: &str) -> Option<Token> {
         use Token::*;
 
@@ -547,7 +559,6 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("]", SquareClose);
         check_symbol!("{", CurlyOpen);
         check_symbol!("}", CurlyClose);
-        check_symbol!("_", Wildcard);
 
         None
     }
@@ -617,6 +628,7 @@ impl<'a> TokenLexer<'a> {
                         }
                         '0'..='9' => self.consume_number(chars),
                         c if is_id_start(c) => self.consume_id_or_keyword(chars),
+                        '_' => self.consume_wildcard(chars),
                         _ => {
                             let result = self.consume_symbol(remaining).unwrap_or(Error);
 
@@ -927,7 +939,7 @@ mod tests {
 
     #[test]
     fn ids() {
-        let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _";
+        let input = "id id1 id_2 i_d_3 ïd_ƒôûr if iff _ _foo";
         check_lexer_output(
             input,
             &[
@@ -938,7 +950,8 @@ mod tests {
                 (Id, Some("ïd_ƒôûr"), 1),
                 (If, None, 1),
                 (Id, Some("iff"), 1),
-                (Wildcard, None, 1),
+                (Wildcard, Some("_"), 1),
+                (Wildcard, Some("_foo"), 1),
             ],
         );
     }

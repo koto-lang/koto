@@ -599,7 +599,7 @@ impl Compiler {
             Node::Ellipsis(_) => {
                 return compiler_error!(self, "Ellipsis found outside of match patterns")
             }
-            Node::Wildcard => None,
+            Node::Wildcard(_) => None,
             Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
                 self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
@@ -829,7 +829,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Local(*id_index)),
-                Node::Wildcard => result.push(Arg::Placeholder),
+                Node::Wildcard(_) => result.push(Arg::Placeholder),
                 Node::List(nested) | Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
@@ -854,7 +854,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Unpacked(*id_index)),
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 Node::List(nested_args) | Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
@@ -879,7 +879,7 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         for (arg_index, arg) in args.iter().enumerate() {
             match &ast.node(*arg).node {
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(
@@ -966,7 +966,7 @@ impl Compiler {
         let result = match self.scope_for_assign_target(target) {
             Scope::Local => match &ast.node(target.target_index).node {
                 Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
-                Node::Lookup(_) | Node::Wildcard => None,
+                Node::Lookup(_) | Node::Wildcard(_) => None,
                 unexpected => {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
                 }
@@ -1066,7 +1066,7 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register.register)?;
             }
-            Node::Wildcard => {}
+            Node::Wildcard(_) => {}
             unexpected => {
                 return compiler_error!(self, "Expected Lookup or Id in AST, found {}", unexpected)
             }
@@ -1151,7 +1151,7 @@ impl Compiler {
 
                     self.pop_register()?;
                 }
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 unexpected => {
                     return compiler_error!(
                         self,
@@ -3014,7 +3014,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard => Some(vec![*arm_pattern]),
+                Node::Wildcard(_) => Some(vec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return compiler_error!(
@@ -3180,7 +3180,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard => {
+                Node::Wildcard(_) => {
                     if is_last_pattern && !params.is_last_alternative {
                         // Wildcards match unconditionally, so if we're at the end of a
                         // multi-expression pattern, skip over the remaining alternatives

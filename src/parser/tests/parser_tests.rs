@@ -1237,13 +1237,13 @@ x";
 
         #[test]
         fn multi_1_to_3_with_wildcard() {
-            let source = "x, _, y = f()";
+            let source = "x, _, _y = f()";
             check_ast(
                 source,
                 &[
                     Id(constant(0)),
-                    Wildcard,
-                    Id(constant(1)),
+                    Wildcard(None),
+                    Wildcard(Some(constant(1))),
                     Id(constant(2)),
                     Lookup((
                         LookupNode::Call {
@@ -1272,7 +1272,7 @@ x";
                     },
                     MainBlock {
                         body: vec![6],
-                        local_count: 2,
+                        local_count: 1,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
@@ -3203,23 +3203,23 @@ y z";
         #[test]
         fn unpack_call_args_tuple() {
             let source = "
-|a, (_, (c, d)), e|
+|a, (_, (c, _d)), _e|
   a
 ";
             check_ast(
                 source,
                 &[
                     Id(constant(0)), // a
-                    Wildcard,
+                    Wildcard(None),
                     Id(constant(1)), // c
-                    Id(constant(2)), // d
+                    Wildcard(Some(constant(2))), // d
                     Tuple(vec![2, 3]),
                     Tuple(vec![1, 4]), // 5
-                    Id(constant(3)),   // e
+                    Wildcard(Some(constant(3))),   // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
                         args: vec![0, 5, 6],
-                        local_count: 4,
+                        local_count: 2,
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
@@ -3243,23 +3243,23 @@ y z";
         #[test]
         fn unpack_call_args_list() {
             let source = "
-|a, [_, [c, d]], e|
+|a, [_, [c, _d]], e|
   a
 ";
             check_ast(
                 source,
                 &[
                     Id(constant(0)), // a
-                    Wildcard,
+                    Wildcard(None),
                     Id(constant(1)), // c
-                    Id(constant(2)), // d
+                    Wildcard(Some(constant(2))), // d
                     List(vec![2, 3]),
                     List(vec![1, 4]), // 5
                     Id(constant(3)),  // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
                         args: vec![0, 5, 6],
-                        local_count: 4,
+                        local_count: 3,
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
@@ -4497,7 +4497,7 @@ match x
             let source = r#"
 match (x, y, z)
   (0, a, _) then a
-  (_, (0, b), _) then 0
+  (_, (0, b), _foo) then 0
 "#;
             check_ast(
                 source,
@@ -4508,14 +4508,14 @@ match (x, y, z)
                     Tuple(vec![0, 1, 2]),
                     Number0,
                     Id(constant(3)), // 5
-                    Wildcard,
+                    Wildcard(None),
                     Tuple(vec![4, 5, 6]),
                     Id(constant(3)),
-                    Wildcard,
+                    Wildcard(None),
                     Number0, // 10
                     Id(constant(4)),
                     Tuple(vec![10, 11]),
-                    Wildcard,
+                    Wildcard(Some(constant(5))),
                     Tuple(vec![9, 12, 13]),
                     Number0, // 15
                     Match {
@@ -4544,6 +4544,7 @@ match (x, y, z)
                     Constant::Str("z"),
                     Constant::Str("a"),
                     Constant::Str("b"),
+                    Constant::Str("foo"),
                 ]),
             )
         }

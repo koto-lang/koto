@@ -199,10 +199,13 @@ pub enum Node {
     /// A switch expression
     Switch(Vec<SwitchArm>),
 
-    /// The `_` operator
+    /// A `_` identifier
     ///
-    /// Used as a placeholder for unused function arguments or ignored unpacked values.
-    Wildcard,
+    /// Used as a placeholder for unused function arguments or unpacked values, or as a wildcard
+    /// in match expressions.
+    ///
+    /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
+    Wildcard(Option<ConstantIndex>),
 
     /// The `...` operator
     ///
@@ -303,7 +306,7 @@ impl fmt::Display for Node {
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
             Switch { .. } => write!(f, "Switch"),
-            Wildcard => write!(f, "Wildcard"),
+            Wildcard(_) => write!(f, "Wildcard"),
             Ellipsis(_) => write!(f, "Ellipsis"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
