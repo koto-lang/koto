@@ -73,6 +73,8 @@ The Koto project adheres to
     # (1, 2, 3)
     ```
 - Num2 and Num4 values can now be iterated over in a for loop.
+- Empty tuples can be declared by including a trailing comma in parentheses,
+  e.g. `(,)`.
 
 ### Changed
 
@@ -147,6 +149,15 @@ The Koto project adheres to
   bodies need to use `then`.
   - This reverts a change made in `0.9.0`, in practice it's less distracting to
     have `then` required in all arms.
+- Parsing of multi-line containers is now more flexible.
+  - e.g.
+    ```koto
+    # The following style of list declaration was previously disallowed
+    x = [ 1
+        , 2
+        , 3
+        ]
+    ```
 - Internals
   - `ExternalIterator` has been renamed to `KotoIterator`.
   - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
