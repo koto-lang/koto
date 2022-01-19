@@ -562,61 +562,61 @@ impl<'a> TokenLexer<'a> {
 
                 let string_mode = self.string_mode_stack.last().cloned();
 
-                match string_mode {
+                let result = match string_mode {
                     Some(StringMode::Literal(quote)) => match next_char {
                         '"' if quote == '"' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
-                            Some(DoubleQuote)
+                            DoubleQuote
                         }
                         '\'' if quote == '\'' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
-                            Some(SingleQuote)
+                            SingleQuote
                         }
                         '$' => {
                             self.advance_line(1);
                             self.string_mode_stack.push(StringMode::TemplateStart);
-                            Some(Dollar)
+                            Dollar
                         }
-                        _ => Some(self.consume_string_literal(chars)),
+                        _ => self.consume_string_literal(chars),
                     },
                     Some(StringMode::TemplateStart) => match next_char {
                         _ if is_id_start(next_char) => match self.consume_id_or_keyword(chars) {
                             Id => {
                                 self.string_mode_stack.pop();
-                                Some(Id)
+                                Id
                             }
-                            _ => Some(Error),
+                            _ => Error,
                         },
                         '{' => {
                             self.advance_line(1);
                             self.string_mode_stack.pop();
                             self.string_mode_stack.push(StringMode::TemplateExpression);
-                            Some(CurlyOpen)
+                            CurlyOpen
                         }
-                        _ => Some(Error),
+                        _ => Error,
                     },
                     _ => match next_char {
                         c if is_whitespace(c) => {
                             let count = consume_and_count(&mut chars, is_whitespace);
                             self.advance_line(count);
-                            Some(Whitespace)
+                            Whitespace
                         }
-                        '\r' | '\n' => Some(self.consume_newline(chars)),
-                        '#' => Some(self.consume_comment(chars)),
+                        '\r' | '\n' => self.consume_newline(chars),
+                        '#' => self.consume_comment(chars),
                         '"' => {
                             self.advance_line(1);
                             self.string_mode_stack.push(StringMode::Literal('"'));
-                            Some(DoubleQuote)
+                            DoubleQuote
                         }
                         '\'' => {
                             self.advance_line(1);
                             self.string_mode_stack.push(StringMode::Literal('\''));
-                            Some(SingleQuote)
+                            SingleQuote
                         }
-                        '0'..='9' => Some(self.consume_number(chars)),
-                        c if is_id_start(c) => Some(self.consume_id_or_keyword(chars)),
+                        '0'..='9' => self.consume_number(chars),
+                        c if is_id_start(c) => self.consume_id_or_keyword(chars),
                         _ => {
                             let result = self.consume_symbol(remaining).unwrap_or(Error);
 
@@ -638,10 +638,12 @@ impl<'a> TokenLexer<'a> {
                                 _ => {}
                             }
 
-                            Some(result)
+                            result
                         }
                     },
-                }
+                };
+
+                Some(result)
             }
             _ => None,
         };
