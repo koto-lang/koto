@@ -3498,9 +3498,26 @@ x.foo
 
         #[test]
         fn map_lookup_in_list() {
-            let source = "[m.foo, m.bar]";
-            check_ast(
-                source,
+            let sources = [
+                "[my_map.foo, my_map.bar]",
+                "
+[
+  my_map
+    .foo
+  ,
+  my_map
+    .bar
+]
+",
+                "
+[ my_map.foo,
+  my_map
+    .bar
+]
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Lookup((LookupNode::Id(constant(1)), None)),
@@ -3515,7 +3532,7 @@ x.foo
                     },
                 ],
                 Some(&[
-                    Constant::Str("m"),
+                    Constant::Str("my_map"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                 ]),

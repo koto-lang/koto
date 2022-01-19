@@ -1575,7 +1575,7 @@ impl<'source> Parser<'source> {
         ) {
             self.consume_until_next_token(&mut entry_context);
 
-            if let Some(entry) = self.parse_expression(&mut ExpressionContext::inline())? {
+            if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
                 entries.push(entry);
             }
 
