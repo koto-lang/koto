@@ -968,6 +968,22 @@ min..max
         }
 
         #[test]
+        fn empty_tuple() {
+            let source = "(,)";
+            check_ast(
+                source,
+                &[
+                    Tuple(vec![]),
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
         fn tuple_in_parens() {
             let sources = [
                 "(0, 1, 0)",

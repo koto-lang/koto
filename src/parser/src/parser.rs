@@ -2583,7 +2583,7 @@ impl<'source> Parser<'source> {
         }
 
         let expressions_node = match expressions.as_slice() {
-            [] => self.push_node(Node::Empty)?,
+            [] if !encountered_comma => self.push_node(Node::Empty)?,
             [single_expression] if !encountered_comma => {
                 self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
