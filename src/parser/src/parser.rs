@@ -157,17 +157,6 @@ enum Indentation {
     Equal(usize),
 }
 
-impl Indentation {
-    // Converts fixed 'equal' indentation into 'greater or equal' indentation
-    fn greater_or_equal(&self) -> Self {
-        use Indentation::*;
-        match *self {
-            Equal(indent) => GreaterOrEqual(indent),
-            other => other,
-        }
-    }
-}
-
 impl ExpressionContext {
     fn permissive() -> Self {
         Self {
@@ -202,6 +191,13 @@ impl ExpressionContext {
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
             expected_indentation: Indentation::Greater,
+        }
+    }
+
+    fn with_greater_or_equal_indentation(&self, indent: usize) -> Self {
+        Self {
+            expected_indentation: Indentation::GreaterOrEqual(indent),
+            ..*self
         }
     }
 }
@@ -640,10 +636,12 @@ impl<'source> Parser<'source> {
             None => return internal_error!(MissingContinuedExpressionLhs, self),
         };
 
-        let mut context = ExpressionContext {
-            expected_indentation: context.expected_indentation.greater_or_equal(),
-            ..*context
-        };
+        let mut context = *context;
+        if let Indentation::Equal(indent) = context.expected_indentation {
+            // If the expression already has some expected indentation,
+            // allow the indentation to increase
+            context.expected_indentation = Indentation::GreaterOrEqual(indent)
+        }
 
         if let Some(assignment_expression) =
             self.parse_assign_expression(lhs, Scope::Local, &mut context)?
@@ -1561,14 +1559,15 @@ impl<'source> Parser<'source> {
             return internal_error!(UnexpectedToken, self);
         }
 
-        // The end brace should have the same indentation as the start brace.
+        // The end brace should have at least the same indentation as the start brace.
         if matches!(list_context.expected_indentation, Indentation::Greater) {
-            list_context.expected_indentation = Indentation::Equal(start_indent);
+            list_context.expected_indentation = Indentation::GreaterOrEqual(start_indent);
         }
 
         let mut entries = Vec::new();
-
         let mut entry_context = ExpressionContext::permissive();
+        let mut last_token_was_a_comma = false;
+
         while !matches!(
             self.peek_next_token(&entry_context),
             Some(PeekInfo {
@@ -1578,12 +1577,25 @@ impl<'source> Parser<'source> {
         ) {
             self.consume_until_next_token(&mut entry_context);
 
-            if let Some(entry) = self.parse_expression(&mut ExpressionContext::inline())? {
+            if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
                 entries.push(entry);
+                last_token_was_a_comma = false;
             }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                self.consume_next_token_on_same_line();
+            if matches!(
+                self.peek_next_token(&entry_context),
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                })
+            ) {
+                self.consume_next_token(&mut entry_context);
+
+                if last_token_was_a_comma {
+                    return syntax_error!(UnexpectedToken, self);
+                }
+
+                last_token_was_a_comma = true;
             } else {
                 break;
             }
@@ -1591,15 +1603,11 @@ impl<'source> Parser<'source> {
 
         // Consume the list end
         if !matches!(
-            self.peek_next_token(&list_context),
-            Some(PeekInfo {
-                token: Token::SquareClose,
-                ..
-            })
+            self.consume_next_token(&mut list_context),
+            Some(Token::SquareClose)
         ) {
             return syntax_error!(ExpectedListEnd, self);
         }
-        self.consume_next_token(&mut list_context);
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
         let result = self.check_for_lookup_after_node(list_node, &list_context)?;
@@ -1699,16 +1707,9 @@ impl<'source> Parser<'source> {
 
         let mut map_end_context = ExpressionContext::permissive();
         map_end_context.expected_indentation = Indentation::Equal(start_indent);
-        if !matches!(
-            self.peek_next_token(&map_end_context),
-            Some(PeekInfo {
-                token: Token::CurlyClose,
-                ..
-            })
-        ) {
+        if self.consume_next_token(&mut map_end_context) != Some(Token::CurlyClose) {
             return syntax_error!(ExpectedMapEnd, self);
         }
-        self.consume_next_token(&mut map_end_context);
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
         let result = self.check_for_lookup_after_node(map_node, context)?;
@@ -1717,13 +1718,15 @@ impl<'source> Parser<'source> {
 
     fn parse_comma_separated_map_entries(
         &mut self,
-        context: &mut ExpressionContext,
+        map_context: &ExpressionContext,
         allow_valueless_entries: bool,
     ) -> Result<Vec<(MapKey, Option<AstIndex>)>, ParserError> {
         let mut entries = Vec::new();
+        let mut entry_context =
+            map_context.with_greater_or_equal_indentation(self.current_indent());
 
-        while self.peek_next_token(context).is_some() {
-            self.consume_until_next_token(context);
+        while self.peek_next_token(&entry_context).is_some() {
+            self.consume_until_next_token(&mut entry_context);
 
             if let Some(key) = self.parse_map_key()? {
                 if self.peek_token() == Some(Token::Colon) {
@@ -1746,8 +1749,14 @@ impl<'source> Parser<'source> {
                     return syntax_error!(ExpectedMapValue, self);
                 }
 
-                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                    self.consume_next_token_on_same_line();
+                if matches!(
+                    self.peek_next_token(&entry_context),
+                    Some(PeekInfo {
+                        token: Token::Comma,
+                        ..
+                    })
+                ) {
+                    self.consume_next_token(&mut entry_context);
                 } else {
                     break;
                 }
@@ -2532,43 +2541,69 @@ impl<'source> Parser<'source> {
         }
     }
 
+    // Parses expressions contained in round parentheses
+    // The result may be:
+    //   - Empty
+    //   - A single value
+    //   - A comma-separated tuple
     fn parse_nested_expressions(
         &mut self,
         context: &mut ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
         use Token::*;
 
+        let start_indent = self.current_indent();
+        let start_span = self.current_span();
+
         if self.consume_next_token(context) != Some(RoundOpen) {
             return internal_error!(UnexpectedToken, self);
         }
 
-        let expression_context = ExpressionContext {
-            allow_space_separated_call: true,
-            ..*context
-        };
-        let mut expressions = vec![];
-        let mut encountered_comma = false;
-        while let Some(expression) = self.parse_expression(&mut expression_context.clone())? {
-            expressions.push(expression);
+        let mut tuple_context = context.with_greater_or_equal_indentation(start_indent);
 
-            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                self.consume_next_token_on_same_line();
-                encountered_comma = true;
+        let mut expressions = vec![];
+        let mut last_token_was_a_comma = false;
+        while !matches!(
+            self.peek_next_token(&tuple_context),
+            Some(PeekInfo {
+                token: Token::RoundClose,
+                ..
+            }) | None
+        ) {
+            self.consume_until_next_token(&mut tuple_context);
+
+            if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
+                expressions.push(entry);
+                last_token_was_a_comma = false;
+            }
+
+            if matches!(
+                self.peek_next_token(&tuple_context),
+                Some(PeekInfo {
+                    token: Token::Comma,
+                    ..
+                })
+            ) {
+                self.consume_next_token(&mut tuple_context);
+
+                if last_token_was_a_comma {
+                    return syntax_error!(UnexpectedToken, self);
+                }
+                last_token_was_a_comma = true;
             } else {
                 break;
             }
         }
 
         let expressions_node = match expressions.as_slice() {
-            [] => self.push_node(Node::Empty)?,
-            [single_expression] if !encountered_comma => {
-                self.push_node(Node::Nested(*single_expression))?
+            [] if !last_token_was_a_comma => self.push_node(Node::Empty)?,
+            [single_expression] if !last_token_was_a_comma => {
+                self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
-            _ => self.push_node(Node::Tuple(expressions))?,
+            _ => self.push_node_with_start_span(Node::Tuple(expressions), start_span)?,
         };
 
-        if let Some(RoundClose) = self.peek_token() {
-            self.consume_token();
+        if let Some(RoundClose) = self.consume_next_token(&mut tuple_context) {
             let result = self.check_for_lookup_after_node(expressions_node, context)?;
             Ok(Some(result))
         } else {

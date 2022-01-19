@@ -260,7 +260,7 @@ impl fmt::Display for SyntaxError {
             ExpectedAssignmentAfterMetaKey => f.write_str("Expected '=' assignment after meta key"),
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedCatch => f.write_str("Expected catch expression after try"),
-            ExpectedCloseParen => f.write_str("Expected closing parenthesis"),
+            ExpectedCloseParen => f.write_str("Expected closing parenthesis ')'"),
             ExpectedElseExpression => f.write_str("Expected 'else' expression."),
             ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
             ExpectedEndOfLine => f.write_str("Expected end of line"),
@@ -279,9 +279,9 @@ impl fmt::Display for SyntaxError {
             ExpectedIndentedLookupContinuation => {
                 f.write_str("Expected indented lookup continuation")
             }
-            ExpectedIndexEnd => f.write_str("Unexpected token while indexing a List, expected ']'"),
+            ExpectedIndexEnd => f.write_str("Expected index end ']'"),
             ExpectedIndexExpression => f.write_str("Expected index expression"),
-            ExpectedListEnd => f.write_str("Unexpected token while in List, expected ']'"),
+            ExpectedListEnd => f.write_str("Expected List end ']'"),
             ExpectedMapColon => f.write_str("Expected ':' after map key"),
             ExpectedMapEnd => f.write_str("Unexpected token in Map, expected '}'"),
             ExpectedMapEntry => f.write_str("Expected map entry"),

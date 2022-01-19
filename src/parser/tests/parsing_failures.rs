@@ -60,39 +60,6 @@ mod parser {
             }
 
             #[test]
-            fn list_end_with_incorrect_indentation() {
-                let source = "
-x = [
-  1,
-  2,
-    ]
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
-            fn map_end_with_incorrect_indentation() {
-                let source = "
-x = {
-  foo: 42,
-  bar: 99
-    }
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
-            fn function_end_with_incorrect_indentation() {
-                let source = "
-x = |
-  x
-  y
-    | x + y
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn else_at_same_indentation_as_if_body() {
                 let source = "
 if f x
@@ -227,6 +194,28 @@ x =
   bar: 1, 2, 3
   baz: 99
 ";
+                check_parsing_fails(source);
+            }
+        }
+
+        mod lists {
+            use super::*;
+
+            #[test]
+            fn double_comma() {
+                let source = "x = [1, 2, , 3]";
+
+                check_parsing_fails(source);
+            }
+        }
+
+        mod tuples {
+            use super::*;
+
+            #[test]
+            fn double_comma() {
+                let source = "x = (1, 2, , 3)";
+
                 check_parsing_fails(source);
             }
         }

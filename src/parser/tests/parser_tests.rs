@@ -308,9 +308,13 @@ a
                 Some(&[Constant::F64(-12.0), Constant::Str("a"), Constant::Str("x")]),
             )
         }
+    }
+
+    mod lists {
+        use super::*;
 
         #[test]
-        fn list() {
+        fn basic_lists() {
             let source = r#"
 [0, n, "test", n, -1]
 []
@@ -335,7 +339,7 @@ a
         }
 
         #[test]
-        fn list_nested() {
+        fn nested_list() {
             let source = r#"
 [0, [1, -1], 2]
 "#;
@@ -359,14 +363,42 @@ a
 
         #[test]
         fn list_with_line_breaks() {
-            let source = "\
+            let sources = [
+                "
 x = [
   0,
-  1, 0, 1,
+  1,
+  0,
+  1,
   0
-]";
-            check_ast(
-                source,
+]
+",
+                "
+x = [
+  0, 1,
+  0, 1,
+  0
+]
+",
+                "
+x = [ 0
+    , 1
+    , 0
+    , 1
+    , 0
+    ]
+",
+                "
+x = [
+  0 ,
+  1
+  , 0 , 1
+  , 0]
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Number0,
@@ -391,31 +423,64 @@ x = [
                 Some(&[Constant::Str("x")]),
             )
         }
+    }
+
+    mod maps {
+        use super::*;
 
         #[test]
         fn map_inline() {
-            let source = r#"
+            let sources = [
+                "
 {}
-{"foo": 42, bar, baz: "hello", @+: 99}"#;
-            check_ast(
-                source,
+x = {'foo': 42, bar, baz: 'hello', @+: 99}",
+                "
+{
+}
+x = { 'foo': 42
+  , bar
+  , baz: 'hello'
+  , @+: 99
+}
+",
+                "
+{ }
+x =
+  { 'foo': 42, bar
+    , baz: 'hello'
+    , @+: 99
+    }
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Map(vec![]),
-                    Int(constant(1)),
-                    string_literal(4, QuotationMark::Double),
-                    Int(constant(5)),
+                    Id(constant(0)),
+                    Int(constant(2)),
+                    string_literal(5, QuotationMark::Single),
+                    Int(constant(6)),
                     Map(vec![
-                        (string_literal_map_key(0, QuotationMark::Double), Some(1)),
-                        (MapKey::Id(constant(2)), None),
-                        (MapKey::Id(constant(3)), Some(2)),
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(3)),
-                    ]),
+                        (string_literal_map_key(1, QuotationMark::Single), Some(2)),
+                        (MapKey::Id(constant(3)), None),
+                        (MapKey::Id(constant(4)), Some(3)),
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
+                    ]), // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
                     MainBlock {
-                        body: vec![0, 4],
-                        local_count: 0,
+                        body: vec![0, 6],
+                        local_count: 1,
                     },
                 ],
                 Some(&[
+                    Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::I64(42),
                     Constant::Str("bar"),
@@ -689,6 +754,10 @@ x =
                 Some(&[Constant::Str("foo")]),
             )
         }
+    }
+
+    mod ranges {
+        use super::*;
 
         #[test]
         fn ranges_from_literals() {
@@ -836,7 +905,7 @@ min..max
         }
 
         #[test]
-        fn lists_from_ranges() {
+        fn ranges_in_lists() {
             let source = "\
 [0..1]
 [0..10, 10..=0]";
@@ -874,6 +943,10 @@ min..max
                 Some(&[Constant::I64(10)]),
             )
         }
+    }
+
+    mod tuples {
+        use super::*;
 
         #[test]
         fn tuple() {
@@ -895,10 +968,41 @@ min..max
         }
 
         #[test]
-        fn tuple_in_parens() {
-            let source = "(0, 1, 0)";
+        fn empty_tuple() {
+            let source = "(,)";
             check_ast(
                 source,
+                &[
+                    Tuple(vec![]),
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn tuple_in_parens() {
+            let sources = [
+                "(0, 1, 0)",
+                "
+( 0,
+  1,
+  0
+)
+",
+                "
+( 0
+  , 1
+  , 0
+  )
+",
+            ];
+
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Number0,
                     Number1,
@@ -3454,9 +3558,26 @@ x.foo
 
         #[test]
         fn map_lookup_in_list() {
-            let source = "[m.foo, m.bar]";
-            check_ast(
-                source,
+            let sources = [
+                "[my_map.foo, my_map.bar]",
+                "
+[
+  my_map
+    .foo
+  ,
+  my_map
+    .bar
+]
+",
+                "
+[ my_map.foo,
+  my_map
+    .bar
+]
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Lookup((LookupNode::Id(constant(1)), None)),
@@ -3471,7 +3592,7 @@ x.foo
                     },
                 ],
                 Some(&[
-                    Constant::Str("m"),
+                    Constant::Str("my_map"),
                     Constant::Str("foo"),
                     Constant::Str("bar"),
                 ]),
