@@ -308,9 +308,13 @@ a
                 Some(&[Constant::F64(-12.0), Constant::Str("a"), Constant::Str("x")]),
             )
         }
+    }
+
+    mod lists {
+        use super::*;
 
         #[test]
-        fn list() {
+        fn basic_lists() {
             let source = r#"
 [0, n, "test", n, -1]
 []
@@ -335,7 +339,7 @@ a
         }
 
         #[test]
-        fn list_nested() {
+        fn nested_list() {
             let source = r#"
 [0, [1, -1], 2]
 "#;
@@ -391,6 +395,10 @@ x = [
                 Some(&[Constant::Str("x")]),
             )
         }
+    }
+
+    mod maps {
+        use super::*;
 
         #[test]
         fn map_inline() {
@@ -689,6 +697,10 @@ x =
                 Some(&[Constant::Str("foo")]),
             )
         }
+    }
+
+    mod ranges {
+        use super::*;
 
         #[test]
         fn ranges_from_literals() {
@@ -836,7 +848,7 @@ min..max
         }
 
         #[test]
-        fn lists_from_ranges() {
+        fn ranges_in_lists() {
             let source = "\
 [0..1]
 [0..10, 10..=0]";
@@ -874,6 +886,10 @@ min..max
                 Some(&[Constant::I64(10)]),
             )
         }
+    }
+
+    mod tuples {
+        use super::*;
 
         #[test]
         fn tuple() {
