@@ -430,28 +430,57 @@ x = [
 
         #[test]
         fn map_inline() {
-            let source = r#"
+            let sources = [
+                "
 {}
-{"foo": 42, bar, baz: "hello", @+: 99}"#;
-            check_ast(
-                source,
+x = {'foo': 42, bar, baz: 'hello', @+: 99}",
+                "
+{
+}
+x = { 'foo': 42
+  , bar
+  , baz: 'hello'
+  , @+: 99
+}
+",
+                "
+{ }
+x =
+  { 'foo': 42, bar
+    , baz: 'hello'
+    , @+: 99
+    }
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Map(vec![]),
-                    Int(constant(1)),
-                    string_literal(4, QuotationMark::Double),
-                    Int(constant(5)),
+                    Id(constant(0)),
+                    Int(constant(2)),
+                    string_literal(5, QuotationMark::Single),
+                    Int(constant(6)),
                     Map(vec![
-                        (string_literal_map_key(0, QuotationMark::Double), Some(1)),
-                        (MapKey::Id(constant(2)), None),
-                        (MapKey::Id(constant(3)), Some(2)),
-                        (MapKey::Meta(MetaKeyId::Add, None), Some(3)),
-                    ]),
+                        (string_literal_map_key(1, QuotationMark::Single), Some(2)),
+                        (MapKey::Id(constant(3)), None),
+                        (MapKey::Id(constant(4)), Some(3)),
+                        (MapKey::Meta(MetaKeyId::Add, None), Some(4)),
+                    ]), // 5
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 5,
+                    },
                     MainBlock {
-                        body: vec![0, 4],
-                        local_count: 0,
+                        body: vec![0, 6],
+                        local_count: 1,
                     },
                 ],
                 Some(&[
+                    Constant::Str("x"),
                     Constant::Str("foo"),
                     Constant::I64(42),
                     Constant::Str("bar"),

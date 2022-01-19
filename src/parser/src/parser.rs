@@ -1698,16 +1698,9 @@ impl<'source> Parser<'source> {
 
         let mut map_end_context = ExpressionContext::permissive();
         map_end_context.expected_indentation = Indentation::Equal(start_indent);
-        if !matches!(
-            self.peek_next_token(&map_end_context),
-            Some(PeekInfo {
-                token: Token::CurlyClose,
-                ..
-            })
-        ) {
+        if self.consume_next_token(&mut map_end_context) != Some(Token::CurlyClose) {
             return syntax_error!(ExpectedMapEnd, self);
         }
-        self.consume_next_token(&mut map_end_context);
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
         let result = self.check_for_lookup_after_node(map_node, context)?;
@@ -1716,13 +1709,14 @@ impl<'source> Parser<'source> {
 
     fn parse_comma_separated_map_entries(
         &mut self,
-        context: &mut ExpressionContext,
+        map_context: &ExpressionContext,
         allow_valueless_entries: bool,
     ) -> Result<Vec<(MapKey, Option<AstIndex>)>, ParserError> {
         let mut entries = Vec::new();
+        let mut entry_context = map_context.with_greater_or_equal_indentation();
 
-        while self.peek_next_token(context).is_some() {
-            self.consume_until_next_token(context);
+        while self.peek_next_token(&entry_context).is_some() {
+            self.consume_until_next_token(&mut entry_context);
 
             if let Some(key) = self.parse_map_key()? {
                 if self.peek_token() == Some(Token::Colon) {
@@ -1745,8 +1739,14 @@ impl<'source> Parser<'source> {
                     return syntax_error!(ExpectedMapValue, self);
                 }
 
-                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                    self.consume_next_token_on_same_line();
+                if matches!(
+                    self.peek_next_token(&entry_context),
+                    Some(PeekInfo {
+                        token: Token::Comma,
+                        ..
+                    })
+                ) {
+                    self.consume_next_token(&mut entry_context);
                 } else {
                     break;
                 }

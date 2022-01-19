@@ -60,17 +60,6 @@ mod parser {
             }
 
             #[test]
-            fn map_end_with_incorrect_indentation() {
-                let source = "
-x = {
-  foo: 42,
-  bar: 99
-    }
-";
-                check_parsing_fails(source);
-            }
-
-            #[test]
             fn else_at_same_indentation_as_if_body() {
                 let source = "
 if f x
