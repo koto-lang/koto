@@ -599,7 +599,7 @@ impl Compiler {
             Node::Ellipsis(_) => {
                 return compiler_error!(self, "Ellipsis found outside of match patterns")
             }
-            Node::Wildcard => None,
+            Node::Wildcard(_) => None,
             Node::For(ast_for) => self.compile_for(result_register, ast_for, ast)?,
             Node::While { condition, body } => {
                 self.compile_loop(result_register, Some((*condition, false)), *body, ast)?
@@ -829,7 +829,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Local(*id_index)),
-                Node::Wildcard => result.push(Arg::Placeholder),
+                Node::Wildcard(_) => result.push(Arg::Placeholder),
                 Node::List(nested) | Node::Tuple(nested) => {
                     result.push(Arg::Placeholder);
                     nested_args.extend(self.collect_nested_args(nested, ast)?);
@@ -854,7 +854,7 @@ impl Compiler {
         for arg in args.iter() {
             match &ast.node(*arg).node {
                 Node::Id(id_index) => result.push(Arg::Unpacked(*id_index)),
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 Node::List(nested_args) | Node::Tuple(nested_args) => {
                     result.extend(self.collect_nested_args(nested_args, ast)?);
                 }
@@ -879,7 +879,7 @@ impl Compiler {
     ) -> Result<(), CompilerError> {
         for (arg_index, arg) in args.iter().enumerate() {
             match &ast.node(*arg).node {
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 Node::Id(constant_index) => {
                     let local_register = self.assign_local_register(*constant_index)?;
                     self.push_op(
@@ -966,7 +966,7 @@ impl Compiler {
         let result = match self.scope_for_assign_target(target) {
             Scope::Local => match &ast.node(target.target_index).node {
                 Node::Id(constant_index) => Some(self.reserve_local_register(*constant_index)?),
-                Node::Lookup(_) | Node::Wildcard => None,
+                Node::Lookup(_) | Node::Wildcard(_) => None,
                 unexpected => {
                     return compiler_error!(self, "Expected Id in AST, found {}", unexpected)
                 }
@@ -1066,7 +1066,7 @@ impl Compiler {
             Node::Meta(meta_id, name) => {
                 self.compile_meta_export(*meta_id, *name, value_register.register)?;
             }
-            Node::Wildcard => {}
+            Node::Wildcard(_) => {}
             unexpected => {
                 return compiler_error!(self, "Expected Lookup or Id in AST, found {}", unexpected)
             }
@@ -1151,7 +1151,7 @@ impl Compiler {
 
                     self.pop_register()?;
                 }
-                Node::Wildcard => {}
+                Node::Wildcard(_) => {}
                 unexpected => {
                     return compiler_error!(
                         self,
@@ -1480,12 +1480,21 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let catch_register = if let Some(catch_arg) = catch_arg {
-            self.assign_local_register(*catch_arg)?
-        } else {
-            // The catch argument is ignored, just use a dummy register
-            self.push_register()?
+        let (catch_register, pop_catch_register) = match &ast.node(*catch_arg).node {
+            Node::Id(id) => (self.assign_local_register(*id)?, false),
+            Node::Wildcard(_) => {
+                // The catch argument is being ignored, so just use a dummy register
+                (self.push_register()?, true)
+            }
+            unexpected => {
+                return compiler_error!(
+                    self,
+                    "Expected ID or wildcard as catch arg, found {}",
+                    unexpected
+                );
+            }
         };
+
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
         let catch_offset = self.push_offset_placeholder();
@@ -1517,7 +1526,7 @@ impl Compiler {
         self.compile_node(try_result_register, catch_node, ast)?;
         self.span_stack.pop();
 
-        if catch_arg.is_none() {
+        if pop_catch_register {
             self.pop_register()?;
         }
 
@@ -3014,7 +3023,7 @@ impl Compiler {
 
                     None
                 }
-                Node::Wildcard => Some(vec![*arm_pattern]),
+                Node::Wildcard(_) => Some(vec![*arm_pattern]),
                 _ => {
                     if match_len != 1 {
                         return compiler_error!(
@@ -3180,7 +3189,7 @@ impl Compiler {
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     }
                 }
-                Node::Wildcard => {
+                Node::Wildcard(_) => {
                     if is_last_pattern && !params.is_last_alternative {
                         // Wildcards match unconditionally, so if we're at the end of a
                         // multi-expression pattern, skip over the remaining alternatives
@@ -3412,16 +3421,30 @@ impl Compiler {
 
         match args.as_slice() {
             [] => return compiler_error!(self, "Missing argument in for loop"),
-            [None] => {
-                // e.g. for _ in 0..10
-                self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
-                self.push_loop_jump_placeholder()?;
-            }
-            [Some(arg)] => {
-                // e.g. for i in 0..10
-                let arg_register = self.assign_local_register(*arg)?;
-                self.push_op_without_span(IterNext, &[arg_register, iterator_register as u8]);
-                self.push_loop_jump_placeholder()?;
+            [single_arg] => {
+                match &ast.node(*single_arg).node {
+                    Node::Id(id) => {
+                        // e.g. for i in 0..10
+                        let arg_register = self.assign_local_register(*id)?;
+                        self.push_op_without_span(
+                            IterNext,
+                            &[arg_register, iterator_register as u8],
+                        );
+                        self.push_loop_jump_placeholder()?;
+                    }
+                    Node::Wildcard(_) => {
+                        // e.g. for _ in 0..10
+                        self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
+                        self.push_loop_jump_placeholder()?;
+                    }
+                    unexpected => {
+                        return compiler_error!(
+                            self,
+                            "Expected ID or wildcard in for loop args, found {}",
+                            unexpected
+                        )
+                    }
+                }
             }
             [args @ ..] => {
                 // e.g. for a, b, c in list_of_lists()
@@ -3434,13 +3457,23 @@ impl Compiler {
                 self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
                 self.push_loop_jump_placeholder()?;
 
-                for (i, maybe_arg) in args.iter().enumerate() {
-                    if let Some(arg) = maybe_arg {
-                        let arg_register = self.assign_local_register(*arg)?;
-                        self.push_op_without_span(
-                            TempIndex,
-                            &[arg_register, temp_register, i as u8],
-                        );
+                for (i, arg) in args.iter().enumerate() {
+                    match &ast.node(*arg).node {
+                        Node::Id(id) => {
+                            let arg_register = self.assign_local_register(*id)?;
+                            self.push_op_without_span(
+                                TempIndex,
+                                &[arg_register, temp_register, i as u8],
+                            );
+                        }
+                        Node::Wildcard(_) => {}
+                        unexpected => {
+                            return compiler_error!(
+                                self,
+                                "Expected ID or wildcard in for loop args, found {}",
+                                unexpected
+                            )
+                        }
                     }
                 }
 
@@ -3470,12 +3503,14 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         if self.settings.repl_mode && self.frame_stack.len() == 1 {
-            for arg in args.iter().flatten() {
-                let arg_register = match self.frame().get_local_assigned_register(*arg) {
-                    Some(register) => register,
-                    None => return compiler_error!(self, "Missing arg register"),
-                };
-                self.compile_value_export(*arg, arg_register)?;
+            for arg in args {
+                if let Node::Id(id) = &ast.node(*arg).node {
+                    let arg_register = match self.frame().get_local_assigned_register(*id) {
+                        Some(register) => register,
+                        None => return compiler_error!(self, "Missing arg register"),
+                    };
+                    self.compile_value_export(*id, arg_register)?;
+                }
             }
         }
 

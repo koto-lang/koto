@@ -75,6 +75,15 @@ The Koto project adheres to
 - Num2 and Num4 values can now be iterated over in a for loop.
 - Empty tuples can be declared by including a trailing comma in parentheses,
   e.g. `(,)`.
+- Wildcard arguments (declared with `_`) can now optionally have names following
+  the underscore.
+  - e.g.
+    ```koto
+    # Before
+    x, _, z = 1, 2, 3
+    # After
+    x, _unused, z = 1, 2, 3
+    ```
 
 ### Changed
 

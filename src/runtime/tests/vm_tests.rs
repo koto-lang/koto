@@ -1266,10 +1266,10 @@ count";
         }
 
         #[test]
-        fn for_loop() {
+        fn for_loop_with_ignored_args() {
             let script = "
 count = 32
-for _ in 0..10
+for _ignored in 0..10
   count += 1
 count";
             test_script(script, 42.into());
@@ -1390,7 +1390,7 @@ f()";
         fn for_arg_unpacking() {
             let script = "
 sum = 0
-for a, b in ((1, 2), (3, 4))
+for a, _foo, b in ((1, 99, 2), (3, 99, 4))
   sum += a + b
 sum
 ";
@@ -2351,7 +2351,7 @@ catch error
             let script = "
 try
   x
-catch e
+catch _e
   -1
 finally
   99
@@ -2368,7 +2368,7 @@ try
   try
     x += 1
     x += y
-  catch _
+  catch _ignored
     x += 1
   x += y
 catch _

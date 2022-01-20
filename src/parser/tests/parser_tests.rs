@@ -1237,13 +1237,13 @@ x";
 
         #[test]
         fn multi_1_to_3_with_wildcard() {
-            let source = "x, _, y = f()";
+            let source = "x, _, _y = f()";
             check_ast(
                 source,
                 &[
                     Id(constant(0)),
-                    Wildcard,
-                    Id(constant(1)),
+                    Wildcard(None),
+                    Wildcard(Some(constant(1))),
                     Id(constant(2)),
                     Lookup((
                         LookupNode::Call {
@@ -1272,7 +1272,7 @@ x";
                     },
                     MainBlock {
                         body: vec![6],
-                        local_count: 2,
+                        local_count: 1,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
@@ -1866,28 +1866,37 @@ a";
         #[test]
         fn for_block() {
             let source = "\
-for x in y
-  f x";
+for x, _, _y, z in foo
+  z x";
             check_ast(
                 source,
                 &[
-                    Id(constant(1)), // y
                     Id(constant(0)), // x
+                    Wildcard(None),
+                    Wildcard(Some(constant(1))), // _y
+                    Id(constant(2)),             // z
+                    Id(constant(3)),             // foo
+                    Id(constant(0)),             // x - 5
                     NamedCall {
-                        id: constant(2), // f
-                        args: vec![1],
+                        id: constant(2), // z
+                        args: vec![5],
                     },
                     For(AstFor {
-                        args: vec![Some(constant(0))], // constant 0
-                        iterable: 0,                   // ast 0
-                        body: 2,
+                        args: vec![0, 1, 2, 3],
+                        iterable: 4,
+                        body: 6,
                     }),
                     MainBlock {
-                        body: vec![3],
-                        local_count: 1,
+                        body: vec![7],
+                        local_count: 2, // x, z
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("y"), Constant::Str("f")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                    Constant::Str("foo"),
+                ]),
             )
         }
 
@@ -1969,15 +1978,16 @@ for x in y
                 source,
                 &[
                     List(vec![]),
-                    Id(constant(1)),
-                    Id(constant(0)),
+                    Id(constant(0)), // x
+                    Id(constant(1)), // y
+                    Id(constant(0)), // x
                     For(AstFor {
-                        args: vec![Some(constant(0))],
-                        iterable: 1,
-                        body: 2,
+                        args: vec![1],
+                        iterable: 2,
+                        body: 3,
                     }),
                     MainBlock {
-                        body: vec![0, 3],
+                        body: vec![0, 4],
                         local_count: 1,
                     },
                 ],
@@ -1994,25 +2004,26 @@ for a in x.zip y
             check_ast(
                 source,
                 &[
+                    Id(constant(0)), // a
                     Id(constant(1)), // x
-                    Id(constant(3)), // xip
+                    Id(constant(3)), // y
                     Lookup((
                         LookupNode::Call {
-                            args: vec![1],
+                            args: vec![2],
                             with_parens: false,
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(constant(2)), Some(2))),
-                    Lookup((LookupNode::Root(0), Some(3))),
-                    Id(constant(0)), // 5
+                    Lookup((LookupNode::Id(constant(2)), Some(3))),
+                    Lookup((LookupNode::Root(1), Some(4))), // ast 5
+                    Id(constant(0)),                        // a
                     For(AstFor {
-                        args: vec![Some(constant(0))],
-                        iterable: 4,
-                        body: 5,
+                        args: vec![0],
+                        iterable: 5,
+                        body: 6,
                     }),
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],
@@ -2891,57 +2902,58 @@ f = |n|
                     Id(constant(1)), // n
                     Id(constant(2)), // f2
                     Id(constant(1)),
-                    Number0,
-                    Number1, // 5
+                    Id(constant(3)), // i
+                    Number0,         // ast 5
+                    Number1,
                     Range {
-                        start: 4,
-                        end: 5,
+                        start: 5,
+                        end: 6,
                         inclusive: false,
                     },
                     Id(constant(3)), // i
                     Id(constant(1)),
                     BinaryOp {
                         op: AstBinaryOp::Equal,
-                        lhs: 7,
-                        rhs: 8,
-                    },
-                    Id(constant(3)), // 10
-                    Return(Some(10)),
+                        lhs: 8,
+                        rhs: 9,
+                    }, // ast 10
+                    Id(constant(3)),
+                    Return(Some(11)),
                     If(AstIf {
-                        condition: 9,
-                        then_node: 11,
+                        condition: 10,
+                        then_node: 12,
                         else_if_blocks: vec![],
                         else_node: None,
                     }),
                     For(AstFor {
-                        args: vec![Some(constant(3))],
-                        iterable: 6,
-                        body: 12,
+                        args: vec![4],
+                        iterable: 7,
+                        body: 13,
                     }),
                     Function(koto_parser::Function {
                         args: vec![3],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 13,
+                        body: 14,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
-                    }),
+                    }), // ast 15
                     Assign {
                         target: AssignTarget {
                             target_index: 2,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 14,
-                    }, // 15
+                        expression: 15,
+                    },
                     Id(constant(2)),
-                    Block(vec![15, 16]),
+                    Block(vec![16, 17]),
                     Function(koto_parser::Function {
                         args: vec![1],
                         local_count: 2,
                         accessed_non_locals: vec![],
-                        body: 17,
+                        body: 18,
                         is_instance_function: false,
                         is_variadic: false,
                         is_generator: false,
@@ -2952,10 +2964,10 @@ f = |n|
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 18,
-                    },
+                        expression: 19,
+                    }, // ast 20
                     MainBlock {
-                        body: vec![19],
+                        body: vec![20],
                         local_count: 1,
                     },
                 ],
@@ -3203,23 +3215,23 @@ y z";
         #[test]
         fn unpack_call_args_tuple() {
             let source = "
-|a, (_, (c, d)), e|
+|a, (_, (c, _d)), _e|
   a
 ";
             check_ast(
                 source,
                 &[
                     Id(constant(0)), // a
-                    Wildcard,
-                    Id(constant(1)), // c
-                    Id(constant(2)), // d
+                    Wildcard(None),
+                    Id(constant(1)),             // c
+                    Wildcard(Some(constant(2))), // d
                     Tuple(vec![2, 3]),
-                    Tuple(vec![1, 4]), // 5
-                    Id(constant(3)),   // e
+                    Tuple(vec![1, 4]),           // 5
+                    Wildcard(Some(constant(3))), // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
                         args: vec![0, 5, 6],
-                        local_count: 4,
+                        local_count: 2,
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
@@ -3243,23 +3255,23 @@ y z";
         #[test]
         fn unpack_call_args_list() {
             let source = "
-|a, [_, [c, d]], e|
+|a, [_, [c, _d]], e|
   a
 ";
             check_ast(
                 source,
                 &[
                     Id(constant(0)), // a
-                    Wildcard,
-                    Id(constant(1)), // c
-                    Id(constant(2)), // d
+                    Wildcard(None),
+                    Id(constant(1)),             // c
+                    Wildcard(Some(constant(2))), // d
                     List(vec![2, 3]),
                     List(vec![1, 4]), // 5
                     Id(constant(3)),  // e
                     Id(constant(0)),
                     Function(koto_parser::Function {
                         args: vec![0, 5, 6],
-                        local_count: 4,
+                        local_count: 3,
                         accessed_non_locals: vec![],
                         body: 7,
                         is_instance_function: false,
@@ -4231,19 +4243,20 @@ catch e
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
+                    Id(constant(1)), // e
                     Id(constant(1)),
                     Debug {
                         expression_string: constant(1),
-                        expression: 3,
-                    },
+                        expression: 4,
+                    }, // ast 5
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: Some(constant(1)),
-                        catch_block: 4,
+                        catch_arg: 3,
+                        catch_block: 5,
                         finally_block: None,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 1,
                     },
                 ],
@@ -4263,19 +4276,53 @@ catch _
                 source,
                 &[
                     Id(constant(0)),
+                    Wildcard(None),
                     Id(constant(1)),
                     Try(AstTry {
                         try_block: 0,
-                        catch_arg: None,
-                        catch_block: 1,
+                        catch_arg: 1,
+                        catch_block: 2,
                         finally_block: None,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![2],
+                        body: vec![3],
                         local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_ignored_catch_arg_with_name() {
+            let source = "\
+try
+  x
+catch _error
+  y
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),             // x
+                    Wildcard(Some(constant(1))), // error
+                    Id(constant(2)),             // y
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: 1,
+                        catch_block: 2,
+                        finally_block: None,
+                    }),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("error"),
+                    Constant::Str("y"),
+                ]),
             )
         }
 
@@ -4301,20 +4348,21 @@ finally
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
+                    Id(constant(1)), // e
                     Id(constant(1)),
                     Debug {
                         expression_string: constant(1),
-                        expression: 3,
-                    },
-                    Number0, // 5
+                        expression: 4,
+                    }, // ast 5
+                    Number0,
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: Some(constant(1)),
-                        catch_block: 4,
-                        finally_block: Some(5),
+                        catch_arg: 3,
+                        catch_block: 5,
+                        finally_block: Some(6),
                     }),
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],
@@ -4497,7 +4545,7 @@ match x
             let source = r#"
 match (x, y, z)
   (0, a, _) then a
-  (_, (0, b), _) then 0
+  (_, (0, b), _foo) then 0
 "#;
             check_ast(
                 source,
@@ -4508,14 +4556,14 @@ match (x, y, z)
                     Tuple(vec![0, 1, 2]),
                     Number0,
                     Id(constant(3)), // 5
-                    Wildcard,
+                    Wildcard(None),
                     Tuple(vec![4, 5, 6]),
                     Id(constant(3)),
-                    Wildcard,
+                    Wildcard(None),
                     Number0, // 10
                     Id(constant(4)),
                     Tuple(vec![10, 11]),
-                    Wildcard,
+                    Wildcard(Some(constant(5))),
                     Tuple(vec![9, 12, 13]),
                     Number0, // 15
                     Match {
@@ -4544,6 +4592,7 @@ match (x, y, z)
                     Constant::Str("z"),
                     Constant::Str("a"),
                     Constant::Str("b"),
+                    Constant::Str("foo"),
                 ]),
             )
         }

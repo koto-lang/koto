@@ -48,9 +48,9 @@ macro_rules! syntax_error {
     }};
 }
 
-enum ConstantIndexOrWildcard {
-    Index(ConstantIndex),
-    Wildcard,
+enum IdOrWildcard {
+    Id(ConstantIndex),
+    Wildcard(Option<ConstantIndex>),
 }
 
 #[derive(Debug, Default)]
@@ -306,7 +306,7 @@ impl<'source> Parser<'source> {
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(&mut args_context)? {
-                Some(ConstantIndexOrWildcard::Index(constant_index)) => {
+                Some(IdOrWildcard::Id(constant_index)) => {
                     if self.constants.get_str(constant_index) == "self" {
                         return syntax_error!(SelfArgNotInFirstPosition, self);
                     }
@@ -314,8 +314,8 @@ impl<'source> Parser<'source> {
                     arg_ids.push(constant_index);
                     nested_args.push(self.push_node(Node::Id(constant_index))?);
                 }
-                Some(ConstantIndexOrWildcard::Wildcard) => {
-                    nested_args.push(self.push_node(Node::Wildcard)?)
+                Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                    nested_args.push(self.push_node(Node::Wildcard(maybe_id))?)
                 }
                 None => match self.peek_token() {
                     Some(Token::SquareOpen) => {
@@ -374,7 +374,7 @@ impl<'source> Parser<'source> {
         while self.peek_next_token(&args_context).is_some() {
             self.consume_until_next_token(&mut args_context);
             match self.parse_id_or_wildcard(context)? {
-                Some(ConstantIndexOrWildcard::Index(constant_index)) => {
+                Some(IdOrWildcard::Id(constant_index)) => {
                     if self.constants.get_str(constant_index) == "self" {
                         if !arg_nodes.is_empty() {
                             return syntax_error!(SelfArgNotInFirstPosition, self);
@@ -391,8 +391,8 @@ impl<'source> Parser<'source> {
                         break;
                     }
                 }
-                Some(ConstantIndexOrWildcard::Wildcard) => {
-                    arg_nodes.push(self.push_node(Node::Wildcard)?)
+                Some(IdOrWildcard::Wildcard(maybe_id)) => {
+                    arg_nodes.push(self.push_node(Node::Wildcard(maybe_id))?)
                 }
                 None => match self.peek_token() {
                     Some(Token::SquareOpen) => {
@@ -700,11 +700,12 @@ impl<'source> Parser<'source> {
         let mut targets = Vec::new();
 
         for lhs_expression in lhs.iter() {
+            // Note which identifiers are being assigned to
             match (self.ast.node(*lhs_expression).node.clone(), scope) {
                 (Node::Id(id_index), Scope::Local) if matches!(assign_op, AssignOp::Equal) => {
                     self.frame_mut()?.add_local_id_assignment(id_index);
                 }
-                (Node::Id(_) | Node::Lookup(_) | Node::Wildcard, _) => {}
+                (Node::Id(_) | Node::Lookup(_) | Node::Wildcard(_), _) => {}
                 (Node::Meta { .. }, Scope::Export) => {}
                 _ => return syntax_error!(ExpectedAssignmentTarget, self),
             }
@@ -771,24 +772,44 @@ impl<'source> Parser<'source> {
         }
     }
 
+    fn parse_wildcard(
+        &mut self,
+        context: &mut ExpressionContext,
+    ) -> Result<Option<AstIndex>, ParserError> {
+        self.consume_next_token(context);
+        let slice = self.lexer.slice();
+        let maybe_id = if slice.len() > 1 {
+            Some(self.add_string_constant(&slice[1..])?)
+        } else {
+            None
+        };
+        self.push_node(Node::Wildcard(maybe_id)).map(Some)
+    }
+
     fn parse_id_or_wildcard(
         &mut self,
         context: &mut ExpressionContext,
-    ) -> Result<Option<ConstantIndexOrWildcard>, ParserError> {
+    ) -> Result<Option<IdOrWildcard>, ParserError> {
         match self.peek_next_token(context) {
             Some(PeekInfo {
                 token: Token::Id, ..
             }) => {
                 self.consume_next_token(context);
                 let result = self.add_string_constant(self.lexer.slice())?;
-                Ok(Some(ConstantIndexOrWildcard::Index(result)))
+                Ok(Some(IdOrWildcard::Id(result)))
             }
             Some(PeekInfo {
                 token: Token::Wildcard,
                 ..
             }) => {
-                self.consume_next_token_on_same_line();
-                Ok(Some(ConstantIndexOrWildcard::Wildcard))
+                self.consume_next_token(context);
+                let slice = self.lexer.slice();
+                let maybe_id = if slice.len() > 1 {
+                    Some(self.add_string_constant(&slice[1..])?)
+                } else {
+                    None
+                };
+                Ok(Some(IdOrWildcard::Wildcard(maybe_id)))
             }
             _ => Ok(None),
         }
@@ -1392,10 +1413,7 @@ impl<'source> Parser<'source> {
                     let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
                     self.parse_braceless_map_start(MapKey::Meta(meta_key_id, meta_name), context)?
                 }
-                Token::Wildcard => {
-                    self.consume_next_token(context);
-                    Some(self.push_node(Node::Wildcard)?)
-                }
+                Token::Wildcard => self.parse_wildcard(context)?,
                 Token::SquareOpen => self.parse_list(context)?,
                 Token::CurlyOpen => self.parse_map_inline(context)?,
                 Token::If => self.parse_if_expression(context)?,
@@ -1783,11 +1801,13 @@ impl<'source> Parser<'source> {
         let mut args = Vec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
             match id_or_wildcard {
-                ConstantIndexOrWildcard::Index(id_index) => {
-                    args.push(Some(id_index));
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                IdOrWildcard::Id(id) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                    args.push(self.push_node(Node::Id(id))?);
                 }
-                ConstantIndexOrWildcard::Wildcard => args.push(None),
+                IdOrWildcard::Wildcard(maybe_id) => {
+                    args.push(self.push_node(Node::Wildcard(maybe_id))?);
+                }
             }
 
             match self.peek_next_token_on_same_line() {
@@ -2260,10 +2280,7 @@ impl<'source> Parser<'source> {
                     }
                     None => return internal_error!(IdParseFailure, self),
                 },
-                Wildcard => {
-                    self.consume_next_token(&mut pattern_context);
-                    Some(self.push_node(Node::Wildcard)?)
-                }
+                Wildcard => self.parse_wildcard(&mut pattern_context)?,
                 SquareOpen => {
                     self.consume_next_token(&mut pattern_context);
 
@@ -2401,12 +2418,11 @@ impl<'source> Parser<'source> {
             self.parse_id_or_wildcard(&mut ExpressionContext::restricted())?
         {
             match catch_arg {
-                ConstantIndexOrWildcard::Index(id_index) => {
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                    Some(id_index)
+                IdOrWildcard::Id(id) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                    self.push_node(Node::Id(id))?
                 }
-
-                ConstantIndexOrWildcard::Wildcard => None,
+                IdOrWildcard::Wildcard(maybe_id) => self.push_node(Node::Wildcard(maybe_id))?,
             }
         } else {
             return syntax_error!(ExpectedCatchArgument, self);

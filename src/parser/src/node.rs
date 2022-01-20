@@ -199,10 +199,13 @@ pub enum Node {
     /// A switch expression
     Switch(Vec<SwitchArm>),
 
-    /// The `_` operator
+    /// A `_` identifier
     ///
-    /// Used as a placeholder for unused function arguments or ignored unpacked values.
-    Wildcard,
+    /// Used as a placeholder for unused function arguments or unpacked values, or as a wildcard
+    /// in match expressions.
+    ///
+    /// Comes with an optional name, e.g. `_foo` will have `foo` stored as a constant.
+    Wildcard(Option<ConstantIndex>),
 
     /// The `...` operator
     ///
@@ -303,7 +306,7 @@ impl fmt::Display for Node {
             If(_) => write!(f, "If"),
             Match { .. } => write!(f, "Match"),
             Switch { .. } => write!(f, "Switch"),
-            Wildcard => write!(f, "Wildcard"),
+            Wildcard(_) => write!(f, "Wildcard"),
             Ellipsis(_) => write!(f, "Ellipsis"),
             For(_) => write!(f, "For"),
             While { .. } => write!(f, "While"),
@@ -371,8 +374,8 @@ pub enum StringNode {
 /// A for loop definition
 #[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
-    /// The optional arguments that capture each iteration's output values
-    pub args: Vec<Option<ConstantIndex>>,
+    /// The ids that capture each iteration's output values, or wildcards that ignore them
+    pub args: Vec<AstIndex>,
     /// The expression that produces an iterable value
     pub iterable: AstIndex,
     /// The body of the for loop
@@ -425,8 +428,8 @@ pub enum AstBinaryOp {
 pub struct AstTry {
     /// The block that's wrapped by the try
     pub try_block: AstIndex,
-    /// The optional identifier that will receive a caught error
-    pub catch_arg: Option<ConstantIndex>,
+    /// The identifier that will receive a caught error, or a wildcard
+    pub catch_arg: AstIndex,
     /// The try expression's catch block
     pub catch_block: AstIndex,
     /// An optional `finally` block
