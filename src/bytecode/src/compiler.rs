@@ -1480,12 +1480,21 @@ impl Compiler {
 
         // The argument register for the catch block needs to be assigned now
         // so that it can be included in the TryStart op.
-        let catch_register = if let Some(catch_arg) = catch_arg {
-            self.assign_local_register(*catch_arg)?
-        } else {
-            // The catch argument is ignored, just use a dummy register
-            self.push_register()?
+        let (catch_register, pop_catch_register) = match &ast.node(*catch_arg).node {
+            Node::Id(id) => (self.assign_local_register(*id)?, false),
+            Node::Wildcard(_) => {
+                // The catch argument is being ignored, so just use a dummy register
+                (self.push_register()?, true)
+            }
+            unexpected => {
+                return compiler_error!(
+                    self,
+                    "Expected ID or wildcard as catch arg, found {}",
+                    unexpected
+                );
+            }
         };
+
         self.push_op(TryStart, &[catch_register]);
         // The catch block start point is defined via an offset from the current byte
         let catch_offset = self.push_offset_placeholder();
@@ -1517,7 +1526,7 @@ impl Compiler {
         self.compile_node(try_result_register, catch_node, ast)?;
         self.span_stack.pop();
 
-        if catch_arg.is_none() {
+        if pop_catch_register {
             self.pop_register()?;
         }
 

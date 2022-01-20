@@ -13,7 +13,7 @@ import error_handling_module
       # Error: List passed to function expecting a map
       [0, 1, 2].keys()
       99
-    catch error
+    catch _error
       -1 # catch catches general runtime errors, not only thrown errors
     assert_eq x, -1
 

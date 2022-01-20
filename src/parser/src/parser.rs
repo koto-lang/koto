@@ -2418,11 +2418,11 @@ impl<'source> Parser<'source> {
             self.parse_id_or_wildcard(&mut ExpressionContext::restricted())?
         {
             match catch_arg {
-                IdOrWildcard::Id(id_index) => {
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
-                    Some(id_index)
+                IdOrWildcard::Id(id) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                    self.push_node(Node::Id(id))?
                 }
-                IdOrWildcard::Wildcard(_maybe_id) => None, // TODO
+                IdOrWildcard::Wildcard(maybe_id) => self.push_node(Node::Wildcard(maybe_id))?,
             }
         } else {
             return syntax_error!(ExpectedCatchArgument, self);

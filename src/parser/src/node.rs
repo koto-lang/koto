@@ -428,8 +428,8 @@ pub enum AstBinaryOp {
 pub struct AstTry {
     /// The block that's wrapped by the try
     pub try_block: AstIndex,
-    /// The optional identifier that will receive a caught error
-    pub catch_arg: Option<ConstantIndex>,
+    /// The identifier that will receive a caught error, or a wildcard
+    pub catch_arg: AstIndex,
     /// The try expression's catch block
     pub catch_block: AstIndex,
     /// An optional `finally` block

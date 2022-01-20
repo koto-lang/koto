@@ -4243,19 +4243,20 @@ catch e
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
+                    Id(constant(1)), // e
                     Id(constant(1)),
                     Debug {
                         expression_string: constant(1),
-                        expression: 3,
-                    },
+                        expression: 4,
+                    }, // ast 5
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: Some(constant(1)),
-                        catch_block: 4,
+                        catch_arg: 3,
+                        catch_block: 5,
                         finally_block: None,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![5],
+                        body: vec![6],
                         local_count: 1,
                     },
                 ],
@@ -4275,19 +4276,53 @@ catch _
                 source,
                 &[
                     Id(constant(0)),
+                    Wildcard(None),
                     Id(constant(1)),
                     Try(AstTry {
                         try_block: 0,
-                        catch_arg: None,
-                        catch_block: 1,
+                        catch_arg: 1,
+                        catch_block: 2,
                         finally_block: None,
-                    }), // 5
+                    }),
                     MainBlock {
-                        body: vec![2],
+                        body: vec![3],
                         local_count: 0,
                     },
                 ],
                 Some(&[Constant::Str("x"), Constant::Str("y")]),
+            )
+        }
+
+        #[test]
+        fn try_catch_ignored_catch_arg_with_name() {
+            let source = "\
+try
+  x
+catch _error
+  y
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),             // x
+                    Wildcard(Some(constant(1))), // error
+                    Id(constant(2)),             // y
+                    Try(AstTry {
+                        try_block: 0,
+                        catch_arg: 1,
+                        catch_block: 2,
+                        finally_block: None,
+                    }),
+                    MainBlock {
+                        body: vec![3],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("error"),
+                    Constant::Str("y"),
+                ]),
             )
         }
 
@@ -4313,20 +4348,21 @@ finally
                         None,
                     )),
                     Lookup((LookupNode::Root(0), Some(1))),
+                    Id(constant(1)), // e
                     Id(constant(1)),
                     Debug {
                         expression_string: constant(1),
-                        expression: 3,
-                    },
-                    Number0, // 5
+                        expression: 4,
+                    }, // ast 5
+                    Number0,
                     Try(AstTry {
                         try_block: 2,
-                        catch_arg: Some(constant(1)),
-                        catch_block: 4,
-                        finally_block: Some(5),
+                        catch_arg: 3,
+                        catch_block: 5,
+                        finally_block: Some(6),
                     }),
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],

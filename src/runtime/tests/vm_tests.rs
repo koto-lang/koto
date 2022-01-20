@@ -2351,7 +2351,7 @@ catch error
             let script = "
 try
   x
-catch e
+catch _e
   -1
 finally
   99
@@ -2368,7 +2368,7 @@ try
   try
     x += 1
     x += y
-  catch _
+  catch _ignored
     x += 1
   x += y
 catch _
