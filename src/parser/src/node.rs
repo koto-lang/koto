@@ -374,8 +374,8 @@ pub enum StringNode {
 /// A for loop definition
 #[derive(Clone, Debug, PartialEq)]
 pub struct AstFor {
-    /// The optional arguments that capture each iteration's output values
-    pub args: Vec<Option<ConstantIndex>>,
+    /// The ids that capture each iteration's output values, or wildcards that ignore them
+    pub args: Vec<AstIndex>,
     /// The expression that produces an iterable value
     pub iterable: AstIndex,
     /// The body of the for loop

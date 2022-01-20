@@ -1801,11 +1801,13 @@ impl<'source> Parser<'source> {
         let mut args = Vec::new();
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
             match id_or_wildcard {
-                IdOrWildcard::Id(id_index) => {
-                    args.push(Some(id_index));
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id_index);
+                IdOrWildcard::Id(id) => {
+                    self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                    args.push(self.push_node(Node::Id(id))?);
                 }
-                IdOrWildcard::Wildcard(_maybe_id) => args.push(None), // TODO
+                IdOrWildcard::Wildcard(maybe_id) => {
+                    args.push(self.push_node(Node::Wildcard(maybe_id))?);
+                }
             }
 
             match self.peek_next_token_on_same_line() {

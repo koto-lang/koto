@@ -3412,16 +3412,30 @@ impl Compiler {
 
         match args.as_slice() {
             [] => return compiler_error!(self, "Missing argument in for loop"),
-            [None] => {
-                // e.g. for _ in 0..10
-                self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
-                self.push_loop_jump_placeholder()?;
-            }
-            [Some(arg)] => {
-                // e.g. for i in 0..10
-                let arg_register = self.assign_local_register(*arg)?;
-                self.push_op_without_span(IterNext, &[arg_register, iterator_register as u8]);
-                self.push_loop_jump_placeholder()?;
+            [single_arg] => {
+                match &ast.node(*single_arg).node {
+                    Node::Id(id) => {
+                        // e.g. for i in 0..10
+                        let arg_register = self.assign_local_register(*id)?;
+                        self.push_op_without_span(
+                            IterNext,
+                            &[arg_register, iterator_register as u8],
+                        );
+                        self.push_loop_jump_placeholder()?;
+                    }
+                    Node::Wildcard(_) => {
+                        // e.g. for _ in 0..10
+                        self.push_op_without_span(IterNextQuiet, &[iterator_register as u8]);
+                        self.push_loop_jump_placeholder()?;
+                    }
+                    unexpected => {
+                        return compiler_error!(
+                            self,
+                            "Expected ID or wildcard in for loop args, found {}",
+                            unexpected
+                        )
+                    }
+                }
             }
             [args @ ..] => {
                 // e.g. for a, b, c in list_of_lists()
@@ -3434,13 +3448,23 @@ impl Compiler {
                 self.push_op_without_span(IterNextTemp, &[temp_register, iterator_register]);
                 self.push_loop_jump_placeholder()?;
 
-                for (i, maybe_arg) in args.iter().enumerate() {
-                    if let Some(arg) = maybe_arg {
-                        let arg_register = self.assign_local_register(*arg)?;
-                        self.push_op_without_span(
-                            TempIndex,
-                            &[arg_register, temp_register, i as u8],
-                        );
+                for (i, arg) in args.iter().enumerate() {
+                    match &ast.node(*arg).node {
+                        Node::Id(id) => {
+                            let arg_register = self.assign_local_register(*id)?;
+                            self.push_op_without_span(
+                                TempIndex,
+                                &[arg_register, temp_register, i as u8],
+                            );
+                        }
+                        Node::Wildcard(_) => {}
+                        unexpected => {
+                            return compiler_error!(
+                                self,
+                                "Expected ID or wildcard in for loop args, found {}",
+                                unexpected
+                            )
+                        }
                     }
                 }
 
@@ -3470,12 +3494,14 @@ impl Compiler {
         self.truncate_register_stack(stack_count)?;
 
         if self.settings.repl_mode && self.frame_stack.len() == 1 {
-            for arg in args.iter().flatten() {
-                let arg_register = match self.frame().get_local_assigned_register(*arg) {
-                    Some(register) => register,
-                    None => return compiler_error!(self, "Missing arg register"),
-                };
-                self.compile_value_export(*arg, arg_register)?;
+            for arg in args {
+                if let Node::Id(id) = &ast.node(*arg).node {
+                    let arg_register = match self.frame().get_local_assigned_register(*id) {
+                        Some(register) => register,
+                        None => return compiler_error!(self, "Missing arg register"),
+                    };
+                    self.compile_value_export(*id, arg_register)?;
+                }
             }
         }
 
