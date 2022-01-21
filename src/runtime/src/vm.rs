@@ -18,7 +18,7 @@ use {
         cell::{Ref, RefCell, RefMut},
         collections::HashMap,
         fmt,
-        path::PathBuf,
+        path::{Path, PathBuf},
         rc::Rc,
     },
 };
@@ -105,6 +105,7 @@ struct SharedContext {
     stdin: Rc<dyn KotoFile>,
     stdout: Rc<dyn KotoFile>,
     stderr: Rc<dyn KotoFile>,
+    loader: RefCell<Loader>,
     run_import_tests: bool,
 }
 
@@ -124,6 +125,7 @@ impl SharedContext {
             stdin: settings.stdin,
             stdout: settings.stdout,
             stderr: settings.stderr,
+            loader: RefCell::new(Loader::default()),
             run_import_tests: settings.run_import_tests,
         }
     }
@@ -134,21 +136,16 @@ impl SharedContext {
 pub struct ModuleContext {
     /// The module's exported values
     pub exports: ValueMap,
-    loader: Loader,
+    // Module export maps that have been imported by this module
     modules: HashMap<PathBuf, Option<ValueMap>>,
 }
 
 impl ModuleContext {
     fn spawn_new_context(&self) -> Self {
         Self {
-            loader: self.loader.clone(),
             modules: self.modules.clone(),
             exports: Default::default(),
         }
-    }
-
-    fn reset(&mut self) {
-        self.loader = Default::default();
     }
 }
 
@@ -221,8 +218,16 @@ impl Vm {
         }
     }
 
+    /// The prelude, containing items that can be imported within all modules
     pub fn prelude(&self) -> ValueMap {
         self.context_shared.prelude.clone()
+    }
+
+    /// Calls the provided callback with the path of each module that has been loaded by the runtime
+    pub fn for_each_module_path(&self, mut callback: impl FnMut(&Path)) {
+        for path in self.context_shared.loader.borrow().module_paths() {
+            callback(path);
+        }
     }
 
     /// Access to the module's context
@@ -259,12 +264,6 @@ impl Vm {
             Some(function) if function.is_callable() => Some(function),
             _ => None,
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.context_mut().reset();
-        self.value_stack = Default::default();
-        self.call_stack = Default::default();
     }
 
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
@@ -2004,8 +2003,9 @@ impl Vm {
         // using the current source path as the relative starting location
         let source_path = self.reader.chunk.source_path.clone();
         let (module_chunk, module_path) = match self
-            .context_mut()
+            .context_shared
             .loader
+            .borrow_mut()
             .compile_module(&import_name, source_path)
         {
             Ok((chunk, path)) => (chunk, path),

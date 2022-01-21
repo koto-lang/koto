@@ -2,7 +2,12 @@ use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
-    std::{collections::HashMap, error, fmt, path::PathBuf, rc::Rc},
+    std::{
+        collections::{hash_map::Keys, HashMap},
+        error, fmt,
+        path::{Path, PathBuf},
+        rc::Rc,
+    },
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -175,24 +180,33 @@ impl Loader {
             },
         };
 
-        let mut load_module_from_path = |module_path: PathBuf| match self.chunks.get(&module_path) {
-            Some(chunk) => Ok((chunk.clone(), module_path.clone())),
-            None => match std::fs::read_to_string(&module_path) {
-                Ok(script) => {
-                    let chunk = self.compile(
-                        &script,
-                        Some(module_path.clone()),
-                        CompilerSettings::default(),
-                    )?;
+        let mut load_module_from_path = |module_path: PathBuf| {
+            let module_path = module_path.canonicalize().map_err(|error| {
+                LoaderError::io_error(format!(
+                    "Failed to canonicalize path: '{}' - ({})",
+                    module_path.to_string_lossy(),
+                    error
+                ))
+            })?;
+            match self.chunks.get(&module_path) {
+                Some(chunk) => Ok((chunk.clone(), module_path.clone())),
+                None => match std::fs::read_to_string(&module_path) {
+                    Ok(script) => {
+                        let chunk = self.compile(
+                            &script,
+                            Some(module_path.clone()),
+                            CompilerSettings::default(),
+                        )?;
 
-                    self.chunks.insert(module_path.clone(), chunk.clone());
-                    Ok((chunk, module_path))
-                }
-                Err(_) => Err(LoaderError::io_error(format!(
-                    "File not found: {}",
-                    module_path.to_string_lossy()
-                ))),
-            },
+                        self.chunks.insert(module_path.clone(), chunk.clone());
+                        Ok((chunk, module_path))
+                    }
+                    Err(_) => Err(LoaderError::io_error(format!(
+                        "File not found: {}",
+                        module_path.to_string_lossy()
+                    ))),
+                },
+            }
         };
 
         let extension = "koto";
@@ -215,5 +229,33 @@ impl Loader {
                 )))
             }
         }
+    }
+
+    /// Provides the paths that have been loaded by the loader
+    pub fn module_paths(&self) -> ModulePathIter {
+        ModulePathIter::new(self)
+    }
+}
+
+/// An iterator that provides the paths of the modules that have been loaded by a `Loader`
+///
+/// Returned from `Loader::module_paths`.
+pub struct ModulePathIter<'a> {
+    keys: Keys<'a, PathBuf, Rc<Chunk>>,
+}
+
+impl<'a> ModulePathIter<'a> {
+    fn new(loader: &'a Loader) -> Self {
+        Self {
+            keys: loader.chunks.keys(),
+        }
+    }
+}
+
+impl<'a> Iterator for ModulePathIter<'a> {
+    type Item = &'a Path;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.keys.next().map(|path| path.as_path())
     }
 }

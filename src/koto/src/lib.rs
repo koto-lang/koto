@@ -34,7 +34,12 @@ use {
     koto_runtime::{
         CallArgs, KotoFile, Loader, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
     },
-    std::{error::Error, fmt, path::PathBuf, rc::Rc},
+    std::{
+        error::Error,
+        fmt,
+        path::{Path, PathBuf},
+        rc::Rc,
+    },
 };
 
 #[derive(Debug)]
@@ -243,6 +248,11 @@ impl Koto {
 
     pub fn exports(&self) -> ValueMap {
         self.runtime.context().exports.clone()
+    }
+
+    /// Calls the provided callback with the path of each module that has been loaded by the runtime
+    pub fn for_each_module_path(&self, callback: impl FnMut(&Path)) {
+        self.runtime.for_each_module_path(callback);
     }
 
     pub fn set_args(&mut self, args: &[String]) {
