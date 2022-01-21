@@ -32,6 +32,43 @@ mod runtime {
     mod should_fail {
         use super::*;
 
+        mod assertions {
+            use super::*;
+
+            #[test]
+            fn check_assert() {
+                let script = "
+assert false
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn check_assert_eq() {
+                let script = "
+assert_eq 0, 1
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn check_assert_ne() {
+                let script = "
+assert_ne 1, 1
+";
+                check_script_fails(script);
+            }
+
+            #[test]
+            fn check_assert_near() {
+                let script = "
+assert_near 1, 2, 0.1
+";
+
+                check_script_fails(script);
+            }
+        }
+
         mod iterators {
             use super::*;
 
