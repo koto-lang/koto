@@ -3,12 +3,7 @@ use {
     std::{fs::read_to_string, path::PathBuf},
 };
 
-fn run_script(
-    script: &str,
-    script_path: Option<PathBuf>,
-    expected_module_paths: &[PathBuf],
-    should_fail_at_runtime: bool,
-) {
+fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths: &[PathBuf]) {
     let mut koto = Koto::with_settings(KotoSettings {
         run_tests: true,
         ..Default::default()
@@ -18,33 +13,27 @@ fn run_script(
     match koto.compile(script) {
         Ok(_) => match koto.run() {
             Ok(_) => {
-                if should_fail_at_runtime {
-                    panic!("Expected failure");
-                }
+                // Check that the loaded module paths are correct
+                let mut loaded_module_count = 0;
+                koto.for_each_module_path(|path| {
+                    if !expected_module_paths
+                        .iter()
+                        .any(|module_path| module_path == path)
+                    {
+                        panic!("Unexpected imported module: '{}'", path.to_string_lossy());
+                    }
+                    loaded_module_count += 1;
+                });
+                assert_eq!(loaded_module_count, expected_module_paths.len());
             }
             Err(error) => {
-                if !should_fail_at_runtime {
-                    panic!("{}", error);
-                }
+                panic!("{}", error);
             }
         },
         Err(error) => {
             panic!("{}", error);
         }
     }
-
-    // Check that the loaded module paths are correct
-    let mut loaded_module_count = 0;
-    koto.for_each_module_path(|path| {
-        if !expected_module_paths
-            .iter()
-            .any(|module_path| module_path == path)
-        {
-            panic!("Not in expected paths: '{}'", path.to_string_lossy());
-        }
-        loaded_module_count += 1;
-    });
-    assert_eq!(loaded_module_count, expected_module_paths.len());
 }
 
 fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
@@ -73,7 +62,7 @@ fn load_and_run_script(script_file_name: &str, imported_modules: &[&str]) {
         })
         .collect::<Vec<_>>();
 
-    run_script(&script, Some(script_path), &expected_module_paths, false);
+    run_script(&script, Some(script_path), &expected_module_paths);
 }
 
 macro_rules! koto_test {
@@ -94,42 +83,6 @@ macro_rules! koto_test {
 
 mod koto_tests {
     use super::*;
-
-    #[test]
-    fn check_assert() {
-        let script = "
-import test.assert
-test.assert false
-";
-        run_script(script, None, &[], true);
-    }
-
-    #[test]
-    fn check_assert_eq() {
-        let script = "
-import test.assert_eq
-assert_eq 0, 1
-";
-        run_script(script, None, &[], true);
-    }
-
-    #[test]
-    fn check_assert_ne() {
-        let script = "
-import test.assert_ne
-assert_ne 1, 1
-";
-        run_script(script, None, &[], true);
-    }
-
-    #[test]
-    fn check_assert_near() {
-        let script = "
-import test.assert_near
-assert_near 1, 2, 0.1
-";
-        run_script(script, None, &[], true);
-    }
 
     koto_test!(assignment);
     koto_test!(comments);
