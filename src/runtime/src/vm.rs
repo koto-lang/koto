@@ -106,6 +106,8 @@ struct SharedContext {
     stdout: Rc<dyn KotoFile>,
     stderr: Rc<dyn KotoFile>,
     loader: RefCell<Loader>,
+    // Contains the export maps of imported modules
+    imported_modules: RefCell<ModuleCache>,
     run_import_tests: bool,
 }
 
@@ -126,6 +128,7 @@ impl SharedContext {
             stdout: settings.stdout,
             stderr: settings.stderr,
             loader: RefCell::new(Loader::default()),
+            imported_modules: RefCell::new(ModuleCache::default()),
             run_import_tests: settings.run_import_tests,
         }
     }
@@ -136,14 +139,11 @@ impl SharedContext {
 pub struct ModuleContext {
     /// The module's exported values
     pub exports: ValueMap,
-    // Module export maps that have been imported by this module
-    modules: HashMap<PathBuf, Option<ValueMap>>,
 }
 
 impl ModuleContext {
     fn spawn_new_context(&self) -> Self {
         Self {
-            modules: self.modules.clone(),
             exports: Default::default(),
         }
     }
@@ -2013,7 +2013,12 @@ impl Vm {
         };
 
         // Has the module been loaded previously?
-        let maybe_in_cache = self.context().modules.get(&module_path).cloned();
+        let maybe_in_cache = self
+            .context_shared
+            .imported_modules
+            .borrow()
+            .get(&module_path)
+            .cloned();
         match maybe_in_cache {
             Some(Some(cached_exports)) => {
                 self.set_register(import_register, Value::Map(cached_exports));
@@ -2028,7 +2033,10 @@ impl Vm {
                 // The module is new to the runtime, so it needs to be loaded
 
                 // Insert a placeholder for the new module, preventing recursive imports
-                self.context_mut().modules.insert(module_path.clone(), None);
+                self.context_shared
+                    .imported_modules
+                    .borrow_mut()
+                    .insert(module_path.clone(), None);
 
                 // Run the module chunk in a new vm
                 let mut vm = self.spawn_new_vm();
@@ -2062,7 +2070,10 @@ impl Vm {
                         match maybe_main {
                             Some(main) if main.is_callable() => {
                                 if let Err(error) = vm.run_function(main, CallArgs::None) {
-                                    self.context_mut().modules.remove(&module_path);
+                                    self.context_shared
+                                        .imported_modules
+                                        .borrow_mut()
+                                        .remove(&module_path);
                                     return Err(error);
                                 }
                             }
@@ -2073,15 +2084,19 @@ impl Vm {
                         }
                     }
                     Err(error) => {
-                        self.context_mut().modules.remove(&module_path);
+                        self.context_shared
+                            .imported_modules
+                            .borrow_mut()
+                            .remove(&module_path);
                         return Err(error);
                     }
                 }
 
                 // Cache the module's resulting exports map
                 let module_exports = vm.context().exports.clone();
-                self.context_mut()
-                    .modules
+                self.context_shared
+                    .imported_modules
+                    .borrow_mut()
                     .insert(module_path, Some(module_exports.clone()));
 
                 self.set_register(import_register, Value::Map(module_exports));
@@ -3226,3 +3241,8 @@ pub enum CallArgs<'a> {
     /// The arguments will be collected into a tuple before being passed to the function
     AsTuple(&'a [Value]),
 }
+
+// A cache of the export maps of imported modules
+//
+// The ValueMap is optional to prevent recursive imports (see Vm::run_import).
+type ModuleCache = HashMap<PathBuf, Option<ValueMap>>;
