@@ -14,10 +14,12 @@ use {
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
+    rustc_hash::FxHasher,
     std::{
         cell::{Ref, RefCell, RefMut},
         collections::HashMap,
         fmt,
+        hash::BuildHasherDefault,
         path::{Path, PathBuf},
         rc::Rc,
     },
@@ -3245,4 +3247,4 @@ pub enum CallArgs<'a> {
 // A cache of the export maps of imported modules
 //
 // The ValueMap is optional to prevent recursive imports (see Vm::run_import).
-type ModuleCache = HashMap<PathBuf, Option<ValueMap>>;
+type ModuleCache = HashMap<PathBuf, Option<ValueMap>, BuildHasherDefault<FxHasher>>;

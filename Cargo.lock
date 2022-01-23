@@ -481,6 +481,7 @@ version = "0.10.0"
 dependencies = [
  "dunce",
  "koto_parser",
+ "rustc-hash",
  "smallvec",
 ]
 

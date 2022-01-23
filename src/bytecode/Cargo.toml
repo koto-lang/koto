@@ -15,4 +15,5 @@ keywords = ["scripting", "language", "koto"]
 koto_parser = { path = "../parser", version = "^0.10.0"}
 
 dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoiding UNC where possible
+rustc-hash = "1.1.0"
 smallvec = "1.2.0"

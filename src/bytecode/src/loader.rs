@@ -2,9 +2,11 @@ use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
+    rustc_hash::FxHasher,
     std::{
         collections::{hash_map::Keys, HashMap},
         error, fmt,
+        hash::BuildHasherDefault,
         path::{Path, PathBuf},
         rc::Rc,
     },
@@ -110,7 +112,7 @@ impl error::Error for LoaderError {}
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
 pub struct Loader {
-    chunks: HashMap<PathBuf, Rc<Chunk>>,
+    chunks: HashMap<PathBuf, Rc<Chunk>, BuildHasherDefault<FxHasher>>,
 }
 
 impl Loader {
