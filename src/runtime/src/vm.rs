@@ -102,15 +102,16 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
 
 /// State shared between concurrent VMs
 struct VmContext {
-    pub prelude: ValueMap,
+    // The settings that were used to initialize the runtime
+    settings: VmSettings,
+    // The runtime's prelude
+    prelude: ValueMap,
+    // The runtime's core library
     core_lib: CoreLib,
-    stdin: Rc<dyn KotoFile>,
-    stdout: Rc<dyn KotoFile>,
-    stderr: Rc<dyn KotoFile>,
+    // The module loader used to compile imported modules
     loader: RefCell<Loader>,
-    // Contains the export maps of imported modules
+    // The cached export maps of imported modules
     imported_modules: RefCell<ModuleCache>,
-    run_import_tests: bool,
 }
 
 impl Default for VmContext {
@@ -124,14 +125,11 @@ impl VmContext {
         let (core_lib, prelude) = setup_core_lib_and_prelude();
 
         Self {
+            settings,
             prelude,
             core_lib,
-            stdin: settings.stdin,
-            stdout: settings.stdout,
-            stderr: settings.stderr,
             loader: RefCell::new(Loader::default()),
             imported_modules: RefCell::new(ModuleCache::default()),
-            run_import_tests: settings.run_import_tests,
         }
     }
 }
@@ -222,17 +220,17 @@ impl Vm {
 
     /// The stdin wrapper used by the VM
     pub fn stdin(&self) -> &Rc<dyn KotoFile> {
-        &self.context.stdin
+        &self.context.settings.stdin
     }
 
     /// The stdout wrapper used by the VM
     pub fn stdout(&self) -> &Rc<dyn KotoFile> {
-        &self.context.stdout
+        &self.context.settings.stdout
     }
 
     /// The stderr wrapper used by the VM
     pub fn stderr(&self) -> &Rc<dyn KotoFile> {
-        &self.context.stderr
+        &self.context.settings.stderr
     }
 
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
@@ -2027,7 +2025,7 @@ impl Vm {
 
                 let import_result = match self.run(module_chunk) {
                     Ok(_) => {
-                        let test_result = if self.context.run_import_tests {
+                        let test_result = if self.context.settings.run_import_tests {
                             let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
                             match maybe_tests {
                                 Some(Value::Map(tests)) => match self.run_tests(tests) {
