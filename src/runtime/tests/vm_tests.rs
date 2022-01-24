@@ -743,7 +743,7 @@ x
 
         fn test_script_with_prelude(script: &str, expected_output: Value) {
             let vm = Vm::default();
-            let mut prelude = vm.prelude();
+            let prelude = vm.prelude();
 
             prelude.add_value("test_value", 42.into());
             prelude.add_fn("assert", |vm, args| {

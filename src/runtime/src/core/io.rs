@@ -21,7 +21,7 @@ use {
 pub fn make_module() -> ValueMap {
     use Value::{Bool, Empty, Str};
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("create", {
         move |vm, args| match vm.get_args(args) {

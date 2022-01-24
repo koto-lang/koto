@@ -10,7 +10,7 @@ use {
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("length", |vm, args| match vm.get_args(args) {
         [Num2(n)] => Ok(Number(n.length().into())),

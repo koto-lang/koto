@@ -166,7 +166,7 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn insert(&mut self, key: ValueKey, value: Value) {
+    pub fn insert(&self, key: ValueKey, value: Value) {
         self.data_mut().insert(key, value);
     }
 
@@ -181,31 +181,27 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn add_fn(&mut self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
+    pub fn add_fn(&self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, false)));
     }
 
     #[inline]
-    pub fn add_instance_fn(
-        &mut self,
-        id: &str,
-        f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static,
-    ) {
+    pub fn add_instance_fn(&self, id: &str, f: impl Fn(&mut Vm, &Args) -> RuntimeResult + 'static) {
         self.add_value(id, Value::ExternalFunction(ExternalFunction::new(f, true)));
     }
 
     #[inline]
-    pub fn add_list(&mut self, id: &str, list: ValueList) {
+    pub fn add_list(&self, id: &str, list: ValueList) {
         self.add_value(id, Value::List(list));
     }
 
     #[inline]
-    pub fn add_map(&mut self, id: &str, map: ValueMap) {
+    pub fn add_map(&self, id: &str, map: ValueMap) {
         self.add_value(id, Value::Map(map));
     }
 
     #[inline]
-    pub fn add_value(&mut self, id: &str, value: Value) {
+    pub fn add_value(&self, id: &str, value: Value) {
         self.insert(id.into(), value);
     }
 }

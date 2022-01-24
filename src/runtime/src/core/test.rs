@@ -5,7 +5,7 @@ use crate::{
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("assert", |vm, args| {
         for value in vm.get_args(args).iter() {

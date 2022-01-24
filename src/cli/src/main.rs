@@ -158,7 +158,7 @@ fn run() -> Result<(), ()> {
         let mut koto = Koto::with_settings(koto_settings);
         koto.set_script_path(script_path.map(|path| path.into()));
 
-        let mut prelude = koto.prelude();
+        let prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());
         prelude.add_map("random", koto_random::make_module());
         prelude.add_map("tempfile", koto_tempfile::make_module());

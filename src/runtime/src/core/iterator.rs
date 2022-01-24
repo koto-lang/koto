@@ -13,7 +13,7 @@ use {
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("all", |vm, args| match vm.get_args(args) {
         [iterable, predicate] if iterable.is_iterable() && predicate.is_callable() => {

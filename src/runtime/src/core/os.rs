@@ -13,7 +13,7 @@ use {
 pub fn make_module() -> ValueMap {
     use Value::Number;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("name", |_, _| Ok(std::env::consts::OS.into()));
 

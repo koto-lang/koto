@@ -3,7 +3,7 @@ use crate::{unexpected_type_error_with_slice, Value, ValueMap, ValueTuple};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_value("args", Tuple(ValueTuple::default()));
 

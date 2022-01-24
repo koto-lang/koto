@@ -59,7 +59,7 @@ pub type InstructionResult = Result<(), RuntimeError>;
 fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     let core_lib = CoreLib::default();
 
-    let mut prelude = ValueMap::default();
+    let prelude = ValueMap::default();
     prelude.add_map("io", core_lib.io.clone());
     prelude.add_map("iterator", core_lib.iterator.clone());
     prelude.add_map("koto", core_lib.koto.clone());
@@ -211,8 +211,8 @@ impl Vm {
     }
 
     /// The prelude, containing items that can be imported within all modules
-    pub fn prelude(&self) -> ValueMap {
-        self.context.prelude.clone()
+    pub fn prelude(&self) -> &ValueMap {
+        &self.context.prelude
     }
 
     /// The active module's exports map

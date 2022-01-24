@@ -31,7 +31,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
             }
         }
         JsonValue::Object(o) => {
-            let mut map = ValueMap::with_capacity(o.len());
+            let map = ValueMap::with_capacity(o.len());
             for (key, value) in o.iter() {
                 map.add_value(key, json_value_to_koto_value(value)?);
             }
@@ -45,7 +45,7 @@ pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, Stri
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match serde_json::from_str(s) {

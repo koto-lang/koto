@@ -11,7 +11,7 @@ use {
 };
 
 pub fn make_module() -> ValueMap {
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("bool", |_, _| {
         THREAD_RNG.with(|rng| rng.borrow_mut().gen_bool())

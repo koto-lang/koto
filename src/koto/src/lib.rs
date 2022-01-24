@@ -292,12 +292,12 @@ impl Koto {
             .map_err(|e| e.into())
     }
 
-    pub fn prelude(&self) -> ValueMap {
+    pub fn prelude(&self) -> &ValueMap {
         self.runtime.prelude()
     }
 
-    pub fn exports(&self) -> ValueMap {
-        self.runtime.exports().clone()
+    pub fn exports(&self) -> &ValueMap {
+        self.runtime.exports()
     }
 
     pub fn set_args(&mut self, args: &[String]) {
