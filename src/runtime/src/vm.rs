@@ -142,7 +142,7 @@ pub struct VmSettings {
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
     /// reload the script when one of its dependencies has changed.
-    pub module_imported_callback: Option<Rc<dyn Fn(&Path)>>,
+    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
     /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
     /// The runtime's stdout

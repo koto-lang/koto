@@ -91,7 +91,6 @@ impl From<RuntimeError> for KotoError {
 pub type KotoResult = Result<Value, KotoError>;
 
 /// Settings used to control the behaviour of the [Koto] runtime
-#[derive(Clone)]
 pub struct KotoSettings {
     /// Whether or not tests should be run when loading a script
     pub run_tests: bool,
@@ -115,14 +114,38 @@ pub struct KotoSettings {
     ///
     /// This allows you to track the runtime's dependencies, which might be useful if you want to
     /// reload the script when one of its dependencies has changed.
-    pub module_imported_callback: Option<Rc<dyn Fn(&Path)>>,
+    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
 }
 
 impl KotoSettings {
+    /// Helper for conveniently defining a custom stdin implementation
+    pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
+        Self {
+            stdin: Rc::new(stdin),
+            ..self
+        }
+    }
+
+    /// Helper for conveniently defining a custom stdout implementation
+    pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
+        Self {
+            stdout: Rc::new(stdout),
+            ..self
+        }
+    }
+
+    /// Helper for conveniently defining a custom stderr implementation
+    pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
+        Self {
+            stderr: Rc::new(stderr),
+            ..self
+        }
+    }
+
     /// Convenience function for declaring the 'module imported' callback
     pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
         Self {
-            module_imported_callback: Some(Rc::new(callback)),
+            module_imported_callback: Some(Box::new(callback)),
             ..self
         }
     }
@@ -148,7 +171,8 @@ impl Default for KotoSettings {
 /// Example
 pub struct Koto {
     runtime: Vm,
-    settings: KotoSettings,
+    run_tests: bool,
+    repl_mode: bool,
     script_path: Option<PathBuf>,
     loader: Loader,
     chunk: Option<Rc<Chunk>>,
@@ -167,7 +191,6 @@ impl Koto {
 
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
-            settings: settings.clone(),
             runtime: Vm::with_settings(VmSettings {
                 stdin: settings.stdin,
                 stdout: settings.stdout,
@@ -175,6 +198,8 @@ impl Koto {
                 run_import_tests: settings.run_import_tests,
                 module_imported_callback: settings.module_imported_callback,
             }),
+            run_tests: settings.run_tests,
+            repl_mode: settings.repl_mode,
             loader: Loader::default(),
             chunk: None,
             script_path: None,
@@ -182,7 +207,7 @@ impl Koto {
     }
 
     pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
-        let compile_result = if self.settings.repl_mode {
+        let compile_result = if self.repl_mode {
             self.loader.compile_repl(script)
         } else {
             self.loader.compile_script(script, &self.script_path)
@@ -215,16 +240,16 @@ impl Koto {
     /// Currently this is only used when running benchmarks where tests are run once during setup,
     /// and then disabled for repeated runs.
     pub fn set_run_tests(&mut self, enabled: bool) {
-        self.settings.run_tests = enabled;
+        self.run_tests = enabled;
     }
 
     fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
-        if self.settings.repl_mode {
+        if self.repl_mode {
             Ok(result)
         } else {
-            if self.settings.run_tests {
+            if self.run_tests {
                 let maybe_tests = self.runtime.exports().meta().get(&MetaKey::Tests).cloned();
                 match maybe_tests {
                     Some(Value::Map(tests)) => {
