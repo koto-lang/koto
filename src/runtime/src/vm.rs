@@ -138,6 +138,11 @@ impl VmContext {
 pub struct VmSettings {
     /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+    /// An optional callback that is called whenever a module is imported by the runtime
+    ///
+    /// This allows you to track the runtime's dependencies, which might be useful if you want to
+    /// reload the script when one of its dependencies has changed.
+    pub module_imported_callback: Option<Rc<dyn Fn(&Path)>>,
     /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
     /// The runtime's stdout
@@ -149,10 +154,11 @@ pub struct VmSettings {
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
+            run_import_tests: true,
+            module_imported_callback: None,
             stdin: Rc::new(DefaultStdin::default()),
             stdout: Rc::new(DefaultStdout::default()),
             stderr: Rc::new(DefaultStderr::default()),
-            run_import_tests: true,
         }
     }
 }
@@ -207,13 +213,6 @@ impl Vm {
     /// The prelude, containing items that can be imported within all modules
     pub fn prelude(&self) -> ValueMap {
         self.context.prelude.clone()
-    }
-
-    /// Calls the provided callback with the path of each module that has been loaded by the runtime
-    pub fn for_each_module_path(&self, mut callback: impl FnMut(&Path)) {
-        for path in self.context.loader.borrow().module_paths() {
-            callback(path);
-        }
     }
 
     /// The active module's exports map
@@ -2099,6 +2098,10 @@ impl Vm {
                 };
 
                 if import_result.is_ok() {
+                    if let Some(callback) = &self.context.settings.module_imported_callback {
+                        callback(&module_path);
+                    }
+
                     // Cache the module's resulting exports and assign them to the import register
                     let module_exports = self.exports.clone();
                     self.context

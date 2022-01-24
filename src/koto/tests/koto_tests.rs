@@ -1,30 +1,47 @@
 use {
     koto::{Koto, KotoSettings},
-    std::{fs::read_to_string, path::PathBuf},
+    std::{
+        cell::RefCell,
+        fs::read_to_string,
+        path::{Path, PathBuf},
+        rc::Rc,
+    },
 };
 
 fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths: &[PathBuf]) {
-    let mut koto = Koto::with_settings(KotoSettings {
-        run_tests: true,
-        ..Default::default()
-    });
+    let loaded_module_paths = Rc::new(RefCell::new(vec![]));
+
+    let mut koto = Koto::with_settings(
+        KotoSettings {
+            run_tests: true,
+            ..Default::default()
+        }
+        .with_module_imported_callback({
+            let loaded_module_paths = loaded_module_paths.clone();
+            move |path: &Path| loaded_module_paths.borrow_mut().push(path.to_path_buf())
+        }),
+    );
     koto.set_script_path(script_path);
 
     match koto.compile(script) {
         Ok(_) => match koto.run() {
             Ok(_) => {
-                // Check that the loaded module paths are correct
-                let mut loaded_module_count = 0;
-                koto.for_each_module_path(|path| {
+                for loaded_module_path in loaded_module_paths.borrow().iter() {
                     if !expected_module_paths
                         .iter()
-                        .any(|module_path| module_path == path)
+                        .any(|path| path == loaded_module_path)
                     {
-                        panic!("Unexpected imported module: '{}'", path.to_string_lossy());
+                        panic!(
+                            "Unexpected imported module: '{}'",
+                            loaded_module_path.to_string_lossy()
+                        );
                     }
-                    loaded_module_count += 1;
-                });
-                assert_eq!(loaded_module_count, expected_module_paths.len());
+                }
+                // Check that the loaded module paths are correct
+                assert_eq!(
+                    loaded_module_paths.borrow().len(),
+                    expected_module_paths.len()
+                );
             }
             Err(error) => {
                 panic!("{}", error);

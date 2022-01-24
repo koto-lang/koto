@@ -93,12 +93,39 @@ pub type KotoResult = Result<Value, KotoError>;
 /// Settings used to control the behaviour of the [Koto] runtime
 #[derive(Clone)]
 pub struct KotoSettings {
+    /// Whether or not tests should be run when loading a script
     pub run_tests: bool,
+    /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+    /// Whether or not Koto should be run in REPL mode
+    ///
+    /// The default behaviour in Koto is that `export` expressions are required to make a value
+    /// available outside of the current module.
+    ///
+    /// REPL mode will export all top-level items without requiring `export`, allowing for
+    /// incremental compilation and execution of expressions that should share declared values.
     pub repl_mode: bool,
+    /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
+    /// The runtime's stdout
     pub stdout: Rc<dyn KotoFile>,
+    /// The runtime's stderr
     pub stderr: Rc<dyn KotoFile>,
+    /// An optional callback that is called whenever a module is imported by the runtime
+    ///
+    /// This allows you to track the runtime's dependencies, which might be useful if you want to
+    /// reload the script when one of its dependencies has changed.
+    pub module_imported_callback: Option<Rc<dyn Fn(&Path)>>,
+}
+
+impl KotoSettings {
+    /// Convenience function for declaring the 'module imported' callback
+    pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
+        Self {
+            module_imported_callback: Some(Rc::new(callback)),
+            ..self
+        }
+    }
 }
 
 impl Default for KotoSettings {
@@ -111,6 +138,7 @@ impl Default for KotoSettings {
             stdin: default_vm_settings.stdin,
             stdout: default_vm_settings.stdout,
             stderr: default_vm_settings.stderr,
+            module_imported_callback: None,
         }
     }
 }
@@ -145,6 +173,7 @@ impl Koto {
                 stdout: settings.stdout,
                 stderr: settings.stderr,
                 run_import_tests: settings.run_import_tests,
+                module_imported_callback: settings.module_imported_callback,
             }),
             loader: Loader::default(),
             chunk: None,
@@ -236,11 +265,6 @@ impl Koto {
 
     pub fn exports(&self) -> ValueMap {
         self.runtime.exports().clone()
-    }
-
-    /// Calls the provided callback with the path of each module that has been loaded by the runtime
-    pub fn for_each_module_path(&self, callback: impl FnMut(&Path)) {
-        self.runtime.for_each_module_path(callback);
     }
 
     pub fn set_args(&mut self, args: &[String]) {

@@ -3,13 +3,7 @@ use {
     dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
     rustc_hash::FxHasher,
-    std::{
-        collections::{hash_map::Keys, HashMap},
-        error, fmt,
-        hash::BuildHasherDefault,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+    std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf, rc::Rc},
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -231,33 +225,5 @@ impl Loader {
                 )))
             }
         }
-    }
-
-    /// Provides the paths that have been loaded by the loader
-    pub fn module_paths(&self) -> ModulePathIter {
-        ModulePathIter::new(self)
-    }
-}
-
-/// An iterator that provides the paths of the modules that have been loaded by a `Loader`
-///
-/// Returned from `Loader::module_paths`.
-pub struct ModulePathIter<'a> {
-    keys: Keys<'a, PathBuf, Rc<Chunk>>,
-}
-
-impl<'a> ModulePathIter<'a> {
-    fn new(loader: &'a Loader) -> Self {
-        Self {
-            keys: loader.chunks.keys(),
-        }
-    }
-}
-
-impl<'a> Iterator for ModulePathIter<'a> {
-    type Item = &'a Path;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.keys.next().map(|path| path.as_path())
     }
 }
