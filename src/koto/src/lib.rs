@@ -148,7 +148,7 @@ impl Default for KotoSettings {
 /// Example
 pub struct Koto {
     runtime: Vm,
-    pub settings: KotoSettings, // TODO make private, needs enable / disable tests methods
+    settings: KotoSettings,
     script_path: Option<PathBuf>,
     loader: Loader,
     chunk: Option<Rc<Chunk>>,
@@ -210,7 +210,15 @@ impl Koto {
         }
     }
 
-    pub fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
+    /// Enables or disables the `run_tests` setting
+    ///
+    /// Currently this is only used when running benchmarks where tests are run once during setup,
+    /// and then disabled for repeated runs.
+    pub fn set_run_tests(&mut self, enabled: bool) {
+        self.settings.run_tests = enabled;
+    }
+
+    fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
         if self.settings.repl_mode {
