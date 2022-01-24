@@ -87,6 +87,8 @@ The Koto project adheres to
 - Internals
   - A 'module imported' callback has been added to `KotoSettings` to aid in
     keeping track of a script's module dependencies.
+  - `Koto::clear_module_cache()` has been added to allow for reloading scripts
+    when one of the script's dependencies has changed.
 
 ### Changed
 

@@ -32,7 +32,7 @@ use {
     dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        CallArgs, KotoFile, Loader, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
+        CallArgs, KotoFile, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
     },
     std::{
         error::Error,
@@ -174,7 +174,6 @@ pub struct Koto {
     run_tests: bool,
     repl_mode: bool,
     script_path: Option<PathBuf>,
-    loader: Loader,
     chunk: Option<Rc<Chunk>>,
 }
 
@@ -200,7 +199,6 @@ impl Koto {
             }),
             run_tests: settings.run_tests,
             repl_mode: settings.repl_mode,
-            loader: Loader::default(),
             chunk: None,
             script_path: None,
         }
@@ -208,9 +206,12 @@ impl Koto {
 
     pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
         let compile_result = if self.repl_mode {
-            self.loader.compile_repl(script)
+            self.runtime.loader().borrow_mut().compile_repl(script)
         } else {
-            self.loader.compile_script(script, &self.script_path)
+            self.runtime
+                .loader()
+                .borrow_mut()
+                .compile_script(script, &self.script_path)
         };
 
         match compile_result {
@@ -220,6 +221,11 @@ impl Koto {
             }
             Err(error) => Err(KotoError::CompileError(error)),
         }
+    }
+
+    /// Clears the loader's cached modules
+    pub fn clear_module_cache(&mut self) {
+        self.runtime.loader().borrow_mut().clear_cache();
     }
 
     pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {

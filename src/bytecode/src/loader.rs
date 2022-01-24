@@ -155,7 +155,7 @@ impl Loader {
         &mut self,
         name: &str,
         load_from_path: Option<PathBuf>,
-    ) -> Result<(Rc<Chunk>, PathBuf), LoaderError> {
+    ) -> Result<CompileModuleResult, LoaderError> {
         // Get either the directory of the provided path, or the current working directory
         let search_folder = match &load_from_path {
             Some(path) => match canonicalize(path) {
@@ -185,7 +185,11 @@ impl Loader {
                 ))
             })?;
             match self.chunks.get(&module_path) {
-                Some(chunk) => Ok((chunk.clone(), module_path.clone())),
+                Some(chunk) => Ok(CompileModuleResult {
+                    chunk: chunk.clone(),
+                    path: module_path,
+                    loaded_from_cache: true,
+                }),
                 None => match std::fs::read_to_string(&module_path) {
                     Ok(script) => {
                         let chunk = self.compile(
@@ -195,7 +199,11 @@ impl Loader {
                         )?;
 
                         self.chunks.insert(module_path.clone(), chunk.clone());
-                        Ok((chunk, module_path))
+                        Ok(CompileModuleResult {
+                            chunk,
+                            path: module_path,
+                            loaded_from_cache: false,
+                        })
                     }
                     Err(_) => Err(LoaderError::io_error(format!(
                         "File not found: {}",
@@ -226,4 +234,15 @@ impl Loader {
             }
         }
     }
+
+    /// Clears the compiled module cache
+    pub fn clear_cache(&mut self) {
+        self.chunks.clear();
+    }
+}
+
+pub struct CompileModuleResult {
+    pub chunk: Rc<Chunk>,
+    pub path: PathBuf,
+    pub loaded_from_cache: bool,
 }

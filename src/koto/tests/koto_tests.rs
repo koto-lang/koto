@@ -40,7 +40,8 @@ fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths:
                 // Check that the loaded module paths are correct
                 assert_eq!(
                     loaded_module_paths.borrow().len(),
-                    expected_module_paths.len()
+                    expected_module_paths.len(),
+                    "Mismatch in number of imported module paths"
                 );
             }
             Err(error) => {

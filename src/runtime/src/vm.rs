@@ -210,6 +210,11 @@ impl Vm {
         }
     }
 
+    /// The loader, responsible for loading and compiling Koto scripts and modules
+    pub fn loader(&self) -> &RefCell<Loader> {
+        &self.context.loader
+    }
+
     /// The prelude, containing items that can be imported within all modules
     pub fn prelude(&self) -> &ValueMap {
         &self.context.prelude
@@ -1991,13 +1996,13 @@ impl Vm {
         // Attempt to compile the imported module from disk,
         // using the current source path as the relative starting location
         let source_path = self.reader.chunk.source_path.clone();
-        let (module_chunk, module_path) = match self
+        let compile_result = match self
             .context
             .loader
             .borrow_mut()
             .compile_module(&import_name, source_path)
         {
-            Ok((chunk, path)) => (chunk, path),
+            Ok(result) => result,
             Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
         };
 
@@ -2006,21 +2011,20 @@ impl Vm {
             .context
             .imported_modules
             .borrow()
-            .get(&module_path)
+            .get(&compile_result.path)
             .cloned();
         match maybe_in_cache {
-            Some(Some(cached_exports)) => {
-                self.set_register(import_register, Value::Map(cached_exports));
-                Ok(())
-            }
             Some(None) => {
                 // If the cache contains a None entry for the module path,
                 // then we're in a recursive import (see below).
                 runtime_error!("Recursive import of module '{}'", import_name)
             }
-            None => {
-                // The module is new to the runtime, so it needs to be loaded, which involves the
-                // follwing steps:
+            Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
+                self.set_register(import_register, Value::Map(cached_exports));
+                Ok(())
+            }
+            _ => {
+                // The module needs to be loaded, which involves the following steps:
                 //   - Execute the module's script
                 //   - If the module contains @tests, run them
                 //   - If the module contains a @main function, run it
@@ -2030,7 +2034,7 @@ impl Vm {
                 self.context
                     .imported_modules
                     .borrow_mut()
-                    .insert(module_path.clone(), None);
+                    .insert(compile_result.path.clone(), None);
 
                 // Cache the current exports map and prepare an empty exports map for the module
                 // that's being imported.
@@ -2040,7 +2044,7 @@ impl Vm {
                 let importer_exports = self.exports.clone();
                 self.exports = ValueMap::default();
 
-                let import_result = match self.run(module_chunk) {
+                let import_result = match self.run(compile_result.chunk.clone()) {
                     Ok(_) => {
                         let test_result = if self.context.settings.run_import_tests {
                             let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
@@ -2074,7 +2078,7 @@ impl Vm {
                                             self.context
                                                 .imported_modules
                                                 .borrow_mut()
-                                                .remove(&module_path);
+                                                .remove(&compile_result.path);
                                             Err(error)
                                         }
                                     }
@@ -2092,14 +2096,14 @@ impl Vm {
                         self.context
                             .imported_modules
                             .borrow_mut()
-                            .remove(&module_path);
+                            .remove(&compile_result.path);
                         Err(error)
                     }
                 };
 
                 if import_result.is_ok() {
                     if let Some(callback) = &self.context.settings.module_imported_callback {
-                        callback(&module_path);
+                        callback(&compile_result.path);
                     }
 
                     // Cache the module's resulting exports and assign them to the import register
@@ -2107,7 +2111,7 @@ impl Vm {
                     self.context
                         .imported_modules
                         .borrow_mut()
-                        .insert(module_path, Some(module_exports.clone()));
+                        .insert(compile_result.path, Some(module_exports.clone()));
                     self.set_register(import_register, Value::Map(module_exports));
                 }
 
