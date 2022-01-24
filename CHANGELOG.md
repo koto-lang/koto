@@ -85,8 +85,8 @@ The Koto project adheres to
     x, _unused, z = 1, 2, 3
     ```
 - Internals
-  - `Koto::for_each_module_path` has been added to provide access to the paths
-    of a script's module dependencies.
+  - A 'module imported' callback has been added to `KotoSettings` to aid in
+    keeping track of a script's module dependencies.
 
 ### Changed
 
