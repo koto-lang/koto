@@ -52,15 +52,15 @@ impl fmt::Display for OutputCapture {
 pub fn compile_and_run(input: &str) -> String {
     let output = Rc::new(RefCell::new(String::new()));
 
-    let mut koto = Koto::with_settings(KotoSettings {
-        stdout: Rc::new(OutputCapture {
-            output: output.clone(),
-        }),
-        stderr: Rc::new(OutputCapture {
-            output: output.clone(),
-        }),
-        ..Default::default()
-    });
+    let mut koto = Koto::with_settings(
+        KotoSettings::default()
+            .with_stdout(OutputCapture {
+                output: output.clone(),
+            })
+            .with_stderr(OutputCapture {
+                output: output.clone(),
+            }),
+    );
 
     match koto.compile(input) {
         Ok(_) => match koto.run() {

@@ -25,7 +25,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
             }
         }
         Toml::Table(o) => {
-            let mut map = ValueMap::with_capacity(o.len());
+            let map = ValueMap::with_capacity(o.len());
             for (key, value) in o.iter() {
                 map.add_value(key, toml_to_koto_value(value)?);
             }
@@ -40,7 +40,7 @@ pub fn toml_to_koto_value(value: &Toml) -> Result<Value, String> {
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("from_string", |vm, args| match vm.get_args(args) {
         [Str(s)] => match toml::from_str(s) {

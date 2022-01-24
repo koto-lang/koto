@@ -2,12 +2,8 @@ use {
     crate::{Chunk, Compiler, CompilerError, CompilerSettings},
     dunce::canonicalize,
     koto_parser::{format_error_with_excerpt, Parser, ParserError},
-    std::{
-        collections::{hash_map::Keys, HashMap},
-        error, fmt,
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+    rustc_hash::FxHasher,
+    std::{collections::HashMap, error, fmt, hash::BuildHasherDefault, path::PathBuf, rc::Rc},
 };
 
 /// Errors that can be returned from [Loader] operations
@@ -110,7 +106,7 @@ impl error::Error for LoaderError {}
 /// Helper for loading, compiling, and caching Koto modules
 #[derive(Clone, Default)]
 pub struct Loader {
-    chunks: HashMap<PathBuf, Rc<Chunk>>,
+    chunks: HashMap<PathBuf, Rc<Chunk>, BuildHasherDefault<FxHasher>>,
 }
 
 impl Loader {
@@ -159,9 +155,9 @@ impl Loader {
         &mut self,
         name: &str,
         load_from_path: Option<PathBuf>,
-    ) -> Result<(Rc<Chunk>, PathBuf), LoaderError> {
+    ) -> Result<CompileModuleResult, LoaderError> {
         // Get either the directory of the provided path, or the current working directory
-        let path = match &load_from_path {
+        let search_folder = match &load_from_path {
             Some(path) => match canonicalize(path) {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
@@ -189,7 +185,11 @@ impl Loader {
                 ))
             })?;
             match self.chunks.get(&module_path) {
-                Some(chunk) => Ok((chunk.clone(), module_path.clone())),
+                Some(chunk) => Ok(CompileModuleResult {
+                    chunk: chunk.clone(),
+                    path: module_path,
+                    loaded_from_cache: true,
+                }),
                 None => match std::fs::read_to_string(&module_path) {
                     Ok(script) => {
                         let chunk = self.compile(
@@ -199,7 +199,11 @@ impl Loader {
                         )?;
 
                         self.chunks.insert(module_path.clone(), chunk.clone());
-                        Ok((chunk, module_path))
+                        Ok(CompileModuleResult {
+                            chunk,
+                            path: module_path,
+                            loaded_from_cache: false,
+                        })
                     }
                     Err(_) => Err(LoaderError::io_error(format!(
                         "File not found: {}",
@@ -210,7 +214,7 @@ impl Loader {
         };
 
         let extension = "koto";
-        let named_path = path.join(name);
+        let named_path = search_folder.join(name);
 
         // First, check for a neighbouring file with a matching name.
         let module_path = named_path.with_extension(extension);
@@ -231,31 +235,14 @@ impl Loader {
         }
     }
 
-    /// Provides the paths that have been loaded by the loader
-    pub fn module_paths(&self) -> ModulePathIter {
-        ModulePathIter::new(self)
+    /// Clears the compiled module cache
+    pub fn clear_cache(&mut self) {
+        self.chunks.clear();
     }
 }
 
-/// An iterator that provides the paths of the modules that have been loaded by a `Loader`
-///
-/// Returned from `Loader::module_paths`.
-pub struct ModulePathIter<'a> {
-    keys: Keys<'a, PathBuf, Rc<Chunk>>,
-}
-
-impl<'a> ModulePathIter<'a> {
-    fn new(loader: &'a Loader) -> Self {
-        Self {
-            keys: loader.chunks.keys(),
-        }
-    }
-}
-
-impl<'a> Iterator for ModulePathIter<'a> {
-    type Item = &'a Path;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.keys.next().map(|path| path.as_path())
-    }
+pub struct CompileModuleResult {
+    pub chunk: Rc<Chunk>,
+    pub path: PathBuf,
+    pub loaded_from_cache: bool,
 }

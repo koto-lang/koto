@@ -3,7 +3,7 @@ use crate::{unexpected_type_error_with_slice, Value, ValueMap, ValueNumber};
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     macro_rules! number_fn {
         ($fn:ident) => {

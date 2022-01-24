@@ -14,8 +14,11 @@ pub(crate) struct Frame {
     // A stack of catch points for handling errors
     pub catch_stack: Vec<(u8, usize)>, // catch error register, catch ip
     // True if the frame should prevent execution from continuing after the frame is exited.
-    // e.g. when an overloaded operator is being executed as a result of a regular instruction,
-    //      or when an external function is calling back into the VM with a functor,
+    // e.g.
+    //   - a function is being called externally from the VM
+    //   - an overloaded operator is being executed as a result of a regular instruction
+    //   - an external function is calling back into the VM with a functor
+    //   - a module is being imported
     pub execution_barrier: bool,
 }
 

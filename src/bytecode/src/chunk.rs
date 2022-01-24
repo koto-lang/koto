@@ -1,7 +1,7 @@
 use {
     crate::InstructionReader,
     koto_parser::{ConstantPool, Span},
-    std::{path::PathBuf, rc::Rc},
+    std::{fmt, path::PathBuf, rc::Rc},
 };
 
 /// Debug information for a Koto program
@@ -47,7 +47,7 @@ impl DebugInfo {
 }
 
 /// A compiled chunk of bytecode, along with its associated constants and metadata
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct Chunk {
     /// The bytes representing the chunk's bytecode
     pub bytes: Vec<u8>,
@@ -141,5 +141,11 @@ impl Chunk {
         }
 
         result
+    }
+}
+
+impl fmt::Debug for Chunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "Chunk ({:p})", self)
     }
 }

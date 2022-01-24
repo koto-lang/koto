@@ -6,7 +6,7 @@ use crate::{
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
         [Tuple(t), value] => {

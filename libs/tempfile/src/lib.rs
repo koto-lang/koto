@@ -9,7 +9,7 @@ use {
 };
 
 pub fn make_module() -> ValueMap {
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("temp_file", {
         |_, _| match NamedTempFile::new().map_err(map_io_err) {

@@ -85,8 +85,10 @@ The Koto project adheres to
     x, _unused, z = 1, 2, 3
     ```
 - Internals
-  - `Koto::for_each_module_path` has been added to provide access to the paths
-    of a script's module dependencies.
+  - A 'module imported' callback has been added to `KotoSettings` to aid in
+    keeping track of a script's module dependencies.
+  - `Koto::clear_module_cache()` has been added to allow for reloading scripts
+    when one of the script's dependencies has changed.
 
 ### Changed
 
@@ -189,7 +191,8 @@ The Koto project adheres to
   string and that override @display.
 - Fixed a panic that could occur when skipping past the end of an iterator and
   then calling a 'to X' function.
-
+- Fixed unexpected shaky behaviour when compiling expressions that assign to the
+  same name more than once in the expression, e.g. `x = x = 1`.
 
 ## [0.10.0] 2021.12.02
 

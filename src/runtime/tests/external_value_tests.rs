@@ -174,7 +174,7 @@ mod external_values {
 
     fn test_script_with_external_value(script: &str, expected_output: Value) {
         let vm = Vm::default();
-        let mut prelude = vm.prelude();
+        let prelude = vm.prelude();
 
         prelude.add_fn("make_external", |vm, args| match vm.get_args(args) {
             [Value::Number(x)] => Ok(ExternalValue::with_shared_meta_map(

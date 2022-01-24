@@ -32,7 +32,7 @@ use {
     dunce::canonicalize,
     koto_bytecode::{Chunk, LoaderError},
     koto_runtime::{
-        CallArgs, KotoFile, Loader, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
+        CallArgs, KotoFile, MetaKey, RuntimeError, UnaryOp, Value, ValueMap, Vm, VmSettings,
     },
     std::{
         error::Error,
@@ -91,14 +91,64 @@ impl From<RuntimeError> for KotoError {
 pub type KotoResult = Result<Value, KotoError>;
 
 /// Settings used to control the behaviour of the [Koto] runtime
-#[derive(Clone)]
 pub struct KotoSettings {
+    /// Whether or not tests should be run when loading a script
     pub run_tests: bool,
+    /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+    /// Whether or not Koto should be run in REPL mode
+    ///
+    /// The default behaviour in Koto is that `export` expressions are required to make a value
+    /// available outside of the current module.
+    ///
+    /// REPL mode will export all top-level items without requiring `export`, allowing for
+    /// incremental compilation and execution of expressions that should share declared values.
     pub repl_mode: bool,
+    /// The runtime's stdin
     pub stdin: Rc<dyn KotoFile>,
+    /// The runtime's stdout
     pub stdout: Rc<dyn KotoFile>,
+    /// The runtime's stderr
     pub stderr: Rc<dyn KotoFile>,
+    /// An optional callback that is called whenever a module is imported by the runtime
+    ///
+    /// This allows you to track the runtime's dependencies, which might be useful if you want to
+    /// reload the script when one of its dependencies has changed.
+    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
+}
+
+impl KotoSettings {
+    /// Helper for conveniently defining a custom stdin implementation
+    pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
+        Self {
+            stdin: Rc::new(stdin),
+            ..self
+        }
+    }
+
+    /// Helper for conveniently defining a custom stdout implementation
+    pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
+        Self {
+            stdout: Rc::new(stdout),
+            ..self
+        }
+    }
+
+    /// Helper for conveniently defining a custom stderr implementation
+    pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
+        Self {
+            stderr: Rc::new(stderr),
+            ..self
+        }
+    }
+
+    /// Convenience function for declaring the 'module imported' callback
+    pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
+        Self {
+            module_imported_callback: Some(Box::new(callback)),
+            ..self
+        }
+    }
 }
 
 impl Default for KotoSettings {
@@ -111,6 +161,7 @@ impl Default for KotoSettings {
             stdin: default_vm_settings.stdin,
             stdout: default_vm_settings.stdout,
             stderr: default_vm_settings.stderr,
+            module_imported_callback: None,
         }
     }
 }
@@ -120,9 +171,9 @@ impl Default for KotoSettings {
 /// Example
 pub struct Koto {
     runtime: Vm,
-    pub settings: KotoSettings, // TODO make private, needs enable / disable tests methods
+    run_tests: bool,
+    repl_mode: bool,
     script_path: Option<PathBuf>,
-    loader: Loader,
     chunk: Option<Rc<Chunk>>,
 }
 
@@ -139,24 +190,28 @@ impl Koto {
 
     pub fn with_settings(settings: KotoSettings) -> Self {
         Self {
-            settings: settings.clone(),
             runtime: Vm::with_settings(VmSettings {
                 stdin: settings.stdin,
                 stdout: settings.stdout,
                 stderr: settings.stderr,
                 run_import_tests: settings.run_import_tests,
+                module_imported_callback: settings.module_imported_callback,
             }),
-            loader: Loader::default(),
+            run_tests: settings.run_tests,
+            repl_mode: settings.repl_mode,
             chunk: None,
             script_path: None,
         }
     }
 
     pub fn compile(&mut self, script: &str) -> Result<Rc<Chunk>, KotoError> {
-        let compile_result = if self.settings.repl_mode {
-            self.loader.compile_repl(script)
+        let compile_result = if self.repl_mode {
+            self.runtime.loader().borrow_mut().compile_repl(script)
         } else {
-            self.loader.compile_script(script, &self.script_path)
+            self.runtime
+                .loader()
+                .borrow_mut()
+                .compile_script(script, &self.script_path)
         };
 
         match compile_result {
@@ -166,6 +221,11 @@ impl Koto {
             }
             Err(error) => Err(KotoError::CompileError(error)),
         }
+    }
+
+    /// Clears the loader's cached modules
+    pub fn clear_module_cache(&mut self) {
+        self.runtime.loader().borrow_mut().clear_cache();
     }
 
     pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
@@ -181,20 +241,22 @@ impl Koto {
         }
     }
 
-    pub fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
+    /// Enables or disables the `run_tests` setting
+    ///
+    /// Currently this is only used when running benchmarks where tests are run once during setup,
+    /// and then disabled for repeated runs.
+    pub fn set_run_tests(&mut self, enabled: bool) {
+        self.run_tests = enabled;
+    }
+
+    fn run_chunk(&mut self, chunk: Rc<Chunk>) -> KotoResult {
         let result = self.runtime.run(chunk)?;
 
-        if self.settings.repl_mode {
+        if self.repl_mode {
             Ok(result)
         } else {
-            if self.settings.run_tests {
-                let maybe_tests = self
-                    .runtime
-                    .context()
-                    .exports
-                    .meta()
-                    .get(&MetaKey::Tests)
-                    .cloned();
+            if self.run_tests {
+                let maybe_tests = self.runtime.exports().meta().get(&MetaKey::Tests).cloned();
                 match maybe_tests {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
@@ -206,13 +268,7 @@ impl Koto {
                 }
             }
 
-            let maybe_main = self
-                .runtime
-                .context()
-                .exports
-                .meta()
-                .get(&MetaKey::Main)
-                .cloned();
+            let maybe_main = self.runtime.exports().meta().get(&MetaKey::Main).cloned();
             if let Some(main) = maybe_main {
                 self.runtime
                     .run_function(main, CallArgs::None)
@@ -242,17 +298,12 @@ impl Koto {
             .map_err(|e| e.into())
     }
 
-    pub fn prelude(&self) -> ValueMap {
+    pub fn prelude(&self) -> &ValueMap {
         self.runtime.prelude()
     }
 
-    pub fn exports(&self) -> ValueMap {
-        self.runtime.context().exports.clone()
-    }
-
-    /// Calls the provided callback with the path of each module that has been loaded by the runtime
-    pub fn for_each_module_path(&self, callback: impl FnMut(&Path)) {
-        self.runtime.for_each_module_path(callback);
+    pub fn exports(&self) -> &ValueMap {
+        self.runtime.exports()
     }
 
     pub fn set_args(&mut self, args: &[String]) {

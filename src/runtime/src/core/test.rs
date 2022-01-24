@@ -5,7 +5,7 @@ use crate::{
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("assert", |vm, args| {
         for value in vm.get_args(args).iter() {
@@ -123,7 +123,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
         [Map(tests)] => {
             let tests = tests.clone();
-            let mut vm = vm.spawn_shared_vm();
+            let mut vm = vm.spawn_shared_vm(); // TODO is spawning a VM still necessary?
             vm.run_tests(tests)
         }
         unexpected => {

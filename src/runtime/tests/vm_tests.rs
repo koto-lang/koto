@@ -92,6 +92,15 @@ a + 1";
         }
 
         #[test]
+        fn repeated_assignment() {
+            let script = "
+x = x = 1
+y = y = 2
+";
+            test_script(script, 2.into());
+        }
+
+        #[test]
         fn negation() {
             let script = "
 a = 99
@@ -743,7 +752,7 @@ x
 
         fn test_script_with_prelude(script: &str, expected_output: Value) {
             let vm = Vm::default();
-            let mut prelude = vm.prelude();
+            let prelude = vm.prelude();
 
             prelude.add_value("test_value", 42.into());
             prelude.add_fn("assert", |vm, args| {
@@ -2630,6 +2639,28 @@ a = foo 10
 a.x + a.y # The meta map's y entry is hidden by the data entry
 ";
             test_script(script, 110.into());
+        }
+    }
+
+    mod import {
+        use super::*;
+
+        #[test]
+        fn import_after_local_assignment() {
+            let script = "
+x = 123
+y = import test.assert
+x";
+            test_script(script, 123.into());
+        }
+
+        #[test]
+        fn import_with_same_local_name() {
+            let script = "
+x = 0
+pi = number.pi
+pi != x and pi == pi";
+            test_script(script, true.into());
         }
     }
 

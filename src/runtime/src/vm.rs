@@ -1,7 +1,7 @@
 use {
     crate::{
         core::CoreLib,
-        error::unexpected_type_error,
+        error::{unexpected_type_error, RuntimeErrorType},
         external::{self, Args, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
@@ -9,15 +9,17 @@ use {
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, Loader, MetaKey,
-        RuntimeError, RuntimeErrorType, RuntimeResult, UnaryOp, Value, ValueKey, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
+        RuntimeError, RuntimeResult, UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber,
+        ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
+    rustc_hash::FxHasher,
     std::{
-        cell::{Ref, RefCell, RefMut},
+        cell::RefCell,
         collections::HashMap,
         fmt,
+        hash::BuildHasherDefault,
         path::{Path, PathBuf},
         rc::Rc,
     },
@@ -57,7 +59,7 @@ pub type InstructionResult = Result<(), RuntimeError>;
 fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     let core_lib = CoreLib::default();
 
-    let mut prelude = ValueMap::default();
+    let prelude = ValueMap::default();
     prelude.add_map("io", core_lib.io.clone());
     prelude.add_map("iterator", core_lib.iterator.clone());
     prelude.add_map("koto", core_lib.koto.clone());
@@ -98,79 +100,73 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     (core_lib, prelude)
 }
 
-/// Context shared by all VMs across modules
-struct SharedContext {
-    pub prelude: ValueMap,
+/// State shared between concurrent VMs
+struct VmContext {
+    // The settings that were used to initialize the runtime
+    settings: VmSettings,
+    // The runtime's prelude
+    prelude: ValueMap,
+    // The runtime's core library
     core_lib: CoreLib,
-    stdin: Rc<dyn KotoFile>,
-    stdout: Rc<dyn KotoFile>,
-    stderr: Rc<dyn KotoFile>,
+    // The module loader used to compile imported modules
     loader: RefCell<Loader>,
-    run_import_tests: bool,
+    // The cached export maps of imported modules
+    imported_modules: RefCell<ModuleCache>,
 }
 
-impl Default for SharedContext {
+impl Default for VmContext {
     fn default() -> Self {
         Self::with_settings(VmSettings::default())
     }
 }
 
-impl SharedContext {
+impl VmContext {
     fn with_settings(settings: VmSettings) -> Self {
         let (core_lib, prelude) = setup_core_lib_and_prelude();
 
         Self {
+            settings,
             prelude,
             core_lib,
-            stdin: settings.stdin,
-            stdout: settings.stdout,
-            stderr: settings.stderr,
             loader: RefCell::new(Loader::default()),
-            run_import_tests: settings.run_import_tests,
+            imported_modules: RefCell::new(ModuleCache::default()),
         }
     }
 }
 
-/// VM Context shared by VMs running in the same module
-#[derive(Default)]
-pub struct ModuleContext {
-    /// The module's exported values
-    pub exports: ValueMap,
-    // Module export maps that have been imported by this module
-    modules: HashMap<PathBuf, Option<ValueMap>>,
-}
-
-impl ModuleContext {
-    fn spawn_new_context(&self) -> Self {
-        Self {
-            modules: self.modules.clone(),
-            exports: Default::default(),
-        }
-    }
-}
-
+/// The configurable settings that should be used by the Koto runtime
 pub struct VmSettings {
-    pub stdin: Rc<dyn KotoFile>,
-    pub stdout: Rc<dyn KotoFile>,
-    pub stderr: Rc<dyn KotoFile>,
+    /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+    /// An optional callback that is called whenever a module is imported by the runtime
+    ///
+    /// This allows you to track the runtime's dependencies, which might be useful if you want to
+    /// reload the script when one of its dependencies has changed.
+    pub module_imported_callback: Option<Box<dyn Fn(&Path)>>,
+    /// The runtime's stdin
+    pub stdin: Rc<dyn KotoFile>,
+    /// The runtime's stdout
+    pub stdout: Rc<dyn KotoFile>,
+    /// The runtime's stderr
+    pub stderr: Rc<dyn KotoFile>,
 }
 
 impl Default for VmSettings {
     fn default() -> Self {
         Self {
+            run_import_tests: true,
+            module_imported_callback: None,
             stdin: Rc::new(DefaultStdin::default()),
             stdout: Rc::new(DefaultStdout::default()),
             stderr: Rc::new(DefaultStderr::default()),
-            run_import_tests: true,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct Vm {
-    context: Rc<RefCell<ModuleContext>>,
-    context_shared: Rc<SharedContext>,
+    exports: ValueMap,
+    context: Rc<VmContext>,
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -185,10 +181,11 @@ impl Default for Vm {
 }
 
 impl Vm {
+    /// Initializes a Koto VM with the provided settings
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
-            context: Rc::new(RefCell::new(ModuleContext::default())),
-            context_shared: Rc::new(SharedContext::with_settings(settings)),
+            exports: ValueMap::default(),
+            context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -196,21 +193,16 @@ impl Vm {
         }
     }
 
-    pub fn spawn_new_vm(&self) -> Self {
-        Self {
-            context: Rc::new(RefCell::new(self.context().spawn_new_context())),
-            context_shared: self.context_shared.clone(),
-            reader: InstructionReader::default(),
-            value_stack: Vec::with_capacity(32),
-            call_stack: vec![],
-            instruction_ip: 0,
-        }
-    }
-
+    /// Spawn a VM that shares the same execution context
+    ///
+    /// e.g.
+    ///   - An iterator spawns a shared VM that can be used to execute functors
+    ///   - A generator function spawns a shared VM to yield incremental results
+    ///   - Thrown errors spawn a shared VM to display an error from a custom error type
     pub fn spawn_shared_vm(&self) -> Self {
         Self {
+            exports: self.exports.clone(),
             context: self.context.clone(),
-            context_shared: self.context_shared.clone(),
             reader: self.reader.clone(),
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
@@ -218,47 +210,48 @@ impl Vm {
         }
     }
 
+    /// The loader, responsible for loading and compiling Koto scripts and modules
+    pub fn loader(&self) -> &RefCell<Loader> {
+        &self.context.loader
+    }
+
     /// The prelude, containing items that can be imported within all modules
-    pub fn prelude(&self) -> ValueMap {
-        self.context_shared.prelude.clone()
+    pub fn prelude(&self) -> &ValueMap {
+        &self.context.prelude
     }
 
-    /// Calls the provided callback with the path of each module that has been loaded by the runtime
-    pub fn for_each_module_path(&self, mut callback: impl FnMut(&Path)) {
-        for path in self.context_shared.loader.borrow().module_paths() {
-            callback(path);
-        }
-    }
-
-    /// Access to the module's context
-    pub fn context(&self) -> Ref<ModuleContext> {
-        self.context.borrow()
-    }
-
-    /// Mutable access to the module's context
-    pub fn context_mut(&mut self) -> RefMut<ModuleContext> {
-        self.context.borrow_mut()
+    /// The active module's exports map
+    ///
+    /// Note that this is the exports map of the active module, so during execution the returned
+    /// map will be of the module that's currently being executed.
+    pub fn exports(&self) -> &ValueMap {
+        &self.exports
     }
 
     /// The stdin wrapper used by the VM
     pub fn stdin(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stdin
+        &self.context.settings.stdin
     }
 
     /// The stdout wrapper used by the VM
     pub fn stdout(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stdout
+        &self.context.settings.stdout
     }
 
     /// The stderr wrapper used by the VM
     pub fn stderr(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stderr
+        &self.context.settings.stderr
     }
 
+    /// Returns the named value from the exports map, or None if no matching value is found
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
-        self.context().exports.data().get_with_string(id).cloned()
+        self.exports.data().get_with_string(id).cloned()
     }
 
+    /// Returns the named function from the exports map
+    ///
+    /// None is returned if no matching value is found, or if a matching value is found which isn't
+    /// a callable function.
     pub fn get_exported_function(&self, id: &str) -> Option<Value> {
         match self.get_exported_value(id) {
             Some(function) if function.is_callable() => Some(function),
@@ -266,11 +259,21 @@ impl Vm {
         }
     }
 
+    /// Runs the provided [Chunk], returning the resulting [Value]
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
-        self.push_frame(chunk, 0, 0, 0);
+        let result_register = self.next_register();
+        let frame_base = result_register + 1;
+        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(Value::Empty); // instance register
+        self.push_frame(chunk, 0, frame_base, result_register);
+        self.frame_mut().execution_barrier = true;
         self.execute_instructions()
     }
 
+    /// Continues execution in a suspended VM
+    ///
+    /// This is currently used to support generators, which yield incremental results and then
+    /// leave the VM in a suspended state.
     pub fn continue_running(&mut self) -> RuntimeResult {
         if self.call_stack.is_empty() {
             Ok(Value::Empty)
@@ -279,10 +282,12 @@ impl Vm {
         }
     }
 
+    /// Runs a function with some given arguments
     pub fn run_function(&mut self, function: Value, args: CallArgs) -> RuntimeResult {
         self.call_and_run_function(None, function, args)
     }
 
+    /// Runs an instance function with some given arguments
     pub fn run_instance_function(
         &mut self,
         instance: Value,
@@ -383,6 +388,7 @@ impl Vm {
             let result = self.clone_register(result_register);
             Ok(result)
         } else {
+            // Otherwise, execute instructions until this frame is exited
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -1006,18 +1012,11 @@ impl Vm {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
-            .context()
             .exports
             .data()
             .get_with_string(name)
             .cloned()
-            .or_else(|| {
-                self.context_shared
-                    .prelude
-                    .data()
-                    .get_with_string(name)
-                    .cloned()
-            });
+            .or_else(|| self.context.prelude.data().get_with_string(name).cloned());
 
         if let Some(non_local) = non_local {
             self.set_register(register, non_local);
@@ -1030,7 +1029,7 @@ impl Vm {
     fn run_value_export(&mut self, name_register: u8, value_register: u8) {
         let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
-        self.context_mut().exports.data_mut().insert(name, value);
+        self.exports.data_mut().insert(name, value);
     }
 
     fn run_make_range(
@@ -1976,12 +1975,7 @@ impl Vm {
         };
 
         // Is the import in the exports?
-        let maybe_in_exports = self
-            .context()
-            .exports
-            .data()
-            .get_with_string(&import_name)
-            .cloned();
+        let maybe_in_exports = self.exports.data().get_with_string(&import_name).cloned();
         if let Some(value) = maybe_in_exports {
             self.set_register(import_register, value);
             return Ok(());
@@ -1989,7 +1983,7 @@ impl Vm {
 
         // Is the import in the prelude?
         let maybe_in_prelude = self
-            .context_shared
+            .context
             .prelude
             .data()
             .get_with_string(&import_name)
@@ -2002,93 +1996,130 @@ impl Vm {
         // Attempt to compile the imported module from disk,
         // using the current source path as the relative starting location
         let source_path = self.reader.chunk.source_path.clone();
-        let (module_chunk, module_path) = match self
-            .context_shared
+        let compile_result = match self
+            .context
             .loader
             .borrow_mut()
             .compile_module(&import_name, source_path)
         {
-            Ok((chunk, path)) => (chunk, path),
+            Ok(result) => result,
             Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
         };
 
         // Has the module been loaded previously?
-        let maybe_in_cache = self.context().modules.get(&module_path).cloned();
+        let maybe_in_cache = self
+            .context
+            .imported_modules
+            .borrow()
+            .get(&compile_result.path)
+            .cloned();
         match maybe_in_cache {
-            Some(Some(cached_exports)) => {
-                self.set_register(import_register, Value::Map(cached_exports));
-                return Ok(());
-            }
             Some(None) => {
                 // If the cache contains a None entry for the module path,
                 // then we're in a recursive import (see below).
-                return runtime_error!("Recursive import of module '{}'", import_name);
+                runtime_error!("Recursive import of module '{}'", import_name)
             }
-            None => {
-                // The module is new to the runtime, so it needs to be loaded
+            Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
+                self.set_register(import_register, Value::Map(cached_exports));
+                Ok(())
+            }
+            _ => {
+                // The module needs to be loaded, which involves the following steps:
+                //   - Execute the module's script
+                //   - If the module contains @tests, run them
+                //   - If the module contains a @main function, run it
+                //   - If the steps above are successful, then cache the resulting exports map
 
                 // Insert a placeholder for the new module, preventing recursive imports
-                self.context_mut().modules.insert(module_path.clone(), None);
+                self.context
+                    .imported_modules
+                    .borrow_mut()
+                    .insert(compile_result.path.clone(), None);
 
-                // Run the module chunk in a new vm
-                let mut vm = self.spawn_new_vm();
-                match vm.run(module_chunk) {
+                // Cache the current exports map and prepare an empty exports map for the module
+                // that's being imported.
+                //
+                // ***Warning!***
+                // It's necessary for the exports to be reassigned when exiting this scope.
+                let importer_exports = self.exports.clone();
+                self.exports = ValueMap::default();
+
+                let import_result = match self.run(compile_result.chunk.clone()) {
                     Ok(_) => {
-                        if self.context_shared.run_import_tests {
-                            let maybe_tests =
-                                vm.context().exports.meta().get(&MetaKey::Tests).cloned();
+                        let test_result = if self.context.settings.run_import_tests {
+                            let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
                             match maybe_tests {
-                                Some(Value::Map(tests)) => {
-                                    if let Err(error) = vm.run_tests(tests) {
-                                        return runtime_error!(
-                                            "Module '{}' - {}",
-                                            import_name,
-                                            error
-                                        );
+                                Some(Value::Map(tests)) => match self.run_tests(tests) {
+                                    Ok(_) => Ok(()),
+                                    Err(error) => {
+                                        runtime_error!("Module '{}' - {}", import_name, error)
                                     }
-                                }
+                                },
                                 Some(other) => {
-                                    return runtime_error!(
+                                    runtime_error!(
                                         "Expected map for tests in module '{}', found '{}'",
                                         import_name,
                                         other.type_as_string()
-                                    );
+                                    )
                                 }
-                                None => {}
+                                None => Ok(()),
                             }
-                        }
+                        } else {
+                            Ok(())
+                        };
 
-                        let maybe_main = vm.context().exports.meta().get(&MetaKey::Main).cloned();
-                        match maybe_main {
-                            Some(main) if main.is_callable() => {
-                                if let Err(error) = vm.run_function(main, CallArgs::None) {
-                                    self.context_mut().modules.remove(&module_path);
-                                    return Err(error);
+                        if test_result.is_ok() {
+                            let maybe_main = self.exports.meta().get(&MetaKey::Main).cloned();
+                            match maybe_main {
+                                Some(main) if main.is_callable() => {
+                                    match self.run_function(main, CallArgs::None) {
+                                        Ok(_) => Ok(()),
+                                        Err(error) => {
+                                            self.context
+                                                .imported_modules
+                                                .borrow_mut()
+                                                .remove(&compile_result.path);
+                                            Err(error)
+                                        }
+                                    }
                                 }
+                                Some(unexpected) => {
+                                    unexpected_type_error("callable function", &unexpected)
+                                }
+                                None => Ok(()),
                             }
-                            Some(unexpected) => {
-                                return unexpected_type_error("callable function", &unexpected)
-                            }
-                            None => {}
+                        } else {
+                            test_result
                         }
                     }
                     Err(error) => {
-                        self.context_mut().modules.remove(&module_path);
-                        return Err(error);
+                        self.context
+                            .imported_modules
+                            .borrow_mut()
+                            .remove(&compile_result.path);
+                        Err(error)
                     }
+                };
+
+                if import_result.is_ok() {
+                    if let Some(callback) = &self.context.settings.module_imported_callback {
+                        callback(&compile_result.path);
+                    }
+
+                    // Cache the module's resulting exports and assign them to the import register
+                    let module_exports = self.exports.clone();
+                    self.context
+                        .imported_modules
+                        .borrow_mut()
+                        .insert(compile_result.path, Some(module_exports.clone()));
+                    self.set_register(import_register, Value::Map(module_exports));
                 }
 
-                // Cache the module's resulting exports map
-                let module_exports = vm.context().exports.clone();
-                self.context_mut()
-                    .modules
-                    .insert(module_path, Some(module_exports.clone()));
-
-                self.set_register(import_register, Value::Map(module_exports));
+                // Replace the VM's active exports map
+                self.exports = importer_exports;
+                import_result
             }
         }
-
-        Ok(())
     }
 
     fn run_set_index(
@@ -2408,10 +2439,7 @@ impl Vm {
             Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
         };
 
-        self.context_mut()
-            .exports
-            .meta_mut()
-            .insert(meta_key, value);
+        self.exports.meta_mut().insert(meta_key, value);
         Ok(())
     }
 
@@ -2431,10 +2459,7 @@ impl Vm {
             other => return unexpected_type_error("String", &other),
         };
 
-        self.context_mut()
-            .exports
-            .meta_mut()
-            .insert(meta_key, value);
+        self.exports.meta_mut().insert(meta_key, value);
         Ok(())
     }
 
@@ -2451,11 +2476,8 @@ impl Vm {
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
-                let op = self.get_core_op(
-                    &key,
-                    &self.context_shared.core_lib.$module,
-                    $iterator_fallback,
-                )?;
+                let op =
+                    self.get_core_op(&key, &self.context.core_lib.$module, $iterator_fallback)?;
                 self.set_register(result_register, op);
             }};
         }
@@ -2509,13 +2531,7 @@ impl Vm {
         use Value::*;
 
         let maybe_op = match module.data().get(key).cloned() {
-            None if iterator_fallback => self
-                .context_shared
-                .core_lib
-                .iterator
-                .data()
-                .get(key)
-                .cloned(),
+            None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
             maybe_op => maybe_op,
         };
 
@@ -3226,3 +3242,8 @@ pub enum CallArgs<'a> {
     /// The arguments will be collected into a tuple before being passed to the function
     AsTuple(&'a [Value]),
 }
+
+// A cache of the export maps of imported modules
+//
+// The ValueMap is optional to prevent recursive imports (see Vm::run_import).
+type ModuleCache = HashMap<PathBuf, Option<ValueMap>, BuildHasherDefault<FxHasher>>;

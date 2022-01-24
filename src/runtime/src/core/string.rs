@@ -15,7 +15,7 @@ use {
 pub fn make_module() -> ValueMap {
     use Value::*;
 
-    let mut result = ValueMap::new();
+    let result = ValueMap::new();
 
     result.add_fn("bytes", |vm, args| match vm.get_args(args) {
         [Str(s)] => {
