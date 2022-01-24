@@ -163,7 +163,7 @@ impl Loader {
         load_from_path: Option<PathBuf>,
     ) -> Result<(Rc<Chunk>, PathBuf), LoaderError> {
         // Get either the directory of the provided path, or the current working directory
-        let path = match &load_from_path {
+        let search_folder = match &load_from_path {
             Some(path) => match canonicalize(path) {
                 Ok(canonicalized) if canonicalized.is_file() => match canonicalized.parent() {
                     Some(parent_dir) => parent_dir.to_path_buf(),
@@ -212,7 +212,7 @@ impl Loader {
         };
 
         let extension = "koto";
-        let named_path = path.join(name);
+        let named_path = search_folder.join(name);
 
         // First, check for a neighbouring file with a matching name.
         let module_path = named_path.with_extension(extension);

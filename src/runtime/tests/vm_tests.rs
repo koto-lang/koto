@@ -2633,6 +2633,19 @@ a.x + a.y # The meta map's y entry is hidden by the data entry
         }
     }
 
+    mod import {
+        use super::*;
+
+        #[test]
+        fn import_after_local_assignment() {
+            let script = "
+x = 123
+y = import test.assert
+x";
+            test_script(script, 123.into());
+        }
+    }
+
     mod export {
         use super::*;
 

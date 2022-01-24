@@ -183,17 +183,12 @@ impl Vm {
         }
     }
 
-    pub fn spawn_new_vm(&self) -> Self {
-        Self {
-            exports: ValueMap::default(),
-            context: self.context.clone(),
-            reader: InstructionReader::default(),
-            value_stack: Vec::with_capacity(32),
-            call_stack: vec![],
-            instruction_ip: 0,
-        }
-    }
-
+    /// Spawn a VM that shares the same execution context
+    ///
+    /// e.g.
+    ///   - An iterator spawns a shared VM that can be used to execute functors
+    ///   - A generator function spawns a shared VM to yield incremental results
+    ///   - Thrown errors spawn a shared VM to display an error from a custom error type
     pub fn spawn_shared_vm(&self) -> Self {
         Self {
             exports: self.exports.clone(),
@@ -252,7 +247,12 @@ impl Vm {
     }
 
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
-        self.push_frame(chunk, 0, 0, 0);
+        let result_register = self.next_register();
+        let frame_base = result_register + 1;
+        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(Value::Empty); // instance register
+        self.push_frame(chunk, 0, frame_base, result_register);
+        self.frame_mut().execution_barrier = true;
         self.execute_instructions()
     }
 
@@ -368,6 +368,7 @@ impl Vm {
             let result = self.clone_register(result_register);
             Ok(result)
         } else {
+            // Otherwise, execute instructions until this frame is exited
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
@@ -1995,15 +1996,20 @@ impl Vm {
         match maybe_in_cache {
             Some(Some(cached_exports)) => {
                 self.set_register(import_register, Value::Map(cached_exports));
-                return Ok(());
+                Ok(())
             }
             Some(None) => {
                 // If the cache contains a None entry for the module path,
                 // then we're in a recursive import (see below).
-                return runtime_error!("Recursive import of module '{}'", import_name);
+                runtime_error!("Recursive import of module '{}'", import_name)
             }
             None => {
-                // The module is new to the runtime, so it needs to be loaded
+                // The module is new to the runtime, so it needs to be loaded, which involves the
+                // follwing steps:
+                //   - Execute the module's script
+                //   - If the module contains @tests, run them
+                //   - If the module contains a @main function, run it
+                //   - If the steps above are successful, then cache the resulting exports map
 
                 // Insert a placeholder for the new module, preventing recursive imports
                 self.context
@@ -2011,48 +2017,60 @@ impl Vm {
                     .borrow_mut()
                     .insert(module_path.clone(), None);
 
-                // Run the module chunk in a new vm
-                let mut vm = self.spawn_new_vm();
-                match vm.run(module_chunk) {
+                // Cache the current exports map and prepare an empty exports map for the module
+                // that's being imported.
+                //
+                // ***Warning!***
+                // It's necessary for the exports to be reassigned when exiting this scope.
+                let importer_exports = self.exports.clone();
+                self.exports = ValueMap::default();
+
+                let import_result = match self.run(module_chunk) {
                     Ok(_) => {
-                        if self.context.run_import_tests {
-                            let maybe_tests = vm.exports.meta().get(&MetaKey::Tests).cloned();
+                        let test_result = if self.context.run_import_tests {
+                            let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
                             match maybe_tests {
-                                Some(Value::Map(tests)) => {
-                                    if let Err(error) = vm.run_tests(tests) {
-                                        return runtime_error!(
-                                            "Module '{}' - {}",
-                                            import_name,
-                                            error
-                                        );
+                                Some(Value::Map(tests)) => match self.run_tests(tests) {
+                                    Ok(_) => Ok(()),
+                                    Err(error) => {
+                                        runtime_error!("Module '{}' - {}", import_name, error)
                                     }
-                                }
+                                },
                                 Some(other) => {
-                                    return runtime_error!(
+                                    runtime_error!(
                                         "Expected map for tests in module '{}', found '{}'",
                                         import_name,
                                         other.type_as_string()
-                                    );
+                                    )
                                 }
-                                None => {}
+                                None => Ok(()),
                             }
-                        }
+                        } else {
+                            Ok(())
+                        };
 
-                        let maybe_main = vm.exports.meta().get(&MetaKey::Main).cloned();
-                        match maybe_main {
-                            Some(main) if main.is_callable() => {
-                                if let Err(error) = vm.run_function(main, CallArgs::None) {
-                                    self.context
-                                        .imported_modules
-                                        .borrow_mut()
-                                        .remove(&module_path);
-                                    return Err(error);
+                        if test_result.is_ok() {
+                            let maybe_main = self.exports.meta().get(&MetaKey::Main).cloned();
+                            match maybe_main {
+                                Some(main) if main.is_callable() => {
+                                    match self.run_function(main, CallArgs::None) {
+                                        Ok(_) => Ok(()),
+                                        Err(error) => {
+                                            self.context
+                                                .imported_modules
+                                                .borrow_mut()
+                                                .remove(&module_path);
+                                            Err(error)
+                                        }
+                                    }
                                 }
+                                Some(unexpected) => {
+                                    unexpected_type_error("callable function", &unexpected)
+                                }
+                                None => Ok(()),
                             }
-                            Some(unexpected) => {
-                                return unexpected_type_error("callable function", &unexpected)
-                            }
-                            None => {}
+                        } else {
+                            test_result
                         }
                     }
                     Err(error) => {
@@ -2060,22 +2078,25 @@ impl Vm {
                             .imported_modules
                             .borrow_mut()
                             .remove(&module_path);
-                        return Err(error);
+                        Err(error)
                     }
+                };
+
+                if import_result.is_ok() {
+                    // Cache the module's resulting exports and assign them to the import register
+                    let module_exports = self.exports.clone();
+                    self.context
+                        .imported_modules
+                        .borrow_mut()
+                        .insert(module_path, Some(module_exports.clone()));
+                    self.set_register(import_register, Value::Map(module_exports));
                 }
 
-                // Cache the module's resulting exports map
-                let module_exports = vm.exports.clone();
-                self.context
-                    .imported_modules
-                    .borrow_mut()
-                    .insert(module_path, Some(module_exports.clone()));
-
-                self.set_register(import_register, Value::Map(module_exports));
+                // Replace the VM's active exports map
+                self.exports = importer_exports;
+                import_result
             }
         }
-
-        Ok(())
     }
 
     fn run_set_index(
