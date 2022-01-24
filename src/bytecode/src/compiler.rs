@@ -79,6 +79,13 @@ enum LocalRegister {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+enum AssignedOrReserved {
+    Assigned(u8),
+    Reserved(u8),
+    Unassigned,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 struct DeferredOp {
     bytes: Vec<u8>,
     span: Span,
@@ -147,32 +154,40 @@ impl Frame {
         }
     }
 
-    fn get_local_assigned_register(&self, index: ConstantIndex) -> Option<u8> {
+    fn get_local_assigned_register(&self, local_name: ConstantIndex) -> Option<u8> {
         self.local_registers
             .iter()
             .position(|local_register| {
                 matches!(local_register,
-                    LocalRegister::Assigned(assigned_index) if *assigned_index == index
+                    LocalRegister::Assigned(assigned) if *assigned == local_name
                 )
             })
             .map(|position| position as u8)
     }
 
-    fn get_local_reserved_register(&self, index: ConstantIndex) -> Option<u8> {
-        self.local_registers
-            .iter()
-            .position(|local_register| {
-                matches!(local_register,
-                    LocalRegister::Reserved(assigned_index, _) if *assigned_index == index
-                )
-            })
-            .map(|position| position as u8)
+    fn get_local_assigned_or_reserved_register(
+        &self,
+        local_name: ConstantIndex,
+    ) -> AssignedOrReserved {
+        for (i, local_register) in self.local_registers.iter().enumerate() {
+            match local_register {
+                LocalRegister::Assigned(assigned) if *assigned == local_name => {
+                    return AssignedOrReserved::Assigned(i as u8);
+                }
+                LocalRegister::Reserved(reserved, _) if *reserved == local_name => {
+                    return AssignedOrReserved::Reserved(i as u8);
+                }
+                _ => {}
+            }
+        }
+        AssignedOrReserved::Unassigned
     }
 
     fn reserve_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
-        match self.get_local_assigned_register(local) {
-            Some(assigned) => Ok(assigned),
-            None => {
+        match self.get_local_assigned_or_reserved_register(local) {
+            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
+            AssignedOrReserved::Reserved(reserved) => Ok(reserved),
+            AssignedOrReserved::Unassigned => {
                 self.local_registers
                     .push(LocalRegister::Reserved(local, vec![]));
 
@@ -229,34 +244,27 @@ impl Frame {
     }
 
     fn assign_local_register(&mut self, local: ConstantIndex) -> Result<u8, String> {
-        let local_register = match self.get_local_assigned_register(local) {
-            Some(assigned) => assigned,
-            None => match self.get_local_reserved_register(local) {
-                Some(reserved) => {
-                    let deferred_ops = self.commit_local_register(reserved)?;
-                    if !deferred_ops.is_empty() {
-                        return Err(
-                            "assign_local_register: committing register that has remaining ops"
-                                .to_string(),
-                        );
-                    }
-                    reserved
+        match self.get_local_assigned_or_reserved_register(local) {
+            AssignedOrReserved::Assigned(assigned) => Ok(assigned),
+            AssignedOrReserved::Reserved(reserved) => {
+                let deferred_ops = self.commit_local_register(reserved)?;
+                if !deferred_ops.is_empty() {
+                    return Err(
+                        "assign_local_register: committing register that has remaining ops"
+                            .to_string(),
+                    );
                 }
-                None => {
-                    self.local_registers.push(LocalRegister::Assigned(local));
-
-                    let new_local_register = self.local_registers.len() - 1;
-
-                    if new_local_register > self.temporary_base as usize {
-                        return Err("assign_local_register: Locals overflowed".to_string());
-                    }
-
-                    new_local_register as u8
+                Ok(reserved)
+            }
+            AssignedOrReserved::Unassigned => {
+                self.local_registers.push(LocalRegister::Assigned(local));
+                let new_local_register = self.local_registers.len() - 1;
+                if new_local_register > self.temporary_base as usize {
+                    return Err("assign_local_register: Locals overflowed".to_string());
                 }
-            },
-        };
-
-        Ok(local_register)
+                Ok(new_local_register as u8)
+            }
+        }
     }
 
     fn pop_register(&mut self) -> Result<u8, String> {
@@ -2171,24 +2179,29 @@ impl Compiler {
             self.update_offset_placeholder(function_size_ip)?;
 
             for (i, capture) in captures.iter().enumerate() {
-                if let Some(local_register) = self.frame().get_local_reserved_register(*capture) {
-                    let capture_span = self.span();
-                    self.frame_mut()
-                        .defer_op_until_register_is_committed(
-                            local_register,
-                            vec![Capture as u8, result.register, i as u8, local_register],
-                            capture_span,
-                        )
-                        .map_err(|e| self.make_error(e))?;
-                } else if let Some(local_register) =
-                    self.frame().get_local_assigned_register(*capture)
+                match self
+                    .frame()
+                    .get_local_assigned_or_reserved_register(*capture)
                 {
-                    self.push_op(Capture, &[result.register, i as u8, local_register]);
-                } else {
-                    let capture_register = self.push_register()?;
-                    self.compile_load_non_local(capture_register, *capture);
-                    self.push_op(Capture, &[result.register, i as u8, capture_register]);
-                    self.pop_register()?;
+                    AssignedOrReserved::Assigned(assigned_register) => {
+                        self.push_op(Capture, &[result.register, i as u8, assigned_register]);
+                    }
+                    AssignedOrReserved::Reserved(reserved_register) => {
+                        let capture_span = self.span();
+                        self.frame_mut()
+                            .defer_op_until_register_is_committed(
+                                reserved_register,
+                                vec![Capture as u8, result.register, i as u8, reserved_register],
+                                capture_span,
+                            )
+                            .map_err(|e| self.make_error(e))?;
+                    }
+                    AssignedOrReserved::Unassigned => {
+                        let capture_register = self.push_register()?;
+                        self.compile_load_non_local(capture_register, *capture);
+                        self.push_op(Capture, &[result.register, i as u8, capture_register]);
+                        self.pop_register()?;
+                    }
                 }
             }
 

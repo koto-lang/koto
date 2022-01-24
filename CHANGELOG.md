@@ -189,7 +189,8 @@ The Koto project adheres to
   string and that override @display.
 - Fixed a panic that could occur when skipping past the end of an iterator and
   then calling a 'to X' function.
-
+- Fixed unexpected shaky behaviour when compiling expressions that assign to the
+  same name more than once in the expression, e.g. `x = x = 1`.
 
 ## [0.10.0] 2021.12.02
 

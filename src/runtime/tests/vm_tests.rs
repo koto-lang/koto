@@ -92,6 +92,15 @@ a + 1";
         }
 
         #[test]
+        fn repeated_assignment() {
+            let script = "
+x = x = 1
+y = y = 2
+";
+            test_script(script, 2.into());
+        }
+
+        #[test]
         fn negation() {
             let script = "
 a = 99
@@ -2643,6 +2652,15 @@ x = 123
 y = import test.assert
 x";
             test_script(script, 123.into());
+        }
+
+        #[test]
+        fn import_with_same_local_name() {
+            let script = "
+x = 0
+pi = number.pi
+pi != x and pi == pi";
+            test_script(script, true.into());
         }
     }
 
