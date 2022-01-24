@@ -1,7 +1,7 @@
 use {
     crate::{
         core::CoreLib,
-        error::unexpected_type_error,
+        error::{unexpected_type_error, RuntimeErrorType},
         external::{self, Args, ExternalFunction},
         frame::Frame,
         meta_map::meta_id_to_key,
@@ -9,8 +9,8 @@ use {
         value::{self, FunctionInfo, RegisterSlice, SimpleFunctionInfo},
         value_iterator::{ValueIterator, ValueIteratorOutput},
         BinaryOp, DefaultStderr, DefaultStdin, DefaultStdout, IntRange, KotoFile, Loader, MetaKey,
-        RuntimeError, RuntimeErrorType, RuntimeResult, UnaryOp, Value, ValueKey, ValueList,
-        ValueMap, ValueNumber, ValueString, ValueTuple, ValueVec,
+        RuntimeError, RuntimeResult, UnaryOp, Value, ValueKey, ValueList, ValueMap, ValueNumber,
+        ValueString, ValueTuple, ValueVec,
     },
     koto_bytecode::{Chunk, Instruction, InstructionReader, TypeId},
     koto_parser::{ConstantIndex, MetaKeyId},
@@ -134,11 +134,16 @@ impl VmContext {
     }
 }
 
+/// The configurable settings that should be used by the Koto runtime
 pub struct VmSettings {
-    pub stdin: Rc<dyn KotoFile>,
-    pub stdout: Rc<dyn KotoFile>,
-    pub stderr: Rc<dyn KotoFile>,
+    /// Whether or not tests should be run when importing modules
     pub run_import_tests: bool,
+    /// The runtime's stdin
+    pub stdin: Rc<dyn KotoFile>,
+    /// The runtime's stdout
+    pub stdout: Rc<dyn KotoFile>,
+    /// The runtime's stderr
+    pub stderr: Rc<dyn KotoFile>,
 }
 
 impl Default for VmSettings {
@@ -170,6 +175,7 @@ impl Default for Vm {
 }
 
 impl Vm {
+    /// Initializes a Koto VM with the provided settings
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
             exports: ValueMap::default(),
@@ -233,10 +239,15 @@ impl Vm {
         &self.context.settings.stderr
     }
 
+    /// Returns the named value from the exports map, or None if no matching value is found
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
         self.exports.data().get_with_string(id).cloned()
     }
 
+    /// Returns the named function from the exports map
+    ///
+    /// None is returned if no matching value is found, or if a matching value is found which isn't
+    /// a callable function.
     pub fn get_exported_function(&self, id: &str) -> Option<Value> {
         match self.get_exported_value(id) {
             Some(function) if function.is_callable() => Some(function),
@@ -244,6 +255,7 @@ impl Vm {
         }
     }
 
+    /// Runs the provided [Chunk], returning the resulting [Value]
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
         let result_register = self.next_register();
         let frame_base = result_register + 1;
@@ -254,6 +266,10 @@ impl Vm {
         self.execute_instructions()
     }
 
+    /// Continues execution in a suspended VM
+    ///
+    /// This is currently used to support generators, which yield incremental results and then
+    /// leave the VM in a suspended state.
     pub fn continue_running(&mut self) -> RuntimeResult {
         if self.call_stack.is_empty() {
             Ok(Value::Empty)
@@ -262,10 +278,12 @@ impl Vm {
         }
     }
 
+    /// Runs a function with some given arguments
     pub fn run_function(&mut self, function: Value, args: CallArgs) -> RuntimeResult {
         self.call_and_run_function(None, function, args)
     }
 
+    /// Runs an instance function with some given arguments
     pub fn run_instance_function(
         &mut self,
         instance: Value,

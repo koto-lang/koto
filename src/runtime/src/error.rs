@@ -5,14 +5,16 @@ use {
     std::{cell::RefCell, error, fmt, rc::Rc},
 };
 
+/// A chunk and ip in a call stack where an error was thrown
 #[derive(Clone, Debug)]
 pub struct ErrorFrame {
     chunk: Rc<Chunk>,
     instruction: usize,
 }
 
+/// The different error types that can be thrown by the Koto runtime
 #[derive(Clone, Debug)]
-pub enum RuntimeErrorType {
+pub(crate) enum RuntimeErrorType {
     /// A runtime error message
     StringError(String),
     /// An error thrown by a Koto script
@@ -21,32 +23,43 @@ pub enum RuntimeErrorType {
     /// If the thrown value is a Map, then its @display function will be evaluated by the included
     /// VM when displaying the error.
     KotoError {
+        /// The thrown value
         thrown_value: Value,
+        /// A VM that should be used to format the thrown value
         vm: Option<Rc<RefCell<Vm>>>,
     },
 }
 
+/// An error thrown by the Koto runtime
 #[derive(Clone, Debug)]
 pub struct RuntimeError {
-    pub error: RuntimeErrorType,
-    pub trace: Vec<ErrorFrame>,
+    pub(crate) error: RuntimeErrorType,
+    pub(crate) trace: Vec<ErrorFrame>,
 }
 
 impl RuntimeError {
-    pub fn new(error: RuntimeErrorType) -> Self {
+    /// Initializes an error with the given internal error type
+    pub(crate) fn new(error: RuntimeErrorType) -> Self {
         Self {
             error,
             trace: Vec::new(),
         }
     }
 
-    pub fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
+    /// Initializes an error from a thrown Koto value
+    pub(crate) fn from_koto_value(thrown_value: Value, vm: Vm) -> Self {
         Self::new(RuntimeErrorType::KotoError {
             thrown_value,
             vm: Some(Rc::new(RefCell::new(vm))),
         })
     }
 
+    /// Extends the error stack with the given [Chunk] and ip
+    pub(crate) fn extend_trace(&mut self, chunk: Rc<Chunk>, instruction: usize) {
+        self.trace.push(ErrorFrame { chunk, instruction });
+    }
+
+    /// Modifies string errors to include the given prefix
     pub fn with_prefix(mut self, prefix: &str) -> Self {
         use RuntimeErrorType::StringError;
 
@@ -56,10 +69,6 @@ impl RuntimeError {
         };
 
         self
-    }
-
-    pub fn extend_trace(&mut self, chunk: Rc<Chunk>, instruction: usize) {
-        self.trace.push(ErrorFrame { chunk, instruction });
     }
 }
 
