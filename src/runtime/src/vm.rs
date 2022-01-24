@@ -16,7 +16,7 @@ use {
     koto_parser::{ConstantIndex, MetaKeyId},
     rustc_hash::FxHasher,
     std::{
-        cell::{Ref, RefCell, RefMut},
+        cell::RefCell,
         collections::HashMap,
         fmt,
         hash::BuildHasherDefault,
@@ -100,8 +100,8 @@ fn setup_core_lib_and_prelude() -> (CoreLib, ValueMap) {
     (core_lib, prelude)
 }
 
-/// Context shared by all VMs across modules
-struct SharedContext {
+/// State shared between concurrent VMs
+struct VmContext {
     pub prelude: ValueMap,
     core_lib: CoreLib,
     stdin: Rc<dyn KotoFile>,
@@ -113,13 +113,13 @@ struct SharedContext {
     run_import_tests: bool,
 }
 
-impl Default for SharedContext {
+impl Default for VmContext {
     fn default() -> Self {
         Self::with_settings(VmSettings::default())
     }
 }
 
-impl SharedContext {
+impl VmContext {
     fn with_settings(settings: VmSettings) -> Self {
         let (core_lib, prelude) = setup_core_lib_and_prelude();
 
@@ -132,21 +132,6 @@ impl SharedContext {
             loader: RefCell::new(Loader::default()),
             imported_modules: RefCell::new(ModuleCache::default()),
             run_import_tests: settings.run_import_tests,
-        }
-    }
-}
-
-/// VM Context shared by VMs running in the same module
-#[derive(Default)]
-pub struct ModuleContext {
-    /// The module's exported values
-    pub exports: ValueMap,
-}
-
-impl ModuleContext {
-    fn spawn_new_context(&self) -> Self {
-        Self {
-            exports: Default::default(),
         }
     }
 }
@@ -171,8 +156,8 @@ impl Default for VmSettings {
 
 #[derive(Clone)]
 pub struct Vm {
-    context: Rc<RefCell<ModuleContext>>,
-    context_shared: Rc<SharedContext>,
+    exports: ValueMap,
+    context: Rc<VmContext>,
     reader: InstructionReader,
     value_stack: Vec<Value>,
     call_stack: Vec<Frame>,
@@ -189,8 +174,8 @@ impl Default for Vm {
 impl Vm {
     pub fn with_settings(settings: VmSettings) -> Self {
         Self {
-            context: Rc::new(RefCell::new(ModuleContext::default())),
-            context_shared: Rc::new(SharedContext::with_settings(settings)),
+            exports: ValueMap::default(),
+            context: Rc::new(VmContext::with_settings(settings)),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -200,8 +185,8 @@ impl Vm {
 
     pub fn spawn_new_vm(&self) -> Self {
         Self {
-            context: Rc::new(RefCell::new(self.context().spawn_new_context())),
-            context_shared: self.context_shared.clone(),
+            exports: ValueMap::default(),
+            context: self.context.clone(),
             reader: InstructionReader::default(),
             value_stack: Vec::with_capacity(32),
             call_stack: vec![],
@@ -211,8 +196,8 @@ impl Vm {
 
     pub fn spawn_shared_vm(&self) -> Self {
         Self {
+            exports: self.exports.clone(),
             context: self.context.clone(),
-            context_shared: self.context_shared.clone(),
             reader: self.reader.clone(),
             value_stack: Vec::with_capacity(8),
             call_stack: vec![],
@@ -222,43 +207,41 @@ impl Vm {
 
     /// The prelude, containing items that can be imported within all modules
     pub fn prelude(&self) -> ValueMap {
-        self.context_shared.prelude.clone()
+        self.context.prelude.clone()
     }
 
     /// Calls the provided callback with the path of each module that has been loaded by the runtime
     pub fn for_each_module_path(&self, mut callback: impl FnMut(&Path)) {
-        for path in self.context_shared.loader.borrow().module_paths() {
+        for path in self.context.loader.borrow().module_paths() {
             callback(path);
         }
     }
 
-    /// Access to the module's context
-    pub fn context(&self) -> Ref<ModuleContext> {
-        self.context.borrow()
-    }
-
-    /// Mutable access to the module's context
-    pub fn context_mut(&mut self) -> RefMut<ModuleContext> {
-        self.context.borrow_mut()
+    /// The active module's exports map
+    ///
+    /// Note that this is the exports map of the active module, so during execution the returned
+    /// map will be of the module that's currently being executed.
+    pub fn exports(&self) -> &ValueMap {
+        &self.exports
     }
 
     /// The stdin wrapper used by the VM
     pub fn stdin(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stdin
+        &self.context.stdin
     }
 
     /// The stdout wrapper used by the VM
     pub fn stdout(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stdout
+        &self.context.stdout
     }
 
     /// The stderr wrapper used by the VM
     pub fn stderr(&self) -> &Rc<dyn KotoFile> {
-        &self.context_shared.stderr
+        &self.context.stderr
     }
 
     pub fn get_exported_value(&self, id: &str) -> Option<Value> {
-        self.context().exports.data().get_with_string(id).cloned()
+        self.exports.data().get_with_string(id).cloned()
     }
 
     pub fn get_exported_function(&self, id: &str) -> Option<Value> {
@@ -1008,18 +991,11 @@ impl Vm {
         let name = self.get_constant_str(constant_index);
 
         let non_local = self
-            .context()
             .exports
             .data()
             .get_with_string(name)
             .cloned()
-            .or_else(|| {
-                self.context_shared
-                    .prelude
-                    .data()
-                    .get_with_string(name)
-                    .cloned()
-            });
+            .or_else(|| self.context.prelude.data().get_with_string(name).cloned());
 
         if let Some(non_local) = non_local {
             self.set_register(register, non_local);
@@ -1032,7 +1008,7 @@ impl Vm {
     fn run_value_export(&mut self, name_register: u8, value_register: u8) {
         let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
-        self.context_mut().exports.data_mut().insert(name, value);
+        self.exports.data_mut().insert(name, value);
     }
 
     fn run_make_range(
@@ -1978,12 +1954,7 @@ impl Vm {
         };
 
         // Is the import in the exports?
-        let maybe_in_exports = self
-            .context()
-            .exports
-            .data()
-            .get_with_string(&import_name)
-            .cloned();
+        let maybe_in_exports = self.exports.data().get_with_string(&import_name).cloned();
         if let Some(value) = maybe_in_exports {
             self.set_register(import_register, value);
             return Ok(());
@@ -1991,7 +1962,7 @@ impl Vm {
 
         // Is the import in the prelude?
         let maybe_in_prelude = self
-            .context_shared
+            .context
             .prelude
             .data()
             .get_with_string(&import_name)
@@ -2005,7 +1976,7 @@ impl Vm {
         // using the current source path as the relative starting location
         let source_path = self.reader.chunk.source_path.clone();
         let (module_chunk, module_path) = match self
-            .context_shared
+            .context
             .loader
             .borrow_mut()
             .compile_module(&import_name, source_path)
@@ -2016,7 +1987,7 @@ impl Vm {
 
         // Has the module been loaded previously?
         let maybe_in_cache = self
-            .context_shared
+            .context
             .imported_modules
             .borrow()
             .get(&module_path)
@@ -2035,7 +2006,7 @@ impl Vm {
                 // The module is new to the runtime, so it needs to be loaded
 
                 // Insert a placeholder for the new module, preventing recursive imports
-                self.context_shared
+                self.context
                     .imported_modules
                     .borrow_mut()
                     .insert(module_path.clone(), None);
@@ -2044,9 +2015,8 @@ impl Vm {
                 let mut vm = self.spawn_new_vm();
                 match vm.run(module_chunk) {
                     Ok(_) => {
-                        if self.context_shared.run_import_tests {
-                            let maybe_tests =
-                                vm.context().exports.meta().get(&MetaKey::Tests).cloned();
+                        if self.context.run_import_tests {
+                            let maybe_tests = vm.exports.meta().get(&MetaKey::Tests).cloned();
                             match maybe_tests {
                                 Some(Value::Map(tests)) => {
                                     if let Err(error) = vm.run_tests(tests) {
@@ -2068,11 +2038,11 @@ impl Vm {
                             }
                         }
 
-                        let maybe_main = vm.context().exports.meta().get(&MetaKey::Main).cloned();
+                        let maybe_main = vm.exports.meta().get(&MetaKey::Main).cloned();
                         match maybe_main {
                             Some(main) if main.is_callable() => {
                                 if let Err(error) = vm.run_function(main, CallArgs::None) {
-                                    self.context_shared
+                                    self.context
                                         .imported_modules
                                         .borrow_mut()
                                         .remove(&module_path);
@@ -2086,7 +2056,7 @@ impl Vm {
                         }
                     }
                     Err(error) => {
-                        self.context_shared
+                        self.context
                             .imported_modules
                             .borrow_mut()
                             .remove(&module_path);
@@ -2095,8 +2065,8 @@ impl Vm {
                 }
 
                 // Cache the module's resulting exports map
-                let module_exports = vm.context().exports.clone();
-                self.context_shared
+                let module_exports = vm.exports.clone();
+                self.context
                     .imported_modules
                     .borrow_mut()
                     .insert(module_path, Some(module_exports.clone()));
@@ -2425,10 +2395,7 @@ impl Vm {
             Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
         };
 
-        self.context_mut()
-            .exports
-            .meta_mut()
-            .insert(meta_key, value);
+        self.exports.meta_mut().insert(meta_key, value);
         Ok(())
     }
 
@@ -2448,10 +2415,7 @@ impl Vm {
             other => return unexpected_type_error("String", &other),
         };
 
-        self.context_mut()
-            .exports
-            .meta_mut()
-            .insert(meta_key, value);
+        self.exports.meta_mut().insert(meta_key, value);
         Ok(())
     }
 
@@ -2468,11 +2432,8 @@ impl Vm {
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
-                let op = self.get_core_op(
-                    &key,
-                    &self.context_shared.core_lib.$module,
-                    $iterator_fallback,
-                )?;
+                let op =
+                    self.get_core_op(&key, &self.context.core_lib.$module, $iterator_fallback)?;
                 self.set_register(result_register, op);
             }};
         }
@@ -2526,13 +2487,7 @@ impl Vm {
         use Value::*;
 
         let maybe_op = match module.data().get(key).cloned() {
-            None if iterator_fallback => self
-                .context_shared
-                .core_lib
-                .iterator
-                .data()
-                .get(key)
-                .cloned(),
+            None if iterator_fallback => self.context.core_lib.iterator.data().get(key).cloned(),
             maybe_op => maybe_op,
         };
 

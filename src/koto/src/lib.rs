@@ -188,13 +188,7 @@ impl Koto {
             Ok(result)
         } else {
             if self.settings.run_tests {
-                let maybe_tests = self
-                    .runtime
-                    .context()
-                    .exports
-                    .meta()
-                    .get(&MetaKey::Tests)
-                    .cloned();
+                let maybe_tests = self.runtime.exports().meta().get(&MetaKey::Tests).cloned();
                 match maybe_tests {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
@@ -206,13 +200,7 @@ impl Koto {
                 }
             }
 
-            let maybe_main = self
-                .runtime
-                .context()
-                .exports
-                .meta()
-                .get(&MetaKey::Main)
-                .cloned();
+            let maybe_main = self.runtime.exports().meta().get(&MetaKey::Main).cloned();
             if let Some(main) = maybe_main {
                 self.runtime
                     .run_function(main, CallArgs::None)
@@ -247,7 +235,7 @@ impl Koto {
     }
 
     pub fn exports(&self) -> ValueMap {
-        self.runtime.context().exports.clone()
+        self.runtime.exports().clone()
     }
 
     /// Calls the provided callback with the path of each module that has been loaded by the runtime
