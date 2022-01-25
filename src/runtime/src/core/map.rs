@@ -66,12 +66,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get_index", |vm, args| {
         let (map, index, default) = match vm.get_args(args) {
-            [Map(map), Number(n)] if *n >= 0.0 => (map, n, &Empty),
-            [Map(map), Number(n), default] if *n >= 0.0 => (map, n, default),
+            [Map(map), Number(n)] => (map, n, &Empty),
+            [Map(map), Number(n), default] => (map, n, default),
             unexpected => {
                 return unexpected_type_error_with_slice(
                     "map.get_index",
-                    "a Map and non-negative Number as arguments",
+                    "a Map and Number as arguments",
                     unexpected,
                 )
             }

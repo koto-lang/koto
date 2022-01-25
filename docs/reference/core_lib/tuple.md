@@ -93,11 +93,16 @@ value is returned. If no default value is provided then `()` is returned.
 ### Example
 
 ```koto
-(99, -1, 42).get 1
+x = 99, -1, 42
+
+x.get 1
 # -1
 
-(99, -1, 42).get 5
+x.get -1
 # ()
+
+x.get 5, "abc"
+# abc
 ```
 
 ## last

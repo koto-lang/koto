@@ -49,16 +49,17 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("get", |vm, args| {
-        let (tuple, index, default) =
-            match vm.get_args(args) {
-                [Tuple(tuple), Number(n)] if *n >= 0.0 => (tuple, n, &Empty),
-                [Tuple(tuple), Number(n), default] if *n >= 0.0 => (tuple, n, default),
-                unexpected => return unexpected_type_error_with_slice(
+        let (tuple, index, default) = match vm.get_args(args) {
+            [Tuple(tuple), Number(n)] => (tuple, n, &Empty),
+            [Tuple(tuple), Number(n), default] => (tuple, n, default),
+            unexpected => {
+                return unexpected_type_error_with_slice(
                     "tuple.get",
-                    "a Tuple and non-negative Number (with optional default Value) as arguments",
+                    "a Tuple and Number (with optional default Value) as arguments",
                     unexpected,
-                ),
-            };
+                )
+            }
+        };
 
         match tuple.data().get::<usize>(index.into()) {
             Some(value) => Ok(value.clone()),

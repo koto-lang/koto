@@ -122,6 +122,8 @@ The Koto project adheres to
     functions.
   - The value provided to `list.resize` is now optional, with `()` being
     inserted when growing the list.
+  - `list.get`, `tuple.get`, and `map.get_index` will now return `()` when a
+    negative number is used as the index, rather than throwing an error.
 - Random Library
   - The default generator functions can now be used directly.
     Previously they had to be used as instance functions.
