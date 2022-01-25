@@ -2465,8 +2465,12 @@ impl Vm {
 
         macro_rules! core_op {
             ($module:ident, $iterator_fallback:expr) => {{
-                let op =
-                    self.get_core_op(&key, &self.context.core_lib.$module, $iterator_fallback)?;
+                let op = self.get_core_op(
+                    &key,
+                    &self.context.core_lib.$module,
+                    $iterator_fallback,
+                    stringify!($module),
+                )?;
                 self.set_register(result_register, op);
             }};
         }
@@ -2516,6 +2520,7 @@ impl Vm {
         key: &ValueKey,
         module: &ValueMap,
         iterator_fallback: bool,
+        module_name: &str,
     ) -> RuntimeResult {
         use Value::*;
 
@@ -2573,7 +2578,7 @@ impl Vm {
             },
             None => {
                 use std::ops::Deref;
-                return runtime_error!("'{}' not found", key.deref());
+                return runtime_error!("'{}' not found in '{}'", key.deref(), module_name);
             }
         };
 
