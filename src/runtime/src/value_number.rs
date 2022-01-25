@@ -93,8 +93,8 @@ impl ValueNumber {
 impl fmt::Debug for ValueNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValueNumber::F64(n) => write!(f, "Float({})", n),
-            ValueNumber::I64(n) => write!(f, "Int({})", n),
+            ValueNumber::F64(n) => write!(f, "Float({n})"),
+            ValueNumber::I64(n) => write!(f, "Int({n})"),
         }
     }
 }
@@ -104,12 +104,12 @@ impl fmt::Display for ValueNumber {
         match self {
             ValueNumber::F64(n) => {
                 if n.fract() > 0.0 {
-                    write!(f, "{}", n)
+                    write!(f, "{n}")
                 } else {
-                    write!(f, "{:.1}", n)
+                    write!(f, "{n:.1}")
                 }
             }
-            ValueNumber::I64(n) => write!(f, "{}", n),
+            ValueNumber::I64(n) => write!(f, "{n}"),
         }
     }
 }

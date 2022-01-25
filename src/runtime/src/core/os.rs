@@ -53,7 +53,7 @@ impl DateTime {
         let offset = match maybe_offset {
             Some(offset) => match FixedOffset::east_opt(offset as i32) {
                 Some(offset) => offset,
-                None => return runtime_error!("time offset is out of range: {}", offset),
+                None => return runtime_error!("time offset is out of range: {offset}"),
             },
             None => *Local::now().offset(),
         };
@@ -61,7 +61,7 @@ impl DateTime {
             Some(utc) => Ok(Self::with_chrono_datetime(
                 chrono::DateTime::<Local>::from_utc(utc, offset),
             )),
-            None => return runtime_error!("timestamp in seconds is out of range: {}", seconds),
+            None => return runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
 

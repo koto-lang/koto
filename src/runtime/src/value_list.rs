@@ -58,7 +58,7 @@ impl fmt::Display for ValueList {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{:#}", value)?;
+            write!(f, "{value:#}")?;
         }
         write!(f, "]")
     }

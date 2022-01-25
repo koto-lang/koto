@@ -45,11 +45,11 @@ fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths:
                 );
             }
             Err(error) => {
-                panic!("{}", error);
+                panic!("{error}");
             }
         },
         Err(error) => {
-            panic!("{}", error);
+            panic!("{error}");
         }
     }
 }

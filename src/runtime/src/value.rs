@@ -223,27 +223,27 @@ impl fmt::Display for Value {
         use Value::*;
         match self {
             Empty => f.write_str("()"),
-            Bool(b) => write!(f, "{}", b),
-            Number(n) => write!(f, "{}", n),
-            Num2(n) => write!(f, "{}", n),
-            Num4(n) => write!(f, "{}", n),
+            Bool(b) => write!(f, "{b}"),
+            Number(n) => write!(f, "{n}"),
+            Num2(n) => write!(f, "{n}"),
+            Num4(n) => write!(f, "{n}"),
             Str(s) => {
                 if f.alternate() {
-                    write!(f, "{:#}", s)
+                    write!(f, "{s:#}")
                 } else {
-                    write!(f, "{}", s)
+                    write!(f, "{s}")
                 }
             }
-            List(l) => write!(f, "{}", l),
-            Tuple(t) => write!(f, "{}", t),
+            List(l) => write!(f, "{l}"),
+            Tuple(t) => write!(f, "{t}"),
             Map(m) => {
                 if f.alternate() {
-                    write!(f, "{:#}", m)
+                    write!(f, "{m:#}")
                 } else {
-                    write!(f, "{}", m)
+                    write!(f, "{m}")
                 }
             }
-            Range(IntRange { start, end }) => write!(f, "{}..{}", start, end),
+            Range(IntRange { start, end }) => write!(f, "{start}..{end}"),
             SimpleFunction(_) | Function(_) => write!(f, "||"),
             Generator(_) => write!(f, "Generator"),
             Iterator(_) => write!(f, "Iterator"),
@@ -251,10 +251,10 @@ impl fmt::Display for Value {
             ExternalValue(_) | ExternalData(_) => f.write_str(&self.type_as_string()),
             IndexRange(self::IndexRange { .. }) => f.write_str("IndexRange"),
             TemporaryTuple(RegisterSlice { start, count }) => {
-                write!(f, "TemporaryTuple [{}..{}]", start, start + count)
+                write!(f, "TemporaryTuple [{start}..{}]", start + count)
             }
             SequenceBuilder(_) => write!(f, "SequenceBuilder"),
-            StringBuilder(s) => write!(f, "StringBuilder({})", s),
+            StringBuilder(s) => write!(f, "StringBuilder({s})"),
         }
     }
 }

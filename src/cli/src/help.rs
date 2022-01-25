@@ -86,7 +86,7 @@ impl Help {
                             .collect::<Vec<_>>();
 
                         match matches.as_slice() {
-                            [] => format!("  No matches for '{}' found.", search),
+                            [] => format!("  No matches for '{search}' found."),
                             [(only_match, _)] => self.get_help(Some(only_match)),
                             _ => {
                                 let mut help = String::new();
@@ -237,7 +237,7 @@ fn consume_help_section<'a>(
             Text(text) => {
                 if section_name.is_empty() {
                     if let Some(module_name) = module_name {
-                        section_name = format!("{}.{}", module_name, text);
+                        section_name = format!("{module_name}.{text}");
                     } else {
                         section_name = text.to_string();
                     }
@@ -258,7 +258,7 @@ fn consume_help_section<'a>(
                 result.push('`');
                 if section_name.is_empty() {
                     if let Some(module_name) = module_name {
-                        section_name = format!("{}.{}", module_name, code);
+                        section_name = format!("{module_name}.{code}");
                     } else {
                         section_name = code.to_string();
                     }
@@ -276,6 +276,6 @@ fn consume_help_section<'a>(
         parser.next();
     }
 
-    let result = result.replace('\n', &format!("\n{}", indent));
+    let result = result.replace('\n', &format!("\n{indent}"));
     (section_name, result)
 }

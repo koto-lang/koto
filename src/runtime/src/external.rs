@@ -111,13 +111,12 @@ impl fmt::Debug for ExternalFunction {
         let raw = Rc::into_raw(self.function.clone());
         write!(
             f,
-            "external {}function: {:?}",
+            "external {}function: {raw:?}",
             if self.is_instance_function {
                 "instance "
             } else {
                 ""
             },
-            raw
         )
     }
 }

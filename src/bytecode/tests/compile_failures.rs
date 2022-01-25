@@ -8,11 +8,11 @@ mod bytecode {
         match Parser::parse(source) {
             Ok(ast) => {
                 if Compiler::compile(&ast, CompilerSettings::default()).is_ok() {
-                    panic!("\nUnexpected success while compiling: {}", source,);
+                    panic!("\nUnexpected success while compiling: {source}");
                 }
             }
             Err(parser_error) => {
-                panic!("Failure while parsing:\n{}\n{}", source, parser_error);
+                panic!("Failure while parsing:\n{source}\n{parser_error}");
             }
         }
     }

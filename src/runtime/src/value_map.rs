@@ -214,7 +214,7 @@ impl fmt::Display for ValueMap {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}: {:#}", key.value(), value)?;
+            write!(f, "{}: {value:#}", key.value())?;
             first = false;
         }
         write!(f, "}}")

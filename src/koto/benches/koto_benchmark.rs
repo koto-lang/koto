@@ -27,10 +27,10 @@ impl BenchmarkRunner {
         match runtime.compile(&script) {
             Ok(_) => {
                 if let Err(error) = runtime.run_with_args(args) {
-                    panic!("{}", error);
+                    panic!("{error}");
                 }
             }
-            Err(error) => panic!("{}", error),
+            Err(error) => panic!("{error}"),
         }
 
         runtime.set_run_tests(false);
@@ -43,7 +43,7 @@ impl BenchmarkRunner {
 
     fn run(&mut self) {
         if let Err(error) = self.runtime.run_with_args(&self.args) {
-            panic!("{}", error);
+            panic!("{error}");
         }
     }
 }

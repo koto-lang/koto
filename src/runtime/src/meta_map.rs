@@ -98,9 +98,7 @@ impl MetaMap {
                     match instance_value.data().downcast_ref::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
                         None => runtime_error!(
-                            "{}.{} - Unexpected external data type: {}",
-                            type_name,
-                            fn_name,
+                            "{type_name}.{fn_name} - Unexpected external data type: {}",
                             instance_value.data().value_type(),
                         ),
                     }
@@ -148,9 +146,7 @@ impl MetaMap {
                     match instance_value.data_mut().downcast_mut::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
                         None => runtime_error!(
-                            "{}.{} - Unexpected external data type: {}",
-                            type_name,
-                            fn_name,
+                            "{type_name}.{fn_name} - Unexpected external data type: {}",
                             instance_value.data().value_type(),
                         ),
                     }
@@ -299,9 +295,7 @@ impl MetaMap {
             [ExternalValue(value_a), value_b] => match value_a.data().downcast_ref::<T>() {
                 Some(data_a) => f(data_a, value_a, value_b),
                 _ => runtime_error!(
-                    "{}.{} - Unexpected external data type: {}",
-                    type_name,
-                    op,
+                    "{type_name}.{op} - Unexpected external data type: {}",
                     value_a.data().value_type(),
                 ),
             },

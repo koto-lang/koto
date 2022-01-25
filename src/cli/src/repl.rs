@@ -362,11 +362,11 @@ impl Repl {
                 ResetColor,
                 Print(": "),
                 SetAttribute(Attribute::Bold),
-                Print(format!("{:#}\n\n", error)),
+                Print(format!("{error:#}\n\n")),
                 SetAttribute(Attribute::Reset),
             )
         } else {
-            writeln!(stdout, "{:#}", error)
+            writeln!(stdout, "{error:#}")
         }
     }
 }

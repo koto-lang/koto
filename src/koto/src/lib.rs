@@ -13,15 +13,15 @@
 //! match koto.compile("1 + 2") {
 //!     Ok(_) => match koto.run() {
 //!         Ok(result) => match result {
-//!             Value::Number(n) => println!("{}", n), // 3.0
+//!             Value::Number(n) => println!("{n}"), // 3.0
 //!             other => panic!("Unexpected result: {}", other),
 //!         },
 //!         Err(runtime_error) => {
-//!             panic!("Runtime error: {}", runtime_error);
+//!             panic!("Runtime error: {runtime_error}");
 //!         }
 //!     },
 //!     Err(compiler_error) => {
-//!         panic!("Compiler error: {}", compiler_error);
+//!         panic!("Compiler error: {compiler_error}");
 //!     }
 //! }
 //! ```
@@ -71,10 +71,10 @@ impl fmt::Display for KotoError {
                 f.write_str("Missing compiled chunk, call compile() before calling run()")
             }
             InvalidTestsType(t) => {
-                write!(f, "Expected a Map for the exported 'tests', found '{}'", t)
+                write!(f, "Expected a Map for the exported 'tests', found '{t}'")
             }
             FunctionNotFound(name) => {
-                write!(f, "Function '{}' not found", name)
+                write!(f, "Function '{name}' not found")
             }
         }
     }

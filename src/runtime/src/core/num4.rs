@@ -82,7 +82,7 @@ pub fn make_module() -> ValueMap {
                 1 => result.1 = value.into(),
                 2 => result.2 = value.into(),
                 3 => result.3 = value.into(),
-                other => return runtime_error!("num4.with: invalid index '{}'", other),
+                other => return runtime_error!("num4.with: invalid index '{other}'"),
             }
             Ok(Num4(result))
         }

@@ -380,15 +380,13 @@ pub fn format_error_with_excerpt(
 
         if start_pos.line == end_pos.line {
             let mut excerpt = format!(
-                " {:>width$} | {}\n",
+                " {:>number_width$} | {}\n",
                 line_numbers.first().unwrap(),
                 excerpt_lines.first().unwrap(),
-                width = number_width
             );
 
             excerpt += &format!(
-                "{}|{}{}",
-                padding,
+                "{padding}|{}{}",
                 " ".repeat(start_pos.column as usize),
                 "^".repeat((end_pos.column - start_pos.column) as usize)
             );
@@ -398,12 +396,7 @@ pub fn format_error_with_excerpt(
             let mut excerpt = String::new();
 
             for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
-                excerpt += &format!(
-                    " {:>width$} | {}\n",
-                    line_number,
-                    excerpt_line,
-                    width = number_width
-                );
+                excerpt += &format!(" {line_number:>number_width$} | {excerpt_line}\n",);
             }
 
             (excerpt, padding)
@@ -421,7 +414,7 @@ pub fn format_error_with_excerpt(
             path.display()
         };
 
-        format!("{} - {}:{}", display_path, start_pos.line, start_pos.column)
+        format!("{display_path} - {}:{}", start_pos.line, start_pos.column)
     } else {
         format!("{}:{}", start_pos.line, start_pos.column)
     };

@@ -130,8 +130,8 @@ impl fmt::Display for RuntimeError {
                     ))?,
                     None => write!(
                         f,
-                        "Runtime error at instruction {}: {}",
-                        frame.instruction, message
+                        "Runtime error at instruction {}: {message}",
+                        frame.instruction,
                     )?,
                 };
             }
@@ -170,8 +170,7 @@ macro_rules! runtime_error {
 
 pub fn unexpected_type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
     runtime_error!(
-        "Expected {}, found {}.",
-        expected_str,
+        "Expected {expected_str}, found {}.",
         unexpected.type_as_string()
     )
 }
@@ -197,5 +196,5 @@ pub fn unexpected_type_error_with_slice<T>(
             types
         }
     };
-    runtime_error!("{prefix} - expected {expected_str}, but found {}.", message)
+    runtime_error!("{prefix} - expected {expected_str}, but found {message}.")
 }

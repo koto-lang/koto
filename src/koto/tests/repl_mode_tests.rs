@@ -31,7 +31,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
 
         if let Err(error) = koto.run() {
             for (input, chunk) in chunks.iter() {
-                println!("\n--------\n{}\n--------\n", input);
+                println!("\n--------\n{input}\n--------\n");
                 println!("Constants\n---------\n{}\n", chunk.constants);
                 println!(
                     "Instructions\n------------\n{}",
@@ -39,7 +39,7 @@ fn run_repl_mode_test(inputs_and_expected_outputs: &[(&str, &str)]) {
                 );
             }
 
-            panic!("{}", error);
+            panic!("{error}");
         }
 
         assert_eq!(&output.borrow().trim(), &expected_output.trim());

@@ -9,7 +9,7 @@ mod parser {
                 for (i, (ast_node, expected_node)) in
                     ast.nodes().iter().zip(expected_ast.iter()).enumerate()
                 {
-                    assert_eq!(ast_node.node, *expected_node, "Mismatch at position {}", i);
+                    assert_eq!(ast_node.node, *expected_node, "Mismatch at position {i}");
                 }
                 assert_eq!(
                     ast.nodes().len(),
@@ -30,7 +30,7 @@ mod parser {
                     );
                 }
             }
-            Err(error) => panic!("{} - {}", error, error.span.start),
+            Err(error) => panic!("{error} - {}", error.span.start),
         }
     }
 

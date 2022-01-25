@@ -42,8 +42,7 @@ mod external_values {
                                 Ok(Empty)
                             }
                             None => runtime_error!(
-                                "{} - unexpected other type: {}",
-                                fn_name,
+                                "{fn_name} - unexpected other type: {}",
                                 other.data().value_type(),
                             ),
                         }

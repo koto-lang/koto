@@ -29,8 +29,8 @@ pub fn make_module() -> ValueMap {
                 let path = Path::new(path.as_str()).to_path_buf();
                 match fs::File::create(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(e) => {
-                        return runtime_error!("io.create: Error while creating file: {}", e);
+                    Err(error) => {
+                        return runtime_error!("io.create: Error while creating file: {error}");
                     }
                 }
             }
@@ -80,8 +80,8 @@ pub fn make_module() -> ValueMap {
             [Str(path)] => match fs::canonicalize(path.as_str()) {
                 Ok(path) => match fs::File::open(&path) {
                     Ok(file) => Ok(File::system_file(file, path)),
-                    Err(e) => {
-                        return runtime_error!("io.open: Error while opening path: {}", e);
+                    Err(error) => {
+                        return runtime_error!("io.open: Error while opening path: {error}");
                     }
                 },
                 Err(_) => runtime_error!("io.open: Failed to canonicalize path"),
@@ -134,7 +134,9 @@ pub fn make_module() -> ValueMap {
     result.add_fn("read_to_string", |vm, args| match vm.get_args(args) {
         [Str(path)] => match fs::read_to_string(Path::new(path.as_str())) {
             Ok(result) => Ok(Str(result.into())),
-            Err(e) => runtime_error!("io.read_to_string: Unable to read file '{}': {}", path, e),
+            Err(error) => {
+                runtime_error!("io.read_to_string: Unable to read file '{path}': {error}")
+            }
         },
         unexpected => unexpected_type_error_with_slice(
             "io.read_to_string",
@@ -149,10 +151,9 @@ pub fn make_module() -> ValueMap {
                 let path = Path::new(path.as_str());
                 match fs::remove_file(&path) {
                     Ok(_) => Ok(Value::Empty),
-                    Err(e) => runtime_error!(
-                        "io.remove_file: Error while removing file '{}': {}",
+                    Err(error) => runtime_error!(
+                        "io.remove_file: Error while removing file '{}': {error}",
                         path.to_string_lossy(),
-                        e,
                     ),
                 }
             }
@@ -242,7 +243,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
     meta.add_named_instance_fn_mut("write_line", |file: &mut File, _, args| {
         let line = match args {
             [] => "\n".to_string(),
-            [value] => format!("{}\n", value),
+            [value] => format!("{value}\n"),
             unexpected => {
                 return unexpected_type_error_with_slice(
                     "File.write_line",

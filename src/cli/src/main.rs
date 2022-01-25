@@ -181,14 +181,14 @@ fn run() -> Result<(), ()> {
                 }
                 match koto.run_with_args(&args.script_args) {
                     Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("Error: {}", e);
+                    Err(error) => {
+                        eprintln!("Error: {error}");
                         return Err(());
                     }
                 }
             }
-            Err(e) => {
-                eprintln!("Error: {}", e);
+            Err(error) => {
+                eprintln!("Error: {error}");
                 return Err(());
             }
         }

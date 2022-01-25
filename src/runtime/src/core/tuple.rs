@@ -100,9 +100,5 @@ pub fn make_module() -> ValueMap {
 }
 
 fn expected_tuple_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
-    unexpected_type_error_with_slice(
-        &format!("tuple.{}", name),
-        "a Tuple as argument",
-        unexpected,
-    )
+    unexpected_type_error_with_slice(&format!("tuple.{name}"), "a Tuple as argument", unexpected)
 }

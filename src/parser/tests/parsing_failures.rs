@@ -7,8 +7,7 @@ mod parser {
 
         if let Ok(Ok(ast)) = catch_result {
             panic!(
-                "Unexpected success while parsing:\n{}\n{:#?}",
-                source,
+                "Unexpected success while parsing:\n{source}\n{:#?}",
                 ast.nodes()
             );
         }
@@ -18,8 +17,7 @@ mod parser {
     fn check_parsing_fails(source: &str) {
         if let Ok(ast) = Parser::parse(source) {
             panic!(
-                "Unexpected success while parsing:\n{}\n{:#?}",
-                source,
+                "Unexpected success while parsing:\n{source}\n{:#?}",
                 ast.nodes()
             );
         }
