@@ -15,6 +15,7 @@ pub enum ValueNumber {
 }
 
 impl ValueNumber {
+    #[must_use]
     pub fn abs(self) -> Self {
         match self {
             Self::F64(n) => Self::F64(n.abs()),
@@ -22,6 +23,7 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn ceil(self) -> Self {
         match self {
             Self::F64(n) => Self::I64(n.ceil() as i64),
@@ -29,10 +31,12 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn floor(self) -> Self {
         Self::I64(self.as_i64())
     }
 
+    #[must_use]
     pub fn round(self) -> Self {
         match self {
             Self::F64(n) => Self::I64(n.round() as i64),
@@ -59,6 +63,7 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn pow(self, other: Self) -> Self {
         use ValueNumber::*;
 

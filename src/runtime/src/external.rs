@@ -56,6 +56,7 @@ impl ExternalValue {
         }
     }
 
+    #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),

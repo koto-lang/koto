@@ -119,6 +119,7 @@ pub struct KotoSettings {
 
 impl KotoSettings {
     /// Helper for conveniently defining a custom stdin implementation
+    #[must_use]
     pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
         Self {
             stdin: Rc::new(stdin),
@@ -127,6 +128,7 @@ impl KotoSettings {
     }
 
     /// Helper for conveniently defining a custom stdout implementation
+    #[must_use]
     pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
         Self {
             stdout: Rc::new(stdout),
@@ -135,6 +137,7 @@ impl KotoSettings {
     }
 
     /// Helper for conveniently defining a custom stderr implementation
+    #[must_use]
     pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
         Self {
             stderr: Rc::new(stderr),
@@ -143,6 +146,7 @@ impl KotoSettings {
     }
 
     /// Convenience function for declaring the 'module imported' callback
+    #[must_use]
     pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
         Self {
             module_imported_callback: Some(Box::new(callback)),

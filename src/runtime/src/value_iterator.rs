@@ -89,6 +89,7 @@ impl ValueIterator {
         Self::new(GeneratorIterator::new(vm))
     }
 
+    #[must_use]
     pub fn make_copy(&self) -> Self {
         self.0.borrow().make_copy()
     }

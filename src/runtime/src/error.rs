@@ -60,6 +60,7 @@ impl RuntimeError {
     }
 
     /// Modifies string errors to include the given prefix
+    #[must_use]
     pub fn with_prefix(mut self, prefix: &str) -> Self {
         use RuntimeErrorType::StringError;
 

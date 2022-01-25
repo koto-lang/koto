@@ -276,7 +276,6 @@ fn consume_help_section<'a>(
         parser.next();
     }
 
-    let result = result.replace("\n", &format!("\n{}", indent));
-
+    let result = result.replace('\n', &format!("\n{}", indent));
     (section_name, result)
 }

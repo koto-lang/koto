@@ -104,6 +104,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn deep_copy(&self) -> Value {
         use Value::*;
 

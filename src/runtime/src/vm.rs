@@ -199,6 +199,7 @@ impl Vm {
     ///   - An iterator spawns a shared VM that can be used to execute functors
     ///   - A generator function spawns a shared VM to yield incremental results
     ///   - Thrown errors spawn a shared VM to display an error from a custom error type
+    #[must_use]
     pub fn spawn_shared_vm(&self) -> Self {
         Self {
             exports: self.exports.clone(),
