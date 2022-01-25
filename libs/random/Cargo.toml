@@ -2,7 +2,7 @@
 name = "koto_random"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "A Koto library for working with random numbers"
 homepage = "https://github.com/koto-lang/koto"

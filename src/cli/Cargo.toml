@@ -2,7 +2,7 @@
 name = "koto_cli"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "A CLI and script runner for the Koto programming language"
 homepage = "https://github.com/koto-lang/koto"

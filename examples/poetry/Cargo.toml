@@ -2,7 +2,7 @@
 name = "koto_poetry"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2018"
+edition = "2021"
 autobins = false
 publish = false
 

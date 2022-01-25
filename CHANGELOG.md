@@ -177,6 +177,7 @@ The Koto project adheres to
 - Internals
   - `ExternalIterator` has been renamed to `KotoIterator`.
   - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
+  - Koto now uses the Rust 2021 edition.
 
 ### Removed
 
