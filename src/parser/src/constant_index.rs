@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt};
+use std::fmt;
 
 const CONSTANT_INDEX_MAX: usize = 2_usize.pow(24) - 1;
 

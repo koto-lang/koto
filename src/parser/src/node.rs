@@ -1,6 +1,6 @@
 use {
     crate::{ast::AstIndex, ConstantIndex},
-    std::{convert::TryFrom, fmt},
+    std::fmt,
 };
 
 /// A parsed node that can be included in the [AST](crate::Ast).

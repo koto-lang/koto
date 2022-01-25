@@ -10,7 +10,7 @@ use {
         cell::{Ref, RefCell, RefMut},
         fmt,
         hash::BuildHasherDefault,
-        iter::{FromIterator, IntoIterator},
+        iter::IntoIterator,
         ops::{Deref, DerefMut},
         rc::Rc,
     },

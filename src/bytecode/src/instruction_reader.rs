@@ -1,7 +1,7 @@
 use {
     crate::{Chunk, Op},
     koto_parser::{ConstantIndex, MetaKeyId},
-    std::{convert::TryInto, fmt, rc::Rc},
+    std::{fmt, rc::Rc},
 };
 
 #[derive(Debug)]

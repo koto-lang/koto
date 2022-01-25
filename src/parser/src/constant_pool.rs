@@ -2,7 +2,6 @@ use {
     crate::{ConstantIndex, ConstantIndexTryFromOutOfRange},
     std::{
         collections::{hash_map::DefaultHasher, HashMap},
-        convert::TryFrom,
         fmt,
         hash::{Hash, Hasher},
         ops::Range,

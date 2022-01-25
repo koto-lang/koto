@@ -3,7 +3,7 @@
 use {
     crate::{constant_pool::ConstantPoolBuilder, error::*, *},
     koto_lexer::{Lexer, Span, Token},
-    std::{collections::HashSet, iter::FromIterator, str::FromStr},
+    std::{collections::HashSet, str::FromStr},
 };
 
 macro_rules! make_internal_error {
