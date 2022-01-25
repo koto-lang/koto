@@ -26,8 +26,11 @@ pub fn make_module() -> ValueMap {
     result
 }
 
-thread_local!(
-static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = {
+thread_local! {
+    static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = make_poetry_meta_map();
+}
+
+fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
     use Value::{Empty, Iterator, Str};
 
     let mut bindings = MetaMap::with_type_name("Poetry");
@@ -39,9 +42,11 @@ static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = {
                 poetry.0.add_source_material(text);
                 Ok(Empty)
             }
-            unexpected => {
-                unexpected_type_error_with_slice("poetry.add_source_material", "a String as argument", unexpected)
-            }
+            unexpected => unexpected_type_error_with_slice(
+                "poetry.add_source_material",
+                "a String as argument",
+                unexpected,
+            ),
         },
     );
 
@@ -61,7 +66,7 @@ static POETRY_BINDINGS: Rc<RefCell<MetaMap>> = {
     });
 
     Rc::new(RefCell::new(bindings))
-});
+}
 
 #[derive(Clone)]
 struct PoetryIter {
