@@ -2020,111 +2020,95 @@ impl Vm {
             .cloned();
         match maybe_in_cache {
             Some(None) => {
-                // If the cache contains a None entry for the module path,
+                // If the cache contains a None placeholder entry for the module path,
                 // then we're in a recursive import (see below).
-                runtime_error!("Recursive import of module '{}'", import_name)
+                return runtime_error!("Recursive import of module '{}'", import_name);
             }
             Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
                 self.set_register(import_register, Value::Map(cached_exports));
-                Ok(())
+                return Ok(());
             }
-            _ => {
-                // The module needs to be loaded, which involves the following steps:
-                //   - Execute the module's script
-                //   - If the module contains @tests, run them
-                //   - If the module contains a @main function, run it
-                //   - If the steps above are successful, then cache the resulting exports map
+            _ => {}
+        }
 
-                // Insert a placeholder for the new module, preventing recursive imports
-                self.context
-                    .imported_modules
-                    .borrow_mut()
-                    .insert(compile_result.path.clone(), None);
+        // The module needs to be loaded, which involves the following steps:
+        //   - Execute the module's script
+        //   - If the module contains @tests, run them
+        //   - If the module contains a @main function, run it
+        //   - If the steps above are successful, then cache the resulting exports map
 
-                // Cache the current exports map and prepare an empty exports map for the module
-                // that's being imported.
-                //
-                // ***Warning!***
-                // It's necessary for the exports to be reassigned when exiting this scope.
-                let importer_exports = self.exports.clone();
-                self.exports = ValueMap::default();
+        // Insert a placeholder for the new module, preventing recursive imports
+        self.context
+            .imported_modules
+            .borrow_mut()
+            .insert(compile_result.path.clone(), None);
 
-                let import_result = match self.run(compile_result.chunk.clone()) {
-                    Ok(_) => {
-                        let test_result = if self.context.settings.run_import_tests {
-                            let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
-                            match maybe_tests {
-                                Some(Value::Map(tests)) => match self.run_tests(tests) {
-                                    Ok(_) => Ok(()),
-                                    Err(error) => {
-                                        runtime_error!("Module '{}' - {}", import_name, error)
-                                    }
-                                },
-                                Some(other) => {
-                                    runtime_error!(
-                                        "Expected map for tests in module '{}', found '{}'",
-                                        import_name,
-                                        other.type_as_string()
-                                    )
-                                }
-                                None => Ok(()),
-                            }
-                        } else {
-                            Ok(())
-                        };
+        // Cache the current exports map and prepare an empty exports map for the module
+        // that's being imported.
+        let importer_exports = self.exports.clone();
+        self.exports = ValueMap::default();
 
-                        if test_result.is_ok() {
-                            let maybe_main = self.exports.meta().get(&MetaKey::Main).cloned();
-                            match maybe_main {
-                                Some(main) if main.is_callable() => {
-                                    match self.run_function(main, CallArgs::None) {
-                                        Ok(_) => Ok(()),
-                                        Err(error) => {
-                                            self.context
-                                                .imported_modules
-                                                .borrow_mut()
-                                                .remove(&compile_result.path);
-                                            Err(error)
-                                        }
-                                    }
-                                }
-                                Some(unexpected) => {
-                                    unexpected_type_error("callable function", &unexpected)
-                                }
-                                None => Ok(()),
-                            }
-                        } else {
-                            test_result
+        // Execute the following steps in a closure to ensure that cleanup is performed afterwards
+        let import_result = {
+            || {
+                self.run(compile_result.chunk.clone())?;
+
+                if self.context.settings.run_import_tests {
+                    let maybe_tests = self.exports.meta().get(&MetaKey::Tests).cloned();
+                    match maybe_tests {
+                        Some(Value::Map(tests)) => {
+                            self.run_tests(tests)?;
                         }
+                        Some(other) => {
+                            return runtime_error!(
+                                "Expected map for tests in module '{}', found '{}'",
+                                import_name,
+                                other.type_as_string()
+                            )
+                        }
+                        None => {}
                     }
-                    Err(error) => {
-                        self.context
-                            .imported_modules
-                            .borrow_mut()
-                            .remove(&compile_result.path);
-                        Err(error)
-                    }
-                };
-
-                if import_result.is_ok() {
-                    if let Some(callback) = &self.context.settings.module_imported_callback {
-                        callback(&compile_result.path);
-                    }
-
-                    // Cache the module's resulting exports and assign them to the import register
-                    let module_exports = self.exports.clone();
-                    self.context
-                        .imported_modules
-                        .borrow_mut()
-                        .insert(compile_result.path, Some(module_exports.clone()));
-                    self.set_register(import_register, Value::Map(module_exports));
                 }
 
-                // Replace the VM's active exports map
-                self.exports = importer_exports;
-                import_result
+                let maybe_main = self.exports.meta().get(&MetaKey::Main).cloned();
+                match maybe_main {
+                    Some(main) if main.is_callable() => {
+                        self.run_function(main, CallArgs::None)?;
+                    }
+                    Some(unexpected) => {
+                        return unexpected_type_error("callable function", &unexpected)
+                    }
+                    None => {}
+                }
+
+                Ok(())
             }
+        }();
+
+        if import_result.is_ok() {
+            if let Some(callback) = &self.context.settings.module_imported_callback {
+                callback(&compile_result.path);
+            }
+
+            // Cache the module's resulting exports and assign them to the import register
+            let module_exports = self.exports.clone();
+            self.context
+                .imported_modules
+                .borrow_mut()
+                .insert(compile_result.path, Some(module_exports.clone()));
+            self.set_register(import_register, Value::Map(module_exports));
+        } else {
+            // If there was an error while importing the module then make sure that the
+            // placeholder is removed from the imported modules cache.
+            self.context
+                .imported_modules
+                .borrow_mut()
+                .remove(&compile_result.path);
         }
+
+        // Replace the VM's active exports map
+        self.exports = importer_exports;
+        import_result
     }
 
     fn run_set_index(
