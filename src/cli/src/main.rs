@@ -78,7 +78,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
                 pico_args::Error::UnusedArgsLeft(unused) => {
                     format!("Unsupported argument: {}", unused.first().unwrap())
                 }
-                other => format!("Error while parsing arguments: {}", other),
+                other => format!("Error while parsing arguments: {other}"),
             })
         }
     };

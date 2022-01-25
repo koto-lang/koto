@@ -429,8 +429,5 @@ pub fn format_error_with_excerpt(
     format!(
         "{message}\n --- {position_info}\n{padding}|\n{excerpt}",
         message = message.unwrap_or(""),
-        position_info = position_info,
-        padding = padding,
-        excerpt = excerpt,
     )
 }

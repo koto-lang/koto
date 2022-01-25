@@ -105,11 +105,7 @@ impl MetaMap {
                         ),
                     }
                 }
-                _ => runtime_error!(format!(
-                    "{type_name}.{fn_name} - Expected {type_name} as argument",
-                    type_name = type_name,
-                    fn_name = fn_name
-                )),
+                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
             },
         );
     }
@@ -159,11 +155,7 @@ impl MetaMap {
                         ),
                     }
                 }
-                _ => runtime_error!(format!(
-                    "{type_name}.{fn_name} - Expected {type_name} as argument",
-                    type_name = type_name,
-                    fn_name = fn_name
-                )),
+                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
             },
         );
     }
@@ -204,11 +196,7 @@ impl MetaMap {
                     ),
                 }
             }
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected {type_name} as argument",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!("{type_name}.@{op} - Expected {type_name} as argument"),
         });
     }
 
@@ -262,11 +250,7 @@ impl MetaMap {
                     ),
                 }
             }
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected two '{type_name}'s as arguments",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!("{type_name}.@{op} - Expected two '{type_name}'s as arguments"),
         });
     }
 
@@ -321,11 +305,9 @@ impl MetaMap {
                     value_a.data().value_type(),
                 ),
             },
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected '{type_name}' and a Value as arguments",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!(
+                "{type_name}.@{op} - Expected '{type_name}' and a Value as arguments"
+            ),
         });
     }
 

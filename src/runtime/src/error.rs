@@ -157,10 +157,13 @@ macro_rules! make_runtime_error {
 
 #[macro_export]
 macro_rules! runtime_error {
+    ($error:literal) => {
+        Err($crate::make_runtime_error!(format!($error)))
+    };
     ($error:expr) => {
         Err($crate::make_runtime_error!($error))
     };
-    ($error:expr, $($y:expr),+ $(,)?) => {
+    ($error:literal, $($y:expr),+ $(,)?) => {
         Err($crate::make_runtime_error!(format!($error, $($y),+)))
     };
 }
@@ -194,10 +197,5 @@ pub fn unexpected_type_error_with_slice<T>(
             types
         }
     };
-    runtime_error!(
-        "{} - expected {}, but found {}.",
-        prefix,
-        expected_str,
-        message
-    )
+    runtime_error!("{prefix} - expected {expected_str}, but found {}.", message)
 }

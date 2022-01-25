@@ -63,7 +63,7 @@ impl Repl {
     pub fn run(&mut self) -> Result<()> {
         let mut stdout = io::stdout();
 
-        write!(stdout, "Welcome to Koto v{}\r\n{}", VERSION, PROMPT).unwrap();
+        write!(stdout, "Welcome to Koto v{VERSION}\r\n{PROMPT}").unwrap();
         stdout.flush().unwrap();
 
         loop {
@@ -255,7 +255,7 @@ impl Repl {
                     }
                     match self.koto.run() {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
-                            Ok(result_string) => writeln!(stdout, "{}\n", result_string).unwrap(),
+                            Ok(result_string) => writeln!(stdout, "{result_string}\n").unwrap(),
                             Err(e) => {
                                 writeln!(
                                     stdout,

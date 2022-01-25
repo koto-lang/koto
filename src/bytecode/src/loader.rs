@@ -179,9 +179,8 @@ impl Loader {
         let mut load_module_from_path = |module_path: PathBuf| {
             let module_path = module_path.canonicalize().map_err(|error| {
                 LoaderError::io_error(format!(
-                    "Failed to canonicalize path: '{}' - ({})",
+                    "Failed to canonicalize path: '{}' - ({error})",
                     module_path.to_string_lossy(),
-                    error
                 ))
             })?;
             match self.chunks.get(&module_path) {
@@ -228,8 +227,7 @@ impl Loader {
                 load_module_from_path(module_path)
             } else {
                 Err(LoaderError::io_error(format!(
-                    "Unable to find module '{}'",
-                    name
+                    "Unable to find module '{name}'"
                 )))
             }
         }

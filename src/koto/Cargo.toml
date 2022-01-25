@@ -3,6 +3,7 @@ name = "koto"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
+rust-version = "1.58"
 license = "MIT"
 description = "A simple, expressive, embeddable programming language"
 homepage = "https://github.com/koto-lang/koto"

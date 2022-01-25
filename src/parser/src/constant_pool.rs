@@ -152,9 +152,9 @@ impl fmt::Display for ConstantPool {
         for (i, constant) in self.iter().enumerate() {
             write!(f, "{}\t", i)?;
             match constant {
-                Constant::F64(n) => write!(f, "Float\t{}", n)?,
-                Constant::I64(n) => write!(f, "Int\t{}", n)?,
-                Constant::Str(s) => write!(f, "String\t{}", s)?,
+                Constant::F64(n) => write!(f, "Float\t{n}")?,
+                Constant::I64(n) => write!(f, "Int\t{n}")?,
+                Constant::Str(s) => write!(f, "String\t{s}")?,
             }
             writeln!(f)?;
         }

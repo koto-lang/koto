@@ -887,15 +887,14 @@ mod tests {
                 match lex.next().expect("Expected token") {
                     Whitespace => continue,
                     output => {
-                        assert_eq!(&output, token, "Token mismatch at position {}", i);
+                        assert_eq!(&output, token, "Token mismatch at position {i}");
                         if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice, "Slice mismatch at position {}", i);
+                            assert_eq!(&lex.slice(), slice, "Slice mismatch at position {i}");
                         }
                         assert_eq!(
                             lex.line_number() as u32,
                             *line_number,
-                            "Line number mismatch at position {}",
-                            i
+                            "Line number mismatch at position {i}",
                         );
                         break;
                     }
@@ -914,20 +913,18 @@ mod tests {
                 match lex.next().expect("Expected token") {
                     Whitespace => continue,
                     output => {
-                        assert_eq!(&output, token, "Mismatch at token {}", i);
+                        assert_eq!(&output, token, "Mismatch at token {i}");
                         if let Some(slice) = maybe_slice {
-                            assert_eq!(&lex.slice(), slice, "Mismatch at token {}", i);
+                            assert_eq!(&lex.slice(), slice, "Mismatch at token {i}");
                         }
                         assert_eq!(
                             lex.line_number() as u32,
                             *line_number,
-                            "Line number - expected: {}, actual: {} - (token {} - {:?})",
+                            "Line number - expected: {}, actual: {} - (token {i} - {token:?})",
                             *line_number,
                             lex.line_number(),
-                            i,
-                            token
                         );
-                        assert_eq!(lex.current_indent() as u32, *indent, "Indent (token {})", i);
+                        assert_eq!(lex.current_indent() as u32, *indent, "Indent (token {i})");
                         break;
                     }
                 }

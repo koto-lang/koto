@@ -93,7 +93,7 @@ pub struct ConstantIndexTryFromOutOfRange();
 
 impl fmt::Display for ConstantIndexTryFromOutOfRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
