@@ -1968,10 +1968,15 @@ impl Vm {
     }
 
     fn run_import(&mut self, import_register: u8) -> InstructionResult {
-        // The import name string will have been placed in the import register
-        let import_name = match self.get_register(import_register) {
-            Value::Str(s) => s.clone(),
-            other => return unexpected_type_error("import id or string", other),
+        let import_name = match self.clone_register(import_register) {
+            Value::Str(s) => s,
+            value @ Value::Map(_) | value @ Value::ExternalValue(_) => {
+                self.set_register(import_register, value);
+                return Ok(());
+            }
+            other => {
+                return unexpected_type_error("import id or string, or accessible value", &other)
+            }
         };
 
         // Is the import in the exports?
