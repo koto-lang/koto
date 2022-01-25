@@ -122,6 +122,8 @@ The Koto project adheres to
     functions.
   - The value provided to `list.resize` is now optional, with `()` being
     inserted when growing the list.
+  - `list.get`, `tuple.get`, and `map.get_index` will now return `()` when a
+    negative number is used as the index, rather than throwing an error.
 - Random Library
   - The default generator functions can now be used directly.
     Previously they had to be used as instance functions.
@@ -193,6 +195,13 @@ The Koto project adheres to
   then calling a 'to X' function.
 - Fixed unexpected shaky behaviour when compiling expressions that assign to the
   same name more than once in the expression, e.g. `x = x = 1`.
+- Import expressions now work with previously-imported maps.
+  - e.g.
+    ```koto
+    import foo.bar
+    import bar.baz # <-- Previously this would cause a runtime error
+    debug baz
+    ```
 
 ## [0.10.0] 2021.12.02
 

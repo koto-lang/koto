@@ -87,16 +87,17 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("get", |vm, args| {
-        let (list, index, default) =
-            match vm.get_args(args) {
-                [List(list), Number(n)] if *n >= 0.0 => (list, n, &Empty),
-                [List(list), Number(n), default] if *n >= 0.0 => (list, n, default),
-                unexpected => return unexpected_type_error_with_slice(
+        let (list, index, default) = match vm.get_args(args) {
+            [List(list), Number(n)] => (list, n, &Empty),
+            [List(list), Number(n), default] => (list, n, default),
+            unexpected => {
+                return unexpected_type_error_with_slice(
                     "list.get",
-                    "a List and a non-negative Number (with optional default value) as arguments",
+                    "a List and a Number (with optional default value) as arguments",
                     unexpected,
-                ),
-            };
+                )
+            }
+        };
 
         match list.data().get::<usize>(index.into()) {
             Some(value) => Ok(value.clone()),

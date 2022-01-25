@@ -318,8 +318,6 @@ default value if the map doesn't contain an entry at that index.
 
 If no default value is provided then `()` is returned.
 
-An error will be thrown if a negative index is provided.
-
 ### Example
 
 ```koto
@@ -327,7 +325,7 @@ x = foo: -1, bar: -2
 x.get_index 1
 # (bar, -2)
 
-x.get_index 99
+x.get_index -99
 # ()
 
 x.get_index 99, "xyz"

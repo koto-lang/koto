@@ -81,6 +81,7 @@ make_foo = |x|
     x = (0..10).to_list()
     assert_eq (x.get 5), 5
     assert_eq (x.get 15), ()
+    assert_eq (x.get -1), ()
 
   @test fill: ||
     a = [1, 2, 3]

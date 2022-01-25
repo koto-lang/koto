@@ -22,7 +22,7 @@ import test_module
   @test import_module: ||
     # The test_module module being imported here is defined in the neighbouring
     # test_module directory, with test_module/main.koto as its entry point.
-    assert_eq (koto.type test_module), "Map"
+    assert_eq (type test_module), "Map"
     assert_eq test_module.foo, 42
     assert_eq (test_module.square 9), 81
 
@@ -31,8 +31,14 @@ import test_module
     assert_eq bar, -1
     assert_eq x, bar
 
-  @test import_nested_item: ||
+  @test import_nested_item_directly: ||
     import test_module.baz.qux
+    assert_eq qux, "O_o"
+
+  @test import_nested_item_indirectly: ||
+    import test_module
+    import test_module.baz
+    import baz.qux
     assert_eq qux, "O_o"
 
   @test import_multiple_items: ||
