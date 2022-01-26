@@ -6,7 +6,7 @@ use {
         MetaKeyId, Node, Scope, Span, StringNode, SwitchArm,
     },
     smallvec::SmallVec,
-    std::{collections::HashSet, convert::TryFrom, error, fmt},
+    std::{collections::HashSet, error, fmt},
 };
 
 /// The error type used to report errors during compilation

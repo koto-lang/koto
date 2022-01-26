@@ -98,18 +98,12 @@ impl MetaMap {
                     match instance_value.data().downcast_ref::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
                         None => runtime_error!(
-                            "{}.{} - Unexpected external data type: {}",
-                            type_name,
-                            fn_name,
+                            "{type_name}.{fn_name} - Unexpected external data type: {}",
                             instance_value.data().value_type(),
                         ),
                     }
                 }
-                _ => runtime_error!(format!(
-                    "{type_name}.{fn_name} - Expected {type_name} as argument",
-                    type_name = type_name,
-                    fn_name = fn_name
-                )),
+                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
             },
         );
     }
@@ -152,18 +146,12 @@ impl MetaMap {
                     match instance_value.data_mut().downcast_mut::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
                         None => runtime_error!(
-                            "{}.{} - Unexpected external data type: {}",
-                            type_name,
-                            fn_name,
+                            "{type_name}.{fn_name} - Unexpected external data type: {}",
                             instance_value.data().value_type(),
                         ),
                     }
                 }
-                _ => runtime_error!(format!(
-                    "{type_name}.{fn_name} - Expected {type_name} as argument",
-                    type_name = type_name,
-                    fn_name = fn_name
-                )),
+                _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
             },
         );
     }
@@ -204,11 +192,7 @@ impl MetaMap {
                     ),
                 }
             }
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected {type_name} as argument",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!("{type_name}.@{op} - Expected {type_name} as argument"),
         });
     }
 
@@ -262,11 +246,7 @@ impl MetaMap {
                     ),
                 }
             }
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected two '{type_name}'s as arguments",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!("{type_name}.@{op} - Expected two '{type_name}'s as arguments"),
         });
     }
 
@@ -315,17 +295,13 @@ impl MetaMap {
             [ExternalValue(value_a), value_b] => match value_a.data().downcast_ref::<T>() {
                 Some(data_a) => f(data_a, value_a, value_b),
                 _ => runtime_error!(
-                    "{}.{} - Unexpected external data type: {}",
-                    type_name,
-                    op,
+                    "{type_name}.{op} - Unexpected external data type: {}",
                     value_a.data().value_type(),
                 ),
             },
-            _ => runtime_error!(format!(
-                "{type_name}.@{op} - Expected '{type_name}' and a Value as arguments",
-                type_name = type_name,
-                op = op
-            )),
+            _ => runtime_error!(
+                "{type_name}.@{op} - Expected '{type_name}' and a Value as arguments"
+            ),
         });
     }
 

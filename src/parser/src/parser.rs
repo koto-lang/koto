@@ -3,7 +3,7 @@
 use {
     crate::{constant_pool::ConstantPoolBuilder, error::*, *},
     koto_lexer::{Lexer, Span, Token},
-    std::{collections::HashSet, iter::FromIterator, str::FromStr},
+    std::{collections::HashSet, str::FromStr},
 };
 
 macro_rules! make_internal_error {
@@ -17,7 +17,7 @@ macro_rules! internal_error {
         let error = make_internal_error!($error, $parser);
 
         #[cfg(feature = "panic_on_parser_error")]
-        panic!("{}", error);
+        panic!("{error}");
 
         #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)
@@ -29,7 +29,7 @@ macro_rules! parser_error {
         let error = ParserError::new($error_type::$error.into(), $parser.current_span());
 
         #[cfg(feature = "panic_on_parser_error")]
-        panic!("{}", error);
+        panic!("{error}");
 
         #[cfg(not(feature = "panic_on_parser_error"))]
         Err(error)

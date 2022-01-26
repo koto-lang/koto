@@ -60,6 +60,7 @@ impl RuntimeError {
     }
 
     /// Modifies string errors to include the given prefix
+    #[must_use]
     pub fn with_prefix(mut self, prefix: &str) -> Self {
         use RuntimeErrorType::StringError;
 
@@ -129,8 +130,8 @@ impl fmt::Display for RuntimeError {
                     ))?,
                     None => write!(
                         f,
-                        "Runtime error at instruction {}: {}",
-                        frame.instruction, message
+                        "Runtime error at instruction {}: {message}",
+                        frame.instruction,
                     )?,
                 };
             }
@@ -156,18 +157,20 @@ macro_rules! make_runtime_error {
 
 #[macro_export]
 macro_rules! runtime_error {
+    ($error:literal) => {
+        Err($crate::make_runtime_error!(format!($error)))
+    };
     ($error:expr) => {
         Err($crate::make_runtime_error!($error))
     };
-    ($error:expr, $($y:expr),+ $(,)?) => {
+    ($error:literal, $($y:expr),+ $(,)?) => {
         Err($crate::make_runtime_error!(format!($error, $($y),+)))
     };
 }
 
 pub fn unexpected_type_error<T>(expected_str: &str, unexpected: &Value) -> Result<T, RuntimeError> {
     runtime_error!(
-        "Expected {}, found {}.",
-        expected_str,
+        "Expected {expected_str}, found {}.",
         unexpected.type_as_string()
     )
 }
@@ -193,10 +196,5 @@ pub fn unexpected_type_error_with_slice<T>(
             types
         }
     };
-    runtime_error!(
-        "{} - expected {}, but found {}.",
-        prefix,
-        expected_str,
-        message
-    )
+    runtime_error!("{prefix} - expected {expected_str}, but found {message}.")
 }

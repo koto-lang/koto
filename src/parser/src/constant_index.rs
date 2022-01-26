@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt};
+use std::fmt;
 
 const CONSTANT_INDEX_MAX: usize = 2_usize.pow(24) - 1;
 
@@ -93,7 +93,7 @@ pub struct ConstantIndexTryFromOutOfRange();
 
 impl fmt::Display for ConstantIndexTryFromOutOfRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 

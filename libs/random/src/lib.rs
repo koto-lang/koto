@@ -57,20 +57,22 @@ pub fn make_module() -> ValueMap {
 }
 
 thread_local! {
-    static RNG_META: Rc<RefCell<MetaMap>> = {
-        let mut meta = MetaMap::with_type_name("Rng");
-
-        meta.add_named_instance_fn_mut("bool", |rng: &mut ChaChaRng, _, _| rng.gen_bool());
-        meta.add_named_instance_fn_mut("number", |rng: &mut ChaChaRng, _, _| rng.gen_number());
-        meta.add_named_instance_fn_mut("num2", |rng: &mut ChaChaRng, _, _| rng.gen_num2());
-        meta.add_named_instance_fn_mut("num4", |rng: &mut ChaChaRng, _, _| rng.gen_num4());
-        meta.add_named_instance_fn_mut("pick", |rng: &mut ChaChaRng, _, args| rng.pick(args));
-        meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| rng.seed(args));
-
-        Rc::new(RefCell::new(meta))
-    };
+    static RNG_META: Rc<RefCell<MetaMap>> = make_rng_meta_map();
 
     static THREAD_RNG: RefCell<ChaChaRng> = RefCell::new(ChaChaRng(ChaCha8Rng::from_entropy()));
+}
+
+fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
+    let mut meta = MetaMap::with_type_name("Rng");
+
+    meta.add_named_instance_fn_mut("bool", |rng: &mut ChaChaRng, _, _| rng.gen_bool());
+    meta.add_named_instance_fn_mut("number", |rng: &mut ChaChaRng, _, _| rng.gen_number());
+    meta.add_named_instance_fn_mut("num2", |rng: &mut ChaChaRng, _, _| rng.gen_num2());
+    meta.add_named_instance_fn_mut("num4", |rng: &mut ChaChaRng, _, _| rng.gen_num4());
+    meta.add_named_instance_fn_mut("pick", |rng: &mut ChaChaRng, _, args| rng.pick(args));
+    meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| rng.seed(args));
+
+    Rc::new(RefCell::new(meta))
 }
 
 #[derive(Debug)]

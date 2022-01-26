@@ -65,8 +65,8 @@ pub fn compile_and_run(input: &str) -> String {
     match koto.compile(input) {
         Ok(_) => match koto.run() {
             Ok(_) => std::mem::take(&mut output.borrow_mut()),
-            Err(e) => format!("Runtime error: {}", e),
+            Err(error) => format!("Runtime error: {error}"),
         },
-        Err(e) => format!("Compilation error: {}", e),
+        Err(error) => format!("Compilation error: {error}"),
     }
 }

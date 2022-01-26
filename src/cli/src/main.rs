@@ -78,7 +78,7 @@ fn parse_arguments() -> Result<KotoArgs, String> {
                 pico_args::Error::UnusedArgsLeft(unused) => {
                     format!("Unsupported argument: {}", unused.first().unwrap())
                 }
-                other => format!("Error while parsing arguments: {}", other),
+                other => format!("Error while parsing arguments: {other}"),
             })
         }
     };
@@ -181,14 +181,14 @@ fn run() -> Result<(), ()> {
                 }
                 match koto.run_with_args(&args.script_args) {
                     Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("Error: {}", e);
+                    Err(error) => {
+                        eprintln!("Error: {error}");
                         return Err(());
                     }
                 }
             }
-            Err(e) => {
-                eprintln!("Error: {}", e);
+            Err(error) => {
+                eprintln!("Error: {error}");
                 return Err(());
             }
         }

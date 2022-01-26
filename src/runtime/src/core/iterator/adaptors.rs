@@ -596,9 +596,8 @@ impl Iterator for Keep {
                 Ok(Value::Bool(false)) => continue,
                 Ok(Value::Bool(true)) => output,
                 Ok(unexpected) => Output::Error(make_runtime_error!(format!(
-                    "iterator.keep: Expected a Bool to be returned from the \
-                             predicate, found '{}'",
-                    unexpected.type_as_string(),
+                    "iterator.keep: Expected a Bool to be returned from the predicate, found '{}'",
+                    unexpected.type_as_string()
                 ))),
                 Err(error) => Output::Error(error),
             };
@@ -751,7 +750,7 @@ impl fmt::Display for ReversedError {
 
 impl fmt::Debug for ReversedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 

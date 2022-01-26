@@ -1,7 +1,6 @@
 use {
     crate::{error::*, ConstantPool, Node},
     koto_lexer::Span,
-    std::convert::TryFrom,
 };
 
 /// The index type used by nodes in the [Ast]

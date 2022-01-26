@@ -10,7 +10,7 @@ use {
         cell::{Ref, RefCell, RefMut},
         fmt,
         hash::BuildHasherDefault,
-        iter::{FromIterator, IntoIterator},
+        iter::IntoIterator,
         ops::{Deref, DerefMut},
         rc::Rc,
     },
@@ -214,7 +214,7 @@ impl fmt::Display for ValueMap {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}: {:#}", key.value(), value)?;
+            write!(f, "{}: {value:#}", key.value())?;
             first = false;
         }
         write!(f, "}}")

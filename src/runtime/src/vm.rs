@@ -199,6 +199,7 @@ impl Vm {
     ///   - An iterator spawns a shared VM that can be used to execute functors
     ///   - A generator function spawns a shared VM to yield incremental results
     ///   - Thrown errors spawn a shared VM to display an error from a custom error type
+    #[must_use]
     pub fn spawn_shared_vm(&self) -> Self {
         Self {
             exports: self.exports.clone(),
@@ -545,7 +546,7 @@ impl Vm {
             match meta_entry {
                 Some((MetaKey::Test(test_name), test)) if test.is_callable() => {
                     let make_test_error = |error: RuntimeError, message: &str| {
-                        Err(error.with_prefix(&format!("{} '{}'", message, test_name)))
+                        Err(error.with_prefix(&format!("{message} '{test_name}'")))
                     };
 
                     if let Some(pre_test) = &pre_test {
@@ -672,9 +673,7 @@ impl Vm {
         let mut control_flow = ControlFlow::Continue;
 
         match instruction {
-            Instruction::Error { message } => {
-                runtime_error!("{}", message)
-            }
+            Instruction::Error { message } => runtime_error!(message),
             Instruction::Copy { target, source } => {
                 self.set_register(target, self.clone_register(source));
                 Ok(())
@@ -1022,7 +1021,7 @@ impl Vm {
             self.set_register(register, non_local);
             Ok(())
         } else {
-            runtime_error!("'{}' not found", name)
+            runtime_error!("'{name}' not found")
         }
     }
 
@@ -1063,10 +1062,7 @@ impl Vm {
             }
             (None, Some(Number(end))) => {
                 if *end < 0.0 {
-                    return runtime_error!(
-                        "RangeTo: negative numbers not allowed, found '{}'",
-                        end
-                    );
+                    return runtime_error!("RangeTo: negative numbers not allowed, found '{end}'");
                 }
                 let end = if inclusive {
                     usize::from(end) + 1
@@ -1081,8 +1077,7 @@ impl Vm {
             (Some(Number(start)), None) => {
                 if *start < 0.0 {
                     return runtime_error!(
-                        "RangeFrom: negative numbers not allowed, found '{}'",
-                        start
+                        "RangeFrom: negative numbers not allowed, found '{start}'"
                     );
                 }
                 IndexRange(value::IndexRange {
@@ -1347,20 +1342,18 @@ impl Vm {
 
             match capture_list {
                 Some(capture_list) => {
-                    capture_list.data_mut()[capture_index as usize] = self.clone_register(value)
+                    capture_list.data_mut()[capture_index as usize] = self.clone_register(value);
+                    Ok(())
                 }
-                None => return runtime_error!("Missing capture list for function"),
+                None => runtime_error!("Missing capture list for function"),
             }
         } else {
             // e.g. x = (1..10).find |n| n == x
             // The function was temporary and has been removed from the value stack,
             // but the capture of `x` is still attempted. It would be cleaner for the compiler to
             // detect this case but for now a runtime error will have to do.
-            return runtime_error!(
-                "Attempting to capture a reserved value in a temporary function"
-            );
+            runtime_error!("Attempting to capture a reserved value in a temporary function")
         }
-        Ok(())
     }
 
     fn run_negate(&mut self, result: u8, value: u8) -> InstructionResult {
@@ -2008,7 +2001,7 @@ impl Vm {
             .compile_module(&import_name, source_path)
         {
             Ok(result) => result,
-            Err(e) => return runtime_error!("Failed to import '{}': {}", import_name, e),
+            Err(error) => return runtime_error!("Failed to import '{import_name}': {error}"),
         };
 
         // Has the module been loaded previously?
@@ -2022,7 +2015,7 @@ impl Vm {
             Some(None) => {
                 // If the cache contains a None placeholder entry for the module path,
                 // then we're in a recursive import (see below).
-                return runtime_error!("Recursive import of module '{}'", import_name);
+                return runtime_error!("Recursive import of module '{import_name}'");
             }
             Some(Some(cached_exports)) if compile_result.loaded_from_cache => {
                 self.set_register(import_register, Value::Map(cached_exports));
@@ -2061,8 +2054,7 @@ impl Vm {
                         }
                         Some(other) => {
                             return runtime_error!(
-                                "Expected map for tests in module '{}', found '{}'",
-                                import_name,
+                                "Expected map for tests in module '{import_name}', found '{}'",
                                 other.type_as_string()
                             )
                         }
@@ -2132,7 +2124,7 @@ impl Vm {
                         if index >= 0.0 && u_index < list_len {
                             list.data_mut()[u_index] = value;
                         } else {
-                            return runtime_error!("Index '{}' not in List", index);
+                            return runtime_error!("Index '{index}' not in List");
                         }
                     }
                     Range(IntRange { start, end }) => {
@@ -2165,10 +2157,10 @@ impl Vm {
         let index = usize::from(n);
 
         if n < 0.0 {
-            return runtime_error!("Negative indices aren't allowed ('{}')", n);
+            return runtime_error!("Negative indices aren't allowed ('{n}')");
         } else if let Some(size) = size {
             if index >= size {
-                return runtime_error!("Index out of bounds - index: {}, size: {}", n, size);
+                return runtime_error!("Index out of bounds - index: {n}, size: {size}");
             }
         }
 
@@ -2186,23 +2178,16 @@ impl Vm {
 
         if start < 0 || end < 0 {
             return runtime_error!(
-                "Indexing with negative indices isn't supported, start: {}, end: {}",
-                start,
-                end
+                "Indexing with negative indices isn't supported, start: {start}, end: {end}"
             );
         } else if start > end {
             return runtime_error!(
-                "Indexing with a descending range isn't supported, start: {}, end: {}",
-                start,
-                end
+                "Indexing with a descending range isn't supported, start: {start}, end: {end}"
             );
         } else if let Some(size) = size {
             if ustart > size || uend > size {
                 return runtime_error!(
-                    "Index out of bounds, start: {}, end: {}, size: {}",
-                    start,
-                    end,
-                    size
+                    "Index out of bounds, start: {start}, end: {end}, size: {size}"
                 );
             }
         }
@@ -2213,17 +2198,10 @@ impl Vm {
     fn validate_index_range(&self, start: usize, end: usize, size: usize) -> InstructionResult {
         if start > end {
             runtime_error!(
-                "Indexing with a descending range isn't supported, start: {}, end: {}",
-                start,
-                end
+                "Indexing with a descending range isn't supported, start: {start}, end: {end}"
             )
         } else if start > size || end > size {
-            runtime_error!(
-                "Index out of bounds, start: {}, end: {}, size: {}",
-                start,
-                end,
-                size
-            )
+            runtime_error!("Index out of bounds, start: {start}, end: {end}, size: {size}")
         } else {
             Ok(())
         }
@@ -2280,8 +2258,7 @@ impl Vm {
                     self.set_register(result_register, Str(result));
                 } else {
                     return runtime_error!(
-                        "Index out of bounds - index: {}, size: {}",
-                        index,
+                        "Index out of bounds - index: {index}, size: {}",
                         s.grapheme_count()
                     );
                 }
@@ -2293,9 +2270,7 @@ impl Vm {
                     self.set_register(result_register, Str(result));
                 } else {
                     return runtime_error!(
-                        "Index out of bounds for string - start: {}, end {}, size: {}",
-                        start,
-                        end,
+                        "Index out of bounds for string - start: {start}, end {end}, size: {}",
                         s.grapheme_count()
                     );
                 }
@@ -2309,10 +2284,9 @@ impl Vm {
                     self.set_register(result_register, Str(result));
                 } else {
                     return runtime_error!(
-                        "Index out of bounds for string - start: {}{}, size: {}",
-                        start,
+                        "Index out of bounds for string - start: {start}{}, size: {}",
                         if let Some(end_unwrapped) = end {
-                            format!(", {}", end_unwrapped)
+                            format!(", {end_unwrapped}")
                         } else {
                             "".to_string()
                         },
@@ -2324,14 +2298,14 @@ impl Vm {
                 let i = usize::from(i);
                 match i {
                     0 | 1 => self.set_register(result_register, Number(n[i].into())),
-                    other => return runtime_error!("Index out of bounds for Num2, {}", other),
+                    other => return runtime_error!("Index out of bounds for Num2, {other}"),
                 }
             }
             (Num4(n), Number(i)) => {
                 let i = usize::from(i);
                 match i {
                     0 | 1 | 2 | 3 => self.set_register(result_register, Number(n[i].into())),
-                    other => return runtime_error!("Index out of bounds for Num4, {}", other),
+                    other => return runtime_error!("Index out of bounds for Num4, {other}"),
                 }
             }
             (Map(m), index) => {
@@ -2383,7 +2357,7 @@ impl Vm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
+            Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
         };
 
         match self.get_register_mut(map_register) {
@@ -2407,7 +2381,7 @@ impl Vm {
         let meta_key = match self.clone_register(name_register) {
             Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(e) => return runtime_error!("Error while preparing meta key: {}", e),
+                Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
             other => return unexpected_type_error("String", &other),
         };
@@ -2425,7 +2399,7 @@ impl Vm {
         let value = self.clone_register(value);
         let meta_key = match meta_id_to_key(meta_id, None) {
             Ok(meta_key) => meta_key,
-            Err(error) => return runtime_error!("Error while preparing meta key: {}", error),
+            Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
         };
 
         self.exports.meta_mut().insert(meta_key, value);
@@ -2443,7 +2417,7 @@ impl Vm {
         let meta_key = match self.clone_register(name_register) {
             Value::Str(name) => match meta_id_to_key(meta_id, Some(name)) {
                 Ok(key) => key,
-                Err(e) => return runtime_error!("Error while preparing meta key: {}", e),
+                Err(error) => return runtime_error!("Error while preparing meta key: {error}"),
             },
             other => return unexpected_type_error("String", &other),
         };
@@ -2501,8 +2475,7 @@ impl Vm {
                 }
                 None => {
                     return runtime_error!(
-                        "'{}' not found in '{}'",
-                        key_string,
+                        "'{key_string}' not found in '{}'",
                         accessed_value.type_as_string()
                     );
                 }
@@ -2578,7 +2551,7 @@ impl Vm {
             },
             None => {
                 use std::ops::Deref;
-                return runtime_error!("'{}' not found in '{}'", key.deref(), module_name);
+                return runtime_error!("'{}' not found in '{module_name}'", key.deref());
             }
         };
 
@@ -2910,10 +2883,8 @@ impl Vm {
 
         let expression_string = self.get_constant_str(expression_constant);
 
-        self.stdout().write_line(&format!(
-            "{}{}: {}",
-            prefix, expression_string, value_string
-        ))
+        self.stdout()
+            .write_line(&format!("{prefix}{expression_string}: {value_string}",))
     }
 
     fn run_check_type(&self, register: u8, type_id: TypeId) -> InstructionResult {
@@ -2939,11 +2910,7 @@ impl Vm {
         if value_size == expected_size {
             Ok(())
         } else {
-            runtime_error!(
-                "Value has a size of '{}', expected '{}'",
-                value_size,
-                expected_size
-            )
+            runtime_error!("Value has a size of '{value_size}', expected '{expected_size}'")
         }
     }
 
@@ -3187,8 +3154,7 @@ impl Vm {
 
     fn binary_op_error(&self, lhs: &Value, rhs: &Value, op: &str) -> InstructionResult {
         runtime_error!(
-            "Unable to perform operation '{}' with '{}' and '{}'",
-            op,
+            "Unable to perform operation '{op}' with '{}' and '{}'",
             lhs.type_as_string(),
             rhs.type_as_string(),
         )

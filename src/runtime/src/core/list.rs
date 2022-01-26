@@ -167,8 +167,7 @@ pub fn make_module() -> ValueMap {
             if index >= l.data().len() {
                 return runtime_error!(
                     "list.remove: Index out of bounds - \
-                     the index is {} but the List only has {} elements",
-                    index,
+                     the index is {index} but the List only has {} elements",
                     l.data().len(),
                 );
             }

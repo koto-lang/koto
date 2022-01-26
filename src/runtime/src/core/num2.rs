@@ -68,7 +68,7 @@ pub fn make_module() -> ValueMap {
             match usize::from(i) {
                 0 => result.0 = value.into(),
                 1 => result.1 = value.into(),
-                other => return runtime_error!("num2.with: invalid index '{}'", other),
+                other => return runtime_error!("num2.with: invalid index '{other}'"),
             }
             Ok(Num2(result))
         }

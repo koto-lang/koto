@@ -78,8 +78,7 @@ pub fn make_module() -> ValueMap {
                         Ok(byte) => bytes.push(byte),
                         Err(_) => {
                             return runtime_error!(
-                                "string.from_bytes: '{}' is out of the valid byte range",
-                                n
+                                "string.from_bytes: '{n}' is out of the valid byte range"
                             )
                         }
                     },
@@ -197,7 +196,7 @@ pub fn make_module() -> ValueMap {
             Err(_) => match s.parse::<f64>() {
                 Ok(n) => Ok(Number(n.into())),
                 Err(_) => {
-                    runtime_error!("string.to_number: Failed to convert '{}'", s)
+                    runtime_error!("string.to_number: Failed to convert '{s}'")
                 }
             },
         },
@@ -232,7 +231,7 @@ pub fn make_module() -> ValueMap {
 
 fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
     unexpected_type_error_with_slice(
-        &format!("string.{}", name),
+        &format!("string.{name}"),
         "a String as argument",
         unexpected,
     )
@@ -240,7 +239,7 @@ fn expected_string_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
 
 fn expected_two_strings_error(name: &str, unexpected: &[Value]) -> RuntimeResult {
     unexpected_type_error_with_slice(
-        &format!("string.{}", name),
+        &format!("string.{name}"),
         "two Strings as arguments",
         unexpected,
     )

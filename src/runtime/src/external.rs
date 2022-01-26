@@ -56,6 +56,7 @@ impl ExternalValue {
         }
     }
 
+    #[must_use]
     pub fn with_new_data(&self, data: impl ExternalData) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),
@@ -110,13 +111,12 @@ impl fmt::Debug for ExternalFunction {
         let raw = Rc::into_raw(self.function.clone());
         write!(
             f,
-            "external {}function: {:?}",
+            "external {}function: {raw:?}",
             if self.is_instance_function {
                 "instance "
             } else {
                 ""
             },
-            raw
         )
     }
 }

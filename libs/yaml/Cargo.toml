@@ -2,7 +2,7 @@
 name = "koto_yaml"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "A Koto library for working with YAML data"
 homepage = "https://github.com/koto-lang/koto"

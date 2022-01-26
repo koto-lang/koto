@@ -15,6 +15,7 @@ pub enum ValueNumber {
 }
 
 impl ValueNumber {
+    #[must_use]
     pub fn abs(self) -> Self {
         match self {
             Self::F64(n) => Self::F64(n.abs()),
@@ -22,6 +23,7 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn ceil(self) -> Self {
         match self {
             Self::F64(n) => Self::I64(n.ceil() as i64),
@@ -29,10 +31,12 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn floor(self) -> Self {
         Self::I64(self.as_i64())
     }
 
+    #[must_use]
     pub fn round(self) -> Self {
         match self {
             Self::F64(n) => Self::I64(n.round() as i64),
@@ -59,6 +63,7 @@ impl ValueNumber {
         }
     }
 
+    #[must_use]
     pub fn pow(self, other: Self) -> Self {
         use ValueNumber::*;
 
@@ -88,8 +93,8 @@ impl ValueNumber {
 impl fmt::Debug for ValueNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValueNumber::F64(n) => write!(f, "Float({})", n),
-            ValueNumber::I64(n) => write!(f, "Int({})", n),
+            ValueNumber::F64(n) => write!(f, "Float({n})"),
+            ValueNumber::I64(n) => write!(f, "Int({n})"),
         }
     }
 }
@@ -99,12 +104,12 @@ impl fmt::Display for ValueNumber {
         match self {
             ValueNumber::F64(n) => {
                 if n.fract() > 0.0 {
-                    write!(f, "{}", n)
+                    write!(f, "{n}")
                 } else {
-                    write!(f, "{:.1}", n)
+                    write!(f, "{n:.1}")
                 }
             }
-            ValueNumber::I64(n) => write!(f, "{}", n),
+            ValueNumber::I64(n) => write!(f, "{n}"),
         }
     }
 }

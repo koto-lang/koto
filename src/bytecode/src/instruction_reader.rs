@@ -1,7 +1,7 @@
 use {
     crate::{Chunk, Op},
     koto_parser::{ConstantIndex, MetaKeyId},
-    std::{convert::TryInto, fmt, rc::Rc},
+    std::{fmt, rc::Rc},
 };
 
 #[derive(Debug)]
@@ -498,61 +498,51 @@ impl fmt::Debug for Instruction {
         use Instruction::*;
         match self {
             Error { message } => unreachable!(message),
-            Copy { target, source } => write!(f, "Copy\t\tresult: {}\tsource: {}", target, source),
-            SetEmpty { register } => write!(f, "SetEmpty\tresult: {}", register),
+            Copy { target, source } => write!(f, "Copy\t\tresult: {target}\tsource: {source}"),
+            SetEmpty { register } => write!(f, "SetEmpty\tresult: {register}"),
             SetBool { register, value } => {
-                write!(f, "SetBool\t\tresult: {}\tvalue: {}", register, value)
+                write!(f, "SetBool\t\tresult: {register}\tvalue: {value}")
             }
             SetNumber { register, value } => {
-                write!(f, "SetNumber\tresult: {}\tvalue: {}", register, value)
+                write!(f, "SetNumber\tresult: {register}\tvalue: {value}")
             }
             LoadFloat { register, constant } => {
-                write!(f, "LoadFloat\tresult: {}\tconstant: {}", register, constant)
+                write!(f, "LoadFloat\tresult: {register}\tconstant: {constant}")
             }
             LoadInt { register, constant } => {
-                write!(f, "LoadInt\t\tresult: {}\tconstant: {}", register, constant)
+                write!(f, "LoadInt\t\tresult: {register}\tconstant: {constant}")
             }
-            LoadString { register, constant } => write!(
-                f,
-                "LoadString\tresult: {}\tconstant: {}",
-                register, constant
-            ),
-            LoadNonLocal { register, constant } => write!(
-                f,
-                "LoadNonLocal\tresult: {}\tconstant: {}",
-                register, constant
-            ),
+            LoadString { register, constant } => {
+                write!(f, "LoadString\tresult: {register}\tconstant: {constant}",)
+            }
+            LoadNonLocal { register, constant } => {
+                write!(f, "LoadNonLocal\tresult: {register}\tconstant: {constant}",)
+            }
             ValueExport { name, value } => {
-                write!(f, "ValueExport\tname: {}\t\tvalue: {}", name, value)
+                write!(f, "ValueExport\tname: {name}\t\tvalue: {value}")
             }
-            Import { register } => write!(f, "Import\t\tregister: {}", register),
+            Import { register } => write!(f, "Import\t\tregister: {register}"),
             MakeTempTuple {
                 register,
                 start,
                 count,
             } => write!(
                 f,
-                "MakeTempTuple\tresult: {}\tstart: {}\tcount: {}",
-                register, start, count
+                "MakeTempTuple\tresult: {register}\tstart: {start}\tcount: {count}"
             ),
             MakeMap {
                 register,
                 size_hint,
-            } => write!(
-                f,
-                "MakeMap\t\tresult: {}\tsize_hint: {}",
-                register, size_hint
-            ),
+            } => write!(f, "MakeMap\t\tresult: {register}\tsize_hint: {size_hint}"),
             SequenceStart {
                 register,
                 size_hint,
             } => write!(
                 f,
-                "SequenceStart\tresult: {}\tsize_hint: {}",
-                register, size_hint
+                "SequenceStart\tresult: {register}\tsize_hint: {size_hint}"
             ),
             SequencePush { sequence, value } => {
-                write!(f, "SequencePush\tsequence: {}\tvalue: {}", sequence, value)
+                write!(f, "SequencePush\tsequence: {sequence}\tvalue: {value}")
             }
             SequencePushN {
                 sequence,
@@ -560,50 +550,41 @@ impl fmt::Debug for Instruction {
                 count,
             } => write!(
                 f,
-                "SequencePushN\tsequence: {}\tstart: {}\tcount: {}",
-                sequence, start, count
+                "SequencePushN\tsequence: {sequence}\tstart: {start}\tcount: {count}",
             ),
-            SequenceToList { sequence } => write!(f, "SequenceToList\tsequence: {}", sequence),
-            SequenceToTuple { sequence } => write!(f, "SequenceToTuple\tsequence: {}", sequence),
+            SequenceToList { sequence } => write!(f, "SequenceToList\tsequence: {sequence}"),
+            SequenceToTuple { sequence } => write!(f, "SequenceToTuple\tsequence: {sequence}"),
             Range {
                 register,
                 start,
                 end,
-            } => write!(
-                f,
-                "Range\t\tresult: {}\tstart: {}\tend: {}",
-                register, start, end
-            ),
+            } => write!(f, "Range\t\tresult: {register}\tstart: {start}\tend: {end}",),
             RangeInclusive {
                 register,
                 start,
                 end,
             } => write!(
                 f,
-                "RangeInclusive\tresult: {}\tstart: {}\tend: {}",
-                register, start, end
+                "RangeInclusive\tresult: {register}\tstart: {start}\tend: {end}",
             ),
-            RangeTo { register, end } => write!(f, "RangeTo\t\tresult: {}\tend: {}", register, end),
+            RangeTo { register, end } => write!(f, "RangeTo\t\tresult: {register}\tend: {end}"),
             RangeToInclusive { register, end } => {
-                write!(f, "RangeToIncl\tresult: {}\tend: {}", register, end)
+                write!(f, "RangeToIncl\tresult: {register}\tend: {end}")
             }
             RangeFrom { register, start } => {
-                write!(f, "RangeFrom\tresult: {}\tstart: {}", register, start)
+                write!(f, "RangeFrom\tresult: {register}\tstart: {start}")
             }
-            RangeFull { register } => write!(f, "RangeFull\tresult: {}", register),
-            MakeIterator { register, iterable } => write!(
-                f,
-                "MakeIterator\tresult: {}\titerable: {}",
-                register, iterable
-            ),
+            RangeFull { register } => write!(f, "RangeFull\tresult: {register}"),
+            MakeIterator { register, iterable } => {
+                write!(f, "MakeIterator\tresult: {register}\titerable: {iterable}",)
+            }
             SimpleFunction {
                 register,
                 arg_count,
                 size,
             } => write!(
                 f,
-                "SimpleFunction\tresult: {}\targs: {}\t\tsize: {}",
-                register, arg_count, size,
+                "SimpleFunction\tresult: {register}\targs: {arg_count}\t\tsize: {size}",
             ),
             Function {
                 register,
@@ -616,17 +597,10 @@ impl fmt::Debug for Instruction {
                 size,
             } => write!(
                 f,
-                "Function\tresult: {}\targs: {}\t\tcaptures: {}\tsize: {}
-                 \t\t\tinstance: {}\tgenerator: {}
-                 \t\t\tvariadic: {}\targ_is_unpacked_tuple: {}",
-                register,
-                arg_count,
-                capture_count,
-                size,
-                instance_function,
-                generator,
-                variadic,
-                arg_is_unpacked_tuple,
+                "Function\tresult: {register}\targs: {arg_count}\
+                 \t\tcaptures: {capture_count}\tsize: {size}
+                 \t\t\tinstance: {instance_function}\tgenerator: {generator}
+                 \t\t\tvariadic: {variadic}\targ_is_unpacked_tuple: {arg_is_unpacked_tuple}",
             ),
             Capture {
                 function,
@@ -634,81 +608,60 @@ impl fmt::Debug for Instruction {
                 source,
             } => write!(
                 f,
-                "Capture\t\tfunction: {}\ttarget: {}\tsource: {}",
-                function, target, source
+                "Capture\t\tfunction: {function}\ttarget: {target}\tsource: {source}",
             ),
             Negate { register, value } => {
-                write!(f, "Negate\t\tresult: {}\tsource: {}", register, value)
+                write!(f, "Negate\t\tresult: {register}\tsource: {value}")
             }
             Not { register, value } => {
-                write!(f, "Not\t\tresult: {}\tsource: {}", register, value)
+                write!(f, "Not\t\tresult: {register}\tsource: {value}")
             }
-            Add { register, lhs, rhs } => write!(
-                f,
-                "Add\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Subtract { register, lhs, rhs } => write!(
-                f,
-                "Subtract\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Multiply { register, lhs, rhs } => write!(
-                f,
-                "Multiply\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Divide { register, lhs, rhs } => write!(
-                f,
-                "Divide\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Modulo { register, lhs, rhs } => write!(
-                f,
-                "Modulo\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Less { register, lhs, rhs } => write!(
-                f,
-                "Less\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
+            Add { register, lhs, rhs } => {
+                write!(f, "Add\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Subtract { register, lhs, rhs } => {
+                write!(f, "Subtract\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Multiply { register, lhs, rhs } => {
+                write!(f, "Multiply\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Divide { register, lhs, rhs } => {
+                write!(f, "Divide\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Modulo { register, lhs, rhs } => {
+                write!(f, "Modulo\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Less { register, lhs, rhs } => {
+                write!(f, "Less\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
             LessOrEqual { register, lhs, rhs } => write!(
                 f,
-                "LessOrEqual\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
+                "LessOrEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {}",
+                rhs
             ),
-            Greater { register, lhs, rhs } => write!(
-                f,
-                "Greater\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
+            Greater { register, lhs, rhs } => {
+                write!(f, "Greater\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
             GreaterOrEqual { register, lhs, rhs } => write!(
                 f,
-                "GreaterOrEqual\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
+                "GreaterOrEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}",
             ),
-            Equal { register, lhs, rhs } => write!(
-                f,
-                "Equal\t\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            NotEqual { register, lhs, rhs } => write!(
-                f,
-                "NotEqual\tresult: {}\tlhs: {}\t\trhs: {}",
-                register, lhs, rhs
-            ),
-            Jump { offset } => write!(f, "Jump\t\toffset: {}", offset),
+            Equal { register, lhs, rhs } => {
+                write!(f, "Equal\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            NotEqual { register, lhs, rhs } => {
+                write!(f, "NotEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            }
+            Jump { offset } => write!(f, "Jump\t\toffset: {offset}"),
             JumpIf {
                 register,
                 offset,
                 jump_condition,
             } => write!(
                 f,
-                "JumpIf\t\tresult: {}\toffset: {}\tcondition: {}",
-                register, offset, jump_condition
+                "JumpIf\t\tresult: {register}\toffset: {offset}\tcondition: {jump_condition}",
             ),
-            JumpBack { offset } => write!(f, "JumpBack\toffset: {}", offset),
+            JumpBack { offset } => write!(f, "JumpBack\toffset: {offset}"),
             Call {
                 result,
                 function,
@@ -716,8 +669,8 @@ impl fmt::Debug for Instruction {
                 arg_count,
             } => write!(
                 f,
-                "Call\t\tresult: {}\tfunction: {}\tframe base: {}\targs: {}",
-                result, function, frame_base, arg_count
+                "Call\t\tresult: {result}\tfunction: {function}\t\
+                 frame base: {frame_base}\targs: {arg_count}",
             ),
             CallInstance {
                 result,
@@ -727,22 +680,20 @@ impl fmt::Debug for Instruction {
                 instance,
             } => write!(
                 f,
-                "CallInstance\tresult: {}\tfunction: {}\tframe_base: {}
-                 \t\t\targs: {}\t\tinstance: {}",
-                result, function, frame_base, arg_count, instance
+                "CallInstance\tresult: {result}\tfunction: {function}\tframe_base: {frame_base}
+                 \t\t\targs: {arg_count}\t\tinstance: {instance}",
             ),
-            Return { register } => write!(f, "Return\t\tresult: {}", register),
-            Yield { register } => write!(f, "Yield\t\tresult: {}", register),
-            Throw { register } => write!(f, "Throw\t\tresult: {}", register),
-            Size { register, value } => write!(f, "Size\t\tresult: {}\tvalue: {}", register, value),
+            Return { register } => write!(f, "Return\t\tresult: {register}"),
+            Yield { register } => write!(f, "Yield\t\tresult: {register}"),
+            Throw { register } => write!(f, "Throw\t\tresult: {register}"),
+            Size { register, value } => write!(f, "Size\t\tresult: {register}\tvalue: {value}"),
             IterNext {
                 register,
                 iterator,
                 jump_offset,
             } => write!(
                 f,
-                "IterNext\tresult: {}\titerator: {}\tjump offset: {}",
-                register, iterator, jump_offset
+                "IterNext\tresult: {register}\titerator: {iterator}\tjump offset: {jump_offset}",
             ),
             IterNextTemp {
                 register,
@@ -750,16 +701,15 @@ impl fmt::Debug for Instruction {
                 jump_offset,
             } => write!(
                 f,
-                "IterNextTemp\tresult: {}\titerator: {}\tjump offset: {}",
-                register, iterator, jump_offset
+                "IterNextTemp\tresult: {register}\
+                 \titerator: {iterator}\tjump offset: {jump_offset}",
             ),
             IterNextQuiet {
                 iterator,
                 jump_offset,
             } => write!(
                 f,
-                "IterNextQuiet\titerator: {}\tjump offset: {}",
-                iterator, jump_offset
+                "IterNextQuiet\titerator: {iterator}\tjump offset: {jump_offset}",
             ),
             TempIndex {
                 register,
@@ -767,8 +717,7 @@ impl fmt::Debug for Instruction {
                 index,
             } => write!(
                 f,
-                "TempIndex\tresult: {}\tvalue: {}\tindex: {}",
-                register, value, index
+                "TempIndex\tresult: {register}\tvalue: {value}\tindex: {index}",
             ),
             SliceFrom {
                 register,
@@ -776,8 +725,7 @@ impl fmt::Debug for Instruction {
                 index,
             } => write!(
                 f,
-                "SliceFrom\tresult: {}\tvalue: {}\tindex: {}",
-                register, value, index
+                "SliceFrom\tresult: {register}\tvalue: {value}\tindex: {index}",
             ),
             SliceTo {
                 register,
@@ -785,14 +733,13 @@ impl fmt::Debug for Instruction {
                 index,
             } => write!(
                 f,
-                "SliceTo\t\tresult: {}\tvalue: {}\tindex: {}",
-                register, value, index
+                "SliceTo\t\tresult: {register}\tvalue: {value}\tindex: {index}"
             ),
             IsTuple { register, value } => {
-                write!(f, "IsTuple\t\tresult: {}\tvalue: {}", register, value)
+                write!(f, "IsTuple\t\tresult: {register}\tvalue: {value}")
             }
             IsList { register, value } => {
-                write!(f, "IsList\t\tresult: {}\tvalue: {}", register, value)
+                write!(f, "IsList\t\tresult: {register}\tvalue: {value}")
             }
             Index {
                 register,
@@ -800,8 +747,7 @@ impl fmt::Debug for Instruction {
                 index,
             } => write!(
                 f,
-                "Index\t\tresult: {}\tvalue: {}\tindex: {}",
-                register, value, index
+                "Index\t\tresult: {register}\tvalue: {value}\tindex: {index}"
             ),
             SetIndex {
                 register,
@@ -809,8 +755,7 @@ impl fmt::Debug for Instruction {
                 value,
             } => write!(
                 f,
-                "SetIndex\tregister: {}\tindex: {}\tvalue: {}",
-                register, index, value
+                "SetIndex\tregister: {register}\tindex: {index}\tvalue: {value}"
             ),
             MapInsert {
                 register,
@@ -818,8 +763,7 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "MapInsert\tmap: {}\t\tvalue: {}\tkey: {}",
-                register, value, key
+                "MapInsert\tmap: {register}\t\tvalue: {value}\tkey: {key}"
             ),
             MetaInsert {
                 register,
@@ -827,8 +771,7 @@ impl fmt::Debug for Instruction {
                 id,
             } => write!(
                 f,
-                "MetaInsert\tmap: {}\t\tid: {:?}\tvalue: {}",
-                register, id, value
+                "MetaInsert\tmap: {register}\t\tid: {id:?}\tvalue: {value}",
             ),
             MetaInsertNamed {
                 register,
@@ -837,14 +780,12 @@ impl fmt::Debug for Instruction {
                 value,
             } => write!(
                 f,
-                "MetaInsertNamed\tmap: {}\t\tid: {:?}\tname: {}\t\tvalue: {}",
-                register, id, name, value
+                "MetaInsertNamed\tmap: {register}\t\tid: {id:?}\tname: {name}\t\tvalue: {value}",
             ),
-            MetaExport { id, value } => write!(f, "MetaExport\tid: {:?}\tvalue: {}", id, value),
+            MetaExport { id, value } => write!(f, "MetaExport\tid: {id:?}\tvalue: {value}"),
             MetaExportNamed { id, name, value } => write!(
                 f,
-                "MetaExportNamed\tid: {:?}\tname: {}\tvalue: {}",
-                id, name, value,
+                "MetaExportNamed\tid: {id:?}\tname: {name}\tvalue: {value}",
             ),
             Access {
                 register,
@@ -852,8 +793,7 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "Access\t\tresult: {}\tvalue: {}\tkey: {}",
-                register, value, key
+                "Access\t\tresult: {register}\tvalue: {value}\tkey: {key}"
             ),
             AccessString {
                 register,
@@ -861,26 +801,24 @@ impl fmt::Debug for Instruction {
                 key,
             } => write!(
                 f,
-                "AccessString\tresult: {}\tvalue: {}\tkey: {}",
-                register, value, key
+                "AccessString\tresult: {register}\tvalue: {value}\tkey: {key}"
             ),
             TryStart {
                 arg_register,
                 catch_offset,
             } => write!(
                 f,
-                "TryStart\targ register: {}\tcatch offset: {}",
-                arg_register, catch_offset
+                "TryStart\targ register: {arg_register}\tcatch offset: {catch_offset}",
             ),
             TryEnd => write!(f, "TryEnd"),
             Debug { register, constant } => {
-                write!(f, "Debug\t\tregister: {}\tconstant: {}", register, constant)
+                write!(f, "Debug\t\tregister: {register}\tconstant: {constant}")
             }
             CheckType { register, type_id } => {
-                write!(f, "CheckType\tregister: {}\ttype: {:?}", register, type_id)
+                write!(f, "CheckType\tregister: {register}\ttype: {type_id:?}")
             }
             CheckSize { register, size } => {
-                write!(f, "CheckSize\tregister: {}\tsize: {}", register, size)
+                write!(f, "CheckSize\tregister: {register}\tsize: {size}")
             }
             StringStart {
                 register,
@@ -888,15 +826,14 @@ impl fmt::Debug for Instruction {
             } => {
                 write!(
                     f,
-                    "StringStart\tregister: {}\tsize hint: {}",
-                    register, size_hint
+                    "StringStart\tregister: {register}\tsize hint: {size_hint}"
                 )
             }
             StringPush { register, value } => {
-                write!(f, "StringPush\tregister: {}\tvalue: {}", register, value)
+                write!(f, "StringPush\tregister: {register}\tvalue: {value}")
             }
             StringFinish { register } => {
-                write!(f, "StringFinish\tregister: {}", register)
+                write!(f, "StringFinish\tregister: {register}")
             }
         }
     }
@@ -1437,8 +1374,7 @@ impl Iterator for InstructionReader {
                 } else {
                     Some(Error {
                         message: format!(
-                            "Unexpected meta id {} found at instruction {}",
-                            meta_id, op_ip
+                            "Unexpected meta id {meta_id} found at instruction {op_ip}",
                         ),
                     })
                 }
@@ -1451,8 +1387,7 @@ impl Iterator for InstructionReader {
                 } else {
                     Some(Error {
                         message: format!(
-                            "Unexpected meta id {} found at instruction {}",
-                            meta_id, op_ip
+                            "Unexpected meta id {meta_id} found at instruction {op_ip}",
                         ),
                     })
                 }
@@ -1466,8 +1401,7 @@ impl Iterator for InstructionReader {
                 } else {
                     Some(Error {
                         message: format!(
-                            "Unexpected meta id {} found at instruction {}",
-                            meta_id, op_ip
+                            "Unexpected meta id {meta_id} found at instruction {op_ip}",
                         ),
                     })
                 }
@@ -1506,7 +1440,7 @@ impl Iterator for InstructionReader {
                 match TypeId::from_byte(get_u8!()) {
                     Ok(type_id) => Some(CheckType { register, type_id }),
                     Err(byte) => Some(Error {
-                        message: format!("Unexpected value for CheckType id: {}", byte),
+                        message: format!("Unexpected value for CheckType id: {byte}"),
                     }),
                 }
             }
@@ -1530,7 +1464,7 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
             }),
             _ => Some(Error {
-                message: format!("Unexpected opcode {:?} found at instruction {}", op, op_ip),
+                message: format!("Unexpected opcode {op:?} found at instruction {op_ip}"),
             }),
         }
     }

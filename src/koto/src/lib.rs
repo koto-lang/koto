@@ -13,15 +13,15 @@
 //! match koto.compile("1 + 2") {
 //!     Ok(_) => match koto.run() {
 //!         Ok(result) => match result {
-//!             Value::Number(n) => println!("{}", n), // 3.0
+//!             Value::Number(n) => println!("{n}"), // 3.0
 //!             other => panic!("Unexpected result: {}", other),
 //!         },
 //!         Err(runtime_error) => {
-//!             panic!("Runtime error: {}", runtime_error);
+//!             panic!("Runtime error: {runtime_error}");
 //!         }
 //!     },
 //!     Err(compiler_error) => {
-//!         panic!("Compiler error: {}", compiler_error);
+//!         panic!("Compiler error: {compiler_error}");
 //!     }
 //! }
 //! ```
@@ -71,10 +71,10 @@ impl fmt::Display for KotoError {
                 f.write_str("Missing compiled chunk, call compile() before calling run()")
             }
             InvalidTestsType(t) => {
-                write!(f, "Expected a Map for the exported 'tests', found '{}'", t)
+                write!(f, "Expected a Map for the exported 'tests', found '{t}'")
             }
             FunctionNotFound(name) => {
-                write!(f, "Function '{}' not found", name)
+                write!(f, "Function '{name}' not found")
             }
         }
     }
@@ -119,6 +119,7 @@ pub struct KotoSettings {
 
 impl KotoSettings {
     /// Helper for conveniently defining a custom stdin implementation
+    #[must_use]
     pub fn with_stdin(self, stdin: impl KotoFile + 'static) -> Self {
         Self {
             stdin: Rc::new(stdin),
@@ -127,6 +128,7 @@ impl KotoSettings {
     }
 
     /// Helper for conveniently defining a custom stdout implementation
+    #[must_use]
     pub fn with_stdout(self, stdout: impl KotoFile + 'static) -> Self {
         Self {
             stdout: Rc::new(stdout),
@@ -135,6 +137,7 @@ impl KotoSettings {
     }
 
     /// Helper for conveniently defining a custom stderr implementation
+    #[must_use]
     pub fn with_stderr(self, stderr: impl KotoFile + 'static) -> Self {
         Self {
             stderr: Rc::new(stderr),
@@ -143,6 +146,7 @@ impl KotoSettings {
     }
 
     /// Convenience function for declaring the 'module imported' callback
+    #[must_use]
     pub fn with_module_imported_callback(self, callback: impl Fn(&Path) + 'static) -> Self {
         Self {
             module_imported_callback: Some(Box::new(callback)),

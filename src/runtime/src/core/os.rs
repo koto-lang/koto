@@ -53,7 +53,7 @@ impl DateTime {
         let offset = match maybe_offset {
             Some(offset) => match FixedOffset::east_opt(offset as i32) {
                 Some(offset) => offset,
-                None => return runtime_error!("time offset is out of range: {}", offset),
+                None => return runtime_error!("time offset is out of range: {offset}"),
             },
             None => *Local::now().offset(),
         };
@@ -61,7 +61,7 @@ impl DateTime {
             Some(utc) => Ok(Self::with_chrono_datetime(
                 chrono::DateTime::<Local>::from_utc(utc, offset),
             )),
-            None => return runtime_error!("timestamp in seconds is out of range: {}", seconds),
+            None => return runtime_error!("timestamp in seconds is out of range: {seconds}"),
         }
     }
 
@@ -72,59 +72,49 @@ impl DateTime {
 
 impl ExternalData for DateTime {}
 
-thread_local!(
-    pub static SYSTEM_TIME_META: Rc<RefCell<MetaMap>> = {
-        let mut meta = MetaMap::with_type_name("DateTime");
+thread_local! {
+    pub static SYSTEM_TIME_META: Rc<RefCell<MetaMap>> = make_system_time_meta_map();
+}
 
-        meta.add_unary_op(UnaryOp::Display, |data: &DateTime, _| {
-            Ok(data.0.format("%F %T").to_string().into())
-        });
+fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
+    let mut meta = MetaMap::with_type_name("DateTime");
 
-        meta.add_named_instance_fn("day", |data: &DateTime, _, _| {
-            Ok(data.0.day().into())
-        });
+    meta.add_unary_op(UnaryOp::Display, |data: &DateTime, _| {
+        Ok(data.0.format("%F %T").to_string().into())
+    });
 
-        meta.add_named_instance_fn("hour", |data: &DateTime, _, _| {
-            Ok(data.0.hour().into())
-        });
+    meta.add_named_instance_fn("day", |data: &DateTime, _, _| Ok(data.0.day().into()));
 
-        meta.add_named_instance_fn("minute", |data: &DateTime, _, _| {
-            Ok(data.0.minute().into())
-        });
+    meta.add_named_instance_fn("hour", |data: &DateTime, _, _| Ok(data.0.hour().into()));
 
-        meta.add_named_instance_fn("month", |data: &DateTime, _, _| {
-            Ok(data.0.month().into())
-        });
+    meta.add_named_instance_fn("minute", |data: &DateTime, _, _| Ok(data.0.minute().into()));
 
-        meta.add_named_instance_fn("second", |data: &DateTime, _, _| {
-            Ok(data.0.second().into())
-        });
+    meta.add_named_instance_fn("month", |data: &DateTime, _, _| Ok(data.0.month().into()));
 
-        meta.add_named_instance_fn("nanosecond", |data: &DateTime, _, _| {
-            Ok(data.0.nanosecond().into())
-        });
+    meta.add_named_instance_fn("second", |data: &DateTime, _, _| Ok(data.0.second().into()));
 
-        meta.add_named_instance_fn("timestamp", |data: &DateTime, _, _| {
-            let seconds = data.0.timestamp() as f64;
-            let sub_nanos = data.0.timestamp_subsec_nanos();
-            Ok((seconds + sub_nanos as f64 / 1.0e9).into())
-        });
+    meta.add_named_instance_fn("nanosecond", |data: &DateTime, _, _| {
+        Ok(data.0.nanosecond().into())
+    });
 
-        meta.add_named_instance_fn("timezone_offset", |data: &DateTime, _, _| {
-            Ok(data.0.offset().local_minus_utc().into())
-        });
+    meta.add_named_instance_fn("timestamp", |data: &DateTime, _, _| {
+        let seconds = data.0.timestamp() as f64;
+        let sub_nanos = data.0.timestamp_subsec_nanos();
+        Ok((seconds + sub_nanos as f64 / 1.0e9).into())
+    });
 
-        meta.add_named_instance_fn("timezone_string", |data: &DateTime, _, _| {
-            Ok(data.0.format("%z").to_string().into())
-        });
+    meta.add_named_instance_fn("timezone_offset", |data: &DateTime, _, _| {
+        Ok(data.0.offset().local_minus_utc().into())
+    });
 
-        meta.add_named_instance_fn("year", |data: &DateTime, _, _| {
-            Ok(data.0.year().into())
-        });
+    meta.add_named_instance_fn("timezone_string", |data: &DateTime, _, _| {
+        Ok(data.0.format("%z").to_string().into())
+    });
 
-        Rc::new(RefCell::new(meta))
-    }
-);
+    meta.add_named_instance_fn("year", |data: &DateTime, _, _| Ok(data.0.year().into()));
+
+    Rc::new(RefCell::new(meta))
+}
 
 pub struct Timer(Instant);
 
@@ -138,30 +128,29 @@ impl Timer {
 
 impl ExternalData for Timer {}
 
-thread_local!(
-    pub static TIMER_META: Rc<RefCell<MetaMap>> = {
-        let mut meta = MetaMap::with_type_name("Timer");
+thread_local! {
+    pub static TIMER_META: Rc<RefCell<MetaMap>> = make_timer_meta_map();
+}
 
-        meta.add_unary_op(UnaryOp::Display, |data: &Timer, _| {
-            Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
-        });
+fn make_timer_meta_map() -> Rc<RefCell<MetaMap>> {
+    let mut meta = MetaMap::with_type_name("Timer");
 
-        meta.add_binary_op(
-            BinaryOp::Subtract,
-            |a: &Timer, b, _, _| {
-                let result = if a.0 >= b.0 {
-                     a.0.duration_since(b.0).as_secs_f64()
-                } else {
-                    -(b.0.duration_since(a.0).as_secs_f64())
-                };
-                Ok(result.into())
-            },
-        );
+    meta.add_unary_op(UnaryOp::Display, |data: &Timer, _| {
+        Ok(format!("Timer({:.3}s)", data.0.elapsed().as_secs_f64()).into())
+    });
 
-        meta.add_named_instance_fn("elapsed", |instant: &Timer, _, _| {
-            Ok(instant.0.elapsed().as_secs_f64().into())
-        });
+    meta.add_binary_op(BinaryOp::Subtract, |a: &Timer, b, _, _| {
+        let result = if a.0 >= b.0 {
+            a.0.duration_since(b.0).as_secs_f64()
+        } else {
+            -(b.0.duration_since(a.0).as_secs_f64())
+        };
+        Ok(result.into())
+    });
 
-        Rc::new(RefCell::new(meta))
-    }
-);
+    meta.add_named_instance_fn("elapsed", |instant: &Timer, _, _| {
+        Ok(instant.0.elapsed().as_secs_f64().into())
+    });
+
+    Rc::new(RefCell::new(meta))
+}

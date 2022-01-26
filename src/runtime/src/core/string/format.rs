@@ -91,7 +91,7 @@ impl<'a> FormatLexer<'a> {
                 self.position += 1;
                 Ok(result)
             }
-            Some(other) => Err(format!("Expected '}}', found '{}'", other)),
+            Some(other) => Err(format!("Expected '}}', found '{other}'")),
             None => Err("Expected '}}'".to_string()),
         }
     }
@@ -112,10 +112,10 @@ impl<'a> FormatLexer<'a> {
                 if n <= u32::MAX as u32 {
                     Ok(n as u32)
                 } else {
-                    Err(format!("{} exceeds the maximum of {}", n, u32::MAX))
+                    Err(format!("{n} exceeds the maximum of {}", u32::MAX))
                 }
             }
-            Some(other) => Err(format!("Expected digit, found '{}'", other)),
+            Some(other) => Err(format!("Expected digit, found '{other}'")),
             None => Err("Expected digit".into()),
         }
     }
@@ -174,8 +174,7 @@ impl<'a> Iterator for FormatLexer<'a> {
                                         }
                                         Some(other) => {
                                             return Some(Error(format!(
-                                                "Unexpected character '{}'",
-                                                other
+                                                "Unexpected character '{other}'",
                                             )))
                                         }
                                         None => {
@@ -216,8 +215,7 @@ impl<'a> Iterator for FormatLexer<'a> {
                                         }
                                         other => {
                                             return Some(Error(format!(
-                                                "Unexpected character '{}'",
-                                                other
+                                                "Unexpected character '{other}'",
                                             )))
                                         }
                                     }
@@ -235,9 +233,7 @@ impl<'a> Iterator for FormatLexer<'a> {
                                     Err(error) => Some(Error(error)),
                                 }
                             }
-                            Some(other) => {
-                                Some(Error(format!("Unexpected character - '{}'", other)))
-                            }
+                            Some(other) => Some(Error(format!("Unexpected character - '{other}'"))),
                             None => Some(Error("Unexpected end, missing '}}'".into())),
                         }
                     }
@@ -311,12 +307,12 @@ pub fn format_string(
             },
             FormatToken::Positional(n, format_spec) => match format_args.get(n as usize) {
                 Some(arg) => result.push_str(&value_to_string(vm, arg, format_spec)?),
-                None => return runtime_error!("Missing argument for index {}", n),
+                None => return runtime_error!("Missing argument for index {n}"),
             },
             FormatToken::Identifier(id, format_spec) => match format_args.first() {
                 Some(Value::Map(map)) => match map.data().get_with_string(id) {
                     Some(value) => result.push_str(&value_to_string(vm, value, format_spec)?),
-                    None => return runtime_error!("Key '{}' not found in map", id),
+                    None => return runtime_error!("Key '{id}' not found in map"),
                 },
                 Some(other) => {
                     return runtime_error!(
@@ -326,7 +322,7 @@ pub fn format_string(
                 }
                 None => return runtime_error!("Expected map as first argument"),
             },
-            FormatToken::Error(error) => return runtime_error!("Invalid format string: {}", error),
+            FormatToken::Error(error) => return runtime_error!("Invalid format string: {error}"),
         }
     }
 
@@ -436,12 +432,11 @@ mod tests {
                     Some(output) => {
                         assert_eq!(
                             &output, token,
-                            "mismatch at position {}, expected: {:?}, actual: {:?}",
-                            i, token, output
+                            "mismatch at position {i}, expected: {token:?}, actual: {output:?}",
                         );
                     }
                     None => {
-                        panic!("Lexer stopped providing output at position {}", i);
+                        panic!("Lexer stopped providing output at position {i}");
                     }
                 }
             }

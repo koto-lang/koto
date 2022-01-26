@@ -11,6 +11,7 @@ use {
 pub struct Num2(pub f64, pub f64);
 
 impl Num2 {
+    #[must_use]
     pub fn abs(&self) -> Self {
         Num2(self.0.abs(), self.1.abs())
     }
@@ -19,6 +20,7 @@ impl Num2 {
         (self.0 * self.0 + self.1 * self.1).sqrt()
     }
 
+    #[must_use]
     pub fn normalize(&self) -> Self {
         *self / self.length()
     }

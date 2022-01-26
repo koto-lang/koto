@@ -148,16 +148,14 @@ pub fn make_module() -> ValueMap {
             let iterable = iterable.clone();
             let f = f.clone();
             for output in vm.make_iterator(iterable)? {
-                let run_result = match output {
-                    Output::Value(value) => vm.run_function(f.clone(), CallArgs::Single(value)),
+                match output {
+                    Output::Value(value) => {
+                        vm.run_function(f.clone(), CallArgs::Single(value))?;
+                    }
                     Output::ValuePair(a, b) => {
-                        vm.run_function(f.clone(), CallArgs::AsTuple(&[a, b]))
+                        vm.run_function(f.clone(), CallArgs::AsTuple(&[a, b]))?;
                     }
                     Output::Error(error) => return Err(error),
-                };
-
-                if run_result.is_err() {
-                    return run_result;
                 }
             }
             Ok(Empty)

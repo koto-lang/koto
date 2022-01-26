@@ -11,6 +11,7 @@ use {
 pub struct Num4(pub f32, pub f32, pub f32, pub f32);
 
 impl Num4 {
+    #[must_use]
     pub fn abs(&self) -> Self {
         Self(self.0.abs(), self.1.abs(), self.2.abs(), self.3.abs())
     }
@@ -23,6 +24,7 @@ impl Num4 {
         (x * x + y * y + z * z + w * w).sqrt()
     }
 
+    #[must_use]
     pub fn normalize(&self) -> Self {
         *self / self.length()
     }

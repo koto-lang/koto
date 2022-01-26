@@ -122,8 +122,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .watch(&args.script, move |event: Event| {
                 match event {
                     Event::Create(script_path) | Event::Write(script_path) => {
-                        if let Err(e) = compile_and_run(&mut koto, &script_path) {
-                            eprintln!("{}", e);
+                        if let Err(error) = compile_and_run(&mut koto, &script_path) {
+                            eprintln!("{error}");
                         }
                     }
                     _ => {}
@@ -136,8 +136,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         match compile_and_run(&mut koto, &script_path) {
             Ok(_) => Ok(()),
-            Err(e) => {
-                eprintln!("{}", e);
+            Err(error) => {
+                eprintln!("{error}");
                 std::process::exit(1);
             }
         }

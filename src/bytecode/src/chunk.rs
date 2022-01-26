@@ -83,7 +83,7 @@ impl Chunk {
         'outer: loop {
             for i in 1..=16 {
                 match iter.next() {
-                    Some(byte) => result += &format!("{:02x}", byte),
+                    Some(byte) => result += &format!("{byte:02x}"),
                     None => break 'outer,
                 }
                 if i < 16 {
@@ -132,11 +132,11 @@ impl Chunk {
                     .line
                     .min(source_lines.len() as u32)
                     .max(1) as usize;
-                result += &format!("|{}| {}\n", line, source_lines[line - 1]);
+                result += &format!("|{line}| {}\n", source_lines[line - 1]);
                 span = Some(instruction_span);
             }
 
-            result += &format!("{}\t{:?}\n", ip, &instruction);
+            result += &format!("{ip}\t{instruction:?}\n");
             ip = reader.ip;
         }
 
@@ -146,6 +146,6 @@ impl Chunk {
 
 impl fmt::Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "Chunk ({:p})", self)
+        write!(f, "Chunk ({self:p})")
     }
 }

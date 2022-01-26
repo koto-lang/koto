@@ -35,7 +35,7 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
-                    runtime_error!("Assertion failed, '{}' is not equal to '{}'", a, b)
+                    runtime_error!("Assertion failed, '{a}' is not equal to '{b}'")
                 }
                 Ok(unexpected) => unexpected_type_error_with_slice(
                     "test.assert_eq",
@@ -56,7 +56,7 @@ pub fn make_module() -> ValueMap {
             match result {
                 Ok(Bool(true)) => Ok(Empty),
                 Ok(Bool(false)) => {
-                    runtime_error!("Assertion failed, '{}' should not be equal to '{}'", a, b)
+                    runtime_error!("Assertion failed, '{a}' should not be equal to '{b}'")
                 }
                 Ok(unexpected) => unexpected_type_error_with_slice(
                     "test.assert_ne",
@@ -75,10 +75,7 @@ pub fn make_module() -> ValueMap {
                 Ok(Empty)
             } else {
                 runtime_error!(
-                    "Assertion failed, '{}' and '{}' are not within {} of each other",
-                    a,
-                    b,
-                    allowed_diff,
+                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
                 )
             }
         }
@@ -88,10 +85,7 @@ pub fn make_module() -> ValueMap {
                 Ok(Empty)
             } else {
                 runtime_error!(
-                    "Assertion failed, '{}' and '{}' are not within {} of each other",
-                    a,
-                    b,
-                    allowed_diff,
+                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
                 )
             }
         }
@@ -105,10 +99,7 @@ pub fn make_module() -> ValueMap {
                 Ok(Empty)
             } else {
                 runtime_error!(
-                    "Assertion failed, '{}' and '{}' are not within {} of each other",
-                    a,
-                    b,
-                    allowed_diff,
+                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
                 )
             }
         }

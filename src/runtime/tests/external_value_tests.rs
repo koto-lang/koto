@@ -16,161 +16,162 @@ mod external_values {
 
     impl ExternalData for TestExternalData {}
 
-    thread_local!(
-        static EXTERNAL_META: Rc<RefCell<MetaMap>> = {
-            use Value::{Bool, Empty, Number};
+    thread_local! {
+        static EXTERNAL_META: Rc<RefCell<MetaMap>> = make_external_value_meta_map();
+    }
 
-            let mut meta = MetaMap::with_type_name("TestExternalData");
+    fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
+        use Value::{Bool, Empty, Number};
 
-            meta.add_named_instance_fn("to_number", |data: &TestExternalData, _, _| {
-                Ok(Number(data.x.into()))
-            });
+        let mut meta = MetaMap::with_type_name("TestExternalData");
 
-            meta.add_named_instance_fn_mut(
-                "set_all_instances",
-                |data: &mut TestExternalData, _, extra_args| {
-                    let fn_name = "TestExternalData.set_all_instances";
+        meta.add_named_instance_fn("to_number", |data: &TestExternalData, _, _| {
+            Ok(Number(data.x.into()))
+        });
 
-                    match extra_args {
-                        [Value::ExternalValue(other)] => {
-                            match other.data().downcast_ref::<TestExternalData>() {
-                                Some(other_data) => {
-                                    data.x = other_data.x;
-                                    Ok(Empty)
-                                }
-                                None => runtime_error!(
-                                    "{} - unexpected other type: {}",
-                                    fn_name,
-                                    other.data().value_type(),
-                                ),
+        meta.add_named_instance_fn_mut(
+            "set_all_instances",
+            |data: &mut TestExternalData, _, extra_args| {
+                let fn_name = "TestExternalData.set_all_instances";
+
+                match extra_args {
+                    [Value::ExternalValue(other)] => {
+                        match other.data().downcast_ref::<TestExternalData>() {
+                            Some(other_data) => {
+                                data.x = other_data.x;
+                                Ok(Empty)
                             }
-                        }
-                        _ => {
-                            runtime_error!("{} - expected two ExternalData arguments", fn_name)
+                            None => runtime_error!(
+                                "{fn_name} - unexpected other type: {}",
+                                other.data().value_type(),
+                            ),
                         }
                     }
-                },
-                );
+                    _ => {
+                        runtime_error!("{} - expected two ExternalData arguments", fn_name)
+                    }
+                }
+            },
+        );
 
-            meta.add_named_instance_fn(
-                "get_data",
-                |_data: &TestExternalData, value: &ExternalValue, _| {
-                    Ok(Value::ExternalData(value.data.clone()))
-                },
-            );
+        meta.add_named_instance_fn(
+            "get_data",
+            |_data: &TestExternalData, value: &ExternalValue, _| {
+                Ok(Value::ExternalData(value.data.clone()))
+            },
+        );
 
-            meta.add_unary_op(UnaryOp::Display, |data: &TestExternalData, _| {
-                Ok(format!("TestExternalData: {}", data.x).into())
-            });
+        meta.add_unary_op(UnaryOp::Display, |data: &TestExternalData, _| {
+            Ok(format!("TestExternalData: {}", data.x).into())
+        });
 
-            meta.add_unary_op(UnaryOp::Negate, |data: &TestExternalData, value| {
-                let result = value.with_new_data(TestExternalData { x: -data.x });
+        meta.add_unary_op(UnaryOp::Negate, |data: &TestExternalData, value| {
+            let result = value.with_new_data(TestExternalData { x: -data.x });
+            Ok(result.into())
+        });
+
+        meta.add_binary_op(
+            BinaryOp::Add,
+            |data_a: &TestExternalData, data_b, value_a, _| {
+                let result = value_a.with_new_data(TestExternalData {
+                    x: data_a.x + data_b.x,
+                });
                 Ok(result.into())
-            });
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Add,
-                |data_a: &TestExternalData, data_b, value_a, _| {
-                    let result = value_a.with_new_data(TestExternalData {
-                        x: data_a.x + data_b.x,
-                    });
-                    Ok(result.into())
-                },
-            );
+        meta.add_binary_op(
+            BinaryOp::Subtract,
+            |data_a: &TestExternalData, data_b, value_a, _| {
+                let result = value_a.with_new_data(TestExternalData {
+                    x: data_a.x - data_b.x,
+                });
+                Ok(result.into())
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Subtract,
-                |data_a: &TestExternalData, data_b, value_a, _| {
-                    let result = value_a.with_new_data(TestExternalData {
-                        x: data_a.x - data_b.x,
-                    });
-                    Ok(result.into())
-                },
-            );
+        meta.add_binary_op(
+            BinaryOp::Multiply,
+            |data_a: &TestExternalData, data_b, value_a, _| {
+                let result = value_a.with_new_data(TestExternalData {
+                    x: data_a.x * data_b.x,
+                });
+                Ok(result.into())
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Multiply,
-                |data_a: &TestExternalData, data_b, value_a, _| {
-                    let result = value_a.with_new_data(TestExternalData {
-                        x: data_a.x * data_b.x,
-                    });
-                    Ok(result.into())
-                },
-            );
+        meta.add_binary_op(
+            BinaryOp::Divide,
+            |data_a: &TestExternalData, data_b, value_a, _| {
+                let result = value_a.with_new_data(TestExternalData {
+                    x: data_a.x / data_b.x,
+                });
+                Ok(result.into())
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Divide,
-                |data_a: &TestExternalData, data_b, value_a, _| {
-                    let result = value_a.with_new_data(TestExternalData {
-                        x: data_a.x / data_b.x,
-                    });
-                    Ok(result.into())
-                },
-            );
+        meta.add_binary_op(
+            BinaryOp::Modulo,
+            |data_a: &TestExternalData, data_b, value_a, _| {
+                let result = value_a.with_new_data(TestExternalData {
+                    x: data_a.x % data_b.x,
+                });
+                Ok(result.into())
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Modulo,
-                |data_a: &TestExternalData, data_b, value_a, _| {
-                    let result = value_a.with_new_data(TestExternalData {
-                        x: data_a.x % data_b.x,
-                    });
-                    Ok(result.into())
-                },
-            );
+        meta.add_binary_op(BinaryOp::Less, |data_a: &TestExternalData, data_b, _, _| {
+            Ok(Bool(data_a.x < data_b.x))
+        });
 
-            meta.add_binary_op(BinaryOp::Less, |data_a: &TestExternalData, data_b, _, _| {
-                Ok(Bool(data_a.x < data_b.x))
-            });
+        meta.add_binary_op(
+            BinaryOp::LessOrEqual,
+            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x <= data_b.x)),
+        );
 
-            meta.add_binary_op(
-                BinaryOp::LessOrEqual,
-                |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x <= data_b.x)),
-            );
+        meta.add_binary_op(
+            BinaryOp::Greater,
+            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x > data_b.x)),
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Greater,
-                |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x > data_b.x)),
-            );
+        meta.add_binary_op(
+            BinaryOp::GreaterOrEqual,
+            |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x >= data_b.x)),
+        );
 
-            meta.add_binary_op(
-                BinaryOp::GreaterOrEqual,
-                |data_a: &TestExternalData, data_b, _, _| Ok(Bool(data_a.x >= data_b.x)),
-            );
+        meta.add_binary_op(
+            BinaryOp::Equal,
+            |data_a: &TestExternalData, data_b, _, _| {
+                #[allow(clippy::float_cmp)]
+                Ok(Bool(data_a.x == data_b.x))
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::Equal,
-                |data_a: &TestExternalData, data_b, _, _| {
-                    #[allow(clippy::float_cmp)]
-                    Ok(Bool(data_a.x == data_b.x))
-                },
-            );
+        meta.add_binary_op(
+            BinaryOp::NotEqual,
+            |data_a: &TestExternalData, data_b, _, _| {
+                #[allow(clippy::float_cmp)]
+                Ok(Bool(data_a.x != data_b.x))
+            },
+        );
 
-            meta.add_binary_op(
-                BinaryOp::NotEqual,
-                |data_a: &TestExternalData, data_b, _, _| {
-                    #[allow(clippy::float_cmp)]
-                    Ok(Bool(data_a.x != data_b.x))
-                },
-            );
+        meta.add_binary_op_with_any_rhs(
+            BinaryOp::Index,
+            |data_a: &TestExternalData, _, value_b| match value_b {
+                Number(index) => {
+                    let index = usize::from(index);
+                    let result = data_a.x + index as f64;
+                    Ok(Number(result.into()))
+                }
+                unexpected => runtime_error!(
+                    "ExternalValue.@Index - Expected Number as argument, found {}",
+                    unexpected.type_as_string()
+                ),
+            },
+        );
 
-            meta.add_binary_op_with_any_rhs(
-                BinaryOp::Index,
-                |data_a: &TestExternalData, _, value_b| match value_b {
-                    Number(index) => {
-                        let index = usize::from(index);
-                        let result = data_a.x + index as f64;
-                        Ok(Number(result.into()))
-                    }
-                    unexpected => runtime_error!(
-                        "ExternalValue.@Index - Expected Number as argument, found {}",
-                        unexpected.type_as_string()
-                    ),
-                },
-            );
-
-            Rc::new(RefCell::new(meta))
-        }
-    );
+        Rc::new(RefCell::new(meta))
+    }
 
     fn test_script_with_external_value(script: &str, expected_output: Value) {
         let vm = Vm::default();
