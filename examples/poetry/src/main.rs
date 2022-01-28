@@ -109,7 +109,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     koto.prelude().add_map("random", koto_random::make_module());
 
     let script_path = PathBuf::from_str(&args.script).expect("Failed to parse script path");
-    koto.set_script_path(Some(script_path.clone()));
+    koto.set_script_path(Some(script_path.clone()))
+        .expect("Failed to set script path");
 
     if args.watch {
         if let Err(e) = compile_and_run(&mut koto, &script_path) {

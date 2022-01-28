@@ -8,7 +8,7 @@ fn run_script(script: &str, path: Option<PathBuf>, should_fail_at_runtime: bool)
         run_tests: true,
         ..Default::default()
     });
-    koto.set_script_path(path);
+    koto.set_script_path(path).unwrap();
 
     let prelude = koto.prelude();
     prelude.add_map("json", koto_json::make_module());

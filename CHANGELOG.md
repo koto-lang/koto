@@ -178,6 +178,7 @@ The Koto project adheres to
   - `ExternalIterator` has been renamed to `KotoIterator`.
   - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
   - Koto now uses the Rust 2021 edition.
+  - `Koto::set_script_path` and `set_args` now return `Result`s.
 
 ### Removed
 
