@@ -65,7 +65,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
         Ok(result)
     });
 
-    Rc::new(RefCell::new(bindings))
+    bindings.into()
 }
 
 #[derive(Clone)]

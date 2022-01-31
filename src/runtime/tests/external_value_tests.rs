@@ -170,7 +170,7 @@ mod external_values {
             },
         );
 
-        Rc::new(RefCell::new(meta))
+        meta.into()
     }
 
     fn test_script_with_external_value(script: &str, expected_output: Value) {

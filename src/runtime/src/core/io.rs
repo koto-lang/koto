@@ -258,7 +258,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
         }
     });
 
-    Rc::new(RefCell::new(meta))
+    meta.into()
 }
 
 /// The File type used in the io module

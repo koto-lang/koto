@@ -156,7 +156,10 @@ fn run() -> Result<(), ()> {
 
     if let Some(script) = script {
         let mut koto = Koto::with_settings(koto_settings);
-        koto.set_script_path(script_path.map(|path| path.into()));
+        if let Err(error) = koto.set_script_path(script_path.map(|path| path.into())) {
+            eprintln!("{error}");
+            return Err(());
+        }
 
         let prelude = koto.prelude();
         prelude.add_map("json", koto_json::make_module());

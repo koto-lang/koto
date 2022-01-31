@@ -8,9 +8,11 @@ use {
     rustc_hash::FxHasher,
     std::{
         borrow::Borrow,
+        cell::RefCell,
         fmt,
         hash::{BuildHasherDefault, Hash, Hasher},
         ops::{Deref, DerefMut},
+        rc::Rc,
     },
 };
 
@@ -71,11 +73,12 @@ impl MetaMap {
     /// The added function's first argument is expected to be a reference to the value's external
     /// data instance.
     ///
-    /// The second argument is a reference to the containing value itself, which can be useful when
-    /// a new instance of the value is to be created.
+    /// The function's second argument is a reference to the containing value itself, which can be
+    /// useful when a new instance of the value is to be created (e.g. when implementing a builder
+    /// pattern).
     ///
     /// The third argument is a slice of any additional arguments that the function is being called
-    /// with in the Koto.
+    /// with.
     ///
     /// # Example
     ///
@@ -89,11 +92,10 @@ impl MetaMap {
         F: Fn(&T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.external_type_name();
-        let fn_name = fn_name.to_string();
+        let fn_name = ValueString::from(fn_name);
 
-        self.add_instance_fn(
-            MetaKey::Named(fn_name.clone().into()),
-            move |vm, args| match vm.get_args(args) {
+        self.add_instance_fn(fn_name.clone().into(), move |vm, args| {
+            match vm.get_args(args) {
                 [Value::ExternalValue(instance_value), extra_args @ ..] => {
                     match instance_value.data().downcast_ref::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
@@ -104,8 +106,8 @@ impl MetaMap {
                     }
                 }
                 _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
-            },
-        );
+            }
+        });
     }
 
     /// Adds a named instance function for external values, with mutable data access.
@@ -113,14 +115,15 @@ impl MetaMap {
     /// This is a helper for adding simple named instance functions for external values, taking
     /// care of accessing the value's external data, and downcasting to the expected type.
     ///
-    /// The added function's first argument is expected to be a mutable reference to the value's
+    /// The function's first argument is expected to be a mutable reference to the value's
     /// external data instance.
     ///
-    /// The second argument is a reference to the containing value itself, which can be useful when
-    /// a new instance of the value is to be created.
+    /// The function's second argument is a reference to the containing value itself, which can be
+    /// useful when a new instance of the value is to be created (e.g. when implementing a builder
+    /// pattern).
     ///
-    /// The third argument is a slice of any additional arguments that the function is being called
-    /// with in the Koto.
+    /// The function's third argument is a slice of any additional arguments that the function is
+    /// being called with.
     ///
     /// # Example
     ///
@@ -137,11 +140,10 @@ impl MetaMap {
         F: Fn(&mut T, &ExternalValue, &[Value]) -> RuntimeResult + 'static,
     {
         let type_name = self.external_type_name();
-        let fn_name = fn_name.to_string();
+        let fn_name = ValueString::from(fn_name);
 
-        self.add_instance_fn(
-            MetaKey::Named(fn_name.clone().into()),
-            move |vm, args| match vm.get_args(args) {
+        self.add_instance_fn(fn_name.clone().into(), move |vm, args| {
+            match vm.get_args(args) {
                 [Value::ExternalValue(instance_value), extra_args @ ..] => {
                     match instance_value.data_mut().downcast_mut::<T>() {
                         Some(instance_data) => f(instance_data, instance_value, extra_args),
@@ -152,8 +154,8 @@ impl MetaMap {
                     }
                 }
                 _ => runtime_error!("{type_name}.{fn_name} - Expected {type_name} as argument"),
-            },
-        );
+            }
+        });
     }
 
     /// Adds a unary op function for external values
@@ -185,9 +187,7 @@ impl MetaMap {
                 match instance_value.data().downcast_ref::<T>() {
                     Some(instance_data) => f(instance_data, instance_value),
                     None => runtime_error!(
-                        "{}.@{} - Unexpected external data type: {}",
-                        type_name,
-                        op,
+                        "{type_name}.@{op} - Unexpected external data type: {}",
                         instance_value.data().value_type(),
                     ),
                 }
@@ -238,9 +238,7 @@ impl MetaMap {
                 ) {
                     (Some(data_a), Some(data_b)) => f(data_a, data_b, value_a, value_b),
                     _ => runtime_error!(
-                        "{}.{} - Unexpected external data types: lhs: {}, rhs: {}",
-                        type_name,
-                        op,
+                        "{type_name}.{op} - Unexpected external data types: lhs: {}, rhs: {}",
                         value_a.data().value_type(),
                         value_b.data().value_type(),
                     ),
@@ -327,6 +325,12 @@ impl DerefMut for MetaMap {
     }
 }
 
+impl From<MetaMap> for Rc<RefCell<MetaMap>> {
+    fn from(m: MetaMap) -> Self {
+        Rc::new(RefCell::new(m))
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MetaKey {
     BinaryOp(BinaryOp),
@@ -356,15 +360,27 @@ impl MetaKey {
     }
 }
 
-impl From<BinaryOp> for MetaKey {
-    fn from(op: BinaryOp) -> Self {
-        Self::BinaryOp(op)
+impl From<&str> for MetaKey {
+    fn from(name: &str) -> Self {
+        Self::Named(name.into())
+    }
+}
+
+impl From<ValueString> for MetaKey {
+    fn from(name: ValueString) -> Self {
+        Self::Named(name)
     }
 }
 
 impl From<UnaryOp> for MetaKey {
     fn from(op: UnaryOp) -> Self {
         Self::UnaryOp(op)
+    }
+}
+
+impl From<BinaryOp> for MetaKey {
+    fn from(op: BinaryOp) -> Self {
+        Self::BinaryOp(op)
     }
 }
 

@@ -72,7 +72,7 @@ fn make_rng_meta_map() -> Rc<RefCell<MetaMap>> {
     meta.add_named_instance_fn_mut("pick", |rng: &mut ChaChaRng, _, args| rng.pick(args));
     meta.add_named_instance_fn_mut("seed", |rng: &mut ChaChaRng, _, args| rng.seed(args));
 
-    Rc::new(RefCell::new(meta))
+    meta.into()
 }
 
 #[derive(Debug)]

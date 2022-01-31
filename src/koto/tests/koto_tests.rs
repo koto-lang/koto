@@ -21,7 +21,7 @@ fn run_script(script: &str, script_path: Option<PathBuf>, expected_module_paths:
             move |path: &Path| loaded_module_paths.borrow_mut().push(path.to_path_buf())
         }),
     );
-    koto.set_script_path(script_path);
+    koto.set_script_path(script_path).unwrap();
 
     match koto.compile(script) {
         Ok(_) => match koto.run() {

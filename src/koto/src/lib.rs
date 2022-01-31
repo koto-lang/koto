@@ -47,6 +47,8 @@ pub enum KotoError {
     CompileError(LoaderError),
     RuntimeError(RuntimeError),
     NothingToRun,
+    InvalidScriptPath(PathBuf),
+    MissingKotoModuleInPrelude,
     InvalidTestsType(String),
     FunctionNotFound(String),
 }
@@ -69,6 +71,12 @@ impl fmt::Display for KotoError {
             RuntimeError(e) => e.fmt(f),
             NothingToRun => {
                 f.write_str("Missing compiled chunk, call compile() before calling run()")
+            }
+            InvalidScriptPath(path) => {
+                write!(f, "The path '{}' couldn't be found", path.to_string_lossy())
+            }
+            MissingKotoModuleInPrelude => {
+                f.write_str("The koto module wasn't found in the runtime's prelude")
             }
             InvalidTestsType(t) => {
                 write!(f, "Expected a Map for the exported 'tests', found '{t}'")
@@ -233,7 +241,7 @@ impl Koto {
     }
 
     pub fn run_with_args(&mut self, args: &[String]) -> KotoResult {
-        self.set_args(args);
+        self.set_args(args)?;
         self.run()
     }
 
@@ -310,7 +318,7 @@ impl Koto {
         self.runtime.exports()
     }
 
-    pub fn set_args(&mut self, args: &[String]) {
+    pub fn set_args(&mut self, args: &[String]) -> Result<(), KotoError> {
         use Value::{Map, Str, Tuple};
 
         let koto_args = args
@@ -323,21 +331,22 @@ impl Koto {
             .prelude()
             .data_mut()
             .get_with_string_mut("koto")
-            .unwrap()
         {
-            Map(map) => {
+            Some(Map(map)) => {
                 map.data_mut().add_value("args", Tuple(koto_args.into()));
+                Ok(())
             }
-            _ => unreachable!(),
+            _ => Err(KotoError::MissingKotoModuleInPrelude),
         }
     }
 
-    pub fn set_script_path(&mut self, path: Option<PathBuf>) {
+    pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
         use Value::{Empty, Map, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
-                let path = canonicalize(path).expect("Invalid script path");
+                let path = canonicalize(path)
+                    .map_err(|_| KotoError::InvalidScriptPath(path.to_owned()))?;
 
                 let script_dir = path
                     .parent()
@@ -345,8 +354,7 @@ impl Koto {
                         let s = p.to_string_lossy();
                         Str(s.into_owned().into())
                     })
-                    .or(Some(Empty))
-                    .unwrap();
+                    .unwrap_or(Empty);
                 let script_path = Str(path.display().to_string().into());
 
                 (script_dir, script_path)
@@ -361,14 +369,14 @@ impl Koto {
             .prelude()
             .data_mut()
             .get_with_string_mut("koto")
-            .unwrap()
         {
-            Map(map) => {
+            Some(Map(map)) => {
                 let map = &mut map.data_mut();
                 map.add_value("script_dir", script_dir);
                 map.add_value("script_path", script_path);
+                Ok(())
             }
-            _ => unreachable!(),
+            _ => Err(KotoError::MissingKotoModuleInPrelude),
         }
     }
 }
