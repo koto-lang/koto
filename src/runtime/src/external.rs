@@ -1,5 +1,5 @@
 use {
-    crate::{RuntimeResult, Vm},
+    crate::{MetaMap, RuntimeResult, Vm},
     downcast_rs::impl_downcast,
     std::{
         cell::{Ref, RefCell, RefMut},
@@ -10,8 +10,6 @@ use {
 };
 
 pub use downcast_rs::Downcast;
-
-use crate::MetaMap;
 
 /// A trait for external data
 pub trait ExternalData: Downcast {

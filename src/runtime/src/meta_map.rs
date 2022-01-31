@@ -8,9 +8,11 @@ use {
     rustc_hash::FxHasher,
     std::{
         borrow::Borrow,
+        cell::RefCell,
         fmt,
         hash::{BuildHasherDefault, Hash, Hasher},
         ops::{Deref, DerefMut},
+        rc::Rc,
     },
 };
 
@@ -324,6 +326,12 @@ impl Deref for MetaMap {
 impl DerefMut for MetaMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<MetaMap> for Rc<RefCell<MetaMap>> {
+    fn from(m: MetaMap) -> Self {
+        Rc::new(RefCell::new(m))
     }
 }
 

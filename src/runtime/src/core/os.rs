@@ -113,7 +113,7 @@ fn make_system_time_meta_map() -> Rc<RefCell<MetaMap>> {
 
     meta.add_named_instance_fn("year", |data: &DateTime, _, _| Ok(data.0.year().into()));
 
-    Rc::new(RefCell::new(meta))
+    meta.into()
 }
 
 pub struct Timer(Instant);
