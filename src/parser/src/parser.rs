@@ -646,6 +646,7 @@ impl<'source> Parser<'source> {
             if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
                 if left_priority >= min_precedence {
                     let op = self.consume_next_token(&mut context).unwrap();
+                    let op_span = self.current_span();
 
                     // Move on to the token after the operator
                     if self.peek_next_token(&context).is_none() {
@@ -661,7 +662,40 @@ impl<'source> Parser<'source> {
                         return indentation_error!(RhsExpression, self);
                     };
 
-                    let op_node = self.push_ast_op(op, last_lhs, rhs)?;
+                    use Token::*;
+                    let ast_op = match op {
+                        Add => AstBinaryOp::Add,
+                        Subtract => AstBinaryOp::Subtract,
+                        Multiply => AstBinaryOp::Multiply,
+                        Divide => AstBinaryOp::Divide,
+                        Modulo => AstBinaryOp::Modulo,
+
+                        Equal => AstBinaryOp::Equal,
+                        NotEqual => AstBinaryOp::NotEqual,
+
+                        Greater => AstBinaryOp::Greater,
+                        GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
+                        Less => AstBinaryOp::Less,
+                        LessOrEqual => AstBinaryOp::LessOrEqual,
+
+                        And => AstBinaryOp::And,
+                        Or => AstBinaryOp::Or,
+
+                        Pipe => AstBinaryOp::Pipe,
+
+                        _ => unreachable!(), // The list of tokens here matches the operators in
+                                             // operator_precedence()
+                    };
+
+                    let op_node = self.push_node_with_span(
+                        Node::BinaryOp {
+                            op: ast_op,
+                            lhs: last_lhs,
+                            rhs,
+                        },
+                        op_span,
+                    )?;
+
                     return self.parse_expression_continued(&[op_node], min_precedence, &context);
                 }
             }
@@ -2767,42 +2801,6 @@ impl<'source> Parser<'source> {
         }
 
         syntax_error!(UnterminatedString, self)
-    }
-
-    fn push_ast_op(
-        &mut self,
-        op: Token,
-        lhs: AstIndex,
-        rhs: AstIndex,
-    ) -> Result<AstIndex, ParserError> {
-        use Token::*;
-        let ast_op = match op {
-            Add => AstBinaryOp::Add,
-            Subtract => AstBinaryOp::Subtract,
-            Multiply => AstBinaryOp::Multiply,
-            Divide => AstBinaryOp::Divide,
-            Modulo => AstBinaryOp::Modulo,
-
-            Equal => AstBinaryOp::Equal,
-            NotEqual => AstBinaryOp::NotEqual,
-
-            Greater => AstBinaryOp::Greater,
-            GreaterOrEqual => AstBinaryOp::GreaterOrEqual,
-            Less => AstBinaryOp::Less,
-            LessOrEqual => AstBinaryOp::LessOrEqual,
-
-            And => AstBinaryOp::And,
-            Or => AstBinaryOp::Or,
-
-            Pipe => AstBinaryOp::Pipe,
-
-            _ => unreachable!(),
-        };
-        self.push_node(Node::BinaryOp {
-            op: ast_op,
-            lhs,
-            rhs,
-        })
     }
 
     fn next_token_is_lookup_start(&mut self, context: &ExpressionContext) -> bool {
