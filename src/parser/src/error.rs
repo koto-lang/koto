@@ -31,6 +31,7 @@ pub enum InternalError {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ExpectedIndentation {
+    AssignmentExpression,
     CatchBody,
     ElseBlock,
     ElseIfBlock,
@@ -225,6 +226,7 @@ impl fmt::Display for ExpectedIndentation {
         use ExpectedIndentation::*;
 
         match self {
+            AssignmentExpression => f.write_str("Expected expression after assignment operator"),
             CatchBody => f.write_str("Expected indented block for catch expression"),
             ElseBlock => f.write_str("Expected indented block for 'else'."),
             ElseIfBlock => f.write_str("Expected indented block for 'else if'."),

@@ -237,8 +237,9 @@ impl<'a> TokenLexer<'a> {
         if chars.peek() == Some(&'-') {
             // multi-line comment
             let mut char_bytes = 1;
-            let mut nest_count = 1;
             let mut position = self.current_position();
+            position.column += 1;
+            let mut nest_count = 1;
             while let Some(c) = chars.next() {
                 char_bytes += c.len_utf8();
                 position.column += c.width().unwrap_or(0) as u32;
@@ -630,7 +631,13 @@ impl<'a> TokenLexer<'a> {
                         c if is_id_start(c) => self.consume_id_or_keyword(chars),
                         '_' => self.consume_wildcard(chars),
                         _ => {
-                            let result = self.consume_symbol(remaining).unwrap_or(Error);
+                            let result = match self.consume_symbol(remaining) {
+                                Some(result) => result,
+                                None => {
+                                    self.advance_line(1);
+                                    Error
+                                }
+                            };
 
                             use StringMode::*;
                             match result {
