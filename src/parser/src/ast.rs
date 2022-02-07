@@ -55,24 +55,6 @@ impl Ast {
             .map_err(|_| ParserError::new(InternalError::AstCapacityOverflow.into(), span))
     }
 
-    /// Pushes a node onto the tree, associating it with an existing span
-    pub fn push_with_span_index(
-        &mut self,
-        node: Node,
-        span_index: AstIndex,
-    ) -> Result<AstIndex, ParserError> {
-        self.nodes.push(AstNode {
-            node,
-            span: span_index,
-        });
-        AstIndex::try_from(self.nodes.len() - 1).map_err(|_| {
-            ParserError::new(
-                InternalError::AstCapacityOverflow.into(),
-                *self.span(span_index),
-            )
-        })
-    }
-
     /// Returns a node for a given node index
     pub fn node(&self, index: AstIndex) -> &AstNode {
         &self.nodes[index as usize]
