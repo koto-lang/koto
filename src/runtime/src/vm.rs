@@ -262,13 +262,21 @@ impl Vm {
 
     /// Runs the provided [Chunk], returning the resulting [Value]
     pub fn run(&mut self, chunk: Rc<Chunk>) -> RuntimeResult {
+        // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
         self.value_stack.push(Value::Empty); // result register
         self.value_stack.push(Value::Empty); // instance register
         self.push_frame(chunk, 0, frame_base, result_register);
+
+        // Ensure that execution stops here if an error is thrown
         self.frame_mut().execution_barrier = true;
-        self.execute_instructions()
+
+        // Run the chunk
+        let result = self.execute_instructions();
+        // Reset the value stack back to where it was at the start of the run
+        self.truncate_registers(result_register);
+        result
     }
 
     /// Continues execution in a suspended VM
