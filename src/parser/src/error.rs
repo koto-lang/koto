@@ -31,6 +31,7 @@ pub enum InternalError {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub enum ExpectedIndentation {
+    AssignmentExpression,
     CatchBody,
     ElseBlock,
     ElseIfBlock,
@@ -225,22 +226,23 @@ impl fmt::Display for ExpectedIndentation {
         use ExpectedIndentation::*;
 
         match self {
+            AssignmentExpression => f.write_str("Expected expression after assignment operator"),
             CatchBody => f.write_str("Expected indented block for catch expression"),
             ElseBlock => f.write_str("Expected indented block for 'else'."),
             ElseIfBlock => f.write_str("Expected indented block for 'else if'."),
-            ForBody => f.write_str("Expected indented block in for loop"),
+            ForBody => f.write_str("Expected indented block as for loop body"),
             FinallyBody => f.write_str("Expected indented block for finally expression"),
             FunctionBody => f.write_str("Expected function body"),
-            LoopBody => f.write_str("Expected indented block in loop"),
+            LoopBody => f.write_str("Expected indented block as loop body"),
             MatchArm => f.write_str("Expected indented arm for match expression"),
             SwitchArm => f.write_str("Expected indented arm for switch expression"),
-            RhsExpression => f.write_str("Expected expression"),
+            RhsExpression => f.write_str("Expected expression after binary operator"),
             ThenKeywordOrBlock => f.write_str(
                 "Error parsing if expression, expected 'then' keyword or indented block.",
             ),
             TryBody => f.write_str("Expected indented block for try expression"),
-            UntilBody => f.write_str("Expected indented block in until loop"),
-            WhileBody => f.write_str("Expected indented block in while loop"),
+            UntilBody => f.write_str("Expected indented block as until loop body"),
+            WhileBody => f.write_str("Expected indented block as while loop body"),
         }
     }
 }
@@ -259,7 +261,7 @@ impl fmt::Display for SyntaxError {
             ExpectedCatchArgument => f.write_str("Expected argument for catch expression"),
             ExpectedCatch => f.write_str("Expected catch expression after try"),
             ExpectedCloseParen => f.write_str("Expected closing parenthesis ')'"),
-            ExpectedElseExpression => f.write_str("Expected 'else' expression."),
+            ExpectedElseExpression => f.write_str("Expected expression after 'else'."),
             ExpectedElseIfCondition => f.write_str("Expected condition for 'else if'."),
             ExpectedEndOfLine => f.write_str("Expected end of line"),
             ExpectedExportExpression => f.write_str("Expected ID to export"),
@@ -281,7 +283,7 @@ impl fmt::Display for SyntaxError {
             ExpectedIndexExpression => f.write_str("Expected index expression"),
             ExpectedListEnd => f.write_str("Expected List end ']'"),
             ExpectedMapColon => f.write_str("Expected ':' after map key"),
-            ExpectedMapEnd => f.write_str("Unexpected token in Map, expected '}'"),
+            ExpectedMapEnd => f.write_str("Expected '}' at end of map declaration"),
             ExpectedMapEntry => f.write_str("Expected map entry"),
             ExpectedMapKey => f.write_str("Expected key after '.' in Map access"),
             ExpectedMapValue => f.write_str("Expected value after ':' in Map"),
@@ -303,7 +305,7 @@ impl fmt::Display for SyntaxError {
                 f.write_str("Expected expression after then in switch arm")
             }
             ExpectedTestName => f.write_str("Expected a test name"),
-            ExpectedThenExpression => f.write_str("Expected 'then' expression."),
+            ExpectedThenExpression => f.write_str("Expected expression after 'then'."),
             ExpectedUntilCondition => f.write_str("Expected condition in until loop"),
             ExpectedWhileCondition => f.write_str("Expected condition in while loop"),
             IfBlockNotAllowedInThisContext => {
