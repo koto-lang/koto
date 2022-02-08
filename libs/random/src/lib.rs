@@ -114,11 +114,11 @@ impl ChaChaRng {
 
         match args {
             [List(l)] => {
-                let index = self.0.gen_range(0, l.len());
+                let index = self.0.gen_range(0..l.len());
                 Ok(l.data()[index].clone())
             }
             [Map(m)] => {
-                let index = self.0.gen_range(0, m.len());
+                let index = self.0.gen_range(0..m.len());
                 match m.data().get_index(index) {
                     Some((key, value)) => {
                         let data = vec![key.value().clone(), value.clone()];
@@ -134,11 +134,11 @@ impl ChaChaRng {
                     (r.end, r.start)
                 };
                 let size = end - start;
-                let index = self.0.gen_range(0, size);
+                let index = self.0.gen_range(0..size);
                 Ok(Number((start + index).into()))
             }
             [Tuple(t)] => {
-                let index = self.0.gen_range(0, t.data().len());
+                let index = self.0.gen_range(0..t.data().len());
                 Ok(t.data()[index].clone())
             }
             unexpected => unexpected_type_error_with_slice(

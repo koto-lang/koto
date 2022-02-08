@@ -13,5 +13,8 @@ keywords = ["scripting", "language", "koto"]
 koto_runtime = { path = "../../src/runtime", version = "^0.10.0"}
 lazy_static = "1.4.0"
 
-rand = "0.7.3"
-rand_chacha = "0.2.1"
+rand = "0.8.4"
+rand_chacha = "0.3.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.4", features = ["js"] }
