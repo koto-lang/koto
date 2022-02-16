@@ -21,7 +21,9 @@ The Koto project adheres to
       - `to_num4`
       - `windows`
     - `list.resize_with`
-    - `number.round`
+    - `number`
+      - `acosh`, `asinh`, `atanh`, `atan2`
+      - `pi_2`, `pi_4`
     - `num2`
       - `make_num2`, `with`
       - `x`, `y`

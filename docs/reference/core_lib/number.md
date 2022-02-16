@@ -16,9 +16,13 @@ x += 0.99    # x is now a float
 
 - [abs](#abs)
 - [acos](#acos)
+- [acosh](#acosh)
 - [and](#and)
 - [asin](#asin)
+- [asinh](#asinh)
 - [atan](#atan)
+- [atanh](#atanh)
+- [atan2](#atan2)
 - [ceil](#ceil)
 - [clamp](#clamp)
 - [cos](#cos)
@@ -88,6 +92,25 @@ Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 # 1
 ```
 
+## acosh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic cosine of the number.
+
+### Example
+
+```koto
+0.acosh()
+# NaN
+
+1.acosh()
+# 0
+
+2.acosh()
+# 1.3169578969248166
+```
+
 ## and
 
 `|Integer, Integer| -> Integer`
@@ -118,6 +141,22 @@ Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 # π / 2
 ```
 
+## asinh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic sine of the number.
+
+### Example
+
+```koto
+0.asinh()
+# 0
+
+1.asinh()
+# 0.8813735870195429
+```
+
 ## atan
 
 `|Number| -> Float`
@@ -132,6 +171,51 @@ Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 
 1.atan()
 # π / 4
+```
+
+## atanh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic tangent of the number.
+
+### Example
+
+```koto
+-1.atanh()
+# -inf
+
+0.atanh()
+# 0
+
+1.atanh()
+# inf
+```
+
+## atan2
+
+`|Number, Number| -> Float`
+
+Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
+`x` to determine the correct quadrant.
+
+### Note
+
+`y.atan2 x` is equivalent to `make_num2(x, y).angle()`.
+
+### Example
+
+```koto
+x, y = 1, 1
+
+y.atan2 x
+# π/4
+
+y.atan2 -x
+# π - π/4
+
+-y.atan2 x
+# -π/4
 ```
 
 ## ceil
@@ -441,6 +525,18 @@ positions produces a `1` in corresponding output positions.
 `Float`
 
 Provides the `π` constant.
+
+## pi_2
+
+`Float`
+
+Provides the `π` constant divided by `2`.
+
+## pi_4
+
+`Float`
+
+Provides the `π` constant divided by `4`.
 
 ## pow
 
