@@ -91,6 +91,12 @@ impl DataMap {
     pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.0.get_mut(&key as &dyn ValueKeyRef)
     }
+
+    /// Removes any entry with a matching name and returns the removed value
+    #[inline]
+    pub fn remove_with_string(&mut self, key: &str) -> Option<Value> {
+        self.0.remove(&key as &dyn ValueKeyRef)
+    }
 }
 
 impl Deref for DataMap {
@@ -218,5 +224,25 @@ impl fmt::Display for ValueMap {
             first = false;
         }
         write!(f, "}}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_and_remove_with_string() {
+        let m = ValueMap::default();
+        let mut data = m.data_mut();
+
+        assert!(data.get_with_string("test").is_none());
+        data.add_value("test", Value::Empty);
+        assert!(data.get_with_string("test").is_some());
+        assert!(matches!(
+            data.remove_with_string("test"),
+            Some(Value::Empty)
+        ));
+        assert!(data.get_with_string("test").is_none());
     }
 }
