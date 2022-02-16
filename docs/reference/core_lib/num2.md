@@ -24,6 +24,7 @@ x + 10
 
 # Reference
 
+- [angle](#angle)
 - [length](#length)
 - [make_num2](#make_num2)
 - [max](#max)
@@ -34,6 +35,24 @@ x + 10
 - [with](#with)
 - [x](#x)
 - [y](#y)
+
+## angle
+
+`|Num2| -> Float`
+
+Returns the angle in radians of the vector represented by the Num2's elements.
+
+### Note
+
+`make_num2(x, y).angle()` is equivalent to `y.atan2 x`
+
+### Example
+
+```koto
+x = make_num2 1, 1
+x.angle()
+# π/4
+```
 
 ## length
 

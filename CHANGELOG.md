@@ -27,6 +27,7 @@ The Koto project adheres to
     - `num2`
       - `make_num2`, `with`
       - `x`, `y`
+      - `angle`
     - `num4`
       - `make_num4`, `with`
       - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`

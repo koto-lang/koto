@@ -12,6 +12,11 @@ pub fn make_module() -> ValueMap {
 
     let result = ValueMap::new();
 
+    result.add_fn("angle", |vm, args| match vm.get_args(args) {
+        [Num2(n)] => Ok(Number(n[1].atan2(n[0]).into())),
+        unexpected => num2_error("angle", unexpected),
+    });
+
     result.add_fn("length", |vm, args| match vm.get_args(args) {
         [Num2(n)] => Ok(Number(n.length().into())),
         unexpected => num2_error("length", unexpected),
