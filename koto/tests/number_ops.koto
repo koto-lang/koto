@@ -93,6 +93,10 @@ epsilon = 1.0e-15
     assert not 0.is_nan()
     assert (0 / 0).is_nan()
 
+  @test lerp: ||
+    assert_eq 100.lerp(200, 0.5), 150
+    assert_eq -1.lerp(-2, 0.75), -1.75
+
   @test ln: ||
     assert_eq 0.ln(), negative_infinity
     assert_eq 1.ln(), 0

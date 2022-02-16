@@ -22,14 +22,14 @@ The Koto project adheres to
       - `windows`
     - `list.resize_with`
     - `number`
-      - `acosh`, `asinh`, `atanh`, `atan2`
+      - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
       - `pi_2`, `pi_4`
     - `num2`
-      - `make_num2`, `with`
+      - `lerp`, `make_num2`, `with`
       - `x`, `y`
       - `angle`
     - `num4`
-      - `make_num4`, `with`
+      - `lerp`, `make_num4`, `with`
       - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
     - `os`
       - `time`

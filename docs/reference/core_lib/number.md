@@ -35,6 +35,7 @@ x += 0.99    # x is now a float
 - [floor](#floor)
 - [infinity](#infinity)
 - [is_nan](#is_nan)
+- [lerp](#lerp)
 - [ln](#ln)
 - [log2](#log2)
 - [log10](#log10)
@@ -410,6 +411,39 @@ Returns true if the number is `NaN`.
 
 (0 / 0).is_nan()
 # true
+```
+
+## lerp
+
+`|a: Number, b: Number, t: Number| -> Float`
+
+Linearly interpolates between `a` and `b` using the interpolation factor `t`.
+
+The range (`a` -> `b`) corresponds to the value range of (`0` -> `1`) for `t`.
+
+e.g.
+- At `t` == `0`, the result is equal to `a`.
+- At `t` == `1`, the result is equal to `b`.
+- At other values of `t`, the result is a proportional mix of `a` and `b`.
+- Values for `t` outside of (`0` -> `1`) will extrapolate from the (`a` -> `b`)
+  range.
+
+### Example
+
+```koto
+a, b = 1, 2
+
+a.lerp b, 0
+# 1
+a.lerp b, 0.5
+# 1.5
+a.lerp b, 1
+# 2
+
+a.lerp b, -0.5
+# 0.5
+a.lerp b, 1.5
+# 2.5
 ```
 
 ## ln

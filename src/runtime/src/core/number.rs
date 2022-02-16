@@ -128,6 +128,16 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("lerp", |vm, args| match vm.get_args(args) {
+        [Number(a), Number(b), Number(t)] => {
+            let result = *a + (b - a) * *t;
+            Ok(Number(result))
+        }
+        unexpected => {
+            unexpected_type_error_with_slice("number.max", "two Numbers as arguments", unexpected)
+        }
+    });
+
     number_f64_fn!(ln);
     number_f64_fn!(log2);
     number_f64_fn!(log10);
