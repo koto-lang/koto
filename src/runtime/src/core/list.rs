@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("clear", |vm, args| match vm.get_args(args) {
         [List(l)] => {
             l.data_mut().clear();
-            Ok(Empty)
+            Ok(List(l.clone()))
         }
         unexpected => {
             unexpected_type_error_with_slice("list.clear", "a List as argument", unexpected)
