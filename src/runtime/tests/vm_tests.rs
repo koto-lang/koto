@@ -326,6 +326,14 @@ l2[1]";
         use super::*;
 
         #[test]
+        fn assign_two_values() {
+            let script = "
+a, b = 10, 20
+";
+            test_script(script, number_tuple(&[10, 20]));
+        }
+
+        #[test]
         fn assign_tuple() {
             let script = "
 a = 1, 2
@@ -1126,8 +1134,8 @@ f {foo: 42, bar: 99}";
 f = |x|
   inner = ||
     x[0], x[1] = x[0] + 1, x[1] + 1
+    x
   inner()
-  x
 f [1, 2]";
             test_script(script, number_list(&[2, 3]));
         }

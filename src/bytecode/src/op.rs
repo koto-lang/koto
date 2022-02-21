@@ -116,10 +116,18 @@ pub enum Op {
     /// Makes a temporary tuple out of values stored in consecutive registers
     ///
     /// Used when a tuple is made which won't be assigned to a value,
-    /// e.g. in multiple-assignment: `x, y, z = 1, 2, 3`
+    /// e.g. in match expressions: `match a, b, c`
     ///
     /// `[*target, *start, value count]`
     MakeTempTuple,
+
+    /// Converts a temporary tuple into a regular Tuple
+    ///
+    /// Used when the result of an expression that uses a temporary tuple is needed.
+    /// e.g. in multi-assignment in a return position: `return x, y, z = 1, 2, 3`
+    ///
+    /// `[*target, *source]`
+    TempTupleToTuple,
 
     /// Makes an empty map with the given size hint
     ///
@@ -523,7 +531,6 @@ pub enum Op {
     CheckSize,
 
     // Unused opcodes, allowing for a direct transmutation from a byte to an Op.
-    Unused91,
     Unused92,
     Unused93,
     Unused94,
