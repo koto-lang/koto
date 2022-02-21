@@ -373,6 +373,31 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 - [`iterator.product`](#product)
 - [`iterator.sum`](#sum)
 
+## generate
+
+`|Function| -> Iterator`
+`|Number, Function| -> Value`
+
+Provides an iterator that yields the result of repeatedly calling the provided
+function. A number of calls to the function can be provided as the first
+argument.
+
+### Example
+
+```koto
+state = {x: 0}
+f = || state.x += 1
+iterator.generate(f).take(5).to_list()
+# [1, 2, 3, 4, 5]
+
+iterator.generate(3, f).to_tuple()
+# (6, 7, 8)
+```
+
+### See Also
+
+- [`iterator.repeat`](#repeat)
+
 ## intersperse
 
 `|Iterable, Value| -> Iterator`

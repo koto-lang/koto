@@ -337,6 +337,22 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("generate", |vm, args| match vm.get_args(args) {
+        [f] if f.is_callable() => {
+            let result = generators::Generate::new(f.clone(), vm.spawn_shared_vm());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        [Number(n), f] if f.is_callable() => {
+            let result = generators::GenerateN::new(n.into(), f.clone(), vm.spawn_shared_vm());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.generate",
+            "(Function), or (Number, Function)",
+            unexpected,
+        ),
+    });
+
     result.add_fn("intersperse", |vm, args| match vm.get_args(args) {
         [iterable, separator_fn] if iterable.is_iterable() && separator_fn.is_callable() => {
             let iterable = iterable.clone();
