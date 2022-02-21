@@ -69,6 +69,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [next](#next)
 - [position](#position)
 - [product](#product)
+- [repeat](#repeat)
 - [skip](#skip)
 - [sum](#sum)
 - [take](#take)
@@ -600,6 +601,28 @@ Returns the result of multiplying each value in the iterable together.
 
 - [`iterator.fold`](#fold)
 - [`iterator.sum`](#sum)
+
+## repeat
+
+`|Value| -> Iterator`
+`|Number, Value| -> Value`
+
+Provides an iterator that repeats the provided value. A number of repeats can be
+provided as the first argument.
+
+### Example
+
+```koto
+iterator.repeat(42).take(5).to_list()
+# [42, 42, 42, 42, 42]
+
+iterator.repeat(3, -1).to_tuple()
+# (-1, -1, -1)
+```
+
+### See Also
+
+- [`iterator.generate`](#generate)
 
 ## skip
 

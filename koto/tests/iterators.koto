@@ -221,6 +221,11 @@ make_foo = |x|
     foos = (foo 2), (foo 3), (foo 4)
     assert_eq foos.product(foo 1), (foo 24)
 
+  @test repeat: ||
+    import iterator.repeat
+    assert_eq repeat(99).take(3).to_tuple(), (99, 99, 99)
+    assert_eq repeat(3, 42).to_tuple(), (42, 42, 42)
+
   @test reversed: ||
     assert_eq make_num2(1, 2).reversed().to_tuple(), (2, 1)
     assert_eq make_num4(5, 6, 7, 8).reversed().to_tuple(), (8, 7, 6, 5)
