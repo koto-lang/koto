@@ -13,20 +13,18 @@ The Koto project adheres to
 - Core Library
   - New additions:
     - `iterator`
-      - `chunks`
-      - `find`
-      - `flatten`
-      - `reversed`
-      - `to_num2`
-      - `to_num4`
-      - `windows`
+      - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
+        `to_num2`, `to_num4`, `windows`
     - `list.resize_with`
-    - `number.round`
+    - `number`
+      - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
+      - `pi_2`, `pi_4`
     - `num2`
-      - `make_num2`, `with`
+      - `lerp`, `make_num2`, `with`
       - `x`, `y`
+      - `angle`
     - `num4`
-      - `make_num4`, `with`
+      - `lerp`, `make_num4`, `with`
       - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
     - `os`
       - `time`

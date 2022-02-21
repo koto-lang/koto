@@ -1,3 +1,5 @@
+from number import pi, pi_4
+
 @tests =
   @test creating: ||
     assert_eq (make_num4 0), (make_num4 0, 0, 0, 0)
@@ -22,10 +24,33 @@
     x += make_num4 10
     assert_eq x, (make_num4 10, 12, 14, 11)
 
+  @test angle: ||
+    assert_eq (make_num2 0, 0).angle(), 0
+    assert_eq (make_num2 1, 1).angle(), pi_4
+    assert_eq (make_num2 -1, -1).angle(), pi_4 - pi
+
   @test length: ||
     assert_eq (make_num2 3, 4).length(), 5
     assert_eq (make_num2 -3, -4).length(), 5
     assert_eq (make_num4 2, -2, 2, -2).length(), 4
+
+  @test lerp_num2: ||
+    a = make_num2 1, 2
+    b = make_num2 5, 12
+    assert_eq a.lerp(b, 0.0), make_num2 1, 2
+    assert_eq a.lerp(b, 0.5), make_num2 3, 7
+    assert_eq a.lerp(b, 1.0), make_num2 5, 12
+    assert_eq a.lerp(b, -1.0), make_num2 -3, -8
+    assert_eq a.lerp(b, 2.0), make_num2 9, 22
+
+  @test lerp_num4: ||
+    a = make_num4 1, 2, -3, 0
+    b = make_num4 5, 12, -43, -100
+    assert_eq a.lerp(b, 0.0), make_num4 1, 2, -3, 0
+    assert_eq a.lerp(b, 0.5), make_num4 3, 7, -23, -50
+    assert_eq a.lerp(b, 1.0), make_num4 5, 12, -43, -100
+    assert_eq a.lerp(b, -1.0), make_num4 -3, -8, 37, 100
+    assert_eq a.lerp(b, 2.0), make_num4 9, 22, -83, -200
 
   @test max: ||
     assert_eq (make_num2 1, -1).max(), 1

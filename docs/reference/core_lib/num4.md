@@ -29,6 +29,7 @@ x
 # Reference
 
 - [length](#length)
+- [lerp](#lerp)
 - [make_num4](#make_num4)
 - [max](#max)
 - [min](#min)
@@ -57,6 +58,40 @@ Returns the length of the vector represented by the Num4's elements.
 x = make_num4(2, -2, 2, -2)
 x.length()
 # 4
+```
+
+## lerp
+
+`|a: Num4, b: Num4, t: Number| -> Num4`
+
+Linearly interpolates between `a` and `b` using the interpolation factor `t`.
+
+The range (`a` -> `b`) corresponds to the value range of (`0` -> `1`) for `t`.
+
+e.g.
+- At `t` == `0`, the result is equal to `a`.
+- At `t` == `1`, the result is equal to `b`.
+- At other values of `t`, the result is a proportional mix of `a` and `b`.
+- Values for `t` outside of (`0` -> `1`) will extrapolate from the (`a` -> `b`)
+  range.
+
+### Example
+
+```koto
+a = make_num4 0, 10, -10, 0
+b = make_num4 10, 50, 10, 0
+
+a.lerp b, 0
+# num4(0, 10, -10, 0)
+a.lerp b, 0.5
+# num4(5, 30, 0, 0)
+a.lerp b, 1
+# num4(10, 50, 10, 0)
+
+a.lerp b, -0.5
+# num4(-5, -10, -15, 0)
+a.lerp b, 1.5
+# num4(15, 70, 20, 0)
 ```
 
 ## make_num4

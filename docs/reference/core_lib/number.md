@@ -16,9 +16,13 @@ x += 0.99    # x is now a float
 
 - [abs](#abs)
 - [acos](#acos)
+- [acosh](#acosh)
 - [and](#and)
 - [asin](#asin)
+- [asinh](#asinh)
 - [atan](#atan)
+- [atanh](#atanh)
+- [atan2](#atan2)
 - [ceil](#ceil)
 - [clamp](#clamp)
 - [cos](#cos)
@@ -31,6 +35,7 @@ x += 0.99    # x is now a float
 - [floor](#floor)
 - [infinity](#infinity)
 - [is_nan](#is_nan)
+- [lerp](#lerp)
 - [ln](#ln)
 - [log2](#log2)
 - [log10](#log10)
@@ -88,6 +93,25 @@ Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 # 1
 ```
 
+## acosh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic cosine of the number.
+
+### Example
+
+```koto
+0.acosh()
+# NaN
+
+1.acosh()
+# 0
+
+2.acosh()
+# 1.3169578969248166
+```
+
 ## and
 
 `|Integer, Integer| -> Integer`
@@ -118,6 +142,22 @@ Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 # π / 2
 ```
 
+## asinh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic sine of the number.
+
+### Example
+
+```koto
+0.asinh()
+# 0
+
+1.asinh()
+# 0.8813735870195429
+```
+
 ## atan
 
 `|Number| -> Float`
@@ -132,6 +172,51 @@ Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 
 1.atan()
 # π / 4
+```
+
+## atanh
+
+`|Number| -> Float`
+
+Returns the inverse hyperbolic tangent of the number.
+
+### Example
+
+```koto
+-1.atanh()
+# -inf
+
+0.atanh()
+# 0
+
+1.atanh()
+# inf
+```
+
+## atan2
+
+`|Number, Number| -> Float`
+
+Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
+`x` to determine the correct quadrant.
+
+### Note
+
+`y.atan2 x` is equivalent to `make_num2(x, y).angle()`.
+
+### Example
+
+```koto
+x, y = 1, 1
+
+y.atan2 x
+# π/4
+
+y.atan2 -x
+# π - π/4
+
+-y.atan2 x
+# -π/4
 ```
 
 ## ceil
@@ -328,6 +413,39 @@ Returns true if the number is `NaN`.
 # true
 ```
 
+## lerp
+
+`|a: Number, b: Number, t: Number| -> Float`
+
+Linearly interpolates between `a` and `b` using the interpolation factor `t`.
+
+The range (`a` -> `b`) corresponds to the value range of (`0` -> `1`) for `t`.
+
+e.g.
+- At `t` == `0`, the result is equal to `a`.
+- At `t` == `1`, the result is equal to `b`.
+- At other values of `t`, the result is a proportional mix of `a` and `b`.
+- Values for `t` outside of (`0` -> `1`) will extrapolate from the (`a` -> `b`)
+  range.
+
+### Example
+
+```koto
+a, b = 1, 2
+
+a.lerp b, 0
+# 1
+a.lerp b, 0.5
+# 1.5
+a.lerp b, 1
+# 2
+
+a.lerp b, -0.5
+# 0.5
+a.lerp b, 1.5
+# 2.5
+```
+
 ## ln
 
 `|Number| -> Float`
@@ -441,6 +559,18 @@ positions produces a `1` in corresponding output positions.
 `Float`
 
 Provides the `π` constant.
+
+## pi_2
+
+`Float`
+
+Provides the `π` constant divided by `2`.
+
+## pi_4
+
+`Float`
+
+Provides the `π` constant divided by `4`.
 
 ## pow
 

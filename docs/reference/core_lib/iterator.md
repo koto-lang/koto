@@ -69,6 +69,7 @@ for x in (2, 3, 4).each |n| n * 2
 - [next](#next)
 - [position](#position)
 - [product](#product)
+- [repeat](#repeat)
 - [skip](#skip)
 - [sum](#sum)
 - [take](#take)
@@ -372,6 +373,31 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 - [`iterator.product`](#product)
 - [`iterator.sum`](#sum)
 
+## generate
+
+`|Function| -> Iterator`
+`|Number, Function| -> Value`
+
+Provides an iterator that yields the result of repeatedly calling the provided
+function. A number of calls to the function can be provided as the first
+argument.
+
+### Example
+
+```koto
+state = {x: 0}
+f = || state.x += 1
+iterator.generate(f).take(5).to_list()
+# [1, 2, 3, 4, 5]
+
+iterator.generate(3, f).to_tuple()
+# (6, 7, 8)
+```
+
+### See Also
+
+- [`iterator.repeat`](#repeat)
+
 ## intersperse
 
 `|Iterable, Value| -> Iterator`
@@ -600,6 +626,28 @@ Returns the result of multiplying each value in the iterable together.
 
 - [`iterator.fold`](#fold)
 - [`iterator.sum`](#sum)
+
+## repeat
+
+`|Value| -> Iterator`
+`|Number, Value| -> Value`
+
+Provides an iterator that repeats the provided value. A number of repeats can be
+provided as the first argument.
+
+### Example
+
+```koto
+iterator.repeat(42).take(5).to_list()
+# [42, 42, 42, 42, 42]
+
+iterator.repeat(3, -1).to_tuple()
+# (-1, -1, -1)
+```
+
+### See Also
+
+- [`iterator.generate`](#generate)
 
 ## skip
 

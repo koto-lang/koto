@@ -1,4 +1,5 @@
 pub mod adaptors;
+pub mod generators;
 
 use {
     super::{num2::num2_from_iterator, num4::num4_from_iterator},
@@ -336,6 +337,22 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("generate", |vm, args| match vm.get_args(args) {
+        [f] if f.is_callable() => {
+            let result = generators::Generate::new(f.clone(), vm.spawn_shared_vm());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        [Number(n), f] if f.is_callable() => {
+            let result = generators::GenerateN::new(n.into(), f.clone(), vm.spawn_shared_vm());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.generate",
+            "(Function), or (Number, Function)",
+            unexpected,
+        ),
+    });
+
     result.add_fn("intersperse", |vm, args| match vm.get_args(args) {
         [iterable, separator_fn] if iterable.is_iterable() && separator_fn.is_callable() => {
             let iterable = iterable.clone();
@@ -592,6 +609,22 @@ pub fn make_module() -> ValueMap {
 
         fold_with_operator(vm, iterable, initial_value, BinaryOp::Multiply)
             .map_err(|e| e.with_prefix("iterator.product"))
+    });
+
+    result.add_fn("repeat", |vm, args| match vm.get_args(args) {
+        [value] => {
+            let result = generators::Repeat::new(value.clone());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        [Number(n), value] => {
+            let result = generators::RepeatN::new(n.into(), value.clone());
+            Ok(Iterator(ValueIterator::new(result)))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "iterator.repeat",
+            "(Value), or (Number, Value)",
+            unexpected,
+        ),
     });
 
     result.add_fn("reversed", |vm, args| match vm.get_args(args) {

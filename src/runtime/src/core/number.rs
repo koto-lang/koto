@@ -71,9 +71,23 @@ pub fn make_module() -> ValueMap {
 
     number_fn!(abs);
     number_f64_fn!(acos);
+    number_f64_fn!(acosh);
     bitwise_fn!(and, &);
     number_f64_fn!(asin);
+    number_f64_fn!(asinh);
     number_f64_fn!(atan);
+    number_f64_fn!(atanh);
+
+    result.add_fn("atan2", |vm, args| match vm.get_args(args) {
+        [Number(y), Number(x)] => {
+            let result = f64::from(y).atan2(f64::from(x));
+            Ok(Number(result.into()))
+        }
+        unexpected => {
+            unexpected_type_error_with_slice("number.atan2", "two Numbers as arguments", unexpected)
+        }
+    });
+
     number_fn!(ceil);
 
     result.add_fn("clamp", |vm, args| match vm.get_args(args) {
@@ -114,6 +128,16 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("lerp", |vm, args| match vm.get_args(args) {
+        [Number(a), Number(b), Number(t)] => {
+            let result = *a + (b - a) * *t;
+            Ok(Number(result))
+        }
+        unexpected => {
+            unexpected_type_error_with_slice("number.max", "two Numbers as arguments", unexpected)
+        }
+    });
+
     number_f64_fn!(ln);
     number_f64_fn!(log2);
     number_f64_fn!(log10);
@@ -138,6 +162,8 @@ pub fn make_module() -> ValueMap {
     bitwise_fn!(or, |);
 
     result.add_value("pi", Number(std::f64::consts::PI.into()));
+    result.add_value("pi_2", Number(std::f64::consts::FRAC_PI_2.into()));
+    result.add_value("pi_4", Number(std::f64::consts::FRAC_PI_4.into()));
 
     result.add_fn("pow", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b)] => Ok(Number(a.pow(*b))),

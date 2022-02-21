@@ -17,6 +17,18 @@ pub fn make_module() -> ValueMap {
         unexpected => num4_error("length", unexpected),
     });
 
+    result.add_fn("lerp", |vm, args| match vm.get_args(args) {
+        [Num4(a), Num4(b), Number(t)] => {
+            let result = *t * (b - a) + a;
+            Ok(Num4(result))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "num4.lerp",
+            "(Num4, Num4, Number) as arguments",
+            unexpected,
+        ),
+    });
+
     result.add_fn("make_num4", |vm, args| {
         let result = match vm.get_args(args) {
             [Number(n)] => num4::Num4(n.into(), n.into(), n.into(), n.into()),

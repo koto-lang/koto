@@ -53,16 +53,15 @@ x # x remains unchanged after the modificaton of z
 
 ## clear
 
-`|List| -> ()`
+`|List| -> List`
 
-Clears the list by removing all of its elements.
+Clears the list by removing all of its elements, and returns the cleared list.
 
 ### Example
 
 ```koto
 x = [1, 2, 3]
 x.clear()
-x
 # []
 ```
 
