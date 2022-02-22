@@ -1121,6 +1121,7 @@ impl Compiler {
             .map(|target| self.local_register_for_assign_target(target, ast))
             .collect::<Result<Vec<_>, _>>()?;
 
+        let rhs_is_temp_tuple = matches!(ast.node(expression).node, Node::TempTuple(_));
         let rhs = self
             .compile_node(ResultRegister::Any, ast.node(expression), ast)?
             .unwrap();
@@ -1171,7 +1172,11 @@ impl Compiler {
         }
 
         if let Some(result) = result {
-            self.push_op(Copy, &[result.register, rhs.register]);
+            if rhs_is_temp_tuple {
+                self.push_op(TempTupleToTuple, &[result.register, rhs.register]);
+            } else {
+                self.push_op(Copy, &[result.register, rhs.register]);
+            }
         }
 
         if rhs.is_temporary {

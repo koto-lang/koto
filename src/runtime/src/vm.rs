@@ -729,6 +729,9 @@ impl Vm {
                 self.set_register(register, TemporaryTuple(RegisterSlice { start, count }));
                 Ok(())
             }
+            Instruction::TempTupleToTuple { register, source } => {
+                self.run_temp_tuple_to_tuple(register, source)
+            }
             Instruction::MakeMap {
                 register,
                 size_hint,
@@ -1037,6 +1040,19 @@ impl Vm {
         let name = ValueKey::from(self.clone_register(name_register));
         let value = self.clone_register(value_register);
         self.exports.data_mut().insert(name, value);
+    }
+
+    fn run_temp_tuple_to_tuple(&mut self, register: u8, source_register: u8) -> InstructionResult {
+        match self.clone_register(source_register) {
+            Value::TemporaryTuple(temp_registers) => {
+                let tuple = ValueTuple::from(
+                    self.register_slice(temp_registers.start, temp_registers.count),
+                );
+                self.set_register(register, Value::Tuple(tuple));
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
     }
 
     fn run_make_range(

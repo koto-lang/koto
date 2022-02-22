@@ -126,6 +126,10 @@ pub enum Instruction {
         start: u8,
         count: u8,
     },
+    TempTupleToTuple {
+        register: u8,
+        source: u8,
+    },
     MakeMap {
         register: u8,
         size_hint: usize,
@@ -426,6 +430,7 @@ impl fmt::Display for Instruction {
             ValueExport { .. } => write!(f, "ValueExport"),
             Import { .. } => write!(f, "Import"),
             MakeTempTuple { .. } => write!(f, "MakeTempTuple"),
+            TempTupleToTuple { .. } => write!(f, "TempTupleToTuple"),
             MakeMap { .. } => write!(f, "MakeMap"),
             SequenceStart { .. } => write!(f, "SequenceStart"),
             SequencePush { .. } => write!(f, "SequencePush"),
@@ -530,6 +535,9 @@ impl fmt::Debug for Instruction {
                 f,
                 "MakeTempTuple\tresult: {register}\tstart: {start}\tcount: {count}"
             ),
+            TempTupleToTuple { register, source } => {
+                write!(f, "TempTupleToTuple\tresult: {register}\tsource: {source}")
+            }
             MakeMap {
                 register,
                 size_hint,
@@ -1088,6 +1096,10 @@ impl Iterator for InstructionReader {
                 register: get_u8!(),
                 start: get_u8!(),
                 count: get_u8!(),
+            }),
+            Op::TempTupleToTuple => Some(TempTupleToTuple {
+                register: get_u8!(),
+                source: get_u8!(),
             }),
             Op::MakeMap => Some(MakeMap {
                 register: get_u8!(),
