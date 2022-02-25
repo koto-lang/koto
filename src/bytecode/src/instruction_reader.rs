@@ -418,7 +418,7 @@ impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { message } => unreachable!(message),
+            Error { message } => unreachable!("{message}"),
             Copy { .. } => write!(f, "Copy"),
             SetEmpty { .. } => write!(f, "SetEmpty"),
             SetBool { .. } => write!(f, "SetBool"),
@@ -502,7 +502,7 @@ impl fmt::Debug for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Instruction::*;
         match self {
-            Error { message } => unreachable!(message),
+            Error { message } => unreachable!("{message}"),
             Copy { target, source } => write!(f, "Copy\t\tresult: {target}\tsource: {source}"),
             SetEmpty { register } => write!(f, "SetEmpty\tresult: {register}"),
             SetBool { register, value } => {
