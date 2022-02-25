@@ -48,7 +48,7 @@ impl ValueString {
     }
 
     pub fn with_grapheme_indices(&self, start: usize, end: Option<usize>) -> Option<Self> {
-        let end_unwrapped = end.unwrap_or_else(|| self.len());
+        let end_unwrapped = end.unwrap_or(self.len());
         debug_assert!(start <= end_unwrapped);
 
         let mut result_start = if start == 0 { Some(0) } else { None };

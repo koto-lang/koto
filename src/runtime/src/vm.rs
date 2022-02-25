@@ -2609,7 +2609,7 @@ impl Vm {
             frame_base + 1
         };
 
-        let result = (&*function)(
+        let result = (*function)(
             self,
             &Args {
                 register: adjusted_frame_base,
