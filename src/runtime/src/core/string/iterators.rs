@@ -239,7 +239,7 @@ impl Iterator for SplitWith {
                 }
             }
 
-            let end = end.unwrap_or_else(|| self.input.len());
+            let end = end.unwrap_or(self.input.len());
             let output = Str(self.input.with_bounds(start..end).unwrap());
             self.start = end + grapheme_len;
 
