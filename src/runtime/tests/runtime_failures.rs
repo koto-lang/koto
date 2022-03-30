@@ -69,6 +69,20 @@ assert_near 1, 2, 0.1
             }
         }
 
+        mod missing_values {
+            use super::*;
+
+            #[test]
+            fn missing_identifier_before_last_expression() {
+                let script = "
+x = 123
+y
+x
+";
+                check_script_fails(script);
+            }
+        }
+
         mod iterators {
             use super::*;
 

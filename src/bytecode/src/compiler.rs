@@ -1206,7 +1206,11 @@ impl Compiler {
                     self.compile_load_non_local(result.register, id);
                     Some(result)
                 }
-                None => None,
+                None => {
+                    let register = self.push_register()?;
+                    self.compile_load_non_local(register, id);
+                    Some(CompileResult::with_temporary(register))
+                }
             }
         };
 
