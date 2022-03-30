@@ -202,6 +202,10 @@ The Koto project adheres to
     import bar.baz # <-- Previously this would cause a runtime error
     debug baz
     ```
+- Accessing an ID without side effects would previously be optimized away,
+  which led to the confusing situation where a missing ID could be accessed in a
+  script without triggering an error.
+
 
 ## [0.10.0] 2021.12.02
 
