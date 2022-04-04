@@ -10,6 +10,7 @@ use {
     },
     koto::{bytecode::Chunk, runtime::Value as KotoValue, Koto, KotoSettings},
     std::{
+        cmp::Ordering,
         fmt,
         io::{self, Stdout, Write},
     },
@@ -179,6 +180,23 @@ impl Repl {
                     }
                     None => {
                         self.input.pop();
+                    }
+                }
+            }
+            KeyCode::Delete => {
+                if let Some(position) = self.cursor {
+                    match position.cmp(&(self.input.len() - 1)) {
+                        Ordering::Less => {
+                            self.input.remove(position);
+                        }
+                        Ordering::Equal => {
+                            self.input.pop();
+                        }
+                        Ordering::Greater => {}
+                    }
+
+                    if self.input.is_empty() {
+                        self.cursor = None;
                     }
                 }
             }
