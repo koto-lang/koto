@@ -9,7 +9,7 @@ mod vm {
         koto_runtime::{
             runtime_error, DataMap, IntRange,
             Value::{self, *},
-            ValueList, ValueMap, Vm,
+            ValueList, ValueMap, ValueTuple, Vm,
         },
     };
 
@@ -129,6 +129,11 @@ a = 99
 
     mod tuples {
         use super::*;
+
+        #[test]
+        fn empty() {
+            test_script("(,)", Tuple(ValueTuple::default()));
+        }
 
         #[test]
         fn one_entry() {
