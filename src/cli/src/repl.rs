@@ -8,7 +8,7 @@ use {
         tty::IsTty,
         Result,
     },
-    koto::{bytecode::Chunk, Koto, KotoSettings},
+    koto::{bytecode::Chunk, runtime::Value as KotoValue, Koto, KotoSettings},
     std::{
         fmt,
         io::{self, Stdout, Write},
@@ -258,7 +258,7 @@ impl Repl {
                     match self.koto.run() {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
                             Ok(result_string) => {
-                                writeln!(stdout, "{RESULT_CHAR} {result_string}\n").unwrap()
+                                self.print_result(stdout, &result_string)?;
                             }
                             Err(e) => {
                                 writeln!(
@@ -350,6 +350,22 @@ impl Repl {
     fn get_help(&mut self, search: Option<&str>) -> String {
         let help = self.help.get_or_insert_with(Help::new);
         help.get_help(search)
+    }
+
+    fn print_result(&self, stdout: &mut Stdout, result: &KotoValue) -> Result<()> {
+        if stdout.is_tty() {
+            use style::*;
+
+            execute!(
+                stdout,
+                Print(RESULT_CHAR),
+                SetAttribute(Attribute::Bold),
+                Print(format!(" {result}\n\n")),
+                SetAttribute(Attribute::Reset),
+            )
+        } else {
+            writeln!(stdout, "{RESULT_CHAR} {result}\n\n")
+        }
     }
 
     fn print_error<E>(&self, stdout: &mut Stdout, error: &E) -> Result<()>
