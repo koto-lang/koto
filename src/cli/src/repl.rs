@@ -18,7 +18,9 @@ use {
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const PROMPT: &str = "» ";
-const CONTINUED: &str = "… ";
+const CONTINUED_PROMPT: &str = "… ";
+
+const RESULT_CHAR: &str = "➝";
 
 const INDENT_SIZE: usize = 2;
 
@@ -80,7 +82,7 @@ impl Repl {
                     let prompt = if self.continued_lines.is_empty() {
                         PROMPT
                     } else {
-                        CONTINUED
+                        CONTINUED_PROMPT
                     };
 
                     queue!(
@@ -255,7 +257,9 @@ impl Repl {
                     }
                     match self.koto.run() {
                         Ok(result) => match self.koto.value_to_string(result.clone()) {
-                            Ok(result_string) => writeln!(stdout, "{result_string}\n").unwrap(),
+                            Ok(result_string) => {
+                                writeln!(stdout, "{RESULT_CHAR} {result_string}\n").unwrap()
+                            }
                             Err(e) => {
                                 writeln!(
                                     stdout,
