@@ -41,13 +41,13 @@ make_foo = |x|
 
   @test first: ||
     assert_eq (1, 2, 3).first(), 1
-    assert_eq [].to_tuple().first(), ()
+    assert_eq [].to_tuple().first(), null
 
   @test get: ||
     x = 1, 2, 3
     assert_eq (x.get 0), 1
     assert_eq (x.get 2), 3
-    assert_eq (x.get 4), ()
+    assert_eq (x.get 4), null
 
   @test indexing: ||
     x = 1, 2, 3
@@ -67,7 +67,7 @@ make_foo = |x|
 
   @test last: ||
     assert_eq (1, 2, 3).last(), 3
-    assert_eq [].to_tuple().last(), ()
+    assert_eq [].to_tuple().last(), null
 
   @test size: ||
     assert_eq (1, 2).size(), 2

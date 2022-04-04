@@ -349,7 +349,7 @@ x
 
 x.resize 4
 x
-# [1, 2, "x", ()]
+# [1, 2, "x", null]
 ```
 
 ## resize_with

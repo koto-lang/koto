@@ -82,6 +82,7 @@ pub enum Token {
     Loop,
     Match,
     Not,
+    Null,
     Or,
     Return,
     Switch,
@@ -481,6 +482,7 @@ impl<'a> TokenLexer<'a> {
             check_keyword!("loop", Loop);
             check_keyword!("match", Match);
             check_keyword!("not", Not);
+            check_keyword!("null", Null);
             check_keyword!("or", Or);
             check_keyword!("return", Return);
             check_keyword!("switch", Switch);

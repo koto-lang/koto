@@ -3,7 +3,7 @@
 import number.pi, test.assert_eq
 assert_eq pi, pi
 
-export qux = ()
+export qux = null
 
 @main = ||
   # Redefine qux to check that main has been called

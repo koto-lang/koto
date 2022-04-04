@@ -1358,6 +1358,10 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
         if let Some(peeked) = self.peek_next_token(context) {
             let result = match peeked.token {
+                Token::Null => {
+                    self.consume_next_token(context);
+                    self.push_node(Empty)
+                }
                 Token::True => {
                     self.consume_next_token(context);
                     self.push_node(BoolTrue)
@@ -2219,7 +2223,7 @@ impl<'source> Parser<'source> {
 
         let result = match self.peek_next_token(&pattern_context) {
             Some(peeked) => match peeked.token {
-                True | False | Number | SingleQuote | DoubleQuote | Subtract => {
+                True | False | Null | Number | SingleQuote | DoubleQuote | Subtract => {
                     return self.parse_term(&mut pattern_context)
                 }
                 Id => match self.parse_id(&mut pattern_context)? {

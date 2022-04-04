@@ -160,7 +160,7 @@ Runs the tests contained in the map.
 ```koto
 my_tests =
   @pre_test: |self| self.test_data = 1, 2, 3
-  @post_test: |self| self.test_data = ()
+  @post_test: |self| self.test_data = null
 
   @test data_size: |self| assert_eq self.test_data.size(), 3
   @test failure: |self| assert not self.test_data.is_empty()

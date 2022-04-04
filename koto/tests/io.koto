@@ -33,7 +33,7 @@ ccc
     assert_eq file.read_line(), "aaa"
     assert_eq file.read_line(), "bbb"
     assert_eq file.read_line(), "ccc"
-    assert_eq file.read_line(), ()
+    assert_eq file.read_line(), null
 
   @test file_read_to_string: ||
     file = io.open test_path

@@ -15,7 +15,7 @@ from test import assert, assert_eq
       io.stderr().write_line "Error reading decoding json data: $error"
       assert false
 
-    assert_eq data.empty, ()
+    assert_eq data.empty, null
     assert_eq data.number, 99
     assert_eq data.bool, true
     assert_eq data.string, "O_o"

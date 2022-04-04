@@ -121,7 +121,7 @@ zzz
     x = "abcdef".slice 2 # end index is optional
     assert_eq x, "cdef"
     assert_eq (x.slice 1, 3), "de"
-    assert_eq (x.slice 10, 13), ()
+    assert_eq (x.slice 10, 13), null
 
   @test split: ||
     assert_eq "a,b,c".split(",").to_tuple(), ("a", "b", "c")

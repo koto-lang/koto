@@ -75,7 +75,7 @@ false
 "hello"
 'world'
 a
-()"#;
+null"#;
             check_ast(
                 source,
                 &[
@@ -974,6 +974,22 @@ min..max
                 source,
                 &[
                     Tuple(vec![]),
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn empty_parentheses_without_comma() {
+            let source = "()";
+            check_ast(
+                source,
+                &[
+                    Empty,
                     MainBlock {
                         body: vec![0],
                         local_count: 0,
@@ -4826,7 +4842,7 @@ match x, y
         fn match_expression_is_lookup_call() {
             let source = "
 match x.foo 42
-  () then 0
+  null then 0
   else 1
 ";
             check_ast(

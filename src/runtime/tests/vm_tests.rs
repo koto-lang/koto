@@ -1737,10 +1737,10 @@ foo min..max, 20
         }
 
         #[test]
-        fn missing_arg_set_to_empty() {
+        fn missing_arg_set_to_null() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     99
   else
     -1
@@ -1750,10 +1750,10 @@ foo 42
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg() {
+        fn missing_arg_set_to_null_with_list_as_first_arg() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     99
   else
     -1
@@ -1763,11 +1763,11 @@ foo [42]
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg_and_capture() {
+        fn missing_arg_set_to_null_with_list_as_first_arg_and_capture() {
             let script = "
 x = 123
 foo = |a, b|
-  if b == ()
+  if b == null
     x
   else
     -1
@@ -1777,10 +1777,10 @@ foo [42]
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg_for_generator() {
+        fn missing_arg_set_to_null_with_list_as_first_arg_for_generator() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     yield 123
   else
     yield -1
@@ -1854,7 +1854,7 @@ gen(1..=5).to_tuple()";
         fn generator_with_missing_arg() {
             let script = "
 gen = |xs|
-  xs = if xs == () then (1, 2, 3) else xs
+  xs = if xs == null then (1, 2, 3) else xs
   for x in xs
     yield x
 gen().to_tuple()";
@@ -1899,7 +1899,7 @@ gen().to_tuple()
             let script = "
 x = 1, 2, 3
 gen = |offset, bar...|
-  offset = if offset == () then 10 else offset
+  offset = if offset == null then 10 else offset
   for y in x
     yield y + offset
 gen().to_tuple()

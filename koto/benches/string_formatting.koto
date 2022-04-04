@@ -29,7 +29,7 @@ number_to_english = |n|
 
 @main = ||
   n = match koto.args.get 0
-    () then 50
+    null then 50
     arg then arg.to_number()
 
   result = -n..n

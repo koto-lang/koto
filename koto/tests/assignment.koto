@@ -52,7 +52,10 @@
     assert_eq b, 2
     assert_eq c, 3
 
-  @test assign_empty: ||
-    a = ()
-    assert_eq a, ()
-    assert_ne 1, ()
+  @test assign_null: ||
+    a = null
+    assert_eq a, null
+    assert_ne 1, null
+
+    b = () # Empty parentheses resolve to null
+    assert_eq a, b
