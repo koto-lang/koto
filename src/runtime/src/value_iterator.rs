@@ -636,7 +636,7 @@ impl Iterator for GeneratorIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.vm.continue_running() {
-            Ok(Value::Empty) => None,
+            Ok(Value::Null) => None,
             Ok(Value::TemporaryTuple(_)) => {
                 unreachable!("Yield shouldn't produce temporary tuples")
             }

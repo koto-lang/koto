@@ -43,17 +43,17 @@ it can be useful to export items programatically.
 
 ## script_dir
 
-`String or Empty`
+`String or Null`
 
 If a script is being executed then `script_dir` provides the directory that the
-current script is contained in as a String, otherwise `script_dir` is Empty.
+current script is contained in as a String, otherwise `script_dir` is Null.
 
 ## script_path
 
-`String or Empty`
+`String or Null`
 
 If a script is being executed then `script_path` provides the path of the
-current script as a String, otherwise `script_path` is Empty.
+current script as a String, otherwise `script_path` is Null.
 
 ## type
 

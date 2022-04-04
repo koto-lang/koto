@@ -68,7 +68,7 @@ Matching is performed with the `==` equality operator.
 
 `|Tuple| -> Value`
 
-Returns the first value in the tuple, or `()` if the tuple is empty.
+Returns the first value in the tuple, or Null if the tuple is empty.
 
 ### Example
 
@@ -78,7 +78,7 @@ x.first()
 # 99
 
 [].to_tuple().first()
-# ()
+# Null
 ```
 
 ## get
@@ -88,7 +88,7 @@ x.first()
 
 Gets the Nth value in the tuple.
 If the tuple doesn't contain a value at that position then the provided default
-value is returned. If no default value is provided then `()` is returned.
+value is returned. If no default value is provided then Null is returned.
 
 ### Example
 
@@ -99,7 +99,7 @@ x.get 1
 # -1
 
 x.get -1
-# ()
+# Null
 
 x.get 5, "abc"
 # abc
@@ -109,7 +109,7 @@ x.get 5, "abc"
 
 `|Tuple| -> Value`
 
-Returns the last value in the tuple, or `()` if the tuple is empty.
+Returns the last value in the tuple, or Null if the tuple is empty.
 
 ### Example
 
@@ -119,7 +119,7 @@ x.last()
 # 42
 
 [].to_tuple().last()
-# ()
+# Null
 ```
 
 ## size

@@ -19,8 +19,8 @@
   @test map_iteration: ||
     m = foo: 42, bar: -1
     for key, value in m
-      assert_ne key, ()
-      assert_ne value, ()
+      assert_ne key, null
+      assert_ne value, null
 
   @test map_string_keys: ||
     # Strings can be used for keys that would otherwise be disallowed

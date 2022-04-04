@@ -9,7 +9,7 @@ mod vm {
         koto_runtime::{
             runtime_error, DataMap, IntRange,
             Value::{self, *},
-            ValueList, ValueMap, Vm,
+            ValueList, ValueMap, ValueTuple, Vm,
         },
     };
 
@@ -17,8 +17,9 @@ mod vm {
         use super::*;
 
         #[test]
-        fn empty() {
-            test_script("()", Empty);
+        fn null() {
+            test_script("null", Null);
+            test_script("()", Null);
         }
 
         #[test]
@@ -42,7 +43,7 @@ mod vm {
         }
     }
 
-    mod operators {
+    mod arithmetic {
         use super::*;
 
         #[test]
@@ -59,6 +60,18 @@ mod vm {
         fn subtract_divide_modulo() {
             test_script("(20 - 2) / 3 % 4", 2.into());
         }
+
+        #[test]
+        fn negation() {
+            let script = "
+a = 99
+-a";
+            test_script(script, number(-99));
+        }
+    }
+
+    mod logic {
+        use super::*;
 
         #[test]
         fn comparison() {
@@ -84,6 +97,36 @@ mod vm {
         }
 
         #[test]
+        fn not_coerced_null() {
+            test_script("not null", true.into());
+        }
+
+        #[test]
+        fn not_coerced_value() {
+            test_script("not 42", false.into());
+        }
+
+        #[test]
+        fn or_with_coerced_null() {
+            let script = "
+x = null
+x or 42";
+            test_script(script, 42.into());
+        }
+
+        #[test]
+        fn or_with_coerced_value() {
+            let script = "
+x = 99
+x or 42";
+            test_script(script, 99.into());
+        }
+    }
+
+    mod assignment {
+        use super::*;
+
+        #[test]
         fn assignment() {
             let script = "
 a = 1 * 3
@@ -98,14 +141,6 @@ x = x = 1
 y = y = 2
 ";
             test_script(script, 2.into());
-        }
-
-        #[test]
-        fn negation() {
-            let script = "
-a = 99
--a";
-            test_script(script, number(-99));
         }
     }
 
@@ -129,6 +164,11 @@ a = 99
 
     mod tuples {
         use super::*;
+
+        #[test]
+        fn empty() {
+            test_script("(,)", Tuple(ValueTuple::default()));
+        }
 
         #[test]
         fn one_entry() {
@@ -355,7 +395,7 @@ x";
             let script = "
 a, b, c = [7, 8]
 a, b, c";
-            test_script(script, value_tuple(&[7.into(), 8.into(), Empty]));
+            test_script(script, value_tuple(&[7.into(), 8.into(), Null]));
         }
 
         #[test]
@@ -365,7 +405,7 @@ a, b, c = [1, 2], [3, 4]
 a, b, c";
             test_script(
                 script,
-                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
+                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Null]),
             );
         }
 
@@ -436,7 +476,7 @@ x";
 if 5 < 4
   42
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -449,7 +489,7 @@ else if 2 == 3
 else if false
   99
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -779,7 +819,7 @@ x
                         }
                     }
                 }
-                Ok(Empty)
+                Ok(Null)
             });
 
             test_script_with_vm(vm, script, expected_output);
@@ -794,13 +834,13 @@ x
         #[test]
         fn function() {
             let script = "assert 1 + 1 == 2";
-            test_script_with_prelude(script, Empty);
+            test_script_with_prelude(script, Null);
         }
 
         #[test]
         fn function_two_args() {
             let script = "assert 1 + 1 == 2, 2 < 3";
-            test_script_with_prelude(script, Empty);
+            test_script_with_prelude(script, Null);
         }
     }
 
@@ -847,7 +887,7 @@ add(5, 6)";
 foo = |a, b| b
 foo 42
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -964,7 +1004,7 @@ f 5, 10, 20, 30";
             let script = "
 f = |a, b...| b
 f()";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -1041,7 +1081,7 @@ f = |x|
     return
   x
 f -42";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -1732,10 +1772,10 @@ foo min..max, 20
         }
 
         #[test]
-        fn missing_arg_set_to_empty() {
+        fn missing_arg_set_to_null() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     99
   else
     -1
@@ -1745,10 +1785,10 @@ foo 42
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg() {
+        fn missing_arg_set_to_null_with_list_as_first_arg() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     99
   else
     -1
@@ -1758,11 +1798,11 @@ foo [42]
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg_and_capture() {
+        fn missing_arg_set_to_null_with_list_as_first_arg_and_capture() {
             let script = "
 x = 123
 foo = |a, b|
-  if b == ()
+  if b == null
     x
   else
     -1
@@ -1772,10 +1812,10 @@ foo [42]
         }
 
         #[test]
-        fn missing_arg_set_to_empty_with_list_as_first_arg_for_generator() {
+        fn missing_arg_set_to_null_with_list_as_first_arg_for_generator() {
             let script = "
 foo = |a, b|
-  if b == ()
+  if b == null
     yield 123
   else
     yield -1
@@ -1849,7 +1889,7 @@ gen(1..=5).to_tuple()";
         fn generator_with_missing_arg() {
             let script = "
 gen = |xs|
-  xs = if xs == () then (1, 2, 3) else xs
+  xs = xs or (1, 2, 3)
   for x in xs
     yield x
 gen().to_tuple()";
@@ -1894,7 +1934,7 @@ gen().to_tuple()
             let script = "
 x = 1, 2, 3
 gen = |offset, bar...|
-  offset = if offset == () then 10 else offset
+  offset = offset or 10
   for y in x
     yield y + offset
 gen().to_tuple()

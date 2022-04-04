@@ -28,7 +28,7 @@ first argument, then the `@tests` Map itself will be passed in as `self`.
 
   # '@post_test' will be run after each test
   @post_test: |self|
-    self.test_data = ()
+    self.test_data = null
 
   # Functions that are tagged with @test are automatically run as tests
   @test basic_assertions: ||
@@ -74,7 +74,7 @@ Tests can be run from a Koto script by calling [`test.run_tests`](#run_tests).
 
 ## assert
 
-`|Bool| -> ()`
+`|Bool| -> Null`
 
 Throws a runtime error if the argument if false.
 
@@ -91,7 +91,7 @@ assert 1 > 2
 
 ## assert_eq
 
-`|Value, Value| -> ()`
+`|Value, Value| -> Null`
 
 Checks the two input values for equality and throws an error if they're not
 equal.
@@ -109,7 +109,7 @@ assert_eq 2 + 2, 5
 
 ## assert_ne
 
-`|Value, Value| -> ()`
+`|Value, Value| -> Null`
 
 Checks the two input values for inequality and throws an error if they're equal.
 
@@ -126,11 +126,11 @@ assert_ne 2 + 2, 4
 
 ## assert_near
 
-`|Number, Number, Number| -> ()`
+`|Number, Number, Number| -> Null`
 
-`|Num2, Num2, Number| -> ()`
+`|Num2, Num2, Number| -> Null`
 
-`|Num4, Num4, Number| -> ()`
+`|Num4, Num4, Number| -> Null`
 
 Checks that the two input numbers are equal, within an allowed margin of error.
 
@@ -151,7 +151,7 @@ assert_near 1.3, 1.32, allowed_error
 
 ## run_tests
 
-`|Map| -> ()`
+`|Map| -> Null`
 
 Runs the tests contained in the map.
 
@@ -160,7 +160,7 @@ Runs the tests contained in the map.
 ```koto
 my_tests =
   @pre_test: |self| self.test_data = 1, 2, 3
-  @post_test: |self| self.test_data = ()
+  @post_test: |self| self.test_data = null
 
   @test data_size: |self| assert_eq self.test_data.size(), 3
   @test failure: |self| assert not self.test_data.is_empty()

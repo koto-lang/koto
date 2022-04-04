@@ -92,7 +92,7 @@ from number import pi, pi_4
     a, b, c = x
     assert_eq a, 1
     assert_eq b, 2
-    assert_eq c, ()
+    assert_eq c, null
 
   @test element_unpacking_num4: ||
     x = make_num4 5, 6, 7, 8
@@ -101,7 +101,7 @@ from number import pi, pi_4
     assert_eq b, 6
     assert_eq c, 7
     assert_eq d, 8
-    assert_eq e, ()
+    assert_eq e, null
 
   @test iterator_ops_num2: ||
     x = make_num2 1, 2
@@ -110,7 +110,7 @@ from number import pi, pi_4
     i = x.iter()
     assert_eq i.next(), 1
     assert_eq i.next(), 2
-    assert_eq i.next(), ()
+    assert_eq i.next(), null
 
   @test iterator_ops_num4: ||
     x = make_num4 5, 6, 7, 8
@@ -120,4 +120,4 @@ from number import pi, pi_4
     i.skip(2)
     assert_eq i.next(), 7
     assert_eq i.next(), 8
-    assert_eq i.next(), ()
+    assert_eq i.next(), null

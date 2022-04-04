@@ -79,7 +79,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("first", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data().first() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Empty),
+            None => Ok(Null),
         },
         unexpected => {
             unexpected_type_error_with_slice("list.first", "a List as argument", unexpected)
@@ -88,7 +88,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get", |vm, args| {
         let (list, index, default) = match vm.get_args(args) {
-            [List(list), Number(n)] => (list, n, &Empty),
+            [List(list), Number(n)] => (list, n, &Null),
             [List(list), Number(n), default] => (list, n, default),
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -132,7 +132,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data().last() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Empty),
+            None => Ok(Null),
         },
         unexpected => {
             unexpected_type_error_with_slice("list.last", "a List as argument", unexpected)
@@ -142,7 +142,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("pop", |vm, args| match vm.get_args(args) {
         [List(l)] => match l.data_mut().pop() {
             Some(value) => Ok(value),
-            None => Ok(Empty),
+            None => Ok(Null),
         },
         unexpected => {
             unexpected_type_error_with_slice("list.pop", "a List as argument", unexpected)
@@ -183,12 +183,12 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
         [List(l), Number(n)] if *n >= 0.0 => {
-            l.data_mut().resize(n.into(), Empty);
-            Ok(Empty)
+            l.data_mut().resize(n.into(), Null);
+            Ok(Null)
         }
         [List(l), Number(n), value] if *n >= 0.0 => {
             l.data_mut().resize(n.into(), value.clone());
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize",
@@ -216,7 +216,7 @@ pub fn make_module() -> ValueMap {
                 Ordering::Equal => {}
             }
 
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize_with",
@@ -251,7 +251,7 @@ pub fn make_module() -> ValueMap {
                         Err(error) => return Err(error.with_prefix("list.retain")),
                     }
                 }
-                l.data_mut().resize(write_index, Empty);
+                l.data_mut().resize(write_index, Null);
                 l
             }
             [List(l), value] => {
@@ -385,7 +385,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("swap", |vm, args| match vm.get_args(args) {
         [List(a), List(b)] => {
             std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => {
             unexpected_type_error_with_slice("list.swap", "two Lists as arguments", unexpected)

@@ -10,7 +10,7 @@ use {
 
 pub fn yaml_value_to_koto_value(value: &serde_yaml::Value) -> Result<Value, String> {
     let result = match value {
-        YamlValue::Null => Value::Empty,
+        YamlValue::Null => Value::Null,
         YamlValue::Bool(b) => Value::Bool(*b),
         YamlValue::Number(n) => match n.as_i64() {
             Some(n64) => Value::Number(n64.into()),

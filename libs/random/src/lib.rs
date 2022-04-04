@@ -154,7 +154,7 @@ impl ChaChaRng {
         match args {
             [Number(n)] => {
                 self.0 = ChaCha8Rng::seed_from_u64(n.to_bits());
-                Ok(Empty)
+                Ok(Null)
             }
             unexpected => {
                 unexpected_type_error_with_slice("random.seed", "a Number as argument", unexpected)

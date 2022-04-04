@@ -237,12 +237,9 @@ mod tests {
         let mut data = m.data_mut();
 
         assert!(data.get_with_string("test").is_none());
-        data.add_value("test", Value::Empty);
+        data.add_value("test", Value::Null);
         assert!(data.get_with_string("test").is_some());
-        assert!(matches!(
-            data.remove_with_string("test"),
-            Some(Value::Empty)
-        ));
+        assert!(matches!(data.remove_with_string("test"), Some(Value::Null)));
         assert!(data.get_with_string("test").is_none());
     }
 }

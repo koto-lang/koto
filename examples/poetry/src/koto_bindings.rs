@@ -31,7 +31,7 @@ thread_local! {
 }
 
 fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Empty, Iterator, Str};
+    use Value::{Iterator, Null, Str};
 
     let mut bindings = MetaMap::with_type_name("Poetry");
 
@@ -40,7 +40,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
         |poetry: &mut KotoPoetry, _, args| match args {
             [Str(text)] => {
                 poetry.0.add_source_material(text);
-                Ok(Empty)
+                Ok(Null)
             }
             unexpected => unexpected_type_error_with_slice(
                 "poetry.add_source_material",
@@ -60,7 +60,7 @@ fn make_poetry_meta_map() -> Rc<RefCell<MetaMap>> {
     bindings.add_named_instance_fn_mut("next_word", |poetry: &mut KotoPoetry, _, _| {
         let result = match poetry.0.next_word() {
             Some(word) => Str(word.as_ref().into()),
-            None => Empty,
+            None => Null,
         };
         Ok(result)
     });
@@ -87,13 +87,13 @@ impl Iterator for PoetryIter {
     type Item = ValueIteratorOutput;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Value::{Empty, Str};
+        use Value::{Null, Str};
 
         match self.poetry.data.borrow_mut().downcast_mut::<KotoPoetry>() {
             Some(poetry) => {
                 let result = match poetry.0.next_word() {
                     Some(word) => Str(word.as_ref().into()),
-                    None => Empty,
+                    None => Null,
                 };
                 Some(ValueIteratorOutput::Value(result))
             }

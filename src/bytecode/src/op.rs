@@ -15,10 +15,10 @@ pub enum Op {
     /// `[Copy, *target, *source]`
     Copy,
 
-    /// Sets a register to contain Empty
+    /// Sets a register to contain Null
     ///
     /// `[*target]`
-    SetEmpty,
+    SetNull,
 
     /// Sets a register to contain Bool(false)
     ///
@@ -323,20 +323,20 @@ pub enum Op {
     /// `[offset[2]]`
     Jump,
 
-    /// Causes the instruction pointer to jump forward, if a condition is true
-    ///
-    /// `[*condition, offset[2]]`
-    JumpTrue,
-
-    /// Causes the instruction pointer to jump forward, if a condition is false
-    ///
-    /// `[*condition, offset[2]]`
-    JumpFalse,
-
     /// Causes the instruction pointer to jump back by a number of bytes
     ///
     /// `[offset[2]]`
     JumpBack,
+
+    /// Causes the instruction pointer to jump forward, if a condition is true
+    ///
+    /// `[*condition, offset[2]]`
+    JumpIfTrue,
+
+    /// Causes the instruction pointer to jump forward, if a condition is false
+    ///
+    /// `[*condition, offset[2]]`
+    JumpIfFalse,
 
     /// Calls a function
     ///

@@ -75,7 +75,7 @@ false
 "hello"
 'world'
 a
-()"#;
+null"#;
             check_ast(
                 source,
                 &[
@@ -86,7 +86,7 @@ a
                     string_literal(1, QuotationMark::Double),
                     string_literal(2, QuotationMark::Single),
                     Id(constant(3)),
-                    Empty,
+                    Null,
                     MainBlock {
                         body: vec![0, 1, 2, 3, 4, 5, 6, 7],
                         local_count: 0,
@@ -974,6 +974,22 @@ min..max
                 source,
                 &[
                     Tuple(vec![]),
+                    MainBlock {
+                        body: vec![0],
+                        local_count: 0,
+                    },
+                ],
+                None,
+            )
+        }
+
+        #[test]
+        fn empty_parentheses_without_comma() {
+            let source = "()";
+            check_ast(
+                source,
+                &[
+                    Null,
                     MainBlock {
                         body: vec![0],
                         local_count: 0,
@@ -4782,7 +4798,7 @@ match x, y
                     Id(constant(4)),
                     Number0, // 10
                     Id(constant(5)),
-                    Empty,
+                    Null,
                     TempTuple(vec![11, 12]),
                     Id(constant(5)),
                     Number0, // 15
@@ -4826,7 +4842,7 @@ match x, y
         fn match_expression_is_lookup_call() {
             let source = "
 match x.foo 42
-  () then 0
+  null then 0
   else 1
 ";
             check_ast(
@@ -4843,7 +4859,7 @@ match x.foo 42
                     )),
                     Lookup((LookupNode::Id(constant(1)), Some(2))),
                     Lookup((LookupNode::Root(0), Some(3))),
-                    Empty, // 5
+                    Null, // 5
                     Number0,
                     Number1,
                     Match {

@@ -9,8 +9,8 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("exports", |vm, _| Ok(Value::Map(vm.exports().clone())));
 
-    result.add_value("script_dir", Empty);
-    result.add_value("script_path", Empty);
+    result.add_value("script_dir", Null);
+    result.add_value("script_path", Null);
 
     result.add_fn("type", |vm, args| match vm.get_args(args) {
         [value] => Ok(Str(value.type_as_string().into())),

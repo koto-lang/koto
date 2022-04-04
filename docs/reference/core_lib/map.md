@@ -201,7 +201,7 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 
 ## clear
 
-`|Map| -> ()`
+`|Map| -> Null`
 
 Clears the map by removing all of its elements.
 
@@ -284,7 +284,7 @@ x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
 Returns the value corresponding to the given key, or the provided default value
 if the map doesn't contain the key.
 
-If no default value is provided then `()` is returned.
+If no default value is provided then Null is returned.
 
 ### Example
 
@@ -294,7 +294,7 @@ x.get "hello"
 # -1
 
 x.get "goodbye"
-# ()
+# Null
 
 x.get "goodbye", "byeeee"
 # "byeeee"
@@ -316,7 +316,7 @@ x.get 99
 Returns the entry at the given index as a key/value tuple, or the provided
 default value if the map doesn't contain an entry at that index.
 
-If no default value is provided then `()` is returned.
+If no default value is provided then Null is returned.
 
 ### Example
 
@@ -326,7 +326,7 @@ x.get_index 1
 # (bar, -2)
 
 x.get_index -99
-# ()
+# Null
 
 x.get_index 99, "xyz"
 # "xyz"
@@ -340,14 +340,14 @@ x.get_index 99, "xyz"
 
 `|Map, Key| -> Value`
 
-Inserts `()` into the map with the given key.
+Inserts Null into the map with the given key.
 
 `|Map, Key, Value| -> Value`
 
 Inserts a value into the map with the given key.
 
 If the key already existed in the map, then the old value is returned.
-If the key didn't already exist, then `()` is returned.
+If the key didn't already exist, then Null is returned.
 
 ### Example
 
@@ -360,7 +360,7 @@ x.hello # hello is now 99
 # 99
 
 x.insert "goodbye", 123 # No existing value at `goodbye`, so () is returned
-# ()
+# Null
 
 x.goodbye
 # 123
@@ -413,7 +413,7 @@ x.next()
 # "goodbye"
 
 x.next()
-# ()
+# Null
 ```
 
 ### See also
@@ -426,7 +426,7 @@ x.next()
 
 Removes the entry that matches the given key.
 
-If the entry existed then its value is returned, otherwise `()` is returned.
+If the entry existed then its value is returned, otherwise Null is returned.
 
 ### Example
 
@@ -439,7 +439,7 @@ x.remove "hello"
 # -1
 
 x.remove "xyz"
-# ()
+# Null
 
 x.remove "goodbye"
 # 99
@@ -474,11 +474,11 @@ Returns the number of entries contained in the map.
 
 ## sort
 
-`|Map| -> ()`
+`|Map| -> Null`
 
 Sorts the map's entries by key.
 
-`|Map, |Value, Value| -> Value| -> ()`
+`|Map, |Value, Value| -> Value| -> Null`
 
 Sorts the map's entries, based on the output of calling a 'key' function for
 each entry. The entry's key and value are passed into the function as separate
@@ -511,7 +511,7 @@ x
 `|Map, Key, |Value| -> Value| -> Value`
 
 Updates the value associated with a given key by calling a function with either
-the existing value, or `()` if there isn't a matching entry.
+the existing value, or Null if there isn't a matching entry.
 
 The result of the function will either replace an existing value, or if no value
 existed then an entry will be inserted into the map with the given key and the
@@ -568,7 +568,7 @@ x.next()
 # 99
 
 x.next()
-# ()
+# Null
 ```
 
 ### See also

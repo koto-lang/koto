@@ -61,7 +61,7 @@ fannkuch = |n|
 
 @main = ||
   n = match koto.args.get 0
-    () then 4
+    null then 4
     arg then arg.to_number()
 
   sum, flips = fannkuch n

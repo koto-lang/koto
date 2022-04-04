@@ -16,5 +16,5 @@ from test import assert, assert_eq
     assert_eq (io.read_to_string temp_path), temp.read_to_string()
 
     # Temp files are deleted when they're no longer used
-    temp = ()
+    temp = null
     assert not io.exists temp_path

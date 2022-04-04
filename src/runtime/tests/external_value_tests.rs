@@ -21,7 +21,7 @@ mod external_values {
     }
 
     fn make_external_value_meta_map() -> Rc<RefCell<MetaMap>> {
-        use Value::{Bool, Empty, Number};
+        use Value::{Bool, Null, Number};
 
         let mut meta = MetaMap::with_type_name("TestExternalData");
 
@@ -39,7 +39,7 @@ mod external_values {
                         match other.data().downcast_ref::<TestExternalData>() {
                             Some(other_data) => {
                                 data.x = other_data.x;
-                                Ok(Empty)
+                                Ok(Null)
                             }
                             None => runtime_error!(
                                 "{fn_name} - unexpected other type: {}",

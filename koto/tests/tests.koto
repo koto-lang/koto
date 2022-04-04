@@ -7,7 +7,7 @@
 
   # '@post_test' will be run after each test
   @post_test: |self|
-    self.test_data = ()
+    self.test_data = null
 
   # Functions with that are tagged with @test will be automatically run as tests
   @test size: |self|

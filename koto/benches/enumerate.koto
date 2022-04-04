@@ -1,6 +1,6 @@
 @main = ||
   n = match koto.args.get 0
-    () then 10
+    null then 10
     arg then arg.to_number()
 
   a = []

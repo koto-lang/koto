@@ -10,56 +10,32 @@ The Koto project adheres to
 
 ### Added
 
-- Core Library
-  - New additions:
-    - `iterator`
-      - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
-        `to_num2`, `to_num4`, `windows`
-    - `list.resize_with`
-    - `number`
-      - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
-      - `pi_2`, `pi_4`
-    - `num2`
-      - `lerp`, `make_num2`, `with`
-      - `x`, `y`
-      - `angle`
-    - `num4`
-      - `lerp`, `make_num4`, `with`
-      - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
-    - `os`
-      - `time`
-        - Provides information about the current date and time.
-      - `start_timer`
-        - Provides a timer that can be used for measuring the duration between
-          moments in time.
-    - `string.from_bytes`
-  - The following items are now imported by default into the top level of the
-    prelude:
-    - `io.print`, `koto.type`, `num2.make_num2`, `num4.make_num4`,
-      `test.assert`, `test.assert_eq`, `test.assert_ne`, `test.assert_near`
-  - List operations that modify the list but previously returned Empty,
-    now return the modified list.
+#### Language
+
+- The `null` keyword has been introduced, which is a more explicit way of
+  declaring a non-value than `()`.
+  - A consequence of this addition is that formatted JSON is now valid Koto.
     - e.g.
       ```koto
-      x = [1, 2, 3]
-
-      # Before
-      x.push 4
-      # ()
-
-      # After
-      x.push 4
-      # [1, 2, 3, 4]
+      data = {
+        "empty": null,
+        "nested": {
+          "number": 123,
+          "string": "hello"
+        }
+      }
+      data.nested.number
+      # 123
       ```
-  - `iterator.consume` now accepts an optional function that will be called
-    for each iterator output value.
-    - e.g.
-      ```koto
-      (1, 2, 3).consume |n| io.print n
-      # 1
-      # 2
-      # 3
-      ```
+- Koto values now coerce to Bool in boolean contexts, with `false` and `null`
+  evaluating to `false`, with all other values evaluating to `true`.
+  - e.g.
+    ```koto
+    x = null
+    y = x or 42
+    y
+    # 42
+    ```
 - Maps can now implement `@iterator`, which allows you to define custom
   iteration behaviour.
   - e.g.
@@ -73,8 +49,8 @@ The Koto project adheres to
 - Num2 and Num4 values can now be iterated over in a for loop.
 - Empty tuples can be declared by including a trailing comma in parentheses,
   e.g. `(,)`.
-- Wildcard arguments (declared with `_`) can now optionally have names following
-  the underscore.
+- Wildcard arguments (declared with `_`) can now optionally have names
+  following the underscore.
   - e.g.
     ```koto
     # Before
@@ -82,13 +58,55 @@ The Koto project adheres to
     # After
     x, _unused, z = 1, 2, 3
     ```
-- Internals
-  - A 'module imported' callback has been added to `KotoSettings` to aid in
-    keeping track of a script's module dependencies.
-  - `Koto::clear_module_cache()` has been added to allow for reloading scripts
-    when one of the script's dependencies has changed.
+
+#### Core Library
+
+- New additions:
+  - `iterator`
+    - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
+      `to_num2`, `to_num4`, `windows`
+  - `list.resize_with`
+  - `number`
+    - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
+    - `pi_2`, `pi_4`
+  - `num2`
+    - `lerp`, `make_num2`, `with`
+    - `x`, `y`
+    - `angle`
+  - `num4`
+    - `lerp`, `make_num4`, `with`
+    - `r`, `g`, `b`, `a`, `x`, `y`, `z`, `w`
+  - `os`
+    - `time`
+      - Provides information about the current date and time.
+    - `start_timer`
+      - Provides a timer that can be used for measuring the duration between
+        moments in time.
+  - `string.from_bytes`
+- The following items are now imported by default into the top level of the
+  prelude:
+  - `io.print`, `koto.type`, `num2.make_num2`, `num4.make_num4`,
+    `test.assert`, `test.assert_eq`, `test.assert_ne`, `test.assert_near`
+- `iterator.consume` now accepts an optional function that will be called
+  for each iterator output value.
+  - e.g.
+    ```koto
+    (1, 2, 3).consume |n| io.print n
+    # 1
+    # 2
+    # 3
+    ```
+
+#### Internals
+
+- A 'module imported' callback has been added to `KotoSettings` to aid in
+  keeping track of a script's module dependencies.
+- `Koto::clear_module_cache()` has been added to allow for reloading scripts
+  when one of the script's dependencies has changed.
 
 ### Changed
+
+#### Language
 
 - Assigning to a module's meta map has been reworked
   - The `export` keyword is no longer needed to assign to a meta key, as meta
@@ -114,31 +132,6 @@ The Koto project adheres to
       @main = ||
         ...
       ```
-- Core Library
-  - The `num2` and `num4` keywords have been removed in favour of the new
-    `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
-    functions.
-  - The value provided to `list.resize` is now optional, with `()` being
-    inserted when growing the list.
-  - `list.get`, `tuple.get`, and `map.get_index` will now return `()` when a
-    negative number is used as the index, rather than throwing an error.
-- Random Library
-  - The default generator functions can now be used directly.
-    Previously they had to be used as instance functions.
-    - e.g.
-      ```koto
-      # Before
-      if random.bool() then do_x()
-      # After
-      rng_bool = import random.bool
-      if rng_bool() then do_x()
-      ```
-  - The `number2` and `number4` functions have been renamed to
-    `num2` and `num4`.
-  - The number of rounds used by the generator (ChaCha) has been reduced from
-    20 to 8.
-  - The random module is provided as a `ValueMap` rather than a `Value`,
-    meaning that its now added to the prelude via `add_map` like other modules.
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto
@@ -172,11 +165,57 @@ The Koto project adheres to
         , 3
         ]
     ```
-- Internals
-  - `ExternalIterator` has been renamed to `KotoIterator`.
-  - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
-  - Koto now uses the Rust 2021 edition.
-  - `Koto::set_script_path` and `set_args` now return `Result`s.
+
+#### Core Library
+
+- The `num2` and `num4` keywords have been removed in favour of the new
+  `make_num2`, `make_num4`, `iterator.to_num2`, and `iterator.to_num4`
+  functions.
+- The value provided to `list.resize` is now optional, with `null` being
+  inserted when growing the list.
+- `list.get`, `tuple.get`, and `map.get_index` will now return `null` when a
+  negative number is used as the index, rather than throwing an error.
+- List operations that modify the list but previously returned `null`,
+  now return the modified list.
+  - e.g.
+    ```koto
+    x = [1, 2, 3]
+
+    # Before
+    x.push 4
+    # Null
+
+    # After
+    x.push 4
+    # [1, 2, 3, 4]
+    ```
+
+#### Random Library
+
+- The default generator functions can now be used directly.
+  Previously they had to be used as instance functions.
+  - e.g.
+    ```koto
+    # Before
+    if random.bool() then do_x()
+    # After
+    rng_bool = import random.bool
+    if rng_bool() then do_x()
+    ```
+- The `number2` and `number4` functions have been renamed to
+  `num2` and `num4`.
+- The number of rounds used by the generator (ChaCha) has been reduced from
+  20 to 8.
+- The random module is provided as a `ValueMap` rather than a `Value`,
+  meaning that its now added to the prelude via `add_map` like other modules.
+
+#### Internals
+
+- Koto now uses the Rust 2021 edition.
+- `Value::Empty` has been renamed to `Null`.
+- `ExternalIterator` has been renamed to `KotoIterator`.
+- `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
+- `Koto::set_script_path` and `set_args` now return `Result`s.
 
 ### Removed
 

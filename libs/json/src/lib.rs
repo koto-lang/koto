@@ -10,7 +10,7 @@ use {
 
 pub fn json_value_to_koto_value(value: &serde_json::Value) -> Result<Value, String> {
     let result = match value {
-        JsonValue::Null => Value::Empty,
+        JsonValue::Null => Value::Null,
         JsonValue::Bool(b) => Value::Bool(*b),
         JsonValue::Number(n) => match n.as_i64() {
             Some(n64) => Value::Number(n64.into()),

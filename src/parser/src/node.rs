@@ -8,8 +8,8 @@ use {
 /// Nodes refer to each other via [AstIndex]s, see [AstNode](crate::AstNode).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
-    /// An Empty node, used for `()` empty expressions
-    Empty,
+    /// The `null` keyword
+    Null,
 
     /// A single expression wrapped in parentheses
     Nested(AstIndex),
@@ -266,7 +266,7 @@ pub enum Node {
 
 impl Default for Node {
     fn default() -> Self {
-        Node::Empty
+        Node::Null
     }
 }
 
@@ -274,7 +274,7 @@ impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Node::*;
         match self {
-            Empty => write!(f, "Empty"),
+            Null => write!(f, "Null"),
             Nested(_) => write!(f, "Nested"),
             Id(_) => write!(f, "Id"),
             Meta(_, _) => write!(f, "Meta"),

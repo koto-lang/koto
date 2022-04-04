@@ -31,7 +31,7 @@ impl PartialEq for ValueKey {
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
-            (Empty, Empty) => true,
+            (Null, Null) => true,
             _ => false,
         }
     }
@@ -84,9 +84,9 @@ impl PartialOrd for ValueKey {
         use Value::*;
 
         match (&self.0, &other.0) {
-            (Empty, Empty) => Some(Ordering::Equal),
-            (Empty, _) => Some(Ordering::Less),
-            (_, Empty) => Some(Ordering::Greater),
+            (Null, Null) => Some(Ordering::Equal),
+            (Null, _) => Some(Ordering::Less),
+            (_, Null) => Some(Ordering::Greater),
             (Number(a), Number(b)) => a.partial_cmp(b),
             (Num2(a), Num2(b)) => a.partial_cmp(b),
             (Num4(a), Num4(b)) => a.partial_cmp(b),
@@ -101,9 +101,9 @@ impl Ord for ValueKey {
         use Value::*;
 
         match (&self.0, &other.0) {
-            (Empty, Empty) => Ordering::Equal,
-            (Empty, _) => Ordering::Less,
-            (_, Empty) => Ordering::Greater,
+            (Null, Null) => Ordering::Equal,
+            (Null, _) => Ordering::Less,
+            (_, Null) => Ordering::Greater,
             (Number(a), Number(b)) => a.cmp(b),
             (Str(a), Str(b)) => a.cmp(b),
             _ => Ordering::Less,
@@ -116,7 +116,7 @@ impl Eq for ValueKey {}
 // Currently only used to support DataMap::get_with_string()
 #[derive(Clone, Debug)]
 pub(crate) enum ValueRef<'a> {
-    Empty,
+    Null,
     Bool(&'a bool),
     Number(&'a ValueNumber),
     Num2(&'a num2::Num2),
@@ -128,7 +128,7 @@ pub(crate) enum ValueRef<'a> {
 impl<'a> From<&'a Value> for ValueRef<'a> {
     fn from(value: &'a Value) -> Self {
         match value {
-            Value::Empty => ValueRef::Empty,
+            Value::Null => ValueRef::Null,
             Value::Bool(b) => ValueRef::Bool(b),
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
@@ -151,7 +151,7 @@ impl<'a> PartialEq for ValueRef<'a> {
             (Bool(a), Bool(b)) => a == b,
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
-            (Empty, Empty) => true,
+            (Null, Null) => true,
             _ => false,
         }
     }
@@ -166,7 +166,7 @@ impl<'a> Hash for ValueRef<'a> {
         std::mem::discriminant(self).hash(state);
 
         match self {
-            Empty => {}
+            Null => {}
             Bool(b) => b.hash(state),
             Number(n) => n.hash(state),
             Num2(n) => n.hash(state),

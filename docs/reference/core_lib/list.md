@@ -155,7 +155,7 @@ x
 
 `|List| -> Value`
 
-Returns the first value in the list, or `()` if the list is empty.
+Returns the first value in the list, or Null if the list is empty.
 
 ### Example
 
@@ -164,7 +164,7 @@ Returns the first value in the list, or `()` if the list is empty.
 # 99
 
 [].first()
-# ()
+# Null
 ```
 
 ### See also
@@ -179,7 +179,7 @@ Returns the first value in the list, or `()` if the list is empty.
 
 Gets the Nth value in the list.
 If the list doesn't contain a value at that position then the provided default
-value is returned. If no default value is provided then `()` is returned.
+value is returned. If no default value is provided then Null is returned.
 
 ### Example
 
@@ -190,7 +190,7 @@ x.get 1
 # -1
 
 x.get -1
-# ()
+# Null
 
 x.get 5, 123
 # 123
@@ -244,7 +244,7 @@ Returns `true` if the list has a size of zero, and `false` otherwise.
 
 `|List| -> Value`
 
-Returns the last value in the list, or `()` if the list is empty.
+Returns the last value in the list, or Null if the list is empty.
 
 ### Example
 
@@ -253,7 +253,7 @@ Returns the last value in the list, or `()` if the list is empty.
 # 42
 
 [].first()
-# ()
+# Null
 ```
 
 ### See also
@@ -267,7 +267,7 @@ Returns the last value in the list, or `()` if the list is empty.
 
 Removes the last value from the list and returns it.
 
-If the list is empty then `()` is returned.
+If the list is empty then Null is returned.
 
 ### Example
 
@@ -280,7 +280,7 @@ x
 # [99, -1]
 
 [].pop()
-# ()
+# Null
 ```
 
 ### See also
@@ -328,11 +328,11 @@ Throws an error if the position isn't a valid index in the list.
 
 ## resize
 
-`|List, Number| -> ()`
-`|List, Number, Value| -> ()`
+`|List, Number| -> Null`
+`|List, Number, Value| -> Null`
 
 Grows or shrinks the list to the specified size.
-If the new size is larger, then copies of the provided value (or `()` if no
+If the new size is larger, then copies of the provided value (or Null if no
 value is provided) are used to fill the new space.
 
 ### Example
@@ -349,12 +349,12 @@ x
 
 x.resize 4
 x
-# [1, 2, "x", ()]
+# [1, 2, "x", null]
 ```
 
 ## resize_with
 
-`|List, Number, || -> Value| -> ()`
+`|List, Number, || -> Value| -> Null`
 
 Grows or shrinks the list to the specified size.
 If the new size is larger, then the provided function will be called repeatedly
@@ -490,7 +490,7 @@ x # x remains untouched
 
 ## swap
 
-`|List, List| -> ()`
+`|List, List| -> Null`
 
 Swaps the contents of the two input lists.
 

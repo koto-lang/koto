@@ -87,7 +87,7 @@ pub enum Instruction {
         target: u8,
         source: u8,
     },
-    SetEmpty {
+    SetNull {
         register: u8,
     },
     SetBool {
@@ -268,12 +268,15 @@ pub enum Instruction {
     Jump {
         offset: usize,
     },
-    JumpIf {
+    JumpBack {
+        offset: usize,
+    },
+    JumpIfTrue {
         register: u8,
         offset: usize,
-        jump_condition: bool,
     },
-    JumpBack {
+    JumpIfFalse {
+        register: u8,
         offset: usize,
     },
     Call {
@@ -420,7 +423,7 @@ impl fmt::Display for Instruction {
         match self {
             Error { message } => unreachable!("{message}"),
             Copy { .. } => write!(f, "Copy"),
-            SetEmpty { .. } => write!(f, "SetEmpty"),
+            SetNull { .. } => write!(f, "SetNull"),
             SetBool { .. } => write!(f, "SetBool"),
             SetNumber { .. } => write!(f, "SetNumber"),
             LoadFloat { .. } => write!(f, "LoadFloat"),
@@ -464,8 +467,9 @@ impl fmt::Display for Instruction {
             Equal { .. } => write!(f, "Equal"),
             NotEqual { .. } => write!(f, "NotEqual"),
             Jump { .. } => write!(f, "Jump"),
-            JumpIf { .. } => write!(f, "JumpIf"),
             JumpBack { .. } => write!(f, "JumpBack"),
+            JumpIfTrue { .. } => write!(f, "JumpIfTrue"),
+            JumpIfFalse { .. } => write!(f, "JumpIfFalse"),
             Call { .. } => write!(f, "Call"),
             CallInstance { .. } => write!(f, "CallInstance"),
             Return { .. } => write!(f, "Return"),
@@ -504,7 +508,7 @@ impl fmt::Debug for Instruction {
         match self {
             Error { message } => unreachable!("{message}"),
             Copy { target, source } => write!(f, "Copy\t\tresult: {target}\tsource: {source}"),
-            SetEmpty { register } => write!(f, "SetEmpty\tresult: {register}"),
+            SetNull { register } => write!(f, "SetNull\t\tresult: {register}"),
             SetBool { register, value } => {
                 write!(f, "SetBool\t\tresult: {register}\tvalue: {value}")
             }
@@ -661,15 +665,13 @@ impl fmt::Debug for Instruction {
                 write!(f, "NotEqual\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
             }
             Jump { offset } => write!(f, "Jump\t\toffset: {offset}"),
-            JumpIf {
-                register,
-                offset,
-                jump_condition,
-            } => write!(
-                f,
-                "JumpIf\t\tresult: {register}\toffset: {offset}\tcondition: {jump_condition}",
-            ),
             JumpBack { offset } => write!(f, "JumpBack\toffset: {offset}"),
+            JumpIfTrue { register, offset } => {
+                write!(f, "JumpIfTrue\tresult: {register}\toffset: {offset}")
+            }
+            JumpIfFalse { register, offset } => {
+                write!(f, "JumpIfFalse\tresult: {register}\toffset: {offset}")
+            }
             Call {
                 result,
                 function,
@@ -1014,7 +1016,7 @@ impl Iterator for InstructionReader {
                 target: get_u8!(),
                 source: get_u8!(),
             }),
-            Op::SetEmpty => Some(SetEmpty {
+            Op::SetNull => Some(SetNull {
                 register: get_u8!(),
             }),
             Op::SetFalse => Some(SetBool {
@@ -1261,17 +1263,15 @@ impl Iterator for InstructionReader {
             Op::Jump => Some(Jump {
                 offset: get_u16!() as usize,
             }),
-            Op::JumpTrue => Some(JumpIf {
-                register: get_u8!(),
-                offset: get_u16!() as usize,
-                jump_condition: true,
-            }),
-            Op::JumpFalse => Some(JumpIf {
-                register: get_u8!(),
-                offset: get_u16!() as usize,
-                jump_condition: false,
-            }),
             Op::JumpBack => Some(JumpBack {
+                offset: get_u16!() as usize,
+            }),
+            Op::JumpIfTrue => Some(JumpIfTrue {
+                register: get_u8!(),
+                offset: get_u16!() as usize,
+            }),
+            Op::JumpIfFalse => Some(JumpIfFalse {
+                register: get_u8!(),
                 offset: get_u16!() as usize,
             }),
             Op::Call => Some(Call {

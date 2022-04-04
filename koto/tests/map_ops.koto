@@ -38,7 +38,7 @@ make_foo = |x|
   @test insert_without_value: ||
     m = foo: 42
     m.insert "foo"
-    assert_eq m.foo, ()
+    assert_eq m.foo, null
 
   @test insert_non_string_key: ||
     m = {}
@@ -54,7 +54,7 @@ make_foo = |x|
   @test get: ||
     m = foo: 42
     assert_eq (m.get "foo"), 42
-    assert_eq (m.get "bar"), ()
+    assert_eq (m.get "bar"), null
 
     # A default value can also be provided
     assert_eq (m.get "bar", 99), 99
@@ -63,13 +63,13 @@ make_foo = |x|
     m = {}
     m.insert 1, "O_o"
     assert_eq (m.get 1), "O_o"
-    assert_eq (m.get make_num2 1, 2), ()
+    assert_eq (m.get make_num2 1, 2), null
 
   @test get_index: ||
     m = foo: 42, bar: 99, baz: 123
     assert_eq (m.get_index 1), ("bar", 99)
     assert_eq (m.get_index 2), ("baz", 123)
-    assert_eq (m.get_index 5), (),
+    assert_eq (m.get_index 5), null
 
     # A default value can also be provided
     assert_eq (m.get_index 5, ("not found", -1)), ("not found", -1)
@@ -85,7 +85,7 @@ make_foo = |x|
     assert_eq (m.remove "foo"), 42
     assert_eq m.keys().to_tuple(), ("bar", "baz")
     assert_eq (m.remove "bar"), 99
-    assert_eq (m.remove "foo"), ()
+    assert_eq (m.remove "foo"), null
 
   @test size: ||
     assert_eq {}.size(), 0

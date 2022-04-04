@@ -49,7 +49,7 @@ f.read_to_string()
 
 `|| -> String`
 
-Returns the current working directory as a String, or Empty if the current
+Returns the current working directory as a String, or Null if the current
 directory can't be retrieved.
 
 ## exists
@@ -109,8 +109,8 @@ f.exists()
 
 ## print
 
-`|Value| -> ()`
-`|String, Value...| -> ()`
+`|Value| -> Null`
+`|String, Value...| -> Null`
 
 Prints a formatted string to the active logger,
 by default this is the standard output.
@@ -143,7 +143,7 @@ io.read_to_string "foo.temp"
 
 ## remove_file
 
-`|String| -> ()`
+`|String| -> Null`
 
 Removes the file at the given path.
 
@@ -233,7 +233,7 @@ A map that wraps a file handle, returned from functions in `io`.
 
 ## File.flush
 
-`|File| -> ()`
+`|File| -> Null`
 
 Ensures that any buffered changes to the file have been written.
 
@@ -250,11 +250,11 @@ Returns the file's path.
 
 ## File.read_line
 
-`|File| -> String or Empty`
+`|File| -> String or Null`
 
 Reads a line of output from the file as a string, not including the newline.
 
-When the end of the file is reached, Empty will be returned.
+When the end of the file is reached, Null will be returned.
 
 ### Errors
 
@@ -272,18 +272,18 @@ An error is thrown if the file doesn't contain valid UTF-8 data.
 
 ## File.seek
 
-`|File, Number| -> ()`
+`|File, Number| -> Null`
 
 Seeks within the file to the specified position in bytes.
 
 ## File.write
 
-`|File, Value| -> ()`
+`|File, Value| -> Null`
 
 Writes the formatted value as a string to the file.
 
 ## File.write_line
 
-`|File, Value| -> ()`
+`|File, Value| -> Null`
 
 Writes the formatted value as a string, with a newline, to the file.

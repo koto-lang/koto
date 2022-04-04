@@ -357,7 +357,7 @@ starting at the first index and ending at the second number.
 
 ### Note
 
-Invalid start indices return Empty.
+Invalid start indices return Null.
 
 ### Example
 
@@ -369,7 +369,7 @@ Invalid start indices return Empty.
 # "cd"
 
 "abcdef".slice 100, 110
-# ()
+# Null
 ```
 
 ## split

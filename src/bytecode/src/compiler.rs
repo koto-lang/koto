@@ -413,10 +413,10 @@ impl Compiler {
         self.span_stack.push(*ast.span(node.span));
 
         let result = match &node.node {
-            Node::Empty => {
+            Node::Null => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
@@ -622,7 +622,7 @@ impl Compiler {
 
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
@@ -631,19 +631,19 @@ impl Compiler {
 
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
             Node::Return(None) => match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                     self.push_op(Return, &[result.register]);
                     Some(result)
                 }
                 None => {
                     let register = self.push_register()?;
-                    self.push_op(SetEmpty, &[register]);
+                    self.push_op(SetNull, &[register]);
                     self.push_op(Return, &[register]);
                     self.pop_register()?;
                     None
@@ -807,7 +807,7 @@ impl Compiler {
             }
         } else {
             let register = self.push_register()?;
-            self.push_op(Op::SetEmpty, &[register]);
+            self.push_op(Op::SetNull, &[register]);
             self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
         }
@@ -930,18 +930,18 @@ impl Compiler {
         expressions: &[AstIndex],
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::SetEmpty;
+        use Op::SetNull;
 
         let result = match expressions {
             [] => match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                     Some(result)
                 }
                 None => {
                     // TODO Under what conditions do we get into this branch?
                     let register = self.push_register()?;
-                    self.push_op(SetEmpty, &[register]);
+                    self.push_op(SetNull, &[register]);
                     Some(CompileResult::with_temporary(register))
                 }
             },
@@ -1731,7 +1731,7 @@ impl Compiler {
                     self.push_op(op, &[comparison_register, lhs_register, rhs_lhs_register]);
 
                     // Skip evaluating the rhs if the lhs result is false
-                    self.push_op(Op::JumpFalse, &[comparison_register]);
+                    self.push_op(Op::JumpIfFalse, &[comparison_register]);
                     jump_offsets.push(self.push_offset_placeholder());
 
                     lhs_register = rhs_lhs_register;
@@ -1783,8 +1783,8 @@ impl Compiler {
         self.compile_node(ResultRegister::Fixed(register), ast.node(lhs), ast)?;
 
         let jump_op = match op {
-            AstBinaryOp::And => Op::JumpFalse,
-            AstBinaryOp::Or => Op::JumpTrue,
+            AstBinaryOp::And => Op::JumpIfFalse,
+            AstBinaryOp::Or => Op::JumpIfTrue,
             _ => unreachable!(),
         };
 
@@ -2813,7 +2813,7 @@ impl Compiler {
             .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
             .unwrap();
 
-        self.push_op_without_span(JumpFalse, &[condition_register.register]);
+        self.push_op_without_span(JumpIfFalse, &[condition_register.register]);
         let condition_jump_ip = self.push_offset_placeholder();
 
         if condition_register.is_temporary {
@@ -2843,7 +2843,7 @@ impl Compiler {
                         .compile_node(ResultRegister::Any, ast.node(*else_if_condition), ast)?
                         .unwrap();
 
-                    self.push_op_without_span(JumpFalse, &[condition.register]);
+                    self.push_op_without_span(JumpIfFalse, &[condition.register]);
                     let conditon_jump_ip = self.push_offset_placeholder();
 
                     if condition.is_temporary {
@@ -2866,7 +2866,7 @@ impl Compiler {
         if let Some(else_node) = else_node {
             self.compile_node(expression_result_register, ast.node(*else_node), ast)?;
         } else if let Some(result) = result {
-            self.push_op_without_span(SetEmpty, &[result.register]);
+            self.push_op_without_span(SetNull, &[result.register]);
         }
 
         // We're at the end, so update the if and else if jump placeholders
@@ -2901,7 +2901,7 @@ impl Compiler {
                     .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                     .unwrap();
 
-                self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+                self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
 
                 if condition_register.is_temporary {
                     self.pop_register()?;
@@ -3093,7 +3093,7 @@ impl Compiler {
                 .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                 .unwrap();
 
-            self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+            self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
             jumps.arm_end.push(self.push_offset_placeholder());
 
             if condition_register.is_temporary {
@@ -3145,7 +3145,7 @@ impl Compiler {
             let pattern_node = ast.node(*pattern);
 
             match &pattern_node.node {
-                Node::Empty
+                Node::Null
                 | Node::BoolTrue
                 | Node::BoolFalse
                 | Node::Number0
@@ -3173,17 +3173,17 @@ impl Compiler {
                     if params.is_last_alternative {
                         // If there's no match on the last alternative,
                         // then jump to the end of the arm
-                        self.push_op(JumpFalse, &[comparison]);
+                        self.push_op(JumpIfFalse, &[comparison]);
                         params.jumps.arm_end.push(self.push_offset_placeholder());
                     } else if params.has_last_pattern && is_last_pattern {
                         // If there's a match with remaining alternative matches,
                         // then jump to the end of the alternatives
-                        self.push_op(JumpTrue, &[comparison]);
+                        self.push_op(JumpIfTrue, &[comparison]);
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     } else {
                         // If there's no match but there remaining alternative matches,
                         // then jump to the next alternative
-                        self.push_op(JumpFalse, &[comparison]);
+                        self.push_op(JumpIfFalse, &[comparison]);
                         params
                             .jumps
                             .alternative_end
@@ -3314,7 +3314,7 @@ impl Compiler {
 
         // Check that the container has the correct type
         self.push_op(type_check_op, &[temp_register, value_register]);
-        self.push_op(JumpFalse, &[temp_register]);
+        self.push_op(JumpIfFalse, &[temp_register]);
         // If the container has the wrong type, jump to the next match patterns
         if params.is_last_alternative {
             params.jumps.arm_end.push(self.push_offset_placeholder());
@@ -3356,7 +3356,7 @@ impl Compiler {
                 comparison_op,
                 &[temp_register, temp_register, expected_register],
             );
-            self.push_op(JumpFalse, &[temp_register]);
+            self.push_op(JumpIfFalse, &[temp_register]);
 
             // If there aren't the expected number of elements, jump to the next match patterns
             if params.is_last_alternative {
@@ -3415,7 +3415,7 @@ impl Compiler {
 
         let result = self.get_result_register(result_register)?;
         if let Some(result) = result {
-            self.push_op(SetEmpty, &[result.register]);
+            self.push_op(SetNull, &[result.register]);
         }
 
         let stack_count = self.frame().register_stack.len();
@@ -3559,9 +3559,9 @@ impl Compiler {
                 .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                 .unwrap();
             let op = if negate_condition {
-                JumpTrue
+                JumpIfTrue
             } else {
-                JumpFalse
+                JumpIfFalse
             };
             self.push_op_without_span(op, &[condition_register.register]);
             self.push_loop_jump_placeholder()?;
