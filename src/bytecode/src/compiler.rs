@@ -1731,7 +1731,7 @@ impl Compiler {
                     self.push_op(op, &[comparison_register, lhs_register, rhs_lhs_register]);
 
                     // Skip evaluating the rhs if the lhs result is false
-                    self.push_op(Op::JumpFalse, &[comparison_register]);
+                    self.push_op(Op::JumpIfFalse, &[comparison_register]);
                     jump_offsets.push(self.push_offset_placeholder());
 
                     lhs_register = rhs_lhs_register;
@@ -1783,8 +1783,8 @@ impl Compiler {
         self.compile_node(ResultRegister::Fixed(register), ast.node(lhs), ast)?;
 
         let jump_op = match op {
-            AstBinaryOp::And => Op::JumpFalse,
-            AstBinaryOp::Or => Op::JumpTrue,
+            AstBinaryOp::And => Op::JumpIfFalse,
+            AstBinaryOp::Or => Op::JumpIfTrue,
             _ => unreachable!(),
         };
 
@@ -2813,7 +2813,7 @@ impl Compiler {
             .compile_node(ResultRegister::Any, ast.node(*condition), ast)?
             .unwrap();
 
-        self.push_op_without_span(JumpFalse, &[condition_register.register]);
+        self.push_op_without_span(JumpIfFalse, &[condition_register.register]);
         let condition_jump_ip = self.push_offset_placeholder();
 
         if condition_register.is_temporary {
@@ -2843,7 +2843,7 @@ impl Compiler {
                         .compile_node(ResultRegister::Any, ast.node(*else_if_condition), ast)?
                         .unwrap();
 
-                    self.push_op_without_span(JumpFalse, &[condition.register]);
+                    self.push_op_without_span(JumpIfFalse, &[condition.register]);
                     let conditon_jump_ip = self.push_offset_placeholder();
 
                     if condition.is_temporary {
@@ -2901,7 +2901,7 @@ impl Compiler {
                     .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                     .unwrap();
 
-                self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+                self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
 
                 if condition_register.is_temporary {
                     self.pop_register()?;
@@ -3093,7 +3093,7 @@ impl Compiler {
                 .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                 .unwrap();
 
-            self.push_op_without_span(Op::JumpFalse, &[condition_register.register]);
+            self.push_op_without_span(Op::JumpIfFalse, &[condition_register.register]);
             jumps.arm_end.push(self.push_offset_placeholder());
 
             if condition_register.is_temporary {
@@ -3173,17 +3173,17 @@ impl Compiler {
                     if params.is_last_alternative {
                         // If there's no match on the last alternative,
                         // then jump to the end of the arm
-                        self.push_op(JumpFalse, &[comparison]);
+                        self.push_op(JumpIfFalse, &[comparison]);
                         params.jumps.arm_end.push(self.push_offset_placeholder());
                     } else if params.has_last_pattern && is_last_pattern {
                         // If there's a match with remaining alternative matches,
                         // then jump to the end of the alternatives
-                        self.push_op(JumpTrue, &[comparison]);
+                        self.push_op(JumpIfTrue, &[comparison]);
                         params.jumps.match_end.push(self.push_offset_placeholder());
                     } else {
                         // If there's no match but there remaining alternative matches,
                         // then jump to the next alternative
-                        self.push_op(JumpFalse, &[comparison]);
+                        self.push_op(JumpIfFalse, &[comparison]);
                         params
                             .jumps
                             .alternative_end
@@ -3314,7 +3314,7 @@ impl Compiler {
 
         // Check that the container has the correct type
         self.push_op(type_check_op, &[temp_register, value_register]);
-        self.push_op(JumpFalse, &[temp_register]);
+        self.push_op(JumpIfFalse, &[temp_register]);
         // If the container has the wrong type, jump to the next match patterns
         if params.is_last_alternative {
             params.jumps.arm_end.push(self.push_offset_placeholder());
@@ -3356,7 +3356,7 @@ impl Compiler {
                 comparison_op,
                 &[temp_register, temp_register, expected_register],
             );
-            self.push_op(JumpFalse, &[temp_register]);
+            self.push_op(JumpIfFalse, &[temp_register]);
 
             // If there aren't the expected number of elements, jump to the next match patterns
             if params.is_last_alternative {
@@ -3559,9 +3559,9 @@ impl Compiler {
                 .compile_node(ResultRegister::Any, ast.node(condition), ast)?
                 .unwrap();
             let op = if negate_condition {
-                JumpTrue
+                JumpIfTrue
             } else {
-                JumpFalse
+                JumpIfFalse
             };
             self.push_op_without_span(op, &[condition_register.register]);
             self.push_loop_jump_placeholder()?;

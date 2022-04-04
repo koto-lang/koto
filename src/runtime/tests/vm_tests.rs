@@ -43,7 +43,7 @@ mod vm {
         }
     }
 
-    mod operators {
+    mod arithmetic {
         use super::*;
 
         #[test]
@@ -60,6 +60,18 @@ mod vm {
         fn subtract_divide_modulo() {
             test_script("(20 - 2) / 3 % 4", 2.into());
         }
+
+        #[test]
+        fn negation() {
+            let script = "
+a = 99
+-a";
+            test_script(script, number(-99));
+        }
+    }
+
+    mod logic {
+        use super::*;
 
         #[test]
         fn comparison() {
@@ -85,6 +97,36 @@ mod vm {
         }
 
         #[test]
+        fn not_coerced_null() {
+            test_script("not null", true.into());
+        }
+
+        #[test]
+        fn not_coerced_value() {
+            test_script("not 42", false.into());
+        }
+
+        #[test]
+        fn or_with_coerced_null() {
+            let script = "
+x = null
+x or 42";
+            test_script(script, 42.into());
+        }
+
+        #[test]
+        fn or_with_coerced_value() {
+            let script = "
+x = 99
+x or 42";
+            test_script(script, 99.into());
+        }
+    }
+
+    mod assignment {
+        use super::*;
+
+        #[test]
         fn assignment() {
             let script = "
 a = 1 * 3
@@ -99,14 +141,6 @@ x = x = 1
 y = y = 2
 ";
             test_script(script, 2.into());
-        }
-
-        #[test]
-        fn negation() {
-            let script = "
-a = 99
--a";
-            test_script(script, number(-99));
         }
     }
 
@@ -1855,7 +1889,7 @@ gen(1..=5).to_tuple()";
         fn generator_with_missing_arg() {
             let script = "
 gen = |xs|
-  xs = if xs == null then (1, 2, 3) else xs
+  xs = xs or (1, 2, 3)
   for x in xs
     yield x
 gen().to_tuple()";
@@ -1900,7 +1934,7 @@ gen().to_tuple()
             let script = "
 x = 1, 2, 3
 gen = |offset, bar...|
-  offset = if offset == null then 10 else offset
+  offset = offset or 10
   for y in x
     yield y + offset
 gen().to_tuple()

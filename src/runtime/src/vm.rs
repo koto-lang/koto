@@ -520,7 +520,7 @@ impl Vm {
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
-        use Value::{Null, Function, Map};
+        use Value::{Function, Map, Null};
 
         // It's important throughout this function to make sure we don't hang on to any references
         // to the internal test map data while calling the test functions, otherwise we'll end up in
@@ -837,14 +837,13 @@ impl Vm {
                 self.jump_ip(offset);
                 Ok(())
             }
-            Instruction::JumpIf {
-                register,
-                offset,
-                jump_condition,
-            } => self.run_jump_if(register, offset, jump_condition),
             Instruction::JumpBack { offset } => {
                 self.jump_ip_back(offset);
                 Ok(())
+            }
+            Instruction::JumpIfTrue { register, offset } => self.run_jump_if_true(register, offset),
+            Instruction::JumpIfFalse { register, offset } => {
+                self.run_jump_if_false(register, offset)
             }
             Instruction::Call {
                 result,
@@ -1406,7 +1405,8 @@ impl Vm {
         use {UnaryOp::Not, Value::*};
 
         let result_value = match &self.get_register(value) {
-            Bool(b) => Bool(!b),
+            Null => Bool(true),
+            Bool(b) if !b => Bool(true),
             Map(map) if map.meta().contains_key(&MetaKey::UnaryOp(Not)) => {
                 let op = map.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
                 return self.call_overloaded_unary_op(result, value, op);
@@ -1415,9 +1415,7 @@ impl Vm {
                 let op = v.meta().get(&MetaKey::UnaryOp(Not)).unwrap().clone();
                 return self.call_overloaded_unary_op(result, value, op);
             }
-            unexpected => {
-                return unexpected_type_error("Bool (or value that implements @not)", unexpected)
-            }
+            _ => Bool(false), // All other values coerce to true, so return false
         };
         self.set_register(result, result_value);
 
@@ -1962,19 +1960,20 @@ impl Vm {
         )
     }
 
-    fn run_jump_if(
-        &mut self,
-        register: u8,
-        offset: usize,
-        jump_condition: bool,
-    ) -> InstructionResult {
-        match self.get_register(register) {
-            Value::Bool(b) => {
-                if *b == jump_condition {
-                    self.jump_ip(offset);
-                }
-            }
-            unexpected => return unexpected_type_error("Bool", unexpected),
+    fn run_jump_if_true(&mut self, register: u8, offset: usize) -> InstructionResult {
+        match &self.get_register(register) {
+            Value::Null => {}
+            Value::Bool(b) if !b => {}
+            _ => self.jump_ip(offset),
+        }
+        Ok(())
+    }
+
+    fn run_jump_if_false(&mut self, register: u8, offset: usize) -> InstructionResult {
+        match &self.get_register(register) {
+            Value::Null => self.jump_ip(offset),
+            Value::Bool(b) if !b => self.jump_ip(offset),
+            _ => {}
         }
         Ok(())
     }

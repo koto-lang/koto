@@ -36,8 +36,8 @@
 
   @test missing_args_set_to_empty: ||
     foo = |a, b|
-      a = if a == null then 100 else a
-      b = if b == null then 42 else b
+      a = a or 100
+      b = b or 42
       a + b
 
     assert_eq foo(), 142
