@@ -87,7 +87,7 @@ pub enum Instruction {
         target: u8,
         source: u8,
     },
-    SetEmpty {
+    SetNull {
         register: u8,
     },
     SetBool {
@@ -420,7 +420,7 @@ impl fmt::Display for Instruction {
         match self {
             Error { message } => unreachable!("{message}"),
             Copy { .. } => write!(f, "Copy"),
-            SetEmpty { .. } => write!(f, "SetEmpty"),
+            SetNull { .. } => write!(f, "SetNull"),
             SetBool { .. } => write!(f, "SetBool"),
             SetNumber { .. } => write!(f, "SetNumber"),
             LoadFloat { .. } => write!(f, "LoadFloat"),
@@ -504,7 +504,7 @@ impl fmt::Debug for Instruction {
         match self {
             Error { message } => unreachable!("{message}"),
             Copy { target, source } => write!(f, "Copy\t\tresult: {target}\tsource: {source}"),
-            SetEmpty { register } => write!(f, "SetEmpty\tresult: {register}"),
+            SetNull { register } => write!(f, "SetNull\t\tresult: {register}"),
             SetBool { register, value } => {
                 write!(f, "SetBool\t\tresult: {register}\tvalue: {value}")
             }
@@ -1014,7 +1014,7 @@ impl Iterator for InstructionReader {
                 target: get_u8!(),
                 source: get_u8!(),
             }),
-            Op::SetEmpty => Some(SetEmpty {
+            Op::SetNull => Some(SetNull {
                 register: get_u8!(),
             }),
             Op::SetFalse => Some(SetBool {

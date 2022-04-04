@@ -341,7 +341,7 @@ impl Koto {
     }
 
     pub fn set_script_path(&mut self, path: Option<PathBuf>) -> Result<(), KotoError> {
-        use Value::{Empty, Map, Str};
+        use Value::{Map, Null, Str};
 
         let (script_dir, script_path) = match &path {
             Some(path) => {
@@ -354,12 +354,12 @@ impl Koto {
                         let s = p.to_string_lossy();
                         Str(s.into_owned().into())
                     })
-                    .unwrap_or(Empty);
+                    .unwrap_or(Null);
                 let script_path = Str(path.display().to_string().into());
 
                 (script_dir, script_path)
             }
-            None => (Empty, Empty),
+            None => (Null, Null),
         };
 
         self.script_path = path;

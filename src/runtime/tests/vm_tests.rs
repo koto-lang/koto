@@ -17,8 +17,9 @@ mod vm {
         use super::*;
 
         #[test]
-        fn empty() {
-            test_script("()", Empty);
+        fn null() {
+            test_script("null", Null);
+            test_script("()", Null);
         }
 
         #[test]
@@ -360,7 +361,7 @@ x";
             let script = "
 a, b, c = [7, 8]
 a, b, c";
-            test_script(script, value_tuple(&[7.into(), 8.into(), Empty]));
+            test_script(script, value_tuple(&[7.into(), 8.into(), Null]));
         }
 
         #[test]
@@ -370,7 +371,7 @@ a, b, c = [1, 2], [3, 4]
 a, b, c";
             test_script(
                 script,
-                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Empty]),
+                value_tuple(&[number_list(&[1, 2]), number_list(&[3, 4]), Null]),
             );
         }
 
@@ -441,7 +442,7 @@ x";
 if 5 < 4
   42
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -454,7 +455,7 @@ else if 2 == 3
 else if false
   99
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -784,7 +785,7 @@ x
                         }
                     }
                 }
-                Ok(Empty)
+                Ok(Null)
             });
 
             test_script_with_vm(vm, script, expected_output);
@@ -799,13 +800,13 @@ x
         #[test]
         fn function() {
             let script = "assert 1 + 1 == 2";
-            test_script_with_prelude(script, Empty);
+            test_script_with_prelude(script, Null);
         }
 
         #[test]
         fn function_two_args() {
             let script = "assert 1 + 1 == 2, 2 < 3";
-            test_script_with_prelude(script, Empty);
+            test_script_with_prelude(script, Null);
         }
     }
 
@@ -852,7 +853,7 @@ add(5, 6)";
 foo = |a, b| b
 foo 42
 ";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -969,7 +970,7 @@ f 5, 10, 20, 30";
             let script = "
 f = |a, b...| b
 f()";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]
@@ -1046,7 +1047,7 @@ f = |x|
     return
   x
 f -42";
-            test_script(script, Empty);
+            test_script(script, Null);
         }
 
         #[test]

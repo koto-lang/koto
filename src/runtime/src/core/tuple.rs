@@ -43,14 +43,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("first", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => match t.data().first() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Empty),
+            None => Ok(Null),
         },
         unexpected => expected_tuple_error("first", unexpected),
     });
 
     result.add_fn("get", |vm, args| {
         let (tuple, index, default) = match vm.get_args(args) {
-            [Tuple(tuple), Number(n)] => (tuple, n, &Empty),
+            [Tuple(tuple), Number(n)] => (tuple, n, &Null),
             [Tuple(tuple), Number(n), default] => (tuple, n, default),
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -70,7 +70,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [Tuple(t)] => match t.data().last() {
             Some(value) => Ok(value.clone()),
-            None => Ok(Empty),
+            None => Ok(Null),
         },
         unexpected => expected_tuple_error("last", unexpected),
     });

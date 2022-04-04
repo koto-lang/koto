@@ -129,7 +129,7 @@ pub fn make_module() -> ValueMap {
             let bounds = usize::from(*from)..input.len();
             let result = match input.with_bounds(bounds) {
                 Some(result) => Str(result),
-                None => Empty,
+                None => Null,
             };
             Ok(result)
         }
@@ -137,7 +137,7 @@ pub fn make_module() -> ValueMap {
             let bounds = usize::from(*from)..usize::from(*to);
             let result = match input.with_bounds(bounds) {
                 Some(result) => Str(result),
-                None => Empty,
+                None => Null,
             };
             Ok(result)
         }

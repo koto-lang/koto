@@ -19,7 +19,7 @@ use {
 };
 
 pub fn make_module() -> ValueMap {
-    use Value::{Bool, Empty, Str};
+    use Value::{Bool, Null, Str};
 
     let result = ValueMap::new();
 
@@ -45,7 +45,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("current_dir", |_, _| {
         let result = match std::env::current_dir() {
             Ok(path) => Str(path.to_string_lossy().to_string().into()),
-            Err(_) => Empty,
+            Err(_) => Null,
         };
         Ok(result)
     });
@@ -126,7 +126,7 @@ pub fn make_module() -> ValueMap {
         };
 
         match result {
-            Ok(_) => Ok(Empty),
+            Ok(_) => Ok(Null),
             Err(e) => Err(e.with_prefix("io.print")),
         }
     });
@@ -150,7 +150,7 @@ pub fn make_module() -> ValueMap {
             [Str(path)] => {
                 let path = Path::new(path.as_str());
                 match fs::remove_file(&path) {
-                    Ok(_) => Ok(Value::Empty),
+                    Ok(_) => Ok(Value::Null),
                     Err(error) => runtime_error!(
                         "io.remove_file: Error while removing file '{}': {error}",
                         path.to_string_lossy(),
@@ -181,12 +181,12 @@ thread_local! {
 }
 
 fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
-    use Value::{Empty, Number, Str};
+    use Value::{Null, Number, Str};
 
     let mut meta = MetaMap::with_type_name("File");
 
     meta.add_named_instance_fn_mut("flush", |file: &mut File, _, _| match file.flush() {
-        Ok(_) => Ok(Empty),
+        Ok(_) => Ok(Null),
         Err(e) => Err(e.with_prefix("File.flush")),
     });
 
@@ -201,7 +201,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
                 let newline_bytes = if result.ends_with("\r\n") { 2 } else { 1 };
                 Ok(result[..result.len() - newline_bytes].into())
             }
-            Ok(None) => Ok(Empty),
+            Ok(None) => Ok(Null),
             Err(e) => Err(e.with_prefix("File.read_line")),
         }
     });
@@ -219,7 +219,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
                 return runtime_error!("File.seek: Negative seek positions not allowed");
             }
             match file.seek(n.into()) {
-                Ok(_) => Ok(Value::Empty),
+                Ok(_) => Ok(Value::Null),
                 Err(e) => Err(e.with_prefix("File.seek")),
             }
         }
@@ -232,7 +232,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
 
     meta.add_named_instance_fn_mut("write", |file: &mut File, _, args| match args {
         [value] => match file.write(value.to_string().as_bytes()) {
-            Ok(_) => Ok(Value::Empty),
+            Ok(_) => Ok(Value::Null),
             Err(e) => Err(e.with_prefix("File.write")),
         },
         unexpected => {
@@ -253,7 +253,7 @@ fn make_file_meta_map() -> Rc<RefCell<MetaMap>> {
             }
         };
         match file.write(line.as_bytes()) {
-            Ok(_) => Ok(Value::Empty),
+            Ok(_) => Ok(Value::Null),
             Err(e) => Err(e.with_prefix("File.write_line")),
         }
     });

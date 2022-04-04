@@ -12,7 +12,7 @@ use {
 #[derive(Clone, Debug)]
 pub enum Value {
     /// The default type representing the absence of a value
-    Empty,
+    Null,
 
     /// A boolean, can be either true or false
     Bool(bool),
@@ -93,7 +93,7 @@ impl Value {
     #[inline]
     pub(crate) fn as_ref(&self) -> ValueRef {
         match &self {
-            Value::Empty => ValueRef::Empty,
+            Value::Null => ValueRef::Null,
             Value::Bool(b) => ValueRef::Bool(b),
             Value::Number(n) => ValueRef::Number(n),
             Value::Num2(n) => ValueRef::Num2(n),
@@ -140,7 +140,7 @@ impl Value {
         use Value::*;
         matches!(
             self,
-            Empty | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
+            Null | Bool(_) | Number(_) | Num2(_) | Num4(_) | Range(_) | Str(_)
         )
     }
 
@@ -178,7 +178,7 @@ impl Value {
     pub fn type_as_string(&self) -> String {
         use Value::*;
         match &self {
-            Empty => "Empty".to_string(),
+            Null => "Null".to_string(),
             Bool(_) => "Bool".to_string(),
             Number(ValueNumber::F64(_)) => "Float".to_string(),
             Number(ValueNumber::I64(_)) => "Int".to_string(),
@@ -214,7 +214,7 @@ impl Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Value::Empty
+        Value::Null
     }
 }
 
@@ -222,7 +222,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
-            Empty => f.write_str("()"),
+            Null => f.write_str("null"),
             Bool(b) => write!(f, "{b}"),
             Number(n) => write!(f, "{n}"),
             Num2(n) => write!(f, "{n}"),

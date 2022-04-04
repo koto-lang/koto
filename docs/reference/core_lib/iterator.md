@@ -1,8 +1,7 @@
 # iterator
 
 Iterators in Koto provide access to sequences of data, yielding values via
-`.next()`, until the end of the sequence is reached and the empty value `()`
-is returned.
+`.next()`, until the end of the sequence is reached and Null is returned.
 
 ## Iterable Values
 
@@ -170,11 +169,11 @@ e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ## consume
 
-`|Iterable| -> ()`
+`|Iterable| -> Null`
 
 Consumes the output of the iterator.
 
-`|Iterable, Function| -> ()`
+`|Iterable, Function| -> Null`
 
 Consumes the output of the iterator, calling the provided function with each
 iterator output value.
@@ -310,7 +309,7 @@ if the value is a match, or `false` if it's not.
 
 The first matching value will cause iteration to stop.
 
-If no match is found then `()` is returned.
+If no match is found then Null is returned.
 
 ### Example
 
@@ -319,7 +318,7 @@ If no match is found then `()` is returned.
 # 15
 
 (10..20).find |x| x > 100
-# ()
+# Null
 ```
 
 ## flatten
@@ -479,7 +478,7 @@ Consumes the iterator, returning the last yielded value.
 # 5
 
 (0..0).last()
-# ()
+# Null
 ```
 
 ## max
@@ -577,7 +576,7 @@ x.next()
 x.next()
 # 2
 x.next()
-# ()
+# Null
 ```
 
 ## position
@@ -593,7 +592,7 @@ if the value is a match, or `false` if it's not.
 The first matching value will cause iteration to stop, and the number of
 steps taken to reach the matched value is returned as the result.
 
-If no match is found then `()` is returned.
+If no match is found then Null is returned.
 
 ### Example
 
@@ -602,7 +601,7 @@ If no match is found then `()` is returned.
 # 5
 
 (10..20).position |x| x == 99
-# ()
+# Null
 ```
 
 ### See Also
@@ -731,7 +730,7 @@ If a value is a tuple, then the first element in the tuple will be inserted as
 the key for the map entry, and the second element will be inserted as the value.
 
 If the value is anything other than a tuple, then it will be inserted as the map
-key, with `()` as the entry's value.
+key, with Null as the entry's value.
 
 ### Example
 

@@ -554,8 +554,8 @@ mod tests {
             check_format_output("{} foo {0}", &[Value::Number(1.into())], "1 foo 1");
             check_format_output(
                 "{1} - {0} {} - {}",
-                &[Value::Number(2.into()), Value::Empty],
-                "() - 2 2 - ()",
+                &[Value::Number(2.into()), Value::Null],
+                "null - 2 2 - null",
             );
         }
 

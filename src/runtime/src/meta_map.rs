@@ -131,7 +131,7 @@ impl MetaMap {
     ///     "set_to_zero",
     ///     |data: &mut FooData, _value, _extra_args| {
     ///         data.x = 0;
-    ///         Ok(Value::Empty),
+    ///         Ok(Value::Null),
     ///     }
     /// );
     pub fn add_named_instance_fn_mut<T, F>(&mut self, fn_name: &str, f: F)

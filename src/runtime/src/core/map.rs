@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("clear", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             m.data_mut().clear();
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => {
             unexpected_type_error_with_slice("map.clear", "a Map as argument", unexpected)
@@ -47,7 +47,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get", |vm, args| {
         let (map, key, default) = match vm.get_args(args) {
-            [Map(map), key] if key.is_immutable() => (map, key, &Empty),
+            [Map(map), key] if key.is_immutable() => (map, key, &Null),
             [Map(map), key, default] if key.is_immutable() => (map, key, default),
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -66,7 +66,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("get_index", |vm, args| {
         let (map, index, default) = match vm.get_args(args) {
-            [Map(map), Number(n)] => (map, n, &Empty),
+            [Map(map), Number(n)] => (map, n, &Null),
             [Map(map), Number(n), default] => (map, n, default),
             unexpected => {
                 return unexpected_type_error_with_slice(
@@ -85,15 +85,15 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
         [Map(m), key] if key.is_immutable() => {
-            match m.data_mut().insert(key.clone().into(), Empty) {
+            match m.data_mut().insert(key.clone().into(), Null) {
                 Some(old_value) => Ok(old_value),
-                None => Ok(Empty),
+                None => Ok(Null),
             }
         }
         [Map(m), key, value] if key.is_immutable() => {
             match m.data_mut().insert(key.clone().into(), value.clone()) {
                 Some(old_value) => Ok(old_value),
-                None => Ok(Empty),
+                None => Ok(Null),
             }
         }
         unexpected => unexpected_type_error_with_slice(
@@ -122,7 +122,7 @@ pub fn make_module() -> ValueMap {
         [Map(m), key] if key.is_immutable() => {
             match m.data_mut().shift_remove(&ValueKey::from(key.clone())) {
                 Some(old_value) => Ok(old_value),
-                None => Ok(Empty),
+                None => Ok(Null),
             }
         }
         unexpected => {
@@ -138,7 +138,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             m.data_mut().sort_keys();
-            Ok(Empty)
+            Ok(Null)
         }
         [Map(l), f] if f.is_callable() => {
             let m = l.clone();
@@ -167,7 +167,7 @@ pub fn make_module() -> ValueMap {
                         Ok(val) => val,
                         Err(e) => {
                             error.get_or_insert(Err(e.with_prefix("map.sort")));
-                            Empty
+                            Null
                         }
                     },
                 };
@@ -177,7 +177,7 @@ pub fn make_module() -> ValueMap {
                         Ok(val) => val,
                         Err(e) => {
                             error.get_or_insert(Err(e.with_prefix("map.sort")));
-                            Empty
+                            Null
                         }
                     },
                 };
@@ -194,7 +194,7 @@ pub fn make_module() -> ValueMap {
             if let Some(error) = error {
                 error
             } else {
-                Ok(Empty)
+                Ok(Null)
             }
         }
         unexpected => unexpected_type_error_with_slice(
@@ -206,7 +206,7 @@ pub fn make_module() -> ValueMap {
 
     result.add_fn("update", |vm, args| match vm.get_args(args) {
         [Map(m), key, f] if key.is_immutable() && f.is_callable() => {
-            do_map_update(m.clone(), key.clone().into(), Empty, f.clone(), vm)
+            do_map_update(m.clone(), key.clone().into(), Null, f.clone(), vm)
         }
         [Map(m), key, default, f] if key.is_immutable() && f.is_callable() => do_map_update(
             m.clone(),

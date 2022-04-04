@@ -15,10 +15,10 @@ pub enum Op {
     /// `[Copy, *target, *source]`
     Copy,
 
-    /// Sets a register to contain Empty
+    /// Sets a register to contain Null
     ///
     /// `[*target]`
-    SetEmpty,
+    SetNull,
 
     /// Sets a register to contain Bool(false)
     ///

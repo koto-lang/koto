@@ -143,7 +143,7 @@ pub fn make_module() -> ValueMap {
                     return Err(error);
                 }
             }
-            Ok(Empty)
+            Ok(Null)
         }
         [iterable, f] if iterable.is_iterable() && f.is_callable() => {
             let iterable = iterable.clone();
@@ -159,7 +159,7 @@ pub fn make_module() -> ValueMap {
                     Output::Error(error) => return Err(error),
                 }
             }
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.consume",
@@ -265,7 +265,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.find",
@@ -409,7 +409,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("last", |vm, args| match vm.get_args(args) {
         [iterable] if iterable.is_iterable() => {
             let iterable = iterable.clone();
-            let mut result = Empty;
+            let mut result = Null;
 
             let mut iter = vm.make_iterator(iterable)?.map(collect_pair);
             for output in &mut iter {
@@ -490,7 +490,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(result.map_or(Empty, |(min, max)| Tuple(vec![min, max].into())))
+            Ok(result.map_or(Null, |(min, max)| Tuple(vec![min, max].into())))
         }
         [iterable, key_fn] if iterable.is_iterable() && key_fn.is_callable() => {
             let iterable = iterable.clone();
@@ -529,7 +529,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(result.map_or(Empty, |((min, _), (max, _))| Tuple(vec![min, max].into())))
+            Ok(result.map_or(Null, |((min, _), (max, _))| Tuple(vec![min, max].into())))
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.min_max",
@@ -542,7 +542,7 @@ pub fn make_module() -> ValueMap {
         [Iterator(i)] => match i.clone().next().map(collect_pair) {
             Some(Output::Value(value)) => Ok(value),
             Some(Output::Error(error)) => Err(error),
-            None => Ok(Value::Empty),
+            None => Ok(Value::Null),
             _ => unreachable!(),
         },
         unexpected => {
@@ -583,7 +583,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
 
-            Ok(Empty)
+            Ok(Null)
         }
         unexpected => unexpected_type_error_with_slice(
             "iterator.position",
@@ -738,7 +738,7 @@ pub fn make_module() -> ValueMap {
                         result.insert(key.into(), value);
                     }
                     Output::Value(value) => {
-                        result.insert(value.into(), Value::Empty);
+                        result.insert(value.into(), Value::Null);
                     }
                     Output::Error(error) => return Err(error),
                 }
@@ -942,7 +942,7 @@ fn run_iterator_comparison_by_key(
         }
     }
 
-    Ok(result_and_key.map_or(Value::Empty, |(value, _)| value))
+    Ok(result_and_key.map_or(Value::Null, |(value, _)| value))
 }
 
 // Compares two values using BinaryOp::Less

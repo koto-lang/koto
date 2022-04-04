@@ -413,10 +413,10 @@ impl Compiler {
         self.span_stack.push(*ast.span(node.span));
 
         let result = match &node.node {
-            Node::Empty => {
+            Node::Null => {
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
@@ -622,7 +622,7 @@ impl Compiler {
 
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
@@ -631,19 +631,19 @@ impl Compiler {
 
                 let result = self.get_result_register(result_register)?;
                 if let Some(result) = result {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                 }
                 result
             }
             Node::Return(None) => match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                     self.push_op(Return, &[result.register]);
                     Some(result)
                 }
                 None => {
                     let register = self.push_register()?;
-                    self.push_op(SetEmpty, &[register]);
+                    self.push_op(SetNull, &[register]);
                     self.push_op(Return, &[register]);
                     self.pop_register()?;
                     None
@@ -807,7 +807,7 @@ impl Compiler {
             }
         } else {
             let register = self.push_register()?;
-            self.push_op(Op::SetEmpty, &[register]);
+            self.push_op(Op::SetNull, &[register]);
             self.push_op_without_span(Op::Return, &[register]);
             self.pop_register()?;
         }
@@ -930,18 +930,18 @@ impl Compiler {
         expressions: &[AstIndex],
         ast: &Ast,
     ) -> CompileNodeResult {
-        use Op::SetEmpty;
+        use Op::SetNull;
 
         let result = match expressions {
             [] => match self.get_result_register(result_register)? {
                 Some(result) => {
-                    self.push_op(SetEmpty, &[result.register]);
+                    self.push_op(SetNull, &[result.register]);
                     Some(result)
                 }
                 None => {
                     // TODO Under what conditions do we get into this branch?
                     let register = self.push_register()?;
-                    self.push_op(SetEmpty, &[register]);
+                    self.push_op(SetNull, &[register]);
                     Some(CompileResult::with_temporary(register))
                 }
             },
@@ -2866,7 +2866,7 @@ impl Compiler {
         if let Some(else_node) = else_node {
             self.compile_node(expression_result_register, ast.node(*else_node), ast)?;
         } else if let Some(result) = result {
-            self.push_op_without_span(SetEmpty, &[result.register]);
+            self.push_op_without_span(SetNull, &[result.register]);
         }
 
         // We're at the end, so update the if and else if jump placeholders
@@ -3145,7 +3145,7 @@ impl Compiler {
             let pattern_node = ast.node(*pattern);
 
             match &pattern_node.node {
-                Node::Empty
+                Node::Null
                 | Node::BoolTrue
                 | Node::BoolFalse
                 | Node::Number0
@@ -3415,7 +3415,7 @@ impl Compiler {
 
         let result = self.get_result_register(result_register)?;
         if let Some(result) = result {
-            self.push_op(SetEmpty, &[result.register]);
+            self.push_op(SetNull, &[result.register]);
         }
 
         let stack_count = self.frame().register_stack.len();

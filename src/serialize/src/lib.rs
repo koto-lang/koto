@@ -13,7 +13,7 @@ impl<'a> Serialize for SerializableValue<'a> {
         S: Serializer,
     {
         match self.0 {
-            Value::Empty => s.serialize_unit(),
+            Value::Null => s.serialize_unit(),
             Value::Bool(b) => s.serialize_bool(*b),
             Value::Number(n) => {
                 if n.is_f64() {

@@ -24,7 +24,7 @@ pub fn make_module() -> ValueMap {
                 }
             }
         }
-        Ok(Empty)
+        Ok(Null)
     });
 
     result.add_fn("assert_eq", |vm, args| match vm.get_args(args) {
@@ -33,7 +33,7 @@ pub fn make_module() -> ValueMap {
             let b = b.clone();
             let result = vm.run_binary_op(BinaryOp::Equal, a.clone(), b.clone());
             match result {
-                Ok(Bool(true)) => Ok(Empty),
+                Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{a}' is not equal to '{b}'")
                 }
@@ -54,7 +54,7 @@ pub fn make_module() -> ValueMap {
             let b = b.clone();
             let result = vm.run_binary_op(BinaryOp::NotEqual, a.clone(), b.clone());
             match result {
-                Ok(Bool(true)) => Ok(Empty),
+                Ok(Bool(true)) => Ok(Null),
                 Ok(Bool(false)) => {
                     runtime_error!("Assertion failed, '{a}' should not be equal to '{b}'")
                 }
@@ -72,7 +72,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
         [Number(a), Number(b), Number(allowed_diff)] => {
             if number_near(*a, *b, *allowed_diff) {
-                Ok(Empty)
+                Ok(Null)
             } else {
                 runtime_error!(
                     "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
@@ -82,7 +82,7 @@ pub fn make_module() -> ValueMap {
         [Num2(a), Num2(b), Number(allowed_diff)] => {
             let allowed_diff: f64 = allowed_diff.into();
             if f64_near(a.0, b.0, allowed_diff) && f64_near(a.1, b.1, allowed_diff) {
-                Ok(Empty)
+                Ok(Null)
             } else {
                 runtime_error!(
                     "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
@@ -96,7 +96,7 @@ pub fn make_module() -> ValueMap {
                 && f32_near(a.2, b.2, allowed_diff)
                 && f32_near(a.3, b.3, allowed_diff)
             {
-                Ok(Empty)
+                Ok(Null)
             } else {
                 runtime_error!(
                     "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"

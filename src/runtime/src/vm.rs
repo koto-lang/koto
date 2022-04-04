@@ -265,8 +265,8 @@ impl Vm {
         // Set up an execution frame to run the chunk in
         let result_register = self.next_register();
         let frame_base = result_register + 1;
-        self.value_stack.push(Value::Empty); // result register
-        self.value_stack.push(Value::Empty); // instance register
+        self.value_stack.push(Value::Null); // result register
+        self.value_stack.push(Value::Null); // instance register
         self.push_frame(chunk, 0, frame_base, result_register);
 
         // Ensure that execution stops here if an error is thrown
@@ -285,7 +285,7 @@ impl Vm {
     /// leave the VM in a suspended state.
     pub fn continue_running(&mut self) -> RuntimeResult {
         if self.call_stack.is_empty() {
-            Ok(Value::Empty)
+            Ok(Value::Null)
         } else {
             self.execute_instructions()
         }
@@ -325,7 +325,7 @@ impl Vm {
             None
         };
 
-        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(Value::Null); // result register
         self.value_stack.push(instance.unwrap_or_default()); // frame base
         let (args_count, temp_tuple_values) = match args {
             CallArgs::None => (0, None),
@@ -401,7 +401,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Empty)?;
+                self.pop_frame(Value::Null)?;
             }
             result
         };
@@ -415,7 +415,7 @@ impl Vm {
         let result_register = self.next_register();
         let value_register = result_register + 1;
 
-        self.value_stack.push(Value::Empty); // result_register
+        self.value_stack.push(Value::Null); // result_register
         self.value_stack.push(value); // value_register
 
         match op {
@@ -433,7 +433,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Empty)?;
+                self.pop_frame(Value::Null)?;
             }
             result
         };
@@ -448,7 +448,7 @@ impl Vm {
         let lhs_register = result_register + 1;
         let rhs_register = result_register + 2;
 
-        self.value_stack.push(Value::Empty); // result register
+        self.value_stack.push(Value::Null); // result register
         self.value_stack.push(lhs);
         self.value_stack.push(rhs);
 
@@ -481,7 +481,7 @@ impl Vm {
             self.frame_mut().execution_barrier = true;
             let result = self.execute_instructions();
             if result.is_err() {
-                self.pop_frame(Value::Empty)?;
+                self.pop_frame(Value::Null)?;
             }
             result
         };
@@ -520,7 +520,7 @@ impl Vm {
     }
 
     pub fn run_tests(&mut self, tests: ValueMap) -> RuntimeResult {
-        use Value::{Empty, Function, Map};
+        use Value::{Null, Function, Map};
 
         // It's important throughout this function to make sure we don't hang on to any references
         // to the internal test map data while calling the test functions, otherwise we'll end up in
@@ -612,11 +612,11 @@ impl Vm {
             }
         }
 
-        Ok(Empty)
+        Ok(Null)
     }
 
     fn execute_instructions(&mut self) -> RuntimeResult {
-        let mut result = Value::Empty;
+        let mut result = Value::Null;
 
         self.instruction_ip = self.ip();
 
@@ -645,7 +645,7 @@ impl Vm {
                                 return Err(error);
                             }
 
-                            self.pop_frame(Value::Empty)?;
+                            self.pop_frame(Value::Null)?;
 
                             if !self.call_stack.is_empty() {
                                 error.extend_trace(self.chunk(), self.instruction_ip);
@@ -686,8 +686,8 @@ impl Vm {
                 self.set_register(target, self.clone_register(source));
                 Ok(())
             }
-            Instruction::SetEmpty { register } => {
-                self.set_register(register, Empty);
+            Instruction::SetNull { register } => {
+                self.set_register(register, Null);
                 Ok(())
             }
             Instruction::SetBool { register, value } => {
@@ -1222,11 +1222,11 @@ impl Vm {
         let result = match self.get_register(value) {
             List(list) => {
                 let index = signed_index_to_unsigned(index, list.data().len());
-                list.data().get(index).cloned().unwrap_or(Empty)
+                list.data().get(index).cloned().unwrap_or(Null)
             }
             Tuple(tuple) => {
                 let index = signed_index_to_unsigned(index, tuple.data().len());
-                tuple.data().get(index).cloned().unwrap_or(Empty)
+                tuple.data().get(index).cloned().unwrap_or(Null)
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
@@ -1234,7 +1234,7 @@ impl Vm {
                     let index = signed_index_to_unsigned(index, count as usize);
                     self.clone_register(start + index as u8)
                 } else {
-                    Empty
+                    Null
                 }
             }
             Num2(n) => {
@@ -1242,7 +1242,7 @@ impl Vm {
                 if index < 2 {
                     Number(n[index].into())
                 } else {
-                    Empty
+                    Null
                 }
             }
             Num4(n) => {
@@ -1250,7 +1250,7 @@ impl Vm {
                 if index < 4 {
                     Number(n[index].into())
                 } else {
-                    Empty
+                    Null
                 }
             }
             unexpected => return unexpected_type_error("indexable value", unexpected),
@@ -1276,11 +1276,11 @@ impl Vm {
                 if is_slice_to {
                     list.data()
                         .get(..index)
-                        .map_or(Empty, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
                 } else {
                     list.data()
                         .get(index..)
-                        .map_or(Empty, |entries| List(ValueList::from_slice(entries)))
+                        .map_or(Null, |entries| List(ValueList::from_slice(entries)))
                 }
             }
             Tuple(tuple) => {
@@ -1289,12 +1289,12 @@ impl Vm {
                     tuple
                         .data()
                         .get(..index)
-                        .map_or(Empty, |entries| Tuple(entries.into()))
+                        .map_or(Null, |entries| Tuple(entries.into()))
                 } else {
                     tuple
                         .data()
                         .get(index..)
-                        .map_or(Empty, |entries| Tuple(entries.into()))
+                        .map_or(Null, |entries| Tuple(entries.into()))
                 }
             }
             unexpected => return unexpected_type_error("List or Tuple", unexpected),
@@ -1319,10 +1319,10 @@ impl Vm {
                 arg_is_unpacked_tuple,
                 size,
             } => {
-                // Initialize the function's captures with Empty
+                // Initialize the function's captures with Null
                 let captures = if capture_count > 0 {
                     let mut captures = ValueVec::new();
-                    captures.resize(capture_count as usize, Empty);
+                    captures.resize(capture_count as usize, Null);
                     Some(ValueList::with_data(captures))
                 } else {
                     None
@@ -1729,7 +1729,7 @@ impl Vm {
             (Str(a), Str(b)) => a == b,
             (Range(a), Range(b)) => a == b,
             (IndexRange(a), IndexRange(b)) => a == b,
-            (Empty, Empty) => true,
+            (Null, Null) => true,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1799,7 +1799,7 @@ impl Vm {
             (Str(a), Str(b)) => a != b,
             (Range(a), Range(b)) => a != b,
             (IndexRange(a), IndexRange(b)) => a != b,
-            (Empty, Empty) => false,
+            (Null, Null) => false,
             (List(a), List(b)) => {
                 let a = a.clone();
                 let b = b.clone();
@@ -1917,13 +1917,13 @@ impl Vm {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.value_stack.len() {
-            self.set_register(result_register, Value::Empty);
+            self.set_register(result_register, Value::Null);
         }
 
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
-        self.value_stack.push(Value::Empty); // frame_base
+        self.value_stack.push(Value::Null); // frame_base
         self.call_callable(
             result_register,
             op,
@@ -1944,13 +1944,13 @@ impl Vm {
         // Ensure that the result register is present in the stack, otherwise it might be lost after
         // the call to the op, which expects a frame base at or after the result register.
         if self.register_index(result_register) >= self.value_stack.len() {
-            self.set_register(result_register, Value::Empty);
+            self.set_register(result_register, Value::Null);
         }
 
         // Set up the call registers at the end of the stack
         let stack_len = self.value_stack.len();
         let frame_base = (stack_len - self.register_base()) as u8;
-        self.value_stack.push(Value::Empty); // frame_base
+        self.value_stack.push(Value::Null); // frame_base
         self.value_stack.push(rhs); // arg
         self.call_callable(
             result_register,
@@ -2689,10 +2689,10 @@ impl Vm {
             generator_vm.set_register(arg_index as u8 + arg_offset, arg);
         }
 
-        // Ensure that registers for missing arguments are set to Empty
+        // Ensure that registers for missing arguments are set to Null
         if call_arg_count < expected_arg_count {
             for arg_index in call_arg_count..expected_arg_count {
-                generator_vm.set_register(arg_index as u8 + arg_offset, Value::Empty);
+                generator_vm.set_register(arg_index as u8 + arg_offset, Value::Null);
             }
         }
 
@@ -2708,7 +2708,7 @@ impl Vm {
                     Value::Tuple(self.register_slice(varargs_start, varargs_count).into());
                 generator_vm.set_register(variadic_register, varargs);
             } else {
-                generator_vm.set_register(variadic_register, Value::Empty);
+                generator_vm.set_register(variadic_register, Value::Null);
             }
         }
         // Place any captures in the registers following the arguments
@@ -2796,11 +2796,11 @@ impl Vm {
             self.value_stack
                 .truncate(frame_base_index + missing_args as usize);
         }
-        // Ensure that registers have been filled with Empty for any missing args.
+        // Ensure that registers have been filled with Null for any missing args.
         // If there are extra args, truncating is necessary at this point. Extra args have either
         // been bundled into a variadic Tuple or they can be ignored.
         self.value_stack
-            .resize(frame_base_index + function_arg_count as usize, Value::Empty);
+            .resize(frame_base_index + function_arg_count as usize, Value::Null);
 
         if let Some(captures) = captures {
             // Copy the captures list into the registers following the args
@@ -2842,11 +2842,11 @@ impl Vm {
                 // Remove any temporary registers used to prepare the call args
                 self.value_stack
                     .truncate(frame_base_index + call_arg_count as usize);
-                // Ensure that registers have been filled with Empty for any missing args.
+                // Ensure that registers have been filled with Null for any missing args.
                 // If there are extra args, truncating is OK at this point (variadic calls aren't
                 // available for SimpleFunction).
                 self.value_stack
-                    .resize(frame_base_index + function_arg_count as usize, Value::Empty);
+                    .resize(frame_base_index + function_arg_count as usize, Value::Null);
 
                 // Set up a new frame for the called function
                 self.push_frame(chunk, function_ip, frame_base, result_register);
@@ -3105,7 +3105,7 @@ impl Vm {
         let index = self.register_index(register);
 
         if index >= self.value_stack.len() {
-            self.value_stack.resize(index + 1, Value::Empty);
+            self.value_stack.resize(index + 1, Value::Null);
         }
 
         self.value_stack[index] = value;
@@ -3115,10 +3115,10 @@ impl Vm {
         self.get_register(register).clone()
     }
 
-    // Moves a value out of the stack, replacing it with Empty
+    // Moves a value out of the stack, replacing it with Null
     fn remove_register(&mut self, register: u8) -> Value {
         let index = self.register_index(register);
-        self.value_stack.push(Value::Empty);
+        self.value_stack.push(Value::Null);
         self.value_stack.swap_remove(index)
     }
 

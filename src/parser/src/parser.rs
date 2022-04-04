@@ -1360,7 +1360,7 @@ impl<'source> Parser<'source> {
             let result = match peeked.token {
                 Token::Null => {
                     self.consume_next_token(context);
-                    self.push_node(Empty)
+                    self.push_node(Null)
                 }
                 Token::True => {
                     self.consume_next_token(context);
@@ -2268,7 +2268,7 @@ impl<'source> Parser<'source> {
 
                     if self.peek_token() == Some(RoundClose) {
                         self.consume_token();
-                        Some(self.push_node(Node::Empty)?)
+                        Some(self.push_node(Node::Null)?)
                     } else {
                         let tuple_patterns = self.parse_nested_match_patterns()?;
 
@@ -2523,7 +2523,7 @@ impl<'source> Parser<'source> {
 
     // Parses expressions contained in round parentheses
     // The result may be:
-    //   - Empty
+    //   - Null
     //   - A single value
     //   - A comma-separated tuple
     fn parse_nested_expressions(
@@ -2576,7 +2576,7 @@ impl<'source> Parser<'source> {
         }
 
         let expressions_node = match expressions.as_slice() {
-            [] if !last_token_was_a_comma => self.push_node(Node::Empty)?,
+            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
             [single_expression] if !last_token_was_a_comma => {
                 self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
             }
