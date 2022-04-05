@@ -90,12 +90,15 @@ mod repl_mode {
 
     #[test]
     fn basic_arithmetic() {
-        run_repl_mode_test(&[("a = 2", ""), ("io.print a + a", "4")]);
+        run_repl_mode_test(&[("a = 2", ""), ("print a + a", "4")]);
     }
 
     #[test]
     fn import_print() {
-        run_repl_mode_test(&[("import io.print", ""), ("print 'hello!'", "hello!")]);
+        run_repl_mode_test(&[
+            ("print2 = import io.print", ""),
+            ("print2 'hello!'", "hello!"),
+        ]);
     }
 
     #[test]
@@ -106,7 +109,7 @@ mod repl_mode {
             (
                 "
 for x in min..=max
-  io.print 'x: $x'
+  print 'x: $x'
 ",
                 "
 x: 1
@@ -119,11 +122,11 @@ x: 3
 
     #[test]
     fn negated_id() {
-        run_repl_mode_test(&[("a = 2", ""), ("b = -a", ""), ("io.print a + b", "0")]);
+        run_repl_mode_test(&[("a = 2", ""), ("b = -a", ""), ("print a + b", "0")]);
     }
 
     #[test]
     fn multi_assign() {
-        run_repl_mode_test(&[("x, y = 1, 2", ""), ("io.print x + y", " 3")]);
+        run_repl_mode_test(&[("x, y = 1, 2", ""), ("print x + y", " 3")]);
     }
 }
