@@ -82,7 +82,11 @@ impl Repl {
 
             if let Event::Key(key_event) = read()? {
                 // Handle the keypress
-                self.on_keypress(key_event, &mut stdout)?;
+                let should_exit = self.on_keypress(key_event, &mut stdout)?;
+
+                if should_exit {
+                    return Ok(());
+                }
 
                 // Show the prompt
                 if stdout.is_tty() {
@@ -118,7 +122,10 @@ impl Repl {
         }
     }
 
-    fn on_keypress(&mut self, event: KeyEvent, stdout: &mut Stdout) -> Result<()> {
+    // Handles a single input keypress
+    //
+    // Returns true if the REPL should exit
+    fn on_keypress(&mut self, event: KeyEvent, stdout: &mut Stdout) -> Result<bool> {
         match event.code {
             KeyCode::Up => {
                 if !self.input_history.is_empty() {
@@ -190,10 +197,7 @@ impl Repl {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
                         stdout.flush().unwrap();
-                        if stdout.is_tty() {
-                            terminal::disable_raw_mode()?;
-                        }
-                        std::process::exit(0)
+                        return Ok(true);
                     } else {
                         self.input.clear();
                         self.cursor = 0;
@@ -202,10 +206,7 @@ impl Repl {
                 'd' if self.input.is_empty() => {
                     write!(stdout, "^D\r\n").unwrap();
                     stdout.flush().unwrap();
-                    if stdout.is_tty() {
-                        terminal::disable_raw_mode()?;
-                    }
-                    std::process::exit(0)
+                    return Ok(true);
                 }
                 _ => {}
             },
@@ -216,7 +217,7 @@ impl Repl {
             _ => {}
         }
 
-        Ok(())
+        Ok(false)
     }
 
     fn on_enter(&mut self, stdout: &mut Stdout) -> Result<()> {
