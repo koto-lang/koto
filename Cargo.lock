@@ -513,6 +513,7 @@ dependencies = [
  "koto_yaml",
  "pico-args",
  "pulldown-cmark",
+ "unicode-width",
 ]
 
 [[package]]
