@@ -11,5 +11,5 @@ repository = "https://github.com/koto-lang/koto"
 keywords = ["scripting", "language", "koto"]
 
 [dependencies]
-unicode-width = "0.1.7"
-unicode-xid = "0.2.0"
+unicode-width = "0.1.9"
+unicode-xid = "0.2.2"
