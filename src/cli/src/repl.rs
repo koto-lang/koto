@@ -108,12 +108,14 @@ impl Repl {
 
                     // Is the cursor inside the input?
                     if self.cursor < self.input.len() {
-                        let x_offset = self.input[self.cursor..]
-                            .iter()
-                            .map(|c| c.width().unwrap_or_default())
-                            .sum::<usize>();
-                        let (cursor_x, cursor_y) = cursor::position()?;
-                        queue!(stdout, cursor::MoveTo(cursor_x - x_offset as u16, cursor_y))?;
+                        let cursor_x = prompt.len()
+                            + self.input[..self.cursor]
+                                .iter()
+                                .map(|c| c.width().unwrap_or(0))
+                                .sum::<usize>()
+                            - 1;
+
+                        queue!(stdout, cursor::MoveTo(cursor_x as u16, cursor_y))?;
                     }
 
                     stdout.flush().unwrap();
