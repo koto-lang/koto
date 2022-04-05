@@ -199,6 +199,9 @@ impl Repl {
                     if self.input.is_empty() {
                         write!(stdout, "^C\r\n").unwrap();
                         stdout.flush().unwrap();
+                        if stdout.is_tty() {
+                            terminal::disable_raw_mode()?;
+                        }
                         return Ok(true);
                     } else {
                         self.input.clear();
@@ -208,6 +211,9 @@ impl Repl {
                 'd' if self.input.is_empty() => {
                     write!(stdout, "^D\r\n").unwrap();
                     stdout.flush().unwrap();
+                    if stdout.is_tty() {
+                        terminal::disable_raw_mode()?;
+                    }
                     return Ok(true);
                 }
                 _ => {}
