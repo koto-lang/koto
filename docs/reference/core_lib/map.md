@@ -105,7 +105,7 @@ The `+` operator can be used to merge two maps together.
 x = {hello: 123}
 y = {goodbye: 99}
 x + y
-# {hello, goodbye}
+# {hello: 123, goodbye: 99}
 ```
 
 ### Meta Maps and overloaded operations
@@ -495,15 +495,15 @@ x =
   tschüss: 99
 x.sort() # Sorts the map by key
 x
-# {bye, hello, tschüss}
+# {bye: -1, hello: 123, tschüss: 99}
 
 x.sort |_, value| value # Sort the map by value
 x
-# {bye, tschüss, hello}
+# {bye: -1, tschüss: 99, hello: 123}
 
 x.sort |key, _| -key.size() # Sort the map by reversed key length
 x
-# {tschüss, hello, bye}
+# {tschüss: 99, hello: 123, bye: -1}
 ```
 
 ## update
