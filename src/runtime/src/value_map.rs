@@ -151,6 +151,15 @@ impl ValueMap {
         }
     }
 
+    // Makes a ValueMap taking the data map from the first arg, and the meta map from the second
+    #[inline]
+    pub fn from_data_and_meta_maps(data: &Self, meta: &Self) -> Self {
+        Self {
+            data: data.data.clone(),
+            meta: meta.meta.clone(),
+        }
+    }
+
     #[inline]
     pub fn data(&self) -> Ref<DataMap> {
         self.data.borrow()
@@ -162,8 +171,8 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn meta_map(&self) -> Option<Ref<MetaMap>> {
-        self.meta.as_ref().map(|meta| meta.borrow())
+    pub fn meta_map(&self) -> Option<&Rc<RefCell<MetaMap>>> {
+        self.meta.as_ref()
     }
 
     /// Returns true if the meta map contains an entry with the given key

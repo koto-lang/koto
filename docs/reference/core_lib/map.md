@@ -190,6 +190,7 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 - [deep_copy](#deep_copy)
 - [get](#get)
 - [get_index](#get_index)
+- [get_meta_map](#get_meta_map)
 - [insert](#insert)
 - [is_empty](#is_empty)
 - [keys](#keys)
@@ -198,6 +199,7 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 - [sort](#sort)
 - [update](#update)
 - [values](#values)
+- [with_meta_map](#with_meta_map)
 
 ## clear
 
@@ -335,6 +337,35 @@ x.get_index 99, "xyz"
 ### See also
 
 - [`map.get`](#get)
+
+
+## get_meta_map
+
+`|Map| -> Map`
+
+Returns a Map that contains the input's Meta Map, and no data.
+
+### Example
+
+```koto
+my_map =
+  data: 42
+  @type: 'My Map'
+
+meta = my_map.get_meta_map()
+
+my_map.keys().count()
+# 1
+meta.keys().count()
+# 0
+
+meta.type
+# My Map
+```
+
+### See also
+
+- [`map.with_meta_map`](#with_meta_map)
 
 ## insert
 
@@ -574,3 +605,32 @@ x.next()
 ### See also
 
 - [`map.keys`](#keys)
+
+## with_meta_map
+
+`|Map, Map| -> Map`
+
+Returns a Map that contains the data from the first argument, and the Meta Map
+from the second argument.
+
+### Example
+
+```koto
+my_meta =
+  @type: 'My Meta'
+
+my_data =
+  foo: 42
+
+x = my_data.with_meta_map my_meta
+
+koto.type my_data
+# Map
+
+koto.type x
+# My Meta
+```
+
+### See also
+
+- [`map.get_meta_map`](#get_meta_map)

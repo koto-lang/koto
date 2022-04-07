@@ -123,7 +123,7 @@ impl Value {
                     .iter()
                     .map(|(k, v)| (k.clone(), v.deep_copy()))
                     .collect();
-                let meta = m.meta_map().map(|meta| meta.clone());
+                let meta = m.meta_map().map(|meta| meta.borrow().clone());
                 Map(ValueMap::with_contents(data, meta))
             }
             Iterator(i) => Iterator(i.make_copy()),

@@ -524,11 +524,14 @@ impl Vm {
         // deadlocks when the map needs to be modified (e.g. in pre or post test functions).
 
         let (pre_test, post_test, meta_entry_count) = match tests.meta_map() {
-            Some(meta) => (
-                tests.get_meta_value(&MetaKey::PreTest),
-                tests.get_meta_value(&MetaKey::PostTest),
-                meta.len(),
-            ),
+            Some(meta) => {
+                let meta = meta.borrow();
+                (
+                    meta.get(&MetaKey::PreTest).cloned(),
+                    meta.get(&MetaKey::PostTest).cloned(),
+                    meta.len(),
+                )
+            }
             None => (None, None, 0),
         };
 
@@ -544,7 +547,8 @@ impl Vm {
 
         for i in 0..meta_entry_count {
             let meta_entry = tests.meta_map().and_then(|meta| {
-                meta.get_index(i)
+                meta.borrow()
+                    .get_index(i)
                     .map(|(key, value)| (key.clone(), value.clone()))
             });
 
@@ -1467,12 +1471,12 @@ impl Vm {
 
                         let meta = match (map.meta_map(), rhs_map.meta_map()) {
                             (Some(lhs), Some(rhs)) => {
-                                let mut lhs = lhs.clone();
-                                lhs.extend(&rhs);
+                                let mut lhs = lhs.borrow().clone();
+                                lhs.extend(&rhs.borrow());
                                 Some(lhs)
                             }
-                            (Some(lhs), None) => Some(lhs.clone()),
-                            (None, Some(rhs)) => Some(rhs.clone()),
+                            (Some(lhs), None) => Some(lhs.borrow().clone()),
+                            (None, Some(rhs)) => Some(rhs.borrow().clone()),
                             (None, None) => None,
                         };
                         Map(ValueMap::with_contents(data, meta))
