@@ -104,7 +104,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Bool(m.data().is_empty())),
+        [Map(m)] => Ok(Bool(m.is_empty())),
         unexpected => {
             unexpected_type_error_with_slice("map.is_empty", "a Map as argument", unexpected)
         }

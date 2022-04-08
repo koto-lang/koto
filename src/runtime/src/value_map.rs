@@ -2,7 +2,7 @@ use {
     crate::{
         external::{Args, ExternalFunction},
         value_key::ValueKeyRef,
-        MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
+        MetaKey, MetaMap, RuntimeResult, Value, ValueKey, ValueList, Vm,
     },
     indexmap::IndexMap,
     rustc_hash::FxHasher,
@@ -124,7 +124,7 @@ impl FromIterator<(ValueKey, Value)> for DataMap {
 #[derive(Clone, Debug, Default)]
 pub struct ValueMap {
     data: Rc<RefCell<DataMap>>,
-    meta: Rc<RefCell<MetaMap>>,
+    meta: Option<Rc<RefCell<MetaMap>>>,
 }
 
 impl ValueMap {
@@ -135,19 +135,19 @@ impl ValueMap {
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        Self::with_contents(DataMap::with_capacity(capacity), MetaMap::default())
+        Self::with_contents(DataMap::with_capacity(capacity), None)
     }
 
     #[inline]
     pub fn with_data(data: DataMap) -> Self {
-        Self::with_contents(data, MetaMap::default())
+        Self::with_contents(data, None)
     }
 
     #[inline]
-    pub fn with_contents(data: DataMap, meta: MetaMap) -> Self {
+    pub fn with_contents(data: DataMap, meta: Option<MetaMap>) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),
-            meta: Rc::new(RefCell::new(meta)),
+            meta: meta.map(|meta| Rc::new(RefCell::new(meta))),
         }
     }
 
@@ -162,18 +162,38 @@ impl ValueMap {
     }
 
     #[inline]
-    pub fn meta(&self) -> Ref<MetaMap> {
-        self.meta.borrow()
+    pub fn meta_map(&self) -> Option<Ref<MetaMap>> {
+        self.meta.as_ref().map(|meta| meta.borrow())
     }
 
+    /// Returns true if the meta map contains an entry with the given key
     #[inline]
-    pub fn meta_mut(&self) -> RefMut<MetaMap> {
-        self.meta.borrow_mut()
+    pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
+        self.meta
+            .as_ref()
+            .map_or(false, |meta| meta.borrow().contains_key(key))
+    }
+
+    /// Returns a clone of the meta value corresponding to the given key
+    #[inline]
+    pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
+        self.meta
+            .as_ref()
+            .and_then(|meta| meta.borrow().get(key).cloned())
     }
 
     #[inline]
     pub fn insert(&self, key: ValueKey, value: Value) {
         self.data_mut().insert(key, value);
+    }
+
+    /// Inserts a value into the meta map, initializing the meta map if it doesn't yet exist
+    #[inline]
+    pub fn insert_meta(&mut self, key: MetaKey, value: Value) {
+        self.meta
+            .get_or_insert_with(Default::default)
+            .borrow_mut()
+            .insert(key, value);
     }
 
     #[inline]

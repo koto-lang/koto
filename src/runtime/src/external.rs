@@ -1,5 +1,5 @@
 use {
-    crate::{MetaMap, RuntimeResult, Vm},
+    crate::{MetaKey, MetaMap, RuntimeResult, Value, Vm},
     downcast_rs::impl_downcast,
     std::{
         cell::{Ref, RefCell, RefMut},
@@ -70,8 +70,14 @@ impl ExternalValue {
         self.data.borrow_mut()
     }
 
-    pub fn meta(&self) -> Ref<MetaMap> {
-        self.meta.borrow()
+    /// Returns true if the value's meta map contains an entry with the given key
+    pub fn contains_meta_key(&self, key: &MetaKey) -> bool {
+        self.meta.borrow().contains_key(key)
+    }
+
+    /// Returns a clone of the meta value corresponding to the given key
+    pub fn get_meta_value(&self, key: &MetaKey) -> Option<Value> {
+        self.meta.borrow().get(key).cloned()
     }
 }
 

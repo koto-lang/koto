@@ -216,6 +216,9 @@ The Koto project adheres to
 - `ExternalIterator` has been renamed to `KotoIterator`.
 - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
 - `Koto::set_script_path` and `set_args` now return `Result`s.
+- `ValueMap`'s meta map is now optional, and use of the `meta()` getter will
+  need to be adapted. Helpers (`get_meta_value`, `contains_meta_key`,
+  `insert_meta`) have been introduced for convenience.
 
 ### Removed
 
