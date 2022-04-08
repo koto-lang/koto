@@ -105,7 +105,7 @@ The `+` operator can be used to merge two maps together.
 x = {hello: 123}
 y = {goodbye: 99}
 x + y
-# {hello, goodbye}
+# {hello: 123, goodbye: 99}
 ```
 
 ### Meta Maps and overloaded operations
@@ -190,6 +190,7 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 - [deep_copy](#deep_copy)
 - [get](#get)
 - [get_index](#get_index)
+- [get_meta_map](#get_meta_map)
 - [insert](#insert)
 - [is_empty](#is_empty)
 - [keys](#keys)
@@ -198,6 +199,7 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 - [sort](#sort)
 - [update](#update)
 - [values](#values)
+- [with_meta_map](#with_meta_map)
 
 ## clear
 
@@ -335,6 +337,35 @@ x.get_index 99, "xyz"
 ### See also
 
 - [`map.get`](#get)
+
+
+## get_meta_map
+
+`|Map| -> Map`
+
+Returns a Map that contains the input's Meta Map, and no data.
+
+### Example
+
+```koto
+my_map =
+  data: 42
+  @type: 'My Map'
+
+meta = my_map.get_meta_map()
+
+my_map.keys().count()
+# 1
+meta.keys().count()
+# 0
+
+meta.type
+# My Map
+```
+
+### See also
+
+- [`map.with_meta_map`](#with_meta_map)
 
 ## insert
 
@@ -495,15 +526,15 @@ x =
   tschüss: 99
 x.sort() # Sorts the map by key
 x
-# {bye, hello, tschüss}
+# {bye: -1, hello: 123, tschüss: 99}
 
 x.sort |_, value| value # Sort the map by value
 x
-# {bye, tschüss, hello}
+# {bye: -1, tschüss: 99, hello: 123}
 
 x.sort |key, _| -key.size() # Sort the map by reversed key length
 x
-# {tschüss, hello, bye}
+# {tschüss: 99, hello: 123, bye: -1}
 ```
 
 ## update
@@ -574,3 +605,32 @@ x.next()
 ### See also
 
 - [`map.keys`](#keys)
+
+## with_meta_map
+
+`|Map, Map| -> Map`
+
+Returns a Map that contains the data from the first argument, and the Meta Map
+from the second argument.
+
+### Example
+
+```koto
+my_meta =
+  @type: 'My Meta'
+
+my_data =
+  foo: 42
+
+x = my_data.with_meta_map my_meta
+
+koto.type my_data
+# Map
+
+koto.type x
+# My Meta
+```
+
+### See also
+
+- [`map.get_meta_map`](#get_meta_map)

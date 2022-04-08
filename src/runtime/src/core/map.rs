@@ -83,6 +83,20 @@ pub fn make_module() -> ValueMap {
         }
     });
 
+    result.add_fn("get_meta_map", |vm, args| match vm.get_args(args) {
+        [Map(map)] => {
+            if map.meta_map().is_some() {
+                Ok(Map(ValueMap::from_data_and_meta_maps(
+                    &ValueMap::default(),
+                    map,
+                )))
+            } else {
+                Ok(Null)
+            }
+        }
+        unexpected => unexpected_type_error_with_slice("map.get_meta_map", "a Map", unexpected),
+    });
+
     result.add_fn("insert", |vm, args| match vm.get_args(args) {
         [Map(m), key] if key.is_immutable() => {
             match m.data_mut().insert(key.clone().into(), Null) {
@@ -104,7 +118,7 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("is_empty", |vm, args| match vm.get_args(args) {
-        [Map(m)] => Ok(Bool(m.data().is_empty())),
+        [Map(m)] => Ok(Bool(m.is_empty())),
         unexpected => {
             unexpected_type_error_with_slice("map.is_empty", "a Map as argument", unexpected)
         }
@@ -230,6 +244,15 @@ pub fn make_module() -> ValueMap {
         unexpected => {
             unexpected_type_error_with_slice("map.values", "a Map as argument", unexpected)
         }
+    });
+
+    result.add_fn("with_meta_map", |vm, args| match vm.get_args(args) {
+        [Map(data), Map(meta)] => Ok(Map(ValueMap::from_data_and_meta_maps(data, meta))),
+        unexpected => unexpected_type_error_with_slice(
+            "map.with_meta_map",
+            "two Maps as arguments",
+            unexpected,
+        ),
     });
 
     result

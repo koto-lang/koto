@@ -123,7 +123,7 @@ impl Value {
                     .iter()
                     .map(|(k, v)| (k.clone(), v.deep_copy()))
                     .collect();
-                let meta = m.meta().clone();
+                let meta = m.meta_map().map(|meta| meta.borrow().clone());
                 Map(ValueMap::with_contents(data, meta))
             }
             Iterator(i) => Iterator(i.make_copy()),
@@ -187,7 +187,7 @@ impl Value {
             List(_) => "List".to_string(),
             Range { .. } => "Range".to_string(),
             IndexRange { .. } => "IndexRange".to_string(),
-            Map(m) => match m.meta().get(&MetaKey::Type) {
+            Map(m) => match m.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s.as_str().to_string(),
                 Some(_) => "Error: expected string for overloaded type".to_string(),
                 None => "Map".to_string(),
@@ -198,7 +198,7 @@ impl Value {
             Function(_) => "Function".to_string(),
             Generator(_) => "Generator".to_string(),
             ExternalFunction(_) => "ExternalFunction".to_string(),
-            ExternalValue(value) => match value.meta().get(&MetaKey::Type) {
+            ExternalValue(value) => match value.get_meta_value(&MetaKey::Type) {
                 Some(Str(s)) => s.as_str().to_string(),
                 Some(_) => "Error: expected string for overloaded type".to_string(),
                 None => "ExternalValue".to_string(),

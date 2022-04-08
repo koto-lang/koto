@@ -1,11 +1,13 @@
-locals = {}
+globals = {}
 
+# foo acts as a constructor for the Foo type
 foo = |x|
-  {x} + locals.foo_meta
+  # Make a map that contains x, and return its data with the meta map from foo_meta
+  {x}.with_meta_map globals.foo_meta
 
-# Declaring the overloaded operators once and then copying them into the foo instance
-# is more efficient than declaring them each time foo is called.
-locals.foo_meta =
+# Declaring the overloaded operators once and then cloning the meta map into the foo
+# instance is more efficient than declaring them each time foo is called.
+globals.foo_meta =
   # Arithmetic operators
   @+: |self, other| foo self.x + other.x
   @-: |self, other| foo self.x - other.x
@@ -115,6 +117,19 @@ locals.foo_meta =
   @test named_meta_entries: ||
     f = foo 99
     assert_eq f.keys().to_list(), ["x"]
+    assert_eq f.size(), 1
 
     assert_eq f.hello, "Hello"
     assert_eq f.say_hello("you"), "Hello, you!"
+
+  @test get_meta_map: ||
+    f = foo 42
+    meta = f.get_meta_map()
+
+    # get_meta_map returns a map with the argument's meta map, but no data
+    assert_eq meta.keys().count(), 0
+    assert_eq meta.hello, "Hello"
+
+    # Add an "x" entry, allowing it to be treated as a Foo
+    meta.x = -1
+    assert_eq f + meta, foo 41

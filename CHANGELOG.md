@@ -14,7 +14,8 @@ The Koto project adheres to
 
 - The `null` keyword has been introduced, which is a more explicit way of
   declaring a non-value than `()`.
-  - A consequence of this addition is that formatted JSON is now valid Koto.
+  - A consequence of this addition is that formatted JSON is now accepted as
+    valid Koto.
     - e.g.
       ```koto
       data = {
@@ -24,6 +25,7 @@ The Koto project adheres to
           "string": "hello"
         }
       }
+
       data.nested.number
       # 123
       ```
@@ -66,6 +68,8 @@ The Koto project adheres to
     - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
       `to_num2`, `to_num4`, `windows`
   - `list.resize_with`
+  - `map`
+    - `get_meta_map`, `with_meta_map`
   - `number`
     - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
     - `pi_2`, `pi_4`
@@ -216,6 +220,9 @@ The Koto project adheres to
 - `ExternalIterator` has been renamed to `KotoIterator`.
 - `ValueIterator::make_external` has been renamed to `ValueIterator::new`.
 - `Koto::set_script_path` and `set_args` now return `Result`s.
+- `ValueMap`'s meta map is now optional, and use of the `meta()` getter will
+  need to be adapted. Helpers (`get_meta_value`, `contains_meta_key`,
+  `insert_meta`) have been introduced for convenience.
 
 ### Removed
 

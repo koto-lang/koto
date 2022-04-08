@@ -268,7 +268,7 @@ impl Koto {
             Ok(result)
         } else {
             if self.run_tests {
-                let maybe_tests = self.runtime.exports().meta().get(&MetaKey::Tests).cloned();
+                let maybe_tests = self.runtime.exports().get_meta_value(&MetaKey::Tests);
                 match maybe_tests {
                     Some(Value::Map(tests)) => {
                         self.runtime.run_tests(tests)?;
@@ -280,7 +280,7 @@ impl Koto {
                 }
             }
 
-            let maybe_main = self.runtime.exports().meta().get(&MetaKey::Main).cloned();
+            let maybe_main = self.runtime.exports().get_meta_value(&MetaKey::Main);
             if let Some(main) = maybe_main {
                 self.runtime
                     .run_function(main, CallArgs::None)
