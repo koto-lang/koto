@@ -33,14 +33,12 @@ impl fmt::Display for ValueTuple {
 }
 
 impl From<&[Value]> for ValueTuple {
-    #[inline]
     fn from(v: &[Value]) -> Self {
         Self(v.into())
     }
 }
 
 impl From<Vec<Value>> for ValueTuple {
-    #[inline]
     fn from(v: Vec<Value>) -> Self {
         Self(v.into())
     }

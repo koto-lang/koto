@@ -30,19 +30,16 @@ impl MetaMap {
     }
 
     /// Extends the MetaMap with clones of another MetaMap's entries
-    #[inline]
     pub fn extend(&mut self, other: &MetaMap) {
         self.0.extend(other.0.clone().into_iter());
     }
 
     /// Allows access to named entries without having to create a ValueString
-    #[inline]
     pub fn get_with_string(&self, key: &str) -> Option<&Value> {
         self.0.get(&key as &dyn AsMetaKeyRef)
     }
 
     /// Allows access to named entries without having to create a ValueString
-    #[inline]
     pub fn get_with_string_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.0.get_mut(&key as &dyn AsMetaKeyRef)
     }

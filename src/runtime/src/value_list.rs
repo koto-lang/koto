@@ -13,39 +13,32 @@ pub type ValueVec = smallvec::SmallVec<[Value; 4]>;
 pub struct ValueList(Rc<RefCell<ValueVec>>);
 
 impl ValueList {
-    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self(Rc::new(RefCell::new(ValueVec::with_capacity(capacity))))
     }
 
-    #[inline]
     pub fn with_data(data: ValueVec) -> Self {
         Self(Rc::new(RefCell::new(data)))
     }
 
-    #[inline]
     pub fn from_slice(data: &[Value]) -> Self {
         Self(Rc::new(RefCell::new(
             data.iter().cloned().collect::<ValueVec>(),
         )))
     }
 
-    #[inline]
     pub fn len(&self) -> usize {
         self.data().len()
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    #[inline]
     pub fn data(&self) -> Ref<ValueVec> {
         self.0.borrow()
     }
 
-    #[inline]
     pub fn data_mut(&self) -> RefMut<ValueVec> {
         self.0.borrow_mut()
     }
