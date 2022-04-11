@@ -230,6 +230,14 @@ The Koto project adheres to
 - Support for setting `Num2`/`Num4` elements by index (added in `0.9.0`) has
   been removed. These value types should be treated as immutable; the `with`
   functions can be used to create new values with modified elements.
+- Support for nested multiline comments has been removed.
+  - This makes it easier to toggle code blocks, e.g.
+    ```koto
+    #--
+    # Adding a '#' to the start or end of the line above toggles the code below
+    print 'hello'
+    #--#
+    ```
 
 ### Fixed
 

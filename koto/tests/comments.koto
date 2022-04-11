@@ -3,12 +3,17 @@ assert true # This is a trailing comment
 a = 1 # Another trailing comment
 
 #-
-Multiline comments start with #- and end with -#
-#- and -# can be nested
+Multiline comments are supported,
+starting with #- and ending with
 -#
 
-#-
+assert true
+
+#--
+# The following line can be toggled by adding a # to the start or end of the line above.
 assert false
--#
 
-assert not false
+#--#
+# The line above acts as either a single-line comment, or the end of a multiline comment
+
+assert true

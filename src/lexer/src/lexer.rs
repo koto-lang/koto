@@ -240,7 +240,7 @@ impl<'a> TokenLexer<'a> {
             let mut char_bytes = 1;
             let mut position = self.current_position();
             position.column += 1;
-            let mut nest_count = 1;
+            let mut end_found = false;
             while let Some(c) = chars.next() {
                 char_bytes += c.len_utf8();
                 position.column += c.width().unwrap_or(0) as u32;
@@ -250,7 +250,6 @@ impl<'a> TokenLexer<'a> {
                             chars.next();
                             char_bytes += 1;
                             position.column += 1;
-                            nest_count += 1;
                         }
                     }
                     '-' => {
@@ -258,10 +257,8 @@ impl<'a> TokenLexer<'a> {
                             chars.next();
                             char_bytes += 1;
                             position.column += 1;
-                            nest_count -= 1;
-                            if nest_count == 0 {
-                                break;
-                            }
+                            end_found = true;
+                            break;
                         }
                     }
                     '\r' => {
@@ -282,7 +279,7 @@ impl<'a> TokenLexer<'a> {
 
             self.advance_to_position(char_bytes, position);
 
-            if nest_count == 0 {
+            if end_found {
                 CommentMulti
             } else {
                 Error
