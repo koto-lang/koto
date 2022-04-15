@@ -35,15 +35,6 @@ x[1], y[2]
 
 # Reference
 
-- [contains](#contains)
-- [deep_copy](#deep_copy)
-- [first](#first)
-- [get](#get)
-- [last](#last)
-- [size](#size)
-- [sort_copy](#sort_copy)
-- [to_list](#to_list)
-
 ## contains
 
 `|Tuple, Value| -> Bool`

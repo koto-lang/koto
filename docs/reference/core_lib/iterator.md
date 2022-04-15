@@ -36,50 +36,15 @@ The contents of the `iterator` module are made available to all `Iterable`s.
 output values for each iteration of the loop.
 
 ```koto
-for x in (2, 3, 4).each |n| n * 2
-  io.print "-> {}", x
+iter = (2, 3, 4).each |n| n * 2
+for x in iter
+  print "-> {}", x
 # -> 4
 # -> 6
 # -> 8
 ```
 
 # Reference
-
-- [all](#all)
-- [any](#any)
-- [chain](#chain)
-- [chunks](#chunks)
-- [consume](#consume)
-- [copy](#copy)
-- [count](#count)
-- [cycle](#cycle)
-- [each](#each)
-- [enumerate](#enumerate)
-- [find](#find)
-- [flatten](#flatten)
-- [fold](#fold)
-- [intersperse](#intersperse)
-- [iter](#iter)
-- [keep](#keep)
-- [last](#last)
-- [max](#max)
-- [min](#min)
-- [min_max](#min_max)
-- [next](#next)
-- [position](#position)
-- [product](#product)
-- [repeat](#repeat)
-- [skip](#skip)
-- [sum](#sum)
-- [take](#take)
-- [to_list](#to_list)
-- [to_map](#to_map)
-- [to_num2](#to_num2)
-- [to_num4](#to_num4)
-- [to_string](#to_string)
-- [to_tuple](#to_tuple)
-- [windows](#windows)
-- [zip](#zip)
 
 ## all
 
@@ -318,7 +283,7 @@ If no match is found then Null is returned.
 # 15
 
 (10..20).find |x| x > 100
-# Null
+# null
 ```
 
 ## flatten
@@ -478,7 +443,7 @@ Consumes the iterator, returning the last yielded value.
 # 5
 
 (0..0).last()
-# Null
+# null
 ```
 
 ## max
@@ -505,7 +470,7 @@ found so far, until all values in the iterator have been compared.
 ### See Also
 
 - [`iterator.min`](#min)
-- [`iterator.min_max`](#min_max)
+- [`iterator.min_max`](#min-max)
 
 ## min
 
@@ -531,7 +496,7 @@ found so far, until all values in the iterator have been compared.
 ### See Also
 
 - [`iterator.max`](#max)
-- [`iterator.min_max`](#min_max)
+- [`iterator.min_max`](#min-max)
 
 ## min_max
 
@@ -576,7 +541,7 @@ x.next()
 x.next()
 # 2
 x.next()
-# Null
+# null
 ```
 
 ## position
@@ -601,7 +566,7 @@ If no match is found then Null is returned.
 # 5
 
 (10..20).position |x| x == 99
-# Null
+# null
 ```
 
 ### See Also
@@ -716,9 +681,9 @@ Consumes all values coming from the iterator and places them in a list.
 
 ### See also
 
-- [`iterator.to_map`](#to_map)
-- [`iterator.to_string`](#to_string)
-- [`iterator.to_tuple`](#to_tuple)
+- [`iterator.to_map`](#to-map)
+- [`iterator.to_string`](#to-string)
+- [`iterator.to_tuple`](#to-tuple)
 
 ## to_map
 
@@ -746,9 +711,9 @@ key, with Null as the entry's value.
 
 ### See also
 
-- [`iterator.to_list`](#to_list)
-- [`iterator.to_string`](#to_string)
-- [`iterator.to_tuple`](#to_tuple)
+- [`iterator.to_list`](#to-list)
+- [`iterator.to_string`](#to-string)
+- [`iterator.to_tuple`](#to-tuple)
 
 ## to_num2
 
@@ -767,7 +732,7 @@ Consumes up to 2 values from the iterator and places them in a Num2.
 
 ### See also
 
-- [`iterator.to_num4`](#to_num4)
+- [`iterator.to_num4`](#to-num4)
 
 ## to_num4
 
@@ -786,7 +751,7 @@ Consumes up to 4 values from the iterator and places them in a Num2.
 
 ### See also
 
-- [`iterator.to_num4`](#to_num4)
+- [`iterator.to_num4`](#to-num4)
 
 ## to_string
 
@@ -807,9 +772,9 @@ the formatted values.
 
 ### See also
 
-- [`iterator.to_list`](#to_list)
-- [`iterator.to_map`](#to_map)
-- [`iterator.to_tuple`](#to_tuple)
+- [`iterator.to_list`](#to-list)
+- [`iterator.to_map`](#to-map)
+- [`iterator.to_tuple`](#to-tuple)
 
 ## to_tuple
 
@@ -826,9 +791,9 @@ Consumes all values coming from the iterator and places them in a tuple.
 
 ### See also
 
-- [`iterator.to_list`](#to_list)
-- [`iterator.to_map`](#to_map)
-- [`iterator.to_string`](#to_string)
+- [`iterator.to_list`](#to-list)
+- [`iterator.to_map`](#to-map)
+- [`iterator.to_string`](#to-string)
 
 ## windows
 

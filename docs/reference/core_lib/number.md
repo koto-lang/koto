@@ -14,53 +14,6 @@ x += 0.99    # x is now a float
 
 # Reference
 
-- [abs](#abs)
-- [acos](#acos)
-- [acosh](#acosh)
-- [and](#and)
-- [asin](#asin)
-- [asinh](#asinh)
-- [atan](#atan)
-- [atanh](#atanh)
-- [atan2](#atan2)
-- [ceil](#ceil)
-- [clamp](#clamp)
-- [cos](#cos)
-- [cosh](#cosh)
-- [degrees](#degrees)
-- [e](#e)
-- [exp](#exp)
-- [exp2](#exp2)
-- [flip_bits](#flip_bits)
-- [floor](#floor)
-- [infinity](#infinity)
-- [is_nan](#is_nan)
-- [lerp](#lerp)
-- [ln](#ln)
-- [log2](#log2)
-- [log10](#log10)
-- [max](#max)
-- [min](#min)
-- [nan](#nan)
-- [negative_infinity](#negative_infinity)
-- [or](#or)
-- [pi](#pi)
-- [pow](#pow)
-- [radians](#radians)
-- [recip](#recip)
-- [round](#round)
-- [shift_left](#shift_left)
-- [shift_right](#shift_right)
-- [sin](#sin)
-- [sinh](#sinh)
-- [sqrt](#sqrt)
-- [tan](#tan)
-- [tanh](#tanh)
-- [tau](#tau)
-- [to_float](#to_float)
-- [to_int](#to_int)
-- [xor](#xor)
-
 ## abs
 
 `|Number| -> Number`
@@ -242,7 +195,7 @@ Returns the smallest integer that's greater than or equal to the input.
 
 - [`number.floor`](#floor)
 - [`number.round`](#round)
-- [`number.to_int`](#to_int)
+- [`number.to_int`](#to-int)
 
 ## clamp
 
@@ -389,7 +342,7 @@ Returns the smallest integer that's less than or equal to the input.
 
 - [`number.ceil`](#ceil)
 - [`number.round`](#round)
-- [`number.to_int`](#to_int)
+- [`number.to_int`](#to-int)
 
 ## infinity
 
@@ -638,7 +591,7 @@ Half-way values round away from zero.
 
 - [`number.ceil`](#ceil)
 - [`number.floor`](#floor)
-- [`number.to_int`](#to_int)
+- [`number.to_int`](#to-int)
 
 ## shift_left
 

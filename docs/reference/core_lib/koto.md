@@ -4,12 +4,6 @@ A collection of utilities for working with the Koto runtime.
 
 # Reference
 
-- [args](#args)
-- [exports](#exports)
-- [script_dir](#script_dir)
-- [script_path](#script_path)
-- [type](#type)
-
 ## args
 
 `Tuple`

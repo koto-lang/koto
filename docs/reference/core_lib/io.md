@@ -4,27 +4,6 @@ A collection of utilities for working with the local filesystem.
 
 # Reference
 
-- [create](#create)
-- [current_dir](#current_dir)
-- [exists](#exists)
-- [extend_path](#extend_path)
-- [open](#open)
-- [print](#print)
-- [read_to_string](#read_to_string)
-- [remove_file](#remove_file)
-- [stderr](#stderr)
-- [stdin](#stdin)
-- [stdout](#stdout)
-- [temp_dir](#temp_dir)
-- [File](#file)
-- [File.flush](#fileflush)
-- [File.path](#filepath)
-- [File.read_line](#fileread_line)
-- [File.read_to_string](#fileread_to_string)
-- [File.seek](#fileseek)
-- [File.write](#filewrite)
-- [File.write_line](#filewrite_line)
-
 ## create
 
 `|String| -> File`
@@ -239,8 +218,8 @@ Ensures that any buffered changes to the file have been written.
 
 ### See Also
 
-- [`file.write`](#filewrite)
-- [`file.write_line`](#filewrite_line)
+- [`file.write`](#file-write)
+- [`file.write_line`](#file-write-line)
 
 ## File.path
 

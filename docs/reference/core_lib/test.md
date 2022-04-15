@@ -61,16 +61,10 @@ the `--tests` flag.
 
 ### Running tests from a Koto script
 
-Tests can be run from a Koto script by calling [`test.run_tests`](#run_tests).
 
+Tests can be run from a Koto script by calling [`test.run_tests`](#run-tests).
 
 # Reference
-
-- [assert](#assert)
-- [assert_eq](#assert_eq)
-- [assert_ne](#assert_ne)
-- [assert_near](#assert_near)
-- [run_tests](#run_tests)
 
 ## assert
 

@@ -68,24 +68,6 @@ escape code, then it can be escaped with an additional `\`.
 
 # Reference
 
-- [bytes](#bytes)
-- [chars](#chars)
-- [contains](#contains)
-- [ends_with](#ends_with)
-- [escape](#escape)
-- [format](#format)
-- [from_bytes](#from_bytes)
-- [is_empty](#is_empty)
-- [lines](#lines)
-- [size](#size)
-- [slice](#slice)
-- [split](#split)
-- [starts_with](#starts_with)
-- [to_lowercase](#to_lowercase)
-- [to_number](#to_number)
-- [to_uppercase](#to_uppercase)
-- [trim](#trim)
-
 ## bytes
 
 `|String| -> Iterator`
@@ -102,7 +84,7 @@ contained in the string data.
 
 ### See Also
 
-- [`string.from_bytes`](#from_bytes)
+- [`string.from_bytes`](#from-bytes)
 
 ## chars
 

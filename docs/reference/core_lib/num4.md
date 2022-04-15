@@ -28,24 +28,6 @@ x
 
 # Reference
 
-- [length](#length)
-- [lerp](#lerp)
-- [make_num4](#make_num4)
-- [max](#max)
-- [min](#min)
-- [normalize](#normalize)
-- [product](#product)
-- [sum](#sum)
-- [with](#with)
-- [r](#r)
-- [g](#g)
-- [b](#b)
-- [a](#a)
-- [x](#x)
-- [y](#y)
-- [z](#z)
-- [w](#w)
-
 ## length
 
 `|Num4| -> Float`

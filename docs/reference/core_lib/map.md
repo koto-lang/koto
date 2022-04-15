@@ -184,23 +184,6 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 
 # Reference
 
-- [clear](#clear)
-- [contains_key](#contains_key)
-- [copy](#copy)
-- [deep_copy](#deep_copy)
-- [get](#get)
-- [get_index](#get_index)
-- [get_meta_map](#get_meta_map)
-- [insert](#insert)
-- [is_empty](#is_empty)
-- [keys](#keys)
-- [remove](#remove)
-- [size](#size)
-- [sort](#sort)
-- [update](#update)
-- [values](#values)
-- [with_meta_map](#with_meta_map)
-
 ## clear
 
 `|Map| -> Null`
@@ -231,7 +214,7 @@ Makes a unique copy of the map data.
 
 Note that this only copies the first level of data, so nested containers
 will share their data with their counterparts in the copy. To make a copy where
-any nested containers are also unique, use [`map.deep_copy`](#deep_copy).
+any nested containers are also unique, use [`map.deep_copy`](#deep-copy).
 
 ### Example
 
@@ -250,7 +233,7 @@ x.bar # x.bar remains unmodified due to the
 
 ### See also
 
-- [`map.deep_copy`](#deep_copy)
+- [`map.deep_copy`](#deep-copy)
 
 ## deep_copy
 
@@ -308,7 +291,7 @@ x.get 99
 
 ### See also
 
-- [`map.get_index`](#get_index)
+- [`map.get_index`](#get-index)
 
 ## get_index
 
@@ -365,7 +348,7 @@ meta.type
 
 ### See also
 
-- [`map.with_meta_map`](#with_meta_map)
+- [`map.with_meta_map`](#with-meta-map)
 
 ## insert
 
@@ -501,7 +484,7 @@ Returns the number of entries contained in the map.
 
 ### See also
 
-- [`map.is_empty`](#is_empty)
+- [`map.is_empty`](#is-empty)
 
 ## sort
 
@@ -633,4 +616,4 @@ koto.type x
 
 ### See also
 
-- [`map.get_meta_map`](#get_meta_map)
+- [`map.get_meta_map`](#get-meta-map)

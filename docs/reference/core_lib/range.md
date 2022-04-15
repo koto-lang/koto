@@ -47,13 +47,6 @@ x4.to_list()
 
 # Reference
 
-- [contains](#contains)
-- [end](#end)
-- [expanded](#expanded)
-- [size](#size)
-- [start](#start)
-- [union](#union)
-
 ## contains
 
 `|Range, Number| -> Bool`

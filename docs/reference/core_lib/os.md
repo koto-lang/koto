@@ -4,23 +4,6 @@ A collection of utilities for working with the operating system.
 
 # Reference
 
-- [name](#name)
-- [start_timer](#start_timer)
-- [time](#time)
-- [DateTime](#datetime)
-- [DateTime.year](#datetimeyear)
-- [DateTime.month](#datetimemonth)
-- [DateTime.day](#datetimeday)
-- [DateTime.hour](#datetimehour)
-- [DateTime.minute](#datetimeminute)
-- [DateTime.nanosecond](#datetimenanosecond)
-- [DateTime.timestamp](#datetimetimestamp)
-- [DateTime.timezone_offset](#datetimetimezone_offset)
-- [DateTime.timestamp_string](#datetimetimestamp_string)
-- [Timer](#timer)
-- [Timer.@-](#timer-)
-- [Timer.elapsed](#timerelapsed)
-
 ## name
 
 `|| -> String`
@@ -139,9 +122,9 @@ Returns a string representing the DateTime's timezone offset in seconds.
 
 ## Timer
 
-See [`os.start_timer`](#start_timer).
+See [`os.start_timer`](#start-timer).
 
-## Timer.@-
+## Timer.@- (subtract)
 
 `|Timer, Timer| -> Float`
 

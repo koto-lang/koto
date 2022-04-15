@@ -24,19 +24,6 @@ x + 10
 
 # Reference
 
-- [angle](#angle)
-- [length](#length)
-- [lerp](#lerp)
-- [make_num2](#make_num2)
-- [max](#max)
-- [min](#min)
-- [normalize](#normalize)
-- [product](#product)
-- [sum](#sum)
-- [with](#with)
-- [x](#x)
-- [y](#y)
-
 ## angle
 
 `|Num2| -> Float`
@@ -106,8 +93,11 @@ a.lerp b, 1.5
 ## make_num2
 
 `|Number| -> Num2`
+
 `|Number, Number| -> Num2`
+
 `|Num2| -> Num2`
+
 `|Iterable| -> Num2`
 
 Makes a Num2 from the provided values.

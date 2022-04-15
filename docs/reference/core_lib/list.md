@@ -26,31 +26,6 @@ x # x remains unchanged after the modificaton of z
 
 # Reference
 
-- [clear](#clear)
-- [contains](#contains)
-- [copy](#copy)
-- [deep_copy](#deep_copy)
-- [fill](#fill)
-- [first](#first)
-- [get](#get)
-- [insert](#insert)
-- [is_empty](#is_empty)
-- [last](#last)
-- [pop](#pop)
-- [push](#push)
-- [remove](#remove)
-- [resize](#resize)
-- [resize_with](#resize_with)
-- [retain](#retain)
-- [reverse](#reverse)
-- [size](#size)
-- [sort](#sort)
-- [sort_copy](#sort_copy)
-- [swap](#swap)
-- [to_tuple](#to_tuple)
-- [transform](#transform)
-- [with_size](#with_size)
-
 ## clear
 
 `|List| -> List`
@@ -88,7 +63,7 @@ Makes a unique copy of the list data.
 
 Note that this only copies the first level of data, so nested containers
 will share their data with their counterparts in the copy. To make a copy where
-any nested containers are also unique, use [`list.deep_copy`](#deep_copy).
+any nested containers are also unique, use [`list.deep_copy`](#deep-copy).
 
 ### Example
 
@@ -107,7 +82,7 @@ x # x remains unchanged after the modificaton of z
 
 ### See also
 
-- [`list.deep_copy`](#deep_copy)
+- [`list.deep_copy`](#deep-copy)
 
 ## deep_copy
 
