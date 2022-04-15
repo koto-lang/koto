@@ -28,7 +28,9 @@ x # x remains unchanged after the modificaton of z
 
 ## clear
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Clears the list by removing all of its elements, and returns the cleared list.
 
@@ -42,7 +44,9 @@ x.clear()
 
 ## contains
 
-`|List, Value| -> Bool`
+```kototype
+|List, Value| -> Bool
+```
 
 Returns `true` if the list contains a value that matches the input value.
 
@@ -57,7 +61,9 @@ Matching is performed with the `==` equality operator.
 
 ## copy
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Makes a unique copy of the list data.
 
@@ -86,7 +92,9 @@ x # x remains unchanged after the modificaton of z
 
 ## deep_copy
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Makes a unique _deep_ copy of the list data.
 
@@ -112,7 +120,9 @@ x # a deep copy has been made, so x is unaffected by the assignment to y
 
 ## fill
 
-`|List, Value| -> List`
+```kototype
+|List, Value| -> List
+```
 
 Fills the list with copies of the provided value, and returns the list.
 
@@ -128,7 +138,9 @@ x
 
 ## first
 
-`|List| -> Value`
+```kototype
+|List| -> Value
+```
 
 Returns the first value in the list, or Null if the list is empty.
 
@@ -149,8 +161,12 @@ Returns the first value in the list, or Null if the list is empty.
 
 ## get
 
-`|List, Number| -> Value`
-`|List, Number, Value| -> Value`
+```kototype
+|List, Number| -> Value
+```
+```kototype
+|List, Number, Value| -> Value
+```
 
 Gets the Nth value in the list.
 If the list doesn't contain a value at that position then the provided default
@@ -178,7 +194,9 @@ x.get 5, 123
 
 ## insert
 
-`|List, Number, Value| -> List`
+```kototype
+|List, Number, Value| -> List
+```
 
 Inserts the value into the Nth position in the list, and returns the list.
 
@@ -201,7 +219,9 @@ x
 
 ## is_empty
 
-`|List| -> Bool`
+```kototype
+|List| -> Bool
+```
 
 Returns `true` if the list has a size of zero, and `false` otherwise.
 
@@ -217,7 +237,9 @@ Returns `true` if the list has a size of zero, and `false` otherwise.
 
 ## last
 
-`|List| -> Value`
+```kototype
+|List| -> Value
+```
 
 Returns the last value in the list, or Null if the list is empty.
 
@@ -238,7 +260,9 @@ Returns the last value in the list, or Null if the list is empty.
 
 ## pop
 
-`|List| -> Value`
+```kototype
+|List| -> Value
+```
 
 Removes the last value from the list and returns it.
 
@@ -264,7 +288,9 @@ x
 
 ## push
 
-`|List, Value| -> Value`
+```kototype
+|List, Value| -> Value
+```
 
 Adds the value to the end of the list, and returns the list.
 
@@ -284,7 +310,9 @@ x
 
 ## remove
 
-`|List, Number| -> Value`
+```kototype
+|List, Number| -> Value
+```
 
 Removes the value at the given position from the list and returns it.
 
@@ -303,8 +331,12 @@ Throws an error if the position isn't a valid index in the list.
 
 ## resize
 
-`|List, Number| -> Null`
-`|List, Number, Value| -> Null`
+```kototype
+|List, Number| -> Null
+```
+```kototype
+|List, Number, Value| -> Null
+```
 
 Grows or shrinks the list to the specified size.
 If the new size is larger, then copies of the provided value (or Null if no
@@ -329,7 +361,9 @@ x
 
 ## resize_with
 
-`|List, Number, || -> Value| -> Null`
+```kototype
+|List, Number, || -> Value| -> Null
+```
 
 Grows or shrinks the list to the specified size.
 If the new size is larger, then the provided function will be called repeatedly
@@ -352,7 +386,9 @@ x
 
 ## retain
 
-`|List, Value| -> List`
+```kototype
+|List, Value| -> List
+```
 
 Retains matching values in the list (discarding values that don't match), and
 returns the list.
@@ -383,7 +419,9 @@ x
 
 ## reverse
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Reverses the order of the list's contents, and returns the list.
 
@@ -399,7 +437,9 @@ x
 
 ## size
 
-`|List| -> Number`
+```kototype
+|List| -> Number
+```
 
 Returns the number of values contained in the list.
 
@@ -416,11 +456,15 @@ x.size()
 
 ## sort
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Sorts the list in place, and returns the list.
 
-`|List, |Value| -> Value| -> List`
+```kototype
+|List, |Value| -> Value| -> List
+```
 
 Sorts the list in place, based on the output of calling a 'key' function for
 each value, and returns the list. The function result is cached, so it's only
@@ -447,7 +491,9 @@ x
 
 ## sort_copy
 
-`|List| -> List`
+```kototype
+|List| -> List
+```
 
 Returns a sorted copy of the list. The input is left untouched.
 
@@ -465,7 +511,9 @@ x # x remains untouched
 
 ## swap
 
-`|List, List| -> Null`
+```kototype
+|List, List| -> Null
+```
 
 Swaps the contents of the two input lists.
 
@@ -485,7 +533,9 @@ y
 
 ## to_tuple
 
-`|List| -> Tuple`
+```kototype
+|List| -> Tuple
+```
 
 Returns a copy of the list data as a tuple.
 
@@ -498,7 +548,9 @@ Returns a copy of the list data as a tuple.
 
 ## transform
 
-`|List, |Value| -> Value| -> List`
+```kototype
+|List, |Value| -> Value| -> List
+```
 
 Transforms the list data by replacing each value with the result of calling the
 provided function, and then returns the list.
@@ -520,14 +572,15 @@ x
 
 ## with_size
 
-`|Number, Value| -> List`
+```kototype
+|Number, Value| -> List
+```
 
 Returns a list containing `N` copies of a value.
 
 ### Example
 
 ```koto
-import list
 list.with_size 5, "$"
 # ["$", "$", "$", "$", "$"]
 ```

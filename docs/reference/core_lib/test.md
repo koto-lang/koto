@@ -68,7 +68,9 @@ Tests can be run from a Koto script by calling [`test.run_tests`](#run-tests).
 
 ## assert
 
-`|Bool| -> Null`
+```kototype
+|Bool| -> Null
+```
 
 Throws a runtime error if the argument if false.
 
@@ -85,7 +87,9 @@ assert 1 > 2
 
 ## assert_eq
 
-`|Value, Value| -> Null`
+```kototype
+|Value, Value| -> Null
+```
 
 Checks the two input values for equality and throws an error if they're not
 equal.
@@ -103,7 +107,9 @@ assert_eq 2 + 2, 5
 
 ## assert_ne
 
-`|Value, Value| -> Null`
+```kototype
+|Value, Value| -> Null
+```
 
 Checks the two input values for inequality and throws an error if they're equal.
 
@@ -120,17 +126,29 @@ assert_ne 2 + 2, 4
 
 ## assert_near
 
-`|Number, Number| -> Null`
+```kototype
+|Number, Number| -> Null
+```
 
-`|Number, Number, Number| -> Null`
+```kototype
+|Number, Number, Number| -> Null
+```
 
-`|Num2, Num2| -> Null`
+```kototype
+|Num2, Num2| -> Null
+```
 
-`|Num2, Num2, Number| -> Null`
+```kototype
+|Num2, Num2, Number| -> Null
+```
 
-`|Num4, Num4| -> Null`
+```kototype
+|Num4, Num4| -> Null
+```
 
-`|Num4, Num4, Number| -> Null`
+```kototype
+|Num4, Num4, Number| -> Null
+```
 
 Checks that the two input numbers are equal, within an allowed margin of error.
 
@@ -157,7 +175,9 @@ assert_near 1 % 0.2, 0.2
 
 ## run_tests
 
-`|Map| -> Null`
+```kototype
+|Map| -> Null
+```
 
 Runs the tests contained in the map.
 
@@ -169,10 +189,10 @@ my_tests =
   @post_test: |self| self.test_data = null
 
   @test data_size: |self| assert_eq self.test_data.size(), 3
-  @test failure: |self| assert not self.test_data.is_empty()
+  @test failure: |self| assert_eq self.test_data.size(), 0
 
 try
-  run_tests my_tests
+  test.run_tests my_tests
 catch error
-  print "An error occurred while running my_tests: {}", error
+  print "An error occurred while running my_tests:\n  {}", error
 ```

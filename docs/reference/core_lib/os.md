@@ -6,14 +6,18 @@ A collection of utilities for working with the operating system.
 
 ## name
 
-`|| -> String`
+```kototype
+|| -> String
+```
 
 Returns a string containing the name of the current operating system, e.g.
 "linux", "macos", "windows", etc.
 
 ## start_timer
 
-`|| -> Timer`
+```kototype
+|| -> Timer
+```
 
 Returns a timer that can be used to measure how much time has passed while a
 script is running.
@@ -32,16 +36,22 @@ print "Seconds between then and now: ${t2 - t}"
 
 ## time
 
-`|| -> DateTime`
+```kototype
+|| -> DateTime
+```
 
 Returns a DateTime set to the current time, using the local timezone.
 
-`|Number| -> DateTime`
+```kototype
+|Number| -> DateTime
+```
 
 Returns a DateTime set to the provided timestamp in seconds,
 using the local timezone.
 
-`|Number, Number| -> DateTime`
+```kototype
+|Number, Number| -> DateTime
+```
 
 Returns a DateTime set to the provided timestamp in seconds,
 using a time offset in seconds.
@@ -68,55 +78,73 @@ See [`os.time`](#time).
 
 ## DateTime.year
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the year component of the provided DateTime.
 
 ## DateTime.month
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the month component of the provided DateTime.
 
 ## DateTime.day
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the day component of the provided DateTime.
 
 ## DateTime.hour
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the hour component of the provided DateTime.
 
 ## DateTime.minute
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the minute component of the provided DateTime.
 
 ## DateTime.nanosecond
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the nanosecond component of the provided DateTime.
 
 ## DateTime.timestamp
 
-`|DateTime| -> Float`
+```kototype
+|DateTime| -> Float
+```
 
 Returns the number of seconds since 00:00:00 UTC on January 1st 1970.
 
 ## DateTime.timezone_offset
 
-`|DateTime| -> Integer`
+```kototype
+|DateTime| -> Integer
+```
 
 Returns the DateTime's timezone offset in seconds.
 
 ## DateTime.timestamp_string
 
-`|DateTime| -> String`
+```kototype
+|DateTime| -> String
+```
 
 Returns a string representing the DateTime's timezone offset in seconds.
 
@@ -126,7 +154,9 @@ See [`os.start_timer`](#start-timer).
 
 ## Timer.@- (subtract)
 
-`|Timer, Timer| -> Float`
+```kototype
+|Timer, Timer| -> Float
+```
 
 Returns the time difference in seconds between two timers.
 
@@ -143,7 +173,9 @@ assert (t1 - t2) < 0
 
 ## Timer.elapsed
 
-`|Timer| -> Float`
+```kototype
+|Timer| -> Float
+```
 
 Returns the number of seconds that have elapsed since the timer was started.
 

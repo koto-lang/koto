@@ -186,7 +186,9 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 
 ## clear
 
-`|Map| -> Null`
+```kototype
+|Map| -> Null
+```
 
 Clears the map by removing all of its elements.
 
@@ -201,14 +203,18 @@ x
 
 ## contains_key
 
-`|Map, Key| -> Bool`
+```kototype
+|Map, Key| -> Bool
+```
 
 Returns `true` if the map contains a value with the given key,
 and `false` otherwise.
 
 ## copy
 
-`|Map| -> Map`
+```kototype
+|Map| -> Map
+```
 
 Makes a unique copy of the map data.
 
@@ -237,7 +243,9 @@ x.bar # x.bar remains unmodified due to the
 
 ## deep_copy
 
-`|Map| -> Map`
+```kototype
+|Map| -> Map
+```
 
 Makes a unique _deep_ copy of the map data.
 
@@ -263,8 +271,12 @@ x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
 
 ## get
 
-`|Map, Key| -> Value`
-`|Map, Key, Value| -> Value`
+```kototype
+|Map, Key| -> Value
+```
+```kototype
+|Map, Key, Value| -> Value
+```
 
 Returns the value corresponding to the given key, or the provided default value
 if the map doesn't contain the key.
@@ -295,8 +307,12 @@ x.get 99
 
 ## get_index
 
-`|Map, Number| -> Tuple`
-`|Map, Number, Value| -> Tuple`
+```kototype
+|Map, Number| -> Tuple
+```
+```kototype
+|Map, Number, Value| -> Tuple
+```
 
 Returns the entry at the given index as a key/value tuple, or the provided
 default value if the map doesn't contain an entry at that index.
@@ -324,7 +340,9 @@ x.get_index 99, "xyz"
 
 ## get_meta_map
 
-`|Map| -> Map`
+```kototype
+|Map| -> Map
+```
 
 Returns a Map that contains the input's Meta Map, and no data.
 
@@ -352,11 +370,15 @@ meta.type
 
 ## insert
 
-`|Map, Key| -> Value`
+```kototype
+|Map, Key| -> Value
+```
 
 Inserts Null into the map with the given key.
 
-`|Map, Key, Value| -> Value`
+```kototype
+|Map, Key, Value| -> Value
+```
 
 Inserts a value into the map with the given key.
 
@@ -387,7 +409,9 @@ x.goodbye
 
 ## is_empty
 
-`|Map| -> Bool`
+```kototype
+|Map| -> Bool
+```
 
 Returns `true` if the map contains no entries, otherwise `false`.
 
@@ -407,7 +431,9 @@ Returns `true` if the map contains no entries, otherwise `false`.
 
 ## keys
 
-`|Map| -> Iterator`
+```kototype
+|Map| -> Iterator
+```
 
 Returns an iterator that iterates in order over the map's keys.
 
@@ -436,7 +462,9 @@ x.next()
 
 ## remove
 
-`|Map, Key| -> Value`
+```kototype
+|Map, Key| -> Value
+```
 
 Removes the entry that matches the given key.
 
@@ -468,7 +496,9 @@ x.is_empty()
 
 ## size
 
-`|Map| -> Number`
+```kototype
+|Map| -> Number
+```
 
 Returns the number of entries contained in the map.
 
@@ -488,11 +518,15 @@ Returns the number of entries contained in the map.
 
 ## sort
 
-`|Map| -> Null`
+```kototype
+|Map| -> Null
+```
 
 Sorts the map's entries by key.
 
-`|Map, |Value, Value| -> Value| -> Null`
+```kototype
+|Map, |Value, Value| -> Value| -> Null
+```
 
 Sorts the map's entries, based on the output of calling a 'key' function for
 each entry. The entry's key and value are passed into the function as separate
@@ -522,7 +556,9 @@ x
 
 ## update
 
-`|Map, Key, |Value| -> Value| -> Value`
+```kototype
+|Map, Key, |Value| -> Value| -> Value
+```
 
 Updates the value associated with a given key by calling a function with either
 the existing value, or Null if there isn't a matching entry.
@@ -533,7 +569,9 @@ function's result.
 
 The function result is then returned from `update`.
 
-`|Map, Key, Value, |Value| -> Value| -> Value`
+```kototype
+|Map, Key, Value, |Value| -> Value| -> Value
+```
 
 This variant of `update` takes a default value that is provided to the
 function if a matching entry doesn't exist.
@@ -562,7 +600,9 @@ x.tschüss
 
 ## values
 
-`|Map| -> Iterator`
+```kototype
+|Map| -> Iterator
+```
 
 Returns an iterator that iterates in order over the map's values.
 
@@ -591,7 +631,9 @@ x.next()
 
 ## with_meta_map
 
-`|Map, Map| -> Map`
+```kototype
+|Map, Map| -> Map
+```
 
 Returns a Map that contains the data from the first argument, and the Meta Map
 from the second argument.

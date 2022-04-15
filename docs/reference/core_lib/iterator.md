@@ -48,7 +48,9 @@ for x in iter
 
 ## all
 
-`|Iterable, Function(|Value| -> Bool)| -> Bool`
+```kototype
+|Iterable, |Value| -> Bool| -> Bool
+```
 
 Checks the Iterable's values against a test Function.
 The Function should return `true` or `false`, and then `all` returns `true`
@@ -74,7 +76,9 @@ returned.
 
 ## any
 
-`|Iterable, |Value| -> Bool| -> Bool`
+```kototype
+|Iterable, |Value| -> Bool| -> Bool
+```
 
 Checks the Iterable's values against a test Function.
 The Function should return `true` or `false`, and then `any` returns `true`
@@ -99,7 +103,9 @@ if any of the values pass the test.
 
 ## chain
 
-`|Iterable, Iterable| -> Iterator`
+```kototype
+|Iterable, Iterable| -> Iterator
+```
 
 `chain` returns an iterator that iterates over the output of the first iterator,
 followed by the output of the second iterator.
@@ -134,11 +140,15 @@ e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ## consume
 
-`|Iterable| -> Null`
+```kototype
+|Iterable| -> Null
+```
 
 Consumes the output of the iterator.
 
-`|Iterable, Function| -> Null`
+```kototype
+|Iterable, Function| -> Null
+```
 
 Consumes the output of the iterator, calling the provided function with each
 iterator output value.
@@ -166,7 +176,9 @@ result
 
 ## copy
 
-`|Iterator| -> Iterator`
+```kototype
+|Iterator| -> Iterator
+```
 
 Returns an iterator that shares the same iterable data, but with a unique
 iteration position (which is part of an iterator's shared state by default).
@@ -201,7 +213,9 @@ z.next() # z's iteration hasn't been impacted by the advancing of x and y.
 
 ## count
 
-`|Iterable| -> Number`
+```kototype
+|Iterable| -> Number
+```
 
 Counts the number of items yielded from the iterator.
 
@@ -219,7 +233,9 @@ Counts the number of items yielded from the iterator.
 
 ## cycle
 
-`|Iterable| -> Iterator`
+```kototype
+|Iterable| -> Iterator
+```
 
 Takes an Iterable and returns a new iterator that endlessly repeats the output
 of the iterable.
@@ -236,7 +252,9 @@ of the iterable.
 
 ## each
 
-`|Iterable, |Value| -> Value| -> Iterator`
+```kototype
+|Iterable, |Value| -> Value| -> Iterator
+```
 
 Takes an Iterable and a Function, and returns a new iterator that provides the
 result of calling the function with each value in the iterable.
@@ -252,7 +270,9 @@ result of calling the function with each value in the iterable.
 
 ## enumerate
 
-`|Iterable| -> Iterator`
+```kototype
+|Iterable| -> Iterator
+```
 
 Returns an iterator that provides each value along with an associated index.
 
@@ -265,7 +285,9 @@ Returns an iterator that provides each value along with an associated index.
 
 ## find
 
-`|Iterable, |Value| -> Bool| -> Value`
+```kototype
+|Iterable, |Value| -> Bool| -> Value
+```
 
 Returns the first value in the iterable that passes the test function.
 
@@ -288,7 +310,9 @@ If no match is found then Null is returned.
 
 ## flatten
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Returns the output of the input iterator, with any nested iterable values
 flattened out.
@@ -309,7 +333,9 @@ containers will still be present in the output.
 
 ## fold
 
-`|Iterable, Value, |Value, Value| -> Value| -> Value`
+```kototype
+|Iterable, Value, |Value, Value| -> Value| -> Value
+```
 
 Returns the result of 'folding' the iterator's values into an accumulator
 function.
@@ -339,8 +365,12 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 
 ## generate
 
-`|Function| -> Iterator`
-`|Number, Function| -> Value`
+```kototype
+|Function| -> Iterator
+```
+```kototype
+|Number, Function| -> Value
+```
 
 Provides an iterator that yields the result of repeatedly calling the provided
 function. A number of calls to the function can be provided as the first
@@ -364,12 +394,16 @@ iterator.generate(3, f).to_tuple()
 
 ## intersperse
 
-`|Iterable, Value| -> Iterator`
+```kototype
+|Iterable, Value| -> Iterator
+```
 
 Returns an iterator that yields a copy of the provided value between each
 adjacent pair of output values.
 
-`|Iterable, || -> Value| -> Iterator`
+```kototype
+|Iterable, || -> Value| -> Iterator
+```
 
 Returns an iterator that yields the result of calling the provided function
 between each adjacent pair of output values.
@@ -389,7 +423,9 @@ separators = (1, 2, 3).iter()
 
 ## iter
 
-`|Iterable| -> Iterator`
+```kototype
+|Iterable| -> Iterator
+```
 
 Returns an iterator that yields the provided iterable's values.
 
@@ -415,7 +451,9 @@ i.next()
 
 ## keep
 
-`|Iterable, |Value| -> Bool| -> Iterator`
+```kototype
+|Iterable, |Value| -> Bool| -> Iterator
+```
 
 Returns an iterator that keeps only the values that pass a test function.
 
@@ -432,7 +470,9 @@ discarded.
 
 ## last
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Consumes the iterator, returning the last yielded value.
 
@@ -448,11 +488,15 @@ Consumes the iterator, returning the last yielded value.
 
 ## max
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Returns the maximum value found in the iterable.
 
-`|Iterable, |Value| -> Value| -> Value`
+```kototype
+|Iterable, |Value| -> Value| -> Value
+```
 
 Returns the maximum value found in the iterable, based on first calling a 'key'
 function with the value, and then using the resulting keys for the comparisons.
@@ -474,11 +518,15 @@ found so far, until all values in the iterator have been compared.
 
 ## min
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Returns the minimum value found in the iterable.
 
-`|Iterable, |Value| -> Value| -> Value`
+```kototype
+|Iterable, |Value| -> Value| -> Value
+```
 
 Returns the minimum value found in the iterable, based on first calling a 'key'
 function with the value, and then using the resulting keys for the comparisons.
@@ -500,11 +548,15 @@ found so far, until all values in the iterator have been compared.
 
 ## min_max
 
-`|Iterable| -> (Value, Value)`
+```kototype
+|Iterable| -> (Value, Value)
+```
 
 Returns the minimum and maximum values found in the iterable.
 
-`|Iterable, |Value| -> Value| -> Value`
+```kototype
+|Iterable, |Value| -> Value| -> Value
+```
 
 Returns the minimum and maximum values found in the iterable, based on first
 calling a 'key' function with the value, and then using the resulting keys for
@@ -528,7 +580,9 @@ compared.
 
 ## next
 
-`|Iterator| -> Value`
+```kototype
+|Iterator| -> Value
+```
 
 Returns the next value from the iterator.
 
@@ -546,7 +600,9 @@ x.next()
 
 ## position
 
-`|Iterable, |Value| -> Bool| -> Value`
+```kototype
+|Iterable, |Value| -> Bool| -> Value
+```
 
 Returns the position of the first value in the iterable that passes the test
 function.
@@ -575,7 +631,9 @@ If no match is found then Null is returned.
 
 ## product
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Returns the result of multiplying each value in the iterable together.
 
@@ -593,8 +651,12 @@ Returns the result of multiplying each value in the iterable together.
 
 ## repeat
 
-`|Value| -> Iterator`
-`|Number, Value| -> Value`
+```kototype
+|Value| -> Iterator
+```
+```kototype
+|Number, Value| -> Value
+```
 
 Provides an iterator that repeats the provided value. A number of repeats can be
 provided as the first argument.
@@ -615,7 +677,9 @@ iterator.repeat(3, -1).to_tuple()
 
 ## skip
 
-`|Iterable, Number| -> Iterator`
+```kototype
+|Iterable, Number| -> Iterator
+```
 
 Skips over a number of steps in the iterator.
 
@@ -632,7 +696,9 @@ Skips over a number of steps in the iterator.
 
 ## sum
 
-`|Iterable| -> Value`
+```kototype
+|Iterable| -> Value
+```
 
 Returns the result of adding each value in the iterable together.
 
@@ -650,7 +716,9 @@ Returns the result of adding each value in the iterable together.
 
 ## take
 
-`|Iterable, Number| -> Iterator`
+```kototype
+|Iterable, Number| -> Iterator
+```
 
 Provides an iterator that consumes a number of values from the input before
 finishing.
@@ -668,7 +736,9 @@ finishing.
 
 ## to_list
 
-`|Iterable| -> List`
+```kototype
+|Iterable| -> List
+```
 
 Consumes all values coming from the iterator and places them in a list.
 
@@ -687,7 +757,9 @@ Consumes all values coming from the iterator and places them in a list.
 
 ## to_map
 
-`|Iterable| -> Map`
+```kototype
+|Iterable| -> Map
+```
 
 Consumes all values coming from the iterator and places them in a map.
 
@@ -717,7 +789,9 @@ key, with Null as the entry's value.
 
 ## to_num2
 
-`|Iterable| -> Num2`
+```kototype
+|Iterable| -> Num2
+```
 
 Consumes up to 2 values from the iterator and places them in a Num2.
 
@@ -736,7 +810,9 @@ Consumes up to 2 values from the iterator and places them in a Num2.
 
 ## to_num4
 
-`|Iterable| -> Num4`
+```kototype
+|Iterable| -> Num4
+```
 
 Consumes up to 4 values from the iterator and places them in a Num2.
 
@@ -755,7 +831,9 @@ Consumes up to 4 values from the iterator and places them in a Num2.
 
 ## to_string
 
-`|Iterable| -> String`
+```kototype
+|Iterable| -> String
+```
 
 Consumes all values coming from the iterator and produces a string containing
 the formatted values.
@@ -778,7 +856,9 @@ the formatted values.
 
 ## to_tuple
 
-`|Iterable| -> Tuple`
+```kototype
+|Iterable| -> Tuple
+```
 
 Consumes all values coming from the iterator and places them in a tuple.
 
@@ -797,7 +877,9 @@ Consumes all values coming from the iterator and places them in a tuple.
 
 ## windows
 
-`|Iterable, Number| -> Iterator`
+```kototype
+|Iterable, Number| -> Iterator
+```
 
 Returns an iterator that splits up the input data into overlapping windows of
 size `N`, where each window is provided as an iterator over the chunk's
@@ -817,7 +899,9 @@ e.g. a List or a String (i.e. not an adapted iterator or a generator).
 
 ## zip
 
-`|Iterable, Iterable| -> Iterator`
+```kototype
+|Iterable, Iterable| -> Iterator
+```
 
 Combines the values in two iterables into an iterator that provides
 corresponding pairs of values, one at a time from each input iterable.

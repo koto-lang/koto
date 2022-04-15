@@ -30,7 +30,9 @@ x
 
 ## length
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the length of the vector represented by the Num4's elements.
 
@@ -44,7 +46,9 @@ x.length()
 
 ## lerp
 
-`|a: Num4, b: Num4, t: Number| -> Num4`
+```kototype
+|a: Num4, b: Num4, t: Number| -> Num4
+```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
 
@@ -78,13 +82,27 @@ a.lerp b, 1.5
 
 ## make_num4
 
-`|Number| -> Num4`
-`|Number, Number| -> Num4`
-`|Number, Number, Number| -> Num4`
-`|Number, Number, Number, Number| -> Num4`
-`|Num2| -> Num4`
-`|Num4| -> Num4`
-`|Iterable| -> Num4`
+```kototype
+|Number| -> Num4
+```
+```kototype
+|Number, Number| -> Num4
+```
+```kototype
+|Number, Number, Number| -> Num4
+```
+```kototype
+|Number, Number, Number, Number| -> Num4
+```
+```kototype
+|Num2| -> Num4
+```
+```kototype
+|Num4| -> Num4
+```
+```kototype
+|Iterable| -> Num4
+```
 
 Makes a Num4 from the provided values.
 
@@ -106,7 +124,9 @@ make_num4 [11, 12, 13, 14]
 
 ## max
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the value of the largest element in the Num4.
 
@@ -120,7 +140,9 @@ x.max()
 
 ## min
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the value of the smallest element in the Num4.
 
@@ -134,7 +156,9 @@ x.min()
 
 ## normalize
 
-`|Num4| -> Num4`
+```kototype
+|Num4| -> Num4
+```
 
 Returns a Num4 with the same direction as the input,
 with its length normalized to 1.
@@ -149,7 +173,9 @@ x.normalize()
 
 ## product
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the result of multiplying the Num4's elements together.
 
@@ -163,7 +189,9 @@ x.product()
 
 ## sum
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the result of adding the Num4's elements together.
 
@@ -177,7 +205,9 @@ x.sum()
 
 ## with
 
-`|Num4, index: Number, value: Number| -> Num4`
+```kototype
+|Num4, index: Number, value: Number| -> Num4
+```
 
 Returns a Num4 with the element at `index` replaced with `value`.
 
@@ -193,7 +223,9 @@ x.with 3, -1
 
 ## r
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the first element of the Num4.
 
@@ -210,7 +242,9 @@ n.r()
 
 ## g
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the second element of the Num4.
 
@@ -227,7 +261,9 @@ n.g()
 
 ## b
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the third element of the Num4.
 
@@ -244,7 +280,9 @@ n.b()
 
 ## a
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the fourth element of the Num4.
 
@@ -261,7 +299,9 @@ n.w()
 
 ## x
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the first element of the Num4.
 
@@ -278,7 +318,9 @@ n.x()
 
 ## y
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the second element of the Num4.
 
@@ -295,7 +337,9 @@ its `y` component.
 
 ## z
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the third element of the Num4.
 
@@ -312,7 +356,9 @@ n.z()
 
 ## w
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the fourth element of the Num4.
 

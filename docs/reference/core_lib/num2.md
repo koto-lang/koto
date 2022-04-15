@@ -26,7 +26,9 @@ x + 10
 
 ## angle
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the angle in radians of the vector represented by the Num2's elements.
 
@@ -44,7 +46,9 @@ x.angle()
 
 ## length
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the length of the vector represented by the Num2's elements.
 
@@ -58,7 +62,9 @@ x.length()
 
 ## lerp
 
-`|a: Num2, b: Num2, t: Number| -> Num2`
+```kototype
+|a: Num2, b: Num2, t: Number| -> Num2
+```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
 
@@ -92,13 +98,21 @@ a.lerp b, 1.5
 
 ## make_num2
 
-`|Number| -> Num2`
+```kototype
+|Number| -> Num2
+```
 
-`|Number, Number| -> Num2`
+```kototype
+|Number, Number| -> Num2
+```
 
-`|Num2| -> Num2`
+```kototype
+|Num2| -> Num2
+```
 
-`|Iterable| -> Num2`
+```kototype
+|Iterable| -> Num2
+```
 
 Makes a Num2 from the provided values.
 
@@ -117,7 +131,9 @@ make_num2 [11, 12]
 
 ## max
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the value of the largest element in the Num2.
 
@@ -131,7 +147,9 @@ x.max()
 
 ## min
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the value of the smallest element in the Num2.
 
@@ -145,7 +163,9 @@ x.min()
 
 ## normalize
 
-`|Num2| -> Num2`
+```kototype
+|Num2| -> Num2
+```
 
 Returns a Num2 with the same direction as the input,
 with its length normalized to 1.
@@ -160,7 +180,9 @@ x.normalize()
 
 ## product
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the result of multiplying the Num2's elements together.
 
@@ -174,7 +196,9 @@ x.product()
 
 ## sum
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the result of adding the Num2's elements together.
 
@@ -188,7 +212,9 @@ x.sum()
 
 ## with
 
-`|Num2, index: Number, value: Number| -> Num2`
+```kototype
+|Num2, index: Number, value: Number| -> Num2
+```
 
 Returns a Num2 with the element at `index` replaced with `value`.
 
@@ -204,7 +230,9 @@ x.with 1, -1
 
 ## x
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the first element of the Num2.
 
@@ -218,7 +246,9 @@ n.x()
 
 ## y
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the second element of the Num2.
 

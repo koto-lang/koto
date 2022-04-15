@@ -70,7 +70,9 @@ escape code, then it can be escaped with an additional `\`.
 
 ## bytes
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields a series of Numbers representing the bytes
 contained in the string data.
@@ -88,7 +90,9 @@ contained in the string data.
 
 ## chars
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields the string's characters as strings.
 
@@ -111,7 +115,9 @@ Note that this is the default iteration behaviour for a string, so calling
 
 ## contains
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the second provided string is a sub-string of the first.
 
@@ -133,7 +139,9 @@ Returns `true` if the second provided string is a sub-string of the first.
 
 ## ends_with
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the first string ends with the second string.
 
@@ -149,7 +157,9 @@ Returns `true` if the first string ends with the second string.
 
 ## escape
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns the string with characters replaced with escape codes.
 
@@ -165,7 +175,9 @@ For example, newlines get replaced with `\n`, tabs get replaced with `\t`.
 
 ## format
 
-`|String, Value...| -> String`
+```kototype
+|String, Value...| -> String
+```
 
 Returns a formatted string, with the arguments being assigned to
 `{}` placeholders in the format string.
@@ -249,7 +261,9 @@ e.g. `"x{:4.2}x".format "abcd"` will output `xab  x`.
 
 ## is_empty
 
-`|String| -> Bool`
+```kototype
+|String| -> Bool
+```
 
 Returns `true` if the string contains no characters.
 
@@ -265,7 +279,9 @@ Returns `true` if the string contains no characters.
 
 ## from_bytes
 
-`|Iterable| -> String`
+```kototype
+|Iterable| -> String
+```
 
 Returns a string containing the bytes that are produced by the input iterable.
 The iterable output must contain only Numbers in the `0..=255` range.
@@ -284,7 +300,9 @@ string.from_bytes (72, 195, 171, 121, 33)
 
 ## lines
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields the lines contained in the input string.
 
@@ -304,7 +322,9 @@ Lines end with either `\r\n` or `\n`.
 
 ## size
 
-`|String| -> Number`
+```kototype
+|String| -> Number
+```
 
 Returns the number of graphemes in the string.
 
@@ -327,12 +347,16 @@ Equivalent to calling `.chars().count()`.
 
 ## slice
 
-`|String, Number| -> String`
+```kototype
+|String, Number| -> String
+```
 
 Returns a string with the contents of the input string starting from the
 provided character index.
 
-`|String, Number, Number| -> String`
+```kototype
+|String, Number, Number| -> String
+```
 
 Returns the sub-string of the input string,
 starting at the first index and ending at the second number.
@@ -356,12 +380,16 @@ Invalid start indices return Null.
 
 ## split
 
-`|String, String| -> Iterator`
+```kototype
+|String, String| -> Iterator
+```
 
 Returns an iterator that yields strings resulting from splitting the first
 string wherever the second string is encountered.
 
-`|String, |String| -> Bool| -> Iterator`
+```kototype
+|String, |String| -> Bool| -> Iterator
+```
 
 Returns an iterator that yields strings resulting from splitting the input
 string based on the result of calling a function. The function will be called
@@ -383,7 +411,9 @@ returns true.
 
 ## starts_with
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the first string starts with the second string.
 
@@ -399,7 +429,9 @@ Returns `true` if the first string starts with the second string.
 
 ## to_lowercase
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns a lowercase version of the input string.
 
@@ -415,7 +447,9 @@ Returns a lowercase version of the input string.
 
 ## to_number
 
-`|String| -> Number`
+```kototype
+|String| -> Number
+```
 
 Returns the string parsed as a number.
 
@@ -431,7 +465,9 @@ Returns the string parsed as a number.
 
 ## to_uppercase
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns an uppercase version of the input string.
 
@@ -447,7 +483,9 @@ Returns an uppercase version of the input string.
 
 ## trim
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns the string with whitespace at the start and end of the string trimmed.
 

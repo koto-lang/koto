@@ -37,7 +37,9 @@ x[1], y[2]
 
 ## contains
 
-`|Tuple, Value| -> Bool`
+```kototype
+|Tuple, Value| -> Bool
+```
 
 Returns `true` if the tuple contains a value that matches the input value.
 
@@ -57,7 +59,9 @@ Matching is performed with the `==` equality operator.
 
 ## first
 
-`|Tuple| -> Value`
+```kototype
+|Tuple| -> Value
+```
 
 Returns the first value in the tuple, or Null if the tuple is empty.
 
@@ -74,8 +78,12 @@ x.first()
 
 ## get
 
-`|Tuple, Number| -> Value`
-`|Tuple, Number, Value| -> Value`
+```kototype
+|Tuple, Number| -> Value
+```
+```kototype
+|Tuple, Number, Value| -> Value
+```
 
 Gets the Nth value in the tuple.
 If the tuple doesn't contain a value at that position then the provided default
@@ -98,7 +106,9 @@ x.get 5, "abc"
 
 ## last
 
-`|Tuple| -> Value`
+```kototype
+|Tuple| -> Value
+```
 
 Returns the last value in the tuple, or Null if the tuple is empty.
 
@@ -115,7 +125,9 @@ x.last()
 
 ## size
 
-`|Tuple| -> Number`
+```kototype
+|Tuple| -> Number
+```
 
 Returns the number of values contained in the tuple.
 
@@ -129,7 +141,9 @@ x.size()
 
 ## sort_copy
 
-`|Tuple| -> Tuple`
+```kototype
+|Tuple| -> Tuple
+```
 
 Returns a sorted copy of the tuple.
 
@@ -147,7 +161,9 @@ x # x remains untouched
 
 ## to_list
 
-`|Tuple| -> List`
+```kototype
+|Tuple| -> List
+```
 
 Returns a copy of the tuple's data as a list.
 

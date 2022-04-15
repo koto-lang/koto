@@ -16,7 +16,9 @@ x += 0.99    # x is now a float
 
 ## abs
 
-`|Number| -> Number`
+```kototype
+|Number| -> Number
+```
 
 Returns the absolute value of the number.
 
@@ -32,7 +34,9 @@ Returns the absolute value of the number.
 
 ## acos
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 
@@ -48,7 +52,9 @@ Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 
 ## acosh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the inverse hyperbolic cosine of the number.
 
@@ -67,7 +73,9 @@ Returns the inverse hyperbolic cosine of the number.
 
 ## and
 
-`|Integer, Integer| -> Integer`
+```kototype
+|Integer, Integer| -> Integer
+```
 
 Returns the bitwise combination of two integers, where a `1` in both input
 positions produces a `1` in corresponding output positions.
@@ -81,7 +89,9 @@ positions produces a `1` in corresponding output positions.
 
 ## asin
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 
@@ -97,7 +107,9 @@ Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 
 ## asinh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the inverse hyperbolic sine of the number.
 
@@ -113,7 +125,9 @@ Returns the inverse hyperbolic sine of the number.
 
 ## atan
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 
@@ -129,7 +143,9 @@ Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 
 ## atanh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the inverse hyperbolic tangent of the number.
 
@@ -148,7 +164,9 @@ Returns the inverse hyperbolic tangent of the number.
 
 ## atan2
 
-`|Number, Number| -> Float`
+```kototype
+|Number, Number| -> Float
+```
 
 Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
 `x` to determine the correct quadrant.
@@ -174,7 +192,9 @@ y.atan2 -x
 
 ## ceil
 
-`|Number| -> Integer`
+```kototype
+|Number| -> Integer
+```
 
 Returns the integer that's greater than or equal to the input.
 
@@ -199,7 +219,9 @@ Returns the integer that's greater than or equal to the input.
 
 ## clamp
 
-`|Number, Number, Number| -> Number`
+```kototype
+|Number, Number, Number| -> Number
+```
 
 Returns the first number restricted to the range defined by the second and third
 numbers.
@@ -219,7 +241,9 @@ numbers.
 
 ## cos
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the cosine of the number.
 
@@ -237,7 +261,9 @@ pi.cos()
 
 ## cosh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the hyperbolic cosine of the number.
 
@@ -250,7 +276,9 @@ Returns the hyperbolic cosine of the number.
 
 ## degrees
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Converts radians into degrees.
 
@@ -268,13 +296,17 @@ tau.degrees()
 
 ## e
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `e` constant.
 
 ## exp
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the result of applying the exponential function,
 equivalent to calling `e.pow x`.
@@ -291,7 +323,9 @@ equivalent to calling `e.pow x`.
 
 ## exp2
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the result of applying the base-2 exponential function,
 equivalent to calling `2.pow x`.
@@ -308,7 +342,9 @@ equivalent to calling `2.pow x`.
 
 ## flip_bits
 
-`|Integer| -> Integer`
+```kototype
+|Integer| -> Integer
+```
 
 Returns the input with its bits 'flipped', i.e. `1` => `0`, and `0` => `1`.
 
@@ -321,7 +357,9 @@ Returns the input with its bits 'flipped', i.e. `1` => `0`, and `0` => `1`.
 
 ## floor
 
-`|Number| -> Integer`
+```kototype
+|Number| -> Integer
+```
 
 Returns the integer that's less than or equal to the input.
 
@@ -346,13 +384,17 @@ Returns the integer that's less than or equal to the input.
 
 ## infinity
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `∞` constant.
 
 ## is_nan
 
-`|Number| -> Bool`
+```kototype
+|Number| -> Bool
+```
 
 Returns true if the number is `NaN`.
 
@@ -368,7 +410,9 @@ Returns true if the number is `NaN`.
 
 ## lerp
 
-`|a: Number, b: Number, t: Number| -> Float`
+```kototype
+|a: Number, b: Number, t: Number| -> Float
+```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
 
@@ -401,7 +445,9 @@ a.lerp b, 1.5
 
 ## ln
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the natural logarithm of the number.
 
@@ -419,7 +465,9 @@ e.ln()
 
 ## log2
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the base-2 logarithm of the number.
 
@@ -435,7 +483,9 @@ Returns the base-2 logarithm of the number.
 
 ## log10
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the base-10 logarithm of the number.
 
@@ -451,7 +501,9 @@ Returns the base-10 logarithm of the number.
 
 ## max
 
-`|Number, Number| -> Number`
+```kototype
+|Number, Number| -> Number
+```
 
 Returns the larger of the two numbers.
 
@@ -467,7 +519,9 @@ Returns the larger of the two numbers.
 
 ## min
 
-`|Number, Number| -> Number`
+```kototype
+|Number, Number| -> Number
+```
 
 Returns the smaller of the two numbers.
 
@@ -483,19 +537,25 @@ Returns the smaller of the two numbers.
 
 ## nan
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `NaN` (Not a Number) constant.
 
 ## negative_infinity
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `-∞` constant.
 
 ## or
 
-`|Integer, Integer| -> Integer`
+```kototype
+|Integer, Integer| -> Integer
+```
 
 Returns the bitwise combination of two integers, where a `1` in either input
 positions produces a `1` in corresponding output positions.
@@ -509,25 +569,33 @@ positions produces a `1` in corresponding output positions.
 
 ## pi
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `π` constant.
 
 ## pi_2
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `π` constant divided by `2`.
 
 ## pi_4
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `π` constant divided by `4`.
 
 ## pow
 
-`|Number, Number| -> Number`
+```kototype
+|Number, Number| -> Number
+```
 
 Returns the result of raising the first number to the power of the second.
 
@@ -540,7 +608,9 @@ Returns the result of raising the first number to the power of the second.
 
 ## radians
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Converts degrees into radians.
 
@@ -556,7 +626,9 @@ Converts degrees into radians.
 
 ## recip
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the reciprocal of the number, i.e. `1 / x`.
 
@@ -569,7 +641,9 @@ Returns the reciprocal of the number, i.e. `1 / x`.
 
 ## round
 
-`|Number| -> Integer`
+```kototype
+|Number| -> Integer
+```
 
 Returns the nearest integer to the input number.
 Half-way values round away from zero.
@@ -595,7 +669,9 @@ Half-way values round away from zero.
 
 ## shift_left
 
-`|Integer, Integer| -> Integer`
+```kototype
+|Integer, Integer| -> Integer
+```
 
 Returns the result of shifting the bits of the first number to the left by the
 amount specified by the second number.
@@ -613,7 +689,9 @@ The shift amount must be greater than or equal to `0`.
 
 ## shift_right
 
-`|Integer, Integer| -> Integer`
+```kototype
+|Integer, Integer| -> Integer
+```
 
 Returns the result of shifting the bits of the first number to the right by the
 amount specified by the second number.
@@ -631,7 +709,9 @@ The shift amount must be greater than or equal to `0`.
 
 ## sin
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the sine of the number.
 
@@ -649,7 +729,9 @@ import number.pi
 
 ## sinh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the hyperbolic sine of the number.
 
@@ -662,7 +744,9 @@ Returns the hyperbolic sine of the number.
 
 ## sqrt
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the square root of the number.
 
@@ -675,7 +759,9 @@ Returns the square root of the number.
 
 ## tan
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the tangent of the number.
 
@@ -688,7 +774,9 @@ Returns the tangent of the number.
 
 ## tanh
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the hyperbolic tangent of the number.
 
@@ -701,13 +789,17 @@ Returns the hyperbolic tangent of the number.
 
 ## tau
 
-`Float`
+```kototype
+Float
+```
 
 Provides the `τ` constant, equivalent to `2π`.
 
 ## to_float
 
-`|Number| -> Float`
+```kototype
+|Number| -> Float
+```
 
 Returns the number as a `Float`.
 
@@ -720,7 +812,9 @@ Returns the number as a `Float`.
 
 ## to_int
 
-`|Number| -> Integer`
+```kototype
+|Number| -> Integer
+```
 
 Converts a Number into an integer by removing its fractional part.
 
@@ -750,7 +844,9 @@ This is often called `trunc` in other languages.
 
 ## xor
 
-`|Integer, Integer| -> Integer`
+```kototype
+|Integer, Integer| -> Integer
+```
 
 Returns the bitwise combination of two integers,
 where a `1` in one (and only one) of the input positions

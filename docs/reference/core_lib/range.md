@@ -49,7 +49,9 @@ x4.to_list()
 
 ## contains
 
-`|Range, Number| -> Bool`
+```kototype
+|Range, Number| -> Bool
+```
 
 Returns true if the provided number is within the range, and false otherwise.
 
@@ -69,7 +71,9 @@ x.contains -1
 
 ## end
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the `end` value of the range.
 
@@ -89,7 +93,9 @@ Returns the `end` value of the range.
 
 ## expanded
 
-`|Range, Number| -> Range`
+```kototype
+|Range, Number| -> Range
+```
 
 Returns a copy of the input range which has been 'expanded' in both directions
 by the provided amount. For an ascending range this will mean that `start` will
@@ -118,7 +124,9 @@ Negative amounts will cause the range to shrink rather than grow.
 
 ## size
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the size of the range.
 This is equivalent to `range.end() - range.start()`.
@@ -140,7 +148,9 @@ Note that for descending ranges, a negative value will be returned.
 
 ## start
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the `start` value of the range.
 
@@ -160,14 +170,18 @@ Returns the `start` value of the range.
 
 ## union
 
-`|Range, Number| -> Range`
+```kototype
+|Range, Number| -> Range
+```
 
 Returns the union of the range and a provided number.
 
 If the number falls outside of the range then the resulting range will be
 expanded to include the number.
 
-`|Range, Range| -> Range`
+```kototype
+|Range, Range| -> Range
+```
 
 Returns the union of two ranges.
 

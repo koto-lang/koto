@@ -6,7 +6,9 @@ A collection of utilities for working with the Koto runtime.
 
 ## args
 
-`Tuple`
+```kototype
+Tuple
+```
 
 Provides access to the arguments that were passed into the script when running
 the `koto` CLI application.
@@ -27,7 +29,9 @@ koto.args.last()
 
 ## exports
 
-`|| -> Map`
+```kototype
+|| -> Map
+```
 
 Returns the current module's `export` map.
 
@@ -37,21 +41,27 @@ it can be useful to export items programatically.
 
 ## script_dir
 
-`String or Null`
+```kototype
+String or Null
+```
 
 If a script is being executed then `script_dir` provides the directory that the
 current script is contained in as a String, otherwise `script_dir` is Null.
 
 ## script_path
 
-`String or Null`
+```kototype
+String or Null
+```
 
 If a script is being executed then `script_path` provides the path of the
 current script as a String, otherwise `script_path` is Null.
 
 ## type
 
-`|Value| -> String`
+```kototype
+|Value| -> String
+```
 
 Returns the type of the input Value as a String.
 
