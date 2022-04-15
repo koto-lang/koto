@@ -176,7 +176,7 @@ y.atan2 -x
 
 `|Number| -> Integer`
 
-Returns the smallest integer that's greater than or equal to the input.
+Returns the integer that's greater than or equal to the input.
 
 ### Example
 
@@ -323,7 +323,7 @@ Returns the input with its bits 'flipped', i.e. `1` => `0`, and `0` => `1`.
 
 `|Number| -> Integer`
 
-Returns the smallest integer that's less than or equal to the input.
+Returns the integer that's less than or equal to the input.
 
 ### Example
 
@@ -722,16 +722,24 @@ Returns the number as a `Float`.
 
 `|Number| -> Integer`
 
-Returns the number as an `Integer`. This is equivalent to calling `ceil`.
+Converts a Number into an integer by removing its fractional part.
+
+This is often called `trunc` in other languages.
 
 ### Example
 
 ```koto
-1.5.to_int()
+2.9.to_int()
 # 2
+
+1.5.to_int()
+# 1
 
 -0.5.to_int()
 # 0
+
+-1.9.to_int()
+# -1
 ```
 
 ### See Also
