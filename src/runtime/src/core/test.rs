@@ -1,5 +1,6 @@
 use crate::{
-    runtime_error, unexpected_type_error_with_slice, BinaryOp, Value, ValueMap, ValueNumber,
+    num2, num4, runtime_error, unexpected_type_error_with_slice, BinaryOp, RuntimeResult, Value,
+    ValueMap, ValueNumber,
 };
 
 pub fn make_module() -> ValueMap {
@@ -70,43 +71,16 @@ pub fn make_module() -> ValueMap {
     });
 
     result.add_fn("assert_near", |vm, args| match vm.get_args(args) {
-        [Number(a), Number(b), Number(allowed_diff)] => {
-            if number_near(*a, *b, *allowed_diff) {
-                Ok(Null)
-            } else {
-                runtime_error!(
-                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
-                )
-            }
-        }
-        [Num2(a), Num2(b), Number(allowed_diff)] => {
-            let allowed_diff: f64 = allowed_diff.into();
-            if f64_near(a.0, b.0, allowed_diff) && f64_near(a.1, b.1, allowed_diff) {
-                Ok(Null)
-            } else {
-                runtime_error!(
-                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
-                )
-            }
-        }
-        [Num4(a), Num4(b), Number(allowed_diff)] => {
-            let allowed_diff: f32 = allowed_diff.into();
-            if f32_near(a.0, b.0, allowed_diff)
-                && f32_near(a.1, b.1, allowed_diff)
-                && f32_near(a.2, b.2, allowed_diff)
-                && f32_near(a.3, b.3, allowed_diff)
-            {
-                Ok(Null)
-            } else {
-                runtime_error!(
-                    "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
-                )
-            }
-        }
+        [Number(a), Number(b)] => number_near(*a, *b, 1.0e-12),
+        [Number(a), Number(b), Number(allowed_diff)] => number_near(*a, *b, allowed_diff.into()),
+        [Num2(a), Num2(b)] => num2_near(*a, *b, 1.0e-12),
+        [Num2(a), Num2(b), Number(allowed_diff)] => num2_near(*a, *b, allowed_diff.into()),
+        [Num4(a), Num4(b)] => num4_near(*a, *b, 1.0e-6),
+        [Num4(a), Num4(b), Number(allowed_diff)] => num4_near(*a, *b, allowed_diff.into()),
         unexpected => unexpected_type_error_with_slice(
             "test.assert_near",
             "two Numbers (or Num2s or Num4s) as arguments, \
-             followed by a Number that specifies the allowed difference",
+             followed by an optional Number that specifies the allowed difference",
             unexpected,
         ),
     });
@@ -133,6 +107,36 @@ fn f64_near(a: f64, b: f64, allowed_diff: f64) -> bool {
     (a - b).abs() <= allowed_diff
 }
 
-fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: ValueNumber) -> bool {
-    (a - b).abs() <= allowed_diff
+fn number_near(a: ValueNumber, b: ValueNumber, allowed_diff: f64) -> RuntimeResult {
+    if f64_near(a.into(), b.into(), allowed_diff) {
+        Ok(Value::Null)
+    } else {
+        runtime_error!(
+            "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
+        )
+    }
+}
+
+fn num2_near(a: num2::Num2, b: num2::Num2, allowed_diff: f64) -> RuntimeResult {
+    if f64_near(a.0, b.0, allowed_diff) && f64_near(a.1, b.1, allowed_diff) {
+        Ok(Value::Null)
+    } else {
+        runtime_error!(
+            "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
+        )
+    }
+}
+
+fn num4_near(a: num4::Num4, b: num4::Num4, allowed_diff: f32) -> RuntimeResult {
+    if f32_near(a.0, b.0, allowed_diff)
+        && f32_near(a.1, b.1, allowed_diff)
+        && f32_near(a.2, b.2, allowed_diff)
+        && f32_near(a.3, b.3, allowed_diff)
+    {
+        Ok(Value::Null)
+    } else {
+        runtime_error!(
+            "Assertion failed, '{a}' and '{b}' are not within {allowed_diff} of each other"
+        )
+    }
 }

@@ -71,7 +71,7 @@ a = 99
 
         #[test]
         fn remainder_negative() {
-            test_script("assert_near 10 % -1.2, 0.4, 1e-9", Null);
+            test_script("assert_near 10 % -1.2, 0.4", Null);
         }
 
         #[test]

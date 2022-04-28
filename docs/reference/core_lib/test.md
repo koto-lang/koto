@@ -126,9 +126,15 @@ assert_ne 2 + 2, 4
 
 ## assert_near
 
+`|Number, Number| -> Null`
+
 `|Number, Number, Number| -> Null`
 
+`|Num2, Num2| -> Null`
+
 `|Num2, Num2, Number| -> Null`
+
+`|Num4, Num4| -> Null`
 
 `|Num4, Num4, Number| -> Null`
 
@@ -136,6 +142,9 @@ Checks that the two input numbers are equal, within an allowed margin of error.
 
 This is useful when testing floating-point operations, where the result can be
 close to a target with some acceptable imprecision.
+
+The margin of error is optional, defaulting to `1.0e-12` for `Number` and `Num2`
+comparisons, and `1.0e-6` for `Num4` comparisons.
 
 ### Example
 
@@ -147,6 +156,9 @@ assert_near 1.3, 1.301, allowed_error
 # This assertion will fail and throw an error
 assert_near 1.3, 1.32, allowed_error
 # error: Assertion failed, '1.3' and '1.32' are not within 0.01 of each other
+
+# The allowed margin of error is optional, defaulting to a very small value
+assert_near 1 % 0.2, 0.2
 ```
 
 ## run_tests

@@ -13,6 +13,7 @@
   @test size: |self|
     # assert_eq checks that its two arguments are equal
     assert_eq self.test_data.size(), 3
+
     # assert_ne checks that its two arguments are not equal
     assert_ne self.test_data.size(), 1
 
@@ -20,9 +21,13 @@
   @test extra: ||
     # assert checks that its argument is true
     assert 1 > 0
+
     # assert_near checks that its arguments are equal, within a specied margin
     allowed_error = 0.1
     assert_near 1.3, 1.301, allowed_error
+  
+    # The allowed margin of error for assert_near is optional
+    assert_near 1 % 0.2, 0.2 
 
   @test run_tests: ||
     tests_were_run = {}

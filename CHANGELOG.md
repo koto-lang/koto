@@ -100,6 +100,8 @@ The Koto project adheres to
     # 2
     # 3
     ```
+- `test.assert_near`'s margin of error is now optional, defaulting to a very
+  small value.
 
 #### Internals
 
