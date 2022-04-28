@@ -1596,6 +1596,11 @@ impl Vm {
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
         let result_value = match (lhs_value, rhs_value) {
+            (Number(_), Number(ValueNumber::I64(b))) if *b == 0 => {
+                // Special case for integer remainder when the divisor is zero,
+                // avoid a panic and return NaN instead.
+                Number(f64::NAN.into())
+            }
             (Number(a), Number(b)) => Number(a % b),
             (Number(a), Num2(b)) => Num2(a % b),
             (Num2(a), Num2(b)) => Num2(a % b),

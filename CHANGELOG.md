@@ -261,6 +261,8 @@ The Koto project adheres to
 - Accessing an ID without side effects would previously be optimized away,
   which led to the confusing situation where a missing ID could be accessed in a
   script without triggering an error.
+- Running an integer remainder operation with a divisor of zero (e.g. `1 % 0`)
+  no longer causes a panic and instead returns `NaN`.
 
 
 ## [0.10.0] 2021.12.02

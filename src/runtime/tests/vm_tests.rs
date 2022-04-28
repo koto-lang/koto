@@ -73,6 +73,11 @@ a = 99
         fn remainder_negative() {
             test_script("assert_near 10 % -1.2, 0.4, 1e-9", Null);
         }
+
+        #[test]
+        fn remainder_with_a_divisor_of_zero() {
+            test_script("(1 % 0).is_nan()", true.into());
+        }
     }
 
     mod logic {
