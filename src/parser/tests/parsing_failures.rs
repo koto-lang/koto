@@ -165,6 +165,14 @@ x .foo
             use super::*;
 
             #[test]
+            fn block_starting_on_same_line_as_assignment_single_entry() {
+                let source = "
+x = foo: 42
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
             fn block_starting_on_same_line_as_assignment() {
                 let source = "
 x = foo: 42
@@ -194,6 +202,15 @@ x =
 ";
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn inline_map_without_braces() {
+                let source = "
+x = foo: 42, bar: 99,
+  baz: 99
+";
+                check_parsing_fails(source);
+            }
         }
 
         mod lists {
@@ -202,6 +219,13 @@ x =
             #[test]
             fn double_comma() {
                 let source = "x = [1, 2, , 3]";
+
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn space_separated_function_call_in_list() {
+                let source = "x = [1, 2, f y, 4]";
 
                 check_parsing_fails(source);
             }

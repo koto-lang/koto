@@ -1,3 +1,46 @@
+m = {
+  foo:
+    42,
+  bar:
+    -1,
+}
+assert_eq m.bar, -1
+
+x = [
+  42,
+  99,
+]
+assert_eq x[1], 99
+
+y = 
+  [ 42
+  , 99
+  ]
+assert_eq x, y
+
+x = (
+  1, # indentation is flexible inside braced expressions
+2, 
+    3, 4,
+  5,
+)
+assert_eq x.last(), 5
+
+# Linebreaks before operators
+a = 1
+  + 2 + #- inline comment -# 3
+    # Another comment
+    + 4
+assert_eq a, 10
+
+# Linebreaks after operators
+a = 1 +
+    # Indentation can increase between operators
+      2 + #- inline comment -# 3 +
+        # Another comment
+        4
+
+assert_eq a, 10
 a = make_num4
   0, 1, 2, 3
 b = make_num4
@@ -53,36 +96,3 @@ assert_equal
   1234,
   1234
 
-m = {
-  foo:
-    42,
-  bar:
-    -1,
-}
-assert_eq m.bar, -1
-
-x = [
-  42,
-  99,
-]
-assert_eq x[1], 99
-
-y = [ 42
-    , 99
-    ]
-assert_eq x, y
-
-# Linebreaks before operators
-a = 1
-  + 2 + #- inline comment -# 3
-    # Another comment
-    + 4
-assert_eq a, 10
-
-# Linebreaks after operators
-a = 1 +
-    # Indentation can increase between operators
-      2 + #- inline comment -# 3 +
-        # Another comment
-        4
-assert_eq a, 10

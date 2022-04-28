@@ -141,8 +141,8 @@ The Koto project adheres to
 - Map equality comparisons now don't rely on maps having keys in the same order.
   - e.g.
     ```koto
-    x = foo: 42, bar: 99
-    y = bar: 99, foo: 42
+    x = {foo: 42, bar: 99}
+    y = {bar: 99, foo: 42}
     # Before
     assert_eq x != y, true
     # After
@@ -162,7 +162,7 @@ The Koto project adheres to
   bodies need to use `then`.
   - This reverts a change made in `0.9.0`, in practice it's less distracting to
     have `then` required in all arms.
-- Parsing of multi-line containers is now more flexible.
+- Parsing of multi-line braced expressions is now more flexible.
   - e.g.
     ```koto
     # The following style of list declaration was previously disallowed
@@ -171,6 +171,9 @@ The Koto project adheres to
         , 3
         ]
     ```
+- Curly braces are now required when declaring a Map with inline syntax.
+  - This reverts a change made in 0.9 which created too many ambiguous parsing 
+    situations in practice.
 
 #### Core Library
 
