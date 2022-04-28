@@ -45,14 +45,14 @@ pub enum Token {
     Subtract,
     Multiply,
     Divide,
-    Modulo,
+    Remainder,
 
     Assign,
     AssignAdd,
     AssignSubtract,
     AssignMultiply,
     AssignDivide,
-    AssignModulo,
+    AssignRemainder,
 
     Equal,
     NotEqual,
@@ -539,14 +539,14 @@ impl<'a> TokenLexer<'a> {
         check_symbol!("-=", AssignSubtract);
         check_symbol!("*=", AssignMultiply);
         check_symbol!("/=", AssignDivide);
-        check_symbol!("%=", AssignModulo);
+        check_symbol!("%=", AssignRemainder);
         check_symbol!("=", Assign);
 
         check_symbol!("+", Add);
         check_symbol!("-", Subtract);
         check_symbol!("*", Multiply);
         check_symbol!("/", Divide);
-        check_symbol!("%", Modulo);
+        check_symbol!("%", Remainder);
 
         check_symbol!("@", At);
         check_symbol!(":", Colon);

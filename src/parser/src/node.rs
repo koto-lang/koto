@@ -411,7 +411,7 @@ pub enum AstBinaryOp {
     Subtract,
     Multiply,
     Divide,
-    Modulo,
+    Remainder,
     Equal,
     NotEqual,
     Less,
@@ -448,7 +448,7 @@ pub enum AssignOp {
     /// /=
     Divide,
     /// %=
-    Modulo,
+    Remainder,
     /// =
     Equal,
 }
@@ -554,7 +554,7 @@ pub enum MetaKeyId {
     /// @/
     Divide,
     /// @%
-    Modulo,
+    Remainder,
     /// @<
     Less,
     /// @<=

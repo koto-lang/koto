@@ -634,7 +634,7 @@ impl<'source> Parser<'source> {
                         Subtract => AstBinaryOp::Subtract,
                         Multiply => AstBinaryOp::Multiply,
                         Divide => AstBinaryOp::Divide,
-                        Modulo => AstBinaryOp::Modulo,
+                        Remainder => AstBinaryOp::Remainder,
 
                         Equal => AstBinaryOp::Equal,
                         NotEqual => AstBinaryOp::NotEqual,
@@ -682,7 +682,7 @@ impl<'source> Parser<'source> {
             Some(Token::AssignSubtract) => AssignOp::Subtract,
             Some(Token::AssignMultiply) => AssignOp::Multiply,
             Some(Token::AssignDivide) => AssignOp::Divide,
-            Some(Token::AssignModulo) => AssignOp::Modulo,
+            Some(Token::AssignRemainder) => AssignOp::Remainder,
             _ => return Ok(None),
         };
 
@@ -822,7 +822,7 @@ impl<'source> Parser<'source> {
             Some(Token::Subtract) => MetaKeyId::Subtract,
             Some(Token::Multiply) => MetaKeyId::Multiply,
             Some(Token::Divide) => MetaKeyId::Divide,
-            Some(Token::Modulo) => MetaKeyId::Modulo,
+            Some(Token::Remainder) => MetaKeyId::Remainder,
             Some(Token::Less) => MetaKeyId::Less,
             Some(Token::LessOrEqual) => MetaKeyId::LessOrEqual,
             Some(Token::Greater) => MetaKeyId::Greater,
@@ -3068,7 +3068,7 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
         Equal | NotEqual => (8, 7),
         Greater | GreaterOrEqual | Less | LessOrEqual => (10, 9),
         Add | Subtract => (11, 12),
-        Multiply | Divide | Modulo => (13, 14),
+        Multiply | Divide | Remainder => (13, 14),
         _ => return None,
     };
     Some(priority)

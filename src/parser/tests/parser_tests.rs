@@ -1353,7 +1353,7 @@ x %= 4";
                             target_index: 12,
                             scope: Scope::Local,
                         },
-                        op: AssignOp::Modulo,
+                        op: AssignOp::Remainder,
                         expression: 13,
                     },
                     MainBlock {
@@ -1473,7 +1473,7 @@ x %= 4";
         }
 
         #[test]
-        fn divide_modulo() {
+        fn divide_then_remainder() {
             let source = "18 / 3 % 4";
             check_ast(
                 source,
@@ -1487,7 +1487,7 @@ x %= 4";
                     },
                     Int(constant(2)),
                     BinaryOp {
-                        op: AstBinaryOp::Modulo,
+                        op: AstBinaryOp::Remainder,
                         lhs: 2,
                         rhs: 3,
                     },

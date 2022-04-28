@@ -1033,9 +1033,9 @@ impl Compiler {
                 expression,
                 ast,
             )?,
-            AssignOp::Modulo => self.compile_binary_op(
+            AssignOp::Remainder => self.compile_binary_op(
                 value_result_register,
-                AstBinaryOp::Modulo,
+                AstBinaryOp::Remainder,
                 target.target_index,
                 expression,
                 ast,
@@ -1603,7 +1603,7 @@ impl Compiler {
         let rhs_node = ast.node(rhs);
 
         match op {
-            Add | Subtract | Multiply | Divide | Modulo => {
+            Add | Subtract | Multiply | Divide | Remainder => {
                 self.compile_arithmetic_op(result_register, op, lhs_node, rhs_node, ast)
             }
             Less | LessOrEqual | Greater | GreaterOrEqual | Equal | NotEqual => {
@@ -1629,7 +1629,7 @@ impl Compiler {
             Subtract => Op::Subtract,
             Multiply => Op::Multiply,
             Divide => Op::Divide,
-            Modulo => Op::Modulo,
+            Remainder => Op::Remainder,
             _ => return compiler_error!(self, "Internal error: invalid op"),
         };
 

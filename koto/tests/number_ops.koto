@@ -1,7 +1,5 @@
 from number import e, infinity, negative_infinity, pi, pi_2, pi_4, tau,
 
-epsilon = 1.0e-15
-
 @tests =
   @test abs: ||
     assert_eq -1.abs(), 1
@@ -58,11 +56,11 @@ epsilon = 1.0e-15
 
   @test cos: ||
     assert_eq 0.cos(), 1
-    assert_near pi_2.cos(), 0, epsilon
+    assert_near pi_2.cos(), 0
 
   @test cosh: ||
     assert_eq 0.cosh(), 1
-    assert_near 1.cosh(), ((1 + e.pow(2)) / (2 * e)), epsilon
+    assert_near 1.cosh(), ((1 + e.pow(2)) / (2 * e))
 
   @test degrees: ||
     assert_eq 0.degrees(), 0
@@ -150,21 +148,21 @@ epsilon = 1.0e-15
     assert_eq 256.shift_right(3), 32
 
   @test sin: ||
-    assert_near 0.sin(), 0, epsilon
+    assert_near 0.sin(), 0
     assert_eq pi_2.sin(), 1
 
   @test sinh: ||
-    assert_near 0.sinh(), 0, epsilon
-    assert_near 1.sinh(), ((e.pow(2) - 1) / (2 * e)), epsilon
+    assert_near 0.sinh(), 0
+    assert_near 1.sinh(), ((e.pow(2) - 1) / (2 * e))
 
   @test sqrt: ||
     assert_eq 64.sqrt(), 8
     assert -1.sqrt().is_nan()
 
   @test tan: ||
-    assert_near pi_4.tan(), 1, epsilon
+    assert_near pi_4.tan(), 1
     assert_eq 0.tan(), 0
-    assert_near 1.tan(), (1.sin() / 1.cos()), epsilon
+    assert_near 1.tan(), (1.sin() / 1.cos())
 
   @test tanh: ||
     assert_eq 0.tanh(), 0

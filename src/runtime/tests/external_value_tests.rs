@@ -111,7 +111,7 @@ mod external_values {
         );
 
         meta.add_binary_op(
-            BinaryOp::Modulo,
+            BinaryOp::Remainder,
             |data_a: &TestExternalData, data_b, value_a, _| {
                 let result = value_a.with_new_data(TestExternalData {
                     x: data_a.x % data_b.x,
@@ -289,7 +289,7 @@ x.to_number()
         }
 
         #[test]
-        fn modulo() {
+        fn remainder() {
             let script = "
 x = (make_external 45) % (make_external 10)
 x.to_number()

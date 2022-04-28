@@ -37,35 +37,22 @@ mod runtime {
 
             #[test]
             fn check_assert() {
-                let script = "
-assert false
-";
-                check_script_fails(script);
+                check_script_fails("assert false");
             }
 
             #[test]
             fn check_assert_eq() {
-                let script = "
-assert_eq 0, 1
-";
-                check_script_fails(script);
+                check_script_fails("assert_eq 0, 1");
             }
 
             #[test]
             fn check_assert_ne() {
-                let script = "
-assert_ne 1, 1
-";
-                check_script_fails(script);
+                check_script_fails("assert_ne 1, 1");
             }
 
             #[test]
             fn check_assert_near() {
-                let script = "
-assert_near 1, 2, 0.1
-";
-
-                check_script_fails(script);
+                check_script_fails("assert_near 1, 2, 0.1");
             }
         }
 

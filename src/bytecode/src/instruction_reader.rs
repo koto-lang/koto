@@ -230,7 +230,7 @@ pub enum Instruction {
         lhs: u8,
         rhs: u8,
     },
-    Modulo {
+    Remainder {
         register: u8,
         lhs: u8,
         rhs: u8,
@@ -459,7 +459,7 @@ impl fmt::Display for Instruction {
             Subtract { .. } => write!(f, "Subtract"),
             Multiply { .. } => write!(f, "Multiply"),
             Divide { .. } => write!(f, "Divide"),
-            Modulo { .. } => write!(f, "Modulo"),
+            Remainder { .. } => write!(f, "Remainder"),
             Less { .. } => write!(f, "Less"),
             LessOrEqual { .. } => write!(f, "LessOrEqual"),
             Greater { .. } => write!(f, "Greater"),
@@ -640,8 +640,11 @@ impl fmt::Debug for Instruction {
             Divide { register, lhs, rhs } => {
                 write!(f, "Divide\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
             }
-            Modulo { register, lhs, rhs } => {
-                write!(f, "Modulo\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
+            Remainder { register, lhs, rhs } => {
+                write!(
+                    f,
+                    "Remainder\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}"
+                )
             }
             Less { register, lhs, rhs } => {
                 write!(f, "Less\t\tresult: {register}\tlhs: {lhs}\t\trhs: {rhs}")
@@ -1225,7 +1228,7 @@ impl Iterator for InstructionReader {
                 lhs: get_u8!(),
                 rhs: get_u8!(),
             }),
-            Op::Modulo => Some(Modulo {
+            Op::Remainder => Some(Remainder {
                 register: get_u8!(),
                 lhs: get_u8!(),
                 rhs: get_u8!(),
