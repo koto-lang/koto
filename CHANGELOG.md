@@ -95,7 +95,7 @@ The Koto project adheres to
   for each iterator output value.
   - e.g.
     ```koto
-    (1, 2, 3).consume |n| io.print n
+    (1, 2, 3).consume |n| print n
     # 1
     # 2
     # 3
@@ -144,9 +144,9 @@ The Koto project adheres to
     x = {foo: 42, bar: 99}
     y = {bar: 99, foo: 42}
     # Before
-    assert_eq x != y, true
+    assert x != y
     # After
-    assert_eq x == y, true
+    assert x == y
     ```
 - Functions that access a value that was exported prior to the function being
   created, will capture the value rather than access it from exports.
@@ -156,7 +156,8 @@ The Koto project adheres to
     f = || x
     # Re-exporting x doesn't affect the value of x captured when f was created
     export x = 99
-    f()
+    f() 
+    # 123
     ```
 - Arms in `match` and `switch` expressions that have indented blocks as their
   bodies need to use `then`.
