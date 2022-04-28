@@ -109,17 +109,20 @@ struct ExpressionContext {
     //      ^~~ The first line in an indented block will have the flag set to true to allow the
     //          block to be parsed as a map, see parse_indented_block().
     allow_map_block: bool,
-    // - Greater: indentation is required for an expression to be continued on a following line.
-    // - Equal: indentation should match the expected indentation.
-    // - GreaterOrEqual: indentation should be at or above the expected indentation.
+    // The indentation rules for the current context
     expected_indentation: Indentation,
 }
 
 #[derive(Clone, Copy, Debug)]
 enum Indentation {
+    // Indentation is required for an expression to be continued on a following line
     Greater,
+    // Indentation should be at or above the expected indentation
     GreaterOrEqual(usize),
+    // Indentation should match the expected indentation
     Equal(usize),
+    // Indentation isn't required (e.g. in a comma separated braced expression)
+    Flexible,
 }
 
 impl ExpressionContext {
@@ -150,6 +153,8 @@ impl ExpressionContext {
         }
     }
 
+    // After a keyword like `yield` or `return`.
+    // Like inline(), but inherits allow_linebreaks
     fn start_new_expression(&self) -> Self {
         Self {
             allow_space_separated_call: true,
@@ -159,10 +164,44 @@ impl ExpressionContext {
         }
     }
 
-    fn with_greater_or_equal_indentation(&self, indent: usize) -> Self {
+    // At the start of a braced expression
+    // e.g.
+    //   x = [f x, y] # A single entry list is created with the result of calling `f(x, y)`
+    fn braced_items_start() -> Self {
         Self {
-            expected_indentation: Indentation::GreaterOrEqual(indent),
-            ..*self
+            allow_space_separated_call: true,
+            allow_linebreaks: true,
+            allow_map_block: false,
+            expected_indentation: Indentation::Flexible,
+        }
+    }
+
+    // After the first item in a braced expression
+    // Space-separated calls aren't allowed after the first entry,
+    // otherwise confusing expressions like the following would be accepted:
+    //   x = [1, 2, foo 3, 4, 5]
+    //   # This would be parsed as [1, 2, foo(3, 4, 5)]
+    fn braced_items_continued() -> Self {
+        Self {
+            allow_space_separated_call: false,
+            allow_linebreaks: true,
+            allow_map_block: false,
+            expected_indentation: Indentation::Flexible,
+        }
+    }
+
+    // e.g.
+    // [
+    //   foo
+    //     .bar()
+    // # ^ here we're allowing an indented lookup to be started
+    // ]
+    fn lookup_start(&self) -> Self {
+        Self {
+            allow_space_separated_call: self.allow_space_separated_call,
+            allow_linebreaks: self.allow_linebreaks,
+            allow_map_block: false,
+            expected_indentation: Indentation::Greater,
         }
     }
 }
@@ -896,37 +935,38 @@ impl<'source> Parser<'source> {
     ) -> Result<Vec<AstIndex>, ParserError> {
         let mut args = Vec::new();
 
-        let mut arg_context = ExpressionContext {
-            expected_indentation: Indentation::Greater,
-            ..*context
-        };
+        if context.allow_space_separated_call {
+            let mut arg_context = ExpressionContext {
+                expected_indentation: Indentation::Greater,
+                ..*context
+            };
 
-        let mut last_arg_line = self.current_line_number();
+            let mut last_arg_line = self.current_line_number();
 
-        while let Some(peeked) = self.peek_next_token(&arg_context) {
-            let new_line = peeked.line > last_arg_line;
-            last_arg_line = peeked.line;
+            while let Some(peeked) = self.peek_next_token(&arg_context) {
+                let new_line = peeked.line > last_arg_line;
+                last_arg_line = peeked.line;
 
-            if new_line {
-                arg_context.expected_indentation = Indentation::Equal(peeked.indent);
-            } else if !(context.allow_space_separated_call
-                && self.peek_token() == Some(Token::Whitespace))
-            {
-                break;
-            }
+                if new_line {
+                    arg_context.expected_indentation = Indentation::Equal(peeked.indent);
+                } else if self.peek_token() != Some(Token::Whitespace) {
+                    break;
+                }
 
-            if let Some(expression) = self
-                .parse_expression_with_min_precedence(MIN_PRECEDENCE_AFTER_PIPE, &mut arg_context)?
-            {
-                args.push(expression);
-            } else {
-                break;
-            }
+                if let Some(expression) = self.parse_expression_with_min_precedence(
+                    MIN_PRECEDENCE_AFTER_PIPE,
+                    &mut arg_context,
+                )? {
+                    args.push(expression);
+                } else {
+                    break;
+                }
 
-            if self.peek_next_token_on_same_line() == Some(Token::Comma) {
-                self.consume_next_token_on_same_line();
-            } else {
-                break;
+                if self.peek_next_token_on_same_line() == Some(Token::Comma) {
+                    self.consume_next_token_on_same_line();
+                } else {
+                    break;
+                }
             }
         }
 
@@ -943,13 +983,13 @@ impl<'source> Parser<'source> {
             } else {
                 self.frame_mut()?.add_id_access(constant_index);
 
-                let mut context = context.start_new_expression();
-                if self.next_token_is_lookup_start(&context) {
+                let mut lookup_context = context.lookup_start();
+                if self.next_token_is_lookup_start(&lookup_context) {
                     let id_index = self.push_node(Node::Id(constant_index))?;
-                    self.parse_lookup(id_index, &mut context)
+                    self.parse_lookup(id_index, &mut lookup_context)
                 } else {
                     let start_span = self.current_span();
-                    let args = self.parse_call_args(&mut context)?;
+                    let args = self.parse_call_args(context)?;
 
                     if args.is_empty() {
                         self.push_node(Node::Id(constant_index))
@@ -1476,7 +1516,7 @@ impl<'source> Parser<'source> {
         node: AstIndex,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        let mut lookup_context = context.start_new_expression();
+        let mut lookup_context = context.lookup_start();
         if self.next_token_is_lookup_start(&lookup_context) {
             self.parse_lookup(node, &mut lookup_context)
         } else {
@@ -1539,20 +1579,14 @@ impl<'source> Parser<'source> {
 
     fn parse_list(&mut self, context: &mut ExpressionContext) -> Result<AstIndex, ParserError> {
         let mut list_context = *context;
-        let start_indent = self.current_indent();
         let start_span = self.current_span();
 
         if self.consume_next_token(&mut list_context) != Some(Token::SquareOpen) {
             return self.error(InternalError::UnexpectedToken);
         }
 
-        // The end brace should have at least the same indentation as the start brace.
-        if matches!(list_context.expected_indentation, Indentation::Greater) {
-            list_context.expected_indentation = Indentation::GreaterOrEqual(start_indent);
-        }
-
         let mut entries = Vec::new();
-        let mut entry_context = ExpressionContext::permissive();
+        let mut entry_context = ExpressionContext::braced_items_start();
         let mut last_token_was_a_comma = false;
 
         while !matches!(
@@ -1564,7 +1598,7 @@ impl<'source> Parser<'source> {
         ) {
             self.consume_until_next_token(&mut entry_context);
 
-            if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
+            if let Some(entry) = self.parse_expression(&mut entry_context)? {
                 entries.push(entry);
                 last_token_was_a_comma = false;
             }
@@ -1583,6 +1617,8 @@ impl<'source> Parser<'source> {
                 }
 
                 last_token_was_a_comma = true;
+
+                entry_context = ExpressionContext::braced_items_continued();
             } else {
                 break;
             }
@@ -1590,7 +1626,7 @@ impl<'source> Parser<'source> {
 
         // Consume the list end
         if !matches!(
-            self.consume_next_token(&mut list_context),
+            self.consume_next_token(&mut entry_context),
             Some(Token::SquareClose)
         ) {
             return self.error(SyntaxError::ExpectedListEnd);
@@ -1683,7 +1719,7 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
         let start_span = self.current_span();
 
-        let entries = self.parse_comma_separated_map_entries(context)?;
+        let entries = self.parse_comma_separated_map_entries()?;
 
         let mut map_end_context = ExpressionContext::permissive();
         map_end_context.expected_indentation = Indentation::Equal(start_indent);
@@ -1697,11 +1733,9 @@ impl<'source> Parser<'source> {
 
     fn parse_comma_separated_map_entries(
         &mut self,
-        map_context: &ExpressionContext,
     ) -> Result<Vec<(MapKey, Option<AstIndex>)>, ParserError> {
         let mut entries = Vec::new();
-        let mut entry_context =
-            map_context.with_greater_or_equal_indentation(self.current_indent());
+        let mut entry_context = ExpressionContext::braced_items_start();
 
         while self.peek_next_token(&entry_context).is_some() {
             self.consume_until_next_token(&mut entry_context);
@@ -1737,6 +1771,7 @@ impl<'source> Parser<'source> {
                     })
                 ) {
                     self.consume_next_token(&mut entry_context);
+                    entry_context = ExpressionContext::braced_items_continued();
                 } else {
                     break;
                 }
@@ -2530,14 +2565,13 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         use Token::*;
 
-        let start_indent = self.current_indent();
         let start_span = self.current_span();
 
         if self.consume_next_token(context) != Some(RoundOpen) {
             return self.error(InternalError::UnexpectedToken);
         }
 
-        let mut tuple_context = context.with_greater_or_equal_indentation(start_indent);
+        let mut tuple_context = ExpressionContext::braced_items_start();
 
         let mut expressions = vec![];
         let mut last_token_was_a_comma = false;
@@ -2550,7 +2584,7 @@ impl<'source> Parser<'source> {
         ) {
             self.consume_until_next_token(&mut tuple_context);
 
-            if let Some(entry) = self.parse_expression(&mut ExpressionContext::permissive())? {
+            if let Some(entry) = self.parse_expression(&mut tuple_context)? {
                 expressions.push(entry);
                 last_token_was_a_comma = false;
             }
@@ -2922,6 +2956,7 @@ impl<'source> Parser<'source> {
                                     Some(peek_info)
                                 }
                                 Greater if peeked_indent > start_indent => Some(peek_info),
+                                Flexible => Some(peek_info),
                                 _ => None,
                             }
                         }

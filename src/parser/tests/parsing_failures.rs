@@ -222,6 +222,13 @@ x = foo: 42, bar: 99,
 
                 check_parsing_fails(source);
             }
+
+            #[test]
+            fn space_separated_function_call_in_list() {
+                let source = "x = [1, 2, f y, 4]";
+
+                check_parsing_fails(source);
+            }
         }
 
         mod tuples {
