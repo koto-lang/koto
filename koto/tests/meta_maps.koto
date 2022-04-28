@@ -57,7 +57,7 @@ globals.foo_meta =
   @test divide: ||
     assert_eq (foo(42) / foo(2)), foo 21
 
-  @test modulo: ||
+  @test remainder: ||
     assert_eq (foo(42) % foo(10)), foo 2
 
   @test less: ||

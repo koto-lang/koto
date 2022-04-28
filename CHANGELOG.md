@@ -223,6 +223,8 @@ The Koto project adheres to
 - `ValueMap`'s meta map is now optional, and use of the `meta()` getter will
   need to be adapted. Helpers (`get_meta_value`, `contains_meta_key`,
   `insert_meta`) have been introduced for convenience.
+- The 'modulo' operator is now referred to more accurately as the 'remainder'
+  operator.
 
 ### Removed
 

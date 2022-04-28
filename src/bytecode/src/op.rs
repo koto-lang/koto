@@ -283,10 +283,10 @@ pub enum Op {
     /// `[*result, *lhs, *rhs]`
     Divide,
 
-    /// Performs the modulo operation with lhs and rhs
+    /// Performs the remainder operation with lhs and rhs
     ///
     /// `[*result, *lhs, *rhs]`
-    Modulo,
+    Remainder,
 
     /// Compares lhs and rhs using the '<' operator
     ///

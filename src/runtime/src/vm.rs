@@ -454,7 +454,9 @@ impl Vm {
             BinaryOp::Subtract => self.run_subtract(result_register, lhs_register, rhs_register)?,
             BinaryOp::Multiply => self.run_multiply(result_register, lhs_register, rhs_register)?,
             BinaryOp::Divide => self.run_divide(result_register, lhs_register, rhs_register)?,
-            BinaryOp::Modulo => self.run_modulo(result_register, lhs_register, rhs_register)?,
+            BinaryOp::Remainder => {
+                self.run_remainder(result_register, lhs_register, rhs_register)?
+            }
             BinaryOp::Less => self.run_less(result_register, lhs_register, rhs_register)?,
             BinaryOp::LessOrEqual => {
                 self.run_less_or_equal(result_register, lhs_register, rhs_register)?
@@ -823,7 +825,7 @@ impl Vm {
             Instruction::Subtract { register, lhs, rhs } => self.run_subtract(register, lhs, rhs),
             Instruction::Multiply { register, lhs, rhs } => self.run_multiply(register, lhs, rhs),
             Instruction::Divide { register, lhs, rhs } => self.run_divide(register, lhs, rhs),
-            Instruction::Modulo { register, lhs, rhs } => self.run_modulo(register, lhs, rhs),
+            Instruction::Remainder { register, lhs, rhs } => self.run_remainder(register, lhs, rhs),
             Instruction::Less { register, lhs, rhs } => self.run_less(register, lhs, rhs),
             Instruction::LessOrEqual { register, lhs, rhs } => {
                 self.run_less_or_equal(register, lhs, rhs)
@@ -1588,8 +1590,8 @@ impl Vm {
         Ok(())
     }
 
-    fn run_modulo(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
-        use {BinaryOp::Modulo, Value::*};
+    fn run_remainder(&mut self, result: u8, lhs: u8, rhs: u8) -> InstructionResult {
+        use {BinaryOp::Remainder, Value::*};
 
         let lhs_value = self.get_register(lhs);
         let rhs_value = self.get_register(rhs);
@@ -1602,12 +1604,12 @@ impl Vm {
             (Num4(a), Num4(b)) => Num4(a % b),
             (Num4(a), Number(b)) => Num4(a % b),
             (Map(map), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Modulo, {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, map, Remainder, {
                     return self.binary_op_error(lhs_value, rhs_value, "%");
                 })
             }
             (ExternalValue(ev), _) => {
-                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Modulo, {
+                call_binary_op_or_else!(self, result, lhs, rhs_value, ev, Remainder, {
                     return self.binary_op_error(lhs_value, rhs_value, "%");
                 })
             }

@@ -57,7 +57,7 @@ mod vm {
         }
 
         #[test]
-        fn subtract_divide_modulo() {
+        fn subtract_divide_remainder() {
             test_script("(20 - 2) / 3 % 4", 2.into());
         }
 
@@ -67,6 +67,11 @@ mod vm {
 a = 99
 -a";
             test_script(script, number(-99));
+        }
+
+        #[test]
+        fn remainder_negative() {
+            test_script("assert_near 10 % -1.2, 0.4, 1e-9", Null);
         }
     }
 
@@ -1982,7 +1987,7 @@ gen().to_tuple()
         }
 
         #[test]
-        fn modulo() {
+        fn remainder() {
             test_script("(make_num2 15, 25) % (make_num2 10) % 4", num2(1.0, 1.0));
         }
 
@@ -2082,7 +2087,7 @@ x
         }
 
         #[test]
-        fn modulo() {
+        fn remainder() {
             test_script(
                 "(make_num4 15, 25, 35, 45) % (make_num4 10) % 4",
                 num4(1.0, 1.0, 1.0, 1.0),
