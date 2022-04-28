@@ -91,6 +91,7 @@ pub enum SyntaxError {
     ExpectedMetaKey,
     ExpectedMetaId,
     ExpectedNegatableExpression,
+    ExpectedLineBreakBeforeMapBlock,
     ExpectedSwitchArmExpression,
     ExpectedSwitchArmExpressionAfterThen,
     ExpectedStringPlaceholderEnd,
@@ -297,6 +298,9 @@ impl fmt::Display for SyntaxError {
             ExpectedMetaKey => f.write_str("Expected meta key after @"),
             ExpectedMetaId => f.write_str("Expected id after @meta"),
             ExpectedNegatableExpression => f.write_str("Expected negatable expression"),
+            ExpectedLineBreakBeforeMapBlock => {
+                f.write_str("Expected a line break before starting a map block")
+            }
             ExpectedStringPlaceholderEnd => {
                 f.write_str("Expected '}' at end of string placeholder")
             }

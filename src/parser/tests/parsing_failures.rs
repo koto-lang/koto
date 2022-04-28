@@ -165,6 +165,14 @@ x .foo
             use super::*;
 
             #[test]
+            fn block_starting_on_same_line_as_assignment_single_entry() {
+                let source = "
+x = foo: 42
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
             fn block_starting_on_same_line_as_assignment() {
                 let source = "
 x = foo: 42
@@ -190,6 +198,15 @@ x =
 x =
   foo: 42
   bar: 1, 2, 3
+  baz: 99
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
+            fn inline_map_without_braces() {
+                let source = "
+x = foo: 42, bar: 99,
   baz: 99
 ";
                 check_parsing_fails(source);

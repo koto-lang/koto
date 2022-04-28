@@ -1600,8 +1600,6 @@ impl<'source> Parser<'source> {
         self.check_for_lookup_after_node(list_node, &list_context)
     }
 
-    // If a braceless map key has been detected (':' has been peeked),
-    // decide if we're parsing an indented map block, or comma-separated entries
     fn parse_braceless_map_start(
         &mut self,
         first_key: MapKey,
@@ -1610,17 +1608,16 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
         let start_indent = self.current_indent();
 
+        if !context.allow_map_block {
+            return self.error(SyntaxError::ExpectedLineBreakBeforeMapBlock);
+        }
+
         if self.consume_token() != Some(Token::Colon) {
             return self.error(InternalError::ExpectedMapColon);
         }
 
         if let Some(value) = self.parse_expression(&mut ExpressionContext::permissive())? {
-            let entries = if let Some(Token::Comma) = self.peek_next_token_on_same_line() {
-                self.consume_next_token_on_same_line();
-                let mut entries = vec![(first_key, Some(value))];
-                entries.extend(self.parse_comma_separated_map_entries(context, false)?);
-                entries
-            } else if context.allow_map_block {
+            let entries = if context.allow_map_block {
                 let mut block_context = ExpressionContext::permissive();
                 block_context.expected_indentation = Indentation::Equal(start_indent);
                 return self.parse_map_block(
@@ -1686,7 +1683,7 @@ impl<'source> Parser<'source> {
         let start_indent = self.current_indent();
         let start_span = self.current_span();
 
-        let entries = self.parse_comma_separated_map_entries(context, true)?;
+        let entries = self.parse_comma_separated_map_entries(context)?;
 
         let mut map_end_context = ExpressionContext::permissive();
         map_end_context.expected_indentation = Indentation::Equal(start_indent);
@@ -1701,7 +1698,6 @@ impl<'source> Parser<'source> {
     fn parse_comma_separated_map_entries(
         &mut self,
         map_context: &ExpressionContext,
-        allow_valueless_entries: bool,
     ) -> Result<Vec<(MapKey, Option<AstIndex>)>, ParserError> {
         let mut entries = Vec::new();
         let mut entry_context =
@@ -1725,10 +1721,12 @@ impl<'source> Parser<'source> {
                     } else {
                         return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
                     }
-                } else if allow_valueless_entries {
-                    entries.push((key, None));
                 } else {
-                    return self.consume_token_and_error(SyntaxError::ExpectedMapValue);
+                    // valueless map entries are allowed in inline maps,
+                    // e.g.
+                    //   bar = -1
+                    //   x = {foo: 42, bar, baz: 99}
+                    entries.push((key, None));
                 }
 
                 if matches!(
