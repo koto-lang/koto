@@ -13,11 +13,6 @@ use {
     std::{collections::HashSet, str::FromStr},
 };
 
-enum IdOrWildcard {
-    Id(ConstantIndex),
-    Wildcard(Option<ConstantIndex>),
-}
-
 // Contains info about the current frame, representing either the module's top level or a function
 #[derive(Debug, Default)]
 struct Frame {
@@ -35,6 +30,7 @@ struct Frame {
 }
 
 impl Frame {
+    // The number of local values declared within the frame
     fn local_count(&self) -> usize {
         self.ids_assigned_in_frame.len()
     }
@@ -50,15 +46,18 @@ impl Frame {
         }
     }
 
+    // Declare that an id has been accessed within the frame
     fn add_id_access(&mut self, id: ConstantIndex) {
         self.pending_accesses.insert(id);
     }
 
+    // Declare that an id is being assigned to within the frame
     fn add_local_id_assignment(&mut self, id: ConstantIndex) {
         self.pending_assignments.insert(id);
         self.pending_accesses.remove(&id);
     }
 
+    // At the end of an expression, determine which RHS accesses are non-local
     fn finish_expression(&mut self) {
         for id in self.pending_accesses.drain() {
             if !self.ids_assigned_in_frame.contains(&id) {
@@ -71,6 +70,7 @@ impl Frame {
     }
 }
 
+// The set of rules that can modify how an expression is parsed
 #[derive(Clone, Copy, Debug)]
 struct ExpressionContext {
     // e.g.
@@ -114,6 +114,7 @@ struct ExpressionContext {
     expected_indentation: Indentation,
 }
 
+// The indentation styles that can be expected for a particular expression
 #[derive(Clone, Copy, Debug)]
 enum Indentation {
     // Indentation is required for an expression to be continued on a following line
@@ -829,6 +830,9 @@ impl<'source> Parser<'source> {
         }
     }
 
+    // Parses a single id
+    //
+    // See also: parse_id_or_wildcard(), parse_id_expression()
     fn parse_id(
         &mut self,
         context: &ExpressionContext,
@@ -3145,6 +3149,8 @@ impl<'source> Parser<'source> {
     }
 }
 
+// Used by Parser::parse_expressions() to determine if comma-separated values should be stored in a
+// Tuple or a TempTuple.
 enum TempResult {
     No,
     Yes,
@@ -3175,6 +3181,7 @@ fn operator_precedence(op: Token) -> Option<(u8, u8)> {
     Some(priority)
 }
 
+// Returned by Parser::peek_token_with_context()
 #[derive(Debug)]
 struct PeekInfo {
     token: Token,
@@ -3182,3 +3189,10 @@ struct PeekInfo {
     indent: usize,
     peek_count: usize,
 }
+
+// Returned by Parser::parse_id_or_wildcard()
+enum IdOrWildcard {
+    Id(ConstantIndex),
+    Wildcard(Option<ConstantIndex>),
+}
+
