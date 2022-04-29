@@ -2065,9 +2065,19 @@ a()";
 
         #[test]
         fn inline_two_args() {
-            let source = "|x, y| x + y";
-            check_ast(
-                source,
+            let sources = [
+                "
+|x, y| x + y
+",
+                "
+| x,
+  y,
+|
+  x + y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
@@ -2331,9 +2341,23 @@ f 42";
 
         #[test]
         fn call_with_parentheses() {
-            let source = "f(x, -x)";
-            check_ast(
-                source,
+            let sources = [
+                "
+f(x, -x)
+",
+                "
+f(
+  x,
+  -x
+)
+",
+                "
+f(x,
+  -x)
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Id(constant(1)),
@@ -3192,12 +3216,23 @@ y z";
 
         #[test]
         fn unpack_call_args_tuple() {
-            let source = "
+            let sources = [
+                "
 |a, (_, (c, _d)), _e|
   a
-";
-            check_ast(
-                source,
+",
+                "
+| a, 
+  ( _, 
+    (c, _d)
+  ), 
+  _e
+|
+  a
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)), // a
                     Wildcard(None),
@@ -3232,12 +3267,23 @@ y z";
 
         #[test]
         fn unpack_call_args_list() {
-            let source = "
+            let sources = [
+                "
 |a, [_, [c, _d]], e|
   a
-";
-            check_ast(
-                source,
+",
+                "
+| a, 
+  [ _, 
+    [c, _d]
+  ], 
+  e
+|
+  a
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)), // a
                     Wildcard(None),
