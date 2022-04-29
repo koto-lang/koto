@@ -508,15 +508,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(result) = self.parse_for_loop(context)? {
-            Some(result)
-        } else if let Some(result) = self.parse_loop_block()? {
-            Some(result)
-        } else if let Some(result) = self.parse_while_loop()? {
-            Some(result)
-        } else if let Some(result) = self.parse_until_loop()? {
-            Some(result)
-        } else if let Some(result) = self.parse_export(context)? {
+        let result = if let Some(result) = self.parse_export(context)? {
             Some(result)
         } else if let Some(result) = self.parse_meta_export(context)? {
             Some(result)
@@ -1522,6 +1514,10 @@ impl<'source> Parser<'source> {
                         self.consume_token_and_error(SyntaxError::ExpectedExpression)
                     }
                 }
+                Token::Loop => self.parse_loop_block(context),
+                Token::For => self.parse_for_loop(context),
+                Token::While => self.parse_while_loop(context),
+                Token::Until => self.parse_until_loop(context),
                 Token::Break => {
                     self.consume_token_with_context(context);
                     self.push_node(Node::Break)
@@ -1830,15 +1826,11 @@ impl<'source> Parser<'source> {
         Ok(entries)
     }
 
-    fn parse_for_loop(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() != Some(Token::For) {
-            return Ok(None);
+    fn parse_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        match self.consume_token_with_context(context) {
+            Some((Token::For, _)) => {}
+            _ => return self.error(InternalError::UnexpectedToken),
         }
-
-        self.consume_next_token_on_same_line();
 
         let start_span = self.current_span();
 
@@ -1885,32 +1877,30 @@ impl<'source> Parser<'source> {
                     start_span,
                 )?;
 
-                Ok(Some(result))
+                Ok(result)
             }
             None => self.consume_token_and_error(ExpectedIndentation::ForBody),
         }
     }
 
-    fn parse_loop_block(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() != Some(Token::Loop) {
-            return Ok(None);
+    fn parse_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        match self.consume_token_with_context(context) {
+            Some((Token::Loop, _)) => {}
+            _ => return self.error(InternalError::UnexpectedToken),
         }
 
-        self.consume_next_token_on_same_line();
-
         if let Some(body) = self.parse_indented_block()? {
-            self.push_node(Node::Loop { body }).map(Some)
+            self.push_node(Node::Loop { body })
         } else {
             self.consume_token_and_error(ExpectedIndentation::LoopBody)
         }
     }
 
-    fn parse_while_loop(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() != Some(Token::While) {
-            return Ok(None);
+    fn parse_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        match self.consume_token_with_context(context) {
+            Some((Token::While, _)) => {}
+            _ => return self.error(InternalError::UnexpectedToken),
         }
-
-        self.consume_next_token_on_same_line();
 
         let condition =
             if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
@@ -1920,17 +1910,16 @@ impl<'source> Parser<'source> {
             };
 
         match self.parse_indented_block()? {
-            Some(body) => self.push_node(Node::While { condition, body }).map(Some),
+            Some(body) => self.push_node(Node::While { condition, body }),
             None => self.consume_token_and_error(ExpectedIndentation::WhileBody),
         }
     }
 
-    fn parse_until_loop(&mut self) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() != Some(Token::Until) {
-            return Ok(None);
+    fn parse_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        match self.consume_token_with_context(context) {
+            Some((Token::Until, _)) => {}
+            _ => return self.error(InternalError::UnexpectedToken),
         }
-
-        self.consume_next_token_on_same_line();
 
         let condition =
             if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
@@ -1940,7 +1929,7 @@ impl<'source> Parser<'source> {
             };
 
         match self.parse_indented_block()? {
-            Some(body) => self.push_node(Node::Until { condition, body }).map(Some),
+            Some(body) => self.push_node(Node::Until { condition, body }),
             None => self.consume_token_and_error(ExpectedIndentation::UntilBody),
         }
     }
@@ -3195,4 +3184,3 @@ enum IdOrWildcard {
     Id(ConstantIndex),
     Wildcard(Option<ConstantIndex>),
 }
-

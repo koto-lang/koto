@@ -60,6 +60,9 @@ The Koto project adheres to
     # After
     x, _unused, z = 1, 2, 3
     ```
+- The result of loop expressions (`for`, `while`, `until`, and `loop`) can now
+  be assigned, with the default result being the final expression in the loop
+  body. If no loop iterations are performed then the result is `null`.
 
 #### Core Library
 
