@@ -453,7 +453,7 @@ pub enum AssignOp {
     Equal,
 }
 
-/// The scope for an assignment
+/// Specifies the scope of an assignment
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
     /// The export scope

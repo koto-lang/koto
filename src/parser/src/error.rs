@@ -17,7 +17,7 @@ pub enum InternalError {
     LookupParseFailure,
     MissingAssignmentTarget,
     MissingContinuedExpressionLhs,
-    MissingScope,
+    MissingFrame,
     NumberParseFailure,
     RangeParseFailure,
     UnexpectedIdInExpression,
@@ -211,7 +211,7 @@ impl fmt::Display for InternalError {
             LookupParseFailure => f.write_str("Failed to parse lookup"),
             MissingAssignmentTarget => f.write_str("Missing assignment target"),
             MissingContinuedExpressionLhs => f.write_str("Missing LHS for continued expression"),
-            MissingScope => f.write_str("Scope unavailable during parsing"),
+            MissingFrame => f.write_str("Frame unavailable during parsing"),
             NumberParseFailure => f.write_str("Failed to parse number"),
             RangeParseFailure => f.write_str("Failed to parse range"),
             UnexpectedIdInExpression => {

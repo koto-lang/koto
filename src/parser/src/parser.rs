@@ -18,12 +18,13 @@ enum IdOrWildcard {
     Wildcard(Option<ConstantIndex>),
 }
 
+// Contains info about the current frame, representing either the module's top level or a function
 #[derive(Debug, Default)]
 struct Frame {
     // If a frame contains yield then it represents a generator function
     contains_yield: bool,
     // IDs that have been assigned within the current frame
-    ids_assigned_in_scope: HashSet<ConstantIndex>,
+    ids_assigned_in_frame: HashSet<ConstantIndex>,
     // IDs and lookup roots which have been accessed without being locally assigned previously
     accessed_non_locals: HashSet<ConstantIndex>,
     // While an expression is being parsed we keep track of lhs assignments and rhs accesses.
@@ -35,12 +36,12 @@ struct Frame {
 
 impl Frame {
     fn local_count(&self) -> usize {
-        self.ids_assigned_in_scope.len()
+        self.ids_assigned_in_frame.len()
     }
 
     // Non-locals accessed in a nested frame need to be declared as also accessed in this
     // frame. This ensures that captures from the outer frame will be available when
-    // creating the nested inner scope.
+    // creating the nested inner frame.
     fn add_nested_accessed_non_locals(&mut self, nested_frame: &Frame) {
         for non_local in nested_frame.accessed_non_locals.iter() {
             if !self.pending_assignments.contains(non_local) {
@@ -60,12 +61,12 @@ impl Frame {
 
     fn finish_expression(&mut self) {
         for id in self.pending_accesses.drain() {
-            if !self.ids_assigned_in_scope.contains(&id) {
+            if !self.ids_assigned_in_frame.contains(&id) {
                 self.accessed_non_locals.insert(id);
             }
         }
 
-        self.ids_assigned_in_scope
+        self.ids_assigned_in_frame
             .extend(self.pending_assignments.drain());
     }
 }
@@ -243,7 +244,7 @@ impl<'source> Parser<'source> {
         match self.frame_stack.last() {
             Some(frame) => Ok(frame),
             None => Err(ParserError::new(
-                InternalError::MissingScope.into(),
+                InternalError::MissingFrame.into(),
                 Span::default(),
             )),
         }
@@ -253,7 +254,7 @@ impl<'source> Parser<'source> {
         match self.frame_stack.last_mut() {
             Some(frame) => Ok(frame),
             None => Err(ParserError::new(
-                InternalError::MissingScope.into(),
+                InternalError::MissingFrame.into(),
                 Span::default(),
             )),
         }
@@ -458,7 +459,7 @@ impl<'source> Parser<'source> {
 
         // body
         let mut function_frame = Frame::default();
-        function_frame.ids_assigned_in_scope.extend(arg_ids.iter());
+        function_frame.ids_assigned_in_frame.extend(arg_ids.iter());
         self.frame_stack.push(function_frame);
 
         let body = if let Some(block) = self.parse_indented_block()? {
@@ -479,7 +480,7 @@ impl<'source> Parser<'source> {
         let function_frame = self
             .frame_stack
             .pop()
-            .ok_or_else(|| self.make_error(InternalError::MissingScope))?;
+            .ok_or_else(|| self.make_error(InternalError::MissingFrame))?;
 
         self.frame_mut()?
             .add_nested_accessed_non_locals(&function_frame);
@@ -1841,7 +1842,7 @@ impl<'source> Parser<'source> {
         while let Some(id_or_wildcard) = self.parse_id_or_wildcard(context)? {
             match id_or_wildcard {
                 IdOrWildcard::Id(id) => {
-                    self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                    self.frame_mut()?.ids_assigned_in_frame.insert(id);
                     args.push(self.push_node(Node::Id(id))?);
                 }
                 IdOrWildcard::Wildcard(maybe_id) => {
@@ -2312,7 +2313,7 @@ impl<'source> Parser<'source> {
                         let result = if self.peek_token() == Some(Ellipsis) {
                             self.consume_token();
                             if in_nested_patterns {
-                                self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                                self.frame_mut()?.ids_assigned_in_frame.insert(id);
                                 self.push_node(Node::Ellipsis(Some(id)))?
                             } else {
                                 return self
@@ -2324,7 +2325,7 @@ impl<'source> Parser<'source> {
                                 self.frame_mut()?.add_id_access(id);
                                 self.parse_lookup(id_node, &pattern_context)?
                             } else {
-                                self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                                self.frame_mut()?.ids_assigned_in_frame.insert(id);
                                 id_node
                             }
                         };
@@ -2427,7 +2428,7 @@ impl<'source> Parser<'source> {
         for item in items.iter() {
             match item.last() {
                 Some(ImportItemNode::Id(id)) => {
-                    self.frame_mut()?.ids_assigned_in_scope.insert(*id);
+                    self.frame_mut()?.ids_assigned_in_frame.insert(*id);
                 }
                 Some(ImportItemNode::Str(_)) => {}
                 None => return self.error(InternalError::ExpectedIdInImportItem),
@@ -2467,7 +2468,7 @@ impl<'source> Parser<'source> {
             if let Some(catch_arg) = self.parse_id_or_wildcard(&ExpressionContext::restricted())? {
                 match catch_arg {
                     IdOrWildcard::Id(id) => {
-                        self.frame_mut()?.ids_assigned_in_scope.insert(id);
+                        self.frame_mut()?.ids_assigned_in_frame.insert(id);
                         self.push_node(Node::Id(id))?
                     }
                     IdOrWildcard::Wildcard(maybe_id) => self.push_node(Node::Wildcard(maybe_id))?,
