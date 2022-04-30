@@ -2842,5 +2842,25 @@ export x = 99
 f()";
             test_script(script, 123.into());
         }
+
+        #[test]
+        fn assignment_of_export() {
+            let script = "
+x = export y = 10
+x + y";
+            test_script(script, 20.into());
+        }
+    }
+
+    mod meta_export {
+        use super::*;
+
+        #[test]
+        fn assignment_of_meta_export() {
+            let script = "
+f = @main = || 42
+f()";
+            test_script(script, 42.into());
+        }
     }
 }

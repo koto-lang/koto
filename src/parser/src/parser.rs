@@ -508,13 +508,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>, ParserError> {
-        let result = if let Some(result) = self.parse_export(context)? {
-            Some(result)
-        } else if let Some(result) = self.parse_meta_export(context)? {
-            Some(result)
-        } else {
-            self.parse_expressions(context, TempResult::No)?
-        };
+        let result = self.parse_expressions(context, TempResult::No)?;
 
         self.frame_mut()?.finish_expression();
 
@@ -1330,15 +1324,11 @@ impl<'source> Parser<'source> {
             .map(Some)
     }
 
-    fn parse_export(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
-        if self.peek_next_token_on_same_line() != Some(Token::Export) {
-            return Ok(None);
+    fn parse_export(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        match self.consume_token_with_context(context) {
+            Some((Token::Export, _)) => {}
+            _ => return self.error(InternalError::UnexpectedToken),
         }
-
-        self.consume_next_token_on_same_line();
 
         let export_id = if let Some((constant_index, _)) = self.parse_id(context)? {
             self.push_node(Node::Id(constant_index))?
@@ -1350,23 +1340,9 @@ impl<'source> Parser<'source> {
 
         // Return the exported assignment expression, or the exported id.
         // e.g. `export foo = bar`, or simply `export foo`
-        self.parse_assign_expression(&[export_id], Scope::Export, context)
-            .map(|result| result.or(Some(export_id)))
-    }
-
-    fn parse_meta_export(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<Option<AstIndex>, ParserError> {
-        let meta_key = if let Some((meta_key_id, name)) = self.parse_meta_key()? {
-            self.push_node(Node::Meta(meta_key_id, name))?
-        } else {
-            return Ok(None);
-        };
-
-        match self.parse_assign_expression(&[meta_key], Scope::Export, context)? {
-            result @ Some(_) => Ok(result),
-            None => self.consume_token_and_error(SyntaxError::ExpectedAssignmentAfterMetaKey),
+        match self.parse_assign_expression(&[export_id], Scope::Export, context)? {
+            Some(result) => Ok(result),
+            None => Ok(export_id),
         }
     }
 
@@ -1454,13 +1430,39 @@ impl<'source> Parser<'source> {
                     }
                 }
                 Token::Id => self.parse_id_expression(context),
-                Token::At if context.allow_map_block || peeked.indent > start_indent => {
+                Token::At => {
+                    let map_block_allowed = context.allow_map_block || peeked.indent > start_indent;
+
                     let meta_context = self.consume_until_token_with_context(context).unwrap();
+                    // Safe to unwrap here, parse_meta_key would error on invalid key
                     let (meta_key_id, meta_name) = self.parse_meta_key()?.unwrap();
-                    self.parse_braceless_map_start(
-                        MapKey::Meta(meta_key_id, meta_name),
-                        &meta_context,
-                    )
+
+                    if map_block_allowed
+                        && matches!(
+                            self.peek_token_with_context(context),
+                            Some(PeekInfo {
+                                token: Token::Colon,
+                                ..
+                            })
+                        )
+                    {
+                        self.parse_braceless_map_start(
+                            MapKey::Meta(meta_key_id, meta_name),
+                            &meta_context,
+                        )
+                    } else {
+                        let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
+                        match self.parse_assign_expression(
+                            &[meta_key],
+                            Scope::Export,
+                            &meta_context,
+                        )? {
+                            Some(result) => Ok(result),
+                            None => self.consume_token_and_error(
+                                SyntaxError::ExpectedAssignmentAfterMetaKey,
+                            ),
+                        }
+                    }
                 }
                 Token::Wildcard => self.parse_wildcard(context),
                 Token::SquareOpen => self.parse_list(context),
@@ -1535,6 +1537,7 @@ impl<'source> Parser<'source> {
                 Token::Throw => self.parse_throw_expression(),
                 Token::Debug => self.parse_debug_expression(),
                 Token::From | Token::Import => self.parse_import_expression(context),
+                Token::Export => self.parse_export(context),
                 Token::Try => self.parse_try_expression(context),
                 Token::Error => self.consume_token_and_error(SyntaxError::LexerError),
                 _ => return Ok(None),
