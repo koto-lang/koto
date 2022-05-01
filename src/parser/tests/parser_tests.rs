@@ -3029,6 +3029,55 @@ f = |n|
         }
 
         #[test]
+        fn access_after_previous_assignment() {
+            // In this example, b should not be counted as a non-local
+            let source = "
+|| a = (b = 1), b 
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),
+                    Id(constant(1)),
+                    Number1,
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 1,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 2,
+                    },
+                    Nested(3),
+                    Id(constant(1)), // 5
+                    Tuple(vec![4, 5]),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 6,
+                    },
+                    Function(koto_parser::Function {
+                        args: vec![],
+                        local_count: 2,
+                        accessed_non_locals: vec![], // b is locally assigned when accessed
+                        body: 7,
+                        is_instance_function: false,
+                        is_variadic: false,
+                        is_generator: false,
+                    }),
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[Constant::Str("a"), Constant::Str("b")]),
+            )
+        }
+
+        #[test]
         fn non_local_update_assignment() {
             let source = "
 || x += 1

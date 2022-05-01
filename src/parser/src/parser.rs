@@ -20,11 +20,12 @@ struct Frame {
     contains_yield: bool,
     // IDs that have been assigned within the current frame
     ids_assigned_in_frame: HashSet<ConstantIndex>,
-    // IDs and lookup roots which have been accessed without being locally assigned previously
+    // IDs and lookup roots which were accessed when not locally assigned at the time of access
     accessed_non_locals: HashSet<ConstantIndex>,
-    // While an expression is being parsed we keep track of lhs assignments and rhs accesses.
-    // At the end of the expresson (see `finish_expression`) accessed IDs that aren't locally
-    // assigned are then counted as non-local accesses.
+    // While expressions are being parsed we keep track of lhs assignments and rhs accesses.
+    // At the end of a multi-assignment expresson (see `finalize_id_accesses`),
+    // accessed IDs that weren't locally assigned at the time of access are then counted as
+    // non-local accesses.
     pending_accesses: HashSet<ConstantIndex>,
     pending_assignments: HashSet<ConstantIndex>,
 }
@@ -54,11 +55,13 @@ impl Frame {
     // Declare that an id is being assigned to within the frame
     fn add_local_id_assignment(&mut self, id: ConstantIndex) {
         self.pending_assignments.insert(id);
+        // While an assignment expression is being parsed, the LHS id is counted as an access
+        // until the assignment operator is encountered.
         self.pending_accesses.remove(&id);
     }
 
     // At the end of an expression, determine which RHS accesses are non-local
-    fn finish_expression(&mut self) {
+    fn finalize_id_accesses(&mut self) {
         for id in self.pending_accesses.drain() {
             if !self.ids_assigned_in_frame.contains(&id) {
                 self.accessed_non_locals.insert(id);
@@ -464,10 +467,6 @@ impl<'source> Parser<'source> {
         self.frame_stack.push(function_frame);
 
         let body = if let Some(block) = self.parse_indented_block()? {
-            // If the body is a Map block, then a finish_expression() call is needed here to
-            // finalise the captures for the Map values. Normally parse_line takes care of calling
-            // finish_expression(), but this is a situation where it can be bypassed.
-            self.frame_mut()?.finish_expression();
             block
         } else {
             self.consume_until_next_token_on_same_line();
@@ -508,11 +507,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_line(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>, ParserError> {
-        let result = self.parse_expressions(context, TempResult::No)?;
-
-        self.frame_mut()?.finish_expression();
-
-        Ok(result)
+        self.parse_expressions(context, TempResult::No)
     }
 
     // Parse a comma separated series of expressions
@@ -579,6 +574,8 @@ impl<'source> Parser<'source> {
                     expressions.push(next_expression);
                 }
             }
+
+            self.frame_mut()?.finalize_id_accesses();
 
             if expressions.len() == 1 && !encountered_comma {
                 Ok(Some(first))
