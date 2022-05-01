@@ -54,5 +54,21 @@ match [1, 2, 3]
 ";
             check_compilation_fails(source);
         }
+
+        #[test]
+        fn break_outside_of_loop() {
+            let source = "
+break
+";
+            check_compilation_fails(source);
+        }
+
+        #[test]
+        fn continue_outside_of_loop() {
+            let source = "
+continue
+";
+            check_compilation_fails(source);
+        }
     }
 }

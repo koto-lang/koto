@@ -4072,7 +4072,7 @@ return 1";
             check_ast(
                 source,
                 &[
-                    Break,
+                    Break(None),
                     Continue,
                     Return(None),
                     Number1,
@@ -4582,7 +4582,7 @@ match x
                     Int(constant(2)),
                     string_literal(3, QuotationMark::Double),
                     string_literal(4, QuotationMark::Double),
-                    Break, // 5
+                    Break(None), // 5
                     Match {
                         expression: 0,
                         arms: vec![

@@ -1337,11 +1337,36 @@ for a in [10, 20, 30, 40]
             let script = "
 sum = 0
 for i in 1..10
+  sum += i
   if i == 5
     break
+sum
+";
+            test_script(script, 15.into());
+        }
+
+        #[test]
+        fn for_break_with_expression() {
+            let script = "
+sum = 0
+for i in 1..10
   sum += i
+  if i == 4
+    break sum
 ";
             test_script(script, 10.into());
+        }
+
+        #[test]
+        fn for_break_default_value_is_null() {
+            let script = "
+sum = 0
+for i in 1..10
+  sum += i
+  if i == 5
+    break
+";
+            test_script(script, Null);
         }
 
         #[test]
@@ -1380,8 +1405,22 @@ for i in [2, 4, 6]
     if j > 1
       continue
     sum += i
+sum
 ";
             test_script(script, 24.into());
+        }
+
+        #[test]
+        fn for_continue_result_is_null() {
+            let script = "
+sum = 0
+for i in (1, 2)
+  if i == 2
+    continue
+  else 
+    i
+";
+            test_script(script, Null);
         }
 
         #[test]
@@ -1439,10 +1478,22 @@ i, sum = 0, 0
 while (i += 1) < 1000000
   if i > 5
     break
-  sum += 1
+  sum += i
 sum
 ";
-            test_script(script, 5.into());
+            test_script(script, 15.into());
+        }
+
+        #[test]
+        fn while_break_with_expression() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 1000000
+  if i > 5
+    break sum * 10
+  sum += i
+";
+            test_script(script, 150.into());
         }
 
         #[test]
@@ -1450,11 +1501,25 @@ sum
             let script = "
 i, sum = 0, 0
 while (i += 1) < 10
-  if i > 6
+  if i < 6
     continue
-  sum += 1
+  # The result will be the sum of 6..=9
+  sum += i
 ";
-            test_script(script, 6.into());
+            test_script(script, 30.into());
+        }
+
+        #[test]
+        fn while_continue_result_is_null() {
+            let script = "
+i = 0
+while (i += 1) < 5 
+  if i == 4
+    continue
+  else 
+    i
+";
+            test_script(script, Null);
         }
 
         #[test]
@@ -1494,6 +1559,18 @@ until count == 100000000
     break
 count";
             test_script(script, 5.into());
+        }
+
+        #[test]
+        fn until_break_with_expression() {
+            let script = "
+count = 0
+until count == 100000000
+  count += 1
+  if count == 5
+    break count * 2
+";
+            test_script(script, 10.into());
         }
 
         #[test]
@@ -1542,15 +1619,27 @@ i";
         }
 
         #[test]
+        fn loop_break_with_value() {
+            let script = "
+i = 0
+loop
+  i += 1
+  if i == 5
+    break i * 10
+";
+            test_script(script, 50.into());
+        }
+
+        #[test]
         fn loop_assignment() {
             let script = "
 i = 0
 result = loop
   i += 1
   if i == 5
-    break
+    break i + i
 result";
-            test_script(script, Null);
+            test_script(script, 10.into());
         }
     }
 

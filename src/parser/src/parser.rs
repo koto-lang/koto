@@ -1519,7 +1519,9 @@ impl<'source> Parser<'source> {
                 Token::Until => self.parse_until_loop(context),
                 Token::Break => {
                     self.consume_token_with_context(context);
-                    self.push_node(Node::Break)
+                    let break_value =
+                        self.parse_expressions(&context.start_new_expression(), TempResult::No)?;
+                    self.push_node(Node::Break(break_value))
                 }
                 Token::Continue => {
                     self.consume_token_with_context(context);

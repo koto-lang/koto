@@ -44,19 +44,14 @@ macro_rules! compiler_error {
     };
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct Loop {
+    // The loop's result register,
+    result_register: Option<u8>,
+    // The ip of the start of the loop, used for continue statements
     start_ip: usize,
+    // Placeholders for jumps to the end of the loop, updated when the loop compilation is complete
     jump_placeholders: Vec<usize>,
-}
-
-impl Loop {
-    fn new(start_ip: usize) -> Self {
-        Self {
-            start_ip,
-            ..Default::default()
-        }
-    }
 }
 
 enum Arg {
@@ -616,25 +611,55 @@ impl Compiler {
                 self.compile_loop(result_register, Some((*condition, true)), *body, ast)?
             }
             Node::Loop { body } => self.compile_loop(result_register, None, *body, ast)?,
-            Node::Break => {
-                self.push_op(Jump, &[]);
-                self.push_loop_jump_placeholder()?;
+            Node::Break(expression) => match self.frame().loop_stack.last() {
+                Some(loop_info) => {
+                    let loop_result_register = loop_info.result_register;
 
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(SetNull, &[result.register]);
-                }
-                result
-            }
-            Node::Continue => {
-                self.push_jump_back_op(JumpBack, &[], self.current_loop()?.start_ip);
+                    match (loop_result_register, expression) {
+                        (Some(loop_result_register), Some(expression)) => {
+                            self.compile_node(
+                                ResultRegister::Fixed(loop_result_register),
+                                ast.node(*expression),
+                                ast,
+                            )?
+                            .unwrap();
+                        }
+                        (Some(loop_result_register), None) => {
+                            self.push_op(SetNull, &[loop_result_register]);
+                        }
+                        (None, Some(_)) => {
+                            return compiler_error!(
+                                self,
+                                "The result of this `break` expression will be ignored, 
+                                consider assigning the result of the loop"
+                            );
+                        }
+                        (None, None) => {}
+                    }
 
-                let result = self.get_result_register(result_register)?;
-                if let Some(result) = result {
-                    self.push_op(SetNull, &[result.register]);
+                    self.push_op(Jump, &[]);
+                    self.push_loop_jump_placeholder()?;
+
+                    None
                 }
-                result
-            }
+                None => return compiler_error!(self, "`break` used outside of loop"),
+            },
+            Node::Continue => match self.frame().loop_stack.last() {
+                Some(loop_info) => {
+                    let loop_result_register = loop_info.result_register;
+                    let loop_start_ip = loop_info.start_ip;
+
+                    if let Some(result_register) = loop_result_register {
+                        self.push_op(SetNull, &[result_register]);
+                    }
+                    self.push_jump_back_op(JumpBack, &[], loop_start_ip);
+
+                    None
+                }
+                None => {
+                    return compiler_error!(self, "`continue` used outside of loop");
+                }
+            },
             Node::Return(None) => match self.get_result_register(result_register)? {
                 Some(result) => {
                     self.push_op(SetNull, &[result.register]);
@@ -3414,9 +3439,13 @@ impl Compiler {
         // end:
 
         let result = self.get_result_register(result_register)?;
-        if let Some(result) = result {
+
+        let body_result_register = if let Some(result) = result {
             self.push_op(SetNull, &[result.register]);
-        }
+            Some(result.register)
+        } else {
+            None
+        };
 
         let stack_count = self.frame().register_stack.len();
 
@@ -3439,7 +3468,11 @@ impl Compiler {
         };
 
         let loop_start_ip = self.bytes.len();
-        self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
+        self.frame_mut().loop_stack.push(Loop {
+            result_register: body_result_register,
+            start_ip: loop_start_ip,
+            jump_placeholders: vec![],
+        });
 
         match args.as_slice() {
             [] => return compiler_error!(self, "Missing argument in for loop"),
@@ -3503,13 +3536,13 @@ impl Compiler {
             }
         }
 
-        let body_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
-        } else {
-            ResultRegister::None
-        };
-
-        self.compile_node(body_result_register, ast.node(*body), ast)?;
+        self.compile_node(
+            body_result_register.map_or(ResultRegister::None, |register| {
+                ResultRegister::Fixed(register)
+            }),
+            ast.node(*body),
+            ast,
+        )?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
@@ -3548,10 +3581,25 @@ impl Compiler {
     ) -> CompileNodeResult {
         use Op::*;
 
-        let loop_start_ip = self.bytes.len();
-        self.frame_mut().loop_stack.push(Loop::new(loop_start_ip));
-
         let result = self.get_result_register(result_register)?;
+        let body_result_register = if let Some(result) = result {
+            if condition.is_some() {
+                // If there's a condition, then the result should be set to Null in case
+                // there are no loop iterations
+                self.push_op(SetNull, &[result.register]);
+            }
+            Some(result.register)
+        } else {
+            None
+        };
+
+        let loop_start_ip = self.bytes.len();
+
+        self.frame_mut().loop_stack.push(Loop {
+            start_ip: loop_start_ip,
+            result_register: body_result_register,
+            jump_placeholders: Vec::new(),
+        });
 
         if let Some((condition, negate_condition)) = condition {
             // Condition
@@ -3570,13 +3618,13 @@ impl Compiler {
             }
         }
 
-        let body_result_register = if let Some(result) = result {
-            ResultRegister::Fixed(result.register)
-        } else {
-            ResultRegister::None
-        };
-
-        let body_result = self.compile_node(body_result_register, ast.node(body), ast)?;
+        let body_result = self.compile_node(
+            body_result_register.map_or(ResultRegister::None, |register| {
+                ResultRegister::Fixed(register)
+            }),
+            ast.node(body),
+            ast,
+        )?;
 
         self.push_jump_back_op(JumpBack, &[], loop_start_ip);
 
@@ -3620,13 +3668,6 @@ impl Compiler {
         let offset_ip = self.bytes.len();
         self.push_bytes(&[0, 0]);
         offset_ip
-    }
-
-    fn current_loop(&self) -> Result<&Loop, CompilerError> {
-        self.frame()
-            .loop_stack
-            .last()
-            .ok_or_else(|| self.make_error("Missing loop info".to_string()))
     }
 
     fn push_loop_jump_placeholder(&mut self) -> Result<(), CompilerError> {
