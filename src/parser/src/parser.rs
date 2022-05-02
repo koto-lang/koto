@@ -395,7 +395,7 @@ impl<'source> Parser<'source> {
 
                 //
                 if let Some(next_expression) =
-                    self.parse_expression_start(Some(&expressions), 0, &expression_context)?
+                    self.parse_expression_start(&expressions, 0, &expression_context)?
                 {
                     match self.ast.node(next_expression).node {
                         Node::Assign { .. }
@@ -451,7 +451,7 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let result = self.parse_expression_start(None, min_precedence, context)?;
+        let result = self.parse_expression_start(&[], min_precedence, context)?;
 
         let result = match self.peek_next_token_on_same_line() {
             Some(Token::Range) | Some(Token::RangeInclusive) => {
@@ -465,11 +465,12 @@ impl<'source> Parser<'source> {
 
     // Parses a term, and then checks to see if the expression is continued
     //
-    // When parsing comma-separated expressions, the previous expressions are passed in as the
-    // existing LHS.
+    // When parsing comma-separated expressions, the previous expressions are passed in so that
+    // if an assignment operator is encountered then the overall expression is treated as a
+    // multi-assignment.
     fn parse_expression_start(
         &mut self,
-        previous_expressions: Option<&[AstIndex]>,
+        previous_expressions: &[AstIndex],
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
@@ -478,13 +479,12 @@ impl<'source> Parser<'source> {
             None => return Ok(None),
         };
 
-        if let Some(previous_expressions) = previous_expressions {
-            let mut lhs_with_expression_start = previous_expressions.to_vec();
-            lhs_with_expression_start.push(expression_start);
-            self.parse_expression_continued(&lhs_with_expression_start, min_precedence, context)
-        } else {
-            self.parse_expression_continued(&[expression_start], min_precedence, context)
-        }
+        self.parse_expression_continued(
+            expression_start,
+            previous_expressions,
+            min_precedence,
+            context,
+        )
     }
 
     // Parses the continuation of an expression_context
@@ -493,15 +493,11 @@ impl<'source> Parser<'source> {
     // operation.
     fn parse_expression_continued(
         &mut self,
-        lhs: &[AstIndex],
+        expression_start: AstIndex,
+        previous_expressions: &[AstIndex],
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let last_lhs = match lhs.last() {
-            Some(last) => *last,
-            None => return self.error(InternalError::MissingContinuedExpressionLhs),
-        };
-
         let mut context = *context;
         if let Indentation::Equal(indent) = context.expected_indentation {
             // If the expression already has some expected indentation,
@@ -509,9 +505,12 @@ impl<'source> Parser<'source> {
             context.expected_indentation = Indentation::GreaterOrEqual(indent)
         }
 
-        if let Some(assignment_expression) =
-            self.parse_assign_expression(lhs, Scope::Local, &context)?
-        {
+        if let Some(assignment_expression) = self.parse_assign_expression(
+            expression_start,
+            previous_expressions,
+            Scope::Local,
+            &context,
+        )? {
             return Ok(Some(assignment_expression));
         } else if let Some(next) = self.peek_token_with_context(&context) {
             if let Some((left_priority, right_priority)) = operator_precedence(next.token) {
@@ -528,7 +527,7 @@ impl<'source> Parser<'source> {
                     let context = self.consume_until_token_with_context(&context).unwrap();
 
                     let rhs = if let Some(rhs_expression) =
-                        self.parse_expression_start(None, right_priority, &context)?
+                        self.parse_expression_start(&[], right_priority, &context)?
                     {
                         rhs_expression
                     } else {
@@ -565,28 +564,30 @@ impl<'source> Parser<'source> {
                     let op_node = self.push_node_with_span(
                         Node::BinaryOp {
                             op: ast_op,
-                            lhs: last_lhs,
+                            lhs: expression_start,
                             rhs,
                         },
                         op_span,
                     )?;
 
-                    return self.parse_expression_continued(&[op_node], min_precedence, &context);
+                    return self.parse_expression_continued(op_node, &[], min_precedence, &context);
                 }
             }
         }
 
-        Ok(Some(last_lhs))
+        Ok(Some(expression_start))
     }
 
     // Parses an assignment expression
     //
-    // In a multi-assignment expression the LHS can be a series of targets.
+    // In a multi-assignment expression the LHS can be a series of targets. The last target in the
+    // series will be passed in as `lhs`, with the previous targets passed in as `previous_lhs`.
     //
     // If the assignment is an export then operators other than `=` will be rejected.
     fn parse_assign_expression(
         &mut self,
-        lhs: &[AstIndex],
+        lhs: AstIndex,
+        previous_lhs: &[AstIndex],
         scope: Scope,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
@@ -607,9 +608,9 @@ impl<'source> Parser<'source> {
             return self.consume_token_and_error(SyntaxError::UnexpectedExportAssignmentOp);
         }
 
-        let mut targets = Vec::new();
+        let mut targets = Vec::with_capacity(previous_lhs.len() + 1);
 
-        for lhs_expression in lhs.iter() {
+        for lhs_expression in previous_lhs.iter().chain(std::iter::once(&lhs)) {
             // Note which identifiers are being assigned to
             match (self.ast.node(*lhs_expression).node.clone(), scope) {
                 (Node::Id(id_index), Scope::Local) if matches!(assign_op, AssignOp::Equal) => {
@@ -714,7 +715,8 @@ impl<'source> Parser<'source> {
                     } else {
                         let meta_key = self.push_node(Node::Meta(meta_key_id, meta_name))?;
                         match self.parse_assign_expression(
-                            &[meta_key],
+                            meta_key,
+                            &[],
                             Scope::Export,
                             &meta_context,
                         )? {
@@ -1525,7 +1527,7 @@ impl<'source> Parser<'source> {
 
         // Return the exported assignment expression, or the exported id.
         // e.g. `export foo = bar`, or simply `export foo`
-        match self.parse_assign_expression(&[export_id], Scope::Export, context)? {
+        match self.parse_assign_expression(export_id, &[], Scope::Export, context)? {
             Some(result) => Ok(result),
             None => Ok(export_id),
         }
