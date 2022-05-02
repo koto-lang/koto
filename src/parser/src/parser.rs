@@ -2016,6 +2016,8 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
+        use SyntaxError::*;
+
         let expected_indentation = self.current_indent();
         let outer_context =
             context.with_expected_indentation(Indentation::Equal(expected_indentation));
@@ -2024,7 +2026,7 @@ impl<'source> Parser<'source> {
 
         let condition = match self.parse_expression(&ExpressionContext::inline())? {
             Some(condition) => condition,
-            None => return self.consume_token_and_error(SyntaxError::ExpectedIfCondition),
+            None => return self.consume_token_and_error(ExpectedIfCondition),
         };
 
         if self.peek_next_token_on_same_line() == Some(Token::Then) {
@@ -2032,13 +2034,13 @@ impl<'source> Parser<'source> {
             let then_node =
                 match self.parse_expressions(&ExpressionContext::inline(), TempResult::No)? {
                     Some(then_node) => then_node,
-                    None => return self.error(SyntaxError::ExpectedThenExpression),
+                    None => return self.error(ExpectedThenExpression),
                 };
             let else_node = if self.peek_next_token_on_same_line() == Some(Token::Else) {
                 self.consume_next_token_on_same_line();
                 match self.parse_expressions(&ExpressionContext::inline(), TempResult::No)? {
                     Some(else_node) => Some(else_node),
-                    None => return self.error(SyntaxError::ExpectedElseExpression),
+                    None => return self.error(ExpectedElseExpression),
                 }
             } else {
                 None
@@ -2052,7 +2054,7 @@ impl<'source> Parser<'source> {
             }))
         } else {
             if !outer_context.allow_linebreaks {
-                return self.error(SyntaxError::IfBlockNotAllowedInThisContext);
+                return self.error(IfBlockNotAllowedInThisContext);
             }
 
             if let Some(then_node) = self.parse_indented_block()? {
@@ -2066,7 +2068,7 @@ impl<'source> Parser<'source> {
                     self.consume_token_with_context(&outer_context);
 
                     if self.current_indent() != expected_indentation {
-                        return self.error(SyntaxError::UnexpectedElseIfIndentation);
+                        return self.error(UnexpectedElseIfIndentation);
                     }
 
                     if let Some(else_if_condition) =
@@ -2080,7 +2082,7 @@ impl<'source> Parser<'source> {
                             );
                         }
                     } else {
-                        return self.consume_token_and_error(SyntaxError::ExpectedElseIfCondition);
+                        return self.consume_token_and_error(ExpectedElseIfCondition);
                     }
                 }
 
@@ -2089,7 +2091,7 @@ impl<'source> Parser<'source> {
                         self.consume_token_with_context(&outer_context);
 
                         if self.current_indent() != expected_indentation {
-                            return self.error(SyntaxError::UnexpectedElseIndentation);
+                            return self.error(UnexpectedElseIndentation);
                         }
 
                         if let Some(else_block) = self.parse_indented_block()? {
@@ -2119,6 +2121,8 @@ impl<'source> Parser<'source> {
         &mut self,
         switch_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
+        use SyntaxError::*;
+
         self.consume_token_with_context(switch_context); // Token::Switch
 
         let current_indent = self.current_indent();
@@ -2137,7 +2141,7 @@ impl<'source> Parser<'source> {
             let arm_body = match self.peek_next_token_on_same_line() {
                 Some(Token::Else) => {
                     if condition.is_some() {
-                        return self.consume_token_and_error(SyntaxError::UnexpectedSwitchElse);
+                        return self.consume_token_and_error(UnexpectedSwitchElse);
                     }
 
                     self.consume_next_token_on_same_line();
@@ -2149,8 +2153,7 @@ impl<'source> Parser<'source> {
                     } else if let Some(indented_block) = self.parse_indented_block()? {
                         indented_block
                     } else {
-                        return self
-                            .consume_token_and_error(SyntaxError::ExpectedSwitchArmExpression);
+                        return self.consume_token_and_error(ExpectedSwitchArmExpression);
                     }
                 }
                 Some(Token::Then) => {
@@ -2163,12 +2166,10 @@ impl<'source> Parser<'source> {
                     } else if let Some(indented_block) = self.parse_indented_block()? {
                         indented_block
                     } else {
-                        return self.consume_token_and_error(
-                            SyntaxError::ExpectedSwitchArmExpressionAfterThen,
-                        );
+                        return self.consume_token_and_error(ExpectedSwitchArmExpressionAfterThen);
                     }
                 }
-                _ => return self.consume_token_and_error(SyntaxError::ExpectedSwitchArmExpression),
+                _ => return self.consume_token_and_error(ExpectedSwitchArmExpression),
             };
 
             arms.push(SwitchArm {
@@ -2188,10 +2189,7 @@ impl<'source> Parser<'source> {
             let last_arm = arm_index == arms.len() - 1;
 
             if arm.condition.is_none() && !last_arm {
-                return Err(ParserError::new(
-                    SyntaxError::SwitchElseNotInLastArm.into(),
-                    start_span,
-                ));
+                return Err(ParserError::new(SwitchElseNotInLastArm.into(), start_span));
             }
         }
 
@@ -2202,6 +2200,8 @@ impl<'source> Parser<'source> {
         &mut self,
         match_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
+        use SyntaxError::*;
+
         self.consume_token_with_context(match_context); // Token::Match
 
         let current_indent = self.current_indent();
@@ -2211,7 +2211,7 @@ impl<'source> Parser<'source> {
             match self.parse_expressions(&ExpressionContext::inline(), TempResult::Yes)? {
                 Some(expression) => expression,
                 None => {
-                    return self.consume_token_and_error(SyntaxError::ExpectedMatchExpression);
+                    return self.consume_token_and_error(ExpectedMatchExpression);
                 }
             };
 
@@ -2241,10 +2241,7 @@ impl<'source> Parser<'source> {
 
                         match self.parse_match_pattern(false)? {
                             Some(pattern) => patterns.push(pattern),
-                            None => {
-                                return self
-                                    .consume_token_and_error(SyntaxError::ExpectedMatchPattern)
-                            }
+                            None => return self.consume_token_and_error(ExpectedMatchPattern),
                         }
                     }
 
@@ -2264,10 +2261,7 @@ impl<'source> Parser<'source> {
 
                     match self.parse_expression(&ExpressionContext::inline())? {
                         Some(expression) => Some(expression),
-                        None => {
-                            return self
-                                .consume_token_and_error(SyntaxError::ExpectedMatchCondition)
-                        }
+                        None => return self.consume_token_and_error(ExpectedMatchCondition),
                     }
                 } else {
                     None
@@ -2277,7 +2271,7 @@ impl<'source> Parser<'source> {
             let arm_body = match self.peek_next_token_on_same_line() {
                 Some(Token::Else) => {
                     if !arm_patterns.is_empty() || condition.is_some() {
-                        return self.consume_token_and_error(SyntaxError::UnexpectedMatchElse);
+                        return self.consume_token_and_error(UnexpectedMatchElse);
                     }
 
                     self.consume_next_token_on_same_line();
@@ -2289,13 +2283,12 @@ impl<'source> Parser<'source> {
                     } else if let Some(indented_block) = self.parse_indented_block()? {
                         indented_block
                     } else {
-                        return self
-                            .consume_token_and_error(SyntaxError::ExpectedMatchArmExpression);
+                        return self.consume_token_and_error(ExpectedMatchArmExpression);
                     }
                 }
                 Some(Token::Then) => {
                     if arm_patterns.len() != expected_arm_count {
-                        return self.consume_token_and_error(SyntaxError::ExpectedMatchPattern);
+                        return self.consume_token_and_error(ExpectedMatchPattern);
                     }
 
                     self.consume_next_token_on_same_line();
@@ -2307,15 +2300,11 @@ impl<'source> Parser<'source> {
                     } else if let Some(indented_block) = self.parse_indented_block()? {
                         indented_block
                     } else {
-                        return self.consume_token_and_error(
-                            SyntaxError::ExpectedMatchArmExpressionAfterThen,
-                        );
+                        return self.consume_token_and_error(ExpectedMatchArmExpressionAfterThen);
                     }
                 }
-                Some(Token::If) => {
-                    return self.consume_token_and_error(SyntaxError::UnexpectedMatchIf)
-                }
-                _ => return self.consume_token_and_error(SyntaxError::ExpectedMatchArmExpression),
+                Some(Token::If) => return self.consume_token_and_error(UnexpectedMatchIf),
+                _ => return self.consume_token_and_error(ExpectedMatchArmExpression),
             };
 
             arms.push(MatchArm {
@@ -2337,10 +2326,7 @@ impl<'source> Parser<'source> {
             let last_arm = arm_index == arms.len() - 1;
 
             if arm.patterns.is_empty() && arm.condition.is_none() && !last_arm {
-                return Err(ParserError::new(
-                    SyntaxError::MatchElseNotInLastArm.into(),
-                    start_span,
-                ));
+                return Err(ParserError::new(MatchElseNotInLastArm.into(), start_span));
             }
         }
 
@@ -2693,7 +2679,7 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<Option<(AstString, Span, ExpressionContext)>, ParserError> {
-        use Token::*;
+        use {SyntaxError::*, Token::*};
 
         match self.peek_token_with_context(context) {
             Some(PeekInfo {
@@ -2743,28 +2729,18 @@ impl<'source> Parser<'source> {
                                             if d <= 0x7f {
                                                 literal.push(char::from_u32(d).unwrap());
                                             } else {
-                                                return self
-                                                    .error(SyntaxError::AsciiEscapeCodeOutOfRange);
+                                                return self.error(AsciiEscapeCodeOutOfRange);
                                             }
                                         }
                                         Some(_) => {
-                                            return self.error(
-                                                SyntaxError::UnexpectedCharInNumericEscapeCode,
-                                            )
+                                            return self.error(UnexpectedCharInNumericEscapeCode)
                                         }
-                                        None => {
-                                            return self
-                                                .error(SyntaxError::UnterminatedNumericEscapeCode)
-                                        }
+                                        None => return self.error(UnterminatedNumericEscapeCode),
                                     },
                                     Some(_) => {
-                                        return self
-                                            .error(SyntaxError::UnexpectedCharInNumericEscapeCode)
+                                        return self.error(UnexpectedCharInNumericEscapeCode)
                                     }
-                                    None => {
-                                        return self
-                                            .error(SyntaxError::UnterminatedNumericEscapeCode)
-                                    }
+                                    None => return self.error(UnterminatedNumericEscapeCode),
                                 },
                                 Some('u') => match chars.next() {
                                     Some('{') => {
@@ -2784,33 +2760,24 @@ impl<'source> Parser<'source> {
                                             Some('}') => match char::from_u32(code) {
                                                 Some(c) => literal.push(c),
                                                 None => {
-                                                    return self.error(
-                                                        SyntaxError::UnicodeEscapeCodeOutOfRange,
-                                                    );
+                                                    return self.error(UnicodeEscapeCodeOutOfRange);
                                                 }
                                             },
                                             Some(_) => {
-                                                return self.error(
-                                                    SyntaxError::UnexpectedCharInNumericEscapeCode,
-                                                );
+                                                return self
+                                                    .error(UnexpectedCharInNumericEscapeCode);
                                             }
                                             None => {
-                                                return self.error(
-                                                    SyntaxError::UnterminatedNumericEscapeCode,
-                                                )
+                                                return self.error(UnterminatedNumericEscapeCode)
                                             }
                                         }
                                     }
                                     Some(_) => {
-                                        return self
-                                            .error(SyntaxError::UnexpectedCharInNumericEscapeCode)
+                                        return self.error(UnexpectedCharInNumericEscapeCode)
                                     }
-                                    None => {
-                                        return self
-                                            .error(SyntaxError::UnterminatedNumericEscapeCode)
-                                    }
+                                    None => return self.error(UnterminatedNumericEscapeCode),
                                 },
-                                _ => return self.error(SyntaxError::UnexpectedEscapeInString),
+                                _ => return self.error(UnexpectedEscapeInString),
                             },
                             _ => literal.push(c),
                         }
@@ -2834,17 +2801,15 @@ impl<'source> Parser<'source> {
                         {
                             nodes.push(StringNode::Expr(expression));
                         } else {
-                            return self.consume_token_and_error(SyntaxError::ExpectedExpression);
+                            return self.consume_token_and_error(ExpectedExpression);
                         }
 
                         if self.consume_token() != Some(CurlyClose) {
-                            return self.error(SyntaxError::ExpectedStringPlaceholderEnd);
+                            return self.error(ExpectedStringPlaceholderEnd);
                         }
                     }
                     Some(_) => {
-                        return self.consume_token_and_error(
-                            SyntaxError::UnexpectedTokenAfterDollarInString,
-                        );
+                        return self.consume_token_and_error(UnexpectedTokenAfterDollarInString);
                     }
                     None => break,
                 },
@@ -2868,11 +2833,11 @@ impl<'source> Parser<'source> {
                         string_context,
                     )));
                 }
-                _ => return self.error(SyntaxError::UnexpectedToken),
+                _ => return self.error(UnexpectedToken),
             }
         }
 
-        self.error(SyntaxError::UnterminatedString)
+        self.error(UnterminatedString)
     }
 
     //// Error helpers
