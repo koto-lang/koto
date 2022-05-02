@@ -374,10 +374,7 @@ impl<'source> Parser<'source> {
     fn parse_function(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
         let start_indent = self.current_indent();
 
-        match self.consume_token_with_context(context) {
-            Some((Token::Function, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::Function
 
         let span_start = self.current_span().start;
 
@@ -1322,10 +1319,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_export(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(context) {
-            Some((Token::Export, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::Export
 
         let export_id = if let Some((constant_index, _)) = self.parse_id(context)? {
             self.push_node(Node::Id(constant_index))?
@@ -1344,9 +1338,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_throw_expression(&mut self) -> Result<AstIndex, ParserError> {
-        if self.consume_next_token_on_same_line() != Some(Token::Throw) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_next_token_on_same_line(); // Token::Throw
 
         let start_span = self.current_span();
 
@@ -1361,9 +1353,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_debug_expression(&mut self) -> Result<AstIndex, ParserError> {
-        if self.consume_next_token_on_same_line() != Some(Token::Debug) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_next_token_on_same_line(); // Token::Debug
 
         let start_position = self.current_span().start;
 
@@ -1471,11 +1461,11 @@ impl<'source> Parser<'source> {
                 Token::Subtract => match self.peek_token_n(peeked.peek_count + 1) {
                     Some(token) if token.is_whitespace() || token.is_newline() => return Ok(None),
                     Some(Token::Number) => {
-                        self.consume_token_with_context(context);
+                        self.consume_token_with_context(context); // Token::Subtract
                         self.parse_number(true, context)
                     }
                     Some(_) => {
-                        self.consume_token_with_context(context);
+                        self.consume_token_with_context(context); // Token::Subtract
                         if let Some(term) = self.parse_term(&ExpressionContext::restricted())? {
                             self.push_node(Node::UnaryOp {
                                 op: AstUnaryOp::Negate,
@@ -1571,12 +1561,7 @@ impl<'source> Parser<'source> {
     ) -> Result<AstIndex, ParserError> {
         use Node::*;
 
-        if !matches!(
-            self.consume_token_with_context(context),
-            Some((Token::Number, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_token_with_context(context); // Token::Number
 
         let slice = self.lexer.slice();
 
@@ -1624,12 +1609,8 @@ impl<'source> Parser<'source> {
         let list_context = *context;
         let start_span = self.current_span();
 
-        if !matches!(
-            self.consume_token_with_context(&list_context),
-            Some((Token::SquareOpen, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        // Token::SquareOpen
+        self.consume_token_with_context(&list_context);
 
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
@@ -1751,12 +1732,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_map_inline(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        if !matches!(
-            self.consume_token_with_context(context),
-            Some((Token::CurlyOpen, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_token_with_context(context); // Token::CurlyOpen
 
         let start_indent = self.current_indent();
         let start_span = self.current_span();
@@ -1829,10 +1805,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_for_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(context) {
-            Some((Token::For, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::For
 
         let start_span = self.current_span();
 
@@ -1886,10 +1859,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_loop_block(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(context) {
-            Some((Token::Loop, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::Loop
 
         if let Some(body) = self.parse_indented_block()? {
             self.push_node(Node::Loop { body })
@@ -1899,10 +1869,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_while_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(context) {
-            Some((Token::While, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::While
 
         let condition =
             if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
@@ -1918,10 +1885,7 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_until_loop(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(context) {
-            Some((Token::Until, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        }
+        self.consume_token_with_context(context); // Token::Until
 
         let condition =
             if let Some(condition) = self.parse_expression(&ExpressionContext::inline())? {
@@ -1944,12 +1908,7 @@ impl<'source> Parser<'source> {
         let outer_context =
             context.with_expected_indentation(Indentation::Equal(expected_indentation));
 
-        if !matches!(
-            self.consume_token_with_context(&outer_context),
-            Some((Token::If, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_token_with_context(context); // Token::If
 
         let condition = match self.parse_expression(&ExpressionContext::inline())? {
             Some(condition) => condition,
@@ -2048,10 +2007,7 @@ impl<'source> Parser<'source> {
         &mut self,
         switch_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        match self.consume_token_with_context(switch_context) {
-            Some((Token::Switch, _)) => {}
-            _ => return self.error(InternalError::UnexpectedToken),
-        };
+        self.consume_token_with_context(switch_context); // Token::Switch
 
         let current_indent = self.current_indent();
         let start_span = self.current_span();
@@ -2134,12 +2090,7 @@ impl<'source> Parser<'source> {
         &mut self,
         match_context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        if !matches!(
-            self.consume_token_with_context(match_context),
-            Some((Token::Match, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_token_with_context(match_context); // Token::Match
 
         let current_indent = self.current_indent();
         let start_span = self.current_span();
@@ -2616,12 +2567,7 @@ impl<'source> Parser<'source> {
 
         let start_span = self.current_span();
 
-        if !matches!(
-            self.consume_token_with_context(context),
-            Some((RoundOpen, _))
-        ) {
-            return self.error(InternalError::UnexpectedToken);
-        }
+        self.consume_token_with_context(context); // Token::RoundOpen
 
         let tuple_context = ExpressionContext::braced_items_start();
 
@@ -2630,7 +2576,7 @@ impl<'source> Parser<'source> {
         while !matches!(
             self.peek_token_with_context(&tuple_context),
             Some(PeekInfo {
-                token: Token::RoundClose,
+                token: RoundClose,
                 ..
             }) | None
         ) {
@@ -2643,10 +2589,7 @@ impl<'source> Parser<'source> {
 
             if matches!(
                 self.peek_token_with_context(&tuple_context),
-                Some(PeekInfo {
-                    token: Token::Comma,
-                    ..
-                })
+                Some(PeekInfo { token: Comma, .. })
             ) {
                 self.consume_token_with_context(&tuple_context);
 
