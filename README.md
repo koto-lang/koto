@@ -114,12 +114,12 @@ Launching the `koto` CLI without providing a script enters the REPL.
 
 ```haskell
 » koto
-Welcome to Koto v0.1.0
+Welcome to Koto 
 » 1 + 1
-2
-» io.print "{}, {}!", "Hello", "World"
+➝ 2
+» print "{}, {}!", "Hello", "World"
 Hello, World!
-()
+➝ null
 ```
 
 A help system is included in the REPL.  Run `help` for instructions.
