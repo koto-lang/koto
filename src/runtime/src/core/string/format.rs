@@ -49,7 +49,7 @@ impl<'a> FormatLexer<'a> {
         if let Some(maybe_fill) = chars.peek().cloned() {
             let mut lookahead = chars.clone();
             lookahead.next();
-            if matches!(lookahead.next(), Some('<') | Some('^') | Some('>')) {
+            if matches!(lookahead.next(), Some('<' | '^' | '>')) {
                 chars.next();
                 self.position += maybe_fill.len_utf8();
                 result.fill = Some(maybe_fill);

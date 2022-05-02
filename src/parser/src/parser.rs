@@ -261,11 +261,9 @@ impl<'source> Parser<'source> {
                 body.push(expression);
 
                 match self.peek_next_token_on_same_line() {
-                    Some(Token::NewLine) | Some(Token::NewLineIndented) => continue,
+                    Some(Token::NewLine | Token::NewLineIndented) => continue,
                     None => break,
-                    _ => {
-                        return self.consume_token_and_error(SyntaxError::UnexpectedToken);
-                    }
+                    _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
                 }
             } else {
                 return self.consume_token_and_error(SyntaxError::ExpectedExpressionInMainBlock);
@@ -322,10 +320,8 @@ impl<'source> Parser<'source> {
 
                 match self.peek_next_token_on_same_line() {
                     None => break,
-                    Some(Token::NewLine) | Some(Token::NewLineIndented) => {}
-                    _ => {
-                        return self.consume_token_and_error(SyntaxError::UnexpectedToken);
-                    }
+                    Some(Token::NewLine | Token::NewLineIndented) => {}
+                    _ => return self.consume_token_and_error(SyntaxError::UnexpectedToken),
                 }
 
                 // Peek ahead to see if the indented block continues after this line
@@ -454,9 +450,7 @@ impl<'source> Parser<'source> {
         let result = self.parse_expression_start(&[], min_precedence, context)?;
 
         let result = match self.peek_next_token_on_same_line() {
-            Some(Token::Range) | Some(Token::RangeInclusive) => {
-                self.parse_range(result, context)?
-            }
+            Some(Token::Range | Token::RangeInclusive) => self.parse_range(result, context)?,
             _ => result,
         };
 
@@ -1190,10 +1184,7 @@ impl<'source> Parser<'source> {
     fn next_token_is_lookup_start(&mut self, context: &ExpressionContext) -> bool {
         use Token::*;
 
-        if matches!(
-            self.peek_token(),
-            Some(Dot) | Some(SquareOpen) | Some(RoundOpen)
-        ) {
+        if matches!(self.peek_token(), Some(Dot | SquareOpen | RoundOpen)) {
             return true;
         } else if context.allow_linebreaks {
             let start_line = self.current_line_number();
@@ -2706,7 +2697,7 @@ impl<'source> Parser<'source> {
                     while let Some(c) = chars.next() {
                         match c {
                             '\\' => match chars.next() {
-                                Some('\n') | Some('\r') => {
+                                Some('\n' | '\r') => {
                                     while let Some(c) = chars.peek() {
                                         if c.is_whitespace() {
                                             chars.next();

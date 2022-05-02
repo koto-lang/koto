@@ -393,7 +393,7 @@ impl<'a> TokenLexer<'a> {
                         lookahead.next();
                         match lookahead.peek() {
                             Some(c) if is_digit(*c) => {}
-                            Some(&'+') | Some(&'-') => {}
+                            Some(&'+' | &'-') => {}
                             _ => {
                                 self.advance_line(char_bytes);
                                 return Number;
@@ -415,7 +415,7 @@ impl<'a> TokenLexer<'a> {
             chars.next();
             char_bytes += 1;
 
-            if matches!(chars.peek(), Some(&'+') | Some(&'-')) {
+            if matches!(chars.peek(), Some(&'+' | &'-')) {
                 chars.next();
                 char_bytes += 1;
             }
