@@ -22,6 +22,13 @@
         count += 1
     assert_eq count, 2 # 2 odd numbers less than 5
 
+  @test for_assignment: ||
+    do_something = |x| x * x
+    result = for i in 0..=5
+      # The final expression in the loop body is used as the assignment value
+      do_something i
+    assert_eq result, 25 
+
   @test while_block: ||
     count = 0
     while count < 5
@@ -39,12 +46,27 @@
       assert false
     assert_eq count, 10
 
+  @test while_assignment: ||
+    do_something = |x| x * x
+    i = 0
+    result = while i < 5
+      i += 1
+      # The final expression in the loop body is used as the assignment value
+      do_something i
+    assert_eq result, 25 
+
   @test until_block: ||
-    count = 5
-    until count == 0
-      count -= 1
-      assert count < 5
-    assert_eq count, 0
+    i = 5
+    until i == 0
+      i -= 1
+    assert_eq i, 0
+
+  @test until_assignment: ||
+    i, count = 5, 0
+    result = until i == 0
+      i -= 1
+      count += 1
+    assert_eq result, 5
 
   @test loop_break: ||
     count = 0

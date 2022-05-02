@@ -22,8 +22,11 @@ koto_parser = { path = "../parser", version = "^0.10.0"}
 downcast-rs = "1.1.1"
 indexmap = "1.4.0"
 rustc-hash = "1.1.0"
-smallvec = "1.2.0"
 unicode-segmentation = "1.9.0"
+
+[dependencies.smallvec]
+version = "1.8.0"
+features = ["const_generics", "union"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 chrono = "0.4.19"

@@ -1309,28 +1309,8 @@ calls
         }
     }
 
-    mod loops {
+    mod for_loops {
         use super::*;
-
-        #[test]
-        fn while_loop() {
-            let script = "
-count = 0
-while count < 10
-  count += 1
-count";
-            test_script(script, 10.into());
-        }
-
-        #[test]
-        fn until_loop() {
-            let script = "
-count = 10
-until count == 20
-  count += 1
-count";
-            test_script(script, 20.into());
-        }
 
         #[test]
         fn for_loop_with_ignored_args() {
@@ -1338,7 +1318,7 @@ count";
 count = 32
 for _ignored in 0..10
   count += 1
-count";
+";
             test_script(script, 42.into());
         }
 
@@ -1348,7 +1328,7 @@ count";
 sum = 0
 for a in [10, 20, 30, 40]
   sum += a
-sum";
+";
             test_script(script, 100.into());
         }
 
@@ -1357,11 +1337,36 @@ sum";
             let script = "
 sum = 0
 for i in 1..10
+  sum += i
   if i == 5
     break
+sum
+";
+            test_script(script, 15.into());
+        }
+
+        #[test]
+        fn for_break_with_expression() {
+            let script = "
+sum = 0
+for i in 1..10
   sum += i
-sum";
+  if i == 4
+    break sum
+";
             test_script(script, 10.into());
+        }
+
+        #[test]
+        fn for_break_default_value_is_null() {
+            let script = "
+sum = 0
+for i in 1..10
+  sum += i
+  if i == 5
+    break
+";
+            test_script(script, Null);
         }
 
         #[test]
@@ -1373,7 +1378,8 @@ for i in [1, 2, 3]
     if j == 2
       break
     sum += i
-sum";
+sum
+";
             test_script(script, 12.into());
         }
 
@@ -1385,7 +1391,8 @@ for i in 1..10
   if i > 5
     continue
   sum += i
-sum";
+sum
+";
             test_script(script, 15.into());
         }
 
@@ -1398,50 +1405,26 @@ for i in [2, 4, 6]
     if j > 1
       continue
     sum += i
-sum";
+sum
+";
             test_script(script, 24.into());
         }
 
         #[test]
-        fn while_break() {
+        fn for_continue_result_is_null() {
             let script = "
-i, sum = 0, 0
-while (i += 1) < 1000000
-  if i > 5
-    break
-  sum += 1
-sum";
-            test_script(script, 5.into());
-        }
-
-        #[test]
-        fn while_continue() {
-            let script = "
-i, sum = 0, 0
-while (i += 1) < 10
-  if i > 6
+sum = 0
+for i in (1, 2)
+  if i == 2
     continue
-  sum += 1
-sum";
-            test_script(script, 6.into());
+  else 
+    i
+";
+            test_script(script, Null);
         }
 
         #[test]
-        fn loop_break_continue() {
-            let script = "
-i = 0
-loop
-  i += 1
-  if i < 5
-    continue
-  else
-    break
-i";
-            test_script(script, 5.into());
-        }
-
-        #[test]
-        fn return_from_nested_loop() {
+        fn return_from_nested_for_loop() {
             let script = "
 f = ||
   for i in 0..100
@@ -1459,8 +1442,203 @@ f()";
 sum = 0
 for a, _foo, b in ((1, 99, 2), (3, 99, 4))
   sum += a + b
+";
+            test_script(script, 10.into());
+        }
+
+        #[test]
+        fn for_loop_assignment() {
+            let script = "
+f = |x| x * x
+result = for x in 0..=10
+  f x 
+result
+";
+            test_script(script, 100.into());
+        }
+    }
+
+    mod while_loops {
+        use super::*;
+
+        #[test]
+        fn while_iteration() {
+            let script = "
+count = 0
+while count < 10
+  count += 1
+";
+            test_script(script, 10.into());
+        }
+
+        #[test]
+        fn while_break() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 1000000
+  if i > 5
+    break
+  sum += i
 sum
 ";
+            test_script(script, 15.into());
+        }
+
+        #[test]
+        fn while_break_with_expression() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 1000000
+  if i > 5
+    break sum * 10
+  sum += i
+";
+            test_script(script, 150.into());
+        }
+
+        #[test]
+        fn while_continue() {
+            let script = "
+i, sum = 0, 0
+while (i += 1) < 10
+  if i < 6
+    continue
+  # The result will be the sum of 6..=9
+  sum += i
+";
+            test_script(script, 30.into());
+        }
+
+        #[test]
+        fn while_continue_result_is_null() {
+            let script = "
+i = 0
+while (i += 1) < 5 
+  if i == 4
+    continue
+  else 
+    i
+";
+            test_script(script, Null);
+        }
+
+        #[test]
+        fn while_assignment() {
+            let script = "
+f = |x| x * x
+count = 0
+result = while count < 10
+  count += 1
+  f count
+result
+";
+            test_script(script, 100.into());
+        }
+    }
+
+    mod until_loops {
+        use super::*;
+
+        #[test]
+        fn until_loop() {
+            let script = "
+count = 10
+until count == 20
+  count += 1
+";
+            test_script(script, 20.into());
+        }
+
+        #[test]
+        fn until_break() {
+            let script = "
+count = 0
+until count == 100000000
+  count += 1
+  if count == 5
+    break
+count";
+            test_script(script, 5.into());
+        }
+
+        #[test]
+        fn until_break_with_expression() {
+            let script = "
+count = 0
+until count == 100000000
+  count += 1
+  if count == 5
+    break count * 2
+";
+            test_script(script, 10.into());
+        }
+
+        #[test]
+        fn until_continue() {
+            let script = "
+sum, count = 0, 0
+until count == 6
+  count += 1
+  if count % 2 == 0
+    continue
+  sum += count
+sum
+";
+            test_script(script, 9.into());
+        }
+
+        #[test]
+        fn until_assignment() {
+            let script = "
+f = |x| x * x
+count = 0
+result = until count == 5
+  count += 1
+  f count
+result
+";
+            test_script(script, 25.into());
+        }
+    }
+
+    mod loop_expressions {
+        use super::*;
+
+        #[test]
+        fn loop_break_continue() {
+            let script = "
+i = 0
+loop
+  i += 1
+  if i < 5
+    continue
+  else
+    break
+i";
+            test_script(script, 5.into());
+        }
+
+        #[test]
+        fn loop_break_with_value() {
+            let script = "
+i = 0
+loop
+  i += 1
+  if i == 5
+    break i * 10
+";
+            test_script(script, 50.into());
+        }
+
+        #[test]
+        fn loop_assignment() {
+            let script = "
+i = 0
+result = loop
+  i += 1
+  if i == 5
+    break i + i
+result";
             test_script(script, 10.into());
         }
     }
@@ -2752,6 +2930,26 @@ f = || x
 export x = 99
 f()";
             test_script(script, 123.into());
+        }
+
+        #[test]
+        fn assignment_of_export() {
+            let script = "
+x = export y = 10
+x + y";
+            test_script(script, 20.into());
+        }
+    }
+
+    mod meta_export {
+        use super::*;
+
+        #[test]
+        fn assignment_of_meta_export() {
+            let script = "
+f = @main = || 42
+f()";
+            test_script(script, 42.into());
         }
     }
 }

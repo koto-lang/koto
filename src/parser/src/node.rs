@@ -237,8 +237,8 @@ pub enum Node {
         body: AstIndex,
     },
 
-    /// The break keyword
-    Break,
+    /// The break keyword, with optional break value
+    Break(Option<AstIndex>),
 
     /// The continue keyword
     Continue,
@@ -312,7 +312,7 @@ impl fmt::Display for Node {
             While { .. } => write!(f, "While"),
             Until { .. } => write!(f, "Until"),
             Loop { .. } => write!(f, "Loop"),
-            Break => write!(f, "Break"),
+            Break(_) => write!(f, "Break"),
             Continue => write!(f, "Continue"),
             Return(_) => write!(f, "Return"),
             Try { .. } => write!(f, "Try"),
@@ -453,7 +453,7 @@ pub enum AssignOp {
     Equal,
 }
 
-/// The scope for an assignment
+/// Specifies the scope of an assignment
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Scope {
     /// The export scope

@@ -60,6 +60,21 @@ The Koto project adheres to
     # After
     x, _unused, z = 1, 2, 3
     ```
+- Loop improvements
+  - The result of loop expressions (`for`, `while`, `until`, and `loop`) can now
+    be assigned to a value, with the default result being the final expression 
+    in the loop body. 
+    - If no loop iterations are performed then the result is `null`.
+  - The `break` keyword can now take an expression, which will be returned as 
+    the result of the loop.
+    - e.g. 
+      ```koto
+      y = for x in 0..=10
+        if x == 5
+          break x * x 
+      y
+      # 25
+      ```
 
 #### Core Library
 
