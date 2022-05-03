@@ -143,7 +143,7 @@ The Koto project adheres to
       ```
   - `main` functions are now defined using the `@main` meta key.
     - This is so that modules don't have to pollute their public exported API to
-      take advantage of having a main funciton.
+      take advantage of having a main function.
     - e.g.
       ```koto
       # Before
@@ -822,7 +822,7 @@ The Koto project adheres to
   - `number.negative_infinity`
 - `match` improvements
   - `else` can be now used as the fallback arm in a match expression.
-  - The value to match against is now optional, and when it's ommitted then
+  - The value to match against is now optional, and when it's omitted then
     so are match patterns.
     - e.g.
       ```koto
@@ -913,7 +913,7 @@ The Koto project adheres to
 - Strings are now iterable by default
 - Tuples or lists in function arguments can be unpacked automatically.
   - e.g. `f = |a, (b, [c, d])| a + b + c + d`
-- Num2 and num4 values can now used in unpacking expressions
+- Num2 and num4 values can now be used in unpacking expressions.
   - e.g.
     ```koto
     x = num2 1 2
