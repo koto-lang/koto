@@ -1338,9 +1338,22 @@ x %= 4";
 
         #[test]
         fn addition_subtraction() {
-            let source = "1 - 0 + 1";
-            check_ast(
-                source,
+            let sources = [
+                "
+1 - 0 + 1
+",
+                "
+1 - 0
+  + 1
+",
+                "
+1
+  - 0
+    + 1
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Number1,
                     Number0,
@@ -1520,14 +1533,33 @@ x %= 4";
         }
 
         #[test]
-        fn multiline_trailing_operators() {
-            let source = "
+        fn arithmetic_assignment() {
+            let sources = [
+                "
 a = 1 +
     2 *
     3
-";
-            check_ast(
-                source,
+",
+                "
+a = 1
+  + 2
+  * 3
+",
+                "
+a =
+  1
+  + 2
+  * 3
+",
+                "
+a =
+  1
+  + 2
+    * 3
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Number1,
@@ -1561,39 +1593,56 @@ a = 1 +
         }
 
         #[test]
-        fn multiline_preceding_operators() {
-            let source = "
-a = 1
-  + 2
+        fn arithmetic_assignment_with_nested_expression() {
+            let sources = [
+                "
+a = (1 + 2) * 3
+",
+                "
+a =
+  (1 + 2)
   * 3
-";
-            check_ast(
-                source,
+",
+                "
+a =
+  (1 +
+     2)
+  * 3
+",
+                "
+a = (1
+       + 2)
+  * 3
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
                     Id(constant(0)),
                     Number1,
                     Int(constant(1)),
-                    Int(constant(2)),
-                    BinaryOp {
-                        op: AstBinaryOp::Multiply,
-                        lhs: 2,
-                        rhs: 3,
-                    },
                     BinaryOp {
                         op: AstBinaryOp::Add,
                         lhs: 1,
-                        rhs: 4,
-                    }, // 5
+                        rhs: 2,
+                    },
+                    Nested(3),
+                    Int(constant(2)), // 5
+                    BinaryOp {
+                        op: AstBinaryOp::Multiply,
+                        lhs: 4,
+                        rhs: 5,
+                    },
                     Assign {
                         target: AssignTarget {
                             target_index: 0,
                             scope: Scope::Local,
                         },
                         op: AssignOp::Equal,
-                        expression: 5,
+                        expression: 6,
                     },
                     MainBlock {
-                        body: vec![6],
+                        body: vec![7],
                         local_count: 1,
                     },
                 ],

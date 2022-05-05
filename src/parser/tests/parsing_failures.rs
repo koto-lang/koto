@@ -58,6 +58,16 @@ mod parser {
             }
 
             #[test]
+            fn decreased_indentation_in_arithmetic() {
+                let source = "
+x =
+  1 + 2
++ 3
+";
+                check_parsing_fails(source);
+            }
+
+            #[test]
             fn else_at_same_indentation_as_if_body() {
                 let source = "
 if f x
