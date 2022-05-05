@@ -39,8 +39,10 @@ a = 1 +
       2 + #- inline comment -# 3 +
         # Another comment
         4
+      # You can return to the starting indentation
+      * 5
+assert_eq a, 26
 
-assert_eq a, 10
 a = make_num4
   0, 1, 2, 3
 b = make_num4

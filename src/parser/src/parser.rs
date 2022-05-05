@@ -117,17 +117,21 @@ struct ExpressionContext {
     expected_indentation: Indentation,
 }
 
-// The indentation styles that can be expected for a particular expression
+// The indentation that should be expected on following lines for an expression to continue
 #[derive(Clone, Copy, Debug)]
 enum Indentation {
-    // Indentation is required for an expression to be continued on a following line
-    Greater,
-    // Indentation should be at or above the expected indentation
-    GreaterOrEqual(usize),
-    // Indentation should match the expected indentation
-    Equal(usize),
-    // Indentation isn't required (e.g. in a comma separated braced expression)
+    // Indentation isn't required
+    // (e.g. in a comma separated braced expression)
     Flexible,
+    // Indentation should match the expected indentation
+    // (e.g. in an indented block, each line should start with the same indentation)
+    Equal(usize),
+    // Indentation should be greater than the current indentation
+    Greater,
+    // Indentation should be greater than the specified indentation
+    GreaterThan(usize),
+    // Indentation should be greater than or equal to the specified indentation
+    GreaterOrEqual(usize),
 }
 
 impl ExpressionContext {
@@ -468,16 +472,69 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
+        let entry_indent = self.current_indent();
+        let entry_line = self.current_line_number();
+
+        // Look ahead to get the indent of the first term in the expression.
+        // We need to look ahead here because the term may contain its own indentation,
+        // so it may end with different indentation.
+        let expression_start_info = self.peek_token_with_context(context);
+
         let expression_start = match self.parse_term(context)? {
             Some(term) => term,
             None => return Ok(None),
+        };
+
+        // Safety: it's OK to unwrap here given that a term was successfully parsed
+        let expression_start_info = expression_start_info.unwrap();
+
+        let continuation_context = if self.current_line_number() > entry_line {
+            if expression_start_info.line == entry_line {
+                // The term started on the entry line and ended on a following line.
+                //
+                // e.g.
+                //   foo = ( 1
+                //           + 2 )
+                //         + 3
+                // # ^ entry indent
+                // # ^ expression start indent
+                // #         ^ expression end indent
+                // #       ^ continuation indent
+                //
+                // A continuation of the expression from here should then be greater than the entry
+                // indent, rather than greater than the current (expression end) indent.
+                context.with_expected_indentation(Indentation::GreaterThan(entry_indent))
+            } else {
+                // The term started on a following line.
+                //
+                // An indent has already occurred for the start term, so then we can allow an
+                // expression to continue with greater or equal indentation.
+                //
+                // e.g.
+                //   foo =
+                //     ( 1
+                //       + 2 )
+                //     + 3
+                // # ^ entry indent
+                // #   ^ expression start indent
+                // #     ^ expression end indent
+                // #   ^ continuation indent
+                //
+                // A continuation of the expression from here should be allowed to match the
+                // expression start indent.
+                context.with_expected_indentation(Indentation::GreaterOrEqual(
+                    expression_start_info.indent,
+                ))
+            }
+        } else {
+            *context
         };
 
         self.parse_expression_continued(
             expression_start,
             previous_expressions,
             min_precedence,
-            context,
+            &continuation_context,
         )
     }
 
@@ -492,12 +549,20 @@ impl<'source> Parser<'source> {
         min_precedence: u8,
         context: &ExpressionContext,
     ) -> Result<Option<AstIndex>, ParserError> {
-        let mut context = *context;
-        if let Indentation::Equal(indent) = context.expected_indentation {
-            // If the expression already has some expected indentation,
-            // allow the indentation to increase
-            context.expected_indentation = Indentation::GreaterOrEqual(indent)
-        }
+        let context = match context.expected_indentation {
+            Indentation::Equal(indent) => {
+                // If the context has fixed indentation (e.g. at the start of an indented block),
+                // allow the indentation to increase
+                context.with_expected_indentation(Indentation::GreaterOrEqual(indent))
+            }
+            Indentation::Flexible => {
+                // Indentation within an arithmetic expression shouldn't be able to continue with
+                // decreased indentation
+                context
+                    .with_expected_indentation(Indentation::GreaterOrEqual(self.current_indent()))
+            }
+            _ => *context,
+        };
 
         if let Some(assignment_expression) = self.parse_assign_expression(
             expression_start,
@@ -2965,6 +3030,9 @@ impl<'source> Parser<'source> {
                             };
                             use Indentation::*;
                             match context.expected_indentation {
+                                GreaterThan(expected_indent) if peeked_indent > expected_indent => {
+                                    Some(peek_info)
+                                }
                                 GreaterOrEqual(expected_indent)
                                     if peeked_indent >= expected_indent =>
                                 {
