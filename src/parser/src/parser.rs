@@ -1293,14 +1293,19 @@ impl<'source> Parser<'source> {
 
         let mut node_context = *context;
         let mut node_start_span = self.current_span();
+        let restricted = ExpressionContext::restricted();
 
         lookup.push((LookupNode::Root(root), node_start_span));
 
         while let Some(token) = self.peek_token() {
             match token {
+                // Function call
                 Token::RoundOpen => {
+                    self.consume_token();
+
                     node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
+
                     lookup.push((
                         LookupNode::Call {
                             args,
@@ -1309,82 +1314,12 @@ impl<'source> Parser<'source> {
                         self.span_with_start(node_start_span),
                     ));
                 }
+                // Index
                 Token::SquareOpen => {
                     self.consume_token();
+
                     node_start_span = self.current_span();
-
-                    let index_context = ExpressionContext::restricted();
-
-                    let index_expression =
-                        if let Some(index_expression) = self.parse_expression(&index_context)? {
-                            match self.peek_token() {
-                                Some(Token::Range) => {
-                                    self.consume_token();
-
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::Range {
-                                            start: index_expression,
-                                            end: end_expression,
-                                            inclusive: false,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFrom {
-                                            start: index_expression,
-                                        })?
-                                    }
-                                }
-                                Some(Token::RangeInclusive) => {
-                                    self.consume_token();
-
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::Range {
-                                            start: index_expression,
-                                            end: end_expression,
-                                            inclusive: true,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFrom {
-                                            start: index_expression,
-                                        })?
-                                    }
-                                }
-                                _ => index_expression,
-                            }
-                        } else {
-                            // Look for RangeTo/RangeFull
-                            // e.g. x[..10], y[..]
-                            match self.consume_next_token_on_same_line() {
-                                Some(Token::Range) => {
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::RangeTo {
-                                            end: end_expression,
-                                            inclusive: false,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFull)?
-                                    }
-                                }
-                                Some(Token::RangeInclusive) => {
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::RangeTo {
-                                            end: end_expression,
-                                            inclusive: true,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFull)?
-                                    }
-                                }
-                                _ => return self.error(SyntaxError::ExpectedIndexExpression),
-                            }
-                        };
+                    let index_expression = self.parse_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
                         lookup.push((
@@ -1395,6 +1330,7 @@ impl<'source> Parser<'source> {
                         return self.error(SyntaxError::ExpectedIndexEnd);
                     }
                 }
+                // Map access
                 Token::Dot => {
                     self.consume_token();
 
@@ -1404,14 +1340,10 @@ impl<'source> Parser<'source> {
                     ) {
                         // This check prevents detached dot accesses, e.g. `x. foo`
                         return self.error(SyntaxError::ExpectedMapKey);
-                    } else if let Some((id_index, _)) =
-                        self.parse_id(&ExpressionContext::restricted())?
-                    {
+                    } else if let Some((id, _)) = self.parse_id(&restricted)? {
                         node_start_span = self.current_span();
-                        lookup.push((LookupNode::Id(id_index), node_start_span));
-                    } else if let Some((lookup_string, span, _string_context)) =
-                        self.parse_string(&ExpressionContext::restricted())?
-                    {
+                        lookup.push((LookupNode::Id(id), node_start_span));
+                    } else if let Some((lookup_string, span, _)) = self.parse_string(&restricted)? {
                         node_start_span = span;
                         lookup.push((LookupNode::Str(lookup_string), span));
                     } else {
@@ -1491,16 +1423,85 @@ impl<'source> Parser<'source> {
         next_index.ok_or_else(|| self.make_error(InternalError::LookupParseFailure))
     }
 
+    // Helper for parse_lookup() that parses an index expression
+    //
+    // e.g.
+    //   foo.bar[10..20]
+    //   #       ^ You are here
+    fn parse_index_expression(&mut self) -> Result<AstIndex, ParserError> {
+        let index_context = ExpressionContext::restricted();
+
+        let result = if let Some(index_expression) = self.parse_expression(&index_context)? {
+            match self.peek_token() {
+                Some(Token::Range) => {
+                    self.consume_token();
+
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::Range {
+                            start: index_expression,
+                            end: end_expression,
+                            inclusive: false,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFrom {
+                            start: index_expression,
+                        })?
+                    }
+                }
+                Some(Token::RangeInclusive) => {
+                    self.consume_token();
+
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::Range {
+                            start: index_expression,
+                            end: end_expression,
+                            inclusive: true,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFrom {
+                            start: index_expression,
+                        })?
+                    }
+                }
+                _ => index_expression,
+            }
+        } else {
+            // Look for RangeTo/RangeFull
+            // e.g. x[..10], y[..]
+            match self.consume_next_token_on_same_line() {
+                Some(Token::Range) => {
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::RangeTo {
+                            end: end_expression,
+                            inclusive: false,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFull)?
+                    }
+                }
+                Some(Token::RangeInclusive) => {
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::RangeTo {
+                            end: end_expression,
+                            inclusive: true,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFull)?
+                    }
+                }
+                _ => return self.error(SyntaxError::ExpectedIndexExpression),
+            }
+        };
+
+        Ok(result)
+    }
+
     // Helper for parse_lookup() that parses the args in a chained function call
     //
     // e.g.
     // foo[0].bar(1, 2, 3)
-    // #         ^ You are here
+    // #          ^ You are here
     fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
-        if self.consume_next_token_on_same_line() != Some(Token::RoundOpen) {
-            return self.error(InternalError::ArgumentsParseFailure);
-        }
-
         let start_indent = self.current_indent();
         let mut args = Vec::new();
         let mut args_context = ExpressionContext::permissive();
