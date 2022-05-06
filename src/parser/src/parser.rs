@@ -206,11 +206,18 @@ impl ExpressionContext {
     // # ^ here we're allowing an indented lookup to be started
     // ]
     fn lookup_start(&self) -> Self {
+        use Indentation::*;
+
+        let expected_indentation = match self.expected_indentation {
+            Flexible | Equal(_) => Greater,
+            other => other,
+        };
+
         Self {
             allow_space_separated_call: self.allow_space_separated_call,
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
-            expected_indentation: Indentation::Greater,
+            expected_indentation,
         }
     }
 
@@ -788,7 +795,7 @@ impl<'source> Parser<'source> {
                 }
                 Token::Wildcard => self.parse_wildcard(context),
                 Token::SquareOpen => self.parse_list(context),
-                Token::CurlyOpen => self.parse_map_inline(context),
+                Token::CurlyOpen => self.parse_map_with_braces(context),
                 Token::If => self.parse_if_expression(context),
                 Token::Match => self.parse_match_expression(context),
                 Token::Switch => self.parse_switch_expression(context),
@@ -1250,18 +1257,15 @@ impl<'source> Parser<'source> {
         use Token::*;
 
         if matches!(self.peek_token(), Some(Dot | SquareOpen | RoundOpen)) {
-            return true;
+            true
         } else if context.allow_linebreaks {
-            let start_line = self.current_line_number();
-            let start_indent = self.current_indent();
-            if let Some(peeked) = self.peek_token_with_context(context) {
-                if peeked.line > start_line && peeked.indent > start_indent {
-                    return peeked.token == Dot;
-                }
-            }
+            matches!(
+                self.peek_token_with_context(context),
+                Some(peeked) if peeked.token == Dot
+            )
+        } else {
+            false
         }
-
-        false
     }
 
     // Parses a lookup expression
@@ -1285,13 +1289,9 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
+        let mut lookup_line = self.current_line_number();
 
-        let start_indent = self.current_indent();
-        let mut lookup_indent = None;
-        let mut node_context = ExpressionContext {
-            expected_indentation: Indentation::Greater,
-            ..*context
-        };
+        let mut node_context = *context;
         let mut node_start_span = self.current_span();
 
         lookup.push((LookupNode::Root(root), node_start_span));
@@ -1427,20 +1427,18 @@ impl<'source> Parser<'source> {
                     })
                 ) =>
                 {
-                    // Consume up to the Dot, which will be picked up on the next iteration
+                    // Consume up until the Dot, which will be picked up on the next iteration
                     node_context = self
                         .consume_until_token_with_context(&node_context)
                         .unwrap();
 
                     // Check that the next dot is on an indented line
-                    if lookup_indent.is_none() {
-                        let new_indent = self.current_indent();
-
-                        if new_indent > start_indent {
-                            lookup_indent = Some(new_indent);
-                        } else {
-                            break;
-                        }
+                    let new_line = self.current_line_number();
+                    if new_line > lookup_line {
+                        lookup_line = new_line;
+                    } else {
+                        // TODO Error here?
+                        break;
                     }
 
                     // Starting a new line, so space separated calls are allowed
@@ -1695,6 +1693,7 @@ impl<'source> Parser<'source> {
 
         // Token::SquareOpen
         self.consume_token_with_context(&list_context);
+        let start_indent = self.current_indent();
 
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
@@ -1744,7 +1743,10 @@ impl<'source> Parser<'source> {
         }
 
         let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
-        self.check_for_lookup_after_node(list_node, &list_context)
+        self.check_for_lookup_after_node(
+            list_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     fn parse_braceless_map_start(
@@ -1815,7 +1817,10 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Map(entries), start_span)
     }
 
-    fn parse_map_inline(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn parse_map_with_braces(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::CurlyOpen
 
         let start_indent = self.current_indent();
@@ -1833,7 +1838,10 @@ impl<'source> Parser<'source> {
         }
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
-        self.check_for_lookup_after_node(map_node, context)
+        self.check_for_lookup_after_node(
+            map_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     fn parse_comma_separated_map_entries(
@@ -2684,6 +2692,7 @@ impl<'source> Parser<'source> {
         let start_span = self.current_span();
 
         self.consume_token_with_context(context); // Token::RoundOpen
+        let start_indent = self.current_indent();
 
         let tuple_context = ExpressionContext::braced_items_start();
 
@@ -2726,8 +2735,11 @@ impl<'source> Parser<'source> {
             _ => self.push_node_with_start_span(Node::Tuple(expressions), start_span)?,
         };
 
-        if let Some((RoundClose, context)) = self.consume_token_with_context(&tuple_context) {
-            self.check_for_lookup_after_node(expressions_node, &context)
+        if let Some((RoundClose, _)) = self.consume_token_with_context(&tuple_context) {
+            self.check_for_lookup_after_node(
+                expressions_node,
+                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+            )
         } else {
             self.error(SyntaxError::ExpectedCloseParen)
         }
@@ -3028,6 +3040,7 @@ impl<'source> Parser<'source> {
                                 indent: peeked_indent,
                                 peek_count,
                             };
+
                             use Indentation::*;
                             match context.expected_indentation {
                                 GreaterThan(expected_indent) if peeked_indent > expected_indent => {
