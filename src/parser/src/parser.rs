@@ -206,11 +206,18 @@ impl ExpressionContext {
     // # ^ here we're allowing an indented lookup to be started
     // ]
     fn lookup_start(&self) -> Self {
+        use Indentation::*;
+
+        let expected_indentation = match self.expected_indentation {
+            Flexible | Equal(_) => Greater,
+            other => other,
+        };
+
         Self {
             allow_space_separated_call: self.allow_space_separated_call,
             allow_linebreaks: self.allow_linebreaks,
             allow_map_block: false,
-            expected_indentation: Indentation::Greater,
+            expected_indentation,
         }
     }
 
@@ -738,7 +745,7 @@ impl<'source> Parser<'source> {
                     self.consume_token_with_context(context);
                     self.push_node(BoolFalse)
                 }
-                Token::RoundOpen => self.parse_nested_expressions(context),
+                Token::RoundOpen => self.parse_tuple(context),
                 Token::Number => self.parse_number(false, context),
                 Token::DoubleQuote | Token::SingleQuote => {
                     let (string, span, string_context) = self.parse_string(context)?.unwrap();
@@ -788,7 +795,7 @@ impl<'source> Parser<'source> {
                 }
                 Token::Wildcard => self.parse_wildcard(context),
                 Token::SquareOpen => self.parse_list(context),
-                Token::CurlyOpen => self.parse_map_inline(context),
+                Token::CurlyOpen => self.parse_map_with_braces(context),
                 Token::If => self.parse_if_expression(context),
                 Token::Match => self.parse_match_expression(context),
                 Token::Switch => self.parse_switch_expression(context),
@@ -1250,18 +1257,15 @@ impl<'source> Parser<'source> {
         use Token::*;
 
         if matches!(self.peek_token(), Some(Dot | SquareOpen | RoundOpen)) {
-            return true;
+            true
         } else if context.allow_linebreaks {
-            let start_line = self.current_line_number();
-            let start_indent = self.current_indent();
-            if let Some(peeked) = self.peek_token_with_context(context) {
-                if peeked.line > start_line && peeked.indent > start_indent {
-                    return peeked.token == Dot;
-                }
-            }
+            matches!(
+                self.peek_token_with_context(context),
+                Some(peeked) if peeked.token == Dot
+            )
+        } else {
+            false
         }
-
-        false
     }
 
     // Parses a lookup expression
@@ -1285,22 +1289,23 @@ impl<'source> Parser<'source> {
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
         let mut lookup = Vec::new();
+        let mut lookup_line = self.current_line_number();
 
-        let start_indent = self.current_indent();
-        let mut lookup_indent = None;
-        let mut node_context = ExpressionContext {
-            expected_indentation: Indentation::Greater,
-            ..*context
-        };
+        let mut node_context = *context;
         let mut node_start_span = self.current_span();
+        let restricted = ExpressionContext::restricted();
 
         lookup.push((LookupNode::Root(root), node_start_span));
 
         while let Some(token) = self.peek_token() {
             match token {
+                // Function call
                 Token::RoundOpen => {
+                    self.consume_token();
+
                     node_start_span = self.current_span();
                     let args = self.parse_parenthesized_args()?;
+
                     lookup.push((
                         LookupNode::Call {
                             args,
@@ -1309,82 +1314,12 @@ impl<'source> Parser<'source> {
                         self.span_with_start(node_start_span),
                     ));
                 }
+                // Index
                 Token::SquareOpen => {
                     self.consume_token();
+
                     node_start_span = self.current_span();
-
-                    let index_context = ExpressionContext::restricted();
-
-                    let index_expression =
-                        if let Some(index_expression) = self.parse_expression(&index_context)? {
-                            match self.peek_token() {
-                                Some(Token::Range) => {
-                                    self.consume_token();
-
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::Range {
-                                            start: index_expression,
-                                            end: end_expression,
-                                            inclusive: false,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFrom {
-                                            start: index_expression,
-                                        })?
-                                    }
-                                }
-                                Some(Token::RangeInclusive) => {
-                                    self.consume_token();
-
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::Range {
-                                            start: index_expression,
-                                            end: end_expression,
-                                            inclusive: true,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFrom {
-                                            start: index_expression,
-                                        })?
-                                    }
-                                }
-                                _ => index_expression,
-                            }
-                        } else {
-                            // Look for RangeTo/RangeFull
-                            // e.g. x[..10], y[..]
-                            match self.consume_next_token_on_same_line() {
-                                Some(Token::Range) => {
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::RangeTo {
-                                            end: end_expression,
-                                            inclusive: false,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFull)?
-                                    }
-                                }
-                                Some(Token::RangeInclusive) => {
-                                    if let Some(end_expression) =
-                                        self.parse_expression(&index_context)?
-                                    {
-                                        self.push_node(Node::RangeTo {
-                                            end: end_expression,
-                                            inclusive: true,
-                                        })?
-                                    } else {
-                                        self.push_node(Node::RangeFull)?
-                                    }
-                                }
-                                _ => return self.error(SyntaxError::ExpectedIndexExpression),
-                            }
-                        };
+                    let index_expression = self.parse_index_expression()?;
 
                     if let Some(Token::SquareClose) = self.consume_next_token_on_same_line() {
                         lookup.push((
@@ -1395,6 +1330,7 @@ impl<'source> Parser<'source> {
                         return self.error(SyntaxError::ExpectedIndexEnd);
                     }
                 }
+                // Map access
                 Token::Dot => {
                     self.consume_token();
 
@@ -1404,14 +1340,10 @@ impl<'source> Parser<'source> {
                     ) {
                         // This check prevents detached dot accesses, e.g. `x. foo`
                         return self.error(SyntaxError::ExpectedMapKey);
-                    } else if let Some((id_index, _)) =
-                        self.parse_id(&ExpressionContext::restricted())?
-                    {
+                    } else if let Some((id, _)) = self.parse_id(&restricted)? {
                         node_start_span = self.current_span();
-                        lookup.push((LookupNode::Id(id_index), node_start_span));
-                    } else if let Some((lookup_string, span, _string_context)) =
-                        self.parse_string(&ExpressionContext::restricted())?
-                    {
+                        lookup.push((LookupNode::Id(id), node_start_span));
+                    } else if let Some((lookup_string, span, _)) = self.parse_string(&restricted)? {
                         node_start_span = span;
                         lookup.push((LookupNode::Str(lookup_string), span));
                     } else {
@@ -1427,20 +1359,18 @@ impl<'source> Parser<'source> {
                     })
                 ) =>
                 {
-                    // Consume up to the Dot, which will be picked up on the next iteration
+                    // Consume up until the Dot, which will be picked up on the next iteration
                     node_context = self
                         .consume_until_token_with_context(&node_context)
                         .unwrap();
 
                     // Check that the next dot is on an indented line
-                    if lookup_indent.is_none() {
-                        let new_indent = self.current_indent();
-
-                        if new_indent > start_indent {
-                            lookup_indent = Some(new_indent);
-                        } else {
-                            break;
-                        }
+                    let new_line = self.current_line_number();
+                    if new_line > lookup_line {
+                        lookup_line = new_line;
+                    } else {
+                        // TODO Error here?
+                        break;
                     }
 
                     // Starting a new line, so space separated calls are allowed
@@ -1493,16 +1423,85 @@ impl<'source> Parser<'source> {
         next_index.ok_or_else(|| self.make_error(InternalError::LookupParseFailure))
     }
 
+    // Helper for parse_lookup() that parses an index expression
+    //
+    // e.g.
+    //   foo.bar[10..20]
+    //   #       ^ You are here
+    fn parse_index_expression(&mut self) -> Result<AstIndex, ParserError> {
+        let index_context = ExpressionContext::restricted();
+
+        let result = if let Some(index_expression) = self.parse_expression(&index_context)? {
+            match self.peek_token() {
+                Some(Token::Range) => {
+                    self.consume_token();
+
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::Range {
+                            start: index_expression,
+                            end: end_expression,
+                            inclusive: false,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFrom {
+                            start: index_expression,
+                        })?
+                    }
+                }
+                Some(Token::RangeInclusive) => {
+                    self.consume_token();
+
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::Range {
+                            start: index_expression,
+                            end: end_expression,
+                            inclusive: true,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFrom {
+                            start: index_expression,
+                        })?
+                    }
+                }
+                _ => index_expression,
+            }
+        } else {
+            // Look for RangeTo/RangeFull
+            // e.g. x[..10], y[..]
+            match self.consume_next_token_on_same_line() {
+                Some(Token::Range) => {
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::RangeTo {
+                            end: end_expression,
+                            inclusive: false,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFull)?
+                    }
+                }
+                Some(Token::RangeInclusive) => {
+                    if let Some(end_expression) = self.parse_expression(&index_context)? {
+                        self.push_node(Node::RangeTo {
+                            end: end_expression,
+                            inclusive: true,
+                        })?
+                    } else {
+                        self.push_node(Node::RangeFull)?
+                    }
+                }
+                _ => return self.error(SyntaxError::ExpectedIndexExpression),
+            }
+        };
+
+        Ok(result)
+    }
+
     // Helper for parse_lookup() that parses the args in a chained function call
     //
     // e.g.
     // foo[0].bar(1, 2, 3)
-    // #         ^ You are here
+    // #          ^ You are here
     fn parse_parenthesized_args(&mut self) -> Result<Vec<AstIndex>, ParserError> {
-        if self.consume_next_token_on_same_line() != Some(Token::RoundOpen) {
-            return self.error(InternalError::ArgumentsParseFailure);
-        }
-
         let start_indent = self.current_indent();
         let mut args = Vec::new();
         let mut args_context = ExpressionContext::permissive();
@@ -1689,24 +1688,79 @@ impl<'source> Parser<'source> {
         self.check_for_lookup_after_node(number_node, context)
     }
 
-    fn parse_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        let list_context = *context;
+    // Parses expressions contained in round parentheses
+    // The result may be:
+    //   - Null
+    //     - e.g. `()`
+    //   - A single expression
+    //     - e.g. `(1 + 1)`
+    //   - A comma-separated tuple
+    //     - e.g. `(,)`, `(x,)`, `(1, 2)`
+    fn parse_tuple(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        self.consume_token_with_context(context); // Token::RoundOpen
+
         let start_span = self.current_span();
+        let start_indent = self.current_indent();
 
-        // Token::SquareOpen
-        self.consume_token_with_context(&list_context);
+        let (entries, last_token_was_a_comma) =
+            self.parse_comma_separated_entries(Token::RoundClose)?;
 
+        let expressions_node = match entries.as_slice() {
+            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
+            [single_expression] if !last_token_was_a_comma => {
+                self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
+            }
+            _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
+        };
+
+        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(&context) {
+            self.check_for_lookup_after_node(
+                expressions_node,
+                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+            )
+        } else {
+            self.error(SyntaxError::ExpectedCloseParen)
+        }
+    }
+
+    // Parses a list, e.g. `[1, 2, 3]`
+    fn parse_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        self.consume_token_with_context(context); // Token::SquareOpen
+
+        let start_span = self.current_span();
+        let start_indent = self.current_indent();
+
+        let (entries, _) = self.parse_comma_separated_entries(Token::SquareClose)?;
+
+        let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
+
+        if let Some((Token::SquareClose, _)) = self.consume_token_with_context(context) {
+            self.check_for_lookup_after_node(
+                list_node,
+                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+            )
+        } else {
+            self.error(SyntaxError::ExpectedListEnd)
+        }
+    }
+
+    // Helper for parse_list and parse_tuple
+    //
+    // Returns a Vec of entries along with a bool that's true if the last token before the end
+    // was a comma, which is used by parse_tuple to determine how the entries should be
+    // parsed.
+    fn parse_comma_separated_entries(
+        &mut self,
+        end_token: Token,
+    ) -> Result<(Vec<AstIndex>, bool), ParserError> {
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
         let mut last_token_was_a_comma = false;
 
-        while !matches!(
+        while matches!(
             self.peek_token_with_context(&entry_context),
-            Some(PeekInfo {
-                token: Token::SquareClose,
-                ..
-            }) | None
-        ) {
+            Some(peeked) if peeked.token != end_token)
+        {
             self.consume_until_token_with_context(&entry_context);
 
             if let Some(entry) = self.parse_expression(&entry_context)? {
@@ -1735,16 +1789,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        // Consume the list end
-        if !matches!(
-            self.consume_token_with_context(&entry_context),
-            Some((Token::SquareClose, _))
-        ) {
-            return self.error(SyntaxError::ExpectedListEnd);
-        }
-
-        let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
-        self.check_for_lookup_after_node(list_node, &list_context)
+        Ok((entries, last_token_was_a_comma))
     }
 
     fn parse_braceless_map_start(
@@ -1815,7 +1860,10 @@ impl<'source> Parser<'source> {
         self.push_node_with_start_span(Node::Map(entries), start_span)
     }
 
-    fn parse_map_inline(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+    fn parse_map_with_braces(
+        &mut self,
+        context: &ExpressionContext,
+    ) -> Result<AstIndex, ParserError> {
         self.consume_token_with_context(context); // Token::CurlyOpen
 
         let start_indent = self.current_indent();
@@ -1833,7 +1881,10 @@ impl<'source> Parser<'source> {
         }
 
         let map_node = self.push_node_with_start_span(Node::Map(entries), start_span)?;
-        self.check_for_lookup_after_node(map_node, context)
+        self.check_for_lookup_after_node(
+            map_node,
+            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+        )
     }
 
     fn parse_comma_separated_map_entries(
@@ -2670,69 +2721,6 @@ impl<'source> Parser<'source> {
         )
     }
 
-    // Parses expressions contained in round parentheses
-    // The result may be:
-    //   - Null
-    //   - A single value
-    //   - A comma-separated tuple
-    fn parse_nested_expressions(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<AstIndex, ParserError> {
-        use Token::*;
-
-        let start_span = self.current_span();
-
-        self.consume_token_with_context(context); // Token::RoundOpen
-
-        let tuple_context = ExpressionContext::braced_items_start();
-
-        let mut expressions = vec![];
-        let mut last_token_was_a_comma = false;
-        while !matches!(
-            self.peek_token_with_context(&tuple_context),
-            Some(PeekInfo {
-                token: RoundClose,
-                ..
-            }) | None
-        ) {
-            self.consume_until_token_with_context(&tuple_context);
-
-            if let Some(entry) = self.parse_expression(&tuple_context)? {
-                expressions.push(entry);
-                last_token_was_a_comma = false;
-            }
-
-            if matches!(
-                self.peek_token_with_context(&tuple_context),
-                Some(PeekInfo { token: Comma, .. })
-            ) {
-                self.consume_token_with_context(&tuple_context);
-
-                if last_token_was_a_comma {
-                    return self.error(SyntaxError::UnexpectedToken);
-                }
-                last_token_was_a_comma = true;
-            } else {
-                break;
-            }
-        }
-
-        let expressions_node = match expressions.as_slice() {
-            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
-            [single_expression] if !last_token_was_a_comma => {
-                self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
-            }
-            _ => self.push_node_with_start_span(Node::Tuple(expressions), start_span)?,
-        };
-
-        if let Some((RoundClose, context)) = self.consume_token_with_context(&tuple_context) {
-            self.check_for_lookup_after_node(expressions_node, &context)
-        } else {
-            self.error(SyntaxError::ExpectedCloseParen)
-        }
-    }
-
     fn parse_string(
         &mut self,
         context: &ExpressionContext,
@@ -3028,6 +3016,7 @@ impl<'source> Parser<'source> {
                                 indent: peeked_indent,
                                 peek_count,
                             };
+
                             use Indentation::*;
                             match context.expected_indentation {
                                 GreaterThan(expected_indent) if peeked_indent > expected_indent => {

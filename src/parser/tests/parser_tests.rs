@@ -3866,40 +3866,141 @@ x.foo
         }
 
         #[test]
-        fn lookup_on_list() {
-            let source = "[0, 1].contains y";
-            check_ast(
-                source,
+        fn lookup_on_tuple() {
+            let sources = [
+                "
+x = (0, 1).contains y
+",
+                "
+x = (0, 1)
+  .contains y
+",
+                "
+x = ( 0
+    , 1)
+  .contains y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
+                    Id(constant(0)),
                     Number0,
                     Number1,
-                    List(vec![0, 1]),
-                    Id(constant(1)),
+                    Tuple(vec![1, 2]),
+                    Id(constant(2)),
                     Lookup((
                         LookupNode::Call {
-                            args: vec![3],
+                            args: vec![4],
                             with_parens: false,
                         },
                         None,
-                    )),
-                    Lookup((LookupNode::Id(constant(0)), Some(4))), // 5
-                    Lookup((LookupNode::Root(2), Some(5))),
+                    )), // 5
+                    Lookup((LookupNode::Id(constant(1)), Some(5))),
+                    Lookup((LookupNode::Root(3), Some(6))),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 7,
+                    },
                     MainBlock {
-                        body: vec![6],
-                        local_count: 0,
+                        body: vec![8],
+                        local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("contains"), Constant::Str("y")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("contains"),
+                    Constant::Str("y"),
+                ]),
+            )
+        }
+        #[test]
+        fn lookup_on_list() {
+            let sources = [
+                "
+x = [0, 1].contains y
+",
+                "
+x = [0, 1]
+  .contains y
+",
+                "
+x = [ 0
+    , 1]
+  .contains y
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
+                &[
+                    Id(constant(0)),
+                    Number0,
+                    Number1,
+                    List(vec![1, 2]),
+                    Id(constant(2)),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![4],
+                            with_parens: false,
+                        },
+                        None,
+                    )), // 5
+                    Lookup((LookupNode::Id(constant(1)), Some(5))),
+                    Lookup((LookupNode::Root(3), Some(6))),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 7,
+                    },
+                    MainBlock {
+                        body: vec![8],
+                        local_count: 1,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("contains"),
+                    Constant::Str("y"),
+                ]),
             )
         }
 
         #[test]
         fn lookup_on_map() {
-            let source = "{x}.values()";
-            check_ast(
-                source,
+            let sources = [
+                "
+x = {y, z}.values()
+",
+                "
+x = {y, z}
+  .values()
+",
+                "
+x =
+  {y, z}
+    .values()
+",
+                "
+x = { y
+    , z}
+  .values()
+",
+            ];
+            check_ast_for_equivalent_sources(
+                &sources,
                 &[
-                    Map(vec![(MapKey::Id(constant(0)), None)]),
+                    Id(constant(0)),
+                    Map(vec![
+                        (MapKey::Id(constant(1)), None),
+                        (MapKey::Id(constant(2)), None),
+                    ]),
                     Lookup((
                         LookupNode::Call {
                             args: vec![],
@@ -3907,14 +4008,27 @@ x.foo
                         },
                         None,
                     )),
-                    Lookup((LookupNode::Id(constant(1)), Some(1))),
-                    Lookup((LookupNode::Root(0), Some(2))),
+                    Lookup((LookupNode::Id(constant(3)), Some(2))),
+                    Lookup((LookupNode::Root(1), Some(3))),
+                    Assign {
+                        target: AssignTarget {
+                            target_index: 0,
+                            scope: Scope::Local,
+                        },
+                        op: AssignOp::Equal,
+                        expression: 4,
+                    }, // 5
                     MainBlock {
-                        body: vec![3],
-                        local_count: 0,
+                        body: vec![5],
+                        local_count: 1,
                     },
                 ],
-                Some(&[Constant::Str("x"), Constant::Str("values")]),
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("y"),
+                    Constant::Str("z"),
+                    Constant::Str("values"),
+                ]),
             )
         }
 
