@@ -745,7 +745,7 @@ impl<'source> Parser<'source> {
                     self.consume_token_with_context(context);
                     self.push_node(BoolFalse)
                 }
-                Token::RoundOpen => self.parse_nested_expressions(context),
+                Token::RoundOpen => self.parse_tuple(context),
                 Token::Number => self.parse_number(false, context),
                 Token::DoubleQuote | Token::SingleQuote => {
                     let (string, span, string_context) = self.parse_string(context)?.unwrap();
@@ -1687,25 +1687,79 @@ impl<'source> Parser<'source> {
         self.check_for_lookup_after_node(number_node, context)
     }
 
-    fn parse_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
-        let list_context = *context;
-        let start_span = self.current_span();
+    // Parses expressions contained in round parentheses
+    // The result may be:
+    //   - Null
+    //     - e.g. `()`
+    //   - A single expression
+    //     - e.g. `(1 + 1)`
+    //   - A comma-separated tuple
+    //     - e.g. `(,)`, `(x,)`, `(1, 2)`
+    fn parse_tuple(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        self.consume_token_with_context(context); // Token::RoundOpen
 
-        // Token::SquareOpen
-        self.consume_token_with_context(&list_context);
+        let start_span = self.current_span();
         let start_indent = self.current_indent();
 
+        let (entries, last_token_was_a_comma) =
+            self.parse_comma_separated_entries(Token::RoundClose)?;
+
+        let expressions_node = match entries.as_slice() {
+            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
+            [single_expression] if !last_token_was_a_comma => {
+                self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
+            }
+            _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
+        };
+
+        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(&context) {
+            self.check_for_lookup_after_node(
+                expressions_node,
+                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+            )
+        } else {
+            self.error(SyntaxError::ExpectedCloseParen)
+        }
+    }
+
+    // Parses a list, e.g. `[1, 2, 3]`
+    fn parse_list(&mut self, context: &ExpressionContext) -> Result<AstIndex, ParserError> {
+        self.consume_token_with_context(context); // Token::SquareOpen
+
+        let start_span = self.current_span();
+        let start_indent = self.current_indent();
+
+        let (entries, _) = self.parse_comma_separated_entries(Token::SquareClose)?;
+
+        let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
+
+        if let Some((Token::SquareClose, _)) = self.consume_token_with_context(context) {
+            self.check_for_lookup_after_node(
+                list_node,
+                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
+            )
+        } else {
+            self.error(SyntaxError::ExpectedListEnd)
+        }
+    }
+
+    // Helper for parse_list and parse_tuple
+    //
+    // Returns a Vec of entries along with a bool that's true if the last token before the end
+    // was a comma, which is used by parse_tuple to determine how the entries should be
+    // parsed.
+    fn parse_comma_separated_entries(
+        &mut self,
+        end_token: Token,
+    ) -> Result<(Vec<AstIndex>, bool), ParserError> {
         let mut entries = Vec::new();
         let mut entry_context = ExpressionContext::braced_items_start();
         let mut last_token_was_a_comma = false;
 
-        while !matches!(
+        while matches!(
             self.peek_token_with_context(&entry_context),
-            Some(PeekInfo {
-                token: Token::SquareClose,
-                ..
-            }) | None
-        ) {
+            Some(peeked) if peeked.token != end_token)
+        {
             self.consume_until_token_with_context(&entry_context);
 
             if let Some(entry) = self.parse_expression(&entry_context)? {
@@ -1734,19 +1788,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        // Consume the list end
-        if !matches!(
-            self.consume_token_with_context(&entry_context),
-            Some((Token::SquareClose, _))
-        ) {
-            return self.error(SyntaxError::ExpectedListEnd);
-        }
-
-        let list_node = self.push_node_with_start_span(Node::List(entries), start_span)?;
-        self.check_for_lookup_after_node(
-            list_node,
-            &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
-        )
+        Ok((entries, last_token_was_a_comma))
     }
 
     fn parse_braceless_map_start(
@@ -2676,73 +2718,6 @@ impl<'source> Parser<'source> {
             }),
             start_span,
         )
-    }
-
-    // Parses expressions contained in round parentheses
-    // The result may be:
-    //   - Null
-    //   - A single value
-    //   - A comma-separated tuple
-    fn parse_nested_expressions(
-        &mut self,
-        context: &ExpressionContext,
-    ) -> Result<AstIndex, ParserError> {
-        use Token::*;
-
-        let start_span = self.current_span();
-
-        self.consume_token_with_context(context); // Token::RoundOpen
-        let start_indent = self.current_indent();
-
-        let tuple_context = ExpressionContext::braced_items_start();
-
-        let mut expressions = vec![];
-        let mut last_token_was_a_comma = false;
-        while !matches!(
-            self.peek_token_with_context(&tuple_context),
-            Some(PeekInfo {
-                token: RoundClose,
-                ..
-            }) | None
-        ) {
-            self.consume_until_token_with_context(&tuple_context);
-
-            if let Some(entry) = self.parse_expression(&tuple_context)? {
-                expressions.push(entry);
-                last_token_was_a_comma = false;
-            }
-
-            if matches!(
-                self.peek_token_with_context(&tuple_context),
-                Some(PeekInfo { token: Comma, .. })
-            ) {
-                self.consume_token_with_context(&tuple_context);
-
-                if last_token_was_a_comma {
-                    return self.error(SyntaxError::UnexpectedToken);
-                }
-                last_token_was_a_comma = true;
-            } else {
-                break;
-            }
-        }
-
-        let expressions_node = match expressions.as_slice() {
-            [] if !last_token_was_a_comma => self.push_node(Node::Null)?,
-            [single_expression] if !last_token_was_a_comma => {
-                self.push_node_with_start_span(Node::Nested(*single_expression), start_span)?
-            }
-            _ => self.push_node_with_start_span(Node::Tuple(expressions), start_span)?,
-        };
-
-        if let Some((RoundClose, _)) = self.consume_token_with_context(&tuple_context) {
-            self.check_for_lookup_after_node(
-                expressions_node,
-                &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
-            )
-        } else {
-            self.error(SyntaxError::ExpectedCloseParen)
-        }
     }
 
     fn parse_string(
