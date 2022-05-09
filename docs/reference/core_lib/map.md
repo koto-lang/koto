@@ -268,7 +268,7 @@ If only the first level of data needs to be made unique, then use
 
 ```koto
 x = {foo: 42, bar: {baz: 99}}
-y = m.deep_copy()
+y = x.deep_copy()
 y.bar.baz = 123
 x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
 # 99
@@ -296,7 +296,7 @@ x.get "hello"
 # -1
 
 x.get "goodbye"
-# Null
+# null
 
 x.get "goodbye", "byeeee"
 # "byeeee"
@@ -325,10 +325,10 @@ If no default value is provided then Null is returned.
 ```koto
 x = {foo: -1, bar: -2}
 x.get_index 1
-# (bar, -2)
+# ("bar", -2)
 
 x.get_index -99
-# Null
+# null
 
 x.get_index 99, "xyz"
 # "xyz"
@@ -391,7 +391,7 @@ x.hello # hello is now 99
 # 99
 
 x.insert "goodbye", 123 # No existing value at `goodbye`, so () is returned
-# Null
+# null
 
 x.goodbye
 # 123
@@ -444,7 +444,7 @@ x.next()
 # "goodbye"
 
 x.next()
-# Null
+# null
 ```
 
 ### See also
@@ -470,7 +470,7 @@ x.remove "hello"
 # -1
 
 x.remove "xyz"
-# Null
+# null
 
 x.remove "goodbye"
 # 99
@@ -599,7 +599,7 @@ x.next()
 # 99
 
 x.next()
-# Null
+# null
 ```
 
 ### See also
