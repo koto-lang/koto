@@ -371,17 +371,6 @@ pub fn make_module() -> ValueMap {
         }
     });
 
-    result.add_fn("sort_copy", |vm, args| match vm.get_args(args) {
-        [List(l)] => {
-            let mut result = l.data().clone();
-            sort_values(vm, &mut result)?;
-            Ok(List(ValueList::with_data(result)))
-        }
-        unexpected => {
-            unexpected_type_error_with_slice("list.sort_copy", "a List as argument", unexpected)
-        }
-    });
-
     result.add_fn("swap", |vm, args| match vm.get_args(args) {
         [List(a), List(b)] => {
             std::mem::swap(a.data_mut().deref_mut(), b.data_mut().deref_mut());

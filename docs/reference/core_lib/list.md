@@ -492,25 +492,6 @@ print! x
 check! [3, 2, 1]
 ```
 
-## sort_copy
-
-```kototype
-|List| -> List
-```
-
-Returns a sorted copy of the list. The input is left untouched.
-
-### Example
-
-```koto
-x = [1, -1, 99, 42]
-print! y = x.sort_copy()
-check! [-1, 1, 42, 99]
-
-print! x # x remains untouched
-check! [1, -1, 99, 42]
-```
-
 ## swap
 
 ```kototype
