@@ -214,6 +214,7 @@ The Koto project adheres to
     x.push 4
     # [1, 2, 3, 4]
     ```
+- `range.contains` now supports descending ranges.
 
 #### Random Library
 

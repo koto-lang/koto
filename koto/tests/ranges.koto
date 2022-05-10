@@ -37,9 +37,16 @@
   @test range_contains: ||
     assert (0..10).contains(5)
     assert not (0..10).contains(15)
+    assert not (0..10).contains(-0.5)
 
     assert not (0..10).contains(10)
     assert (0..=10).contains(10)
+
+    assert (10..=0).contains(10)
+    assert (10..=0).contains(5)
+    assert (10..=0).contains(0)
+    assert not (10..=0).contains(10.5)
+    assert not (10..=0).contains(-0.5)
 
   @test range_expanded: ||
     x = 10..20

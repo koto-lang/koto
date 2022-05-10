@@ -62,7 +62,7 @@ print! (10..20).contains 15
 check! true
 
 print! (200..=100).contains 100
-check! false
+check! true
 
 x = 1..10
 print! x.contains -1
