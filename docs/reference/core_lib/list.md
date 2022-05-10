@@ -332,13 +332,13 @@ Throws an error if the position isn't a valid index in the list.
 ## resize
 
 ```kototype
-|List, Number| -> Null
+|List, Number| -> List
 ```
 ```kototype
-|List, Number, Value| -> Null
+|List, Number, Value| -> List
 ```
 
-Grows or shrinks the list to the specified size.
+Grows or shrinks the list to the specified size, and returns the list.
 If the new size is larger, then copies of the provided value (or Null if no
 value is provided) are used to fill the new space.
 
@@ -346,26 +346,23 @@ value is provided) are used to fill the new space.
 
 ```koto
 x = [1, 2]
-x.resize 4, "x"
-print! x
+print! x.resize 4, "x"
 check! [1, 2, "x", "x"]
 
-x.resize 3
-print! x
+print! x.resize 3
 check! [1, 2, "x"]
 
-x.resize 4
-print! x
+print! x.resize 4
 check! [1, 2, "x", null]
 ```
 
 ## resize_with
 
 ```kototype
-|List, Number, || -> Value| -> Null
+|List, Number, || -> Value| -> List
 ```
 
-Grows or shrinks the list to the specified size.
+Grows or shrinks the list to the specified size, and returns the list.
 If the new size is larger, then the provided function will be called repeatedly
 to fill the remaining space, with the result of the function being added to the
 end of the list.
@@ -375,12 +372,10 @@ end of the list.
 ```koto
 new_entries = (5, 6, 7, 8).iter()
 x = [1, 2]
-x.resize_with 4, || new_entries.next()
-print! x
+print! x.resize_with 4, || new_entries.next()
 check! [1, 2, 5, 6]
 
-x.resize_with 2, || new_entries.next()
-print! x
+print! x.resize_with 2, || new_entries.next()
 check! [1, 2]
 ```
 

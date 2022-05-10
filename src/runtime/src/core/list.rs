@@ -184,11 +184,11 @@ pub fn make_module() -> ValueMap {
     result.add_fn("resize", |vm, args| match vm.get_args(args) {
         [List(l), Number(n)] if *n >= 0.0 => {
             l.data_mut().resize(n.into(), Null);
-            Ok(Null)
+            Ok(List(l.clone()))
         }
         [List(l), Number(n), value] if *n >= 0.0 => {
             l.data_mut().resize(n.into(), value.clone());
-            Ok(Null)
+            Ok(List(l.clone()))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize",
@@ -216,7 +216,7 @@ pub fn make_module() -> ValueMap {
                 Ordering::Equal => {}
             }
 
-            Ok(Null)
+            Ok(List(l))
         }
         unexpected => unexpected_type_error_with_slice(
             "list.resize_with",
