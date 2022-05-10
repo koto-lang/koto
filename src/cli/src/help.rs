@@ -1,4 +1,4 @@
-use {indexmap::IndexMap, std::iter::Peekable};
+use {indexmap::IndexMap, std::iter::Peekable, std::ops::Deref};
 
 struct HelpEntry {
     name: String,
@@ -169,7 +169,7 @@ fn consume_help_section<'a>(
     parser: &mut Peekable<pulldown_cmark::Parser<'a>>,
     module_name: Option<&str>,
 ) -> (String, String) {
-    use pulldown_cmark::{Event::*, Tag::*};
+    use pulldown_cmark::{CodeBlockKind, Event::*, Tag::*};
 
     let mut section_level = None;
     let mut section_name = String::new();
@@ -179,7 +179,8 @@ fn consume_help_section<'a>(
     let mut list_indent = 0;
     let mut heading_start = 0;
     let mut first_heading = true;
-    let mut in_code_block = false;
+    let mut in_koto_code = false;
+    let mut in_type_declaration = false;
 
     while let Some(peeked) = parser.peek() {
         match peeked {
@@ -225,11 +226,18 @@ fn consume_help_section<'a>(
             End(Item) => {}
             Start(Paragraph) => result.push_str("\n\n"),
             End(Paragraph) => {}
-            Start(CodeBlock(_)) => {
+            Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 result.push_str("\n\n");
-                in_code_block = true;
+                match lang.deref() {
+                    "koto" => in_koto_code = true,
+                    "kototype" => in_type_declaration = true,
+                    _ => {}
+                }
             }
-            End(CodeBlock(_)) => in_code_block = false,
+            End(CodeBlock(_)) => {
+                in_koto_code = false;
+                in_type_declaration = false;
+            }
             Start(Emphasis) => result.push('_'),
             End(Emphasis) => result.push('_'),
             Start(Strong) => result.push('*'),
@@ -242,14 +250,23 @@ fn consume_help_section<'a>(
                         section_name = text.to_string();
                     }
                     result.push_str(&section_name);
-                } else if in_code_block {
+                } else if in_koto_code {
                     for (i, line) in text.split('\n').enumerate() {
                         if i == 0 {
                             result.push('|');
                         }
                         result.push_str("\n|  ");
-                        result.push_str(line);
+                        if !line.starts_with("skip_check!") {
+                            let processed_line = line
+                                .trim_start_matches("print! ")
+                                .replacen("check! ", "# ", 1);
+                            result.push_str(&processed_line);
+                        }
                     }
+                } else if in_type_declaration {
+                    result.push('`');
+                    result.push_str(text.trim_end());
+                    result.push('`');
                 } else {
                     result.push_str(text);
                 }

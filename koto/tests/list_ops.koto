@@ -164,17 +164,6 @@ make_foo = |x|
     for n in 0..z.size()
       assert_eq z[n].x, a[a_last - n].x
 
-  @test sort_copy: ||
-    assert_eq [42, 10, 9].sort_copy(), [9, 10, 42]
-
-    # values with overloaded operators
-    a = [make_foo(1), make_foo(2), make_foo(2), make_foo(3)]
-    z = [a[3], a[1], a[0], a[2]] # 3, 2, 1, 2
-    r = z.sort_copy()
-
-    assert_ne r, z
-    assert_eq r, a
-
   @test swap: ||
     a = [1, 2, 3]
     b = [7, 8, 9]

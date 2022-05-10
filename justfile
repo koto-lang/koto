@@ -7,6 +7,9 @@ doc:
 fmt:
   cargo fmt --all -- --check
 
+doc_tests:
+  cargo watch -x "test --test docs_examples"
+
 koto_tests:
   cargo watch -x "test --test koto_tests"
 

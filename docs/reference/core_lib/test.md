@@ -61,37 +61,38 @@ the `--tests` flag.
 
 ### Running tests from a Koto script
 
-Tests can be run from a Koto script by calling [`test.run_tests`](#run_tests).
 
+Tests can be run from a Koto script by calling [`test.run_tests`](#run-tests).
 
 # Reference
 
-- [assert](#assert)
-- [assert_eq](#assert_eq)
-- [assert_ne](#assert_ne)
-- [assert_near](#assert_near)
-- [run_tests](#run_tests)
-
 ## assert
 
-`|Bool| -> Null`
+```kototype
+|Bool| -> Null
+```
 
 Throws a runtime error if the argument if false.
 
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert 1 < 2
 
 # This assertion will fail and throw an error
-assert 1 > 2
-# error: Assertion failed
+try 
+  assert 1 > 2
+catch error
+  print error
 ```
 
 ## assert_eq
 
-`|Value, Value| -> Null`
+```kototype
+|Value, Value| -> Null
+```
 
 Checks the two input values for equality and throws an error if they're not
 equal.
@@ -99,44 +100,64 @@ equal.
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert_eq 1 + 1, 2
 
 # This assertion will fail and throw an error
-assert_eq 2 + 2, 5
-# error: Assertion failed, '4' is not equal to '5'
+try 
+  assert_eq 2 + 2, 5
+catch error
+  print error
 ```
 
 ## assert_ne
 
-`|Value, Value| -> Null`
+```kototype
+|Value, Value| -> Null
+```
 
 Checks the two input values for inequality and throws an error if they're equal.
 
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert_ne 1 + 1, 3
 
 # This assertion will fail and throw an error
-assert_ne 2 + 2, 4
-# error: Assertion failed, '4' should not be equal to '4'
+try
+  assert_ne 2 + 2, 4
+catch error
+  print error
 ```
 
 ## assert_near
 
-`|Number, Number| -> Null`
+```kototype
+|Number, Number| -> Null
+```
 
-`|Number, Number, Number| -> Null`
+```kototype
+|Number, Number, Number| -> Null
+```
 
-`|Num2, Num2| -> Null`
+```kototype
+|Num2, Num2| -> Null
+```
 
-`|Num2, Num2, Number| -> Null`
+```kototype
+|Num2, Num2, Number| -> Null
+```
 
-`|Num4, Num4| -> Null`
+```kototype
+|Num4, Num4| -> Null
+```
 
-`|Num4, Num4, Number| -> Null`
+```kototype
+|Num4, Num4, Number| -> Null
+```
 
 Checks that the two input numbers are equal, within an allowed margin of error.
 
@@ -149,12 +170,16 @@ comparisons, and `1.0e-6` for `Num4` comparisons.
 ### Example
 
 ```koto
+skip_check!
 allowed_error = 0.01
 # This assertion will pass, and no error will be thrown
 assert_near 1.3, 1.301, allowed_error
 
 # This assertion will fail and throw an error
-assert_near 1.3, 1.32, allowed_error
+try
+  assert_near 1.3, 1.32, allowed_error
+catch error
+  print error
 # error: Assertion failed, '1.3' and '1.32' are not within 0.01 of each other
 
 # The allowed margin of error is optional, defaulting to a very small value
@@ -163,22 +188,25 @@ assert_near 1 % 0.2, 0.2
 
 ## run_tests
 
-`|Map| -> Null`
+```kototype
+|Map| -> Null
+```
 
 Runs the tests contained in the map.
 
 ### Example
 
 ```koto
+skip_check!
 my_tests =
   @pre_test: |self| self.test_data = 1, 2, 3
   @post_test: |self| self.test_data = null
 
   @test data_size: |self| assert_eq self.test_data.size(), 3
-  @test failure: |self| assert not self.test_data.is_empty()
+  @test failure: |self| assert_eq self.test_data.size(), 0
 
 try
-  run_tests my_tests
+  test.run_tests my_tests
 catch error
-  print "An error occurred while running my_tests: {}", error
+  print "An error occurred while running my_tests:\n  {}", error
 ```

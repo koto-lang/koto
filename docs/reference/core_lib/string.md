@@ -5,6 +5,7 @@ Koto's strings are immutable sequences of characters with UTF-8 encoding.
 ## Syntax
 
 String literals can be created with either double or single quotation marks.
+
 Both styles are offered as a convenience to reduce the need for escaping,
 e.g. `'a "b" c'` is equivalent to `"a \"b\" c"`,
 and `"a 'b' c"` is equivalent to `'a \'b\' c'`
@@ -22,8 +23,8 @@ grapheme clusters.
 e.g.
 
 ```koto
-'👋🥳😆'[1]
-# 🥳
+print! '👋🥳😆'[1]
+check! 🥳
 ```
 
 ## String Interpolation
@@ -39,12 +40,12 @@ For more advanced string formatting, see [`string.format`](#format).
 ```koto
 a = "Hello"
 b = "World"
-'$a, $b!'
-# Hello, World!
+print! '$a, $b!'
+check! Hello, World!
 
 x = 64
-"The square root of $x is ${x.sqrt()}."
-# The square root of 64 is 8.0.
+print! "The square root of $x is ${x.sqrt()}."
+check! The square root of 64 is 8.0.
 ```
 
 ## Escape codes
@@ -68,27 +69,11 @@ escape code, then it can be escaped with an additional `\`.
 
 # Reference
 
-- [bytes](#bytes)
-- [chars](#chars)
-- [contains](#contains)
-- [ends_with](#ends_with)
-- [escape](#escape)
-- [format](#format)
-- [from_bytes](#from_bytes)
-- [is_empty](#is_empty)
-- [lines](#lines)
-- [size](#size)
-- [slice](#slice)
-- [split](#split)
-- [starts_with](#starts_with)
-- [to_lowercase](#to_lowercase)
-- [to_number](#to_number)
-- [to_uppercase](#to_uppercase)
-- [trim](#trim)
-
 ## bytes
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields a series of Numbers representing the bytes
 contained in the string data.
@@ -96,17 +81,19 @@ contained in the string data.
 ### Example
 
 ```koto
-"Hëy!".bytes().to_tuple()
-# (72, 195, 171, 121, 33)
+print! "Hëy!".bytes().to_tuple()
+check! (72, 195, 171, 121, 33)
 ```
 
 ### See Also
 
-- [`string.from_bytes`](#from_bytes)
+- [`string.from_bytes`](#from-bytes)
 
 ## chars
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields the string's characters as strings.
 
@@ -123,51 +110,57 @@ Note that this is the default iteration behaviour for a string, so calling
 ### Example
 
 ```koto
-"Héllø! 👋".chars().to_tuple()
-# ("H", "é", "l", "l", "ø", "!", " ", "👋")
+print! "Héllø! 👋".chars().to_tuple()
+check! ("H", "é", "l", "l", "ø", "!", " ", "👋")
 ```
 
 ## contains
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the second provided string is a sub-string of the first.
 
 ### Example
 
 ```koto
-"xyz".contains "abc"
-# false
+print! "xyz".contains "abc"
+check! false
 
-"xyz".contains "yz"
-# true
+print! "xyz".contains "yz"
+check! true
 
-"xyz".contains "xyz"
-# true
+print! "xyz".contains "xyz"
+check! true
 
-"xyz".contains ""
-# true
+print! "xyz".contains ""
+check! true
 ```
 
 ## ends_with
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the first string ends with the second string.
 
 ### Example
 
 ```koto
-"abcdef".ends_with "def"
-# true
+print! "abcdef".ends_with "def"
+check! true
 
-"xyz".ends_with "abc"
-# false
+print! "xyz".ends_with "abc"
+check! false
 ```
 
 ## escape
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns the string with characters replaced with escape codes.
 
@@ -176,14 +169,15 @@ For example, newlines get replaced with `\n`, tabs get replaced with `\t`.
 ### Example
 
 ```koto
-"
-".escape()
-# "\n"
+print! "👋".escape()
+check! \u{1f44b}
 ```
 
 ## format
 
-`|String, Value...| -> String`
+```kototype
+|String, Value...| -> String
+```
 
 Returns a formatted string, with the arguments being assigned to
 `{}` placeholders in the format string.
@@ -246,44 +240,48 @@ e.g. `"x{:4.2}x".format "abcd"` will output `xab  x`.
 ### Example
 
 ```koto
-"{}, {}!".format "Hello", "World"
-# "Hello, World!"
+print! "{}, {}!".format "Hello", "World"
+check! Hello, World!
 
-"{0}-{1}-{0}".format 99, "xxx"
-# "99-xxx-99
+print! "{0}-{1}-{0}".format 99, "xxx"
+check! 99-xxx-99
 
-"{foo} {bar}".format {foo: 42, bar: true}
-# "42 true"
+print! "{foo} {bar}".format {foo: 42, bar: true}
+check! 42 true
 
-"{:.2}".format 1/3
-# 0.33
+print! "{:.2}".format 1/3
+check! 0.33
 
-"{:-^8.2}".format 2/3
-# --0.67--
+print! "{:-^8.2}".format 2/3
+check! --0.67--
 
-"foo = {foo:8.3}".format {foo: 42}
-# foo =   42.000
+print! "foo = {foo:8.3}".format {foo: 42}
+check! foo =   42.000
 ```
 
 ## is_empty
 
-`|String| -> Bool`
+```kototype
+|String| -> Bool
+```
 
 Returns `true` if the string contains no characters.
 
 ### Example
 
 ```koto
-"abcdef".is_empty()
-# false
+print! "abcdef".is_empty()
+check! false
 
-"".is_empty()
-# true
+print! "".is_empty()
+check! true
 ```
 
 ## from_bytes
 
-`|Iterable| -> String`
+```kototype
+|Iterable| -> String
+```
 
 Returns a string containing the bytes that are produced by the input iterable.
 The iterable output must contain only Numbers in the `0..=255` range.
@@ -292,8 +290,8 @@ The resulting sequence of bytes must contain UTF-8 data.
 ### Example
 
 ```koto
-string.from_bytes (72, 195, 171, 121, 33)
-# Hëy!
+print! string.from_bytes (72, 195, 171, 121, 33)
+check! Hëy!
 ```
 
 ### See Also
@@ -302,7 +300,9 @@ string.from_bytes (72, 195, 171, 121, 33)
 
 ## lines
 
-`|String| -> Iterator`
+```kototype
+|String| -> Iterator
+```
 
 Returns an iterator that yields the lines contained in the input string.
 
@@ -313,16 +313,18 @@ Lines end with either `\r\n` or `\n`.
 ### Example
 
 ```koto
-"foo\nbar\nbaz".lines().to_tuple()
-# ("foo", "bar", "baz")
+print! "foo\nbar\nbaz".lines().to_tuple()
+check! ("foo", "bar", "baz")
 
-"\n\n\n".lines().to_tuple()
-# ("", "", "")
+print! "\n\n\n".lines().to_tuple()
+check! ("", "", "")
 ```
 
 ## size
 
-`|String| -> Number`
+```kototype
+|String| -> Number
+```
 
 Returns the number of graphemes in the string.
 
@@ -333,24 +335,28 @@ Equivalent to calling `.chars().count()`.
 ### Example
 
 ```koto
-"".size()
-# 0
+print! "".size()
+check! 0
 
-"abcdef".size()
-# 6
+print! "abcdef".size()
+check! 6
 
-"🥳👋😁".size()
-# 3
+print! "🥳👋😁".size()
+check! 3
 ```
 
 ## slice
 
-`|String, Number| -> String`
+```kototype
+|String, Number| -> String
+```
 
 Returns a string with the contents of the input string starting from the
 provided character index.
 
-`|String, Number, Number| -> String`
+```kototype
+|String, Number, Number| -> String
+```
 
 Returns the sub-string of the input string,
 starting at the first index and ending at the second number.
@@ -362,24 +368,28 @@ Invalid start indices return Null.
 ### Example
 
 ```koto
-"abcdef".slice 3
-# "def"
+print! "abcdef".slice 3
+check! def
 
-"abcdef".slice 2, 4
-# "cd"
+print! "abcdef".slice 2, 4
+check! cd
 
-"abcdef".slice 100, 110
-# Null
+print! "abcdef".slice 100, 110
+check! null
 ```
 
 ## split
 
-`|String, String| -> Iterator`
+```kototype
+|String, String| -> Iterator
+```
 
 Returns an iterator that yields strings resulting from splitting the first
 string wherever the second string is encountered.
 
-`|String, |String| -> Bool| -> Iterator`
+```kototype
+|String, |String| -> Bool| -> Iterator
+```
 
 Returns an iterator that yields strings resulting from splitting the input
 string based on the result of calling a function. The function will be called
@@ -389,92 +399,102 @@ returns true.
 ### Example
 
 ```koto
-"a,b,c".split(",").to_tuple()
-# ("a", "b", "c")
+print! "a,b,c".split(",").to_tuple()
+check! ("a", "b", "c")
 
-"O_O".split("O").to_tuple()
-# ("", "_", "")
+print! "O_O".split("O").to_tuple()
+check! ("", "_", "")
 
-"x!y?z".split(|c| c == "!" or c == "?").to_tuple()
-# ("x", "y", "z")
+print! "x!y?z".split(|c| c == "!" or c == "?").to_tuple()
+check! ("x", "y", "z")
 ```
 
 ## starts_with
 
-`|String, String| -> Bool`
+```kototype
+|String, String| -> Bool
+```
 
 Returns `true` if the first string starts with the second string.
 
 ### Example
 
 ```koto
-"abcdef".starts_with "abc"
-# true
+print! "abcdef".starts_with "abc"
+check! true
 
-"xyz".starts_with "abc"
-# false
+print! "xyz".starts_with "abc"
+check! false
 ```
 
 ## to_lowercase
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns a lowercase version of the input string.
 
 ### Example
 
 ```koto
-"HÉLLÖ".to_lowercase()
-# "héllö"
+print! "HÉLLÖ".to_lowercase()
+check! héllö
 
-"O_o".to_lowercase()
-# o_o
+print! "O_o".to_lowercase()
+check! o_o
 ```
 
 ## to_number
 
-`|String| -> Number`
+```kototype
+|String| -> Number
+```
 
 Returns the string parsed as a number.
 
 ### Example
 
 ```koto
-"123".to_number()
-# 123
+print! "123".to_number()
+check! 123
 
-"-8.9".to_number()
-# -8.9
+print! "-8.9".to_number()
+check! -8.9
 ```
 
 ## to_uppercase
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns an uppercase version of the input string.
 
 ### Example
 
 ```koto
-"héllö".to_uppercase()
-# "HÉLLÖ"
+print! "héllö".to_uppercase()
+check! HÉLLÖ
 
-"O_o".to_uppercase()
-# O_O
+print! "O_o".to_uppercase()
+check! O_O
 ```
 
 ## trim
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns the string with whitespace at the start and end of the string trimmed.
 
 ### Example
 
 ```koto
-"   x    ".trim()
-# "x"
+print! "   x    ".trim()
+check! x
 
-">    ".trim()
-# >
+print! "     >".trim()
+check! >
 ```

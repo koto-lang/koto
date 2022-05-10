@@ -12,43 +12,24 @@ while operations with Numbers apply the number to each element.
 ```koto
 x = make_num4 1, 2, 3, 4
 y = make_num4 5, 6, 7, 8
-x + y
-# num4(6, 8, 10, 12)
 
-x[2]
-# 10
+print! x[2]
+check! 3.0
 
-x * 0.5
-# num4(0.5, 1, 1.5, 2)
+print! x + y
+check! num4(6, 8, 10, 12)
 
-x[0..2] = -1
-x
-# num4(-1, -1, 10, 12)
+print! x * 0.5
+check! num4(0.5, 1, 1.5, 2)
 ```
 
 # Reference
 
-- [length](#length)
-- [lerp](#lerp)
-- [make_num4](#make_num4)
-- [max](#max)
-- [min](#min)
-- [normalize](#normalize)
-- [product](#product)
-- [sum](#sum)
-- [with](#with)
-- [r](#r)
-- [g](#g)
-- [b](#b)
-- [a](#a)
-- [x](#x)
-- [y](#y)
-- [z](#z)
-- [w](#w)
-
 ## length
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the length of the vector represented by the Num4's elements.
 
@@ -56,13 +37,15 @@ Returns the length of the vector represented by the Num4's elements.
 
 ```koto
 x = make_num4(2, -2, 2, -2)
-x.length()
-# 4
+print! x.length()
+check! 4.0
 ```
 
 ## lerp
 
-`|a: Num4, b: Num4, t: Number| -> Num4`
+```kototype
+|a: Num4, b: Num4, t: Number| -> Num4
+```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
 
@@ -81,50 +64,66 @@ e.g.
 a = make_num4 0, 10, -10, 0
 b = make_num4 10, 50, 10, 0
 
-a.lerp b, 0
-# num4(0, 10, -10, 0)
-a.lerp b, 0.5
-# num4(5, 30, 0, 0)
-a.lerp b, 1
-# num4(10, 50, 10, 0)
+print! a.lerp b, 0
+check! num4(0, 10, -10, 0)
+print! a.lerp b, 0.5
+check! num4(5, 30, 0, 0)
+print! a.lerp b, 1
+check! num4(10, 50, 10, 0)
 
-a.lerp b, -0.5
-# num4(-5, -10, -15, 0)
-a.lerp b, 1.5
-# num4(15, 70, 20, 0)
+print! a.lerp b, -0.5
+check! num4(-5, -10, -20, 0)
+print! a.lerp b, 1.5
+check! num4(15, 70, 20, 0)
 ```
 
 ## make_num4
 
-`|Number| -> Num4`
-`|Number, Number| -> Num4`
-`|Number, Number, Number| -> Num4`
-`|Number, Number, Number, Number| -> Num4`
-`|Num2| -> Num4`
-`|Num4| -> Num4`
-`|Iterable| -> Num4`
+```kototype
+|Number| -> Num4
+```
+```kototype
+|Number, Number| -> Num4
+```
+```kototype
+|Number, Number, Number| -> Num4
+```
+```kototype
+|Number, Number, Number, Number| -> Num4
+```
+```kototype
+|Num2| -> Num4
+```
+```kototype
+|Num4| -> Num4
+```
+```kototype
+|Iterable| -> Num4
+```
 
 Makes a Num4 from the provided values.
 
 ### Example
 
 ```koto
-make_num4 1
-# num4(1, 1, 1, 1)
+print! make_num4 1
+check! num4(1, 1, 1, 1)
 
-make_num4 3, 4
-# num4(3, 4, 0, 0)
+print! make_num4 3, 4
+check! num4(3, 4, 0, 0)
 
-make_num4 5, 6, 7, 8
-# num4(5, 6, 7, 8)
+print! make_num4 5, 6, 7, 8
+check! num4(5, 6, 7, 8)
 
-make_num4 [11, 12, 13, 14]
-# num4(11, 12, 13, 14)
+print! make_num4 [11, 12, 13, 14]
+check! num4(11, 12, 13, 14)
 ```
 
 ## max
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the value of the largest element in the Num4.
 
@@ -132,13 +131,15 @@ Returns the value of the largest element in the Num4.
 
 ```koto
 x = make_num4(10, 20, -50, -10)
-x.max()
-# 20
+print! x.max()
+check! 20.0
 ```
 
 ## min
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the value of the smallest element in the Num4.
 
@@ -146,13 +147,15 @@ Returns the value of the smallest element in the Num4.
 
 ```koto
 x = make_num4(10, 20, -50, -10)
-x.min()
-# -50
+print! x.min()
+check! -50.0
 ```
 
 ## normalize
 
-`|Num4| -> Num4`
+```kototype
+|Num4| -> Num4
+```
 
 Returns a Num4 with the same direction as the input,
 with its length normalized to 1.
@@ -161,13 +164,15 @@ with its length normalized to 1.
 
 ```koto
 x = make_num4(2, -2, 2, -2)
-x.normalize()
-# num4(0.5, -0.5, 0.5, 0.5)
+print! x.normalize()
+check! num4(0.5, -0.5, 0.5, -0.5)
 ```
 
 ## product
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the result of multiplying the Num4's elements together.
 
@@ -175,13 +180,15 @@ Returns the result of multiplying the Num4's elements together.
 
 ```koto
 x = make_num4(10, 20, -50, -10)
-x.product()
-# 100000
+print! x.product()
+check! 100000.0
 ```
 
 ## sum
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the result of adding the Num4's elements together.
 
@@ -189,13 +196,15 @@ Returns the result of adding the Num4's elements together.
 
 ```koto
 x = make_num4(10, 20, 30, 40)
-x.sum()
-# 100
+print! x.sum()
+check! 100.0
 ```
 
 ## with
 
-`|Num4, index: Number, value: Number| -> Num4`
+```kototype
+|Num4, index: Number, value: Number| -> Num4
+```
 
 Returns a Num4 with the element at `index` replaced with `value`.
 
@@ -203,15 +212,17 @@ Returns a Num4 with the element at `index` replaced with `value`.
 
 ```koto
 x = make_num4 10, 20, 30, 40
-x.with 0, 99
-# num4(99, 20, 30, 40)
-x.with 3, -1
-# num4(10, 20, 30, -1)
+print! x.with 0, 99
+check! num4(99, 20, 30, 40)
+print! x.with 3, -1
+check! num4(10, 20, 30, -1)
 ```
 
 ## r
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the first element of the Num4.
 
@@ -222,13 +233,15 @@ This can be useful when using a Num4 as a colour value, and want to access its
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.r()
-# 10
+print! n.r()
+check! 10.0
 ```
 
 ## g
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the second element of the Num4.
 
@@ -239,13 +252,15 @@ This can be useful when using a Num4 as a colour value, and want to access its
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.g()
-# 20
+print! n.g()
+check! 20.0
 ```
 
 ## b
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the third element of the Num4.
 
@@ -256,13 +271,15 @@ This can be useful when using a Num4 as a colour value, and want to access its
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.b()
-# 30
+print! n.b()
+check! 30.0
 ```
 
 ## a
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the fourth element of the Num4.
 
@@ -273,13 +290,15 @@ This can be useful when using a Num4 as a colour value, and want to access its
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.w()
-# 40
+print! n.w()
+check! 40.0
 ```
 
 ## x
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the first element of the Num4.
 
@@ -290,13 +309,15 @@ its `x` component.
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.x()
-# 10
+print! n.x()
+check! 10.0
 ```
 
 ## y
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the second element of the Num4.
 
@@ -304,8 +325,8 @@ Returns the second element of the Num4.
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.y()
-# 20
+print! n.y()
+check! 20.0
 ```
 
 This can be useful when using a Num4 as a 3D or 4D vector, and want to access
@@ -313,7 +334,9 @@ its `y` component.
 
 ## z
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the third element of the Num4.
 
@@ -324,13 +347,15 @@ its `z` component.
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.z()
-# 30
+print! n.z()
+check! 30.0
 ```
 
 ## w
 
-`|Num4| -> Float`
+```kototype
+|Num4| -> Float
+```
 
 Returns the fourth element of the Num4.
 
@@ -341,6 +366,6 @@ component.
 
 ```koto
 n = make_num4 10, 20, 30, 40
-n.w()
-# 40
+print! n.w()
+check! 40.0
 ```

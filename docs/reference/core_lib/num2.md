@@ -12,34 +12,23 @@ while operations with Numbers apply the number to each element.
 ```koto
 x = make_num2 1, 2
 y = make_num2 3, 4
-x + y
-# num2(4, 6)
+print! x + y
+check! num2(4, 6)
 
-x[0] + y[0]
-# 4
+print! x[0] + y[0]
+check! 4.0
 
-x + 10
-# num2(11, 12)
+print! x + 10
+check! num2(11, 12)
 ```
 
 # Reference
 
-- [angle](#angle)
-- [length](#length)
-- [lerp](#lerp)
-- [make_num2](#make_num2)
-- [max](#max)
-- [min](#min)
-- [normalize](#normalize)
-- [product](#product)
-- [sum](#sum)
-- [with](#with)
-- [x](#x)
-- [y](#y)
-
 ## angle
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the angle in radians of the vector represented by the Num2's elements.
 
@@ -51,13 +40,16 @@ Returns the angle in radians of the vector represented by the Num2's elements.
 
 ```koto
 x = make_num2 1, 1
-x.angle()
+print! x.angle()
 # π/4
+check! 0.7853981633974483
 ```
 
 ## length
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the length of the vector represented by the Num2's elements.
 
@@ -65,13 +57,15 @@ Returns the length of the vector represented by the Num2's elements.
 
 ```koto
 x = make_num2 3, 4
-x.length()
-# 5
+print! x.length()
+check! 5.0
 ```
 
 ## lerp
 
-`|a: Num2, b: Num2, t: Number| -> Num2`
+```kototype
+|a: Num2, b: Num2, t: Number| -> Num2
+```
 
 Linearly interpolates between `a` and `b` using the interpolation factor `t`.
 
@@ -90,44 +84,57 @@ e.g.
 a = make_num2 0, 10
 b = make_num2 10, 50
 
-a.lerp b, 0
-# num2(0, 10)
-a.lerp b, 0.5
-# num2(5, 30)
-a.lerp b, 1
-# num2(10, 50)
+print! a.lerp b, 0
+check! num2(0, 10)
+print! a.lerp b, 0.5
+check! num2(5, 30)
+print! a.lerp b, 1
+check! num2(10, 50)
 
-a.lerp b, -0.5
-# num2(-5, -10)
-a.lerp b, 1.5
-# num2(15, 70)
+print! a.lerp b, -0.5
+check! num2(-5, -10)
+print! a.lerp b, 1.5
+check! num2(15, 70)
 ```
 
 ## make_num2
 
-`|Number| -> Num2`
-`|Number, Number| -> Num2`
-`|Num2| -> Num2`
-`|Iterable| -> Num2`
+```kototype
+|Number| -> Num2
+```
+
+```kototype
+|Number, Number| -> Num2
+```
+
+```kototype
+|Num2| -> Num2
+```
+
+```kototype
+|Iterable| -> Num2
+```
 
 Makes a Num2 from the provided values.
 
 ### Example
 
 ```koto
-make_num2 1
-# num2(1, 1)
+print! make_num2 1
+check! num2(1, 1)
 
-make_num2 3, 4
-# num2(3, 4)
+print! make_num2 3, 4
+check! num2(3, 4)
 
-make_num2 [11, 12]
-# num2(11, 12)
+print! make_num2 [11, 12]
+check! num2(11, 12)
 ```
 
 ## max
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the value of the largest element in the Num2.
 
@@ -135,13 +142,15 @@ Returns the value of the largest element in the Num2.
 
 ```koto
 x = make_num2(10, 20)
-x.max()
-# 20
+print! x.max()
+check! 20.0
 ```
 
 ## min
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the value of the smallest element in the Num2.
 
@@ -149,13 +158,15 @@ Returns the value of the smallest element in the Num2.
 
 ```koto
 x = make_num2(10, 20)
-x.min()
-# 10
+print! x.min()
+check! 10.0
 ```
 
 ## normalize
 
-`|Num2| -> Num2`
+```kototype
+|Num2| -> Num2
+```
 
 Returns a Num2 with the same direction as the input,
 with its length normalized to 1.
@@ -164,13 +175,15 @@ with its length normalized to 1.
 
 ```koto
 x = make_num2(3, 4)
-x.normalize()
-# num2(0.6, 0.8)
+print! x.normalize()
+check! num2(0.6, 0.8)
 ```
 
 ## product
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the result of multiplying the Num2's elements together.
 
@@ -178,13 +191,15 @@ Returns the result of multiplying the Num2's elements together.
 
 ```koto
 x = make_num2(10, 20)
-x.product()
-# 300
+print! x.product()
+check! 200.0
 ```
 
 ## sum
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the result of adding the Num2's elements together.
 
@@ -192,13 +207,15 @@ Returns the result of adding the Num2's elements together.
 
 ```koto
 x = make_num2(10, 20)
-x.sum()
-# 30
+print! x.sum()
+check! 30.0
 ```
 
 ## with
 
-`|Num2, index: Number, value: Number| -> Num2`
+```kototype
+|Num2, index: Number, value: Number| -> Num2
+```
 
 Returns a Num2 with the element at `index` replaced with `value`.
 
@@ -206,15 +223,17 @@ Returns a Num2 with the element at `index` replaced with `value`.
 
 ```koto
 x = make_num2(10, 20)
-x.with 0, 99
-# num2(99, 20)
-x.with 1, -1
-# num2(10, -1)
+print! x.with 0, 99
+check! num2(99, 20)
+print! x.with 1, -1
+check! num2(10, -1)
 ```
 
 ## x
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the first element of the Num2.
 
@@ -222,13 +241,15 @@ Returns the first element of the Num2.
 
 ```koto
 n = make_num2 10, 20
-n.x()
-# 10
+print! n.x()
+check! 10.0
 ```
 
 ## y
 
-`|Num2| -> Float`
+```kototype
+|Num2| -> Float
+```
 
 Returns the second element of the Num2.
 
@@ -236,6 +257,6 @@ Returns the second element of the Num2.
 
 ```koto
 n = make_num2 10, 20
-n.y()
-# 20
+print! n.y()
+check! 20.0
 ```

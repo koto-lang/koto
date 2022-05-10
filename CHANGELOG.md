@@ -214,6 +214,7 @@ The Koto project adheres to
     x.push 4
     # [1, 2, 3, 4]
     ```
+- `range.contains` now supports descending ranges.
 
 #### Random Library
 
@@ -253,6 +254,15 @@ The Koto project adheres to
 - Support for setting `Num2`/`Num4` elements by index (added in `0.9.0`) has
   been removed. These value types should be treated as immutable; the `with`
   functions can be used to create new values with modified elements.
+- `list.sort_copy` has been removed in favour of `.copy().sort()`.
+  - e.g. 
+    ```koto
+    x = [3, 2, 1]
+    y = x.copy().sort()
+    # [1, 2, 3]
+    x
+    # [3, 2, 1]
+    ```
 - Support for nested multiline comments has been removed.
   - This makes it easier to toggle code blocks, e.g.
     ```koto

@@ -15,7 +15,7 @@ pub fn make_module() -> ValueMap {
     result.add_fn("clear", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             m.data_mut().clear();
-            Ok(Null)
+            Ok(Map(m.clone()))
         }
         unexpected => {
             unexpected_type_error_with_slice("map.clear", "a Map as argument", unexpected)
@@ -152,10 +152,10 @@ pub fn make_module() -> ValueMap {
     result.add_fn("sort", |vm, args| match vm.get_args(args) {
         [Map(m)] => {
             m.data_mut().sort_keys();
-            Ok(Null)
+            Ok(Map(m.clone()))
         }
-        [Map(l), f] if f.is_callable() => {
-            let m = l.clone();
+        [Map(m), f] if f.is_callable() => {
+            let m = m.clone();
             let f = f.clone();
             let mut error = None;
 
@@ -208,7 +208,7 @@ pub fn make_module() -> ValueMap {
             if let Some(error) = error {
                 error
             } else {
-                Ok(Null)
+                Ok(Map(m))
             }
         }
         unexpected => unexpected_type_error_with_slice(

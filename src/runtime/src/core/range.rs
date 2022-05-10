@@ -6,7 +6,14 @@ pub fn make_module() -> ValueMap {
     let result = ValueMap::new();
 
     result.add_fn("contains", |vm, args| match vm.get_args(args) {
-        [Range(r), Number(n)] => Ok(Bool(*n >= r.start && n.ceil() < r.end)),
+        [Range(r), Number(n)] => {
+            let result = if r.is_ascending() {
+                n.floor() >= r.start && n.ceil() < r.end
+            } else {
+                n.ceil() <= r.start && n.floor() > r.end
+            };
+            Ok(Bool(result))
+        }
         unexpected => unexpected_type_error_with_slice(
             "range.contains",
             "a Range and Number as arguments",

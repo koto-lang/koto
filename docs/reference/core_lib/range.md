@@ -17,77 +17,74 @@ Descending ranges are allowed, so the `start` value can be smaller than `end`.
 
 ```koto
 # Non-inclusive range
-x = 10..20
-# 10..20
-x.start()
-# 10
-x.end()
-# 20
+print! x = 10..20
+check! 10..20
+print! x.start()
+check! 10
+print! x.end()
+check! 20
 
 # Inclusive range
-x2 = 100..=200
-# 100..201
-x2.contains 200
-# true
+print! x2 = 100..=200
+check! 100..201
+print! x2.contains 200
+check! true
 
 # Descending non-inclusive range
-x3 = 3..0
-# 3..0
-x3.start()
-# 3
-x3.to_tuple()
-# (3, 2, 1)
+print! x3 = 3..0
+check! 3..0
+print! x3.start()
+check! 3
+print! x3.to_tuple()
+check! (3, 2, 1)
 
 # Descending inclusive range
-x4 = 3..=0
-# 3..-1
-x4.to_list()
-# [3, 2, 1, 0]
+print! x4 = 3..=0
+check! 3..-1
+print! x4.to_list()
+check! [3, 2, 1, 0]
 ```
 
 # Reference
 
-- [contains](#contains)
-- [end](#end)
-- [expanded](#expanded)
-- [size](#size)
-- [start](#start)
-- [union](#union)
-
 ## contains
 
-`|Range, Number| -> Bool`
+```kototype
+|Range, Number| -> Bool
+```
 
 Returns true if the provided number is within the range, and false otherwise.
 
 ### Example
 
 ```koto
-(10..20).contains 15
-# true
+print! (10..20).contains 15
+check! true
 
-(200..=100).contains 100
-# true
+print! (200..=100).contains 100
+check! true
 
 x = 1..10
-x.contains -1
-# false
+print! x.contains -1
+check! false
 ```
 
 ## end
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the `end` value of the range.
 
 ### Example
 
 ```koto
-(50..100).end()
-# 100
+print! (50..100).end()
+check! 100
 
-(10..0).end()
-# 0
+print! (10..0).end()
+check! 0
 ```
 
 ### See also
@@ -96,7 +93,9 @@ Returns the `end` value of the range.
 
 ## expanded
 
-`|Range, Number| -> Range`
+```kototype
+|Range, Number| -> Range
+```
 
 Returns a copy of the input range which has been 'expanded' in both directions
 by the provided amount. For an ascending range this will mean that `start` will
@@ -107,25 +106,27 @@ Negative amounts will cause the range to shrink rather than grow.
 ### Example
 
 ```koto
-(10..20).expanded 5
-# 5..25
+print! (10..20).expanded 5
+check! 5..25
 
-(10..20).expanded -2
-# 12..18
+print! (10..20).expanded -2
+check! 12..18
 
-(5..-5).expanded 5
-# 10..-10
+print! (5..-5).expanded 5
+check! 10..-10
 
-(5..-5).expanded -5
-# 0..0
+print! (5..-5).expanded -5
+check! 0..0
 
-(5..-5).expanded -10
-# -5..5
+print! (5..-5).expanded -10
+check! -5..5
 ```
 
 ## size
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the size of the range.
 This is equivalent to `range.end() - range.start()`.
@@ -135,30 +136,32 @@ Note that for descending ranges, a negative value will be returned.
 ### Example
 
 ```koto
-(10..20).size()
-# 10
+print! (10..20).size()
+check! 10
 
-(100..=200).size()
-# 101
+print! (100..=200).size()
+check! 101
 
-(20..0).size()
-# -20
+print! (20..0).size()
+check! -20
 ```
 
 ## start
 
-`|Range| -> Int`
+```kototype
+|Range| -> Int
+```
 
 Returns the `start` value of the range.
 
 ### Example
 
 ```koto
-(50..100).start()
-# 50
+print! (50..100).start()
+check! 50
 
-(10..0).start()
-# 10
+print! (10..0).start()
+check! 10
 ```
 
 ### See also
@@ -167,14 +170,18 @@ Returns the `start` value of the range.
 
 ## union
 
-`|Range, Number| -> Range`
+```kototype
+|Range, Number| -> Range
+```
 
 Returns the union of the range and a provided number.
 
 If the number falls outside of the range then the resulting range will be
 expanded to include the number.
 
-`|Range, Range| -> Range`
+```kototype
+|Range, Range| -> Range
+```
 
 Returns the union of two ranges.
 
@@ -184,14 +191,14 @@ ranges, and any values that lie between them.
 ### Example
 
 ```koto
-(0..10).union 5
-# 0..10
+print! (0..10).union 5
+check! 0..10
 
-(0..10).union 99
-# 0..100
+print! (0..10).union 99
+check! 0..100
 
 a = 10..20
 b = 40..50
-a.union b
-# 10..50
+print! a.union b
+check! 10..50
 ```

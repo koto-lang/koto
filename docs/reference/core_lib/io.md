@@ -4,30 +4,11 @@ A collection of utilities for working with the local filesystem.
 
 # Reference
 
-- [create](#create)
-- [current_dir](#current_dir)
-- [exists](#exists)
-- [extend_path](#extend_path)
-- [open](#open)
-- [print](#print)
-- [read_to_string](#read_to_string)
-- [remove_file](#remove_file)
-- [stderr](#stderr)
-- [stdin](#stdin)
-- [stdout](#stdout)
-- [temp_dir](#temp_dir)
-- [File](#file)
-- [File.flush](#fileflush)
-- [File.path](#filepath)
-- [File.read_line](#fileread_line)
-- [File.read_to_string](#fileread_to_string)
-- [File.seek](#fileseek)
-- [File.write](#filewrite)
-- [File.write_line](#filewrite_line)
-
 ## create
 
-`|String| -> File`
+```kototype
+|String| -> File
+```
 
 Returns an empty `File` at the provided path.
 If the file already exists it will be truncated.
@@ -47,14 +28,18 @@ f.read_to_string()
 
 ## current_dir
 
-`|| -> String`
+```kototype
+|| -> String
+```
 
 Returns the current working directory as a String, or Null if the current
 directory can't be retrieved.
 
 ## exists
 
-`|String| -> Bool`
+```kototype
+|String| -> Bool
+```
 
 Returns true if a file exists at the provided path.
 
@@ -72,7 +57,9 @@ io.exists path
 
 ## extend_path
 
-`|String, Value...| -> String`
+```kototype
+|String, Value...| -> String
+```
 
 Takes an initial path as a string, and extends it with the provided nodes,
 inserting a platform-appropriate separator between each node.
@@ -91,7 +78,9 @@ io.extend_path ".", "foo", "bar", "baz.txt"
 
 ## open
 
-`|String| -> File`
+```kototype
+|String| -> File
+```
 
 Opens the file at the given path, and returns a corresponding `File`.
 
@@ -109,19 +98,25 @@ f.exists()
 
 ## print
 
-`|Value| -> Null`
-`|String, Value...| -> Null`
+```kototype
+|Value| -> Null
+```
+```kototype
+|String, Value...| -> Null
+```
 
 Prints a formatted string to the active logger,
-by default this is the standard output.
+which by default is the standard output.
 
 ### Note
 
-See `string.format` for the formatting syntax.
+See [`string.format`](@/docs/core/string.md#format) for the formatting syntax.
 
 ## read_to_string
 
-`|String| -> String`
+```kototype
+|String| -> String
+```
 
 Returns a string containing the contents of the file at the given path.
 
@@ -143,7 +138,9 @@ io.read_to_string "foo.temp"
 
 ## remove_file
 
-`|String| -> Null`
+```kototype
+|String| -> Null
+```
 
 Removes the file at the given path.
 
@@ -154,7 +151,7 @@ Removes the file at the given path.
 ### Example
 
 ```koto
-path "foo.temp"
+path = "foo.temp"
 io.create path
 io.exists path
 # true
@@ -166,7 +163,9 @@ io.exists path
 
 ## stderr
 
-`|| -> File`
+```kototype
+|| -> File
+```
 
 Returns the standard error output of the current process as a file.
 
@@ -183,7 +182,9 @@ io.stderr().write_line "An error occurred!"
 
 ## stdin
 
-`|| -> File`
+```kototype
+|| -> File
+```
 
 Returns the standard input of the current process as a file.
 
@@ -201,7 +202,9 @@ io.stdin().read_to_string()
 
 ## stdout
 
-`|| -> File`
+```kototype
+|| -> File
+```
 
 Returns the standard output of the current process as a file.
 
@@ -218,7 +221,9 @@ io.stdout().write_line "Hello, World!"
 
 ## temp_dir
 
-`|| -> String`
+```kototype
+|| -> String
+```
 
 Returns the path to a temporary directory.
 
@@ -233,24 +238,30 @@ A map that wraps a file handle, returned from functions in `io`.
 
 ## File.flush
 
-`|File| -> Null`
+```kototype
+|File| -> Null
+```
 
 Ensures that any buffered changes to the file have been written.
 
 ### See Also
 
-- [`file.write`](#filewrite)
-- [`file.write_line`](#filewrite_line)
+- [`file.write`](#file-write)
+- [`file.write_line`](#file-write-line)
 
 ## File.path
 
-`|File| -> String`
+```kototype
+|File| -> String
+```
 
 Returns the file's path.
 
 ## File.read_line
 
-`|File| -> String or Null`
+```kototype
+|File| -> String or Null
+```
 
 Reads a line of output from the file as a string, not including the newline.
 
@@ -262,7 +273,9 @@ An error is thrown if the line doesn't contain valid UTF-8 data.
 
 ## File.read_to_string
 
-`|File| -> String`
+```kototype
+|File| -> String
+```
 
 Reads the file's contents to a string.
 
@@ -272,18 +285,24 @@ An error is thrown if the file doesn't contain valid UTF-8 data.
 
 ## File.seek
 
-`|File, Number| -> Null`
+```kototype
+|File, Number| -> Null
+```
 
 Seeks within the file to the specified position in bytes.
 
 ## File.write
 
-`|File, Value| -> Null`
+```kototype
+|File, Value| -> Null
+```
 
 Writes the formatted value as a string to the file.
 
 ## File.write_line
 
-`|File, Value| -> Null`
+```kototype
+|File, Value| -> Null
+```
 
 Writes the formatted value as a string, with a newline, to the file.
