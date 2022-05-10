@@ -1713,7 +1713,7 @@ impl<'source> Parser<'source> {
             _ => self.push_node_with_start_span(Node::Tuple(entries), start_span)?,
         };
 
-        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(&context) {
+        if let Some((Token::RoundClose, _)) = self.consume_token_with_context(context) {
             self.check_for_lookup_after_node(
                 expressions_node,
                 &context.with_expected_indentation(Indentation::GreaterThan(start_indent)),
