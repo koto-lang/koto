@@ -110,7 +110,7 @@ which by default is the standard output.
 
 ### Note
 
-See `string.format` for the formatting syntax.
+See [`string.format`](@/docs/core/string.md#format) for the formatting syntax.
 
 ## read_to_string
 
@@ -151,7 +151,7 @@ Removes the file at the given path.
 ### Example
 
 ```koto
-path "foo.temp"
+path = "foo.temp"
 io.create path
 io.exists path
 # true

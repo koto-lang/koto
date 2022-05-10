@@ -10,18 +10,18 @@ the list.
 ```koto
 x = [1, 2, "hello"]
 x[1] = 99
-x
-# [1, 99, "hello"]
+print! x
+check! [1, 99, "hello"]
 
 y = x
 y[0] = "abc" # x and y share the same internal list data
-x
-# ["abc", 99, "hello"]
+print! x
+check! ["abc", 99, "hello"]
 
 z = x.copy()
 z[1] = -1 # z is a copy of x, so has unique internal data
-x # x remains unchanged after the modificaton of z
-# ["abc", 99, "hello"]
+print! x # x remains unchanged after the modificaton of z
+check! ["abc", 99, "hello"]
 ```
 
 # Reference
@@ -38,8 +38,8 @@ Clears the list by removing all of its elements, and returns the cleared list.
 
 ```koto
 x = [1, 2, 3]
-x.clear()
-# []
+print! x.clear()
+check! []
 ```
 
 ## contains
@@ -55,8 +55,8 @@ Matching is performed with the `==` equality operator.
 ### Example
 
 ```koto
-[1, "hello", (99. -1)].contains "hello"
-# true
+print! [1, "hello", (99, -1)].contains "hello"
+check! true
 ```
 
 ## copy
@@ -77,13 +77,13 @@ any nested containers are also unique, use [`list.deep_copy`](#deep-copy).
 x = [1, 2, "hello"]
 y = x
 y[0] = "abc" # x and y share the same internal list data
-x
-# ["abc", 99, "hello"]
+print! x
+check! ["abc", 2, "hello"]
 
 z = x.copy()
 z[1] = -1 # z is a copy of x, so has unique internal data
-x # x remains unchanged after the modificaton of z
-# ["abc", 99, "hello"]
+print! x # x remains unchanged after the modificaton of z
+check! ["abc", 2, "hello"]
 ```
 
 ### See also
@@ -110,8 +110,8 @@ If only the first level of data needs to be made unique, then use
 x = [[1, 2], [3, [4, 5]]]
 y = x.deep_copy()
 y[1][1] = 99
-x # a deep copy has been made, so x is unaffected by the assignment to y
-# [[1, 2], [3, [4, 5]]]
+print! x # a deep copy has been made, so x is unaffected by the assignment to y
+check! [[1, 2], [3, [4, 5]]]
 ```
 
 ### See also
@@ -130,10 +130,10 @@ Fills the list with copies of the provided value, and returns the list.
 
 ```koto
 x = [1, 2, 3]
-x.fill 99
-# [99, 99, 99]
-x
-# [99, 99, 99]
+print! x.fill 99
+check! [99, 99, 99]
+print! x
+check! [99, 99, 99]
 ```
 
 ## first
@@ -147,11 +147,11 @@ Returns the first value in the list, or Null if the list is empty.
 ### Example
 
 ```koto
-[99, -1, 42].first()
-# 99
+print! [99, -1, 42].first()
+check! 99
 
-[].first()
-# Null
+print! [].first()
+check! null
 ```
 
 ### See also
@@ -177,14 +177,14 @@ value is returned. If no default value is provided then Null is returned.
 ```koto
 x = [99, -1, 42]
 
-x.get 1
-# -1
+print! x.get 1
+check! -1
 
-x.get -1
-# Null
+print! x.get -1
+check! null
 
-x.get 5, 123
-# 123
+print! x.get 5, 123
+check! 123
 ```
 
 ### See also
@@ -207,10 +207,10 @@ list.
 
 ```koto
 x = [99, -1, 42]
-x.insert 2, "hello"
-# [99, -1, "hello", 42]
-x
-# [99, -1, "hello", 42]
+print! x.insert 2, "hello"
+check! [99, -1, "hello", 42]
+print! x
+check! [99, -1, "hello", 42]
 ```
 
 ### See also
@@ -228,11 +228,11 @@ Returns `true` if the list has a size of zero, and `false` otherwise.
 ### Example
 
 ```koto
-[].is_empty()
-# true
+print! [].is_empty()
+check! true
 
-[1, 2, 3].is_empty()
-# false
+print! [1, 2, 3].is_empty()
+check! false
 ```
 
 ## last
@@ -246,11 +246,11 @@ Returns the last value in the list, or Null if the list is empty.
 ### Example
 
 ```koto
-[99, -1, 42].first()
-# 42
+print! [99, -1, 42].last()
+check! 42
 
-[].first()
-# Null
+print! [].last()
+check! null
 ```
 
 ### See also
@@ -272,14 +272,14 @@ If the list is empty then Null is returned.
 
 ```koto
 x = [99, -1, 42]
-x.pop()
-# 42
+print! x.pop()
+check! 42
 
-x
-# [99, -1]
+print! x
+check! [99, -1]
 
-[].pop()
-# Null
+print! [].pop()
+check! null
 ```
 
 ### See also
@@ -298,10 +298,10 @@ Adds the value to the end of the list, and returns the list.
 
 ```koto
 x = [99, -1]
-x.push "hello"
-# [99, -1, "hello"]
-x
-# [99, -1, "hello"]
+print! x.push "hello"
+check! [99, -1, "hello"]
+print! x
+check! [99, -1, "hello"]
 ```
 
 ### See also
@@ -347,16 +347,16 @@ value is provided) are used to fill the new space.
 ```koto
 x = [1, 2]
 x.resize 4, "x"
-x
-# [1, 2, "x", "x"]
+print! x
+check! [1, 2, "x", "x"]
 
 x.resize 3
-x
-# [1, 2, "x"]
+print! x
+check! [1, 2, "x"]
 
 x.resize 4
-x
-# [1, 2, "x", null]
+print! x
+check! [1, 2, "x", null]
 ```
 
 ## resize_with
@@ -376,12 +376,12 @@ end of the list.
 new_entries = (5, 6, 7, 8).iter()
 x = [1, 2]
 x.resize_with 4, || new_entries.next()
-x
-# [1, 2, 5, 6]
+print! x
+check! [1, 2, 5, 6]
 
 x.resize_with 2, || new_entries.next()
-x
-# [1, 2]
+print! x
+check! [1, 2]
 ```
 
 ## retain
@@ -404,17 +404,17 @@ using the `==` equality operator, and then retained if they match.
 ### Example
 
 ```koto
-x = [1..10]
-x.retain |n| n < 5
-# [1, 2, 3, 4]
-x
-# [1, 2, 3, 4]
+x = (1..10).to_list()
+print! x.retain |n| n < 5
+check! [1, 2, 3, 4]
+print! x
+check! [1, 2, 3, 4]
 
 x = [1, 3, 8, 3, 9, -1]
-x.retain 3
-# [3, 3]
-x
-# [3, 3]
+print! x.retain 3
+check! [3, 3]
+print! x
+check! [3, 3]
 ```
 
 ## reverse
@@ -429,10 +429,10 @@ Reverses the order of the list's contents, and returns the list.
 
 ```koto
 x = ["hello", -1, 99, "world"]
-x.reverse()
-# ["world", 99, -1, "hello"]
-x
-# ["world", 99, -1, "hello"]
+print! x.reverse()
+check! ["world", 99, -1, "hello"]
+print! x
+check! ["world", 99, -1, "hello"]
 ```
 
 ## size
@@ -446,12 +446,12 @@ Returns the number of values contained in the list.
 ### Example
 
 ```koto
-x = [1..=100]
-x.size()
-# 100
+x = (1..=100).to_list()
+print! x.size()
+check! 100
 
-[].size()
-# 0
+print! [].size()
+check! 0
 ```
 
 ## sort
@@ -474,19 +474,22 @@ called once per value.
 
 ```koto
 x = [1, -1, 99, 42]
-x.sort()
-x
-# [-1, 1, 42, 99]
+print! x.sort()
+check! [-1, 1, 42, 99]
+print! x
+check! [-1, 1, 42, 99]
 
 x = ["bb", "ccc", "a"]
-x.sort string.size
-x
-# ["a", "bb", "ccc"]
+print! x.sort string.size
+check! ["a", "bb", "ccc"]
+print! x
+check! ["a", "bb", "ccc"]
 
 x = [2, 1, 3]
-x.sort |n| -n
-x
-# [3, 2, 1]
+print! x.sort |n| -n
+check! [3, 2, 1]
+print! x
+check! [3, 2, 1]
 ```
 
 ## sort_copy
@@ -501,12 +504,11 @@ Returns a sorted copy of the list. The input is left untouched.
 
 ```koto
 x = [1, -1, 99, 42]
-y = x.sort_copy()
-y
-# [-1, 1, 42, 99]
+print! y = x.sort_copy()
+check! [-1, 1, 42, 99]
 
-x # x remains untouched
-# [1, -1, 99, 42]
+print! x # x remains untouched
+check! [1, -1, 99, 42]
 ```
 
 ## swap
@@ -524,11 +526,11 @@ x = [1, 2, 3]
 y = [7, 8, 9]
 x.swap y
 
-x
-# [7, 8, 9]
+print! x
+check! [7, 8, 9]
 
-y
-# [1, 2, 3]
+print! y
+check! [1, 2, 3]
 ```
 
 ## to_tuple
@@ -542,8 +544,8 @@ Returns a copy of the list data as a tuple.
 ### Example
 
 ```koto
-[1, 2, 3].to_tuple()
-# (1, 2, 3)
+print! [1, 2, 3].to_tuple()
+check! (1, 2, 3)
 ```
 
 ## transform
@@ -559,15 +561,15 @@ provided function, and then returns the list.
 
 ```koto
 x = ["aaa", "bb", "c"]
-x.transform string.size
-# [3, 2, 1]
-x
-# [3, 2, 1]
+print! x.transform string.size
+check! [3, 2, 1]
+print! x
+check! [3, 2, 1]
 
-x.transform |n| "{}".format n
-# ["3", "2", "1"]
-x
-# ["3", "2", "1"]
+print! x.transform |n| "{}".format n
+check! ["3", "2", "1"]
+print! x
+check! ["3", "2", "1"]
 ```
 
 ## with_size
@@ -581,6 +583,6 @@ Returns a list containing `N` copies of a value.
 ### Example
 
 ```koto
-list.with_size 5, "$"
-# ["$", "$", "$", "$", "$"]
+print! list.with_size 5, "!"
+check! ["!", "!", "!", "!", "!"]
 ```

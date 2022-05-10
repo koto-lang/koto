@@ -25,6 +25,7 @@ script is running.
 ### Example
 
 ```koto
+skip_check!
 t = os.start_timer()
 
 # ...after some time...
@@ -59,17 +60,18 @@ using a time offset in seconds.
 ### Example
 
 ```koto
-now = os.time()
-# 2021-12-11 21:51:14
+skip_check!
+print! now = os.time()
+# e.g. 2021-12-11 21:51:14
 
-now.year()
-# 2021
+print! now.year()
+# e.g. 2021
 
-now.hour()
-# 21
+print! now.hour()
+# e.g. 21
 
-now.timestamp()
-# 1639255874.53419
+print! now.timestamp()
+# e.g. 1639255874.53419
 ```
 
 ## DateTime
@@ -182,6 +184,7 @@ Returns the number of seconds that have elapsed since the timer was started.
 ### Example
 
 ```koto
+skip_check!
 t = os.start_timer()
 
 # ...after some time...

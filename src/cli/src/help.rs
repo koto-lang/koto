@@ -256,7 +256,12 @@ fn consume_help_section<'a>(
                             result.push('|');
                         }
                         result.push_str("\n|  ");
-                        result.push_str(line);
+                        if !line.starts_with("skip_check!") {
+                            let processed_line = line
+                                .trim_start_matches("print! ")
+                                .replacen("check! ", "# ", 1);
+                            result.push_str(&processed_line);
+                        }
                     }
                 } else if in_type_declaration {
                     result.push('`');

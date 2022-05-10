@@ -19,10 +19,10 @@ x =
   hello: -1
   goodbye: 99
 
-x.hello
-# -1
-x.goodbye
-# 99
+print! x.hello
+check! -1
+print! x.goodbye
+check! 99
 ```
 
 Nested Maps can be defined with additional indentation:
@@ -34,10 +34,10 @@ x =
     everybody: 123
     to:
       you: -1
-x.hello.world
-# 99
-x.hello.to.you
-# 123
+print! x.hello.world
+check! 99
+print! x.hello.to.you
+check! -1
 ```
 
 ### Inline map syntax
@@ -46,10 +46,10 @@ Maps can also be created with curly braces, with comma-separated entries.
 
 ```koto
 x = {hello: -1, goodbye: "abc"}
-x.hello
-# -1
-x.goodbye
-# abc
+print! x.hello
+check! -1
+print! x.goodbye
+check! abc
 ```
 
 If only the key is provided for an entry, then a value matching the name of the
@@ -59,8 +59,8 @@ key is looked for and is then copied into the entry.
 hello = "abc"
 goodbye = 99
 x = {hello, goodbye, tschüss: 123}
-x.goodbye
-# 99
+print! x.goodbye
+check! 99
 ```
 
 ## Keys
@@ -72,8 +72,8 @@ To use non-string values as keys, [`map.insert`](#insert) can be used.
 x = {}
 x.insert 0, "Hello"
 x.insert true, "World"
-"{}, {}!".format x.get(0), x.get(true)
-# Hello, World!
+print! "{}, {}!".format x.get(0), x.get(true)
+check! Hello, World!
 ```
 
 ## Instance functions
@@ -93,8 +93,8 @@ x =
 
 x.add_to_data 2
 x.add_to_data 20
-x.sum()
-# 22
+print! x.sum()
+check! 22
 ```
 
 ## Operators
@@ -104,8 +104,8 @@ The `+` operator can be used to merge two maps together.
 ```koto
 x = {hello: 123}
 y = {goodbye: 99}
-x + y
-# {hello: 123, goodbye: 99}
+print! x + y
+check! {hello: 123, goodbye: 99}
 ```
 
 ### Meta Maps and overloaded operations
@@ -129,10 +129,10 @@ make_x = |n|
 x1 = make_x 10
 x2 = make_x 20
 
-(x1 + x2).data
-# 30
-(x1 - x2).data
-# -10
+print! (x1 + x2).data
+check! 30
+print! (x1 - x2).data
+check! -10
 ```
 
 All binary operators can be overloaded following this pattern.
@@ -172,10 +172,10 @@ make_x = |n|
   @meta get_data: |self| self.data
 
 x = make_x 42
-x.keys().to_list()
-# ["data"]
-x.get_data()
-# 42
+print! x.keys().to_list()
+check! ["data"]
+print! x.get_data()
+check! 42
 ```
 
 #### Tests
@@ -197,8 +197,8 @@ Clears the map by removing all of its elements.
 ```koto
 x = {x: -1, y: 42}
 x.clear()
-x
-# {}
+print! x
+check! {}
 ```
 
 ## contains_key
@@ -228,13 +228,13 @@ any nested containers are also unique, use [`map.deep_copy`](#deep-copy).
 x = {foo: -1, bar: 99}
 y = x
 y.foo = 42
-x.foo
-# 42
+print! x.foo
+check! 42
 
 z = x.copy()
 z.bar = -1
-x.bar # x.bar remains unmodified due to the
-# 99
+print! x.bar # x.bar remains unmodified due to the copy
+check! 99
 ```
 
 ### See also
@@ -261,8 +261,8 @@ If only the first level of data needs to be made unique, then use
 x = {foo: 42, bar: {baz: 99}}
 y = x.deep_copy()
 y.bar.baz = 123
-x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
-# 99
+print! x.bar.baz # a deep copy has been made, so x is unaffected by the change to y
+check! 99
 ```
 
 ### See also
@@ -287,18 +287,18 @@ If no default value is provided then Null is returned.
 
 ```koto
 x = {hello: -1}
-x.get "hello"
-# -1
+print! x.get "hello"
+check! -1
 
-x.get "goodbye"
-# null
+print! x.get "goodbye"
+check! null
 
-x.get "goodbye", "byeeee"
-# "byeeee"
+print! x.get "goodbye", "byeeee"
+check! byeeee
 
 x.insert 99, "xyz"
-x.get 99
-# xyz
+print! x.get 99
+check! xyz
 ```
 
 ### See also
@@ -323,14 +323,14 @@ If no default value is provided then Null is returned.
 
 ```koto
 x = {foo: -1, bar: -2}
-x.get_index 1
-# ("bar", -2)
+print! x.get_index 1
+check! ("bar", -2)
 
-x.get_index -99
-# null
+print! x.get_index -99
+check! null
 
-x.get_index 99, "xyz"
-# "xyz"
+print! x.get_index 99, "xyz"
+check! xyz
 ```
 
 ### See also
@@ -355,13 +355,13 @@ my_map =
 
 meta = my_map.get_meta_map()
 
-my_map.keys().count()
-# 1
-meta.keys().count()
-# 0
+print! my_map.keys().count()
+check! 1
+print! meta.keys().count()
+check! 0
 
-meta.type
-# My Map
+print! koto.type meta
+check! My Map
 ```
 
 ### See also
@@ -389,17 +389,17 @@ If the key didn't already exist, then Null is returned.
 
 ```koto
 x = {hello: -1}
-x.insert "hello", 99 # -1 already exists at `hello`, so it's returned here
-# -1
+print! x.insert "hello", 99 # -1 already exists at `hello`, so it's returned here
+check! -1
 
-x.hello # hello is now 99
-# 99
+print! x.hello # hello is now 99
+check! 99
 
-x.insert "goodbye", 123 # No existing value at `goodbye`, so () is returned
-# null
+print! x.insert "goodbye", 123 # No existing value at `goodbye`, so null is returned
+check! null
 
-x.goodbye
-# 123
+print! x.goodbye
+check! 123
 ```
 
 ### See also
@@ -418,11 +418,11 @@ Returns `true` if the map contains no entries, otherwise `false`.
 ### Example
 
 ```koto
-{}.is_empty()
-# true
+print! {}.is_empty()
+check! true
 
-{hello: -1}.is_empty()
-# false
+print! {hello: -1}.is_empty()
+check! false
 ```
 
 ### See also
@@ -446,14 +446,14 @@ m =
 
 x = m.keys()
 
-x.next()
-# "hello"
+print! x.next()
+check! hello
 
-x.next()
-# "goodbye"
+print! x.next()
+check! goodbye
 
-x.next()
-# null
+print! x.next()
+check! null
 ```
 
 ### See also
@@ -477,17 +477,17 @@ x =
   hello: -1
   goodbye: 99
 
-x.remove "hello"
-# -1
+print! x.remove "hello"
+check! -1
 
-x.remove "xyz"
-# null
+print! x.remove "xyz"
+check! null
 
-x.remove "goodbye"
-# 99
+print! x.remove "goodbye"
+check! 99
 
-x.is_empty()
-# true
+print! x.is_empty()
+check! true
 ```
 
 ### See also
@@ -505,11 +505,11 @@ Returns the number of entries contained in the map.
 ### Example
 
 ```koto
-{}.size()
-# 0
+print! {}.size()
+check! 0
 
-{"a": 0, "b": 1}.size()
-# 2
+print! {"a": 0, "b": 1}.size()
+check! 2
 ```
 
 ### See also
@@ -542,16 +542,18 @@ x =
   bye: -1
   tschüss: 99
 x.sort() # Sorts the map by key
-x
-# {bye: -1, hello: 123, tschüss: 99}
+print! x
+check! {bye: -1, hello: 123, tschüss: 99}
 
-x.sort |_, value| value # Sort the map by value
-x
-# {bye: -1, tschüss: 99, hello: 123}
+# Sort the map by value
+x.sort |_, value| value 
+print! x
+check! {bye: -1, tschüss: 99, hello: 123}
 
-x.sort |key, _| -key.size() # Sort the map by reversed key length
-x
-# {tschüss: 99, hello: 123, bye: -1}
+# Sort the map by reversed key length
+x.sort |key, _| -key.size() 
+print! x
+check! {tschüss: 99, hello: 123, bye: -1}
 ```
 
 ## update
@@ -583,15 +585,15 @@ x =
   hello: -1
   goodbye: 99
 
-x.update "hello", |n| n * 2
-# -2
-x.hello
-# -2
+print! x.update "hello", |n| n * 2
+check! -2
+print! x.hello
+check! -2
 
-x.update "tschüss", 10, |n| n * 10
-# 100
-x.tschüss
-# 100
+print! x.update "tschüss", 10, |n| n * 10
+check! 100
+print! x.tschüss
+check! 100
 ```
 
 ### See also
@@ -615,14 +617,14 @@ m =
 
 x = m.values()
 
-x.next()
-# -1
+print! x.next()
+check! -1
 
-x.next()
-# 99
+print! x.next()
+check! 99
 
-x.next()
-# null
+print! x.next()
+check! null
 ```
 
 ### See also
@@ -649,11 +651,11 @@ my_data =
 
 x = my_data.with_meta_map my_meta
 
-koto.type my_data
-# Map
+print! koto.type my_data
+check! Map
 
-koto.type x
-# My Meta
+print! koto.type x
+check! My Meta
 ```
 
 ### See also

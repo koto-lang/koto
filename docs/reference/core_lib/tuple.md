@@ -13,24 +13,25 @@ but the Tuple itself can be thought of as 'read-only'.
 Tuples are created with comma-separated values:
 
 ```koto
-x = "hello", -1, 99, [1, 2, 3]
-# ("hello", -1, 99, [1, 2, 3])
+print! x = "hello", -1, 99, [1, 2, 3]
+check! ("hello", -1, 99, [1, 2, 3])
 
-x[2]
-# 99
+print! x[2]
+check! 99
 
-x[3]
-# [1, 2, 3]
+print! x[3]
+check! [1, 2, 3]
 ```
 
 Parentheses are used when necessary for disambiguation:
 
 ```koto
 x, y = (1, 2, 3), (4, 5, 6)
-# ((1, 2, 3), (4, 5, 6))
+print! (x, y)
+check! ((1, 2, 3), (4, 5, 6))
 
-x[1], y[2]
-# (2, 6)
+print! (x[1], y[2])
+check! (2, 6)
 ```
 
 # Reference
@@ -48,11 +49,11 @@ Matching is performed with the `==` equality operator.
 ### Example
 
 ```koto
-(1, "hello", [99. -1]).contains "hello"
-# true
+print! (1, "hello", [99, -1]).contains "hello"
+check! true
 
-("goodbye", 123).contains "hello"
-# false
+print! ("goodbye", 123).contains "hello"
+check! false
 ```
 
 ## deep_copy
@@ -69,11 +70,11 @@ Returns the first value in the tuple, or Null if the tuple is empty.
 
 ```koto
 x = 99, -1, 42
-x.first()
-# 99
+print! x.first()
+check! 99
 
-[].to_tuple().first()
-# Null
+print! (,).first()
+check! null
 ```
 
 ## get
@@ -94,14 +95,14 @@ value is returned. If no default value is provided then Null is returned.
 ```koto
 x = 99, -1, 42
 
-x.get 1
-# -1
+print! x.get 1
+check! -1
 
-x.get -1
-# Null
+print! x.get -1
+check! null
 
-x.get 5, "abc"
-# abc
+print! x.get 5, "abc"
+check! abc
 ```
 
 ## last
@@ -116,11 +117,11 @@ Returns the last value in the tuple, or Null if the tuple is empty.
 
 ```koto
 x = 99, -1, 42
-x.last()
-# 42
+print! x.last()
+check! 42
 
-[].to_tuple().last()
-# Null
+print! (,).last()
+check! null
 ```
 
 ## size
@@ -135,8 +136,8 @@ Returns the number of values contained in the tuple.
 
 ```koto
 x = (10, 20, 30, 40, 50)
-x.size()
-# 5
+print! x.size()
+check! 5
 ```
 
 ## sort_copy
@@ -152,11 +153,11 @@ Returns a sorted copy of the tuple.
 ```koto
 x = (1, -1, 99, 42)
 y = x.sort_copy()
-y
-# (-1, 1, 42, 99)
+print! y
+check! (-1, 1, 42, 99)
 
-x # x remains untouched
-# (1, -1, 99, 42)
+print! x # x remains untouched
+check! (1, -1, 99, 42)
 ```
 
 ## to_list
@@ -170,6 +171,6 @@ Returns a copy of the tuple's data as a list.
 ### Example
 
 ```koto
-(1, 2, 3).to_list()
-# [1, 2, 3]
+print! (1, 2, 3).to_list()
+check! [1, 2, 3]
 ```

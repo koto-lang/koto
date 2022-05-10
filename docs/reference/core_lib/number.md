@@ -25,11 +25,11 @@ Returns the absolute value of the number.
 ### Example
 
 ```koto
--1.abs()
-# 1
+print! -1.abs()
+check! 1
 
-1.abs()
-# 1
+print! 1.abs()
+check! 1
 ```
 
 ## acos
@@ -43,11 +43,10 @@ Returns the arc cosine of the number. `acos` is the inverse function of `cos`.
 ### Example
 
 ```koto
-0.acos()
-# π / 2
+import number.pi
 
-1.acos()
-# 1
+assert_near 0.acos(), pi / 2
+assert_eq 1.acos(), 0
 ```
 
 ## acosh
@@ -61,14 +60,9 @@ Returns the inverse hyperbolic cosine of the number.
 ### Example
 
 ```koto
-0.acosh()
-# NaN
-
-1.acosh()
-# 0
-
-2.acosh()
-# 1.3169578969248166
+assert 0.acosh().is_nan()
+assert_eq 1.acosh(), 0
+assert_near 2.acosh(), 1.3169578969248166
 ```
 
 ## and
@@ -83,8 +77,9 @@ positions produces a `1` in corresponding output positions.
 ### Example
 
 ```koto
-0b1010.and 0b1100
+print! 0b1010.and 0b1100
 # 0b1000
+check! 8
 ```
 
 ## asin
@@ -98,11 +93,10 @@ Returns the arc sine of the number. `asin` is the inverse function of `sin`.
 ### Example
 
 ```koto
-0.asin()
-# 0
+import number.pi
 
-1.asin()
-# π / 2
+assert_eq 0.asin(), 0
+assert_near 1.asin(), pi / 2
 ```
 
 ## asinh
@@ -116,11 +110,8 @@ Returns the inverse hyperbolic sine of the number.
 ### Example
 
 ```koto
-0.asinh()
-# 0
-
-1.asinh()
-# 0.8813735870195429
+assert_eq 0.asinh(), 0
+assert_near 1.asinh(), 0.8813735870195429
 ```
 
 ## atan
@@ -134,11 +125,10 @@ Returns the arc tangent of the number. `atan` is the inverse function of `tan`.
 ### Example
 
 ```koto
-0.atan()
-# 0
+import number.pi
 
-1.atan()
-# π / 4
+assert_eq 0.atan(), 0
+assert_near 1.atan(), pi / 4
 ```
 
 ## atanh
@@ -152,14 +142,14 @@ Returns the inverse hyperbolic tangent of the number.
 ### Example
 
 ```koto
--1.atanh()
-# -inf
+print! -1.atanh()
+check! -inf
 
-0.atanh()
-# 0
+print! 0.atanh()
+check! 0.0
 
-1.atanh()
-# inf
+print! 1.atanh()
+check! inf
 ```
 
 ## atan2
@@ -178,16 +168,12 @@ Returns the arc tangent of `y` and `x` in radians, using the signs of `y` and
 ### Example
 
 ```koto
+import number.pi
+
 x, y = 1, 1
 
-y.atan2 x
-# π/4
-
-y.atan2 -x
-# π - π/4
-
--y.atan2 x
-# -π/4
+assert_near y.atan2(x), pi / 4
+assert_near y.atan2(-x), pi - pi / 4
 ```
 
 ## ceil
@@ -201,14 +187,14 @@ Returns the integer that's greater than or equal to the input.
 ### Example
 
 ```koto
-0.5.ceil()
-# 1
+print! 0.5.ceil()
+check! 1
 
-2.ceil()
-# 2
+print! 2.ceil()
+check! 2
 
--0.5.ceil()
-# 0
+print! -0.5.ceil()
+check! 0
 ```
 
 ### See Also
@@ -229,14 +215,14 @@ numbers.
 ### Example
 
 ```koto
-0.clamp 1, 2
-# 1
+print! 0.clamp 1, 2
+check! 1
 
-1.5.clamp 1, 2
-# 1.5
+print! 1.5.clamp 1, 2
+check! 1.5
 
-3.0.clamp 1, 2
-# 2
+print! 3.0.clamp 1, 2
+check! 2
 ```
 
 ## cos
@@ -250,13 +236,13 @@ Returns the cosine of the number.
 ### Example
 
 ```koto
-0.cos()
-# 1.0
+print! 0.cos()
+check! 1.0
 
 import number.pi
 
-pi.cos()
-# -1.0
+print! pi.cos()
+check! -1.0
 ```
 
 ## cosh
@@ -270,8 +256,8 @@ Returns the hyperbolic cosine of the number.
 ### Example
 
 ```koto
-3.cosh()
-# (e.pow(3) + e.pow(-3)) / 2
+assert_eq 0.cosh(), 1
+assert_near 1.cosh(), 1.5430806348152437
 ```
 
 ## degrees
@@ -287,11 +273,11 @@ Converts radians into degrees.
 ```koto
 from number import pi, tau
 
-pi.degrees()
-# 180.0
+print! pi.degrees()
+check! 180.0
 
-tau.degrees()
-# 360.0
+print! tau.degrees()
+check! 360.0
 ```
 
 ## e
@@ -314,11 +300,8 @@ equivalent to calling `e.pow x`.
 ### Example
 
 ```koto
-0.exp()
-# 1.0
-
-1.exp()
-# number.e
+assert_eq 0.exp(), 1
+assert_eq 1.exp(), number.e
 ```
 
 ## exp2
@@ -333,11 +316,11 @@ equivalent to calling `2.pow x`.
 ### Example
 
 ```koto
-1.exp2()
-# 2.0
+print! 1.exp2()
+check! 2.0
 
-3.exp2()
-# 8.0
+print! 3.exp2()
+check! 8.0
 ```
 
 ## flip_bits
@@ -351,8 +334,8 @@ Returns the input with its bits 'flipped', i.e. `1` => `0`, and `0` => `1`.
 ### Example
 
 ```koto
-1.flip_bits()
-# -2
+print! 1.flip_bits()
+check! -2
 ```
 
 ## floor
@@ -366,14 +349,14 @@ Returns the integer that's less than or equal to the input.
 ### Example
 
 ```koto
-0.5.floor()
-# 0
+print! 0.5.floor()
+check! 0
 
-2.floor()
-# 2
+print! 2.floor()
+check! 2
 
--0.5.floor()
-# -1
+print! -0.5.floor()
+check! -1
 ```
 
 ### See Also
@@ -401,11 +384,11 @@ Returns true if the number is `NaN`.
 ### Example
 
 ```koto
-1.is_nan()
-# false
+print! 1.is_nan()
+check! false
 
-(0 / 0).is_nan()
-# true
+print! (0 / 0).is_nan()
+check! true
 ```
 
 ## lerp
@@ -430,17 +413,17 @@ e.g.
 ```koto
 a, b = 1, 2
 
-a.lerp b, 0
-# 1
-a.lerp b, 0.5
-# 1.5
-a.lerp b, 1
-# 2
+print! a.lerp b, 0
+check! 1
+print! a.lerp b, 0.5
+check! 1.5
+print! a.lerp b, 1
+check! 2
 
-a.lerp b, -0.5
-# 0.5
-a.lerp b, 1.5
-# 2.5
+print! a.lerp b, -0.5
+check! 0.5
+print! a.lerp b, 1.5
+check! 2.5
 ```
 
 ## ln
@@ -454,13 +437,13 @@ Returns the natural logarithm of the number.
 ### Example
 
 ```koto
-1.ln()
-# 0.0
+print! 1.ln()
+check! 0.0
 
 from number import e
 
-e.ln()
-# 1.0
+print! e.ln()
+check! 1.0
 ```
 
 ## log2
@@ -474,11 +457,11 @@ Returns the base-2 logarithm of the number.
 ### Example
 
 ```koto
-2.log2()
-# 1.0
+print! 2.log2()
+check! 1.0
 
-4.log2()
-# 2.0
+print! 4.log2()
+check! 2.0
 ```
 
 ## log10
@@ -492,11 +475,11 @@ Returns the base-10 logarithm of the number.
 ### Example
 
 ```koto
-10.log10()
-# 1.0
+print! 10.log10()
+check! 1.0
 
-100.log10()
-# 2.0
+print! 100.log10()
+check! 2.0
 ```
 
 ## max
@@ -510,11 +493,11 @@ Returns the larger of the two numbers.
 ### Example
 
 ```koto
-1.max 2
-# 2
+print! 1.max 2
+check! 2
 
-4.5.max 3
-# 4.5
+print! 4.5.max 3
+check! 4.5
 ```
 
 ## min
@@ -528,11 +511,11 @@ Returns the smaller of the two numbers.
 ### Example
 
 ```koto
-1.min 2
-# 1
+print! 1.min 2
+check! 1
 
-4.5.min 3
-# 3
+print! 4.5.min 3
+check! 3
 ```
 
 ## nan
@@ -563,8 +546,9 @@ positions produces a `1` in corresponding output positions.
 ### Example
 
 ```koto
-0b1010.or 0b1100
+print! 0b1010.or 0b1100
 # 0b1110
+check! 14
 ```
 
 ## pi
@@ -602,8 +586,8 @@ Returns the result of raising the first number to the power of the second.
 ### Example
 
 ```koto
-2.pow 3
-# 8
+print! 2.pow 3
+check! 8
 ```
 
 ## radians
@@ -617,11 +601,10 @@ Converts degrees into radians.
 ### Example
 
 ```koto
-90.radians()
-# π / 2
+import number.pi
 
-360.radians()
-# π * 2
+assert_near 90.radians(), pi / 2
+assert_near 360.radians(), pi * 2
 ```
 
 ## recip
@@ -635,8 +618,8 @@ Returns the reciprocal of the number, i.e. `1 / x`.
 ### Example
 
 ```koto
-2.recip()
-# 0.5
+print! 2.recip()
+check! 0.5
 ```
 
 ## round
@@ -651,14 +634,14 @@ Half-way values round away from zero.
 ### Example
 
 ```koto
-0.5.round()
-# 1
+print! 0.5.round()
+check! 1
 
-2.round()
-# 2
+print! 2.round()
+check! 2
 
--0.5.round()
-# -1
+print! -0.5.round()
+check! -1
 ```
 
 ### See Also
@@ -683,8 +666,9 @@ The shift amount must be greater than or equal to `0`.
 ### Example
 
 ```koto
-0b1010.shift_left 2
+print! 0b1010.shift_left 2
 # 0b101000
+check! 40
 ```
 
 ## shift_right
@@ -703,8 +687,9 @@ The shift amount must be greater than or equal to `0`.
 ### Example
 
 ```koto
-0b1010.shift_left 2
-# 0b101000
+print! 0b1010.shift_right 2
+# 0b0010
+check! 2
 ```
 
 ## sin
@@ -720,11 +705,11 @@ Returns the sine of the number.
 ```koto
 import number.pi
 
-(pi * 0.5).sin()
-# 1.0
+print! (pi * 0.5).sin()
+check! 1.0
 
-(pi * 1.5).sin()
-# -1.0
+print! (pi * 1.5).sin()
+check! -1.0
 ```
 
 ## sinh
@@ -738,8 +723,8 @@ Returns the hyperbolic sine of the number.
 ### Example
 
 ```koto
-3.sinh()
-# (e.pow(3) - e.pow(-3)) / 2
+assert_eq 0.sinh(), 0
+assert_near 1.sinh(), 1.1752011936438014
 ```
 
 ## sqrt
@@ -753,8 +738,8 @@ Returns the square root of the number.
 ### Example
 
 ```koto
-64.sqrt()
-# 8.0
+print! 64.sqrt()
+check! 8.0
 ```
 
 ## tan
@@ -768,8 +753,8 @@ Returns the tangent of the number.
 ### Example
 
 ```koto
-1.tan()
-# 1.sin() / 1.cos()
+assert_eq 0.tan(), 0
+assert_near 1.tan(), 1.557407724654902
 ```
 
 ## tanh
@@ -783,8 +768,7 @@ Returns the hyperbolic tangent of the number.
 ### Example
 
 ```koto
-1.tanh()
-# 1.sinh() / 1.cosh()
+assert_near 1.tanh(), 1.sinh() / 1.cosh()
 ```
 
 ## tau
@@ -806,8 +790,8 @@ Returns the number as a `Float`.
 ### Example
 
 ```koto
-1.to_float()
-# 1.0
+print! 1.to_float()
+check! 1.0
 ```
 
 ## to_int
@@ -823,17 +807,17 @@ This is often called `trunc` in other languages.
 ### Example
 
 ```koto
-2.9.to_int()
-# 2
+print! 2.9.to_int()
+check! 2
 
-1.5.to_int()
-# 1
+print! 1.5.to_int()
+check! 1
 
--0.5.to_int()
-# 0
+print! -0.5.to_int()
+check! 0
 
--1.9.to_int()
-# -1
+print! -1.9.to_int()
+check! -1
 ```
 
 ### See Also
@@ -855,6 +839,7 @@ produces a `1` in corresponding output positions.
 ### Example
 
 ```koto
-0b1010.xor 0b1100
+print! 0b1010.xor 0b1100
 # 0b0110
+check! 6
 ```

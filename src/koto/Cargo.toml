@@ -24,6 +24,11 @@ dunce = "1.0.2" # Normalize Windows paths to the most compatible format, avoidin
 [dev-dependencies]
 criterion = "0.3.1"
 
+[dev-dependencies.pulldown-cmark]
+# Markdown parsing
+version = "0.8.0"
+default-features = false
+
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
 jemallocator = {version = "0.3.2"}
 

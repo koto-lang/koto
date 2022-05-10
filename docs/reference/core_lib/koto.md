@@ -72,15 +72,15 @@ the `@type` meta value, for more information see
 ### Example
 
 ```koto
-koto.type true
-# Bool
+print! koto.type true
+check! Bool
 
 x = 42
-koto.type x
-# Int
+print! koto.type x
+check! Int
 
 foo =
   @type: "Foo"
-koto.type foo
-# Foo
+print! koto.type foo
+check! Foo
 ```

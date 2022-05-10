@@ -77,12 +77,15 @@ Throws a runtime error if the argument if false.
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert 1 < 2
 
 # This assertion will fail and throw an error
-assert 1 > 2
-# error: Assertion failed
+try 
+  assert 1 > 2
+catch error
+  print error
 ```
 
 ## assert_eq
@@ -97,12 +100,15 @@ equal.
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert_eq 1 + 1, 2
 
 # This assertion will fail and throw an error
-assert_eq 2 + 2, 5
-# error: Assertion failed, '4' is not equal to '5'
+try 
+  assert_eq 2 + 2, 5
+catch error
+  print error
 ```
 
 ## assert_ne
@@ -116,12 +122,15 @@ Checks the two input values for inequality and throws an error if they're equal.
 ### Example
 
 ```koto
+skip_check!
 # This assertion will pass, and no error will be thrown
 assert_ne 1 + 1, 3
 
 # This assertion will fail and throw an error
-assert_ne 2 + 2, 4
-# error: Assertion failed, '4' should not be equal to '4'
+try
+  assert_ne 2 + 2, 4
+catch error
+  print error
 ```
 
 ## assert_near
@@ -161,12 +170,16 @@ comparisons, and `1.0e-6` for `Num4` comparisons.
 ### Example
 
 ```koto
+skip_check!
 allowed_error = 0.01
 # This assertion will pass, and no error will be thrown
 assert_near 1.3, 1.301, allowed_error
 
 # This assertion will fail and throw an error
-assert_near 1.3, 1.32, allowed_error
+try
+  assert_near 1.3, 1.32, allowed_error
+catch error
+  print error
 # error: Assertion failed, '1.3' and '1.32' are not within 0.01 of each other
 
 # The allowed margin of error is optional, defaulting to a very small value
@@ -184,6 +197,7 @@ Runs the tests contained in the map.
 ### Example
 
 ```koto
+skip_check!
 my_tests =
   @pre_test: |self| self.test_data = 1, 2, 3
   @post_test: |self| self.test_data = null
