@@ -187,16 +187,17 @@ Tests are also stored in the meta map, see [test.md](test.md) for info.
 ## clear
 
 ```kototype
-|Map| -> Null
+|Map| -> Map
 ```
 
-Clears the map by removing all of its elements.
+Clears the map by removing all of its elements, and returns the map.
 
 ### Example
 
 ```koto
 x = {x: -1, y: 42}
-x.clear()
+print! x.clear()
+check! {}
 print! x
 check! {}
 ```
@@ -519,18 +520,18 @@ check! 2
 ## sort
 
 ```kototype
-|Map| -> Null
+|Map| -> Map
 ```
 
-Sorts the map's entries by key.
+Sorts the map's entries by key, and returns the map.
 
 ```kototype
 |Map, |Value, Value| -> Value| -> Null
 ```
 
-Sorts the map's entries, based on the output of calling a 'key' function for
-each entry. The entry's key and value are passed into the function as separate
-arguments.
+Sorts the map's entries based on the output of calling a 'key' function for each
+entry, and returns the map. The entry's key and value are passed into the
+function as separate arguments.
 
 The function result is cached, so it's only called once per entry.
 
@@ -541,12 +542,14 @@ x =
   hello: 123
   bye: -1
   tschüss: 99
-x.sort() # Sorts the map by key
+print! x.sort() # Sorts the map by key
+check! {bye: -1, hello: 123, tschüss: 99}
 print! x
 check! {bye: -1, hello: 123, tschüss: 99}
 
 # Sort the map by value
-x.sort |_, value| value 
+print! x.sort |_, value| value 
+check! {bye: -1, tschüss: 99, hello: 123}
 print! x
 check! {bye: -1, tschüss: 99, hello: 123}
 
