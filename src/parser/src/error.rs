@@ -1,6 +1,10 @@
 use {
     koto_lexer::{Position, Span},
-    std::{error, fmt, path::PathBuf},
+    std::{
+        error,
+        fmt::{self, Write},
+        path::PathBuf,
+    },
 };
 
 /// An error that represents a problem with the Parser's internal logic, rather than a user error
@@ -389,18 +393,20 @@ pub fn format_error_with_excerpt(
                 excerpt_lines.first().unwrap(),
             );
 
-            excerpt += &format!(
+            write!(
+                excerpt,
                 "{padding}|{}{}",
                 " ".repeat(start_pos.column as usize),
                 "^".repeat((end_pos.column - start_pos.column) as usize)
-            );
+            )
+            .ok();
 
             (excerpt, padding)
         } else {
             let mut excerpt = String::new();
 
             for (excerpt_line, line_number) in excerpt_lines.iter().zip(line_numbers.iter()) {
-                excerpt += &format!(" {line_number:>number_width$} | {excerpt_line}\n",);
+                writeln!(excerpt, " {line_number:>number_width$} | {excerpt_line}").ok();
             }
 
             (excerpt, padding)
