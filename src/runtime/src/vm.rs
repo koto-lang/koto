@@ -1226,7 +1226,7 @@ impl Vm {
             }
             TemporaryTuple(RegisterSlice { start, count }) => {
                 let count = *count;
-                if (index.abs() as u8) < count {
+                if index.unsigned_abs() < count {
                     let index = signed_index_to_unsigned(index, count as usize);
                     self.clone_register(start + index as u8)
                 } else {
@@ -3199,7 +3199,7 @@ impl fmt::Debug for Vm {
 
 fn signed_index_to_unsigned(index: i8, size: usize) -> usize {
     if index < 0 {
-        size - (index.abs() as usize).min(size)
+        size - (index as isize).unsigned_abs().min(size)
     } else {
         index as usize
     }
