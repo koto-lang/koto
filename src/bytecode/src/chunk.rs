@@ -1,7 +1,11 @@
 use {
     crate::InstructionReader,
     koto_parser::{ConstantPool, Span},
-    std::{fmt, path::PathBuf, rc::Rc},
+    std::{
+        fmt::{self, Write},
+        path::PathBuf,
+        rc::Rc,
+    },
 };
 
 /// Debug information for a Koto program
@@ -83,9 +87,10 @@ impl Chunk {
         'outer: loop {
             for i in 1..=16 {
                 match iter.next() {
-                    Some(byte) => result += &format!("{byte:02x}"),
+                    Some(byte) => write!(result, "{byte:02x}").ok(),
                     None => break 'outer,
-                }
+                };
+
                 if i < 16 {
                     result += " ";
 
@@ -132,11 +137,11 @@ impl Chunk {
                     .line
                     .min(source_lines.len() as u32)
                     .max(1) as usize;
-                result += &format!("|{line}| {}\n", source_lines[line - 1]);
+                writeln!(result, "|{line}| {}", source_lines[line - 1]).ok();
                 span = Some(instruction_span);
             }
 
-            result += &format!("{ip}\t{instruction:?}\n");
+            writeln!(result, "{ip}\t{instruction:?}").ok();
             ip = reader.ip;
         }
 
