@@ -2,8 +2,6 @@
 
 A collection of utilities for working with the operating system.
 
-# Reference
-
 ## name
 
 ```kototype
@@ -24,8 +22,7 @@ script is running.
 
 ### Example
 
-```koto
-skip_check!
+```koto,skip_check
 t = os.start_timer()
 
 # ...after some time...
@@ -59,8 +56,7 @@ using a time offset in seconds.
 
 ### Example
 
-```koto
-skip_check!
+```koto,skip_check
 print! now = os.time()
 # e.g. 2021-12-11 21:51:14
 
@@ -183,8 +179,7 @@ Returns the number of seconds that have elapsed since the timer was started.
 
 ### Example
 
-```koto
-skip_check!
+```koto,skip_check
 t = os.start_timer()
 
 # ...after some time...

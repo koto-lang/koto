@@ -1,30 +1,5 @@
 # num4
 
-A Num4 in Koto is a packed group of 32bit floating-point numbers,
-which can be useful when working with operations that require 3D coordinates,
-or RGBA colour values.
-
-Element-wise arithmetic operations between Num4s are available,
-while operations with Numbers apply the number to each element.
-
-## Example
-
-```koto
-x = make_num4 1, 2, 3, 4
-y = make_num4 5, 6, 7, 8
-
-print! x[2]
-check! 3.0
-
-print! x + y
-check! num4(6, 8, 10, 12)
-
-print! x * 0.5
-check! num4(0.5, 1, 1.5, 2)
-```
-
-# Reference
-
 ## length
 
 ```kototype

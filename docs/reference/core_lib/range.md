@@ -1,52 +1,5 @@
 # range
 
-Ranges are represented in Koto by start and end integers.
-
-## Creating a range
-
-Ranges are created using the syntax `start..end` for a non-inclusive range.
-
-`start..=end` is used for an inclusive range, although this is currently just
-syntax sugar for creating a non-inclusive range that includes the `end` value.
-This simplifies the internal implementation but could be confusing for users,
-so this may change in the future.
-
-Descending ranges are allowed, so the `start` value can be smaller than `end`.
-
-### Example
-
-```koto
-# Non-inclusive range
-print! x = 10..20
-check! 10..20
-print! x.start()
-check! 10
-print! x.end()
-check! 20
-
-# Inclusive range
-print! x2 = 100..=200
-check! 100..201
-print! x2.contains 200
-check! true
-
-# Descending non-inclusive range
-print! x3 = 3..0
-check! 3..0
-print! x3.start()
-check! 3
-print! x3.to_tuple()
-check! (3, 2, 1)
-
-# Descending inclusive range
-print! x4 = 3..=0
-check! 3..-1
-print! x4.to_list()
-check! [3, 2, 1, 0]
-```
-
-# Reference
-
 ## contains
 
 ```kototype

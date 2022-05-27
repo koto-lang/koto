@@ -1,19 +1,5 @@
 # number
 
-Numbers in Koto are represented internally as either a signed 64 bit integer or
-float, switching between the two representations automatically depending on
-usage.
-
-### Example
-
-```koto
-x = 1        # x is assigned as an integer
-y = x + 0.5  # y is assigned as a float
-x += 0.99    # x is now a float
-```
-
-# Reference
-
 ## abs
 
 ```kototype

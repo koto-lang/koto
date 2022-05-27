@@ -2,8 +2,6 @@
 
 A collection of utilities for working with the local filesystem.
 
-# Reference
-
 ## create
 
 ```kototype

@@ -1,4 +1,7 @@
-use {indexmap::IndexMap, std::iter::Peekable, std::ops::Deref};
+use {indexmap::IndexMap, std::iter::Peekable};
+
+const HELP_RESULT_STR: &str = "# ➝ ";
+const HELP_INDENT: usize = 2;
 
 struct HelpEntry {
     name: String,
@@ -6,33 +9,61 @@ struct HelpEntry {
 }
 
 pub struct Help {
-    map: IndexMap<String, HelpEntry>,
+    help_map: IndexMap<String, HelpEntry>,
+    module_names: Vec<String>,
 }
 
 impl Help {
     pub fn new() -> Self {
         let mut result = Self {
-            map: IndexMap::new(),
+            help_map: IndexMap::new(),
+            module_names: Vec::new(),
         };
 
-        let help_modules = [
-            include_str!("docs/reference/core_lib/io.md"),
-            include_str!("docs/reference/core_lib/iterator.md"),
-            include_str!("docs/reference/core_lib/koto.md"),
-            include_str!("docs/reference/core_lib/list.md"),
-            include_str!("docs/reference/core_lib/map.md"),
-            include_str!("docs/reference/core_lib/number.md"),
-            include_str!("docs/reference/core_lib/num2.md"),
-            include_str!("docs/reference/core_lib/num4.md"),
-            include_str!("docs/reference/core_lib/os.md"),
-            include_str!("docs/reference/core_lib/range.md"),
-            include_str!("docs/reference/core_lib/string.md"),
-            include_str!("docs/reference/core_lib/test.md"),
-            include_str!("docs/reference/core_lib/tuple.md"),
+        let guide_files = [
+            include_str!("../../../docs/language/basic_types.md"),
+            include_str!("../../../docs/language/comments.md"),
+            include_str!("../../../docs/language/conditional_expressions.md"),
+            include_str!("../../../docs/language/core_library.md"),
+            include_str!("../../../docs/language/errors.md"),
+            include_str!("../../../docs/language/functions.md"),
+            include_str!("../../../docs/language/generators.md"),
+            include_str!("../../../docs/language/iterators.md"),
+            include_str!("../../../docs/language/lists.md"),
+            include_str!("../../../docs/language/loops.md"),
+            include_str!("../../../docs/language/maps.md"),
+            include_str!("../../../docs/language/meta_maps.md"),
+            include_str!("../../../docs/language/modules.md"),
+            include_str!("../../../docs/language/ranges.md"),
+            include_str!("../../../docs/language/strings.md"),
+            include_str!("../../../docs/language/testing.md"),
+            include_str!("../../../docs/language/tuples.md"),
+            include_str!("../../../docs/language/value_assignments.md"),
+            include_str!("../../../docs/language/value_unpacking.md"),
         ];
 
-        for module in help_modules.iter() {
-            result.add_help_from_markdown(module);
+        let reference_files = [
+            include_str!("../../../docs/reference/core_lib/io.md"),
+            include_str!("../../../docs/reference/core_lib/iterator.md"),
+            include_str!("../../../docs/reference/core_lib/koto.md"),
+            include_str!("../../../docs/reference/core_lib/list.md"),
+            include_str!("../../../docs/reference/core_lib/map.md"),
+            include_str!("../../../docs/reference/core_lib/number.md"),
+            include_str!("../../../docs/reference/core_lib/num2.md"),
+            include_str!("../../../docs/reference/core_lib/num4.md"),
+            include_str!("../../../docs/reference/core_lib/os.md"),
+            include_str!("../../../docs/reference/core_lib/range.md"),
+            include_str!("../../../docs/reference/core_lib/string.md"),
+            include_str!("../../../docs/reference/core_lib/test.md"),
+            include_str!("../../../docs/reference/core_lib/tuple.md"),
+        ];
+
+        for file_contents in guide_files.iter() {
+            result.add_help_from_guide(file_contents);
+        }
+
+        for file_contents in reference_files.iter() {
+            result.add_help_from_reference(file_contents);
         }
 
         result
@@ -42,14 +73,20 @@ impl Help {
         match search {
             Some(search) => {
                 let search_lower = search.trim().to_lowercase();
-                match self.map.get(&search_lower) {
+                match self.help_map.get(&search_lower) {
                     Some(entry) => {
-                        let mut help = entry.help.clone();
+                        let mut help = format!(
+                            "{indent}{name}\n{indent}{underline}{help}",
+                            indent = " ".repeat(HELP_INDENT),
+                            name = entry.name,
+                            underline = "=".repeat(entry.name.len()),
+                            help = entry.help
+                        );
 
                         let sub_match = format!("{}.", search_lower);
                         let match_level = sub_match.chars().filter(|&c| c == '.').count();
                         let sub_entries = self
-                            .map
+                            .help_map
                             .iter()
                             .filter(|(key, _)| {
                                 key.starts_with(&sub_match)
@@ -80,7 +117,7 @@ impl Help {
                     }
                     None => {
                         let matches = self
-                            .map
+                            .help_map
                             .iter()
                             .filter(|(key, _)| key.contains(&search_lower))
                             .collect::<Vec<_>>();
@@ -103,24 +140,46 @@ impl Help {
             }
             None => {
                 let mut help = "
-  To get help for a module, run `help <module>` (e.g. `help map`),
-  or for a module item, run `help <module>.<item>` (e.g. `help map.keys`).
+  To get help for a topic, run `help <topic>` (e.g. `help strings`).
 
-  Help is available for the following modules:
+  To look up the core library documentation, run `help <module>.<item>` (e.g. `help map.keys`).
+
+  Help is available for the following topics:
     "
                 .to_string();
 
-                for (i, entry) in self
-                    .map
-                    .values()
-                    .filter(|HelpEntry { name, .. }| !name.contains('.'))
-                    .enumerate()
-                {
+                let mut topics = self
+                    .help_map
+                    .keys()
+                    // Filter out core library entries
+                    .filter(|key| !key.contains('.') && !self.module_names.contains(key))
+                    .collect::<Vec<_>>();
+                // Sort the topics into alphabetical order
+                topics.sort();
+                // Bump topics starting with non-alphnumeric characters to the end of the list
+                topics.sort_by_key(|name| !name.chars().next().unwrap().is_alphanumeric());
+
+                for (i, topic) in topics.iter().enumerate() {
                     if i > 0 {
                         help.push_str(", ");
                     }
 
-                    help.push_str(&entry.name);
+                    help.push_str(&topic);
+                }
+
+                help.push_str(
+                    "
+
+  Help is available for the following core library modules:
+    ",
+                );
+
+                for (i, module_name) in self.module_names.iter().enumerate() {
+                    if i > 0 {
+                        help.push_str(", ");
+                    }
+
+                    help.push_str(&module_name);
                 }
 
                 help
@@ -128,33 +187,53 @@ impl Help {
         }
     }
 
-    fn add_help_from_markdown(&mut self, markdown: &str) {
-        use pulldown_cmark::{Event, Parser, Tag};
-
-        let mut parser = Parser::new(markdown).peekable();
+    fn add_help_from_guide(&mut self, markdown: &str) {
+        let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
 
         // Consume the module overview section
-        let (module_name, help) = consume_help_section(&mut parser, None);
-        self.map.insert(
-            module_name.to_lowercase(),
-            HelpEntry {
-                name: module_name.clone(),
-                help,
-            },
-        );
-
-        // Skip ahead until the first reference subsection is found
-        while let Some(peeked) = parser.peek() {
-            if matches!(peeked, Event::Start(Tag::Heading(2))) {
-                break;
-            }
-            parser.next();
+        let (file_name, help) = consume_help_section(&mut parser, None);
+        if !help.trim().is_empty() {
+            self.help_map.insert(
+                file_name.to_lowercase().replace(" ", "_"),
+                HelpEntry {
+                    name: file_name,
+                    help,
+                },
+            );
         }
+
+        // Add sub-topics
+        while parser.peek().is_some() {
+            let (entry_name, help) = consume_help_section(&mut parser, None);
+            self.help_map.insert(
+                entry_name.to_lowercase().replace(" ", "_"),
+                HelpEntry {
+                    name: entry_name,
+                    help,
+                },
+            );
+        }
+    }
+
+    fn add_help_from_reference(&mut self, markdown: &str) {
+        let mut parser = pulldown_cmark::Parser::new(markdown).peekable();
+
+        let (module_name, help) = consume_help_section(&mut parser, None);
+        if !help.trim().is_empty() {
+            self.help_map.insert(
+                module_name.clone(),
+                HelpEntry {
+                    name: module_name.clone(),
+                    help,
+                },
+            );
+        }
+        self.module_names.push(module_name.clone());
 
         // Consume each module entry
         while parser.peek().is_some() {
             let (entry_name, help) = consume_help_section(&mut parser, Some(&module_name));
-            self.map.insert(
+            self.help_map.insert(
                 entry_name.to_lowercase(),
                 HelpEntry {
                     name: entry_name,
@@ -173,10 +252,11 @@ fn consume_help_section<'a>(
 
     let mut section_level = None;
     let mut section_name = String::new();
-    let indent = " ".repeat(2);
+    let indent = " ".repeat(HELP_INDENT);
     let mut result = indent.clone();
 
     let mut list_indent = 0;
+    let mut in_section_heading = false;
     let mut heading_start = 0;
     let mut first_heading = true;
     let mut in_koto_code = false;
@@ -186,6 +266,10 @@ fn consume_help_section<'a>(
         match peeked {
             Start(Heading(level)) => {
                 match section_level {
+                    Some(1) => {
+                        // We've reached the end of the title section, so break out
+                        break;
+                    }
                     Some(section_level) if section_level >= *level => {
                         // We've reached the end of the section, so break out
                         break;
@@ -194,17 +278,22 @@ fn consume_help_section<'a>(
                         // Start a new subsection
                         result.push_str("\n\n");
                     }
-                    None => section_level = Some(*level),
+                    None => {
+                        in_section_heading = true;
+                        section_level = Some(*level);
+                    }
                 }
                 heading_start = result.len();
             }
             End(Heading(_)) => {
-                let heading_length = result.len() - heading_start;
-                result.push('\n');
-                let heading_underline = if first_heading { "=" } else { "-" };
-                for _ in 0..heading_length {
-                    result.push_str(heading_underline)
+                if !first_heading {
+                    let heading_length = result.len() - heading_start;
+                    result.push('\n');
+                    for _ in 0..heading_length {
+                        result.push_str("-")
+                    }
                 }
+                in_section_heading = false;
                 first_heading = false;
             }
             Start(Link(_type, _url, title)) => result.push_str(title),
@@ -228,9 +317,9 @@ fn consume_help_section<'a>(
             End(Paragraph) => {}
             Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 result.push_str("\n\n");
-                match lang.deref() {
-                    "koto" => in_koto_code = true,
-                    "kototype" => in_type_declaration = true,
+                match lang.split(',').next() {
+                    Some("koto") => in_koto_code = true,
+                    Some("kototype") => in_type_declaration = true,
                     _ => {}
                 }
             }
@@ -243,25 +332,20 @@ fn consume_help_section<'a>(
             Start(Strong) => result.push('*'),
             End(Strong) => result.push('*'),
             Text(text) => {
-                if section_name.is_empty() {
-                    if let Some(module_name) = module_name {
-                        section_name = format!("{module_name}.{text}");
-                    } else {
-                        section_name = text.to_string();
-                    }
-                    result.push_str(&section_name);
+                if in_section_heading {
+                    section_name.push_str(text);
                 } else if in_koto_code {
                     for (i, line) in text.split('\n').enumerate() {
                         if i == 0 {
                             result.push('|');
                         }
                         result.push_str("\n|  ");
-                        if !line.starts_with("skip_check!") {
-                            let processed_line = line
-                                .trim_start_matches("print! ")
-                                .replacen("check! ", "# ", 1);
-                            result.push_str(&processed_line);
-                        }
+                        let processed_line = line.trim_start_matches("print! ").replacen(
+                            "check! ",
+                            HELP_RESULT_STR,
+                            1,
+                        );
+                        result.push_str(&processed_line);
                     }
                 } else if in_type_declaration {
                     result.push('`');
@@ -272,18 +356,13 @@ fn consume_help_section<'a>(
                 }
             }
             Code(code) => {
-                result.push('`');
-                if section_name.is_empty() {
-                    if let Some(module_name) = module_name {
-                        section_name = format!("{module_name}.{code}");
-                    } else {
-                        section_name = code.to_string();
-                    }
-                    result.push_str(&section_name);
+                if in_section_heading {
+                    section_name.push_str(code);
                 } else {
+                    result.push('`');
                     result.push_str(code);
+                    result.push('`');
                 }
-                result.push('`');
             }
             SoftBreak => result.push(' '),
             HardBreak => result.push('\n'),
@@ -293,6 +372,10 @@ fn consume_help_section<'a>(
         parser.next();
     }
 
+    if let Some(module_name) = module_name {
+        section_name = format!("{module_name}.{section_name}");
+    }
     let result = result.replace('\n', &format!("\n{indent}"));
+
     (section_name, result)
 }

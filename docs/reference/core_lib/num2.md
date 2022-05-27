@@ -1,29 +1,5 @@
 # num2
 
-A `Num2` in Koto is a packed pair of 64bit floating-point numbers,
-which can be useful when dealing with operations that require pairs of numbers,
-like 2D coordinates.
-
-Element-wise arithmetic operations between Num2s are available,
-while operations with Numbers apply the number to each element.
-
-## Example
-
-```koto
-x = make_num2 1, 2
-y = make_num2 3, 4
-print! x + y
-check! num2(4, 6)
-
-print! x[0] + y[0]
-check! 4.0
-
-print! x + 10
-check! num2(11, 12)
-```
-
-# Reference
-
 ## angle
 
 ```kototype
