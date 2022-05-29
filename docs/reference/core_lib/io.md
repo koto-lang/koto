@@ -99,18 +99,27 @@ f.exists()
 ## print
 
 ```kototype
-|Value| -> Null
-```
-```kototype
 |String, Value...| -> Null
 ```
 
-Prints a formatted string to the active logger,
-which by default is the standard output.
+Prints a formatted string to the active output. 
+See [`string.format`](@/docs/core/string.md#format) for the formatting syntax.
+
+```kototype
+|Value| -> Null
+```
+
+Prints a single value to the active output. 
+
+```kototype
+|Value, Value...| -> Null
+```
+
+Prints a series of values to the active output. 
 
 ### Note
 
-See [`string.format`](@/docs/core/string.md#format) for the formatting syntax.
+The output for `print` depends on the configuration of the runtime, by default this is stdout.
 
 ## read_to_string
 

@@ -215,6 +215,7 @@ The Koto project adheres to
     # [1, 2, 3, 4]
     ```
 - `range.contains` now supports descending ranges.
+- `io.print` will now print a series of values as a Tuple, assuming the first value isn't a string.
 
 #### Random Library
 
