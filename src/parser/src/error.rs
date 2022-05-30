@@ -276,7 +276,7 @@ impl fmt::Display for SyntaxError {
             ExpectedForIterable => f.write_str("Expected iterable in for loop"),
             ExpectedFunctionArgsEnd => f.write_str("Expected end of function arguments '|'"),
             ExpectedIdInImportExpression => f.write_str("Expected ID in import expression"),
-            ExpectedIfCondition => f.write_str("Expected condition in if expression"),
+            ExpectedIfCondition => f.write_str("Expected condition after 'if'"),
             ExpectedImportKeywordAfterFrom => f.write_str("Expected 'import' after 'from' ID"),
             ExpectedImportModuleId => f.write_str("Expected module ID in import expression"),
             ExpectedIndentedLookupContinuation => {
