@@ -730,6 +730,7 @@ impl<'source> Parser<'source> {
     fn parse_term(&mut self, context: &ExpressionContext) -> Result<Option<AstIndex>, ParserError> {
         use Node::*;
 
+        let start_span = self.current_span();
         let start_indent = self.current_indent();
         if let Some(peeked) = self.peek_token_with_context(context) {
             let result = match peeked.token {
@@ -751,7 +752,11 @@ impl<'source> Parser<'source> {
                     let (string, span, string_context) = self.parse_string(context)?.unwrap();
 
                     if self.peek_token() == Some(Token::Colon) {
-                        self.parse_braceless_map_start(MapKey::Str(string), &string_context)
+                        self.parse_braceless_map_start(
+                            MapKey::Str(string),
+                            start_span,
+                            &string_context,
+                        )
                     } else {
                         let string_node = self.push_node_with_span(Str(string), span)?;
                         self.check_for_lookup_after_node(string_node, &string_context)
@@ -776,6 +781,7 @@ impl<'source> Parser<'source> {
                     {
                         self.parse_braceless_map_start(
                             MapKey::Meta(meta_key_id, meta_name),
+                            start_span,
                             &meta_context,
                         )
                     } else {
@@ -1201,9 +1207,10 @@ impl<'source> Parser<'source> {
         &mut self,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
+        let start_span = self.current_span();
         if let Some((constant_index, id_context)) = self.parse_id(context)? {
             if self.peek_token() == Some(Token::Colon) {
-                self.parse_braceless_map_start(MapKey::Id(constant_index), &id_context)
+                self.parse_braceless_map_start(MapKey::Id(constant_index), start_span, &id_context)
             } else {
                 self.frame_mut()?.add_id_access(constant_index);
 
@@ -1795,9 +1802,9 @@ impl<'source> Parser<'source> {
     fn parse_braceless_map_start(
         &mut self,
         first_key: MapKey,
+        start_span: Span,
         context: &ExpressionContext,
     ) -> Result<AstIndex, ParserError> {
-        let start_span = self.current_span();
         let start_indent = self.current_indent();
 
         if !context.allow_map_block {
