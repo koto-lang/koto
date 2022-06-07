@@ -85,15 +85,18 @@ print "The highest amount of fruit is: $amount $fruit"
 
 ### Learning the Language
 
-While there's not yet a complete guide to Koto, there are some code examples
-that are a good starting point for getting to know the language.
+The [language guide](docs/language/_index.md) gives an overview of Koto's
+features.
+
+There are also some code examples that are a good starting point for getting to 
+know the language.
 
 - [Koto test scripts, organized by feature](./koto/tests/)
 - [Koto benchmark scripts](./koto/benches/)
 - [Example Rust application with Koto bindings](./examples/poetry/)
 
 Reference documentation for Koto's core library can be found
-[here](./docs/reference/core_lib/).
+[here](./docs/core_lib/).
 
 You're also welcome to ask for help in [Discussions][discussions],
 or on the [discord server][discord].

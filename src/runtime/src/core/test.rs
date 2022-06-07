@@ -88,7 +88,6 @@ pub fn make_module() -> ValueMap {
     result.add_fn("run_tests", |vm, args| match vm.get_args(args) {
         [Map(tests)] => {
             let tests = tests.clone();
-            let mut vm = vm.spawn_shared_vm(); // TODO is spawning a VM still necessary?
             vm.run_tests(tests)
         }
         unexpected => {

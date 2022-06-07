@@ -35,6 +35,12 @@ impl ExampleTestRunner {
         }
     }
 
+    fn compile_script(&mut self, script: &str) {
+        if let Err(error) = self.koto.compile(script) {
+            panic!("{}", error);
+        }
+    }
+
     fn run_script(&mut self, script: &str, expected_output: &str, skip_check: bool) {
         self.output.borrow_mut().clear();
 
@@ -123,12 +129,20 @@ fn load_markdown_and_run_examples(path: &Path) {
     let mut code_block = String::with_capacity(128);
     let mut script = String::with_capacity(128);
     let mut expected_output = String::with_capacity(128);
+    let mut skip_check = false;
+    let mut skip_run = false;
 
     for event in Parser::new(&markdown) {
         match event {
-            Start(CodeBlock(CodeBlockKind::Fenced(lang))) if lang.deref() == "koto" => {
-                in_koto_code = true;
-                code_block.clear();
+            Start(CodeBlock(CodeBlockKind::Fenced(lang))) => {
+                let mut lang_info = lang.deref().split(',');
+                if matches!(lang_info.next(), Some("koto")) {
+                    in_koto_code = true;
+                    code_block.clear();
+                    let modifier = lang_info.next();
+                    skip_check = matches!(modifier, Some("skip_check"));
+                    skip_run = matches!(modifier, Some("skip_run"));
+                }
             }
             Text(text) if in_koto_code => code_block.push_str(&text),
             End(CodeBlock(_)) => {
@@ -137,7 +151,6 @@ fn load_markdown_and_run_examples(path: &Path) {
 
                     script.clear();
                     expected_output.clear();
-                    let mut skip_check = false;
 
                     for line in code_block.lines() {
                         if line.starts_with("print! ") {
@@ -146,15 +159,17 @@ fn load_markdown_and_run_examples(path: &Path) {
                         } else if line.starts_with("check! ") {
                             expected_output.push_str(line.trim_start_matches("check! "));
                             expected_output.push('\n');
-                        } else if line.starts_with("skip_check!") {
-                            skip_check = true;
                         } else {
                             script.push_str(line);
                             script.push('\n')
                         }
                     }
 
-                    runner.run_script(&script, &expected_output, skip_check);
+                    if skip_run {
+                        runner.compile_script(&script);
+                    } else {
+                        runner.run_script(&script, &expected_output, skip_check);
+                    }
                 }
             }
             _ => {}
@@ -162,37 +177,65 @@ fn load_markdown_and_run_examples(path: &Path) {
     }
 }
 
-fn run_core_lib_examples(name: &str) {
+fn run_doc_examples(subfolder: &[&str], name: &str) {
     let mut path = PathBuf::new();
-    path.push(env!("CARGO_MANIFEST_DIR"));
-    path.push("..");
-    path.push("..");
-    path.push("docs");
-    path.push("reference");
-    path.push("core_lib");
+    path.extend([env!("CARGO_MANIFEST_DIR"), "..", "..", "docs"]);
+    path.extend(subfolder);
     path.push(format!("{name}.md"));
     path = path.canonicalize().unwrap();
     load_markdown_and_run_examples(&path);
 }
 
-macro_rules! test_core_lib_examples {
-    ($name:ident) => {
-        #[test]
-        fn $name() {
-            run_core_lib_examples(stringify!($name));
-        }
-    };
+mod core_lib {
+    macro_rules! test_core_lib_examples {
+        ($name:ident) => {
+            #[test]
+            fn $name() {
+                super::run_doc_examples(&["core_lib"], stringify!($name))
+            }
+        };
+    }
+
+    test_core_lib_examples!(iterator);
+    test_core_lib_examples!(koto);
+    test_core_lib_examples!(list);
+    test_core_lib_examples!(map);
+    test_core_lib_examples!(num2);
+    test_core_lib_examples!(num4);
+    test_core_lib_examples!(number);
+    test_core_lib_examples!(os);
+    test_core_lib_examples!(range);
+    test_core_lib_examples!(string);
+    test_core_lib_examples!(test);
+    test_core_lib_examples!(tuple);
 }
 
-test_core_lib_examples!(iterator);
-test_core_lib_examples!(koto);
-test_core_lib_examples!(list);
-test_core_lib_examples!(map);
-test_core_lib_examples!(num2);
-test_core_lib_examples!(num4);
-test_core_lib_examples!(number);
-test_core_lib_examples!(os);
-test_core_lib_examples!(range);
-test_core_lib_examples!(string);
-test_core_lib_examples!(test);
-test_core_lib_examples!(tuple);
+mod guide {
+    macro_rules! test_lang_guide_examples {
+        ($name:ident) => {
+            #[test]
+            fn $name() {
+                super::run_doc_examples(&["language"], stringify!($name))
+            }
+        };
+    }
+
+    test_lang_guide_examples!(basic_types);
+    test_lang_guide_examples!(comments);
+    test_lang_guide_examples!(conditional_expressions);
+    test_lang_guide_examples!(core_library);
+    test_lang_guide_examples!(errors);
+    test_lang_guide_examples!(functions);
+    test_lang_guide_examples!(generators);
+    test_lang_guide_examples!(lists);
+    test_lang_guide_examples!(loops);
+    test_lang_guide_examples!(maps);
+    test_lang_guide_examples!(meta_maps);
+    test_lang_guide_examples!(modules);
+    test_lang_guide_examples!(ranges);
+    test_lang_guide_examples!(strings);
+    test_lang_guide_examples!(testing);
+    test_lang_guide_examples!(tuples);
+    test_lang_guide_examples!(value_assignments);
+    test_lang_guide_examples!(value_unpacking);
+}

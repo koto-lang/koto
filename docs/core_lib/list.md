@@ -1,31 +1,5 @@
 # list
 
-Lists in Koto are dynamically sized contiguous arrays of values.
-
-Like other containers in Koto, a list's data is shared between all instances of
-the list.
-
-## Example
-
-```koto
-x = [1, 2, "hello"]
-x[1] = 99
-print! x
-check! [1, 99, "hello"]
-
-y = x
-y[0] = "abc" # x and y share the same internal list data
-print! x
-check! ["abc", 99, "hello"]
-
-z = x.copy()
-z[1] = -1 # z is a copy of x, so has unique internal data
-print! x # x remains unchanged after the modificaton of z
-check! ["abc", 99, "hello"]
-```
-
-# Reference
-
 ## clear
 
 ```kototype

@@ -1329,24 +1329,37 @@ impl Compiler {
             for item in items.iter() {
                 match item.last() {
                     Some(ImportItemNode::Id(import_id)) => {
-                        // Reserve a local for the imported item.
-                        // The register must only be reserved for now otherwise it'll show up in the
-                        // import search.
-                        let import_register = self.reserve_local_register(*import_id)?;
+                        if result.is_some() {
+                            // The result of the import expression is being assigned,
+                            // so import the item into a temporary register.
+                            let import_register = self.push_register()?;
+                            self.compile_import_item(import_register, item, ast)?;
+                            imported.push(import_register);
+                        } else {
+                            // Reserve a local for the imported item.
+                            // The register must only be reserved for now otherwise it'll show up in
+                            // the import search.
+                            let import_register = self.reserve_local_register(*import_id)?;
+                            self.compile_import_item(import_register, item, ast)?;
 
-                        self.compile_import_item(import_register, item, ast)?;
-                        imported.push(import_register);
+                            // Commit the register now that the import is complete
+                            self.commit_local_register(import_register)?;
 
-                        // Commit the register now that the import is complete
-                        self.commit_local_register(import_register)?;
-
-                        // If we're in repl mode then re-export the imported id
-                        if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                            self.compile_value_export(*import_id, import_register)?;
+                            // If we're in repl mode then re-export the imported id
+                            if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                                self.compile_value_export(*import_id, import_register)?;
+                            }
                         }
                     }
                     Some(ImportItemNode::Str(_)) => {
                         // String imports need to be explicitly assigned
+                        if result.is_none() {
+                            return compiler_error!(
+                                self,
+                                "Missing assignment for the import of a String"
+                            );
+                        }
+
                         let import_register = self.push_register()?;
                         self.compile_import_item(import_register, item, ast)?;
                         imported.push(import_register);
@@ -1362,8 +1375,14 @@ impl Compiler {
             for item in items.iter() {
                 match item.last() {
                     Some(ImportItemNode::Id(import_id)) => {
-                        // Assign the leaf item to a local with a matching name.
-                        let import_register = self.assign_local_register(*import_id)?;
+                        let import_register = if result.is_some() {
+                            // The result of the import expression is being assigned,
+                            // so import the item into a temporary register.
+                            self.push_register()?
+                        } else {
+                            // Assign the leaf item to a local with a matching name.
+                            self.assign_local_register(*import_id)?
+                        };
 
                         // Access the item from from_register, incrementally accessing nested items
                         let mut access_register = from_register;
@@ -1384,14 +1403,24 @@ impl Compiler {
                             access_register = import_register;
                         }
 
-                        imported.push(import_register);
-
-                        if self.settings.repl_mode && self.frame_stack.len() == 1 {
-                            self.compile_value_export(*import_id, import_register)?;
+                        if result.is_some() {
+                            imported.push(import_register);
+                        } else {
+                            // If we're in repl mode then re-export the imported id
+                            if self.settings.repl_mode && self.frame_stack.len() == 1 {
+                                self.compile_value_export(*import_id, import_register)?;
+                            }
                         }
                     }
                     Some(ImportItemNode::Str(_)) => {
                         // String imports need to be explicitly assigned
+                        if result.is_none() {
+                            return compiler_error!(
+                                self,
+                                "Missing assignment for import of a String"
+                            );
+                        }
+
                         let import_register = self.push_register()?;
 
                         // Access the item from from_register, incrementally accessing nested items
@@ -1432,6 +1461,11 @@ impl Compiler {
                     self.push_op(SequenceToTuple, &[result.register]);
                 }
             }
+        } else {
+            debug_assert!(
+                imported.is_empty(),
+                "The imported Vec is only needed when the expression result is being used"
+            );
         }
 
         self.truncate_register_stack(stack_count)?;

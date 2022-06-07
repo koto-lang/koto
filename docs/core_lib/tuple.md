@@ -1,41 +1,5 @@
 # tuple
 
-Tuples in Koto are fixed contiguous arrays of values.
-
-In contrast to Lists (which contains data that can modified),
-once a tuple is created its data can't be modified.
-
-Nested Lists and Maps in the Tuple can themselves be modified,
-but the Tuple itself can be thought of as 'read-only'.
-
-## Creating a Tuple
-
-Tuples are created with comma-separated values:
-
-```koto
-print! x = "hello", -1, 99, [1, 2, 3]
-check! ("hello", -1, 99, [1, 2, 3])
-
-print! x[2]
-check! 99
-
-print! x[3]
-check! [1, 2, 3]
-```
-
-Parentheses are used when necessary for disambiguation:
-
-```koto
-x, y = (1, 2, 3), (4, 5, 6)
-print! (x, y)
-check! ((1, 2, 3), (4, 5, 6))
-
-print! (x[1], y[2])
-check! (2, 6)
-```
-
-# Reference
-
 ## contains
 
 ```kototype

@@ -1,51 +1,5 @@
 # iterator
 
-Iterators in Koto provide access to sequences of data, yielding values via
-`.next()`, until the end of the sequence is reached and Null is returned.
-
-## Iterable Values
-
-Values that can produce iterable sequences are referred to as `Iterable`.
-
-`Iterables` include:
-- Iterators (naturally!)
-- Lists
-- Maps
-  - The map's key/value pairs are provided as a Tuple.
-- Ranges
-- Strings
-- Tuples
-
-The contents of the `iterator` module are made available to all `Iterable`s.
-
-### Example
-
-```koto
-# Starting with a List
-print! [1, 2, 3]
-  # Calling iterator.each with the List as the implicit first argument
-  .each |x| x * 2
-  # Calling iterator.to_list with the Iterator resulting from iterator.each
-  .to_list()
-check! [2, 4, 6]
-```
-
-## Loops
-
-`for`, `while`, and `until` loops take any `Iterable` and then provide its
-output values for each iteration of the loop.
-
-```koto
-iter = (2, 3, 4).each |n| n * 2
-for x in iter
-  print "-> {}", x
-check! -> 4
-check! -> 6
-check! -> 8
-```
-
-# Reference
-
 ## all
 
 ```kototype

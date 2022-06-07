@@ -28,8 +28,7 @@ import test_module
 
   @test assign_import_item: ||
     x = import test_module.bar
-    assert_eq bar, -1
-    assert_eq x, bar
+    assert_eq x, -1
 
   @test import_nested_item_directly: ||
     import test_module.baz.qux

@@ -95,6 +95,14 @@ pub fn make_module() -> ValueMap {
     result.add_fn("print", |vm, args| {
         let result = match vm.get_args(args) {
             [Str(s)] => vm.stdout().write_line(s.as_str()),
+            [Str(format), format_args @ ..] => {
+                let format = format.clone();
+                let format_args = format_args.to_vec();
+                match format::format_string(vm, &format, &format_args) {
+                    Ok(result) => vm.stdout().write_line(&result),
+                    Err(error) => Err(error),
+                }
+            }
             [value] => {
                 let value = value.clone();
                 match vm.run_unary_op(crate::UnaryOp::Display, value)? {
@@ -108,12 +116,17 @@ pub fn make_module() -> ValueMap {
                     }
                 }
             }
-            [Str(format), format_args @ ..] => {
-                let format = format.clone();
-                let format_args = format_args.to_vec();
-                match format::format_string(vm, &format, &format_args) {
-                    Ok(result) => vm.stdout().write_line(&result),
-                    Err(error) => Err(error),
+            values @ [_, ..] => {
+                let tuple_data = Vec::from(values);
+                match vm.run_unary_op(crate::UnaryOp::Display, Value::Tuple(tuple_data.into()))? {
+                    Str(s) => vm.stdout().write_line(s.as_str()),
+                    unexpected => {
+                        return unexpected_type_error_with_slice(
+                            "io.print",
+                            "string from @display",
+                            &[unexpected],
+                        )
+                    }
                 }
             }
             unexpected => {
