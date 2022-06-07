@@ -191,7 +191,7 @@ mod core_lib {
         ($name:ident) => {
             #[test]
             fn $name() {
-                super::run_doc_examples(&["reference", "core_lib"], stringify!($name))
+                super::run_doc_examples(&["core_lib"], stringify!($name))
             }
         };
     }

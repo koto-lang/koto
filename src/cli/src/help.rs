@@ -43,19 +43,19 @@ impl Help {
         ];
 
         let reference_files = [
-            include_str!("../../../docs/reference/core_lib/io.md"),
-            include_str!("../../../docs/reference/core_lib/iterator.md"),
-            include_str!("../../../docs/reference/core_lib/koto.md"),
-            include_str!("../../../docs/reference/core_lib/list.md"),
-            include_str!("../../../docs/reference/core_lib/map.md"),
-            include_str!("../../../docs/reference/core_lib/number.md"),
-            include_str!("../../../docs/reference/core_lib/num2.md"),
-            include_str!("../../../docs/reference/core_lib/num4.md"),
-            include_str!("../../../docs/reference/core_lib/os.md"),
-            include_str!("../../../docs/reference/core_lib/range.md"),
-            include_str!("../../../docs/reference/core_lib/string.md"),
-            include_str!("../../../docs/reference/core_lib/test.md"),
-            include_str!("../../../docs/reference/core_lib/tuple.md"),
+            include_str!("../../../docs/core_lib/io.md"),
+            include_str!("../../../docs/core_lib/iterator.md"),
+            include_str!("../../../docs/core_lib/koto.md"),
+            include_str!("../../../docs/core_lib/list.md"),
+            include_str!("../../../docs/core_lib/map.md"),
+            include_str!("../../../docs/core_lib/number.md"),
+            include_str!("../../../docs/core_lib/num2.md"),
+            include_str!("../../../docs/core_lib/num4.md"),
+            include_str!("../../../docs/core_lib/os.md"),
+            include_str!("../../../docs/core_lib/range.md"),
+            include_str!("../../../docs/core_lib/string.md"),
+            include_str!("../../../docs/core_lib/test.md"),
+            include_str!("../../../docs/core_lib/tuple.md"),
         ];
 
         for file_contents in guide_files.iter() {
