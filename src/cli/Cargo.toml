@@ -31,7 +31,7 @@ unicode-width = "0.1.9" # Determine displayed width of `char` and `str` types
 
 [dependencies.pulldown-cmark]
 # Markdown parsing
-version = "0.8.0"
+version = "0.9.1"
 default-features = false
 
 [dependencies.pico-args]

@@ -244,11 +244,11 @@ impl Help {
     }
 }
 
-fn consume_help_section<'a>(
-    parser: &mut Peekable<pulldown_cmark::Parser<'a>>,
+fn consume_help_section<'a, 'b>(
+    parser: &mut Peekable<pulldown_cmark::Parser<'a, 'b>>,
     module_name: Option<&str>,
 ) -> (String, String) {
-    use pulldown_cmark::{CodeBlockKind, Event::*, Tag::*};
+    use pulldown_cmark::{CodeBlockKind, Event::*, HeadingLevel, Tag::*};
 
     let mut section_level = None;
     let mut section_name = String::new();
@@ -264,9 +264,9 @@ fn consume_help_section<'a>(
 
     while let Some(peeked) = parser.peek() {
         match peeked {
-            Start(Heading(level)) => {
+            Start(Heading(level, _, _)) => {
                 match section_level {
-                    Some(1) => {
+                    Some(HeadingLevel::H1) => {
                         // We've reached the end of the title section, so break out
                         break;
                     }
@@ -285,7 +285,7 @@ fn consume_help_section<'a>(
                 }
                 heading_start = result.len();
             }
-            End(Heading(_)) => {
+            End(Heading(_, _, _)) => {
                 if !first_heading {
                     let heading_length = result.len() - heading_start;
                     result.push('\n');
