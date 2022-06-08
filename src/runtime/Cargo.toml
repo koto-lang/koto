@@ -20,7 +20,7 @@ koto_lexer = { path = "../lexer", version = "^0.10.0"}
 koto_parser = { path = "../parser", version = "^0.10.0"}
 
 downcast-rs = "1.1.1"
-indexmap = "1.4.0"
+indexmap = "1.8.2"
 rustc-hash = "1.1.0"
 unicode-segmentation = "1.9.0"
 
