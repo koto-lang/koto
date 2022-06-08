@@ -3,7 +3,7 @@ name = "koto_runtime"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
-rust-version = "1.58"
+rust-version = "1.58.1"
 license = "MIT"
 description = "The runtime used by the Koto programming language"
 homepage = "https://github.com/koto-lang/koto"
@@ -20,7 +20,7 @@ koto_lexer = { path = "../lexer", version = "^0.10.0"}
 koto_parser = { path = "../parser", version = "^0.10.0"}
 
 downcast-rs = "1.1.1"
-indexmap = "1.4.0"
+indexmap = "1.8.2"
 rustc-hash = "1.1.0"
 unicode-segmentation = "1.9.0"
 

@@ -2,6 +2,7 @@
 
 [![Docs](https://img.shields.io/docsrs/koto)][docs]
 [![Crates.io](https://img.shields.io/crates/v/koto.svg)][crates]
+[![rustc](https://img.shields.io/badge/rust-1.58.1%2B-blue.svg)](https://img.shields.io/badge/rust-1.58.1%2B-blue.svg)
 [![CI](https://github.com/koto-lang/koto/workflows/CI/badge.svg)][ci]
 [![Discord](https://img.shields.io/discord/894599423970136167?logo=discord)][discord]
 

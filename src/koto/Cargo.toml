@@ -3,7 +3,7 @@ name = "koto"
 version = "0.10.0"
 authors = ["irh <ian.r.hobson@gmail.com>"]
 edition = "2021"
-rust-version = "1.58"
+rust-version = "1.58.1"
 license = "MIT"
 description = "A simple, expressive, embeddable programming language"
 homepage = "https://github.com/koto-lang/koto"
@@ -26,7 +26,7 @@ criterion = "0.3.1"
 
 [dev-dependencies.pulldown-cmark]
 # Markdown parsing
-version = "0.8.0"
+version = "0.9.1"
 default-features = false
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]

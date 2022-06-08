@@ -120,6 +120,7 @@ The Koto project adheres to
 
 #### Internals
 
+- The minumum supported rust version (MSRV) is now `1.58.1`.
 - A 'module imported' callback has been added to `KotoSettings` to aid in
   keeping track of a script's module dependencies.
 - `Koto::clear_module_cache()` has been added to allow for reloading scripts

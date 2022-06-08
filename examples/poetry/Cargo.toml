@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 hotwatch = "0.4.5"
-indexmap = "1.6.0"
+indexmap = "1.8.2"
 koto = { path = "../../src/koto", version = "^0.10.0"}
 koto_random = { path = "../../libs/random", version = "^0.10.0"}
 lazy_static = "1.4.0"
