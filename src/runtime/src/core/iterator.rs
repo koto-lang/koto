@@ -616,8 +616,8 @@ pub fn make_module() -> ValueMap {
             let result = generators::Repeat::new(value.clone());
             Ok(Iterator(ValueIterator::new(result)))
         }
-        [Number(n), value] => {
-            let result = generators::RepeatN::new(n.into(), value.clone());
+        [value, Number(n)] => {
+            let result = generators::RepeatN::new(value.clone(), n.into());
             Ok(Iterator(ValueIterator::new(result)))
         }
         unexpected => unexpected_type_error_with_slice(

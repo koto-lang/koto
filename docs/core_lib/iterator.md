@@ -611,11 +611,11 @@ check! 24
 |Value| -> Iterator
 ```
 ```kototype
-|Number, Value| -> Value
+|Value, Number| -> Iterator
 ```
 
-Provides an iterator that repeats the provided value. A number of repeats can be
-provided as the first argument.
+Provides an iterator that repeats the provided value. 
+A number of repeats can be optionally provided as the second argument.
 
 ### Example
 
@@ -623,7 +623,7 @@ provided as the first argument.
 print! iterator.repeat(42).take(5).to_list()
 check! [42, 42, 42, 42, 42]
 
-print! iterator.repeat(3, -1).to_tuple()
+print! iterator.repeat(-1, 3).to_tuple()
 check! (-1, -1, -1)
 ```
 
