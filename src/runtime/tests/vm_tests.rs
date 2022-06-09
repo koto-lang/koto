@@ -347,11 +347,6 @@ a";
         }
 
         #[test]
-        fn addition() {
-            test_script("[1, 2, 3] + [4, 5]", number_list(&[1, 2, 3, 4, 5]));
-        }
-
-        #[test]
         fn shared_data_by_default() {
             let script = "
 l = [1, 2, 3]
@@ -1730,14 +1725,6 @@ o.foo";
         }
 
         #[test]
-        fn addition() {
-            let script = "
-m = {foo: -1, bar: 42} + {foo: 99}
-[m.foo, m.bar]";
-            test_script(script, number_list(&[99, 42]));
-        }
-
-        #[test]
         fn equality() {
             let script = "
 m = {foo: 42, bar: 'abc'}
@@ -2630,7 +2617,7 @@ catch _
         fn arithmetic() {
             let script = "
 locals = {}
-foo = |x| {x} + locals.foo_meta
+foo = |x| {x}.with_meta_map locals.foo_meta
 locals.foo_meta =
   @+: |self, other| foo self.x + other.x
   @-: |self, other| foo self.x - other.x
@@ -2855,7 +2842,7 @@ foos[0] == foos[1]
         fn basic_access() {
             let script = "
 locals = {}
-foo = |x| {x} + locals.foo_meta
+foo = |x| {x}.with_meta_map locals.foo_meta
 locals.foo_meta =
   @meta get_x: |self| self.x
 a = foo 10
@@ -2868,7 +2855,7 @@ a.x + a.get_x()
         fn lookup_order() {
             let script = "
 locals = {}
-foo = |x| {x, y: 100} + locals.foo_meta
+foo = |x| {x, y: 100}.with_meta_map locals.foo_meta
 locals.foo_meta =
   @meta y: 0
 a = foo 10

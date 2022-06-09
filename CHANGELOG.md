@@ -82,9 +82,10 @@ The Koto project adheres to
   - `iterator`
     - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
       `to_num2`, `to_num4`, `windows`
-  - `list.resize_with`
+  - `list`
+    - `extend`, `resize_with`
   - `map`
-    - `get_meta_map`, `with_meta_map`
+    - `extend`, `get_meta_map`, `with_meta_map`
   - `number`
     - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
     - `pi_2`, `pi_4`
@@ -273,6 +274,8 @@ The Koto project adheres to
     print 'hello'
     #--#
     ```
+- The `+` operator is no longer implemented for Lists and Maps, 
+  `list.extend` and `map.extend` can be used as an alternative.
 
 ### Fixed
 

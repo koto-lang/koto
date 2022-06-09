@@ -22,6 +22,12 @@ make_foo = |x|
     m.bar.baz = 123
     assert_eq m2.bar.baz, 99
 
+  @test extend: ||
+    m = {foo: 42, bar: 99}
+    m.extend ['baz', ('foo', 123)]
+    assert_eq m.baz, null
+    assert_eq m.foo, 123
+
   @test insert: ||
     m = {foo: 42}
     old_value = m.insert "foo", 99

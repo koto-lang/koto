@@ -51,7 +51,7 @@ spectral_norm = |n|
 
   result = spectral_norm n
 
-  if (koto.args.get 1) != "quiet"
+  if (koto.args.get 1) != 'quiet'
     io.print result
 
 @tests =

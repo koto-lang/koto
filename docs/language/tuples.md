@@ -31,7 +31,7 @@ check! (1, 2, 3)
 x = "a", 10
 y = "b", 20
 print! x, y
-check! (("a", 10), ("b", 20))
+check! (('a', 10), ('b', 20))
 ```
 
 Tuples behave like Lists with a fixed size and with entries that can't be replaced, 

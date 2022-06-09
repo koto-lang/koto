@@ -68,10 +68,6 @@ impl DataMap {
         self.insert(id.into(), value)
     }
 
-    pub fn extend(&mut self, other: &DataMap) {
-        self.0.extend(other.0.clone().into_iter());
-    }
-
     /// Allows access to map entries without having to create a ValueString
     pub fn get_with_string(&self, key: &str) -> Option<&Value> {
         self.0.get(&key as &dyn ValueKeyRef)

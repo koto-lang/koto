@@ -80,13 +80,6 @@
     assert_eq (m.square 9), 81
     assert_eq m.baz.child_foo, 99
 
-  @test addition: ||
-    m = {foo: 42}
-    m2 = m + {bar: -1}
-    assert_eq m2.bar, -1
-    m2 += {extra: 99}
-    assert_eq m2.extra, 99
-
   @test value_mutation: ||
     m = {}
     m.foo = 42
@@ -105,7 +98,7 @@
     assert_eq 42, m.get_foo() # m is implicitly passed to get_foo as an argument
 
     make_map_2 = ||
-      make_map() +
+      make_map().extend
         foo_2: 57
         get_foo_2: |self| self.foo_2
         set_foo_2: |self, x| self.foo_2 = x

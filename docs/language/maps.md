@@ -76,12 +76,3 @@ m.name = 'Friend'
 print! m.hello()
 check! Hello, Friend!
 ```
-
-Maps can be merged together using the `+` operator.
-
-```koto
-x = {hello: 123}
-y = {goodbye: 99}
-print! x + y
-check! {hello: 123, goodbye: 99}
-```

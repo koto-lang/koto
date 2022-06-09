@@ -141,7 +141,7 @@ impl fmt::Debug for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ValueString(bounds: {:?}, string: \"{}\")",
+            "ValueString(bounds: {:?}, string: '{}')",
             self.bounds,
             self.as_str()
         )
@@ -151,7 +151,7 @@ impl fmt::Debug for ValueString {
 impl fmt::Display for ValueString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            write!(f, "\"{}\"", self.as_str())
+            write!(f, "'{}'", self.as_str())
         } else {
             write!(f, "{}", self.as_str())
         }

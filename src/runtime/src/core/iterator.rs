@@ -728,20 +728,24 @@ pub fn make_module() -> ValueMap {
             let mut result = DataMap::with_capacity(size_hint);
 
             for output in iterator {
-                match output {
-                    Output::ValuePair(key, value) => {
-                        result.insert(key.into(), value);
-                    }
+                let (key, value) = match output {
+                    Output::ValuePair(key, value) => (key, value),
                     Output::Value(Tuple(t)) if t.data().len() == 2 => {
                         let key = t.data()[0].clone();
                         let value = t.data()[1].clone();
-                        result.insert(key.into(), value);
+                        (key, value)
                     }
-                    Output::Value(value) => {
-                        result.insert(value.into(), Value::Null);
-                    }
+                    Output::Value(value) => (value, Null),
                     Output::Error(error) => return Err(error),
+                };
+
+                if !key.is_immutable() {
+                    return runtime_error!(
+                        "iterator.to_map: Only immutable Values can be used as keys (found '{}')",
+                        key.type_as_string()
+                    );
                 }
+                result.insert(key.into(), value);
             }
 
             Ok(Map(ValueMap::with_data(result)))

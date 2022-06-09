@@ -164,7 +164,7 @@ impl Help {
                         help.push_str(", ");
                     }
 
-                    help.push_str(&topic);
+                    help.push_str(topic);
                 }
 
                 help.push_str(
@@ -179,7 +179,7 @@ impl Help {
                         help.push_str(", ");
                     }
 
-                    help.push_str(&module_name);
+                    help.push_str(module_name);
                 }
 
                 help
@@ -194,7 +194,7 @@ impl Help {
         let (file_name, help) = consume_help_section(&mut parser, None);
         if !help.trim().is_empty() {
             self.help_map.insert(
-                file_name.to_lowercase().replace(" ", "_"),
+                file_name.to_lowercase().replace(' ', "_"),
                 HelpEntry {
                     name: file_name,
                     help,
@@ -206,7 +206,7 @@ impl Help {
         while parser.peek().is_some() {
             let (entry_name, help) = consume_help_section(&mut parser, None);
             self.help_map.insert(
-                entry_name.to_lowercase().replace(" ", "_"),
+                entry_name.to_lowercase().replace(' ', "_"),
                 HelpEntry {
                     name: entry_name,
                     help,
@@ -290,7 +290,7 @@ fn consume_help_section<'a, 'b>(
                     let heading_length = result.len() - heading_start;
                     result.push('\n');
                     for _ in 0..heading_length {
-                        result.push_str("-")
+                        result.push('-');
                     }
                 }
                 in_section_heading = false;

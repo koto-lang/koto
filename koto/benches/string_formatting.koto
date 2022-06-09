@@ -1,14 +1,13 @@
-digits = "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-  "eighteen", "nineteen"
+digits =
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven',
+  'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'
 
-tens = "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
-  "ninety"
+tens = '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'
 
 number_to_english = |n|
   n = n.floor()
   switch
-    n < 0 then "minus ${number_to_english n.abs()}"
+    n < 0 then 'minus ${number_to_english n.abs()}'
     n < 20 then digits[n]
     n < 100 then
       x = (n / 10).floor()
@@ -16,16 +15,16 @@ number_to_english = |n|
       if y == 0
         tens[x]
       else
-        "${tens[x]}-${digits[y]}"
+        '${tens[x]}-${digits[y]}'
     n < 1000 then
       x = (n / 100).floor()
       x_string = number_to_english x
       y = n % 100
       if y == 0
-        "$x_string hundred"
+        '$x_string hundred'
       else
-        "$x_string hundred and ${number_to_english y}"
-    else "???"
+        '$x_string hundred and ${number_to_english y}'
+    else '???'
 
 @main = ||
   n = match koto.args.get 0
@@ -36,13 +35,13 @@ number_to_english = |n|
     .each |x| number_to_english x
     .to_tuple()
 
-  if not (koto.args.get 1) == "quiet"
+  if not (koto.args.get 1) == 'quiet'
     io.print result
 
 @tests =
   @test number_to_english: ||
-    assert_eq (number_to_english 0), "zero"
-    assert_eq (number_to_english -42), "minus forty-two"
-    assert_eq (number_to_english 217), "two hundred and seventeen"
-    assert_eq (number_to_english 999), "nine hundred and ninety-nine"
-    assert_eq (number_to_english 123456), "???"
+    assert_eq (number_to_english 0), 'zero'
+    assert_eq (number_to_english -42), 'minus forty-two'
+    assert_eq (number_to_english 217), 'two hundred and seventeen'
+    assert_eq (number_to_english 999), 'nine hundred and ninety-nine'
+    assert_eq (number_to_english 123456), '???'

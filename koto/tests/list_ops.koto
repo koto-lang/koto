@@ -36,6 +36,15 @@ make_foo = |x|
     x[1][0] = 99
     assert_eq x2[1][0], 2
 
+  @test extend: ||
+    x = [1, 2, 3]
+    x.extend [10, 20, 30]
+    assert_eq x[5], 30
+    x.extend 'abc'
+    assert_eq x[8], 'c'
+    x.extend (-1, -2, -3)
+    assert_eq x[11], -3
+
   @test push_pop: ||
     z = [1]
     z.push 2

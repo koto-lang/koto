@@ -29,7 +29,7 @@ Matching is performed with the `==` equality operator.
 ### Example
 
 ```koto
-print! [1, "hello", (99, -1)].contains "hello"
+print! [1, 'hello', (99, -1)].contains 'hello'
 check! true
 ```
 
@@ -48,16 +48,16 @@ any nested containers are also unique, use [`list.deep_copy`](#deep-copy).
 ### Example
 
 ```koto
-x = [1, 2, "hello"]
+x = [1, 2, 'hello']
 y = x
-y[0] = "abc" # x and y share the same internal list data
+y[0] = 'abc' # x and y share the same internal list data
 print! x
-check! ["abc", 2, "hello"]
+check! ['abc', 2, 'hello']
 
 z = x.copy()
 z[1] = -1 # z is a copy of x, so has unique internal data
 print! x # x remains unchanged after the modificaton of z
-check! ["abc", 2, "hello"]
+check! ['abc', 2, 'hello']
 ```
 
 ### See also
@@ -91,6 +91,32 @@ check! [[1, 2], [3, [4, 5]]]
 ### See also
 
 - [`list.copy`](#copy)
+
+## extend
+
+```kototype
+|List, Iterable| -> List
+```
+
+Extends the list with the output of the iterator, and returns the list.
+
+### Example
+
+```koto
+x = [1, 2, 3]
+print! x.extend 'abc'
+check! [1, 2, 3, 'a', 'b', 'c']
+print! x.last()
+check! c
+print! x.extend [10, 20, 30]
+check! [1, 2, 3, 'a', 'b', 'c', 10, 20, 30]
+print! x.last()
+check! 30
+```
+
+### See also
+
+- [`list.push`](#push)
 
 ## fill
 
@@ -181,10 +207,10 @@ list.
 
 ```koto
 x = [99, -1, 42]
-print! x.insert 2, "hello"
-check! [99, -1, "hello", 42]
+print! x.insert 2, 'hello'
+check! [99, -1, 'hello', 42]
 print! x
-check! [99, -1, "hello", 42]
+check! [99, -1, 'hello', 42]
 ```
 
 ### See also
@@ -272,10 +298,10 @@ Adds the value to the end of the list, and returns the list.
 
 ```koto
 x = [99, -1]
-print! x.push "hello"
-check! [99, -1, "hello"]
+print! x.push 'hello'
+check! [99, -1, 'hello']
 print! x
-check! [99, -1, "hello"]
+check! [99, -1, 'hello']
 ```
 
 ### See also
@@ -320,14 +346,14 @@ value is provided) are used to fill the new space.
 
 ```koto
 x = [1, 2]
-print! x.resize 4, "x"
-check! [1, 2, "x", "x"]
+print! x.resize 4, 'x'
+check! [1, 2, 'x', 'x']
 
 print! x.resize 3
-check! [1, 2, "x"]
+check! [1, 2, 'x']
 
 print! x.resize 4
-check! [1, 2, "x", null]
+check! [1, 2, 'x', null]
 ```
 
 ## resize_with
@@ -397,11 +423,11 @@ Reverses the order of the list's contents, and returns the list.
 ### Example
 
 ```koto
-x = ["hello", -1, 99, "world"]
+x = ['hello', -1, 99, 'world']
 print! x.reverse()
-check! ["world", 99, -1, "hello"]
+check! ['world', 99, -1, 'hello']
 print! x
-check! ["world", 99, -1, "hello"]
+check! ['world', 99, -1, 'hello']
 ```
 
 ## size
@@ -448,11 +474,11 @@ check! [-1, 1, 42, 99]
 print! x
 check! [-1, 1, 42, 99]
 
-x = ["bb", "ccc", "a"]
+x = ['bb', 'ccc', 'a']
 print! x.sort string.size
-check! ["a", "bb", "ccc"]
+check! ['a', 'bb', 'ccc']
 print! x
-check! ["a", "bb", "ccc"]
+check! ['a', 'bb', 'ccc']
 
 x = [2, 1, 3]
 print! x.sort |n| -n
@@ -510,16 +536,16 @@ provided function, and then returns the list.
 ### Example
 
 ```koto
-x = ["aaa", "bb", "c"]
+x = ['aaa', 'bb', 'c']
 print! x.transform string.size
 check! [3, 2, 1]
 print! x
 check! [3, 2, 1]
 
-print! x.transform |n| "{}".format n
-check! ["3", "2", "1"]
+print! x.transform |n| '{}'.format n
+check! ['3', '2', '1']
 print! x
-check! ["3", "2", "1"]
+check! ['3', '2', '1']
 ```
 
 ## with_size
@@ -533,6 +559,6 @@ Returns a list containing `N` copies of a value.
 ### Example
 
 ```koto
-print! list.with_size 5, "!"
-check! ["!", "!", "!", "!", "!"]
+print! list.with_size 5, '!'
+check! ['!', '!', '!', '!', '!']
 ```

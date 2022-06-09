@@ -12,7 +12,7 @@ contained in the string data.
 ### Example
 
 ```koto
-print! "Hëy!".bytes().to_tuple()
+print! 'Hëy!'.bytes().to_tuple()
 check! (72, 195, 171, 121, 33)
 ```
 
@@ -41,8 +41,8 @@ Note that this is the default iteration behaviour for a string, so calling
 ### Example
 
 ```koto
-print! "Héllø! 👋".chars().to_tuple()
-check! ("H", "é", "l", "l", "ø", "!", " ", "👋")
+print! 'Héllø! 👋'.chars().to_tuple()
+check! ('H', 'é', 'l', 'l', 'ø', '!', ' ', '👋')
 ```
 
 ## contains
@@ -56,16 +56,16 @@ Returns `true` if the second provided string is a sub-string of the first.
 ### Example
 
 ```koto
-print! "xyz".contains "abc"
+print! 'xyz'.contains 'abc'
 check! false
 
-print! "xyz".contains "yz"
+print! 'xyz'.contains 'yz'
 check! true
 
-print! "xyz".contains "xyz"
+print! 'xyz'.contains 'xyz'
 check! true
 
-print! "xyz".contains ""
+print! 'xyz'.contains ''
 check! true
 ```
 
@@ -80,10 +80,10 @@ Returns `true` if the first string ends with the second string.
 ### Example
 
 ```koto
-print! "abcdef".ends_with "def"
+print! 'abcdef'.ends_with 'def'
 check! true
 
-print! "xyz".ends_with "abc"
+print! 'xyz'.ends_with 'abc'
 check! false
 ```
 
@@ -100,7 +100,7 @@ For example, newlines get replaced with `\n`, tabs get replaced with `\t`.
 ### Example
 
 ```koto
-print! "👋".escape()
+print! '👋'.escape()
 check! \u{1f44b}
 ```
 
@@ -130,7 +130,7 @@ The syntax for format strings in Koto is similar to
     - The Map is expected to be the first argument after the format string.
 
 `{` characters can be included in the output string by escaping them with
-another `{`, e.g. `"{{}}".format()` will output `"{}"`.
+another `{`, e.g. `'{{}}'.format()` will output `'{}'`.
 
 #### Formatting modifiers
 
@@ -139,7 +139,7 @@ Modifiers can be provided after a `:` separator in the format string.
 ##### Minimum width, fill, and alignment
 
 A minimum width can be specified, ensuring that the formatted value takes up at
-least that many characters, e.g. `"x{:4}x".format "ab"` will output `xab  x`.
+least that many characters, e.g. `'x{:4}x'.format 'ab'` will output `xab  x`.
 
 The minimum width can be prefixed with an alignment modifier:
 
@@ -147,46 +147,46 @@ The minimum width can be prefixed with an alignment modifier:
 - `^` - centered
 - `>` - right-aligned
 
-e.g. `"x{:>4}x".format "ab"` will output `x  abx`.
+e.g. `'x{:>4}x'.format 'ab'` will output `x  abx`.
 
 Values are left-aligned by default, except for numbers which are right-aligned
-by default, e.g. `"x{:4}x".format 1.2` will output `x 1.2x`.
+by default, e.g. `'x{:4}x'.format 1.2` will output `x 1.2x`.
 
 The alignment modifier can be prefixed with a character which will be used to
 fill any empty space in the formatted string (the default character being ` `).
-e.g. `"{:x^8}".format 1234` will output `xx1234xx`.
+e.g. `'{:x^8}'.format 1234` will output `xx1234xx`.
 
 ##### Maximum width / Precision
 
 A maximum width can be specified following a `.` character,
-e.g. `"{:.2}".format abcd"` will output `ab`.
+e.g. `'{:.2}'.format abcd'` will output `ab`.
 
 For numbers this will define the number of decimal places that should be
 displayed.
 
 Combining a maximum width with a minimum width is allowed, with the minimum
 coming before the maximum in the format string,
-e.g. `"x{:4.2}x".format "abcd"` will output `xab  x`.
+e.g. `'x{:4.2}x'.format 'abcd'` will output `xab  x`.
 
 ### Example
 
 ```koto
-print! "{}, {}!".format "Hello", "World"
+print! '{}, {}!'.format 'Hello', 'World'
 check! Hello, World!
 
-print! "{0}-{1}-{0}".format 99, "xxx"
+print! '{0}-{1}-{0}'.format 99, 'xxx'
 check! 99-xxx-99
 
-print! "{foo} {bar}".format {foo: 42, bar: true}
+print! '{foo} {bar}'.format {foo: 42, bar: true}
 check! 42 true
 
-print! "{:.2}".format 1/3
+print! '{:.2}'.format 1/3
 check! 0.33
 
-print! "{:-^8.2}".format 2/3
+print! '{:-^8.2}'.format 2/3
 check! --0.67--
 
-print! "foo = {foo:8.3}".format {foo: 42}
+print! 'foo = {foo:8.3}'.format {foo: 42}
 check! foo =   42.000
 ```
 
@@ -201,10 +201,10 @@ Returns `true` if the string contains no characters.
 ### Example
 
 ```koto
-print! "abcdef".is_empty()
+print! 'abcdef'.is_empty()
 check! false
 
-print! "".is_empty()
+print! ''.is_empty()
 check! true
 ```
 
@@ -244,11 +244,11 @@ Lines end with either `\r\n` or `\n`.
 ### Example
 
 ```koto
-print! "foo\nbar\nbaz".lines().to_tuple()
-check! ("foo", "bar", "baz")
+print! 'foo\nbar\nbaz'.lines().to_tuple()
+check! ('foo', 'bar', 'baz')
 
-print! "\n\n\n".lines().to_tuple()
-check! ("", "", "")
+print! '\n\n\n'.lines().to_tuple()
+check! ('', '', '')
 ```
 
 ## size
@@ -266,13 +266,13 @@ Equivalent to calling `.chars().count()`.
 ### Example
 
 ```koto
-print! "".size()
+print! ''.size()
 check! 0
 
-print! "abcdef".size()
+print! 'abcdef'.size()
 check! 6
 
-print! "🥳👋😁".size()
+print! '🥳👋😁'.size()
 check! 3
 ```
 
@@ -299,13 +299,13 @@ Invalid start indices return Null.
 ### Example
 
 ```koto
-print! "abcdef".slice 3
+print! 'abcdef'.slice 3
 check! def
 
-print! "abcdef".slice 2, 4
+print! 'abcdef'.slice 2, 4
 check! cd
 
-print! "abcdef".slice 100, 110
+print! 'abcdef'.slice 100, 110
 check! null
 ```
 
@@ -330,14 +330,14 @@ returns true.
 ### Example
 
 ```koto
-print! "a,b,c".split(",").to_tuple()
-check! ("a", "b", "c")
+print! 'a,b,c'.split(',').to_tuple()
+check! ('a', 'b', 'c')
 
-print! "O_O".split("O").to_tuple()
-check! ("", "_", "")
+print! 'O_O'.split('O').to_tuple()
+check! ('', '_', '')
 
-print! "x!y?z".split(|c| c == "!" or c == "?").to_tuple()
-check! ("x", "y", "z")
+print! 'x!y?z'.split(|c| c == '!' or c == '?').to_tuple()
+check! ('x', 'y', 'z')
 ```
 
 ## starts_with
@@ -351,10 +351,10 @@ Returns `true` if the first string starts with the second string.
 ### Example
 
 ```koto
-print! "abcdef".starts_with "abc"
+print! 'abcdef'.starts_with 'abc'
 check! true
 
-print! "xyz".starts_with "abc"
+print! 'xyz'.starts_with 'abc'
 check! false
 ```
 
@@ -369,10 +369,10 @@ Returns a lowercase version of the input string.
 ### Example
 
 ```koto
-print! "HÉLLÖ".to_lowercase()
+print! 'HÉLLÖ'.to_lowercase()
 check! héllö
 
-print! "O_o".to_lowercase()
+print! 'O_o'.to_lowercase()
 check! o_o
 ```
 
@@ -387,10 +387,10 @@ Returns the string parsed as a number.
 ### Example
 
 ```koto
-print! "123".to_number()
+print! '123'.to_number()
 check! 123
 
-print! "-8.9".to_number()
+print! '-8.9'.to_number()
 check! -8.9
 ```
 
@@ -405,10 +405,10 @@ Returns an uppercase version of the input string.
 ### Example
 
 ```koto
-print! "héllö".to_uppercase()
+print! 'héllö'.to_uppercase()
 check! HÉLLÖ
 
-print! "O_o".to_uppercase()
+print! 'O_o'.to_uppercase()
 check! O_O
 ```
 
@@ -423,9 +423,9 @@ Returns the string with whitespace at the start and end of the string trimmed.
 ### Example
 
 ```koto
-print! "   x    ".trim()
+print! '   x    '.trim()
 check! x
 
-print! "     >".trim()
+print! '     >'.trim()
 check! >
 ```

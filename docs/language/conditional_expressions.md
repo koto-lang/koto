@@ -91,14 +91,14 @@ fizz_buzz = |n|
 print! (10, 11, 12, 13, 14, 15)
   .each |n| fizz_buzz n
   .to_tuple()
-check! ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
+check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
 List and Tuple entries can be matched against, with `...` available for capturing the 
 rest of the list.
 
 ```koto
-print! match ['a', 'b', 'c'] + [1, 2, 3]
+print! match ['a', 'b', 'c'].extend [1, 2, 3]
   [1, ...] then "Starts with '1'"
   [..., 'y', last] then "Ends with 'y' followed by '$last'"
   ['a', x, others...] then
