@@ -1,8 +1,8 @@
 use {
     super::iterator::adaptors,
     crate::{
-        unexpected_type_error_with_slice, value_sort::compare_values, CallArgs, DataMap,
-        RuntimeResult, Value, ValueIterator, ValueKey, ValueMap, Vm,
+        runtime_error, unexpected_type_error_with_slice, value_sort::compare_values, CallArgs,
+        DataMap, RuntimeResult, Value, ValueIterator, ValueIteratorOutput, ValueKey, ValueMap, Vm,
     },
     std::{cmp::Ordering, ops::Deref},
 };
@@ -43,6 +43,59 @@ pub fn make_module() -> ValueMap {
         unexpected => {
             unexpected_type_error_with_slice("map.deep_copy", "a Map as argument", unexpected)
         }
+    });
+
+    result.add_fn("extend", |vm, args| match vm.get_args(args) {
+        [Map(m), Map(other)] => {
+            m.data_mut().extend(
+                other
+                    .data()
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            );
+            Ok(Map(m.clone()))
+        }
+        [Map(m), iterable] if iterable.is_iterable() => {
+            let m = m.clone();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
+
+            {
+                let mut map_data = m.data_mut();
+                let (size_hint, _) = iterator.size_hint();
+                map_data.reserve(size_hint);
+
+                for output in iterator {
+                    use ValueIteratorOutput as Output;
+                    let (key, value) = match output {
+                        Output::ValuePair(key, value) => (key, value),
+                        Output::Value(Tuple(t)) if t.data().len() == 2 => {
+                            let key = t.data()[0].clone();
+                            let value = t.data()[1].clone();
+                            (key, value)
+                        }
+                        Output::Value(value) => (value, Null),
+                        Output::Error(error) => return Err(error),
+                    };
+
+                    if !key.is_immutable() {
+                        return runtime_error!(
+                            "map.extend: Only immutable Values can be used as keys (found '{}')",
+                            key.type_as_string()
+                        );
+                    }
+
+                    map_data.insert(key.into(), value);
+                }
+            }
+
+            Ok(Map(m))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "map.extend",
+            "a Map and iterable value as arguments",
+            unexpected,
+        ),
     });
 
     result.add_fn("get", |vm, args| {

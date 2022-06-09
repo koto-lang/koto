@@ -1469,7 +1469,12 @@ impl Vm {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Add, {
                     if let Map(rhs_map) = rhs_value {
                         let mut data = map.data().clone();
-                        data.extend(&rhs_map.data());
+                        data.extend(
+                            rhs_map
+                                .data()
+                                .iter()
+                                .map(|(key, value)| (key.clone(), value.clone())),
+                        );
 
                         let meta = match (map.meta_map(), rhs_map.meta_map()) {
                             (Some(lhs), Some(rhs)) => {

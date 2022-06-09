@@ -86,6 +86,34 @@ check! 99
 
 - [`map.copy`](#copy)
 
+## extend
+
+```kototype
+|Map, Iterable| -> Map
+```
+
+Extends the map with the output of the iterator, and returns the map.
+
+### Example
+
+```koto
+x = {foo: 42, bar: 99}
+print! x.extend {baz: 123}
+check! {foo: 42, bar: 99, baz: 123}
+print! x.baz 
+check! 123
+
+x = {}
+print! x.extend 'abc'.each |c| c, '$c!'
+check! {a: "a!", b: "b!", c: "c!"}
+print! x.c
+check! c!
+```
+
+### See also
+
+- [`map.insert`](#insert)
+
 ## get
 
 ```kototype

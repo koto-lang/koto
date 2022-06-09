@@ -85,7 +85,7 @@ The Koto project adheres to
   - `list`
     - `extend`, `resize_with`
   - `map`
-    - `get_meta_map`, `with_meta_map`
+    - `extend`, `get_meta_map`, `with_meta_map`
   - `number`
     - `acosh`, `asinh`, `atanh`, `atan2`, `lerp`
     - `pi_2`, `pi_4`
