@@ -1,6 +1,8 @@
 use {
+    super::iterator::collect_pair,
     crate::{
         runtime_error, unexpected_type_error_with_slice,
+        value_iterator::ValueIteratorOutput,
         value_sort::{compare_values, sort_values},
         BinaryOp, CallArgs, Value, ValueList, ValueMap,
     },
@@ -60,6 +62,43 @@ pub fn make_module() -> ValueMap {
         unexpected => {
             unexpected_type_error_with_slice("list.deep_copy", "a List as argument", unexpected)
         }
+    });
+
+    result.add_fn("extend", |vm, args| match vm.get_args(args) {
+        [List(l), List(other)] => {
+            l.data_mut().extend(other.data().iter().cloned());
+            Ok(List(l.clone()))
+        }
+        [List(l), Tuple(other)] => {
+            l.data_mut().extend(other.data().iter().cloned());
+            Ok(List(l.clone()))
+        }
+        [List(l), iterable] if iterable.is_iterable() => {
+            let l = l.clone();
+            let iterable = iterable.clone();
+            let iterator = vm.make_iterator(iterable)?;
+
+            {
+                let mut list_data = l.data_mut();
+                let (size_hint, _) = iterator.size_hint();
+                list_data.reserve(size_hint);
+
+                for value in iterator.map(collect_pair) {
+                    match value {
+                        ValueIteratorOutput::Value(value) => list_data.push(value.clone()),
+                        ValueIteratorOutput::Error(error) => return Err(error),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
+            Ok(List(l))
+        }
+        unexpected => unexpected_type_error_with_slice(
+            "list.extend",
+            "a List and iterable value as arguments",
+            unexpected,
+        ),
     });
 
     result.add_fn("fill", |vm, args| match vm.get_args(args) {

@@ -82,7 +82,8 @@ The Koto project adheres to
   - `iterator`
     - `chunks`, `find`, `flatten`, `generate`, `repeat`, `reversed`,
       `to_num2`, `to_num4`, `windows`
-  - `list.resize_with`
+  - `list`
+    - `extend`, `resize_with`
   - `map`
     - `get_meta_map`, `with_meta_map`
   - `number`

@@ -92,6 +92,32 @@ check! [[1, 2], [3, [4, 5]]]
 
 - [`list.copy`](#copy)
 
+## extend
+
+```kototype
+|List, Iterable| -> List
+```
+
+Extends the list with the output of the iterator, and returns the list.
+
+### Example
+
+```koto
+x = [1, 2, 3]
+print! x.extend 'abc'
+check! [1, 2, 3, "a", "b", "c"]
+print! x.last()
+check! c
+print! x.extend [10, 20, 30]
+check! [1, 2, 3, "a", "b", "c", 10, 20, 30]
+print! x.last()
+check! 30
+```
+
+### See also
+
+- [`list.push`](#push)
+
 ## fill
 
 ```kototype
