@@ -1,6 +1,6 @@
 # Strings
 
-Strings can be declared using `"` or `'` quotes. 
+Strings can be declared using `'` or `"` quotes. 
 
 ```koto
 print! 'Hello, World!'

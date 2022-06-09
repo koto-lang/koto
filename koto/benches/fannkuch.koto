@@ -66,9 +66,9 @@ fannkuch = |n|
 
   sum, flips = fannkuch n
 
-  if (koto.args.get 1) != "quiet"
+  if (koto.args.get 1) != 'quiet'
     print sum
-    print "Pfannkuchen($n) = $flips"
+    print 'Pfannkuchen($n) = $flips'
 
 @tests =
   @test fannkuch_5: ||

@@ -123,11 +123,11 @@ run_nbody = |n|
 
   initial_energy, end_energy = run_nbody n
 
-  quiet = (koto.args.get 1) == "quiet"
+  quiet = (koto.args.get 1) == 'quiet'
 
   if not quiet
-    print "{:.9}", initial_energy
-    print "{:.9}", end_energy
+    print '{:.9}', initial_energy
+    print '{:.9}', end_energy
 
 @tests =
   @test nbody_100: ||

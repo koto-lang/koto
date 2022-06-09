@@ -91,7 +91,7 @@ fizz_buzz = |n|
 print! (10, 11, 12, 13, 14, 15)
   .each |n| fizz_buzz n
   .to_tuple()
-check! ("Buzz", 11, "Fizz", 13, 14, "Fizz Buzz")
+check! ('Buzz', 11, 'Fizz', 13, 14, 'Fizz Buzz')
 ```
 
 List and Tuple entries can be matched against, with `...` available for capturing the 

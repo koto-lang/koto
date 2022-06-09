@@ -19,7 +19,7 @@ returned.
 print! (1..9).all |x| x > 0
 check! true
 
-print! ("", "", "foo").all string.is_empty
+print! ('', '', 'foo').all string.is_empty
 check! false
 
 print! [10, 20, 30]
@@ -46,7 +46,7 @@ if any of the values pass the test.
 print! (1..9).any |x| x == 5
 check! true
 
-print! ("", "", "foo").any string.is_empty
+print! ('', '', 'foo').any string.is_empty
 check! true
 
 print! [10, 20, 30]
@@ -235,8 +235,8 @@ Returns an iterator that provides each value along with an associated index.
 ### Example
 
 ```koto
-print! ("a", "b", "c").enumerate().to_list()
-check! [(0, "a"), (1, "b"), (2, "c")]
+print! ('a', 'b', 'c').enumerate().to_list()
+check! [(0, 'a'), (1, 'b'), (2, 'c')]
 ```
 
 ## find
@@ -310,7 +310,7 @@ This operation is also known in other languages as `reduce`, `accumulate`,
 ### Example
 
 ```koto
-print! ("a", "b", "c").fold "", |result, x| result += x + "-"
+print! ('a', 'b', 'c').fold '', |result, x| result += x + '-'
 check! a-b-c-
 ```
 
@@ -367,14 +367,14 @@ between each adjacent pair of output values.
 ### Example
 
 ```koto
-print! ("a", "b", "c").intersperse("-").to_string()
+print! ('a', 'b', 'c').intersperse('-').to_string()
 check! a-b-c
 
 separators = (1, 2, 3).iter()
-print! ("a", "b", "c")
+print! ('a', 'b', 'c')
   .intersperse || separators.next()
   .to_tuple(),
-check! ("a", 1, "b", 2, "c")
+check! ('a', 1, 'b', 2, 'c')
 ```
 
 ## iter
@@ -701,8 +701,8 @@ Consumes all values coming from the iterator and places them in a list.
 ### Example
 
 ```koto
-print! ("a", 42, (-1, -2)).to_list()
-check! ["a", 42, (-1, -2)]
+print! ('a', 42, (-1, -2)).to_list()
+check! ['a', 42, (-1, -2)]
 ```
 
 ### See also
@@ -728,10 +728,10 @@ key, with Null as the entry's value.
 ### Example
 
 ```koto
-print! ("a", "b", "c").to_map()
+print! ('a', 'b', 'c').to_map()
 check! {a: null, b: null, c: null}
 
-print! ("a", "bbb", "cc")
+print! ('a', 'bbb', 'cc')
   .each |x| x, x.size()
   .to_map()
 check! {a: 1, bbb: 3, cc: 2}
@@ -797,10 +797,10 @@ the formatted values.
 ### Example
 
 ```koto
-print! ("x", "y", "z").to_string()
+print! ('x', 'y', 'z').to_string()
 check! xyz
 
-print! (1, 2, 3).intersperse("-").to_string()
+print! (1, 2, 3).intersperse('-').to_string()
 check! 1-2-3
 ```
 
@@ -821,8 +821,8 @@ Consumes all values coming from the iterator and places them in a tuple.
 ### Example
 
 ```koto
-print! ("a", 42, (-1, -2)).to_list()
-check! ["a", 42, (-1, -2)]
+print! ('a', 42, (-1, -2)).to_list()
+check! ['a', 42, (-1, -2)]
 ```
 
 ### See also
@@ -865,6 +865,6 @@ corresponding pairs of values, one at a time from each input iterable.
 ### Example
 
 ```koto
-print! (1, 2, 3).zip(("a", "b", "c")).to_list()
-check! [(1, "a"), (2, "b"), (3, "c")]
+print! (1, 2, 3).zip(('a', 'b', 'c')).to_list()
+check! [(1, 'a'), (2, 'b'), (3, 'c')]
 ```

@@ -105,7 +105,7 @@ check! 123
 
 x = {}
 print! x.extend 'abc'.each |c| c, '$c!'
-check! {a: "a!", b: "b!", c: "c!"}
+check! {a: 'a!', b: 'b!', c: 'c!'}
 print! x.c
 check! c!
 ```
@@ -132,16 +132,16 @@ If no default value is provided then Null is returned.
 
 ```koto
 x = {hello: -1}
-print! x.get "hello"
+print! x.get 'hello'
 check! -1
 
-print! x.get "goodbye"
+print! x.get 'goodbye'
 check! null
 
-print! x.get "goodbye", "byeeee"
+print! x.get 'goodbye', 'byeeee'
 check! byeeee
 
-x.insert 99, "xyz"
+x.insert 99, 'xyz'
 print! x.get 99
 check! xyz
 ```
@@ -169,12 +169,12 @@ If no default value is provided then Null is returned.
 ```koto
 x = {foo: -1, bar: -2}
 print! x.get_index 1
-check! ("bar", -2)
+check! ('bar', -2)
 
 print! x.get_index -99
 check! null
 
-print! x.get_index 99, "xyz"
+print! x.get_index 99, 'xyz'
 check! xyz
 ```
 
@@ -234,13 +234,13 @@ If the key didn't already exist, then Null is returned.
 
 ```koto
 x = {hello: -1}
-print! x.insert "hello", 99 # -1 already exists at `hello`, so it's returned here
+print! x.insert 'hello', 99 # -1 already exists at `hello`, so it's returned here
 check! -1
 
 print! x.hello # hello is now 99
 check! 99
 
-print! x.insert "goodbye", 123 # No existing value at `goodbye`, so null is returned
+print! x.insert 'goodbye', 123 # No existing value at `goodbye`, so null is returned
 check! null
 
 print! x.goodbye
@@ -322,13 +322,13 @@ x =
   hello: -1
   goodbye: 99
 
-print! x.remove "hello"
+print! x.remove 'hello'
 check! -1
 
-print! x.remove "xyz"
+print! x.remove 'xyz'
 check! null
 
-print! x.remove "goodbye"
+print! x.remove 'goodbye'
 check! 99
 
 print! x.is_empty()
@@ -353,7 +353,7 @@ Returns the number of entries contained in the map.
 print! {}.size()
 check! 0
 
-print! {"a": 0, "b": 1}.size()
+print! {a: 0, b: 1}.size()
 check! 2
 ```
 
@@ -432,12 +432,12 @@ x =
   hello: -1
   goodbye: 99
 
-print! x.update "hello", |n| n * 2
+print! x.update 'hello', |n| n * 2
 check! -2
 print! x.hello
 check! -2
 
-print! x.update "tschüss", 10, |n| n * 10
+print! x.update 'tschüss', 10, |n| n * 10
 check! 100
 print! x.tschüss
 check! 100

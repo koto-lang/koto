@@ -1,12 +1,12 @@
 @main = ||
-  input_file = io.extend_path koto.script_dir, "..", "..", "..", "README.md"
+  input_file = io.extend_path koto.script_dir, '..', '..', '..', 'README.md'
   generator = poetry
     .new io.read_to_string input_file
     .iter()
 
-  separator = "==================================================="
+  separator = '==================================================='
   print separator
-  print ""
+  print ''
 
   stanzas = 5
   word_counts = 1, 3, 5, 3, 1
@@ -15,9 +15,9 @@
     for count in word_counts
       line = generator
         .take count
-        .intersperse " "
+        .intersperse ' '
         .to_string()
       print line
-    print ""
+    print ''
 
   print separator
