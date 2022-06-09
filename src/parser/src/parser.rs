@@ -1357,64 +1357,72 @@ impl<'source> Parser<'source> {
                         return self.consume_token_and_error(SyntaxError::ExpectedMapKey);
                     }
                 }
-                // Indented Dot on the next line?
-                _ if matches!(
-                    self.peek_token_with_context(&node_context),
-                    Some(PeekInfo {
-                        token: Token::Dot,
-                        ..
-                    })
-                ) =>
-                {
-                    // Consume up until the Dot, which will be picked up on the next iteration
-                    node_context = self
-                        .consume_until_token_with_context(&node_context)
-                        .unwrap();
-
-                    // Check that the next dot is on an indented line
-                    let new_line = self.current_line_number();
-                    if new_line > lookup_line {
-                        lookup_line = new_line;
-                    } else {
-                        // TODO Error here?
-                        break;
-                    }
-
-                    // Starting a new line, so space separated calls are allowed
-                    node_context.allow_space_separated_call = true;
-                }
                 _ => {
-                    // Attempt to parse trailing call arguments,
-                    // e.g.
-                    //   x.foo 42, 99
-                    //         ~~~~~~
-                    //
-                    //   x.foo
-                    //     42, 99
-                    //     ~~~~~~
-                    //
-                    //   foo
-                    //     .bar 123
-                    //          ~~~
-                    //     .baz x, y
-                    //          ~~~~
-                    let args = self.parse_call_args(&node_context)?;
+                    if let Some(peeked) = self.peek_token_with_context(&node_context) {
+                        if peeked.token == Token::Dot {
+                            // Indented Dot on the next line?
 
-                    // Now that space separated args have been parsed,
-                    // don't allow any more while we're on the same line.
-                    node_context.allow_space_separated_call = false;
+                            // Consume up until the Dot,
+                            // which will be picked up on the next iteration
+                            node_context = self
+                                .consume_until_token_with_context(&node_context)
+                                .unwrap();
 
-                    if args.is_empty() {
-                        // No arguments found, so we're at the end of the lookup
-                        break;
+                            // Check that the next dot is on an indented line
+                            if self.current_line_number() == lookup_line {
+                                // TODO Error here?
+                                break;
+                            }
+
+                            // Starting a new line, so space separated calls are allowed
+                            node_context.allow_space_separated_call = true;
+                        } else {
+                            // Attempt to parse trailing call arguments,
+                            // e.g.
+                            //   x.foo 42, 99
+                            //         ~~~~~~
+                            //
+                            //   x.foo
+                            //     42, 99
+                            //     ~~~~~~
+                            //
+                            //   foo
+                            //     .bar 123
+                            //          ~~~
+                            //     .baz
+                            //       x, y
+                            //       ~~~~
+                            //
+                            //   foo.takes_a_map_arg
+                            //     bar: 42
+                            //     ~~~~~~~
+
+                            // Allow a map block if we're on an indented line
+                            node_context.allow_map_block = peeked.line > lookup_line;
+
+                            let args = self.parse_call_args(&node_context)?;
+
+                            // Now that space separated args have been parsed,
+                            // don't allow any more while we're on the same line.
+                            node_context.allow_space_separated_call = false;
+
+                            if args.is_empty() {
+                                // No arguments found, so we're at the end of the lookup
+                                break;
+                            } else {
+                                lookup.push((
+                                    LookupNode::Call {
+                                        args,
+                                        with_parens: false,
+                                    },
+                                    node_start_span,
+                                ));
+                            }
+                        }
+
+                        lookup_line = self.current_line_number();
                     } else {
-                        lookup.push((
-                            LookupNode::Call {
-                                args,
-                                with_parens: false,
-                            },
-                            node_start_span,
-                        ));
+                        break;
                     }
                 }
             }

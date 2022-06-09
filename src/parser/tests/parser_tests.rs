@@ -3691,6 +3691,43 @@ x.foo
         }
 
         #[test]
+        fn lookup_indentation_separated_with_map_arg() {
+            let source = "
+x.takes_a_map
+  foo: 42
+";
+            check_ast(
+                source,
+                &[
+                    Id(constant(0)),  // x
+                    Int(constant(3)), // 42
+                    Map(vec![
+                        (MapKey::Id(constant(2)), Some(1)), // foo: 42
+                    ]),
+                    Lookup((
+                        LookupNode::Call {
+                            args: vec![2],
+                            with_parens: false,
+                        },
+                        None,
+                    )),
+                    Lookup((LookupNode::Id(constant(1)), Some(3))), // takes_a_map
+                    Lookup((LookupNode::Root(0), Some(4))),         // @5
+                    MainBlock {
+                        body: vec![5],
+                        local_count: 0,
+                    },
+                ],
+                Some(&[
+                    Constant::Str("x"),
+                    Constant::Str("takes_a_map"),
+                    Constant::Str("foo"),
+                    Constant::I64(42),
+                ]),
+            )
+        }
+
+        #[test]
         fn map_lookup_in_list() {
             let sources = [
                 "[my_map.foo, my_map.bar]",
