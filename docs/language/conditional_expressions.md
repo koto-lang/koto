@@ -98,7 +98,7 @@ List and Tuple entries can be matched against, with `...` available for capturin
 rest of the list.
 
 ```koto
-print! match ['a', 'b', 'c'] + [1, 2, 3]
+print! match ['a', 'b', 'c'].extend [1, 2, 3]
   [1, ...] then "Starts with '1'"
   [..., 'y', last] then "Ends with 'y' followed by '$last'"
   ['a', x, others...] then

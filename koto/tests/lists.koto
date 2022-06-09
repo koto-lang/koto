@@ -9,16 +9,6 @@
     assert_eq z, z
     assert_ne z, []
 
-  @test list_addition: ||
-    x = [0]
-    x = x + [1]
-    assert_eq x, [0, 1]
-    x += [2, 3]
-    assert_eq x, [0, 1, 2, 3]
-    # Tuples can also be added to lists
-    x += (4, 5)
-    assert_eq x, [0, 1, 2, 3, 4, 5]
-
   @test list_unpacking: ||
     a, b, c = [10, 20, 30, 40]
     assert_eq a, 10

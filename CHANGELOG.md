@@ -274,6 +274,8 @@ The Koto project adheres to
     print 'hello'
     #--#
     ```
+- The `+` operator is no longer implemented for Lists and Maps, 
+  `list.extend` and `map.extend` can be used as an alternative.
 
 ### Fixed
 

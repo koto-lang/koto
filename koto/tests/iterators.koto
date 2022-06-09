@@ -257,7 +257,7 @@ make_foo = |x|
   @test sum: ||
     assert_eq (1..=5).sum(), 15
     # An initial value can be provided to override the default initial value of 0
-    assert_eq ([1], [2], [3]).sum([]), [1, 2, 3]
+    assert_eq (1, 2, 3).sum(100), 106
 
   @test sum_with_overloaded_add_operator: ||
     foo = |x|

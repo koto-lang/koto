@@ -32,12 +32,3 @@ y[1] = 99
 print! x # x and y share the same data
 check! [10, 99, 30]
 ```
-
-The `+` operator can be used to join two Lists together into a new List.
-
-```koto
-x = [1, 2, 3]
-y = ['a', 'b', 'c']
-print! x + y
-check! [1, 2, 3, "a", "b", "c"]
-```

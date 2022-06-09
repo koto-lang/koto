@@ -1451,45 +1451,13 @@ impl Vm {
             (Number(a), Num4(b)) => Num4(a + b),
             (Num4(a), Num4(b)) => Num4(a + b),
             (Num4(a), Number(b)) => Num4(a + b),
-            (List(a), List(b)) => {
-                let mut result = ValueVec::new();
-                result.extend(a.data().iter().chain(b.data().iter()).cloned());
-                List(ValueList::with_data(result))
-            }
-            (List(a), Tuple(b)) => {
-                let mut result = ValueVec::new();
-                result.extend(a.data().iter().chain(b.data().iter()).cloned());
-                List(ValueList::with_data(result))
-            }
             (Str(a), Str(b)) => {
                 let result = a.to_string() + b.as_ref();
                 Str(result.into())
             }
             (Map(map), _) => {
                 call_binary_op_or_else!(self, result, lhs, rhs_value, map, Add, {
-                    if let Map(rhs_map) = rhs_value {
-                        let mut data = map.data().clone();
-                        data.extend(
-                            rhs_map
-                                .data()
-                                .iter()
-                                .map(|(key, value)| (key.clone(), value.clone())),
-                        );
-
-                        let meta = match (map.meta_map(), rhs_map.meta_map()) {
-                            (Some(lhs), Some(rhs)) => {
-                                let mut lhs = lhs.borrow().clone();
-                                lhs.extend(&rhs.borrow());
-                                Some(lhs)
-                            }
-                            (Some(lhs), None) => Some(lhs.borrow().clone()),
-                            (None, Some(rhs)) => Some(rhs.borrow().clone()),
-                            (None, None) => None,
-                        };
-                        Map(ValueMap::with_contents(data, meta))
-                    } else {
-                        return self.binary_op_error(lhs_value, rhs_value, "+");
-                    }
+                    return self.binary_op_error(lhs_value, rhs_value, "+");
                 })
             }
             (ExternalValue(ev), _) => {
