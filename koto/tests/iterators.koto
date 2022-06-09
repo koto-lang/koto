@@ -238,7 +238,7 @@ make_foo = |x|
   @test repeat: ||
     import iterator.repeat
     assert_eq repeat(99).take(3).to_tuple(), (99, 99, 99)
-    assert_eq repeat(3, 42).to_tuple(), (42, 42, 42)
+    assert_eq repeat(42, 3).to_tuple(), (42, 42, 42)
 
   @test reversed: ||
     assert_eq make_num2(1, 2).reversed().to_tuple(), (2, 1)

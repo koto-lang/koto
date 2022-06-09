@@ -42,7 +42,7 @@ pub struct RepeatN {
 }
 
 impl RepeatN {
-    pub fn new(n: usize, value: Value) -> Self {
+    pub fn new(value: Value, n: usize) -> Self {
         Self {
             remaining: n,
             value,
