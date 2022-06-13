@@ -33,3 +33,4 @@ The placeholders are then stripped out by the CLI's preprocessor.
 - [Meta Maps](meta_maps.md)
 - [Testing](testing.md)
 - [Modules](modules.md)
+- [Prelude](prelude.md)
